@@ -20,11 +20,12 @@ const CategoryButton: FC<CategoryInputButton> = ({ input }) => {
         }
         addTransaction(input, amount.current);
     }, [input]);
+
+    let s = 'w-1/3 relative flex justify-center py-3 items-center font-semibold text-2xl ';
+    s += amount.current ? 'active:bg-orange-300' : 'text-gray-300';
+
     return (
-        <div
-            className="active:bg-orange-300 w-1/3 relative flex justify-center py-3 items-center font-semibold text-2xl"
-            onClick={onClick}
-        >
+        <div className={s} onClick={onClick}>
             {input}
         </div>
     );

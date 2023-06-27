@@ -9,8 +9,10 @@ export interface TotalProps {
 
 export const Total: FC<TotalProps> = ({ maxDecimals }) => {
     const { total } = useData();
+    let s = 'absolute inset-x-0 top-0 ';
+    s += total ? 'active:bg-orange-300' : 'text-gray-300';
     return (
-        <div className="active:bg-orange-300 absolute inset-x-0 top-0">
+        <div className={s}>
             <div className="text-5xl text-center font-bold py-3">
                 Total : <Amount value={total} decimals={maxDecimals} showZero />
             </div>
