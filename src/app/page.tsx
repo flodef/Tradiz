@@ -16,7 +16,7 @@ export default function Home() {
     return (
         <main className="absolute inset-0 bg-orange-100 text-amber-600 grid">
             <DataProvider>
-                <Total />
+                <Total maxDecimals={maxDecimals} />
                 <NumPad maxDecimals={maxDecimals} maxValue={maxValue} />
                 <Category category={category} />
             </DataProvider>

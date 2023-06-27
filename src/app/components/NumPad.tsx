@@ -85,7 +85,7 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue }) => {
     return (
         <div className="absolute inset-0 top-20 bottom-28 flex flex-col justify-evenly">
             <div className="text-4xl text-center font-bold pt-0">
-                <Amount value={numPadValue.toFixed(2)} showZero />
+                <Amount value={numPadValue} decimals={maxDecimals} showZero />
             </div>
 
             <div className="">
