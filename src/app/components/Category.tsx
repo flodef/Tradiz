@@ -12,17 +12,17 @@ interface CategoryInputButton {
 }
 
 const CategoryButton: FC<CategoryInputButton> = ({ input }) => {
-    const { addTransaction, amount } = useData();
+    const { addTransaction, currentAmount } = useData();
 
     const onClick = useCallback(() => {
         if (!isFullscreen() && isMobileDevice()) {
             requestFullscreen();
         }
-        addTransaction(input, amount.current);
+        addTransaction(input, currentAmount.current);
     }, [input]);
 
     let s = 'w-1/3 relative flex justify-center py-3 items-center font-semibold text-2xl ';
-    s += amount.current ? 'active:bg-orange-300' : 'text-gray-300';
+    s += currentAmount.current ? 'active:bg-orange-300' : 'text-gray-300';
 
     return (
         <div className={s} onClick={onClick}>

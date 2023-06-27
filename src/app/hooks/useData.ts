@@ -2,7 +2,8 @@ import { MutableRefObject, createContext, useContext } from 'react';
 
 export interface DataContextState {
     total: number;
-    amount: MutableRefObject<number>;
+    totalAmount: MutableRefObject<number>;
+    currentAmount: MutableRefObject<number>;
     numPadValue: number;
     setNumPadValue: (value: number) => void;
     addTransaction: (category: string, amount: number) => void;

@@ -8,9 +8,9 @@ export interface TotalProps {
 }
 
 export const Total: FC<TotalProps> = ({ maxDecimals }) => {
-    const { total } = useData();
+    const { total, totalAmount } = useData();
     let s = 'absolute inset-x-0 top-0 ';
-    s += total ? 'active:bg-orange-300' : 'text-gray-300';
+    s += totalAmount.current ? 'active:bg-orange-300' : 'text-gray-300';
     return (
         <div className={s}>
             <div className="text-5xl text-center font-bold py-3">

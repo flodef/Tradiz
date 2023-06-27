@@ -7,7 +7,8 @@ export interface DataProviderProps {
 
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [total, setTotal] = useState(0);
-    const amount = useRef(0);
+    const totalAmount = useRef(0);
+    const currentAmount = useRef(0);
     const [numPadValue, setNumPadValue] = useState(0);
     const [transaction, setTransaction] = useState<[{ category: string; amount: number }]>([
         { category: '', amount: 0 },
@@ -16,14 +17,19 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const addTransaction = useCallback((category: string, value: number) => {
         if (value === 0 || !category) return;
 
-        setTotal((total) => parseFloat((total + value).toFixed(2)));
+        updateTotal(parseFloat((totalAmount.current + value).toFixed(2)));
         transaction.push({ category: category, amount: value });
-        amount.current = 0;
+        currentAmount.current = 0;
         setNumPadValue(0);
     }, []);
 
     const clearTotal = useCallback(() => {
-        setTotal(0);
+        updateTotal(0);
+    }, []);
+
+    const updateTotal = useCallback((value: number) => {
+        totalAmount.current = value;
+        setTotal(value);
     }, []);
 
     const showTransactionSummary = useCallback(() => {
@@ -38,7 +44,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         <DataContext.Provider
             value={{
                 total,
-                amount,
+                totalAmount,
+                currentAmount,
                 numPadValue,
                 setNumPadValue,
                 addTransaction,

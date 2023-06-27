@@ -56,18 +56,25 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue }) => {
         },
         [regExp]
     );
-    const { amount, numPadValue, setNumPadValue, clearTotal } = useData();
+    const { currentAmount, totalAmount, numPadValue, setNumPadValue, clearTotal } = useData();
     const onBackspace = useCallback(() => {
-        if (amount.current !== 0) {
+        if (currentAmount.current) {
             setValue('0');
         } else {
             clearTotal();
         }
     }, []);
 
+    const onPay = useCallback(() => {
+        if (totalAmount.current) {
+            setValue('0');
+            clearTotal();
+        }
+    }, []);
+
     useEffect(() => {
         const v = parseInt(value) / Math.pow(10, maxDecimals);
-        amount.current = v;
+        currentAmount.current = v;
         setNumPadValue(v);
     }, [value, maxDecimals]);
     useEffect(() => {
@@ -81,6 +88,11 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue }) => {
         [4, 5, 6],
         [1, 2, 3],
     ];
+
+    let s = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center ';
+    const s1 =
+        s + (currentAmount.current || totalAmount.current ? 'active:bg-lime-300 text-lime-500' : 'text-gray-300');
+    const s2 = s + (totalAmount.current ? 'active:bg-lime-300 text-lime-500' : 'text-gray-300');
 
     return (
         <div className="absolute inset-0 top-20 bottom-28 flex flex-col justify-evenly">
@@ -97,17 +109,11 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue }) => {
                     </div>
                 ))}
                 <div className="flex justify-evenly">
-                    <div
-                        className="text-lime-500 w-20 h-20 active:bg-lime-300 rounded-2xl flex justify-center m-3 items-center"
-                        onClick={onBackspace}
-                    >
+                    <div className={s1} onClick={onBackspace}>
                         <BackspaceIcon />
                     </div>
                     <NumPadButton input={0} onInput={onInput} />
-                    <div
-                        className="text-lime-500 w-20 h-20 active:bg-lime-300 rounded-2xl flex justify-center m-3 items-center"
-                        onClick={onBackspace}
-                    >
+                    <div className={s2} onClick={onPay}>
                         <WalletIcon />
                     </div>
                 </div>
