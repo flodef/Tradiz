@@ -1,11 +1,13 @@
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { Digits } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { WalletIcon } from '../images/WalletIcon';
-import { Digits } from '../utils/config';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isMobileDevice } from '../utils/mobile';
 import { Amount } from './Amount';
+import { addPopupClass } from './Popup';
+import { usePopup } from '../hooks/usePopup';
 
 interface NumPadInputButton {
     input: Digits | '.';
@@ -35,9 +37,22 @@ const NumPadButton: FC<NumPadInputButton> = ({ input, onInput }) => {
 export interface NumPadProps {
     maxDecimals: Digits;
     maxValue: number;
+    paymentMethod: string[];
 }
 
-export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue }) => {
+export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethod }) => {
+    const {
+        currentAmount,
+        totalAmount,
+        numPadValue,
+        updateAmount,
+        clearAmount,
+        clearTotal,
+        clearTransaction,
+        addPayment,
+    } = useData();
+    const { openPopup } = usePopup();
+
     maxValue *= Math.pow(10, maxDecimals);
 
     const regExp = useMemo(() => new RegExp('^\\d*([.,]\\d{0,' + maxDecimals + '})?$'), [maxDecimals]);
@@ -56,26 +71,23 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue }) => {
         },
         [regExp]
     );
-    const { currentAmount, totalAmount, numPadValue, setNumPadValue, clearTotal } = useData();
     const onBackspace = useCallback(() => {
         if (currentAmount.current) {
-            setValue('0');
+            clearAmount();
         } else {
             clearTotal();
+            clearTransaction();
         }
     }, []);
 
     const onPay = useCallback(() => {
         if (totalAmount.current) {
-            setValue('0');
-            clearTotal();
+            openPopup(paymentMethod, addPayment);
         }
     }, []);
 
     useEffect(() => {
-        const v = parseInt(value) / Math.pow(10, maxDecimals);
-        currentAmount.current = v;
-        setNumPadValue(v);
+        updateAmount(parseInt(value) / Math.pow(10, maxDecimals));
     }, [value, maxDecimals]);
     useEffect(() => {
         if (numPadValue === 0) {
@@ -89,13 +101,13 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue }) => {
         [1, 2, 3],
     ];
 
-    let s = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center ';
+    let sx = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center ';
     const s1 =
-        s + (currentAmount.current || totalAmount.current ? 'active:bg-lime-300 text-lime-500' : 'text-gray-300');
-    const s2 = s + (totalAmount.current ? 'active:bg-lime-300 text-lime-500' : 'text-gray-300');
+        sx + (currentAmount.current || totalAmount.current ? 'active:bg-lime-300 text-lime-500' : 'text-gray-300');
+    const s2 = sx + (totalAmount.current ? 'active:bg-lime-300 text-lime-500' : 'text-gray-300');
 
     return (
-        <div className="absolute inset-0 top-20 bottom-28 flex flex-col justify-evenly">
+        <div className={addPopupClass('absolute inset-0 top-20 bottom-28 flex flex-col justify-evenly')}>
             <div className="text-4xl text-center font-bold pt-0">
                 <Amount value={numPadValue} decimals={maxDecimals} showZero />
             </div>

@@ -5,11 +5,13 @@ export interface DataContextState {
     totalAmount: MutableRefObject<number>;
     currentAmount: MutableRefObject<number>;
     numPadValue: number;
-    setNumPadValue: (value: number) => void;
-    addTransaction: (category: string, amount: number) => void;
+    addProduct: (category: string, amount: number) => void;
+    updateAmount: (amount: number) => void;
+    clearAmount: () => void;
     clearTotal: () => void;
-    showTransactionSummary: () => void;
-    clearTransactionSummary: () => void;
+    showTransaction: () => void;
+    clearTransaction: () => void;
+    addPayment: (method: string) => void;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);

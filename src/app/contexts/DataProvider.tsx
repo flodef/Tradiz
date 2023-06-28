@@ -1,4 +1,4 @@
-import React, { FC, ReactNode, useCallback, useRef, useState } from 'react';
+import { FC, ReactNode, useCallback, useRef, useState } from 'react';
 import { DataContext } from '../hooks/useData';
 
 export interface DataProviderProps {
@@ -10,21 +10,28 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const totalAmount = useRef(0);
     const currentAmount = useRef(0);
     const [numPadValue, setNumPadValue] = useState(0);
-    const [transaction, setTransaction] = useState<[{ category: string; amount: number }]>([
-        { category: '', amount: 0 },
-    ]);
+    const transaction = useRef<[{ category?: string; amount?: number }]>([{ category: '', amount: 0 }]);
+    const payment = useRef<[{ method: string; amount: number }]>([{ method: '', amount: 0 }]);
 
-    const addTransaction = useCallback((category: string, value: number) => {
-        if (value === 0 || !category) return;
+    const addProduct = useCallback((category: string, amount: number) => {
+        if (amount === 0 || !category) return;
 
-        updateTotal(parseFloat((totalAmount.current + value).toFixed(2)));
-        transaction.push({ category: category, amount: value });
-        currentAmount.current = 0;
-        setNumPadValue(0);
+        updateTotal(parseFloat((totalAmount.current + amount).toFixed(2)));
+        transaction.current.push({ category: category, amount: amount });
+        clearAmount();
+    }, []);
+
+    const clearAmount = useCallback(() => {
+        updateAmount(0);
     }, []);
 
     const clearTotal = useCallback(() => {
         updateTotal(0);
+    }, []);
+
+    const updateAmount = useCallback((value: number) => {
+        currentAmount.current = value;
+        setNumPadValue(value);
     }, []);
 
     const updateTotal = useCallback((value: number) => {
@@ -32,12 +39,20 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         setTotal(value);
     }, []);
 
-    const showTransactionSummary = useCallback(() => {
+    const showTransaction = useCallback(() => {
         console.log(transaction);
     }, [transaction]);
 
-    const clearTransactionSummary = useCallback(() => {
-        setTransaction([{ category: '', amount: 0 }]);
+    const clearTransaction = useCallback(() => {
+        transaction.current = [{ category: '', amount: 0 }];
+    }, []);
+
+    const addPayment = useCallback((method: string) => {
+        if (totalAmount.current === 0 || !method) return;
+
+        payment.current.push({ method: method, amount: totalAmount.current });
+        clearAmount();
+        clearTotal();
     }, []);
 
     return (
@@ -47,11 +62,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 totalAmount,
                 currentAmount,
                 numPadValue,
-                setNumPadValue,
-                addTransaction,
+                addProduct,
+                updateAmount,
+                clearAmount,
                 clearTotal,
-                showTransactionSummary,
-                clearTransactionSummary,
+                showTransaction,
+                clearTransaction,
+                addPayment,
             }}
         >
             {children}
