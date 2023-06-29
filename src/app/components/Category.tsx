@@ -1,7 +1,6 @@
 import { FC, useCallback } from 'react';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
-import { otherKeyword } from '../page';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isMobileDevice } from '../utils/mobile';
 import { addPopupClass } from './Popup';
@@ -9,6 +8,7 @@ import { Separator } from './Separator';
 
 interface Categories {
     categories: string[];
+    otherKeyword: string;
 }
 
 interface CategoryInputButton {
@@ -38,7 +38,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
     );
 };
 
-export const Category: FC<Categories> = ({ categories: categories }) => {
+export const Category: FC<Categories> = ({ categories, otherKeyword }) => {
     const { addProduct } = useData();
     const { openPopup } = usePopup();
 

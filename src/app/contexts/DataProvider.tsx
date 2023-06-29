@@ -1,6 +1,5 @@
 import { FC, MutableRefObject, ReactNode, useCallback, useRef, useState } from 'react';
 import { DataContext } from '../hooks/useData';
-import { otherKeyword } from '../page';
 
 export interface DataProviderProps {
     children: ReactNode;

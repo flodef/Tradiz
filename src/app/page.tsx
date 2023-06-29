@@ -7,11 +7,10 @@ import { Total } from './components/Total';
 import { DataProvider } from './contexts/DataProvider';
 import { PopupProvider } from './contexts/PopupProvider';
 
-export const otherKeyword = 'Autres';
-
 export default function Home() {
     const maxDecimals = 2;
     const maxValue = 999.99;
+    const otherKeyword = 'Autres';
     const category = [
         'Boulange',
         'Pâtisserie',
@@ -43,7 +42,7 @@ export default function Home() {
                     <div className="z-10 h-screen">
                         <Total maxDecimals={maxDecimals} />
                         <NumPad maxDecimals={maxDecimals} maxValue={maxValue} paymentMethod={paymentMethod} />
-                        <Category categories={category} />
+                        <Category categories={category} otherKeyword={otherKeyword} />
                     </div>
                     <Popup />
                 </PopupProvider>
