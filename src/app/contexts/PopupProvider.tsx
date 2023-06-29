@@ -7,10 +7,12 @@ export interface PopupProviderProps {
 
 export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
     const [isPopupOpen, setIsPopupOpen] = useState(false);
+    const [popupTitle, setPopupTitle] = useState<string>('');
     const [popupOptions, setPopupOptions] = useState<string[]>([]);
     const [popupAction, setPopupAction] = useState<(option: string) => void>(() => {});
 
-    const openPopup = useCallback((options: string[], action: (option: string) => void) => {
+    const openPopup = useCallback((title: string, options: string[], action: (option: string) => void) => {
+        setPopupTitle(title);
         setPopupOptions(options);
         setPopupAction(() => action);
         setIsPopupOpen(true);
@@ -26,6 +28,7 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
                 isPopupOpen,
                 openPopup,
                 closePopup,
+                popupTitle,
                 popupOptions,
                 popupAction,
             }}

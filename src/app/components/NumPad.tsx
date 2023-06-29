@@ -41,16 +41,7 @@ export interface NumPadProps {
 }
 
 export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethod }) => {
-    const {
-        currentAmount,
-        totalAmount,
-        numPadValue,
-        updateAmount,
-        clearAmount,
-        clearTotal,
-        clearTransaction,
-        addPayment,
-    } = useData();
+    const { currentAmount, totalAmount, numPadValue, updateAmount, clearAmount, clearTotal, addPayment } = useData();
     const { openPopup } = usePopup();
 
     maxValue *= Math.pow(10, maxDecimals);
@@ -74,15 +65,14 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethod }
     const onBackspace = useCallback(() => {
         if (currentAmount.current) {
             clearAmount();
-        } else {
+        } else if (totalAmount.current) {
             clearTotal();
-            clearTransaction();
         }
     }, []);
 
     const onPay = useCallback(() => {
-        if (totalAmount.current) {
-            openPopup(paymentMethod, addPayment);
+        if (totalAmount.current && !currentAmount.current) {
+            openPopup('Moyen de paiement', paymentMethod, addPayment);
         }
     }, []);
 
@@ -104,7 +94,8 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethod }
     let sx = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center ';
     const s1 =
         sx + (currentAmount.current || totalAmount.current ? 'active:bg-lime-300 text-lime-500' : 'text-gray-300');
-    const s2 = sx + (totalAmount.current ? 'active:bg-lime-300 text-lime-500' : 'text-gray-300');
+    const s2 =
+        sx + (totalAmount.current && !currentAmount.current ? 'active:bg-lime-300 text-lime-500' : 'text-gray-300');
 
     return (
         <div className={addPopupClass('absolute inset-0 top-20 bottom-28 flex flex-col justify-evenly')}>

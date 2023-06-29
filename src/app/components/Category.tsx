@@ -1,26 +1,31 @@
 import { FC, useCallback } from 'react';
 import { useData } from '../hooks/useData';
+import { usePopup } from '../hooks/usePopup';
+import { otherKeyword } from '../page';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isMobileDevice } from '../utils/mobile';
 import { addPopupClass } from './Popup';
 import { Separator } from './Separator';
 
-interface CategoryList {
-    category: string[][];
+interface Categories {
+    categories: string[];
 }
 
 interface CategoryInputButton {
     input: string;
+    onInput: (input: string) => void;
 }
 
-const CategoryButton: FC<CategoryInputButton> = ({ input }) => {
-    const { addProduct, currentAmount } = useData();
+const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
+    const { currentAmount } = useData();
 
     const onClick = useCallback(() => {
         if (!isFullscreen() && isMobileDevice()) {
             requestFullscreen();
         }
-        addProduct(input, currentAmount.current);
+        if (currentAmount.current) {
+            onInput(input);
+        }
     }, [input]);
 
     let s = 'w-1/3 relative flex justify-center py-3 items-center font-semibold text-2xl ';
@@ -33,17 +38,39 @@ const CategoryButton: FC<CategoryInputButton> = ({ input }) => {
     );
 };
 
-export const Category: FC<CategoryList> = ({ category }) => {
+export const Category: FC<Categories> = ({ categories: categories }) => {
+    const { addProduct } = useData();
+    const { openPopup } = usePopup();
+
+    const onInput = useCallback((input: string) => {
+        if (input !== otherKeyword) {
+            addProduct(input);
+        } else {
+            openPopup('Catégorie', categories.slice(5), addProduct);
+        }
+    }, []);
+
     return (
         <div className={addPopupClass('absolute inset-x-0 bottom-0 divide-y divide-orange-300')}>
             <Separator />
-            {category.map((category, index) => (
-                <div className="flex justify-evenly divide-x divide-orange-300" key={index}>
-                    {category.map((category) => (
-                        <CategoryButton input={category} key={category} />
+            {categories.length > 0 && (
+                <div className="flex justify-evenly divide-x divide-orange-300">
+                    {categories.slice(0, 3).map((category) => (
+                        <CategoryButton key={category} input={category} onInput={onInput} />
                     ))}
                 </div>
-            ))}
+            )}
+            {categories.length > 3 && (
+                <div className="flex justify-evenly divide-x divide-orange-300">
+                    {categories.slice(3, 6).map((category) => (
+                        <CategoryButton
+                            key={category}
+                            input={category === categories[5] && categories.length > 6 ? otherKeyword : category}
+                            onInput={onInput}
+                        />
+                    ))}
+                </div>
+            )}
         </div>
     );
 };
