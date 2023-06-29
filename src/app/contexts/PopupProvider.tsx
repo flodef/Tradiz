@@ -9,16 +9,19 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
     const [isPopupOpen, setIsPopupOpen] = useState(false);
     const [popupTitle, setPopupTitle] = useState<string>('');
     const [popupOptions, setPopupOptions] = useState<string[]>([]);
-    const [popupAction, setPopupAction] = useState<(option: string) => void>(() => {});
+    const [popupAction, setPopupAction] = useState<(option: string, index: number) => void>();
 
-    const openPopup = useCallback((title: string, options: string[], action: (option: string) => void) => {
-        setTimeout(() => {
-            setPopupTitle(title);
-            setPopupOptions(options);
-            setPopupAction(() => action);
-            setIsPopupOpen(true);
-        }, 100);
-    }, []);
+    const openPopup = useCallback(
+        (title: string, options: string[], action?: (option: string, index: number) => void) => {
+            setTimeout(() => {
+                setPopupTitle(title);
+                setPopupOptions(options);
+                setPopupAction(() => action);
+                setIsPopupOpen(true);
+            }, 100);
+        },
+        []
+    );
 
     const closePopup = useCallback(() => {
         setTimeout(() => {

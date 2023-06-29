@@ -1,5 +1,5 @@
 import { FC, MutableRefObject, ReactNode, useCallback, useRef, useState } from 'react';
-import { DataContext } from '../hooks/useData';
+import { DataContext, Element } from '../hooks/useData';
 
 export interface DataProviderProps {
     children: ReactNode;
@@ -11,23 +11,22 @@ export const DataProvider: FC<DataProviderProps> = ({ children, taxes }) => {
     const totalAmount = useRef(0);
     const currentAmount = useRef(0);
     const [numPadValue, setNumPadValue] = useState(0);
-    const products = useRef<[{ category: string; amount: number }]>();
-    const transactions = useRef<[{ category: string; quantity: number; amount: number }]>();
-    const payments = useRef<[{ method: string; quantity: number; amount: number }]>();
+    const products = useRef<[Element]>();
+    const categories = useRef<[Element]>();
+    const payments = useRef<[Element]>();
+    const transactions = useRef<[{ method: string; amount: number; date: Date; products: [Element] }]>();
 
     const addProduct = useCallback((category: string) => {
         if (currentAmount.current === 0 || !category) return;
 
         updateTotal(parseFloat((totalAmount.current + currentAmount.current).toFixed(2)));
 
-        addElement(products, { category: category, amount: currentAmount.current });
+        addElement(products, { category: category, quantity: 1, amount: currentAmount.current });
         clearAmount();
     }, []);
 
-    const deleteProduct = useCallback((label: string) => {
+    const deleteProduct = useCallback((label: string, index: number) => {
         if (totalAmount.current === 0 || !label || !products.current) return;
-
-        const index = parseInt(label.split('.')[0]) - 1;
 
         const product = products.current.splice(index, 1).at(0);
         if (!product) return;
@@ -57,21 +56,28 @@ export const DataProvider: FC<DataProviderProps> = ({ children, taxes }) => {
     const addPayment = useCallback((method: string) => {
         if (totalAmount.current === 0 || !method || !products.current) return;
 
-        const payment = payments.current?.find((payment) => payment.method === method);
+        addElement(transactions, {
+            method: method,
+            amount: totalAmount.current,
+            date: new Date(),
+            products: products.current,
+        });
+
+        const payment = payments.current?.find((payment) => payment.category === method);
         if (payment) {
             payment.quantity++;
             payment.amount += totalAmount.current;
         } else {
-            addElement(payments, { method: method, quantity: 1, amount: totalAmount.current });
+            addElement(payments, { category: method, quantity: 1, amount: totalAmount.current });
         }
 
         products.current.forEach((product) => {
-            const transaction = transactions.current?.find((transaction) => transaction.category === product.category);
+            const transaction = categories.current?.find((transaction) => transaction.category === product.category);
             if (transaction) {
                 transaction.quantity++;
                 transaction.amount += product.amount;
             } else {
-                addElement(transactions, { category: product.category, quantity: 1, amount: product.amount });
+                addElement(categories, { category: product.category, quantity: 1, amount: product.amount });
             }
         });
         clearAmount();
@@ -99,9 +105,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children, taxes }) => {
                 clearAmount,
                 clearTotal,
                 products,
-                transactions,
+                categories,
                 addPayment,
                 payments,
+                transactions,
             }}
         >
             {children}

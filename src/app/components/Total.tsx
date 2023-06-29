@@ -19,38 +19,52 @@ export const Total: FC<TotalProps> = ({ maxDecimals }) => {
 
         openPopup(
             'Total : ' + totalAmount.current + '€',
-            products.current.map((product, index) => ++index + '. ' + product.category + ' : ' + product.amount + '€'),
+            products.current.map((product) => product.category + ' : ' + product.amount + '€'),
             deleteProduct
         );
     }, []);
 
     const showTransactions = useCallback(() => {
-        if (!transactions.current || !payments.current) return;
+        if (!payments.current || !transactions.current) return;
 
         const totalAmount = payments.current.reduce((total, payment) => total + payment.amount, 0);
-        const totalTransactions = transactions.current.reduce((total, transaction) => total + transaction.quantity, 0);
-        openPopup(
-            'CA x ' + totalTransactions + ' ==> ' + totalAmount + '€',
-            transactions.current
-                .map(
-                    (transaction) =>
-                        transaction.category + ' x ' + transaction.quantity + ' ==> ' + transaction.amount + '€'
-                )
-                .concat([''])
-                .concat(
-                    payments.current.map(
-                        (payment) => payment.method + ' x ' + payment.quantity + ' ==> ' + payment.amount + '€'
-                    )
-                ),
-            () => {}
+        const totalTransactions = payments.current.reduce((total, payment) => total + payment.quantity, 0);
+        const summary = transactions.current.map(
+            (transaction) =>
+                transaction.amount.toFixed(maxDecimals) +
+                '€ en ' +
+                transaction.method +
+                ' à ' +
+                transaction.date.getHours() +
+                'h' +
+                transaction.date.getMinutes()
+        );
+
+        for (let i = 0; i < 20; i++) {
+            summary.push(summary[0]);
+        }
+
+        openPopup(totalTransactions + ' vts : ' + totalAmount.toFixed(maxDecimals) + '€', summary, showBoughtProducts);
+    }, []);
+
+    const showBoughtProducts = useCallback((label: string, index: number) => {
+        if (!transactions.current || !label) return;
+
+        const transaction = transactions.current.at(index);
+        if (!transaction) return;
+
+        const summary = transaction.products.map((product) => product.category + ' : ' + product.amount + '€');
+
+        setTimeout(
+            () => openPopup(transaction.amount.toFixed(maxDecimals) + '€ en ' + transaction.method, summary),
+            100
         );
     }, []);
 
     return (
         <div
             className={addPopupClass(
-                'absolute inset-x-0 top-0 ' +
-                    (totalAmount.current || transactions.current ? 'active:bg-orange-300' : 'text-gray-300')
+                'inset-x-0 ' + (totalAmount.current || transactions.current ? 'active:bg-orange-300' : 'text-gray-300')
             )}
         >
             <div
