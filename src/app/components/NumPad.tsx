@@ -1,20 +1,20 @@
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { Digits } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
+import { usePopup } from '../hooks/usePopup';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { WalletIcon } from '../images/WalletIcon';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isMobileDevice } from '../utils/mobile';
 import { Amount } from './Amount';
 import { addPopupClass } from './Popup';
-import { usePopup } from '../hooks/usePopup';
 
-interface NumPadInputButton {
-    input: Digits | '.';
-    onInput(key: Digits | '.'): void;
+interface NumPadButtonProps {
+    input: Digits | string;
+    onInput(key: Digits | string): void;
 }
 
-const NumPadButton: FC<NumPadInputButton> = ({ input, onInput }) => {
+const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
     const onClick = useCallback(() => {
         if (!isFullscreen() && isMobileDevice()) {
             requestFullscreen();
@@ -22,15 +22,27 @@ const NumPadButton: FC<NumPadInputButton> = ({ input, onInput }) => {
         onInput(input);
     }, [onInput, input]);
     return (
-        <>
-            <div
-                className="w-20 h-20 active:bg-lime-300 rounded-2xl border border-lime-500 relative flex justify-center m-3 items-center font-semibold text-3xl"
-                style={{ borderWidth: 'medium' }}
-                onClick={onClick}
-            >
-                {input}
-            </div>
-        </>
+        <div
+            className="w-20 h-20 active:bg-lime-300 rounded-2xl border border-lime-500 relative flex justify-center m-3 items-center font-semibold text-3xl"
+            style={{ borderWidth: 'medium' }}
+            onClick={onClick}
+        >
+            {input}
+        </div>
+    );
+};
+
+const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
+    const onClick = useCallback(() => {
+        if (!isFullscreen() && isMobileDevice()) {
+            requestFullscreen();
+        }
+        onInput(input);
+    }, [onInput, input]);
+    return (
+        <div className="text-5xl w-14 h-14 rounded-full text-lime-500 active:bg-lime-300" onClick={onClick}>
+            {input}
+        </div>
     );
 };
 
@@ -41,7 +53,17 @@ export interface NumPadProps {
 }
 
 export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethod }) => {
-    const { currentAmount, totalAmount, numPadValue, updateAmount, clearAmount, clearTotal, addPayment } = useData();
+    const {
+        currentAmount,
+        totalAmount,
+        numPadValue,
+        updateAmount,
+        clearAmount,
+        clearTotal,
+        addPayment,
+        categories,
+        payments,
+    } = useData();
     const { openPopup } = usePopup();
 
     maxValue *= Math.pow(10, maxDecimals);
@@ -49,19 +71,17 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethod }
     const regExp = useMemo(() => new RegExp('^\\d*([.,]\\d{0,' + maxDecimals + '})?$'), [maxDecimals]);
 
     const [value, setValue] = useState('0');
-    const onInput = useCallback(
-        (key: Digits | '.') => {
-            setValue((value) => {
-                let newValue = (value + key).trim().replace(/^0{2,}/, '0');
-                if (newValue) {
-                    newValue = /^[.,]/.test(newValue) ? `0${newValue}` : newValue.replace(/^0+(\d)/, '$1');
-                    if (regExp.test(newValue)) return parseFloat(newValue) <= maxValue ? newValue : maxValue.toString();
-                }
-                return value;
-            });
-        },
-        [regExp]
-    );
+    const onInput = useCallback((key: Digits | '.') => {
+        setValue((value) => {
+            let newValue = (value + key).trim().replace(/^0{2,}/, '0');
+            if (newValue) {
+                newValue = /^[.,]/.test(newValue) ? `0${newValue}` : newValue.replace(/^0+(\d)/, '$1');
+                if (regExp.test(newValue)) return parseFloat(newValue) <= maxValue ? newValue : maxValue.toString();
+            }
+            return value;
+        });
+    }, []);
+
     const onBackspace = useCallback(() => {
         if (currentAmount.current) {
             clearAmount();
@@ -75,6 +95,34 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethod }
             openPopup('Paiement : ' + totalAmount.current + '€', paymentMethod, addPayment);
         }
     }, []);
+
+    const showTransactionsSummary = useCallback(() => {
+        if (!categories.current || !payments.current) return;
+
+        const totalAmount = categories.current.reduce((total, category) => total + category.amount, 0);
+        const totalTransactions = categories.current.reduce((total, category) => total + category.quantity, 0);
+        const summary = categories.current
+            .map(
+                (category) =>
+                    category.category + ' x ' + category.quantity + ' ==> ' + category.amount.toFixed(maxDecimals) + '€'
+            )
+            .concat([''])
+            .concat(
+                payments.current.map(
+                    (payment) =>
+                        payment.category +
+                        ' x ' +
+                        payment.quantity +
+                        ' ==> ' +
+                        payment.amount.toFixed(maxDecimals) +
+                        '€'
+                )
+            );
+
+        openPopup(totalTransactions + ' pdts : ' + totalAmount.toFixed(maxDecimals) + '€', summary);
+    }, []);
+
+    const multiply = useCallback(() => {}, []);
 
     useEffect(() => {
         updateAmount(parseInt(value) / Math.pow(10, maxDecimals));
@@ -98,9 +146,16 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethod }
         sx + (totalAmount.current && !currentAmount.current ? 'active:bg-lime-300 text-lime-500' : 'text-gray-300');
 
     return (
-        <div className={addPopupClass('absolute inset-0 top-20 bottom-28 flex flex-col justify-evenly')}>
-            <div className="text-4xl text-center font-bold pt-0">
-                <Amount value={numPadValue} decimals={maxDecimals} showZero />
+        <div className={addPopupClass('inset-0 flex flex-col justify-evenly')}>
+            <div className="flex justify-around text-4xl text-center font-bold pt-0">
+                <Amount
+                    className="min-w-[145px] text-left leading-normal"
+                    value={numPadValue}
+                    decimals={maxDecimals}
+                    showZero
+                />
+                <FunctionButton input="&times;" onInput={multiply} />
+                <FunctionButton input={payments.current ? 'z' : ''} onInput={showTransactionsSummary} />
             </div>
 
             <div className="">
