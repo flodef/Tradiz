@@ -5,9 +5,10 @@ export interface AmountProps {
     currency?: string;
     showZero?: boolean;
     decimals?: number;
+    className?: string;
 }
 
-export const Amount: FC<AmountProps> = ({ value, showZero, decimals }) => {
+export const Amount: FC<AmountProps> = ({ className, value, showZero, decimals }) => {
     const currency = '€';
     const NON_BREAKING_SPACE = '\u00a0';
 
@@ -19,7 +20,7 @@ export const Amount: FC<AmountProps> = ({ value, showZero, decimals }) => {
     }, [value, showZero]);
 
     return amount !== NON_BREAKING_SPACE ? (
-        <span>
+        <span className={className}>
             {decimals ? parseFloat(amount).toFixed(decimals) : amount}
             <span className="text-xl">{currency}</span>
         </span>
