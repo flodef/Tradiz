@@ -1,5 +1,10 @@
 import { FC } from 'react';
 
-export const Separator: FC = () => {
-    return <hr className="border-orange-300" style={{ borderWidth: 'thin' }} />;
+export interface SeparatorProps {
+    color?: string;
+    thickness?: string;
+}
+
+export const Separator: FC<SeparatorProps> = ({ color = 'border-orange-300', thickness = 'thin' }) => {
+    return <hr className={color} style={{ borderWidth: thickness }} />;
 };
