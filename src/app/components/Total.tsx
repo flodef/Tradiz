@@ -40,10 +40,6 @@ export const Total: FC<TotalProps> = ({ maxDecimals }) => {
                 transaction.date.getMinutes()
         );
 
-        for (let i = 0; i < 20; i++) {
-            summary.push(summary[0]);
-        }
-
         openPopup(totalTransactions + ' vts : ' + totalAmount.toFixed(maxDecimals) + '€', summary, showBoughtProducts);
     }, []);
 
