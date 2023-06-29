@@ -18,6 +18,8 @@ function removePopupClass(className: string): string {
 export const Popup: FC = () => {
     const { popupTitle, popupOptions, popupAction, closePopup } = usePopup();
 
+    const optionCount = popupOptions.filter((option) => option.trim()).length;
+
     return (
         // <div className={removePopupClass('z-20 opacity-50 bg-gray-900 h-screen w-screen grid absolute')}>
         <div
@@ -37,14 +39,26 @@ export const Popup: FC = () => {
                 {popupOptions.map((option, index) =>
                     option ? (
                         <div
-                            className="active:bg-lime-300 w-full relative flex justify-center py-3 items-center font-semibold text-xl text-center"
+                            className={
+                                (popupAction ? 'active:bg-lime-300 ' : '') +
+                                (optionCount <= 7
+                                    ? 'py-3 '
+                                    : optionCount <= 10
+                                    ? 'py-2 '
+                                    : optionCount <= 13
+                                    ? 'py-1 '
+                                    : '') +
+                                'w-full relative flex justify-center items-center font-semibold text-xl text-center'
+                            }
                             key={index}
-                            onClick={() => {
-                                if (!popupAction) return;
-
-                                popupAction(option, index);
-                                closePopup();
-                            }}
+                            onClick={
+                                popupAction
+                                    ? () => {
+                                          popupAction(option, index);
+                                          closePopup();
+                                      }
+                                    : () => {}
+                            }
                         >
                             {option}
                         </div>
