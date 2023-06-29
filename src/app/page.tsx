@@ -33,13 +33,13 @@ export default function Home() {
         { category: 'Journal', rate: 0 },
         { category: 'Alcool', rate: 20 },
     ];
-    const paymentMethod = ['CB', 'Espèces', 'Chèque', 'Ticket Restaurant', 'Crypto'];
+    const paymentMethod = ['CB', 'Espèces', 'Chèque', 'Crypto'];
 
     return (
-        <main className="absolute inset-0 bg-orange-100 text-amber-600 grid select-none">
+        <main className="absolute inset-0 bg-orange-100 text-amber-600 grid select-none overflow-y-auto">
             <DataProvider taxes={taxes}>
                 <PopupProvider>
-                    <div className="z-10 h-screen">
+                    <div className="z-10 h-screen flex flex-col justify-between">
                         <Total maxDecimals={maxDecimals} />
                         <NumPad maxDecimals={maxDecimals} maxValue={maxValue} paymentMethod={paymentMethod} />
                         <Category categories={category} otherKeyword={otherKeyword} />

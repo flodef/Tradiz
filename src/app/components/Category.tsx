@@ -51,7 +51,7 @@ export const Category: FC<Categories> = ({ categories, otherKeyword }) => {
     }, []);
 
     return (
-        <div className={addPopupClass('absolute inset-x-0 bottom-0 divide-y divide-orange-300')}>
+        <div className={addPopupClass('inset-x-0 divide-y divide-orange-300')}>
             <Separator />
             {categories.length > 0 && (
                 <div className="flex justify-evenly divide-x divide-orange-300">
