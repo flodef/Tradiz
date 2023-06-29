@@ -11,7 +11,7 @@ export default function Home() {
     const maxDecimals = 2;
     const maxValue = 999.99;
     const otherKeyword = 'Autres';
-    const category = [
+    const categories = [
         'Boulange',
         'Pâtisserie',
         'Epicerie',
@@ -26,23 +26,25 @@ export default function Home() {
         'Savons (Morgane)',
     ];
     const taxes = [
-        { category: 'Boulange', rate: 5.5 },
-        { category: 'Pâtisserie', rate: 5.5 },
-        { category: 'Epicerie', rate: 5.5 },
-        { category: 'Salon⋅Thé', rate: 10 },
-        { category: 'Journal', rate: 0 },
-        { category: 'Alcool', rate: 20 },
+        { rate: 5.5, categories: ['Boulange', 'Pâtisserie', 'Epicerie'] },
+        { rate: 10, categories: ['Salon⋅Thé'] },
+        { rate: 20, categories: ['Alcool'] },
     ];
-    const paymentMethod = ['CB', 'Espèces', 'Chèque', 'Crypto'];
+    const paymentMethods = ['CB', 'Espèces', 'Chèque', 'Crypto'];
 
     return (
         <main className="absolute inset-0 bg-orange-100 text-amber-600 grid select-none overflow-y-auto">
-            <DataProvider taxes={taxes}>
+            <DataProvider>
                 <PopupProvider>
                     <div className="z-10 h-screen flex flex-col justify-between">
                         <Total maxDecimals={maxDecimals} />
-                        <NumPad maxDecimals={maxDecimals} maxValue={maxValue} paymentMethod={paymentMethod} />
-                        <Category categories={category} otherKeyword={otherKeyword} />
+                        <NumPad
+                            maxDecimals={maxDecimals}
+                            maxValue={maxValue}
+                            paymentMethods={paymentMethods}
+                            taxes={taxes}
+                        />
+                        <Category categories={categories} otherKeyword={otherKeyword} />
                     </div>
                     <Popup />
                 </PopupProvider>

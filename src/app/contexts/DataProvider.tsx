@@ -3,10 +3,9 @@ import { DataContext, Element } from '../hooks/useData';
 
 export interface DataProviderProps {
     children: ReactNode;
-    taxes: { category: string; rate: number }[];
 }
 
-export const DataProvider: FC<DataProviderProps> = ({ children, taxes }) => {
+export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [total, setTotal] = useState(0);
     const totalAmount = useRef(0);
     const currentAmount = useRef(0);

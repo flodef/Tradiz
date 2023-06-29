@@ -49,10 +49,14 @@ const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
 export interface NumPadProps {
     maxDecimals: Digits;
     maxValue: number;
-    paymentMethod: string[];
+    paymentMethods: string[];
+    taxes: {
+        rate: number;
+        categories: string[];
+    }[];
 }
 
-export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethod }) => {
+export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods, taxes }) => {
     const {
         currentAmount,
         totalAmount,
@@ -92,7 +96,7 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethod }
 
     const onPay = useCallback(() => {
         if (totalAmount.current && !currentAmount.current) {
-            openPopup('Paiement : ' + totalAmount.current + '€', paymentMethod, addPayment);
+            openPopup('Paiement : ' + totalAmount.current + '€', paymentMethods, addPayment);
         }
     }, []);
 
@@ -108,6 +112,20 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethod }
             )
             .concat([''])
             .concat(
+                taxes.map((tax) => {
+                    const total = tax.categories
+                        .map((category) => categories.current?.find((c) => c.category === category)?.amount || 0)
+                        .reduce((total, amount) => total + amount, 0);
+                    if (!total) return ' ';
+
+                    const ht = total / (1 + tax.rate / 100);
+                    const tva = total - ht;
+                    return tax.rate + '%: HT ' + ht.toFixed(maxDecimals) + '€ / TVA ' + tva.toFixed(maxDecimals) + '€';
+                })
+            )
+
+            .concat([''])
+            .concat(
                 payments.current.map(
                     (payment) =>
                         payment.category +
@@ -120,6 +138,17 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethod }
             );
 
         openPopup(totalTransactions + ' pdts : ' + totalAmount.toFixed(maxDecimals) + '€', summary);
+    }, []);
+
+    const showDetails = useCallback((label: string, index: number) => {
+        if (!categories.current || !payments.current) return;
+
+        const category = label.split(' x ')[0].split('%')[0];
+        if (categories.current.find((c) => c.category === category)) {
+        } else if (payments.current.find((p) => p.category === category)) {
+        }
+
+        // openPopup('Détails', summary);
     }, []);
 
     const multiply = useCallback(() => {}, []);
