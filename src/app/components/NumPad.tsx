@@ -72,7 +72,7 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethod }
 
     const onPay = useCallback(() => {
         if (totalAmount.current && !currentAmount.current) {
-            openPopup('Moyen de paiement', paymentMethod, addPayment);
+            openPopup('Paiement : ' + totalAmount.current + '€', paymentMethod, addPayment);
         }
     }, []);
 
