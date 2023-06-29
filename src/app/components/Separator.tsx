@@ -1,10 +1,16 @@
 import { FC } from 'react';
 
-export interface SeparatorProps {
-    color?: string;
-    thickness?: string;
+export enum Thickness {
+    Thin = 'thin',
+    Thick = 'thick',
+    Medium = 'medium',
 }
 
-export const Separator: FC<SeparatorProps> = ({ color = 'border-orange-300', thickness = 'thin' }) => {
+export interface SeparatorProps {
+    color?: string;
+    thickness?: Thickness;
+}
+
+export const Separator: FC<SeparatorProps> = ({ color = 'border-orange-300', thickness = Thickness.Thin }) => {
     return <hr className={color} style={{ borderWidth: thickness }} />;
 };
