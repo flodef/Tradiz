@@ -3,7 +3,7 @@ import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isMobileDevice } from '../utils/mobile';
-import { addPopupClass } from './Popup';
+import { useAddPopupClass } from './Popup';
 import { Separator } from './Separator';
 
 interface Categories {
@@ -17,19 +17,19 @@ interface CategoryInputButton {
 }
 
 const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
-    const { currentAmount } = useData();
+    const { amount } = useData();
 
     const onClick = useCallback(() => {
         if (!isFullscreen() && isMobileDevice()) {
             requestFullscreen();
         }
-        if (currentAmount.current) {
+        if (amount) {
             onInput(input);
         }
-    }, [input]);
+    }, [input, onInput, amount]);
 
     let s = 'w-1/3 relative flex justify-center py-3 items-center font-semibold text-2xl ';
-    s += currentAmount.current ? 'active:bg-orange-300' : 'text-gray-300';
+    s += amount ? 'active:bg-orange-300' : 'text-gray-300';
 
     return (
         <div className={s} onClick={onClick}>
@@ -39,23 +39,22 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
 };
 
 export const Category: FC<Categories> = ({ categories, otherKeyword }) => {
-    const { addProduct, currentAmount } = useData();
+    const { addProduct, amount } = useData();
     const { openPopup } = usePopup();
 
-    const onInput = useCallback((input: string) => {
-        if (input !== otherKeyword) {
-            addProduct(input);
-        } else {
-            openPopup('Catégorie', categories.slice(5), addProduct);
-        }
-    }, []);
+    const onInput = useCallback(
+        (input: string) => {
+            if (input !== otherKeyword) {
+                addProduct(input);
+            } else {
+                openPopup('Catégorie', categories.slice(5), addProduct);
+            }
+        },
+        [categories, otherKeyword, addProduct, openPopup]
+    );
 
     return (
-        <div
-            className={addPopupClass(
-                'inset-x-0 divide-y divide-orange-300' + (currentAmount.current ? '' : ' invisible')
-            )}
-        >
+        <div className={useAddPopupClass('inset-x-0 divide-y divide-orange-300' + (amount ? '' : ' invisible'))}>
             <Separator />
             {categories.length > 0 && (
                 <div className="flex justify-evenly divide-x divide-orange-300">

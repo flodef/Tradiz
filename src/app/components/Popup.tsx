@@ -3,13 +3,13 @@ import { usePopup } from '../hooks/usePopup';
 import { CloseButton } from './CloseButton';
 import { Separator } from './Separator';
 
-export function addPopupClass(className: string): string {
+export function useAddPopupClass(className: string): string {
     const { isPopupOpen } = usePopup();
 
     return className + (isPopupOpen ? ' blur-sm pointer-events-none ' : '');
 }
 
-function removePopupClass(className: string): string {
+function useRemovePopupClass(className: string): string {
     const { isPopupOpen } = usePopup();
 
     return className + (isPopupOpen ? '' : ' hidden ');
@@ -23,7 +23,7 @@ export const Popup: FC = () => {
     return (
         // <div className={removePopupClass('z-20 opacity-50 bg-gray-900 h-screen w-screen grid absolute')}>
         <div
-            className={removePopupClass(
+            className={useRemovePopupClass(
                 'z-30 w-5/6 max-h-[90%] overflow-y-auto absolute opacity-100 brightness-100 justify-self-center bg-slate-100 h-fit rounded-2xl self-center blur-none border-black'
             )}
             style={{ borderWidth: 'medium' }}
