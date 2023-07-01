@@ -63,14 +63,20 @@ export const Total: FC<TotalProps> = ({ maxDecimals }) => {
     return (
         <div
             className={addPopupClass(
-                'inset-x-0 ' + (totalAmount.current || transactions.current ? 'active:bg-orange-300' : 'text-gray-300')
+                'inset-x-0 ' + (totalAmount.current || transactions.current ? 'active:bg-orange-300' : 'invisible')
             )}
         >
             <div
                 className="text-5xl truncate text-center font-bold py-3"
                 onClick={totalAmount.current ? showProducts : transactions.current ? showTransactions : () => {}}
             >
-                Total : <Amount value={total} decimals={maxDecimals} showZero />
+                {totalAmount.current ? (
+                    <div>
+                        Total : <Amount value={total} decimals={maxDecimals} showZero />
+                    </div>
+                ) : transactions.current ? (
+                    'Ticket : ' + transactions.current.length + ' vts'
+                ) : null}
             </div>
             <Separator />
         </div>
