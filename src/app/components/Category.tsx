@@ -39,7 +39,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
 };
 
 export const Category: FC<Categories> = ({ categories, otherKeyword }) => {
-    const { addProduct } = useData();
+    const { addProduct, currentAmount } = useData();
     const { openPopup } = usePopup();
 
     const onInput = useCallback((input: string) => {
@@ -51,7 +51,11 @@ export const Category: FC<Categories> = ({ categories, otherKeyword }) => {
     }, []);
 
     return (
-        <div className={addPopupClass('inset-x-0 divide-y divide-orange-300')}>
+        <div
+            className={addPopupClass(
+                'inset-x-0 divide-y divide-orange-300' + (currentAmount.current ? '' : ' invisible')
+            )}
+        >
             <Separator />
             {categories.length > 0 && (
                 <div className="flex justify-evenly divide-x divide-orange-300">

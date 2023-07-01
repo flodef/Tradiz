@@ -12,6 +12,7 @@ import { addPopupClass } from './Popup';
 interface NumPadButtonProps {
     input: Digits | string;
     onInput(key: Digits | string): void;
+    className?: string;
 }
 
 const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
@@ -32,7 +33,7 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
     );
 };
 
-const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
+const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, className }) => {
     const onClick = useCallback(() => {
         if (!isFullscreen() && isMobileDevice()) {
             requestFullscreen();
@@ -40,7 +41,7 @@ const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
         onInput(input);
     }, [onInput, input]);
     return (
-        <div className="text-5xl w-14 h-14 rounded-full text-lime-500 active:bg-lime-300" onClick={onClick}>
+        <div className={className} onClick={onClick}>
             {input}
         </div>
     );
@@ -140,17 +141,6 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
         openPopup(totalTransactions + ' pdts : ' + totalAmount.toFixed(maxDecimals) + '€', summary);
     }, []);
 
-    const showDetails = useCallback((label: string, index: number) => {
-        if (!categories.current || !payments.current) return;
-
-        const category = label.split(' x ')[0].split('%')[0];
-        if (categories.current.find((c) => c.category === category)) {
-        } else if (payments.current.find((p) => p.category === category)) {
-        }
-
-        // openPopup('Détails', summary);
-    }, []);
-
     const multiply = useCallback(() => {}, []);
 
     useEffect(() => {
@@ -168,11 +158,13 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
         [1, 2, 3],
     ];
 
-    let sx = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center ';
-    const s1 =
-        sx + (currentAmount.current || totalAmount.current ? 'active:bg-lime-300 text-lime-500' : 'text-gray-300');
-    const s2 =
-        sx + (totalAmount.current && !currentAmount.current ? 'active:bg-lime-300 text-lime-500' : 'text-gray-300');
+    let sx = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl ';
+    const s1 = sx + (totalAmount.current && !currentAmount.current ? 'active:bg-lime-300 text-lime-500' : 'invisible');
+
+    let f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
+    const f1 = f + (currentAmount.current || totalAmount.current ? 'active:bg-lime-300 text-lime-500' : 'invisible');
+    const f2 = f + (currentAmount.current ? 'active:bg-lime-300 text-lime-500' : 'invisible');
+    const f3 = f + (categories.current && payments.current ? 'active:bg-lime-300 text-lime-500' : 'invisible');
 
     return (
         <div className={addPopupClass('inset-0 flex flex-col justify-evenly')}>
@@ -183,8 +175,11 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
                     decimals={maxDecimals}
                     showZero
                 />
-                <FunctionButton input="&times;" onInput={multiply} />
-                <FunctionButton input={payments.current ? 'z' : ''} onInput={showTransactionsSummary} />
+                <div className={f1} onClick={onBackspace}>
+                    <BackspaceIcon />
+                </div>
+                <FunctionButton className={f2} input="&times;" onInput={multiply} />
+                <FunctionButton className={f3} input={payments.current ? 'z' : ''} onInput={showTransactionsSummary} />
             </div>
 
             <div className="">
@@ -196,11 +191,11 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
                     </div>
                 ))}
                 <div className="flex justify-evenly">
-                    <div className={s1} onClick={onBackspace}>
-                        <BackspaceIcon />
-                    </div>
+                    {/* <div className={s1}>
+                    </div> */}
                     <NumPadButton input={0} onInput={onInput} />
-                    <div className={s2} onClick={onPay}>
+                    <NumPadButton input={'00'} onInput={onInput} />
+                    <div className={s1} onClick={onPay}>
                         <WalletIcon />
                     </div>
                 </div>

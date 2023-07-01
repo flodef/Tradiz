@@ -37,7 +37,7 @@ export const Total: FC<TotalProps> = ({ maxDecimals }) => {
                 ' à ' +
                 transaction.date.getHours() +
                 'h' +
-                transaction.date.getMinutes()
+                ('0' + transaction.date.getMinutes()).slice(-2)
         );
 
         openPopup(totalTransactions + ' vts : ' + totalAmount.toFixed(maxDecimals) + '€', summary, showBoughtProducts);
@@ -52,7 +52,10 @@ export const Total: FC<TotalProps> = ({ maxDecimals }) => {
         const summary = transaction.products.map((product) => product.category + ' : ' + product.amount + '€');
 
         setTimeout(
-            () => openPopup(transaction.amount.toFixed(maxDecimals) + '€ en ' + transaction.method, summary),
+            () =>
+                openPopup(transaction.amount.toFixed(maxDecimals) + '€ en ' + transaction.method, summary, () =>
+                    setTimeout(showTransactions, 100)
+                ),
             100
         );
     }, []);
