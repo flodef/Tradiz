@@ -170,7 +170,7 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
         <div className={addPopupClass('inset-0 flex flex-col justify-evenly')}>
             <div className="flex justify-around text-4xl text-center font-bold pt-0">
                 <Amount
-                    className="min-w-[145px] text-left leading-normal"
+                    className="min-w-[145px] text-right leading-normal"
                     value={numPadValue}
                     decimals={maxDecimals}
                     showZero
