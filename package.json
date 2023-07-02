@@ -24,7 +24,7 @@
         "eslint-config-next": "13.4.6",
         "eslint-config-prettier": "^8.8.0",
         "eslint-plugin-prettier": "^4.2.1",
-        "next": "13.4.6",
+        "next": "^13.4.7",
         "typescript": "^5.1.6",
         "yarn-upgrade-all": "^0.7.2"
     }
