@@ -1,6 +1,6 @@
 import { MutableRefObject, createContext, useContext } from 'react';
 
-export interface Element {
+export interface DataElement {
     category: string;
     quantity: number;
     amount: number;
@@ -16,11 +16,9 @@ export interface DataContextState {
     deleteProduct: (label: string, index: number) => void;
     clearAmount: () => void;
     clearTotal: () => void;
-    products: MutableRefObject<[Element] | undefined>;
-    categories: MutableRefObject<[Element] | undefined>;
-    payments: MutableRefObject<[Element] | undefined>;
+    products: [DataElement] | undefined;
     addPayment: (method: string) => void;
-    transactions: MutableRefObject<[{ method: string; amount: number; date: Date; products: [Element] }] | undefined>;
+    data: [{ method: string; amount: number; date: string; products: [DataElement] }] | undefined;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);

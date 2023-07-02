@@ -1,6 +1,6 @@
-import { FC, useCallback } from 'react';
+import { FC, useCallback, useEffect, useState } from 'react';
 import { Digits } from '../hooks/useConfig';
-import { useData } from '../hooks/useData';
+import { DataElement, useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
@@ -11,15 +11,22 @@ export interface TotalProps {
 }
 
 export const Total: FC<TotalProps> = ({ maxDecimals }) => {
-    const { total, products, deleteProduct, transactions, payments } = useData();
+    const { total, products, deleteProduct, data } = useData();
     const { openPopup } = usePopup();
 
+    const [transactions, setTransactions] = useState<
+        [{ method: string; amount: number; date: string; products: [DataElement] }] | undefined
+    >();
+    useEffect(() => {
+        setTransactions(data);
+    }, [data]);
+
     const showProducts = useCallback(() => {
-        if (!products.current) return;
+        if (!products) return;
 
         openPopup(
             'Total : ' + total.toFixed(maxDecimals) + '€',
-            products.current.map(
+            products.map(
                 (product) =>
                     product.category +
                     ' : ' +
@@ -35,25 +42,19 @@ export const Total: FC<TotalProps> = ({ maxDecimals }) => {
     }, [deleteProduct, openPopup, products, total, maxDecimals]);
 
     const showTransactions = useCallback(() => {
-        if (!payments.current || !transactions.current) return;
+        if (!transactions) return;
 
-        const totalAmount = payments.current.reduce((total, payment) => total + payment.amount, 0);
-        const totalTransactions = payments.current.reduce((total, payment) => total + payment.quantity, 0);
-        const summary = transactions.current.map(
+        const totalAmount = transactions.reduce((total, transaction) => total + transaction.amount, 0);
+        const totalTransactions = transactions.length;
+        const summary = transactions.map(
             (transaction) =>
-                transaction.amount.toFixed(maxDecimals) +
-                '€ en ' +
-                transaction.method +
-                ' à ' +
-                transaction.date.getHours() +
-                'h' +
-                ('0' + transaction.date.getMinutes()).slice(-2)
+                transaction.amount.toFixed(maxDecimals) + '€ en ' + transaction.method + ' à ' + transaction.date
         );
 
         const showBoughtProducts = (label: string, index: number) => {
-            if (!transactions.current || !label) return;
+            if (!transactions || !label) return;
 
-            const transaction = transactions.current.at(index);
+            const transaction = transactions.at(index);
             if (!transaction) return;
 
             const summary = transaction.products.map(
@@ -68,34 +69,30 @@ export const Total: FC<TotalProps> = ({ maxDecimals }) => {
                     '€'
             );
 
-            setTimeout(
-                () =>
-                    openPopup(transaction.amount.toFixed(maxDecimals) + '€ en ' + transaction.method, summary, () =>
-                        setTimeout(showTransactions, 0)
-                    ),
-                0
+            setTimeout(() =>
+                openPopup(transaction.amount.toFixed(maxDecimals) + '€ en ' + transaction.method, summary, () =>
+                    setTimeout(showTransactions)
+                )
             );
         };
 
         openPopup(totalTransactions + ' vts : ' + totalAmount.toFixed(maxDecimals) + '€', summary, showBoughtProducts);
-    }, [maxDecimals, openPopup, payments, transactions]);
+    }, [maxDecimals, openPopup, transactions]);
 
     return (
         <div
-            className={useAddPopupClass(
-                'inset-x-0 ' + (total || transactions.current ? 'active:bg-orange-300' : 'invisible')
-            )}
+            className={useAddPopupClass('inset-x-0 ' + (total || transactions ? 'active:bg-orange-300' : 'invisible'))}
         >
             <div
                 className="text-5xl truncate text-center font-bold py-3"
-                onClick={total ? showProducts : transactions.current ? showTransactions : () => {}}
+                onClick={total ? showProducts : transactions ? showTransactions : () => {}}
             >
                 {total ? (
                     <div>
                         Total : <Amount value={total} decimals={maxDecimals} showZero />
                     </div>
-                ) : transactions.current ? (
-                    'Ticket : ' + transactions.current.length + ' vts'
+                ) : transactions ? (
+                    'Ticket : ' + transactions.length + ' vts'
                 ) : null}
             </div>
             <Separator />

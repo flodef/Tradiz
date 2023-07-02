@@ -1,6 +1,6 @@
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { Digits } from '../hooks/useConfig';
-import { useData } from '../hooks/useData';
+import { DataElement, useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { WalletIcon } from '../images/WalletIcon';
@@ -58,21 +58,17 @@ export interface NumPadProps {
 }
 
 export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods, taxes }) => {
-    const {
-        total,
-        amount,
-        setAmount,
-        quantity,
-        setQuantity,
-        clearAmount,
-        clearTotal,
-        addPayment,
-        categories,
-        payments,
-    } = useData();
+    const { total, amount, setAmount, quantity, setQuantity, clearAmount, clearTotal, addPayment, data } = useData();
     const { openPopup } = usePopup();
 
     maxValue *= Math.pow(10, maxDecimals);
+
+    const [transactions, setTransactions] = useState<
+        [{ method: string; amount: number; date: string; products: [DataElement] }] | undefined
+    >();
+    useEffect(() => {
+        setTransactions(data);
+    }, [data]);
 
     const regExp = useMemo(() => new RegExp('^\\d*([.,]\\d{0,' + maxDecimals + '})?$'), [maxDecimals]);
 
@@ -113,12 +109,57 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
     }, [amount, openPopup, paymentMethods, total, addPayment, maxDecimals]);
 
     const showTransactionsSummary = useCallback(() => {
-        if (!categories.current || !payments.current) return;
+        if (!transactions) return;
 
-        const totalAmount = categories.current.reduce((total, category) => total + category.amount, 0);
-        const totalTransactions = categories.current.reduce((total, category) => total + category.quantity, 0);
-        const summary = categories.current
-            .map(
+        const addElement = (array: [DataElement] | undefined, element: DataElement) => {
+            if (!array) {
+                array = [element];
+            } else {
+                array.push(element);
+            }
+
+            return array;
+        };
+
+        let categories: [DataElement] | undefined = undefined;
+        let payments: [DataElement] | undefined = undefined;
+
+        transactions.forEach((transaction) => {
+            const payment = payments?.find((payment) => payment.category === transaction.method);
+            if (payment) {
+                payment.quantity++;
+                payment.amount += transaction.amount;
+            } else {
+                payments = addElement(payments, {
+                    category: transaction.method,
+                    quantity: 1,
+                    amount: transaction.amount,
+                });
+            }
+
+            transaction.products.forEach((product) => {
+                const transaction = categories?.find((transaction) => transaction.category === product.category);
+                if (transaction) {
+                    transaction.quantity += product.quantity;
+                    transaction.amount += product.amount * product.quantity;
+                } else {
+                    categories = addElement(categories, {
+                        category: product.category,
+                        quantity: product.quantity,
+                        amount: product.amount * product.quantity,
+                    });
+                }
+            });
+        });
+
+        if (!categories) categories = [{ category: '', quantity: 0, amount: 0 }];
+        if (!payments) payments = [{ category: '', quantity: 0, amount: 0 }];
+
+        const totalAmount = transactions.reduce((total, transaction) => total + transaction.amount, 0);
+        const totalProducts = categories.reduce((total, category) => total + category.quantity, 0);
+
+        const summary = categories
+            ?.map(
                 (category) =>
                     category.category + ' x ' + category.quantity + ' ==> ' + category.amount.toFixed(maxDecimals) + '€'
             )
@@ -126,7 +167,7 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
             .concat(
                 taxes.map((tax) => {
                     const total = tax.categories
-                        .map((category) => categories.current?.find((c) => c.category === category)?.amount || 0)
+                        .map((category) => categories?.find((c) => c.category === category)?.amount || 0)
                         .reduce((total, amount) => total + amount, 0);
                     if (!total) return ' ';
 
@@ -138,7 +179,7 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
 
             .concat([''])
             .concat(
-                payments.current.map(
+                payments.map(
                     (payment) =>
                         payment.category +
                         ' x ' +
@@ -149,8 +190,8 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
                 )
             );
 
-        openPopup(totalTransactions + ' pdts : ' + totalAmount.toFixed(maxDecimals) + '€', summary);
-    }, [categories, maxDecimals, openPopup, payments, taxes]);
+        openPopup(totalProducts + ' pdts : ' + totalAmount.toFixed(maxDecimals) + '€', summary);
+    }, [maxDecimals, openPopup, taxes, transactions]);
 
     const multiply = useCallback(() => {
         setQuantity(-1);
@@ -177,7 +218,7 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
     let f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
     const f1 = f + (amount || total ? 'active:bg-lime-300 text-lime-500' : 'invisible');
     const f2 = f + (quantity ? 'bg-lime-300 ' : '') + (amount ? 'active:bg-lime-300 text-lime-500' : 'invisible');
-    const f3 = f + (categories.current && payments.current ? 'active:bg-lime-300 text-lime-500' : 'invisible');
+    const f3 = f + (transactions ? 'active:bg-lime-300 text-lime-500' : 'invisible');
 
     return (
         <div className={useAddPopupClass('inset-0 flex flex-col justify-evenly')}>
@@ -192,7 +233,7 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
                     <BackspaceIcon />
                 </div>
                 <FunctionButton className={f2} input="&times;" onInput={multiply} />
-                <FunctionButton className={f3} input={payments.current ? 'z' : ''} onInput={showTransactionsSummary} />
+                <FunctionButton className={f3} input="z" onInput={showTransactionsSummary} />
             </div>
 
             <div className="">

@@ -1,5 +1,6 @@
-import { FC, MutableRefObject, ReactNode, useCallback, useRef, useState } from 'react';
-import { DataContext, Element } from '../hooks/useData';
+import { FC, MutableRefObject, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DataContext, DataElement } from '../hooks/useData';
+import { useLocalStorage } from '../utils/localStorage';
 
 export interface DataProviderProps {
     children: ReactNode;
@@ -9,10 +10,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [total, setTotal] = useState(0);
     const [amount, setAmount] = useState(0);
     const [quantity, setQuantity] = useState(0);
-    const products = useRef<[Element]>();
-    const categories = useRef<[Element]>();
-    const payments = useRef<[Element]>();
-    const transactions = useRef<[{ method: string; amount: number; date: Date; products: [Element] }]>();
+    const [products, setProducts] = useState<[DataElement] | undefined>();
+    const today = useMemo(() => {
+        const date = new Date();
+        return date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate();
+    }, []);
+    const [data, setData] = useLocalStorage<
+        [{ method: string; amount: number; date: string; products: [DataElement] }] | undefined
+    >('Transactions ' + today, undefined);
 
     const clearAmount = useCallback(() => {
         setAmount(0);
@@ -21,7 +26,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const clearTotal = useCallback(() => {
         setTotal(0);
-        products.current = undefined;
+        setProducts(undefined);
     }, []);
 
     const addProduct = useCallback(
@@ -31,27 +36,28 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const qty = Math.max(1, quantity);
             setTotal(parseFloat((total + amount * qty).toFixed(2)));
 
-            addElement(products, {
-                category: category,
-                quantity: qty,
-                amount: amount,
-            });
+            setProducts(
+                addElement(products, {
+                    category: category,
+                    quantity: qty,
+                    amount: amount,
+                })
+            );
+
             clearAmount();
         },
-        [amount, total, quantity, clearAmount]
+        [amount, total, quantity, clearAmount, products]
     );
 
     const deleteProduct = useCallback(
         (label: string, index: number) => {
-            if (!total || !label || !products.current) return;
+            if (!total || !label || !products) return;
 
-            const product = products.current.splice(index, 1).at(0);
+            const product = products.splice(index, 1).at(0);
             if (!product) return;
 
             setTotal(
-                parseFloat(
-                    products.current.reduce((total, product) => total + product.amount * product.quantity, 0).toFixed(2)
-                )
+                parseFloat(products.reduce((total, product) => total + product.amount * product.quantity, 0).toFixed(2))
             );
         },
         [total, products]
@@ -59,49 +65,31 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const addPayment = useCallback(
         (method: string) => {
-            if (!total || !method || !products.current) return;
+            if (!total || !method || !products) return;
 
-            addElement(transactions, {
+            const currentHour = new Date().getHours() + 'h' + ('0' + new Date().getMinutes()).slice(-2);
+            let transactions = addElement(data, {
                 method: method,
                 amount: total,
-                date: new Date(),
-                products: products.current,
+                date: currentHour,
+                products: products,
             });
 
-            const payment = payments.current?.find((payment) => payment.category === method);
-            if (payment) {
-                payment.quantity++;
-                payment.amount += total;
-            } else {
-                addElement(payments, { category: method, quantity: 1, amount: total });
-            }
+            setData(undefined);
+            setTimeout(() => setData(transactions));
 
-            products.current.forEach((product) => {
-                const transaction = categories.current?.find(
-                    (transaction) => transaction.category === product.category
-                );
-                if (transaction) {
-                    transaction.quantity += product.quantity;
-                    transaction.amount += product.amount * product.quantity;
-                } else {
-                    addElement(categories, {
-                        category: product.category,
-                        quantity: product.quantity,
-                        amount: product.amount * product.quantity,
-                    });
-                }
-            });
             clearAmount();
             clearTotal();
         },
-        [total, products, payments, categories, transactions, clearAmount, clearTotal]
+        [clearAmount, clearTotal, total, products, setData, data]
     );
 
-    function addElement<T>(array: MutableRefObject<[T] | undefined>, element: T) {
-        if (!array.current) {
-            array.current = [element];
+    function addElement<T>(array: [T] | undefined, element: T): [T] {
+        if (!array) {
+            return [element];
         } else {
-            array.current.push(element);
+            array.push(element);
+            return array;
         }
     }
 
@@ -118,10 +106,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 clearAmount,
                 clearTotal,
                 products,
-                categories,
                 addPayment,
-                payments,
-                transactions,
+                data,
             }}
         >
             {children}
