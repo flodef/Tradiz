@@ -1,4 +1,4 @@
-import { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useState } from 'react';
 import { Digits } from '../hooks/useConfig';
 import { DataElement, useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
@@ -93,14 +93,24 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
         [maxValue, regExp, quantity, setQuantity]
     );
 
-    const onBackspace = useCallback(() => {
-        if (amount) {
-            clearAmount();
-        } else if (total) {
-            clearTotal();
-        }
-        setQuantity(0);
-    }, [clearAmount, clearTotal, amount, total, setQuantity]);
+    const onBackspace = useCallback<MouseEventHandler>(
+        (e) => {
+            e.preventDefault();
+            switch (e.type.toString()) {
+                case 'click':
+                    clearAmount();
+                    break;
+                case 'contextmenu':
+                    openPopup('Supprimer Total ?', ['Oui', 'Non'], (option) => {
+                        if (option === 'Oui') clearTotal();
+                    });
+                    break;
+                default:
+                    console.error('Unhandled type: ' + e.type);
+            }
+        },
+        [clearAmount, clearTotal, openPopup]
+    );
 
     const onPay = useCallback(() => {
         if (total && !amount) {
@@ -229,7 +239,7 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
                     decimals={maxDecimals}
                     showZero
                 />
-                <div className={f1} onClick={onBackspace}>
+                <div className={f1} onClick={onBackspace} onContextMenu={onBackspace}>
                     <BackspaceIcon />
                 </div>
                 <FunctionButton className={f2} input="&times;" onInput={multiply} />
@@ -245,8 +255,6 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
                     </div>
                 ))}
                 <div className="flex justify-evenly">
-                    {/* <div className={s1}>
-                    </div> */}
                     <NumPadButton input={0} onInput={onInput} />
                     <NumPadButton input={'00'} onInput={onInput} />
                     <div className={s1} onClick={onPay}>
