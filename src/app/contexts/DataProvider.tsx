@@ -1,9 +1,18 @@
-import { FC, MutableRefObject, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { DataContext, DataElement } from '../hooks/useData';
+import { FC, ReactNode, useCallback, useMemo, useState } from 'react';
+import { DataContext, DataElement, Transaction } from '../hooks/useData';
 import { useLocalStorage } from '../utils/localStorage';
 
 export interface DataProviderProps {
     children: ReactNode;
+}
+
+function addElement<T>(array: [T] | undefined, element: T): [T] {
+    if (!array) {
+        return [element];
+    } else {
+        array.unshift(element);
+        return array;
+    }
 }
 
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
@@ -15,9 +24,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         const date = new Date();
         return date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate();
     }, []);
-    const [data, setData] = useLocalStorage<
-        [{ method: string; amount: number; date: string; products: [DataElement] }] | undefined
-    >('Transactions ' + today, undefined);
+    const [data, setData] = useLocalStorage<[Transaction] | undefined>('Transactions ' + today, undefined);
 
     const clearAmount = useCallback(() => {
         setAmount(0);
@@ -26,23 +33,26 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const clearTotal = useCallback(() => {
         setTotal(0);
+        setQuantity(0);
         setProducts(undefined);
     }, []);
 
     const addProduct = useCallback(
-        (category: string) => {
-            if (!amount || !category) return;
+        (product: string | DataElement) => {
+            if ((!amount && typeof product === 'string') || !product) return;
 
-            const qty = Math.max(1, quantity);
-            setTotal(parseFloat((total + amount * qty).toFixed(2)));
+            let element: DataElement = { category: '', quantity: 0, amount: 0 };
+            if (typeof product === 'string') {
+                element.category = product;
+                element.quantity = Math.max(1, quantity);
+                element.amount = amount;
+            } else {
+                element = product;
+            }
 
-            setProducts(
-                addElement(products, {
-                    category: category,
-                    quantity: qty,
-                    amount: amount,
-                })
-            );
+            setTotal(parseFloat((total + element.amount * element.quantity).toFixed(2)));
+
+            setProducts(addElement(products, element));
 
             clearAmount();
         },
@@ -51,7 +61,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const deleteProduct = useCallback(
         (label: string, index: number) => {
-            if (!total || !label || !products) return;
+            if (!total || !label || !products?.length) return;
 
             const product = products.splice(index, 1).at(0);
             if (!product) return;
@@ -61,6 +71,16 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             );
         },
         [total, products]
+    );
+
+    const saveData = useCallback(
+        (transactions: [Transaction]) => {
+            setData(undefined);
+            if (transactions.length) {
+                setTimeout(() => setData(transactions));
+            }
+        },
+        [setData]
     );
 
     const addPayment = useCallback(
@@ -75,23 +95,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 products: products,
             });
 
-            setData(undefined);
-            setTimeout(() => setData(transactions));
+            saveData(transactions);
 
             clearAmount();
             clearTotal();
         },
-        [clearAmount, clearTotal, total, products, setData, data]
+        [clearAmount, clearTotal, total, products, saveData, data]
     );
-
-    function addElement<T>(array: [T] | undefined, element: T): [T] {
-        if (!array) {
-            return [element];
-        } else {
-            array.push(element);
-            return array;
-        }
-    }
 
     return (
         <DataContext.Provider
@@ -108,6 +118,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 products,
                 addPayment,
                 data,
+                saveData,
             }}
         >
             {children}
