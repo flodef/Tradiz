@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 
 export function useLocalStorage<T>(key: string, defaultState: T): [T, Dispatch<SetStateAction<T>>] {
     const state = useState<T>(() => {
@@ -22,7 +22,7 @@ export function useLocalStorage<T>(key: string, defaultState: T): [T, Dispatch<S
             return;
         }
         try {
-            if (value === null) {
+            if (value === undefined) {
                 localStorage.removeItem(key);
             } else {
                 localStorage.setItem(key, JSON.stringify(value));
