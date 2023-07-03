@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import { FC, useCallback } from 'react';
 import { usePopup } from '../hooks/usePopup';
 import { CloseButton } from './CloseButton';
 import { Separator } from './Separator';
@@ -16,9 +16,33 @@ function useRemovePopupClass(className: string): string {
 }
 
 export const Popup: FC = () => {
-    const { popupTitle, popupOptions, popupAction, closePopup } = usePopup();
-
+    const { popupTitle, popupOptions, popupAction, popupSpecialAction, openPopup, closePopup } = usePopup();
     const optionCount = popupOptions.filter((option) => option.trim()).length;
+
+    const handleClick = useCallback(
+        (option: string, index: number) => {
+            if (!popupAction) return;
+
+            popupAction(option, index);
+            closePopup();
+        },
+        [closePopup, popupAction]
+    );
+
+    const handleContextMenu = useCallback(
+        (option: string, index: number) => {
+            if (!popupSpecialAction) return;
+
+            openPopup(popupSpecialAction.confirmTitle, ['Oui', 'Non'], (confirmOption) => {
+                if (confirmOption === 'Oui') {
+                    popupSpecialAction.action(option, index);
+                } else {
+                    setTimeout(() => openPopup(popupTitle, popupOptions, popupAction, popupSpecialAction));
+                }
+            });
+        },
+        [openPopup, popupSpecialAction, popupAction, popupOptions, popupTitle]
+    );
 
     return (
         // <div className={removePopupClass('z-20 opacity-50 bg-gray-900 h-screen w-screen grid absolute')}>
@@ -40,7 +64,7 @@ export const Popup: FC = () => {
                     option ? (
                         <div
                             className={
-                                (popupAction ? 'active:bg-lime-300 ' : '') +
+                                (popupAction || popupSpecialAction ? 'active:bg-lime-300 ' : '') +
                                 (optionCount <= 7
                                     ? 'py-3 '
                                     : optionCount <= 10
@@ -51,14 +75,11 @@ export const Popup: FC = () => {
                                 'w-full relative flex justify-center items-center font-semibold text-xl text-center'
                             }
                             key={index}
-                            onClick={
-                                popupAction
-                                    ? () => {
-                                          popupAction(option, index);
-                                          closePopup();
-                                      }
-                                    : () => {}
-                            }
+                            onClick={() => handleClick(option, index)}
+                            onContextMenu={(e) => {
+                                e.preventDefault();
+                                handleContextMenu(option, index);
+                            }}
                         >
                             {option}
                         </div>
