@@ -231,6 +231,9 @@ export const NumPad: FC = () => {
     const canPay = total && !amount;
     const canAddProduct = amount && category;
 
+    let s = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl ';
+    const sx = s + (canPay || canAddProduct ? 'active:bg-lime-300 text-lime-500' : 'invisible');
+
     let f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
     const f1 = f + (amount || total ? 'active:bg-lime-300 text-lime-500' : 'invisible');
     const f2 = f + (quantity ? 'bg-lime-300 ' : '') + (amount ? 'active:bg-lime-300 text-lime-500' : 'invisible');
@@ -264,7 +267,7 @@ export const NumPad: FC = () => {
                     <NumPadButton input={0} onInput={onInput} />
                     <NumPadButton input={'00'} onInput={onInput} />
                     <div
-                        className="w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl active:bg-lime-300 text-lime-500"
+                        className={sx}
                         onClick={canPay ? onPay : canAddProduct ? () => addProduct(category) : () => {}}
                     >
                         {canPay ? <WalletIcon /> : canAddProduct ? <BasketIcon /> : ''}
