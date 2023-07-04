@@ -28,8 +28,8 @@ export interface DataContextState {
     clearTotal: () => void;
     products: [DataElement] | undefined;
     addPayment: (method: string) => void;
-    data: [Transaction] | undefined;
-    saveData: (transactions: [Transaction]) => void;
+    transactions: [Transaction] | undefined;
+    saveTransactions: (transactions: [Transaction]) => void;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);

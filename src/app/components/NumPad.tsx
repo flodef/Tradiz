@@ -60,7 +60,7 @@ export const NumPad: FC = () => {
         clearAmount,
         clearTotal,
         addPayment,
-        data,
+        transactions,
         category,
         addProduct,
     } = useData();
@@ -68,12 +68,13 @@ export const NumPad: FC = () => {
 
     const max = maxValue * Math.pow(10, maxDecimals);
 
-    const [transactions, setTransactions] = useState<
+    // Hack to avoid differences between the server and the client, generating hydration issues
+    const [localTransactions, setLocalTransactions] = useState<
         [{ method: string; amount: number; date: string; products: [DataElement] }] | undefined
     >();
     useEffect(() => {
-        setTransactions(data);
-    }, [data]);
+        setLocalTransactions(transactions);
+    }, [transactions]);
 
     const regExp = useMemo(() => new RegExp('^\\d*([.,]\\d{0,' + maxDecimals + '})?$'), []);
 
@@ -123,12 +124,12 @@ export const NumPad: FC = () => {
     }, [amount, openPopup, total, addPayment]);
 
     const showTransactionsSummary = useCallback(() => {
-        if (!transactions) return;
+        if (!localTransactions) return;
 
         let categories: [DataElement] | undefined = undefined;
         let payments: [DataElement] | undefined = undefined;
 
-        transactions.forEach((transaction) => {
+        localTransactions.forEach((transaction) => {
             const payment = payments?.find((payment) => payment.category === transaction.method);
             if (payment) {
                 payment.quantity++;
@@ -159,7 +160,7 @@ export const NumPad: FC = () => {
         if (!categories) categories = [{ category: '', quantity: 0, amount: 0 }];
         if (!payments) payments = [{ category: '', quantity: 0, amount: 0 }];
 
-        const totalAmount = transactions.reduce((total, transaction) => total + transaction.amount, 0);
+        const totalAmount = localTransactions.reduce((total, transaction) => total + transaction.amount, 0);
         const totalProducts = categories.reduce((total, category) => total + category.quantity, 0);
 
         const taxes = inventory
@@ -206,7 +207,7 @@ export const NumPad: FC = () => {
             );
 
         openPopup(totalProducts + ' pdts : ' + totalAmount.toFixed(maxDecimals) + '€', summary);
-    }, [openPopup, transactions]);
+    }, [openPopup, localTransactions]);
 
     const multiply = useCallback(() => {
         setQuantity(-1);
@@ -233,7 +234,7 @@ export const NumPad: FC = () => {
     let f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
     const f1 = f + (amount || total ? 'active:bg-lime-300 text-lime-500' : 'invisible');
     const f2 = f + (quantity ? 'bg-lime-300 ' : '') + (amount ? 'active:bg-lime-300 text-lime-500' : 'invisible');
-    const f3 = f + (transactions ? 'active:bg-lime-300 text-lime-500' : 'invisible');
+    const f3 = f + (localTransactions ? 'active:bg-lime-300 text-lime-500' : 'invisible');
 
     return (
         <div className={useAddPopupClass('inset-0 flex flex-col justify-evenly')}>

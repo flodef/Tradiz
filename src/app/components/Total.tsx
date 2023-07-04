@@ -7,15 +7,16 @@ import { useAddPopupClass } from './Popup';
 import { Separator } from './Separator';
 
 export const Total: FC = () => {
-    const { total, amount, products, addProduct, deleteProduct, data, saveData } = useData();
+    const { total, amount, products, addProduct, deleteProduct, transactions, saveTransactions } = useData();
     const { openPopup } = usePopup();
 
-    const [transactions, setTransactions] = useState<
+    // Hack to avoid differences between the server and the client, generating hydration issues
+    const [localTransactions, setLocalTransactions] = useState<
         [{ method: string; amount: number; date: string; products: [DataElement] }] | undefined
     >();
     useEffect(() => {
-        setTransactions(data);
-    }, [data]);
+        setLocalTransactions(transactions);
+    }, [transactions]);
 
     const displayProduct = useCallback((product: DataElement) => {
         return (
@@ -57,17 +58,17 @@ export const Total: FC = () => {
     }, [openPopup, products, displayProduct, deleteProduct, confirmDeleteProduct]);
 
     const showTransactions = useCallback(() => {
-        if (!transactions?.length) return;
+        if (!localTransactions?.length) return;
 
-        const totalAmount = transactions.reduce((total, transaction) => total + transaction.amount, 0);
-        const totalTransactions = transactions.length;
-        const summary = transactions.map(
+        const totalAmount = localTransactions.reduce((total, transaction) => total + transaction.amount, 0);
+        const totalTransactions = localTransactions.length;
+        const summary = localTransactions.map(
             (transaction) =>
                 transaction.amount.toFixed(maxDecimals) + '€ en ' + transaction.method + ' à ' + transaction.date
         );
 
         const showBoughtProducts = (label: string, index: number) => {
-            const transaction = transactions?.at(index);
+            const transaction = localTransactions?.at(index);
             if (!transaction || !transaction.amount || !label) return;
 
             setTimeout(() =>
@@ -83,9 +84,9 @@ export const Total: FC = () => {
                                 0
                             );
                             if (!transaction.amount) {
-                                transactions.splice(index, 1);
+                                localTransactions.splice(index, 1);
                             }
-                            saveData(transactions);
+                            saveTransactions(localTransactions);
                         },
                         () => showBoughtProducts(label, index)
                     )
@@ -96,21 +97,21 @@ export const Total: FC = () => {
         openPopup(totalTransactions + ' vts : ' + totalAmount.toFixed(maxDecimals) + '€', summary, showBoughtProducts, {
             confirmTitle: 'Modifier ?',
             action: (...param) => {
-                transactions.at(param[1])?.products.forEach(addProduct);
-                transactions.splice(param[1], 1);
-                saveData(transactions);
+                localTransactions.at(param[1])?.products.forEach(addProduct);
+                localTransactions.splice(param[1], 1);
+                saveTransactions(localTransactions);
             },
         });
-    }, [openPopup, transactions, addProduct, saveData, displayProduct, confirmDeleteProduct]);
+    }, [openPopup, localTransactions, addProduct, saveTransactions, displayProduct, confirmDeleteProduct]);
 
     const handleClick = useMemo(() => {
-        return total ? showProducts : transactions?.length ? showTransactions : () => {};
-    }, [showProducts, showTransactions, total, transactions]);
+        return total ? showProducts : localTransactions?.length ? showTransactions : () => {};
+    }, [showProducts, showTransactions, total, localTransactions]);
 
     return (
         <div
             className={useAddPopupClass(
-                'inset-x-0 ' + (total || transactions?.length ? 'active:bg-orange-300' : 'invisible')
+                'inset-x-0 ' + (total || localTransactions?.length ? 'active:bg-orange-300' : 'invisible')
             )}
         >
             <div
@@ -125,8 +126,8 @@ export const Total: FC = () => {
                     <div>
                         Total : <Amount value={total} decimals={maxDecimals} showZero />
                     </div>
-                ) : transactions?.length ? (
-                    'Ticket : ' + transactions.length + ' vts'
+                ) : localTransactions?.length ? (
+                    'Ticket : ' + localTransactions.length + ' vts'
                 ) : null}
             </div>
             <Separator />

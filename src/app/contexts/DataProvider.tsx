@@ -26,7 +26,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         const date = new Date();
         return date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate();
     }, []);
-    const [data, setData] = useLocalStorage<[Transaction] | undefined>('Transactions ' + today, undefined);
+    const [transactions, setTransactions] = useLocalStorage<[Transaction] | undefined>(
+        'Transactions ' + today,
+        undefined
+    );
 
     const clearAmount = useCallback(() => {
         setAmount(0);
@@ -42,8 +45,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const addProduct = useCallback(
         (product: string | DataElement) => {
-            if (!amount) return;
-
             let element: DataElement = { category: '', label: '', quantity: 0, amount: 0 };
             if (typeof product === 'object') {
                 element = product;
@@ -80,14 +81,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [total, products]
     );
 
-    const saveData = useCallback(
+    const saveTransactions = useCallback(
         (transactions: [Transaction]) => {
-            setData(undefined);
+            setTransactions(undefined);
             if (transactions.length) {
-                setTimeout(() => setData(transactions));
+                setTimeout(() => setTransactions(transactions));
             }
         },
-        [setData]
+        [setTransactions]
     );
 
     const addPayment = useCallback(
@@ -95,19 +96,19 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!total || !method || !products) return;
 
             const currentHour = new Date().getHours() + 'h' + ('0' + new Date().getMinutes()).slice(-2);
-            let transactions = addElement(data, {
+            let newTransactions = addElement(transactions, {
                 method: method,
                 amount: total,
                 date: currentHour,
                 products: products,
             });
 
-            saveData(transactions);
+            saveTransactions(newTransactions);
 
             clearAmount();
             clearTotal();
         },
-        [clearAmount, clearTotal, total, products, saveData, data]
+        [clearAmount, clearTotal, total, products, saveTransactions, transactions]
     );
 
     return (
@@ -126,8 +127,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 clearTotal,
                 products,
                 addPayment,
-                data,
-                saveData,
+                transactions,
+                saveTransactions,
             }}
         >
             {children}
