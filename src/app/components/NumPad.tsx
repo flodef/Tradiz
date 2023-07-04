@@ -6,7 +6,7 @@ import { usePopup } from '../hooks/usePopup';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { WalletIcon } from '../images/WalletIcon';
-import { inventory, maxDecimals, maxValue, paymentMethods } from '../page';
+import { inventory, maxDecimals, maxValue, paymentMethods } from '../utils/data';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isMobileDevice } from '../utils/mobile';
 import { Amount } from './Amount';

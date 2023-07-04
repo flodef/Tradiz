@@ -1,7 +1,7 @@
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { DataElement, useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
-import { maxDecimals, otherKeyword } from '../page';
+import { maxDecimals, otherKeyword } from '../utils/data';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
 import { Separator } from './Separator';

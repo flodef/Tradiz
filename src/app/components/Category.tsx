@@ -1,7 +1,7 @@
 import { FC, MouseEventHandler, useCallback } from 'react';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
-import { inventory, otherKeyword } from '../page';
+import { inventory, otherKeyword } from '../utils/data';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isMobileDevice } from '../utils/mobile';
 import { useAddPopupClass } from './Popup';
