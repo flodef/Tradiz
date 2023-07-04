@@ -6,6 +6,7 @@ import { Popup } from './components/Popup';
 import { Total } from './components/Total';
 import { DataProvider } from './contexts/DataProvider';
 import { PopupProvider } from './contexts/PopupProvider';
+import {} from './utils/currency';
 
 export default function Home() {
     return (

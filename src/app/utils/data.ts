@@ -2,6 +2,7 @@ export const otherKeyword = 'Autres';
 export const categorySeparator = '>';
 export const maxDecimals = 2;
 export const maxValue = 999.99;
+export const currency = '€';
 export const inventory = [
     {
         category: 'Boulange',
