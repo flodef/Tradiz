@@ -6,7 +6,7 @@ export interface DataProviderProps {
     children: ReactNode;
 }
 
-function addElement<T>(array: [T] | undefined, element: T): [T] {
+export function addElement<T>(array: [T] | undefined, element: T): [T] {
     if (!array) {
         return [element];
     } else {
@@ -19,6 +19,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [total, setTotal] = useState(0);
     const [amount, setAmount] = useState(0);
     const [quantity, setQuantity] = useState(0);
+    const [category, setCategory] = useState('');
     const [products, setProducts] = useState<[DataElement] | undefined>();
     const today = useMemo(() => {
         const date = new Date();
@@ -29,26 +30,31 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const clearAmount = useCallback(() => {
         setAmount(0);
         setQuantity(0);
+        setCategory('');
     }, []);
 
     const clearTotal = useCallback(() => {
+        clearAmount();
         setTotal(0);
-        setQuantity(0);
         setProducts(undefined);
-    }, []);
+    }, [clearAmount]);
 
     const addProduct = useCallback(
         (product: string | DataElement) => {
-            if ((!amount && typeof product === 'string') || !product) return;
+            if (!amount) return;
 
-            let element: DataElement = { category: '', quantity: 0, amount: 0 };
-            if (typeof product === 'string') {
-                element.category = product;
+            let element: DataElement = { category: '', label: '', quantity: 0, amount: 0 };
+            if (typeof product === 'object') {
+                element = product;
+            } else {
+                const p = (product ?? category).split('>');
+                element.category = p.at(0) ?? '';
+                element.label = p.at(1) ?? '';
                 element.quantity = Math.max(1, quantity);
                 element.amount = amount;
-            } else {
-                element = product;
             }
+
+            if (!element.category || !element.amount || !element.quantity) return;
 
             setTotal(parseFloat((total + element.amount * element.quantity).toFixed(2)));
 
@@ -56,7 +62,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             clearAmount();
         },
-        [amount, total, quantity, clearAmount, products]
+        [amount, total, quantity, clearAmount, products, category]
     );
 
     const deleteProduct = useCallback(
@@ -111,6 +117,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 setAmount,
                 quantity,
                 setQuantity,
+                category,
+                setCategory,
                 addProduct,
                 deleteProduct,
                 clearAmount,

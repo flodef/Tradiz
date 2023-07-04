@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react';
 
 export interface DataElement {
     category: string;
+    label?: string;
     quantity: number;
     amount: number;
 }
@@ -19,6 +20,8 @@ export interface DataContextState {
     setAmount: (amount: number) => void;
     quantity: number;
     setQuantity: (quantity: number) => void;
+    category: string;
+    setCategory: (category: string) => void;
     addProduct: (category: string | DataElement) => void;
     deleteProduct: (label: string, index: number) => void;
     clearAmount: () => void;
