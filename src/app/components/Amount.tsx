@@ -1,4 +1,5 @@
 import { FC, useMemo } from 'react';
+import { currency, maxDecimals } from '../utils/data';
 
 export interface AmountProps {
     value: number | string | undefined;
@@ -8,8 +9,7 @@ export interface AmountProps {
     className?: string;
 }
 
-export const Amount: FC<AmountProps> = ({ className, value, showZero, decimals }) => {
-    const currency = '€';
+export const Amount: FC<AmountProps> = ({ className, value, showZero, decimals = maxDecimals }) => {
     const NON_BREAKING_SPACE = '\u00a0';
 
     const amount = useMemo(() => {
