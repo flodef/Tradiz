@@ -1,5 +1,6 @@
 import { FC, ReactNode, useCallback, useMemo, useState } from 'react';
 import { DataContext, DataElement, Transaction } from '../hooks/useData';
+import { categorySeparator } from '../utils/data';
 import { useLocalStorage } from '../utils/localStorage';
 
 export interface DataProviderProps {
@@ -47,7 +48,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (typeof product === 'object') {
                 element = product;
             } else {
-                const p = (product ?? category).split('>');
+                const p = (product ?? category).split(categorySeparator);
                 element.category = p.at(0) ?? '';
                 element.label = p.at(1) ?? '';
                 element.quantity = Math.max(1, quantity);
