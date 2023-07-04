@@ -48,7 +48,7 @@ export const Popup: FC = () => {
         // <div className={removePopupClass('z-20 opacity-50 bg-gray-900 h-screen w-screen grid absolute')}>
         <div
             className={useRemovePopupClass(
-                'z-30 w-5/6 max-h-[90%] overflow-y-auto absolute opacity-100 brightness-100 justify-self-center bg-slate-100 h-fit rounded-2xl self-center blur-none border-black'
+                'z-30 w-[90%] max-h-[90%] overflow-y-auto absolute opacity-100 brightness-100 justify-self-center bg-slate-100 h-fit rounded-2xl self-center blur-none border-black'
             )}
             style={{ borderWidth: 'medium' }}
         >
