@@ -64,7 +64,7 @@ export const Popup: FC = () => {
                     option ? (
                         <div
                             className={
-                                (popupAction || popupSpecialAction ? 'active:bg-lime-300 ' : '') +
+                                // (popupAction || popupSpecialAction ? 'active:bg-lime-300 ' : '') +
                                 (optionCount <= 7
                                     ? 'py-3 '
                                     : optionCount <= 10
