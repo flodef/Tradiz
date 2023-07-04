@@ -1,9 +1,12 @@
 import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useState } from 'react';
+import { addElement } from '../contexts/DataProvider';
 import { Digits } from '../hooks/useConfig';
 import { DataElement, useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { BackspaceIcon } from '../images/BackspaceIcon';
+import { BasketIcon } from '../images/BasketIcon';
 import { WalletIcon } from '../images/WalletIcon';
+import { inventory, maxDecimals, maxValue, paymentMethods } from '../page';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isMobileDevice } from '../utils/mobile';
 import { Amount } from './Amount';
@@ -47,21 +50,23 @@ const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, className }) =>
     );
 };
 
-export interface NumPadProps {
-    maxDecimals: Digits;
-    maxValue: number;
-    paymentMethods: string[];
-    taxes: {
-        rate: number;
-        categories: string[];
-    }[];
-}
-
-export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods, taxes }) => {
-    const { total, amount, setAmount, quantity, setQuantity, clearAmount, clearTotal, addPayment, data } = useData();
+export const NumPad: FC = () => {
+    const {
+        total,
+        amount,
+        setAmount,
+        quantity,
+        setQuantity,
+        clearAmount,
+        clearTotal,
+        addPayment,
+        data,
+        category,
+        addProduct,
+    } = useData();
     const { openPopup } = usePopup();
 
-    maxValue *= Math.pow(10, maxDecimals);
+    const max = maxValue * Math.pow(10, maxDecimals);
 
     const [transactions, setTransactions] = useState<
         [{ method: string; amount: number; date: string; products: [DataElement] }] | undefined
@@ -70,7 +75,7 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
         setTransactions(data);
     }, [data]);
 
-    const regExp = useMemo(() => new RegExp('^\\d*([.,]\\d{0,' + maxDecimals + '})?$'), [maxDecimals]);
+    const regExp = useMemo(() => new RegExp('^\\d*([.,]\\d{0,' + maxDecimals + '})?$'), []);
 
     const [value, setValue] = useState('0');
     const onInput = useCallback(
@@ -80,8 +85,7 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
                     let newValue = (value + key).trim().replace(/^0{2,}/, '0');
                     if (newValue) {
                         newValue = /^[.,]/.test(newValue) ? `0${newValue}` : newValue.replace(/^0+(\d)/, '$1');
-                        if (regExp.test(newValue))
-                            return parseFloat(newValue) <= maxValue ? newValue : maxValue.toString();
+                        if (regExp.test(newValue)) return parseFloat(newValue) <= max ? newValue : max.toString();
                     }
                     return value;
                 });
@@ -90,7 +94,7 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
                 setQuantity(parseInt(newValue));
             }
         },
-        [maxValue, regExp, quantity, setQuantity]
+        [max, regExp, quantity, setQuantity]
     );
 
     const onBackspace = useCallback<MouseEventHandler>(
@@ -116,20 +120,10 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
         if (total && !amount) {
             openPopup('Paiement : ' + total.toFixed(maxDecimals) + '€', paymentMethods, addPayment);
         }
-    }, [amount, openPopup, paymentMethods, total, addPayment, maxDecimals]);
+    }, [amount, openPopup, total, addPayment]);
 
     const showTransactionsSummary = useCallback(() => {
         if (!transactions) return;
-
-        const addElement = (array: [DataElement] | undefined, element: DataElement) => {
-            if (!array) {
-                array = [element];
-            } else {
-                array.push(element);
-            }
-
-            return array;
-        };
 
         let categories: [DataElement] | undefined = undefined;
         let payments: [DataElement] | undefined = undefined;
@@ -168,6 +162,17 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
         const totalAmount = transactions.reduce((total, transaction) => total + transaction.amount, 0);
         const totalProducts = categories.reduce((total, category) => total + category.quantity, 0);
 
+        const taxes = inventory
+            .map(({ rate }) => rate)
+            .filter((rate, index, array) => rate && array.indexOf(rate) === index)
+            .map((rate) => {
+                const categories = inventory
+                    .filter((tax) => tax.rate === rate)
+                    .map(({ category }) => category)
+                    .filter((category, index, array) => array.indexOf(category) === index);
+                return { rate, categories };
+            });
+
         const summary = categories
             ?.map(
                 (category) =>
@@ -201,7 +206,7 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
             );
 
         openPopup(totalProducts + ' pdts : ' + totalAmount.toFixed(maxDecimals) + '€', summary);
-    }, [maxDecimals, openPopup, taxes, transactions]);
+    }, [openPopup, transactions]);
 
     const multiply = useCallback(() => {
         setQuantity(-1);
@@ -209,7 +214,7 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
 
     useEffect(() => {
         setAmount(parseInt(value) / Math.pow(10, maxDecimals));
-    }, [value, maxDecimals, setAmount]);
+    }, [value, setAmount]);
     useEffect(() => {
         if (!amount) {
             setValue('0');
@@ -222,8 +227,8 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
         [1, 2, 3],
     ];
 
-    let sx = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl ';
-    const s1 = sx + (total && !amount ? 'active:bg-lime-300 text-lime-500' : 'invisible');
+    const canPay = total && !amount;
+    const canAddProduct = amount && category;
 
     let f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
     const f1 = f + (amount || total ? 'active:bg-lime-300 text-lime-500' : 'invisible');
@@ -257,8 +262,11 @@ export const NumPad: FC<NumPadProps> = ({ maxDecimals, maxValue, paymentMethods,
                 <div className="flex justify-evenly">
                     <NumPadButton input={0} onInput={onInput} />
                     <NumPadButton input={'00'} onInput={onInput} />
-                    <div className={s1} onClick={onPay}>
-                        <WalletIcon />
+                    <div
+                        className="w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl active:bg-lime-300 text-lime-500"
+                        onClick={canPay ? onPay : canAddProduct ? () => addProduct(category) : () => {}}
+                    >
+                        {canPay ? <WalletIcon /> : canAddProduct ? <BasketIcon /> : ''}
                     </div>
                 </div>
             </div>
