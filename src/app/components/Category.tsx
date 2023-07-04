@@ -27,8 +27,6 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
         [input, onInput]
     );
 
-    console.log(input, category.split(categorySeparator)[0]);
-
     return (
         <div
             className={
@@ -44,7 +42,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
 };
 
 export const Category: FC = () => {
-    const { addProduct, amount, setAmount, category, setCategory } = useData();
+    const { addProduct, amount, setAmount, category, setCategory, setQuantity } = useData();
     const { openPopup } = usePopup();
 
     const addCategory = useCallback(
@@ -77,14 +75,17 @@ export const Category: FC = () => {
                         }
                         if (!amount || category) {
                             const price = item.products.at(index)?.price;
-                            if (option !== otherKeyword && price) setAmount(price);
+                            if (option !== otherKeyword && price) {
+                                setAmount(price);
+                                setQuantity(-1); // Set the multiplier to 1 (ready for the next input)
+                            }
                             setCategory(newCategory);
                         }
                     }
                 );
             }
         },
-        [openPopup, amount, setAmount, addCategory, setCategory, category]
+        [openPopup, amount, setAmount, addCategory, setCategory, category, setQuantity]
     );
 
     return (
