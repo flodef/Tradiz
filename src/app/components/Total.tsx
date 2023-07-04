@@ -1,7 +1,7 @@
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { DataElement, useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
-import { maxDecimals, otherKeyword } from '../utils/data';
+import { otherKeyword } from '../utils/data';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
 import { Separator } from './Separator';
@@ -22,12 +22,11 @@ export const Total: FC = () => {
         return (
             (product.label && product.label !== otherKeyword ? product.label : product.category) +
             ' : ' +
-            product.amount.toFixed(maxDecimals) +
-            '€ x ' +
+            product.amount.toCurrency() +
+            ' x ' +
             product.quantity +
             ' = ' +
-            (product.amount * product.quantity).toFixed(maxDecimals) +
-            '€'
+            (product.amount * product.quantity).toCurrency()
         );
     }, []);
 
@@ -49,10 +48,7 @@ export const Total: FC = () => {
 
         openPopup(
             'Total : ' +
-                products.current
-                    .reduce((total, product) => total + product.amount * product.quantity, 0)
-                    .toFixed(maxDecimals) +
-                '€',
+                products.current.reduce((total, product) => total + product.amount * product.quantity, 0).toCurrency(),
             products.current.map(displayProduct),
             undefined,
             confirmDeleteProduct(deleteProduct, showProducts)
@@ -65,8 +61,7 @@ export const Total: FC = () => {
         const totalAmount = localTransactions.reduce((total, transaction) => total + transaction.amount, 0);
         const totalTransactions = localTransactions.length;
         const summary = localTransactions.map(
-            (transaction) =>
-                transaction.amount.toFixed(maxDecimals) + '€ en ' + transaction.method + ' à ' + transaction.date
+            (transaction) => transaction.amount.toCurrency() + ' en ' + transaction.method + ' à ' + transaction.date
         );
 
         const showBoughtProducts = (label: string, index: number) => {
@@ -75,7 +70,7 @@ export const Total: FC = () => {
 
             setTimeout(() =>
                 openPopup(
-                    transaction.amount.toFixed(maxDecimals) + '€ en ' + transaction.method,
+                    transaction.amount.toCurrency() + ' en ' + transaction.method,
                     transaction.products.map(displayProduct),
                     () => setTimeout(showTransactions),
                     confirmDeleteProduct(
@@ -96,7 +91,7 @@ export const Total: FC = () => {
             );
         };
 
-        openPopup(totalTransactions + ' vts : ' + totalAmount.toFixed(maxDecimals) + '€', summary, showBoughtProducts, {
+        openPopup(totalTransactions + ' vts : ' + totalAmount.toCurrency(), summary, showBoughtProducts, {
             confirmTitle: 'Modifier ?',
             action: (...param) => {
                 localTransactions.at(param[1])?.products.forEach(addProduct);
@@ -113,7 +108,7 @@ export const Total: FC = () => {
     return (
         <div
             className={useAddPopupClass(
-                'inset-x-0 ' + (total || localTransactions?.length ? 'active:bg-orange-300' : 'invisible')
+                'inset-x-0 ' + (total || localTransactions?.length ? 'active:bg-orange-300' : 'hidden')
             )}
         >
             <div
@@ -126,7 +121,7 @@ export const Total: FC = () => {
             >
                 {total || amount ? (
                     <div>
-                        Total : <Amount value={total} decimals={maxDecimals} showZero />
+                        Total : <Amount value={total} showZero />
                     </div>
                 ) : localTransactions?.length ? (
                     'Ticket : ' + localTransactions.length + ' vts'
