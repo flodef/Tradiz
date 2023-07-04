@@ -1,16 +1,12 @@
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { Digits } from '../hooks/useConfig';
 import { DataElement, useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
+import { maxDecimals, otherKeyword } from '../page';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
 import { Separator } from './Separator';
 
-export interface TotalProps {
-    maxDecimals: Digits;
-}
-
-export const Total: FC<TotalProps> = ({ maxDecimals }) => {
+export const Total: FC = () => {
     const { total, amount, products, addProduct, deleteProduct, data, saveData } = useData();
     const { openPopup } = usePopup();
 
@@ -21,21 +17,18 @@ export const Total: FC<TotalProps> = ({ maxDecimals }) => {
         setTransactions(data);
     }, [data]);
 
-    const displayProduct = useCallback(
-        (product: DataElement) => {
-            return (
-                product.category +
-                ' : ' +
-                product.amount.toFixed(maxDecimals) +
-                '€ x ' +
-                product.quantity +
-                ' = ' +
-                (product.amount * product.quantity).toFixed(maxDecimals) +
-                '€'
-            );
-        },
-        [maxDecimals]
-    );
+    const displayProduct = useCallback((product: DataElement) => {
+        return (
+            (product.label && product.label !== otherKeyword ? product.label : product.category) +
+            ' : ' +
+            product.amount.toFixed(maxDecimals) +
+            '€ x ' +
+            product.quantity +
+            ' = ' +
+            (product.amount * product.quantity).toFixed(maxDecimals) +
+            '€'
+        );
+    }, []);
 
     const confirmDeleteProduct = useCallback(
         (deleteAction: (option: string, index: number) => void, fallback: () => void) => {
@@ -61,7 +54,7 @@ export const Total: FC<TotalProps> = ({ maxDecimals }) => {
             undefined,
             confirmDeleteProduct(deleteProduct, showProducts)
         );
-    }, [openPopup, products, maxDecimals, displayProduct, deleteProduct, confirmDeleteProduct]);
+    }, [openPopup, products, displayProduct, deleteProduct, confirmDeleteProduct]);
 
     const showTransactions = useCallback(() => {
         if (!transactions?.length) return;
@@ -108,7 +101,7 @@ export const Total: FC<TotalProps> = ({ maxDecimals }) => {
                 saveData(transactions);
             },
         });
-    }, [maxDecimals, openPopup, transactions, addProduct, saveData, displayProduct, confirmDeleteProduct]);
+    }, [openPopup, transactions, addProduct, saveData, displayProduct, confirmDeleteProduct]);
 
     const handleClick = useMemo(() => {
         return total ? showProducts : transactions?.length ? showTransactions : () => {};
