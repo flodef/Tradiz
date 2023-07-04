@@ -1,4 +1,4 @@
-import { FC, ReactNode, useCallback, useMemo, useState } from 'react';
+import { FC, ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 import { DataContext, DataElement, Transaction } from '../hooks/useData';
 import { categorySeparator } from '../utils/data';
 import { useLocalStorage } from '../utils/localStorage';
@@ -21,7 +21,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [amount, setAmount] = useState(0);
     const [quantity, setQuantity] = useState(0);
     const [category, setCategory] = useState('');
-    const [products, setProducts] = useState<[DataElement] | undefined>();
+    const products = useRef<[DataElement] | undefined>();
     const today = useMemo(() => {
         const date = new Date();
         return date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate();
@@ -40,7 +40,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const clearTotal = useCallback(() => {
         clearAmount();
         setTotal(0);
-        setProducts(undefined);
+        products.current = undefined;
     }, [clearAmount]);
 
     const addProduct = useCallback(
@@ -58,24 +58,27 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             if (!element.category || !element.amount || !element.quantity) return;
 
-            setTotal(parseFloat((total + element.amount * element.quantity).toFixed(2)));
+            products.current = addElement(products.current, element);
 
-            setProducts(addElement(products, element));
+            const total = products.current.reduce((total, product) => total + product.amount * product.quantity, 0);
+            setTotal(total);
 
             clearAmount();
         },
-        [amount, total, quantity, clearAmount, products, category]
+        [amount, quantity, clearAmount, products, category]
     );
 
     const deleteProduct = useCallback(
         (label: string, index: number) => {
-            if (!total || !label || !products?.length) return;
+            if (!total || !label || !products.current?.length) return;
 
-            const product = products.splice(index, 1).at(0);
+            const product = products.current.splice(index, 1).at(0);
             if (!product) return;
 
             setTotal(
-                parseFloat(products.reduce((total, product) => total + product.amount * product.quantity, 0).toFixed(2))
+                parseFloat(
+                    products.current.reduce((total, product) => total + product.amount * product.quantity, 0).toFixed(2)
+                )
             );
         },
         [total, products]
@@ -93,14 +96,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const addPayment = useCallback(
         (method: string) => {
-            if (!total || !method || !products) return;
+            if (!total || !method || !products.current) return;
 
             const currentHour = new Date().getHours() + 'h' + ('0' + new Date().getMinutes()).slice(-2);
             let newTransactions = addElement(transactions, {
                 method: method,
                 amount: total,
                 date: currentHour,
-                products: products,
+                products: products.current,
             });
 
             saveTransactions(newTransactions);

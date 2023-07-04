@@ -45,13 +45,15 @@ export const Total: FC = () => {
     );
 
     const showProducts = useCallback(() => {
-        if (!products?.length) return;
+        if (!products.current?.length) return;
 
         openPopup(
             'Total : ' +
-                products.reduce((total, product) => total + product.amount * product.quantity, 0).toFixed(maxDecimals) +
+                products.current
+                    .reduce((total, product) => total + product.amount * product.quantity, 0)
+                    .toFixed(maxDecimals) +
                 '€',
-            products.map(displayProduct),
+            products.current.map(displayProduct),
             undefined,
             confirmDeleteProduct(deleteProduct, showProducts)
         );
