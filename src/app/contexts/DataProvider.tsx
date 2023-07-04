@@ -8,7 +8,7 @@ export interface DataProviderProps {
 }
 
 export function addElement<T>(array: [T] | undefined, element: T): [T] {
-    if (!array) {
+    if (!array?.length) {
         return [element];
     } else {
         array.unshift(element);
@@ -31,6 +31,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         undefined
     );
 
+    const updateTotal = useCallback(() => {
+        setTotal(
+            products.current
+                ? products.current.reduce((total, product) => total + product.amount * product.quantity, 0)
+                : 0
+        );
+    }, []);
+
     const clearAmount = useCallback(() => {
         setAmount(0);
         setQuantity(0);
@@ -39,9 +47,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const clearTotal = useCallback(() => {
         clearAmount();
-        setTotal(0);
         products.current = undefined;
-    }, [clearAmount]);
+        updateTotal();
+    }, [clearAmount, updateTotal]);
 
     const addProduct = useCallback(
         (product: string | DataElement) => {
@@ -60,28 +68,22 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             products.current = addElement(products.current, element);
 
-            const total = products.current.reduce((total, product) => total + product.amount * product.quantity, 0);
-            setTotal(total);
+            updateTotal();
 
             clearAmount();
         },
-        [amount, quantity, clearAmount, products, category]
+        [amount, quantity, clearAmount, products, category, updateTotal]
     );
 
     const deleteProduct = useCallback(
         (label: string, index: number) => {
-            if (!total || !label || !products.current?.length) return;
+            if (!products.current?.length) return;
 
-            const product = products.current.splice(index, 1).at(0);
-            if (!product) return;
+            products.current.splice(index, 1).at(0);
 
-            setTotal(
-                parseFloat(
-                    products.current.reduce((total, product) => total + product.amount * product.quantity, 0).toFixed(2)
-                )
-            );
+            updateTotal();
         },
-        [total, products]
+        [products, updateTotal]
     );
 
     const saveTransactions = useCallback(
