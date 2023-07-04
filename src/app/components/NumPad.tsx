@@ -119,7 +119,7 @@ export const NumPad: FC = () => {
 
     const onPay = useCallback(() => {
         if (total && !amount) {
-            openPopup('Paiement : ' + total.toFixed(maxDecimals) + '€', paymentMethods, addPayment);
+            openPopup('Paiement : ' + total.toCurrency(), paymentMethods, addPayment);
         }
     }, [amount, openPopup, total, addPayment]);
 
@@ -175,10 +175,7 @@ export const NumPad: FC = () => {
             });
 
         const summary = categories
-            ?.map(
-                (category) =>
-                    category.category + ' x ' + category.quantity + ' ==> ' + category.amount.toFixed(maxDecimals) + '€'
-            )
+            ?.map((category) => category.category + ' x ' + category.quantity + ' ==> ' + category.amount.toCurrency())
             .concat([''])
             .concat(
                 taxes.map((tax) => {
@@ -189,24 +186,54 @@ export const NumPad: FC = () => {
 
                     const ht = total / (1 + tax.rate / 100);
                     const tva = total - ht;
-                    return tax.rate + '%: HT ' + ht.toFixed(maxDecimals) + '€ / TVA ' + tva.toFixed(maxDecimals) + '€';
+                    return tax.rate + '%: HT ' + ht.toCurrency() + ' / TVA ' + tva.toCurrency();
                 })
             )
 
             .concat([''])
             .concat(
                 payments.map(
-                    (payment) =>
-                        payment.category +
-                        ' x ' +
-                        payment.quantity +
-                        ' ==> ' +
-                        payment.amount.toFixed(maxDecimals) +
-                        '€'
+                    (payment) => payment.category + ' x ' + payment.quantity + ' ==> ' + payment.amount.toCurrency()
                 )
             );
 
-        openPopup(totalProducts + ' pdts : ' + totalAmount.toFixed(maxDecimals) + '€', summary);
+        openPopup(totalProducts + ' pdts : ' + totalAmount.toCurrency(), summary, (option, index) => {
+            if (!categories?.length || index >= categories.length) {
+                setTimeout(showTransactionsSummary);
+                return;
+            }
+
+            const category = categories[index];
+            const array = [] as { label: string; quantity: number; amount: number }[];
+            localTransactions?.flatMap((transaction) =>
+                transaction.products
+                    .filter((product) => product.category === category.category)
+                    .forEach(({ label, quantity, amount }) => {
+                        const index = array.findIndex((p) => p.label === label);
+                        if (index >= 0) {
+                            array[index].quantity += quantity;
+                            array[index].amount += quantity * amount;
+                        } else {
+                            array.push({
+                                label: label || '',
+                                quantity: quantity,
+                                amount: quantity * amount,
+                            });
+                        }
+                    })
+            );
+            const summary = array.map(
+                ({ label, quantity, amount }) => label + ' x ' + quantity + ' ==> ' + amount.toCurrency()
+            );
+
+            setTimeout(() =>
+                openPopup(
+                    category.category + ' x' + category.quantity + ': ' + category.amount.toCurrency(),
+                    summary,
+                    () => setTimeout(showTransactionsSummary)
+                )
+            );
+        });
     }, [openPopup, localTransactions]);
 
     const multiply = useCallback(() => {
@@ -245,7 +272,6 @@ export const NumPad: FC = () => {
                 <Amount
                     className="min-w-[145px] text-right leading-normal"
                     value={amount * Math.max(quantity, 1)}
-                    decimals={maxDecimals}
                     showZero
                 />
                 <div className={f1} onClick={onBackspace} onContextMenu={onBackspace}>
