@@ -6,19 +6,21 @@ import { usePopup } from '../hooks/usePopup';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { WalletIcon } from '../images/WalletIcon';
-import { inventory, maxDecimals, maxValue, paymentMethods } from '../utils/data';
+import { defaultDate, inventory, maxDecimals, maxValue, paymentMethods } from '../utils/data';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isMobileDevice } from '../utils/mobile';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
+import { takeScreenshot } from '../utils/screenshot';
 
 interface NumPadButtonProps {
     input: Digits | string;
     onInput(key: Digits | string): void;
+    onContextMenu?(e: React.MouseEvent<HTMLDivElement, MouseEvent>): void;
     className?: string;
 }
 
-const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
+const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu }) => {
     const onClick = useCallback(() => {
         if (!isFullscreen() && isMobileDevice()) {
             requestFullscreen();
@@ -30,13 +32,14 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
             className="w-20 h-20 active:bg-lime-300 rounded-2xl border border-lime-500 relative flex justify-center m-3 items-center font-semibold text-3xl"
             style={{ borderWidth: 'medium' }}
             onClick={onClick}
+            onContextMenu={onContextMenu}
         >
             {input}
         </div>
     );
 };
 
-const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, className }) => {
+const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu, className }) => {
     const onClick = useCallback(() => {
         if (!isFullscreen() && isMobileDevice()) {
             requestFullscreen();
@@ -44,7 +47,7 @@ const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, className }) =>
         onInput(input);
     }, [onInput, input]);
     return (
-        <div className={className} onClick={onClick}>
+        <div className={className} onClick={onClick} onContextMenu={onContextMenu}>
             {input}
         </div>
     );
@@ -278,7 +281,16 @@ export const NumPad: FC = () => {
                     <BackspaceIcon />
                 </div>
                 <FunctionButton className={f2} input="&times;" onInput={multiply} />
-                <FunctionButton className={f3} input="z" onInput={showTransactionsSummary} />
+                <FunctionButton
+                    className={f3}
+                    input="z"
+                    onInput={showTransactionsSummary}
+                    onContextMenu={(e) => {
+                        e.preventDefault();
+                        showTransactionsSummary();
+                        takeScreenshot('TicketZ ' + defaultDate + '.png');
+                    }}
+                />
             </div>
 
             <div className="">
