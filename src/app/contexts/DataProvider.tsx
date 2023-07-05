@@ -1,6 +1,6 @@
-import { FC, ReactNode, useCallback, useMemo, useRef, useState } from 'react';
+import { FC, ReactNode, useCallback, useRef, useState } from 'react';
 import { DataContext, DataElement, Transaction } from '../hooks/useData';
-import { categorySeparator } from '../utils/data';
+import { categorySeparator, defaultDate } from '../utils/data';
 import { useLocalStorage } from '../utils/localStorage';
 
 export interface DataProviderProps {
@@ -22,12 +22,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [quantity, setQuantity] = useState(0);
     const [category, setCategory] = useState('');
     const products = useRef<[DataElement] | undefined>();
-    const today = useMemo(() => {
-        const date = new Date();
-        return date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate();
-    }, []);
     const [transactions, setTransactions] = useLocalStorage<[Transaction] | undefined>(
-        'Transactions ' + today,
+        'Transactions ' + defaultDate,
         undefined
     );
 

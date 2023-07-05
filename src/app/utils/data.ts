@@ -3,6 +3,8 @@ export const categorySeparator = '>';
 export const maxDecimals = 2;
 export const maxValue = 999.99;
 export const currency = '€';
+export const defaultDate = [new Date().getFullYear(), new Date().getMonth(), new Date().getDate()].join('-');
+
 export const inventory = [
     {
         category: 'Boulange',
