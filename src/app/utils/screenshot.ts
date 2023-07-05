@@ -11,8 +11,9 @@ export async function takeScreenshot(fileName: string) {
             }
         });
         canvas.remove();
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
+        alert(e.message);
     }
 }
 
