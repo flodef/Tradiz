@@ -49,20 +49,20 @@ export const Popup: FC = () => {
         <div
             id="popup"
             className={useRemovePopupClass(
-                'z-30 w-[90%] max-h-[90%] max-w-md overflow-y-auto absolute opacity-100 brightness-100 justify-self-center bg-slate-100 h-fit rounded-2xl self-center blur-none border-black'
+                'z-30 w-[90%] max-h-[90%] max-w-[333px] overflow-y-auto absolute opacity-100 brightness-100 justify-self-center bg-slate-100 h-fit rounded-2xl self-center blur-none border-black'
             )}
             style={{ borderWidth: 'medium' }}
         >
             <div>
-                <div className="flex justify-between">
-                    <div className="text-2xl truncate font-semibold p-3">{popupTitle}</div>
+                <div className="flex justify-between bg-lime-200">
+                    <div className="text-2xl truncate font-semibold py-3 pl-3">{popupTitle}</div>
                     <CloseButton onClose={closePopup} />
                 </div>
                 <Separator />
             </div>
             <div>
                 {popupOptions.map((option, index) =>
-                    option ? (
+                    option.trim() ? (
                         <div
                             className={
                                 // (popupAction || popupSpecialAction ? 'active:bg-lime-300 ' : '') +
@@ -73,7 +73,7 @@ export const Popup: FC = () => {
                                     : optionCount <= 13
                                     ? 'py-1 '
                                     : '') +
-                                'w-full relative flex justify-center items-center font-semibold text-xl text-center'
+                                'w-full relative flex justify-around items-center font-semibold text-xl text-center'
                             }
                             key={index}
                             onClick={() => handleClick(option, index)}
@@ -82,7 +82,9 @@ export const Popup: FC = () => {
                                 handleContextMenu(option, index);
                             }}
                         >
-                            {option}
+                            {option.split('\n').map((line, index) => (
+                                <div key={index}>{line}</div>
+                            ))}
                         </div>
                     ) : (
                         <Separator key={index} color="border-lime-300" />
