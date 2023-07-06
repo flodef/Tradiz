@@ -67,7 +67,7 @@ export const Category: FC = () => {
             } else {
                 openPopup(
                     item.category,
-                    item.products.map((product) => product.label).concat(otherKeyword),
+                    item.products.map(({ label }) => label).concat(otherKeyword),
                     (option, index) => {
                         const newCategory = item.category.concat(categorySeparator, option);
                         if (amount) {
@@ -93,21 +93,17 @@ export const Category: FC = () => {
             <Separator />
             {inventory.length > 0 && (
                 <div className="flex justify-evenly divide-x divide-orange-300">
-                    {inventory.slice(0, 3).map((item, index) => (
-                        <CategoryButton key={index} input={item.category} onInput={onInput} />
+                    {inventory.slice(0, 3).map(({ category }, index) => (
+                        <CategoryButton key={index} input={category} onInput={onInput} />
                     ))}
                 </div>
             )}
             {inventory.length > 3 && (
                 <div className="flex justify-evenly divide-x divide-orange-300">
-                    {inventory.slice(3, 6).map((item, index) => (
+                    {inventory.slice(3, 6).map(({ category }, index) => (
                         <CategoryButton
                             key={index}
-                            input={
-                                item.category === inventory[5].category && inventory.length > 6
-                                    ? otherKeyword
-                                    : item.category
-                            }
+                            input={category === inventory[5].category && inventory.length > 6 ? otherKeyword : category}
                             onInput={onInput}
                         />
                     ))}

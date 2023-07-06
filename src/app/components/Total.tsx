@@ -61,7 +61,7 @@ export const Total: FC = () => {
         const totalAmount = localTransactions.reduce((total, transaction) => total + transaction.amount, 0);
         const totalTransactions = localTransactions.length;
         const summary = localTransactions.map(
-            (transaction) => transaction.amount.toCurrency() + ' en ' + transaction.method + ' à ' + transaction.date
+            ({ amount, method, date }) => amount.toCurrency() + ' en ' + method + ' à ' + date
         );
 
         const showBoughtProducts = (label: string, index: number) => {
