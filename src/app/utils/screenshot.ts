@@ -1,65 +1,21 @@
-export async function takeScreenshot(fileName: string) {
-    try {
-        let canvas = await toCanvas();
-        canvas.toBlob((blob) => {
-            if (blob) {
-                let a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = URL.createObjectURL(blob);
-                a.download = fileName;
-                a.click();
-            }
+import html2canvas from 'html2canvas';
+
+export function takeScreenshot(elementId: string, fileName: string) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        html2canvas(element).then((canvas) => {
+            console.log(canvas);
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = fileName;
+                    a.click();
+                }
+            });
+            canvas.remove();
         });
-        canvas.remove();
-    } catch (e: any) {
-        console.error(e);
-        alert(e.message);
+    } else {
+        console.error('Element not found: ' + elementId);
     }
-}
-
-const options = {
-    video: {
-        cursor: 'never',
-        displaySurface: 'browser',
-    },
-};
-
-function draw(video: HTMLVideoElement) {
-    let canvas = document.createElement('canvas');
-    video.width = canvas.width = video.videoWidth;
-    video.height = canvas.height = video.videoHeight;
-    canvas.getContext('2d')?.drawImage(video, 0, 0);
-
-    (video.srcObject as MediaStream).getTracks().forEach((track: any) => track.stop());
-    video.srcObject = null;
-
-    return canvas;
-}
-
-async function toCanvas(): Promise<HTMLCanvasElement> {
-    let stream = await navigator.mediaDevices.getDisplayMedia(options);
-    let video = document.createElement('video');
-    video.srcObject = stream;
-    video.play();
-
-    return new Promise((resolve) => {
-        video.addEventListener(
-            'canplay',
-            (e) => {
-                let canvas = draw(video);
-                resolve(canvas);
-            },
-            { once: true }
-        );
-    });
-}
-
-async function toDataURL(...args: any[]) {
-    let canvas = await toCanvas();
-    return canvas.toDataURL(...args);
-}
-
-async function toBlob(...args: any[]) {
-    let canvas = await toCanvas();
-    return new Promise((resolve) => canvas.toBlob(resolve, ...args));
 }
