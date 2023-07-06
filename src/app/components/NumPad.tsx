@@ -12,6 +12,7 @@ import { isMobileDevice } from '../utils/mobile';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
 import { takeScreenshot } from '../utils/screenshot';
+import { ExcelXML } from '../utils/xls';
 
 interface NumPadButtonProps {
     input: Digits | string;
@@ -67,7 +68,7 @@ export const NumPad: FC = () => {
         category,
         addProduct,
     } = useData();
-    const { openPopup } = usePopup();
+    const { openPopup, closePopup } = usePopup();
 
     const max = maxValue * Math.pow(10, maxDecimals);
 
@@ -178,25 +179,25 @@ export const NumPad: FC = () => {
             });
 
         const summary = categories
-            ?.map((category) => category.category + ' x ' + category.quantity + ' ==> ' + category.amount.toCurrency())
+            ?.map(({ category, quantity, amount }) => category + ' x ' + quantity + ' ==> ' + amount.toCurrency())
             .concat([''])
             .concat(
-                taxes.map((tax) => {
-                    const total = tax.categories
+                taxes.map(({ categories: taxcategories, rate }) => {
+                    const total = taxcategories
                         .map((category) => categories?.find((c) => c.category === category)?.amount || 0)
                         .reduce((total, amount) => total + amount, 0);
                     if (!total) return ' ';
 
-                    const ht = total / (1 + tax.rate / 100);
+                    const ht = total / (1 + rate / 100);
                     const tva = total - ht;
-                    return tax.rate + '%: HT ' + ht.toCurrency() + ' / TVA ' + tva.toCurrency();
+                    return rate + '%: HT ' + ht.toCurrency() + ' / TVA ' + tva.toCurrency();
                 })
             )
 
             .concat([''])
             .concat(
                 payments.map(
-                    (payment) => payment.category + ' x ' + payment.quantity + ' ==> ' + payment.amount.toCurrency()
+                    ({ category, quantity, amount }) => category + ' x ' + quantity + ' ==> ' + amount.toCurrency()
                 )
             );
 
@@ -208,8 +209,8 @@ export const NumPad: FC = () => {
 
             const category = categories[index];
             const array = [] as { label: string; quantity: number; amount: number }[];
-            localTransactions?.flatMap((transaction) =>
-                transaction.products
+            localTransactions?.flatMap(({ products }) =>
+                products
                     .filter((product) => product.category === category.category)
                     .forEach(({ label, quantity, amount }) => {
                         const index = array.findIndex((p) => p.label === label);
@@ -238,6 +239,126 @@ export const NumPad: FC = () => {
             );
         });
     }, [openPopup, localTransactions]);
+
+    const sendEmail = useCallback(
+        (subject: string, attachment: string) => {
+            if (!localTransactions) return;
+
+            const t = localTransactions.map(({ amount, method, date }, index) => {
+                return (
+                    '______________________________________________________\n' +
+                    'ID: ' +
+                    index +
+                    '       Montant: ' +
+                    amount.toCurrency() +
+                    '       Paiement: ' +
+                    method +
+                    '       Heure: ' +
+                    date +
+                    '\n\n' +
+                    localTransactions[index].products
+                        .map(({ label, quantity, amount }) => {
+                            return (
+                                'Produit: ' +
+                                label +
+                                '       Prix: ' +
+                                amount.toCurrency() +
+                                '       Quantité: ' +
+                                quantity +
+                                '       Total: ' +
+                                (amount * quantity).toCurrency() +
+                                '\n'
+                            );
+                        })
+                        .join('')
+                );
+            });
+
+            const link = document.createElement('a');
+            link.href =
+                'mailto:?subject=' +
+                subject +
+                '&body=' +
+                encodeURIComponent('Bonjour,\n\nCi-joint le fichier des transactions :\n\n') +
+                encodeURIComponent(t.join('\n'));
+
+            link.href += '&attachment=' + attachment;
+            link.target = '_blank';
+            link.click();
+        },
+        [localTransactions]
+    );
+
+    const downloadData = useCallback(
+        (fileName: string) => {
+            if (!localTransactions) return;
+
+            const t = localTransactions.map(({ amount, method, date }, index) => {
+                return {
+                    ID: index,
+                    Montant: amount.toCurrency(),
+                    Paiement: method,
+                    Heure: date,
+                };
+            });
+
+            const p = localTransactions
+                .map(({ products }, index) => {
+                    return products.map(({ label, amount, quantity }) => {
+                        return {
+                            TransactionID: index,
+                            Produit: label,
+                            Prix: amount.toCurrency(),
+                            Quantité: quantity,
+                            Total: (amount * quantity).toCurrency(),
+                        };
+                    });
+                })
+                .flatMap((p) => p);
+
+            new ExcelXML([
+                { name: 'Transactions', data: t },
+                { name: 'Produits', data: p },
+            ]).downLoad(fileName);
+        },
+        [localTransactions]
+    );
+
+    const showTransactionsSummaryMenu = useCallback<MouseEventHandler>(
+        (e) => {
+            e.preventDefault();
+            openPopup(
+                'TicketZ ' + defaultDate,
+                ["Capture d'écran", 'Email', 'Feuille de calcul', 'Afficher'],
+                (option, index) => {
+                    switch (index) {
+                        case 0:
+                            setTimeout(() => {
+                                showTransactionsSummary();
+                                setTimeout(() => {
+                                    takeScreenshot('popup', 'TicketZ ' + defaultDate + '.png').then(() => {
+                                        closePopup();
+                                    });
+                                }, 200);
+                            });
+                            break;
+                        case 1:
+                            sendEmail('TicketZ ' + defaultDate, 'TicketZ ' + defaultDate + '.png');
+                            break;
+                        case 2:
+                            downloadData('TicketZ ' + defaultDate);
+                            break;
+                        case 3:
+                            setTimeout(showTransactionsSummary);
+                            break;
+                        default:
+                            console.error('Unhandled index: ' + index);
+                    }
+                }
+            );
+        },
+        [openPopup, closePopup, showTransactionsSummary, sendEmail, downloadData]
+    );
 
     const multiply = useCallback(() => {
         setQuantity(-1);
@@ -270,7 +391,7 @@ export const NumPad: FC = () => {
     const f3 = f + (localTransactions ? 'active:bg-lime-300 text-lime-500' : 'invisible');
 
     return (
-        <div className={useAddPopupClass('inset-0 flex flex-col justify-evenly')}>
+        <div className={useAddPopupClass('inset-0 flex flex-col justify-evenly max-w-md min-w-[375px]')}>
             <div className="flex justify-around text-4xl text-center font-bold pt-0">
                 <Amount
                     className="min-w-[145px] text-right leading-normal"
@@ -285,11 +406,7 @@ export const NumPad: FC = () => {
                     className={f3}
                     input="z"
                     onInput={showTransactionsSummary}
-                    onContextMenu={(e) => {
-                        e.preventDefault();
-                        showTransactionsSummary();
-                        takeScreenshot('TicketZ ' + defaultDate + '.png');
-                    }}
+                    onContextMenu={showTransactionsSummaryMenu}
                 />
             </div>
 
