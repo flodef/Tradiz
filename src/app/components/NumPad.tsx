@@ -12,7 +12,7 @@ import { isMobileDevice } from '../utils/mobile';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
 import { takeScreenshot } from '../utils/screenshot';
-import { ExcelXML } from '../utils/xls';
+import { utils, writeFile } from 'xlsx';
 
 interface NumPadButtonProps {
     input: Digits | string;
@@ -127,8 +127,52 @@ export const NumPad: FC = () => {
         }
     }, [amount, openPopup, total, addPayment]);
 
-    const showTransactionsSummary = useCallback(() => {
-        if (!localTransactions) return;
+    const getTaxesByCategory = useCallback(() => {
+        return inventory
+            .map(({ rate }) => rate)
+            .filter((rate, index, array) => array.indexOf(rate) === index)
+            .map((rate, index) => {
+                const categories = inventory
+                    .filter((tax) => tax.rate === rate)
+                    .map(({ category }) => category)
+                    .filter((category, index, array) => array.indexOf(category) === index);
+                return { index, rate, categories };
+            });
+    }, []);
+
+    const getTaxAmountByCategory = useCallback(
+        (
+            taxes: {
+                index: number;
+                rate: number;
+                categories: string[];
+            }[],
+            categories: [DataElement] | undefined
+        ) => {
+            return taxes
+                .map(({ index, categories: taxcategories, rate }) => {
+                    const total = taxcategories
+                        .map((category) => categories?.find((c) => c.category === category)?.amount || 0)
+                        .reduce((total, amount) => total + amount, 0);
+                    if (!total) return ' ';
+                    const ht = total / (1 + rate / 100);
+                    const tva = total - ht;
+
+                    return { index, rate, total, ht, tva };
+                })
+                .filter((line) => line !== ' ') as {
+                index: number;
+                rate: number;
+                total: number;
+                ht: number;
+                tva: number;
+            }[];
+        },
+        []
+    );
+
+    const getTransactionsDetails = useCallback(() => {
+        if (!localTransactions?.length) return;
 
         let categories: [DataElement] | undefined = undefined;
         let payments: [DataElement] | undefined = undefined;
@@ -164,136 +208,151 @@ export const NumPad: FC = () => {
         if (!categories) categories = [{ category: '', quantity: 0, amount: 0 }];
         if (!payments) payments = [{ category: '', quantity: 0, amount: 0 }];
 
-        const totalAmount = localTransactions.reduce((total, transaction) => total + transaction.amount, 0);
-        const totalProducts = categories.reduce((total, category) => total + category.quantity, 0);
+        return { categories, payments };
+    }, [localTransactions]);
 
-        const taxes = inventory
-            .map(({ rate }) => rate)
-            .filter((rate, index, array) => rate && array.indexOf(rate) === index)
-            .map((rate) => {
-                const categories = inventory
-                    .filter((tax) => tax.rate === rate)
-                    .map(({ category }) => category)
-                    .filter((category, index, array) => array.indexOf(category) === index);
-                return { rate, categories };
-            });
+    const getTransactionsSummary = useCallback(() => {
+        if (!localTransactions?.length) return;
 
-        const summary = categories
-            ?.map(({ category, quantity, amount }) => category + ' x ' + quantity + ' ==> ' + amount.toCurrency())
-            .concat([''])
-            .concat(
-                taxes.map(({ categories: taxcategories, rate }) => {
-                    const total = taxcategories
-                        .map((category) => categories?.find((c) => c.category === category)?.amount || 0)
-                        .reduce((total, amount) => total + amount, 0);
-                    if (!total) return ' ';
+        const details = getTransactionsDetails();
+        const categories = details?.categories as [DataElement];
+        const payments = details?.payments as [DataElement];
 
-                    const ht = total / (1 + rate / 100);
-                    const tva = total - ht;
-                    return rate + '%: HT ' + ht.toCurrency() + ' / TVA ' + tva.toCurrency();
-                })
+        const taxes = getTaxesByCategory();
+        const taxAmount = getTaxAmountByCategory(taxes, categories);
+        let totalTaxes = { total: 0, ht: 0, tva: 0 };
+        taxAmount.forEach(({ total, ht, tva }) => {
+            totalTaxes.total += total;
+            totalTaxes.ht += ht;
+            totalTaxes.tva += tva;
+        });
+
+        return categories
+            ?.map(
+                ({ category, quantity, amount }) =>
+                    '[T' +
+                    taxes?.find((tax) => tax.categories.includes(category))?.index +
+                    '] ' +
+                    category +
+                    ' x ' +
+                    quantity +
+                    ' ==> ' +
+                    amount.toCurrency()
             )
-
+            .concat([''])
+            .concat([' TAUX \n HT \n TVA \n TTC '])
+            .concat(
+                taxAmount
+                    .map(({ index, rate, total, ht, tva }) => {
+                        return (
+                            'T' +
+                            index +
+                            ' ' +
+                            rate +
+                            '%\n' +
+                            ht.toCurrency() +
+                            '\n' +
+                            tva.toCurrency() +
+                            '\n' +
+                            total.toCurrency()
+                        );
+                    })
+                    .concat([
+                        'TOTAL\n' +
+                            totalTaxes.ht.toCurrency() +
+                            '\n' +
+                            totalTaxes.tva.toCurrency() +
+                            '\n' +
+                            totalTaxes.total.toCurrency(),
+                    ])
+            )
             .concat([''])
             .concat(
                 payments.map(
                     ({ category, quantity, amount }) => category + ' x ' + quantity + ' ==> ' + amount.toCurrency()
                 )
             );
+    }, [getTaxAmountByCategory, getTaxesByCategory, localTransactions, getTransactionsDetails]);
 
-        openPopup(totalProducts + ' pdts : ' + totalAmount.toCurrency(), summary, (option, index) => {
-            if (!categories?.length || index >= categories.length) {
-                setTimeout(showTransactionsSummary);
-                return;
+    const showTransactionsSummary = useCallback(() => {
+        if (!localTransactions?.length) return;
+
+        const summary = getTransactionsSummary();
+        const categories = getTransactionsDetails()?.categories as [DataElement];
+        const totalAmount = localTransactions.reduce((total, transaction) => total + transaction.amount, 0);
+        const totalProducts = categories.reduce((total, category) => total + category.quantity, 0);
+
+        openPopup(
+            totalProducts + 'pdts | ' + localTransactions.length + 'vts : ' + totalAmount.toCurrency(),
+            summary || [''],
+            (option, index) => {
+                if (!categories?.length || index >= categories.length) {
+                    setTimeout(showTransactionsSummary);
+                    return;
+                }
+
+                const category = categories[index];
+                const array = [] as { label: string; quantity: number; amount: number }[];
+                localTransactions?.flatMap(({ products }) =>
+                    products
+                        .filter((product) => product.category === category.category)
+                        .forEach(({ label, quantity, amount }) => {
+                            const index = array.findIndex((p) => p.label === label);
+                            if (index >= 0) {
+                                array[index].quantity += quantity;
+                                array[index].amount += quantity * amount;
+                            } else {
+                                array.push({
+                                    label: label || '',
+                                    quantity: quantity,
+                                    amount: quantity * amount,
+                                });
+                            }
+                        })
+                );
+                const summary = array.map(
+                    ({ label, quantity, amount }) => label + ' x ' + quantity + ' ==> ' + amount.toCurrency()
+                );
+
+                setTimeout(() =>
+                    openPopup(
+                        category.category + ' x' + category.quantity + ': ' + category.amount.toCurrency(),
+                        summary,
+                        () => setTimeout(showTransactionsSummary)
+                    )
+                );
             }
-
-            const category = categories[index];
-            const array = [] as { label: string; quantity: number; amount: number }[];
-            localTransactions?.flatMap(({ products }) =>
-                products
-                    .filter((product) => product.category === category.category)
-                    .forEach(({ label, quantity, amount }) => {
-                        const index = array.findIndex((p) => p.label === label);
-                        if (index >= 0) {
-                            array[index].quantity += quantity;
-                            array[index].amount += quantity * amount;
-                        } else {
-                            array.push({
-                                label: label || '',
-                                quantity: quantity,
-                                amount: quantity * amount,
-                            });
-                        }
-                    })
-            );
-            const summary = array.map(
-                ({ label, quantity, amount }) => label + ' x ' + quantity + ' ==> ' + amount.toCurrency()
-            );
-
-            setTimeout(() =>
-                openPopup(
-                    category.category + ' x' + category.quantity + ': ' + category.amount.toCurrency(),
-                    summary,
-                    () => setTimeout(showTransactionsSummary)
-                )
-            );
-        });
-    }, [openPopup, localTransactions]);
+        );
+    }, [openPopup, localTransactions, getTransactionsDetails, getTransactionsSummary]);
 
     const sendEmail = useCallback(
         (subject: string, attachment: string) => {
-            if (!localTransactions) return;
-
-            const t = localTransactions.map(({ amount, method, date }, index) => {
-                return (
-                    '______________________________________________________\n' +
-                    'ID: ' +
-                    index +
-                    '       Montant: ' +
-                    amount.toCurrency() +
-                    '       Paiement: ' +
-                    method +
-                    '       Heure: ' +
-                    date +
-                    '\n\n' +
-                    localTransactions[index].products
-                        .map(({ label, quantity, amount }) => {
-                            return (
-                                'Produit: ' +
-                                label +
-                                '       Prix: ' +
-                                amount.toCurrency() +
-                                '       Quantité: ' +
-                                quantity +
-                                '       Total: ' +
-                                (amount * quantity).toCurrency() +
-                                '\n'
-                            );
-                        })
-                        .join('')
-                );
-            });
+            const summary = (getTransactionsSummary() ?? [])
+                .map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
+                .join('\n');
 
             const link = document.createElement('a');
             link.href =
                 'mailto:?subject=' +
                 subject +
                 '&body=' +
-                encodeURIComponent('Bonjour,\n\nCi-joint le fichier des transactions :\n\n') +
-                encodeURIComponent(t.join('\n'));
+                encodeURIComponent(
+                    'Bonjour,\n\nCi-joint le Ticket Z du ' + new Date().toLocaleDateString() + ' :\n\n'
+                ) +
+                encodeURIComponent(summary);
 
             link.href += '&attachment=' + attachment;
             link.target = '_blank';
             link.click();
         },
-        [localTransactions]
+        [getTransactionsSummary]
     );
 
     const downloadData = useCallback(
         (fileName: string) => {
-            if (!localTransactions) return;
+            if (!localTransactions?.length) return;
 
-            const t = localTransactions.map(({ amount, method, date }, index) => {
+            const transactionsData = localTransactions.map(({ amount, method, date }, index) => {
                 return {
                     ID: index,
                     Montant: amount.toCurrency(),
@@ -302,11 +361,12 @@ export const NumPad: FC = () => {
                 };
             });
 
-            const p = localTransactions
+            const productData = localTransactions
                 .map(({ products }, index) => {
-                    return products.map(({ label, amount, quantity }) => {
+                    return products.map(({ category, label, amount, quantity }) => {
                         return {
                             TransactionID: index,
+                            Catégorie: category,
                             Produit: label,
                             Prix: amount.toCurrency(),
                             Quantité: quantity,
@@ -316,10 +376,43 @@ export const NumPad: FC = () => {
                 })
                 .flatMap((p) => p);
 
-            new ExcelXML([
-                { name: 'Transactions', data: t },
-                { name: 'Produits', data: p },
-            ]).downLoad(fileName);
+            const tvaData = inventory
+                .map(({ category, rate }) => {
+                    const total = localTransactions
+                        .flatMap(({ products }) => products)
+                        .filter(({ category: c }) => c === category)
+                        .map(({ amount, quantity }) => amount * quantity)
+                        .reduce((total, amount) => total + amount, 0);
+                    if (!total) return;
+
+                    const ht = total / (1 + rate / 100);
+                    const tva = total - ht;
+                    return {
+                        Catégorie: category,
+                        Taux: rate + '%',
+                        HT: ht.toCurrency(),
+                        TVA: tva.toCurrency(),
+                        TTC: total.toCurrency(),
+                    };
+                })
+                .filter((t) => t) as {
+                Catégorie: string;
+                Taux: string;
+                HT: string;
+                TVA: string;
+                TTC: string;
+            }[];
+
+            const workbook = utils.book_new();
+            [
+                { name: 'Transactions', data: transactionsData },
+                { name: 'Produits', data: productData },
+                { name: 'TVA', data: tvaData },
+            ].forEach(({ name, data }) => {
+                const worksheet = utils.json_to_sheet(data);
+                utils.book_append_sheet(workbook, worksheet, name);
+            });
+            writeFile(workbook, fileName + '.xlsx', { compression: true });
         },
         [localTransactions]
     );
@@ -379,7 +472,7 @@ export const NumPad: FC = () => {
         [1, 2, 3],
     ];
 
-    const canPay = total && !amount;
+    const canPay = total && !amount && !category;
     const canAddProduct = amount && category;
 
     let s = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl ';
