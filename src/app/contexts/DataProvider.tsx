@@ -62,10 +62,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             if (!element.category || !element.amount || !element.quantity) return;
 
-            const p = products.current?.find(({ label }) => label === element.label);
+            const p = products.current?.find(
+                ({ label, amount }) => label === element.label && amount === element.amount
+            );
             if (p) {
                 p.quantity += element.quantity;
-                p.amount += element.amount;
             } else {
                 products.current = addElement(products.current, element);
             }
@@ -78,7 +79,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const deleteProduct = useCallback(
-        (option: string, index: number) => {
+        (index: number) => {
             if (!products.current?.length) return;
 
             products.current.splice(index, 1).at(0);
@@ -99,7 +100,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const editTransaction = useCallback(
-        (option: string, index: number) => {
+        (index: number) => {
             if (!transactions?.length) return;
 
             transactions.splice(index, 1).at(0)?.products.forEach(addProduct);

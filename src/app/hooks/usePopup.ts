@@ -6,14 +6,14 @@ export interface PopupContextState {
         title: string,
         options: string[],
         action?: (option: string, index: number) => void,
-        specialAction?: { confirmTitle: string; action: (option: string, index: number) => void }
+        specialAction?: { confirmTitle: string; action: (index: number) => void }
     ) => void;
 
     closePopup: () => void;
     popupTitle: string;
     popupOptions: string[];
     popupAction?: (option: string, index: number) => void;
-    popupSpecialAction?: { confirmTitle: string; action: (option: string, index: number) => void };
+    popupSpecialAction?: { confirmTitle: string; action: (index: number) => void };
 }
 
 export const PopupContext = createContext<PopupContextState>({} as PopupContextState);

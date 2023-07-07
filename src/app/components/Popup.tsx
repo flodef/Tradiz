@@ -35,7 +35,7 @@ export const Popup: FC = () => {
 
             openPopup(popupSpecialAction.confirmTitle, ['Oui', 'Non'], (confirmOption) => {
                 if (confirmOption === 'Oui') {
-                    popupSpecialAction.action(option, index);
+                    popupSpecialAction.action(index);
                 } else {
                     setTimeout(() => openPopup(popupTitle, popupOptions, popupAction, popupSpecialAction));
                 }

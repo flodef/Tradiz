@@ -23,14 +23,14 @@ export interface DataContextState {
     selectedCategory: string;
     setSelectedCategory: (category: string) => void;
     addProduct: (category: string | DataElement) => void;
-    deleteProduct: (option: string, index: number) => void;
+    deleteProduct: (index: number) => void;
     clearAmount: () => void;
     clearTotal: () => void;
     products: MutableRefObject<[DataElement] | undefined>;
     addPayment: (method: string) => void;
     transactions: [Transaction] | undefined;
     saveTransactions: (transactions: [Transaction]) => void;
-    editTransaction: (option: string, index: number) => void;
+    editTransaction: (index: number) => void;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);

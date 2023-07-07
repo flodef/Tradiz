@@ -46,18 +46,15 @@ export const Total: FC = () => {
         []
     );
 
-    const confirmDeleteProduct = useCallback(
-        (deleteAction: (option: string, index: number) => void, fallback: () => void) => {
-            return {
-                confirmTitle: 'Effacer ?',
-                action: (option: string, index: number) => {
-                    deleteAction(option, index);
-                    setTimeout(fallback);
-                },
-            };
-        },
-        []
-    );
+    const confirmDeleteProduct = useCallback((deleteAction: (index: number) => void, fallback: () => void) => {
+        return {
+            confirmTitle: 'Effacer ?',
+            action: (index: number) => {
+                deleteAction(index);
+                setTimeout(fallback);
+            },
+        };
+    }, []);
 
     const showProducts = useCallback(() => {
         if (!products.current?.length) return;
@@ -82,10 +79,10 @@ export const Total: FC = () => {
                     transaction.products.map(displayProduct),
                     fallback ? () => setTimeout(fallback) : undefined,
                     confirmDeleteProduct(
-                        (p_option, p_index) => {
+                        (i) => {
                             if (!localTransactions?.length) return;
 
-                            transaction.products.splice(p_index, 1);
+                            transaction.products.splice(i, 1);
                             transaction.amount = transaction.products.reduce(
                                 (total, product) => total + product.amount * product.quantity,
                                 0
@@ -178,7 +175,7 @@ export const Total: FC = () => {
                                   e.preventDefault();
                                   openPopup('Effacer ?', ['Oui', 'Non'], (o, i) => {
                                       if (o === 'Oui') {
-                                          deleteProduct('', index);
+                                          deleteProduct(index);
                                       }
                                   });
                               }}
@@ -195,7 +192,7 @@ export const Total: FC = () => {
                                   e.preventDefault();
                                   openPopup('Modifier ?', ['Oui', 'Non'], (o, i) => {
                                       if (o === 'Oui') {
-                                          editTransaction('', index);
+                                          editTransaction(index);
                                       }
                                   });
                               }}

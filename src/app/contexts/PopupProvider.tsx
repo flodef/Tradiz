@@ -12,7 +12,7 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
     const [popupAction, setPopupAction] = useState<(option: string, index: number) => void>();
     const [popupSpecialAction, setPopupSpecialAction] = useState<{
         confirmTitle: string;
-        action: (option: string, index: number) => void;
+        action: (index: number) => void;
     }>();
 
     const openPopup = useCallback(
@@ -20,7 +20,7 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
             title: string,
             options: string[],
             action?: (option: string, index: number) => void,
-            specialAction?: { confirmTitle: string; action: (option: string, index: number) => void }
+            specialAction?: { confirmTitle: string; action: (index: number) => void }
         ) => {
             setPopupTitle(title);
             setPopupOptions(options);
