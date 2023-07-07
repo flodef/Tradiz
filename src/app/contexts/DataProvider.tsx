@@ -72,7 +72,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const deleteProduct = useCallback(
-        (label: string, index: number) => {
+        (option: string, index: number) => {
             if (!products.current?.length) return;
 
             products.current.splice(index, 1).at(0);
@@ -90,6 +90,16 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             }
         },
         [setTransactions]
+    );
+
+    const editTransaction = useCallback(
+        (option: string, index: number) => {
+            if (!transactions?.length) return;
+
+            transactions.splice(index, 1).at(0)?.products.forEach(addProduct);
+            saveTransactions(transactions);
+        },
+        [transactions, saveTransactions, addProduct]
     );
 
     const addPayment = useCallback(
@@ -130,6 +140,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 addPayment,
                 transactions,
                 saveTransactions,
+                editTransaction,
             }}
         >
             {children}
