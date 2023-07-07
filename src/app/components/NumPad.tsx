@@ -21,18 +21,23 @@ interface NumPadButtonProps {
     className?: string;
 }
 
-const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu }) => {
-    const onClick = useCallback(() => {
-        if (!isFullscreen() && isMobileDevice()) {
-            requestFullscreen();
-        }
-        onInput(input);
-    }, [onInput, input]);
+const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
+    const onClick = useCallback<MouseEventHandler>(
+        (e) => {
+            e.preventDefault();
+            if (!isFullscreen() && isMobileDevice()) {
+                requestFullscreen();
+            }
+            onInput(input);
+        },
+        [onInput, input]
+    );
+
     return (
         <div
             className="w-20 h-20 active:bg-lime-300 rounded-2xl border border-lime-500 relative flex justify-center m-3 items-center font-semibold text-3xl border-[3px]"
             onClick={onClick}
-            onContextMenu={onContextMenu}
+            onContextMenu={onClick}
         >
             {input}
         </div>
@@ -46,6 +51,7 @@ const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu, 
         }
         onInput(input);
     }, [onInput, input]);
+
     return (
         <div className={className} onClick={onClick} onContextMenu={onContextMenu}>
             {input}
