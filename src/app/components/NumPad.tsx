@@ -64,7 +64,7 @@ export const NumPad: FC = () => {
         clearTotal,
         addPayment,
         transactions,
-        category,
+        selectedCategory,
         addProduct,
     } = useData();
     const { openPopup, closePopup } = usePopup();
@@ -471,8 +471,8 @@ export const NumPad: FC = () => {
         [1, 2, 3],
     ];
 
-    const canPay = useMemo(() => total && !amount && !category, [total, amount, category]);
-    const canAddProduct = useMemo(() => amount && category, [amount, category]);
+    const canPay = useMemo(() => total && !amount && !selectedCategory, [total, amount, selectedCategory]);
+    const canAddProduct = useMemo(() => amount && selectedCategory, [amount, selectedCategory]);
 
     let s = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl ';
     const sx = s + (canPay || canAddProduct ? 'active:bg-lime-300 text-lime-500' : 'invisible');
@@ -485,13 +485,14 @@ export const NumPad: FC = () => {
     return (
         <div
             className={useAddPopupClass(
-                'inset-0 flex flex-col justify-evenly min-w-[375px] self-center md:w-1/2 md:absolute md:justify-center md:bottom-[116px] md:max-w-[50%]'
+                'inset-0 flex flex-col justify-evenly min-w-[375px] w-full max-w-lg self-center md:w-1/2 md:absolute md:justify-center md:bottom-[116px] md:max-w-[50%]'
             )}
         >
             <div className="flex justify-around text-4xl text-center font-bold pt-0 max-w-lg w-full self-center">
                 <Amount
                     className={
-                        'min-w-[145px] text-right leading-normal' + (category && !amount ? ' animate-pulse ' : '')
+                        'min-w-[145px] text-right leading-normal' +
+                        (selectedCategory && !amount ? ' animate-pulse ' : '')
                     }
                     value={amount * Math.max(quantity, 1)}
                     showZero
@@ -521,7 +522,7 @@ export const NumPad: FC = () => {
                     <NumPadButton input={'00'} onInput={onInput} />
                     <div
                         className={sx}
-                        onClick={canPay ? onPay : canAddProduct ? () => addProduct(category) : () => {}}
+                        onClick={canPay ? onPay : canAddProduct ? () => addProduct(selectedCategory) : () => {}}
                     >
                         {canPay ? <WalletIcon /> : canAddProduct ? <BasketIcon /> : ''}
                     </div>

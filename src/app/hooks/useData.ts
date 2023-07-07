@@ -20,8 +20,8 @@ export interface DataContextState {
     setAmount: (amount: number) => void;
     quantity: number;
     setQuantity: (quantity: number) => void;
-    category: string;
-    setCategory: (category: string) => void;
+    selectedCategory: string;
+    setSelectedCategory: (category: string) => void;
     addProduct: (category: string | DataElement) => void;
     deleteProduct: (option: string, index: number) => void;
     clearAmount: () => void;

@@ -7,8 +7,16 @@ import { useAddPopupClass } from './Popup';
 import { Separator } from './Separator';
 
 export const Total: FC = () => {
-    const { total, amount, products, category, deleteProduct, transactions, saveTransactions, editTransaction } =
-        useData();
+    const {
+        total,
+        amount,
+        products,
+        selectedCategory,
+        deleteProduct,
+        transactions,
+        saveTransactions,
+        editTransaction,
+    } = useData();
     const { openPopup } = usePopup();
 
     // Hack to avoid differences between the server and the client, generating hydration issues
@@ -118,8 +126,8 @@ export const Total: FC = () => {
     }, [showProducts, showTransactions, total, localTransactions]);
 
     const canDisplayTotal = useMemo(() => {
-        return total || amount || category;
-    }, [total, amount, category]);
+        return total || amount || selectedCategory;
+    }, [total, amount, selectedCategory]);
     const canDisplayTransactions = useMemo(() => {
         return localTransactions?.length;
     }, [localTransactions]);

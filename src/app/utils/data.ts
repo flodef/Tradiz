@@ -46,7 +46,7 @@ export const inventory = [
         rate: 5.5,
         products: [
             { label: 'Jus de pomme', price: 3.9 },
-            { label: 'Jus framboise/fraise', price: 4.1 },
+            { label: 'Jus framboise / fraise', price: 4.1 },
             { label: 'Farine', price: 0 },
             { label: 'Huile', price: 0 },
             { label: 'Lentilles', price: 0 },
