@@ -4,7 +4,6 @@ import { usePopup } from '../hooks/usePopup';
 import { otherKeyword } from '../utils/data';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
-import { Separator } from './Separator';
 
 export const Total: FC = () => {
     const {
@@ -151,7 +150,7 @@ export const Total: FC = () => {
             <div
                 className={
                     totalDisplayClassName +
-                    'md:hidden' +
+                    'md:hidden border-b-[3px] border-orange-300' +
                     (total || localTransactions?.length ? ' active:bg-orange-300 ' : '')
                 }
                 onClick={handleClick}
@@ -162,9 +161,9 @@ export const Total: FC = () => {
             >
                 {totalDisplay}
             </div>
-            <div className={totalDisplayClassName + 'hidden md:block'}>{totalDisplay}</div>
-
-            <Separator />
+            <div className={totalDisplayClassName + 'hidden border-b-[3px] border-orange-300 md:block'}>
+                {totalDisplay}
+            </div>
 
             <div className="text-center text-2xl font-bold py-3 hidden md:block md:max-h-[90%] md:overflow-y-auto">
                 {canDisplayTotal

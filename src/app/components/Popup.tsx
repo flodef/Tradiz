@@ -1,7 +1,6 @@
 import { FC, useCallback } from 'react';
 import { usePopup } from '../hooks/usePopup';
 import { CloseButton } from './CloseButton';
-import { Separator } from './Separator';
 
 export function useAddPopupClass(className: string): string {
     const { isPopupOpen } = usePopup();
@@ -59,7 +58,6 @@ export const Popup: FC = () => {
                     <div className="text-2xl truncate font-semibold py-3 pl-3">{popupTitle}</div>
                     <CloseButton onClose={closePopup} />
                 </div>
-                <Separator />
             </div>
             <div>
                 {popupOptions.map((option, index) =>
@@ -88,7 +86,7 @@ export const Popup: FC = () => {
                             ))}
                         </div>
                     ) : (
-                        <Separator key={index} color="border-lime-300" />
+                        <div key={index} className="border-b-2 border-lime-300" />
                     )
                 )}
             </div>

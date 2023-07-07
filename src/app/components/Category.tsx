@@ -5,7 +5,6 @@ import { categorySeparator, inventory, otherKeyword } from '../utils/data';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isMobileDevice } from '../utils/mobile';
 import { useAddPopupClass } from './Popup';
-import { Separator } from './Separator';
 
 interface CategoryInputButton {
     input: string;
@@ -106,8 +105,11 @@ export const Category: FC = () => {
     );
 
     return (
-        <div className={useAddPopupClass('inset-x-0 divide-y divide-orange-300 md:absolute md:bottom-0 md:w-1/2')}>
-            <Separator />
+        <div
+            className={useAddPopupClass(
+                'inset-x-0 divide-y divide-orange-300 border-t-[3px] border-orange-300 md:absolute md:bottom-0 md:w-1/2'
+            )}
+        >
             {categories.length > 0 && (
                 <div className="flex justify-evenly divide-x divide-orange-300">
                     {categories.slice(0, 3).map((category, index) => (
