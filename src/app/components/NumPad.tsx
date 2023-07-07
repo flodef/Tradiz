@@ -492,7 +492,7 @@ export const NumPad: FC = () => {
                 <Amount
                     className={
                         'min-w-[145px] text-right leading-normal' +
-                        (selectedCategory && !amount ? ' animate-pulse ' : '')
+                        (selectedCategory && !amount ? ' animate-blink ' : '')
                     }
                     value={amount * Math.max(quantity, 1)}
                     showZero
