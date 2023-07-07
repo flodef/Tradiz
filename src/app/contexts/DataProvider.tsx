@@ -20,7 +20,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [total, setTotal] = useState(0);
     const [amount, setAmount] = useState(0);
     const [quantity, setQuantity] = useState(0);
-    const [category, setCategory] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('');
     const products = useRef<[DataElement] | undefined>();
     const [transactions, setTransactions] = useLocalStorage<[Transaction] | undefined>(
         'Transactions ' + defaultDate,
@@ -38,7 +38,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const clearAmount = useCallback(() => {
         setAmount(0);
         setQuantity(0);
-        setCategory('');
+        setSelectedCategory('');
     }, []);
 
     const clearTotal = useCallback(() => {
@@ -53,7 +53,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (typeof product === 'object') {
                 element = product;
             } else {
-                const p = (product ?? category).split(categorySeparator);
+                const p = (product ?? selectedCategory).split(categorySeparator);
                 element.category = p.at(0) ?? '';
                 element.label = p.at(1) ?? '';
                 element.quantity = Math.max(1, quantity);
@@ -62,13 +62,19 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             if (!element.category || !element.amount || !element.quantity) return;
 
-            products.current = addElement(products.current, element);
+            const p = products.current?.find(({ label }) => label === element.label);
+            if (p) {
+                p.quantity += element.quantity;
+                p.amount += element.amount;
+            } else {
+                products.current = addElement(products.current, element);
+            }
 
             updateTotal();
 
             clearAmount();
         },
-        [amount, quantity, clearAmount, products, category, updateTotal]
+        [amount, quantity, clearAmount, products, selectedCategory, updateTotal]
     );
 
     const deleteProduct = useCallback(
@@ -130,8 +136,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 setAmount,
                 quantity,
                 setQuantity,
-                category,
-                setCategory,
+                selectedCategory,
+                setSelectedCategory,
                 addProduct,
                 deleteProduct,
                 clearAmount,
