@@ -6,7 +6,7 @@ import { Separator } from './Separator';
 export function useAddPopupClass(className: string): string {
     const { isPopupOpen } = usePopup();
 
-    return className + (isPopupOpen ? ' blur-sm pointer-events-none ' : '');
+    return className + (isPopupOpen ? ' blur-sm pointer-events-none md:blur-none md:pointer-events-auto ' : '');
 }
 
 function useRemovePopupClass(className: string): string {
@@ -49,9 +49,10 @@ export const Popup: FC = () => {
         <div
             id="popup"
             className={useRemovePopupClass(
-                'z-30 w-[90%] max-h-[90%] max-w-[333px] overflow-y-auto absolute opacity-100 brightness-100 justify-self-center bg-slate-100 h-fit rounded-2xl self-center blur-none border-black'
+                'z-30 w-[90%] max-h-[90%] max-w-[333px] overflow-y-auto absolute opacity-100 brightness-100 ' +
+                    'justify-self-center bg-slate-100 h-fit rounded-2xl self-center blur-none border-black border-[3px] ' +
+                    'md:border-[0px] md:w-1/2 md:max-w-[50%] md:left-1/2 md:bottom-0 md:rounded-none md:border-lime-300 md:border-l-4'
             )}
-            style={{ borderWidth: 'medium' }}
         >
             <div>
                 <div className="flex justify-between bg-lime-200">

@@ -10,7 +10,7 @@ import {} from './utils/currency';
 
 export default function Home() {
     return (
-        <main className="absolute inset-0 bg-orange-100 text-amber-600 grid select-none overflow-y-auto">
+        <main className="absolute inset-0 bg-orange-100 text-amber-600 grid select-none overflow-y-auto md:overflow-y-hidden">
             <DataProvider>
                 <PopupProvider>
                     <div className="z-10 h-screen flex flex-col justify-between">

@@ -30,8 +30,7 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu }) 
     }, [onInput, input]);
     return (
         <div
-            className="w-20 h-20 active:bg-lime-300 rounded-2xl border border-lime-500 relative flex justify-center m-3 items-center font-semibold text-3xl"
-            style={{ borderWidth: 'medium' }}
+            className="w-20 h-20 active:bg-lime-300 rounded-2xl border border-lime-500 relative flex justify-center m-3 items-center font-semibold text-3xl border-[3px]"
             onClick={onClick}
             onContextMenu={onContextMenu}
         >
@@ -472,8 +471,8 @@ export const NumPad: FC = () => {
         [1, 2, 3],
     ];
 
-    const canPay = total && !amount && !category;
-    const canAddProduct = amount && category;
+    const canPay = useMemo(() => total && !amount && !category, [total, amount, category]);
+    const canAddProduct = useMemo(() => amount && category, [amount, category]);
 
     let s = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl ';
     const sx = s + (canPay || canAddProduct ? 'active:bg-lime-300 text-lime-500' : 'invisible');
@@ -484,10 +483,16 @@ export const NumPad: FC = () => {
     const f3 = f + (localTransactions ? 'active:bg-lime-300 text-lime-500' : 'invisible');
 
     return (
-        <div className={useAddPopupClass('inset-0 flex flex-col justify-evenly max-w-md min-w-[375px]')}>
-            <div className="flex justify-around text-4xl text-center font-bold pt-0">
+        <div
+            className={useAddPopupClass(
+                'inset-0 flex flex-col justify-evenly min-w-[375px] self-center md:w-1/2 md:absolute md:justify-center md:bottom-[116px] md:max-w-[50%]'
+            )}
+        >
+            <div className="flex justify-around text-4xl text-center font-bold pt-0 max-w-lg w-full self-center">
                 <Amount
-                    className="min-w-[145px] text-right leading-normal"
+                    className={
+                        'min-w-[145px] text-right leading-normal' + (category && !amount ? ' animate-pulse ' : '')
+                    }
                     value={amount * Math.max(quantity, 1)}
                     showZero
                 />
@@ -503,7 +508,7 @@ export const NumPad: FC = () => {
                 />
             </div>
 
-            <div className="">
+            <div className="max-w-lg w-full self-center">
                 {NumPadList.map((row, index) => (
                     <div className="flex justify-evenly" key={index}>
                         {row.map((input) => (

@@ -12,5 +12,5 @@ export interface SeparatorProps {
 }
 
 export const Separator: FC<SeparatorProps> = ({ color = 'border-orange-300', thickness = Thickness.Thin }) => {
-    return <hr className={color} style={{ borderWidth: thickness }} />;
+    return <hr className={color + ' border-[1px]'} />;
 };

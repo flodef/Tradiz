@@ -89,7 +89,7 @@ export const Category: FC = () => {
     );
 
     return (
-        <div className={useAddPopupClass('inset-x-0 divide-y divide-orange-300')}>
+        <div className={useAddPopupClass('inset-x-0 divide-y divide-orange-300 md:absolute md:bottom-0 md:w-1/2')}>
             <Separator />
             {inventory.length > 0 && (
                 <div className="flex justify-evenly divide-x divide-orange-300">
