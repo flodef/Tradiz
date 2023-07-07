@@ -110,7 +110,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const addPayment = useCallback(
-        (method: string) => {
+        (index: number, method: string) => {
             if (!total || !method || !products.current) return;
 
             const currentHour = new Date().getHours() + 'h' + ('0' + new Date().getMinutes()).slice(-2);

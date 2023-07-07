@@ -27,7 +27,7 @@ export interface DataContextState {
     clearAmount: () => void;
     clearTotal: () => void;
     products: MutableRefObject<[DataElement] | undefined>;
-    addPayment: (method: string) => void;
+    addPayment: (index: number, method: string) => void;
     transactions: [Transaction] | undefined;
     saveTransactions: (transactions: [Transaction]) => void;
     editTransaction: (index: number) => void;

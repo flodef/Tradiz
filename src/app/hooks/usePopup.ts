@@ -5,14 +5,14 @@ export interface PopupContextState {
     openPopup: (
         title: string,
         options: string[],
-        action?: (option: string, index: number) => void,
+        action?: (index: number, option: string) => void,
         specialAction?: { confirmTitle: string; action: (index: number) => void }
     ) => void;
 
     closePopup: () => void;
     popupTitle: string;
     popupOptions: string[];
-    popupAction?: (option: string, index: number) => void;
+    popupAction?: (index: number, option: string) => void;
     popupSpecialAction?: { confirmTitle: string; action: (index: number) => void };
 }
 

@@ -74,7 +74,7 @@ export const Category: FC = () => {
                 openPopup(
                     item.category,
                     item.products.map(({ label }) => label).concat(otherKeyword),
-                    (option, index) => {
+                    (index, option) => {
                         setSelectedProduct(option);
                         const newCategory = item.category.concat(categorySeparator, option);
                         if (amount) {

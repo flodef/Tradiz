@@ -20,21 +20,21 @@ export const Popup: FC = () => {
     const optionCount = popupOptions.filter((option) => option.trim()).length;
 
     const handleClick = useCallback(
-        (option: string, index: number) => {
+        (index: number, option: string) => {
             if (!popupAction) return;
 
-            popupAction(option, index);
+            popupAction(index, option);
             closePopup();
         },
         [closePopup, popupAction]
     );
 
     const handleContextMenu = useCallback(
-        (option: string, index: number) => {
+        (index: number) => {
             if (!popupSpecialAction) return;
 
-            openPopup(popupSpecialAction.confirmTitle, ['Oui', 'Non'], (confirmOption) => {
-                if (confirmOption === 'Oui') {
+            openPopup(popupSpecialAction.confirmTitle, ['Oui', 'Non'], (index) => {
+                if (index === 0) {
                     popupSpecialAction.action(index);
                 } else {
                     setTimeout(() => openPopup(popupTitle, popupOptions, popupAction, popupSpecialAction));
@@ -77,10 +77,10 @@ export const Popup: FC = () => {
                                 'w-full relative flex justify-around items-center font-semibold text-xl text-center'
                             }
                             key={index}
-                            onClick={() => handleClick(option, index)}
+                            onClick={() => handleClick(index, option)}
                             onContextMenu={(e) => {
                                 e.preventDefault();
-                                handleContextMenu(option, index);
+                                handleContextMenu(index);
                             }}
                         >
                             {option.split('\n').map((line, index) => (

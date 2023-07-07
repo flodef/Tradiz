@@ -110,7 +110,7 @@ export const Total: FC = () => {
         openPopup(
             totalTransactions + ' vts : ' + totalAmount.toCurrency(),
             summary,
-            (o, i) => showBoughtProducts(i, showTransactions),
+            (i) => showBoughtProducts(i, showTransactions),
             {
                 confirmTitle: 'Modifier ?',
                 action: editTransaction,
@@ -173,8 +173,8 @@ export const Total: FC = () => {
                               key={index}
                               onContextMenu={(e) => {
                                   e.preventDefault();
-                                  openPopup('Effacer ?', ['Oui', 'Non'], (o, i) => {
-                                      if (o === 'Oui') {
+                                  openPopup('Effacer ?', ['Oui', 'Non'], (i) => {
+                                      if (i === 0) {
                                           deleteProduct(index);
                                       }
                                   });
@@ -190,8 +190,8 @@ export const Total: FC = () => {
                               onClick={() => showBoughtProducts(index)}
                               onContextMenu={(e) => {
                                   e.preventDefault();
-                                  openPopup('Modifier ?', ['Oui', 'Non'], (o, i) => {
-                                      if (o === 'Oui') {
+                                  openPopup('Modifier ?', ['Oui', 'Non'], (i) => {
+                                      if (i === 0) {
                                           editTransaction(index);
                                       }
                                   });

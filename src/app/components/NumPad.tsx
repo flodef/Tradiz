@@ -109,8 +109,8 @@ export const NumPad: FC = () => {
                     clearAmount();
                     break;
                 case 'contextmenu':
-                    openPopup('Supprimer Total ?', ['Oui', 'Non'], (option) => {
-                        if (option === 'Oui') clearTotal();
+                    openPopup('Supprimer Total ?', ['Oui', 'Non'], (i) => {
+                        if (i === 0) clearTotal();
                     });
                     break;
                 default:
@@ -284,7 +284,7 @@ export const NumPad: FC = () => {
         openPopup(
             totalProducts + 'pdts | ' + localTransactions.length + 'vts : ' + totalAmount.toCurrency(),
             summary || [''],
-            (option, index) => {
+            (index) => {
                 if (!categories?.length || index >= categories.length) {
                     setTimeout(showTransactionsSummary);
                     return;
@@ -422,7 +422,7 @@ export const NumPad: FC = () => {
             openPopup(
                 'TicketZ ' + defaultDate,
                 ["Capture d'écran", 'Email', 'Feuille de calcul', 'Afficher'],
-                (option, index) => {
+                (index) => {
                     switch (index) {
                         case 0:
                             setTimeout(() => {

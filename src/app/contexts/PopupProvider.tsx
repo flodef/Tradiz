@@ -9,7 +9,7 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
     const [isPopupOpen, setIsPopupOpen] = useState(false);
     const [popupTitle, setPopupTitle] = useState<string>('');
     const [popupOptions, setPopupOptions] = useState<string[]>([]);
-    const [popupAction, setPopupAction] = useState<(option: string, index: number) => void>();
+    const [popupAction, setPopupAction] = useState<(index: number, option: string) => void>();
     const [popupSpecialAction, setPopupSpecialAction] = useState<{
         confirmTitle: string;
         action: (index: number) => void;
@@ -19,7 +19,7 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
         (
             title: string,
             options: string[],
-            action?: (option: string, index: number) => void,
+            action?: (index: number, option: string) => void,
             specialAction?: { confirmTitle: string; action: (index: number) => void }
         ) => {
             setPopupTitle(title);
