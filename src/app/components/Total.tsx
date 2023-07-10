@@ -1,11 +1,15 @@
+'use client';
+
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { DataElement, useData } from '../hooks/useData';
+import { useConfig } from '../hooks/useConfig';
+import { DataElement, Transaction, useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
-import { otherKeyword } from '../utils/data';
+import { OTHER_KEYWORD } from '../utils/env';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
 
 export const Total: FC = () => {
+    const { toCurrency } = useConfig();
     const {
         total,
         amount,
@@ -26,23 +30,26 @@ export const Total: FC = () => {
         setLocalTransactions(transactions);
     }, [transactions]);
 
-    const displayProduct = useCallback((product: DataElement) => {
-        return (
-            (product.label && product.label !== otherKeyword ? product.label : product.category) +
-            ' : ' +
-            product.amount.toCurrency() +
-            ' x ' +
-            product.quantity +
-            ' = ' +
-            (product.amount * product.quantity).toCurrency()
-        );
-    }, []);
+    const displayProduct = useCallback(
+        (product: DataElement) => {
+            return (
+                (product.label && product.label !== OTHER_KEYWORD ? product.label : product.category) +
+                ' : ' +
+                toCurrency(product.amount) +
+                ' x ' +
+                product.quantity +
+                ' = ' +
+                toCurrency(product.amount * product.quantity)
+            );
+        },
+        [toCurrency]
+    );
 
     const displayTransaction = useCallback(
-        (transaction: { method: string; amount: number; date: string; products: [DataElement] }) => {
-            return transaction.amount.toCurrency() + ' en ' + transaction.method + ' à ' + transaction.date;
+        (transaction: Transaction) => {
+            return toCurrency(transaction.amount) + ' en ' + transaction.method + ' à ' + transaction.date;
         },
-        []
+        [toCurrency]
     );
 
     const confirmDeleteProduct = useCallback((deleteAction: (index: number) => void, fallback: () => void) => {
@@ -60,12 +67,12 @@ export const Total: FC = () => {
 
         openPopup(
             'Total : ' +
-                products.current.reduce((total, product) => total + product.amount * product.quantity, 0).toCurrency(),
+                toCurrency(products.current.reduce((total, product) => total + product.amount * product.quantity, 0)),
             products.current.map(displayProduct),
             undefined,
             confirmDeleteProduct(deleteProduct, showProducts)
         );
-    }, [openPopup, products, displayProduct, deleteProduct, confirmDeleteProduct]);
+    }, [openPopup, products, displayProduct, deleteProduct, confirmDeleteProduct, toCurrency]);
 
     const showBoughtProducts = useCallback(
         (index: number, fallback?: () => void) => {
@@ -74,7 +81,7 @@ export const Total: FC = () => {
 
             setTimeout(() =>
                 openPopup(
-                    transaction.amount.toCurrency() + ' en ' + transaction.method,
+                    toCurrency(transaction.amount) + ' en ' + transaction.method,
                     transaction.products.map(displayProduct),
                     fallback ? () => setTimeout(fallback) : undefined,
                     confirmDeleteProduct(
@@ -96,7 +103,7 @@ export const Total: FC = () => {
                 )
             );
         },
-        [localTransactions, openPopup, displayProduct, confirmDeleteProduct, saveTransactions]
+        [localTransactions, openPopup, displayProduct, confirmDeleteProduct, saveTransactions, toCurrency]
     );
 
     const showTransactions = useCallback(() => {
@@ -107,7 +114,7 @@ export const Total: FC = () => {
         const summary = localTransactions.map(displayTransaction);
 
         openPopup(
-            totalTransactions + ' vts : ' + totalAmount.toCurrency(),
+            totalTransactions + ' vts : ' + toCurrency(totalAmount),
             summary,
             (i) => showBoughtProducts(i, showTransactions),
             {
@@ -115,91 +122,87 @@ export const Total: FC = () => {
                 action: editTransaction,
             }
         );
-    }, [openPopup, localTransactions, editTransaction, displayTransaction, showBoughtProducts]);
+    }, [openPopup, localTransactions, editTransaction, displayTransaction, showBoughtProducts, toCurrency]);
 
     const handleClick = useMemo(() => {
         return total ? showProducts : localTransactions?.length ? showTransactions : () => {};
     }, [showProducts, showTransactions, total, localTransactions]);
 
-    const canDisplayTotal = useMemo(() => {
-        return total || amount || selectedCategory;
-    }, [total, amount, selectedCategory]);
     const canDisplayTransactions = useMemo(() => {
         return localTransactions?.length;
     }, [localTransactions]);
 
     const totalDisplay = useMemo(() => {
-        return canDisplayTotal ? (
+        return !canDisplayTransactions ? (
             <div>
                 Total : <Amount value={total} showZero />
             </div>
-        ) : canDisplayTransactions ? (
+        ) : (
             'Ticket : ' + localTransactions?.length + ' vts'
-        ) : null;
-    }, [total, localTransactions, canDisplayTotal, canDisplayTransactions]);
+        );
+    }, [total, localTransactions, canDisplayTransactions]);
 
     const totalDisplayClassName = 'text-5xl truncate text-center font-bold py-3 ';
 
     return (
-        <div
-            className={useAddPopupClass(
-                'inset-x-0 md:absolute md:left-1/2 md:h-full md:border-lime-300 md:border-l-4' +
-                    (total || localTransactions?.length ? '' : ' hidden ')
-            )}
-        >
+        <div>
             <div
-                className={
-                    totalDisplayClassName +
-                    'md:hidden border-b-[3px] border-orange-300' +
-                    (total || localTransactions?.length ? ' active:bg-orange-300 ' : '')
-                }
-                onClick={handleClick}
-                onContextMenu={(e) => {
-                    e.preventDefault();
-                    handleClick();
-                }}
+                className={useAddPopupClass(
+                    'inset-x-0 min-h-[75px] md:absolute md:left-1/2 md:h-full md:border-lime-300 md:border-l-4'
+                )}
             >
-                {totalDisplay}
-            </div>
-            <div className={totalDisplayClassName + 'hidden border-b-[3px] border-orange-300 md:block'}>
-                {totalDisplay}
-            </div>
+                <div
+                    className={
+                        totalDisplayClassName +
+                        'md:hidden border-b-[3px] border-orange-300' +
+                        (total || localTransactions?.length ? ' active:bg-orange-300 ' : '')
+                    }
+                    onClick={handleClick}
+                    onContextMenu={(e) => {
+                        e.preventDefault();
+                        handleClick();
+                    }}
+                >
+                    {totalDisplay}
+                </div>
+                <div className={totalDisplayClassName + 'hidden border-b-[3px] border-orange-300 md:block'}>
+                    {totalDisplay}
+                </div>
 
-            <div className="text-center text-2xl font-bold py-3 hidden md:block md:max-h-[90%] md:overflow-y-auto">
-                {canDisplayTotal
-                    ? products.current?.map(displayProduct).map((product, index) => (
-                          <div
-                              key={index}
-                              onContextMenu={(e) => {
-                                  e.preventDefault();
-                                  openPopup('Effacer ?', ['Oui', 'Non'], (i) => {
-                                      if (i === 0) {
-                                          deleteProduct(index);
-                                      }
-                                  });
-                              }}
-                          >
-                              {product}
-                          </div>
-                      ))
-                    : canDisplayTransactions
-                    ? localTransactions?.map(displayTransaction).map((transaction, index) => (
-                          <div
-                              key={index}
-                              onClick={() => showBoughtProducts(index)}
-                              onContextMenu={(e) => {
-                                  e.preventDefault();
-                                  openPopup('Modifier ?', ['Oui', 'Non'], (i) => {
-                                      if (i === 0) {
-                                          editTransaction(index);
-                                      }
-                                  });
-                              }}
-                          >
-                              {transaction}
-                          </div>
-                      ))
-                    : null}
+                <div className="text-center text-2xl font-bold py-3 hidden md:block md:max-h-[90%] md:overflow-y-auto">
+                    {!canDisplayTransactions
+                        ? products.current?.map(displayProduct).map((product, index) => (
+                              <div
+                                  key={index}
+                                  onContextMenu={(e) => {
+                                      e.preventDefault();
+                                      openPopup('Effacer ?', ['Oui', 'Non'], (i) => {
+                                          if (i === 0) {
+                                              deleteProduct(index);
+                                          }
+                                      });
+                                  }}
+                              >
+                                  {product}
+                              </div>
+                          ))
+                        : localTransactions?.map(displayTransaction).map((transaction, index) => (
+                              <div
+                                  key={index}
+                                  onClick={() => showBoughtProducts(index)}
+                                  onContextMenu={(e) => {
+                                      e.preventDefault();
+                                      openPopup('Modifier ?', ['Oui', 'Non'], (i) => {
+                                          if (i === 0) {
+                                              editTransaction(index);
+                                          }
+                                      });
+                                  }}
+                              >
+                                  {transaction}
+                              </div>
+                          ))}
+                </div>
             </div>
         </div>
     );

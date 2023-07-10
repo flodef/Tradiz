@@ -1,99 +1,108 @@
-export const otherKeyword = 'Autres';
-export const categorySeparator = '>';
-export const maxDecimals = 2;
-export const maxValue = 999.99;
-export const currency = '€';
-export const defaultDate = [new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate()].join('-');
+import { InventoryItem } from '../hooks/useConfig';
+import { GOOGLE_API_KEY, GOOGLE_SPREADSHEET_ID } from './env';
 
-export const inventory = [
-    {
-        category: 'Boulange',
-        rate: 5.5,
-        products: [
-            { label: 'Baguette', price: 1.3 },
-            { label: 'Baguette graine', price: 1.6 },
-            { label: 'Campagne (500g)', price: 3 },
-            { label: 'Campagne (1kg)', price: 6 },
-            { label: 'Campagne (coupe)', price: 0 },
-            { label: 'Multi moulé', price: 5.5 },
-            { label: 'Multi masse', price: 0 },
-            { label: 'Complet', price: 3 },
-            { label: 'Sésame Pavot Lin', price: 3 },
-            { label: 'Pain blanc', price: 3 },
-            { label: 'Raisin Noisette', price: 4 },
-            { label: 'Pain aux Noix', price: 3.5 },
-            { label: 'Pain indien', price: 3.8 },
-            { label: 'Petit épeautre', price: 4.9 },
-            { label: 'Sans Gluten', price: 5.2 },
-        ],
-    },
-    {
-        category: 'Pâtisserie',
-        rate: 5.5,
-        products: [
-            { label: 'Croissant', price: 1.3 },
-            { label: 'Pain au Chocolat', price: 1.4 },
-            { label: 'Pain au Lait', price: 1.1 },
-            { label: 'Krozaman', price: 2 },
-            { label: 'Tarte au citron', price: 2.5 },
-            { label: 'Brownie / Brockie', price: 2.2 },
-            { label: 'Tartelette Fruit', price: 2.8 },
-            { label: 'Carotte cake / Cheese cake', price: 2.2 },
-        ],
-    },
-    {
-        category: 'Epicerie',
-        rate: 5.5,
-        products: [
-            { label: 'Jus de pomme', price: 3.9 },
-            { label: 'Jus framboise / fraise', price: 4.1 },
-            { label: 'Farine', price: 0 },
-            { label: 'Huile', price: 0 },
-            { label: 'Lentilles', price: 0 },
-            { label: 'Pâté', price: 0 },
-            { label: 'Confitures', price: 0 },
-            { label: 'Miel', price: 0 },
-            { label: 'Oeuf (x6)', price: 2.9 },
-            { label: 'Beurre', price: 6.9 },
-            { label: 'Lait', price: 2.1 },
-        ],
-    },
-    {
-        category: 'Salon⋅Thé',
-        rate: 10,
-        products: [
-            { label: 'Café court / moyen', price: 1.5 },
-            { label: 'Café allongé', price: 2 },
-            { label: 'Café au lait', price: 3 },
-            { label: 'Cappucino', price: 3 },
-            { label: 'Chocolat', price: 3 },
-            { label: 'Thé', price: 3 },
-            { label: 'Jus de fruit (verre)', price: 2.5 },
-        ],
-    },
-    {
-        category: 'Alcool',
-        rate: 20,
-        products: [
-            { label: 'Cidre', price: 0 },
-            { label: 'Bière', price: 0 },
-            { label: 'Vin', price: 0 },
-        ],
-    },
-    {
-        category: otherKeyword,
-        rate: 0,
-        products: [
-            { label: 'Journal', price: 1.3 },
-            { label: 'Journal (week-end)', price: 1.5 },
-            { label: 'Carte Postale', price: 0 },
-            { label: 'Tableau', price: 0 },
-            { label: 'Couture', price: 0 },
-            { label: 'Livres', price: 0 },
-            { label: 'Art', price: 0 },
-            { label: 'Savons (Morgane)', price: 0 },
-        ],
-    },
-];
+export async function LoadData() {
+    const parameters = await fetch(getData('Paramètres', 'fetchParameters', false))
+        // TODO use next/server route
+        //const parameters = await fetch('./src/app/api/route.ts')
+        .catch((error) => {
+            throw new Error(error);
+        })
+        .then(ConvertParametersData);
 
-export const paymentMethods = ['CB', 'Espèces', 'Chèque', 'Crypto'];
+    const param0 = parameters.at(0);
+    const max = (
+        param0?.includes('.') && (param0.includes(',') || param0.includes(' ')) ? param0.replace(/,| /g, '') : param0
+    )?.replace(/[^\d.-]/g, '');
+
+    let param = {} as { maxValue: number; maxDecimals: number; currency: string; paymentMethods: string[] };
+    if (max && param0 && parseFloat(max)) {
+        param.maxValue = parseFloat(max);
+        param.maxDecimals = max.indexOf('.') == -1 ? 0 : max.length - max.indexOf('.') - 1;
+        param.currency = /\D/.test(param0.slice(-1))
+            ? param0.slice(-1)
+            : /\D/.test(param0.slice(0, 1))
+            ? param0.slice(0, 1)
+            : '';
+    }
+
+    const param1 = parameters.at(1)?.split(',');
+    param.paymentMethods = param1?.length && param1.every((item) => !/\d/.test(item)) ? param1 : [];
+
+    const products = await fetch(getData('Produits', 'fetchProducts'))
+        .catch((error) => {
+            throw new Error(error);
+        })
+        .then(ConvertProductsData);
+
+    let inventory = [] as InventoryItem[];
+    products.forEach((item) => {
+        const category = inventory.find(({ category }) => category === item.category);
+        if (category) {
+            category.products.push({
+                label: item.label,
+                price: item.price,
+            });
+        } else {
+            inventory.push({
+                category: item.category,
+                rate: item.rate,
+                products: [
+                    {
+                        label: item.label,
+                        price: item.price,
+                    },
+                ],
+            });
+        }
+    });
+
+    return {
+        parameters: param,
+        inventory: inventory,
+    };
+}
+
+async function ConvertParametersData(response: Response) {
+    return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
+        if (!data) throw new Error('data not fetched');
+        if (data.error?.message) throw new Error(data.error.message);
+        if (!data.values || data.values.length === 0) throw new Error('missing data pattern');
+
+        return data.values.map((item) => {
+            return item[1];
+        });
+    });
+}
+
+async function ConvertProductsData(response: Response) {
+    return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
+        if (!data) throw new Error('data not fetched');
+        if (data.error && data.error.message) throw new Error(data.error.message);
+        if (!data.values || data.values.length === 0) throw new Error('missing data pattern');
+        const labels = data.values[0];
+        return data.values
+            .filter((item, i) => i !== 0)
+            .map((item) => {
+                return {
+                    category: item[0]?.toString().trim(),
+                    rate: item[1]?.toString().fromCurrency() * 100,
+                    label: item[2]?.toString().trim(),
+                    price: item[3]?.toString().fromCurrency() ?? 0,
+                };
+            });
+    });
+}
+
+function getBaseURL(path?: string | URL) {
+    const base = window ? window.location.protocol + '//' + window.location.host : '';
+    return path ? new URL(path, base) : new URL(base);
+}
+
+function getData(sheetName: string, fallbackAPI: string, isRaw = true) {
+    return GOOGLE_SPREADSHEET_ID && GOOGLE_API_KEY && navigator?.onLine
+        ? `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SPREADSHEET_ID}/values/${sheetName}!A%3AZ?${
+              isRaw ? 'valueRenderOption=UNFORMATTED_VALUE&' : ''
+          }key=${GOOGLE_API_KEY}`
+        : `${getBaseURL()}/api/${fallbackAPI}`;
+}

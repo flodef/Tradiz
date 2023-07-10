@@ -1,6 +1,8 @@
+'use client';
+
 import { FC, ReactNode, useCallback, useRef, useState } from 'react';
 import { DataContext, DataElement, Transaction } from '../hooks/useData';
-import { categorySeparator, defaultDate } from '../utils/data';
+import { CATEGORY_SEPARATOR, DEFAULT_DATE } from '../utils/env';
 import { useLocalStorage } from '../utils/localStorage';
 
 export interface DataProviderProps {
@@ -23,7 +25,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [selectedCategory, setSelectedCategory] = useState('');
     const products = useRef<[DataElement] | undefined>();
     const [transactions, setTransactions] = useLocalStorage<[Transaction] | undefined>(
-        'Transactions ' + defaultDate,
+        'Transactions ' + DEFAULT_DATE,
         undefined
     );
 
@@ -53,7 +55,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (typeof product === 'object') {
                 element = product;
             } else {
-                const p = (product ?? selectedCategory).split(categorySeparator);
+                const p = (product ?? selectedCategory).split(CATEGORY_SEPARATOR);
                 element.category = p.at(0) ?? '';
                 element.label = p.at(1) ?? '';
                 element.quantity = Math.max(1, quantity);

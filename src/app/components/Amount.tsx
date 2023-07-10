@@ -1,5 +1,5 @@
 import { FC, useMemo } from 'react';
-import { currency, maxDecimals } from '../utils/data';
+import { useConfig } from '../hooks/useConfig';
 
 export interface AmountProps {
     value: number | string | undefined;
@@ -9,7 +9,9 @@ export interface AmountProps {
     className?: string;
 }
 
-export const Amount: FC<AmountProps> = ({ className, value, showZero, decimals = maxDecimals }) => {
+export const Amount: FC<AmountProps> = ({ className, value, showZero, decimals }) => {
+    const { currency, maxDecimals } = useConfig();
+
     const NON_BREAKING_SPACE = '\u00a0';
 
     const amount = useMemo(() => {
@@ -21,7 +23,7 @@ export const Amount: FC<AmountProps> = ({ className, value, showZero, decimals =
 
     return amount !== NON_BREAKING_SPACE ? (
         <span className={className}>
-            {decimals ? parseFloat(amount).toFixed(decimals) : amount}
+            {decimals || maxDecimals ? parseFloat(amount).toFixed(decimals ?? maxDecimals) : amount}
             <span className="text-xl">{currency}</span>
         </span>
     ) : null;

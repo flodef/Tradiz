@@ -1,3 +1,5 @@
+'use client';
+
 import { FC, ReactNode, useCallback, useState } from 'react';
 import { PopupContext } from '../hooks/usePopup';
 

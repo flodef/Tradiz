@@ -1,3 +1,5 @@
+'use client';
+
 import { FC, useCallback } from 'react';
 import { usePopup } from '../hooks/usePopup';
 import { CloseButton } from './CloseButton';

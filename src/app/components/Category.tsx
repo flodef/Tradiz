@@ -1,7 +1,10 @@
+'use client';
+
 import { FC, MouseEventHandler, useCallback, useMemo, useState } from 'react';
+import { State, useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
-import { categorySeparator, inventory, otherKeyword } from '../utils/data';
+import { CATEGORY_SEPARATOR, OTHER_KEYWORD } from '../utils/env';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isMobileDevice } from '../utils/mobile';
 import { useAddPopupClass } from './Popup';
@@ -26,13 +29,15 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
         [input, onInput]
     );
 
-    const category = selectedCategory.split(categorySeparator);
+    const category = selectedCategory.split(CATEGORY_SEPARATOR);
 
     return (
         <div
             className={
                 'w-1/3 relative flex justify-center py-3 items-center font-semibold text-2xl active:bg-orange-300 truncate' +
-                ((input !== otherKeyword ? category.includes(input) : input === category.at(0)) ? ' bg-orange-300' : '')
+                ((input !== OTHER_KEYWORD ? category.includes(input) : input === category.at(0))
+                    ? ' bg-orange-300'
+                    : '')
             }
             onClick={onClick}
             onContextMenu={onClick}
@@ -43,6 +48,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
 };
 
 export const Category: FC = () => {
+    const { inventory, state } = useConfig();
     const { addProduct, amount, setAmount, selectedCategory, setSelectedCategory, setQuantity } = useData();
     const { openPopup } = usePopup();
 
@@ -68,20 +74,20 @@ export const Category: FC = () => {
             if (!item) return;
 
             if (eventType === 'contextmenu' && amount) {
-                addCategory(item.category.concat(categorySeparator, otherKeyword));
+                addCategory(item.category.concat(CATEGORY_SEPARATOR, OTHER_KEYWORD));
             } else {
                 openPopup(
                     item.category,
-                    item.products.map(({ label }) => label).concat(otherKeyword),
+                    item.products.map(({ label }) => label).concat(OTHER_KEYWORD),
                     (index, option) => {
                         setSelectedProduct(option);
-                        const newCategory = item.category.concat(categorySeparator, option);
+                        const newCategory = item.category.concat(CATEGORY_SEPARATOR, option);
                         if (amount) {
                             addCategory(newCategory);
                         }
                         if (!amount || selectedCategory) {
                             const price = item.products.at(index)?.price;
-                            if (option !== otherKeyword && price) {
+                            if (option !== OTHER_KEYWORD && price) {
                                 setAmount(price);
                                 setQuantity(-1); // Set the multiplier to 1 (ready for the next input)
                             }
@@ -91,17 +97,17 @@ export const Category: FC = () => {
                 );
             }
         },
-        [openPopup, amount, setAmount, addCategory, setSelectedCategory, selectedCategory, setQuantity]
+        [openPopup, amount, setAmount, addCategory, setSelectedCategory, selectedCategory, setQuantity, inventory]
     );
 
     const categories = useMemo(
         () =>
             inventory.map(({ category }) =>
-                category !== selectedCategory.split(categorySeparator).at(0) || selectedProduct === otherKeyword
+                category !== selectedCategory.split(CATEGORY_SEPARATOR).at(0) || selectedProduct === OTHER_KEYWORD
                     ? category
                     : selectedProduct
             ),
-        [selectedCategory, selectedProduct]
+        [selectedCategory, selectedProduct, inventory]
     );
 
     return (
@@ -110,19 +116,24 @@ export const Category: FC = () => {
                 'inset-x-0 divide-y divide-orange-300 border-t-[3px] border-orange-300 md:absolute md:bottom-0 md:w-1/2'
             )}
         >
-            {categories.length > 0 && (
+            {(state === State.init || state === State.loading) && (
+                <div className="min-h-[113px] flex justify-center items-center font-semibold text-2xl">
+                    Chargement...
+                </div>
+            )}
+            {state === State.done && categories.length > 0 && (
                 <div className="flex justify-evenly divide-x divide-orange-300">
                     {categories.slice(0, 3).map((category, index) => (
                         <CategoryButton key={index} input={category} onInput={onInput} />
                     ))}
                 </div>
             )}
-            {categories.length > 3 && (
+            {state === State.done && categories.length > 3 && (
                 <div className="flex justify-evenly divide-x divide-orange-300">
                     {categories.slice(3, 6).map((category, index) => (
                         <CategoryButton
                             key={index}
-                            input={category === categories[5] && categories.length > 6 ? otherKeyword : category}
+                            input={category === categories[5] && categories.length > 6 ? OTHER_KEYWORD : category}
                             onInput={onInput}
                         />
                     ))}

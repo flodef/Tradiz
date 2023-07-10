@@ -1,27 +1,26 @@
 import { createContext, useContext } from 'react';
 
-export type Digits = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
-
-export enum Theme {
-    Classic = 'classic',
-    Color = 'color',
-    BlackWhite = 'blackWhite',
+export enum State {
+    init,
+    loading,
+    error,
+    done,
 }
 
-interface ConfigContextState {
-    // link: URL | undefined;
-    // label: string;
-    // message?: string;
-    // icon: ReactElement;
-    // decimals: Digits;
-    minDecimals: Digits;
-    maxDecimals: Digits;
+export interface InventoryItem {
+    category: string;
+    rate: number;
+    products: { label: string; price: number }[];
+}
+
+export interface ConfigContextState {
+    state: State;
+    maxDecimals: number;
     maxValue: number;
     currency: string;
-    // id?: number;
-    theme: string;
-    // changeTheme: () => void;
-    // reset: () => void;
+    paymentMethods: string[];
+    inventory: InventoryItem[];
+    toCurrency: (value: number) => string;
 }
 
 export const ConfigContext = createContext<ConfigContextState>({} as ConfigContextState);

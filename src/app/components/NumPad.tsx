@@ -1,18 +1,20 @@
+'use client';
+
 import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useState } from 'react';
+import { utils, writeFile } from 'xlsx';
 import { addElement } from '../contexts/DataProvider';
-import { Digits } from '../hooks/useConfig';
-import { DataElement, useData } from '../hooks/useData';
+import { useConfig } from '../hooks/useConfig';
+import { DataElement, Digits, useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { WalletIcon } from '../images/WalletIcon';
-import { defaultDate, inventory, maxDecimals, maxValue, paymentMethods } from '../utils/data';
+import { DEFAULT_DATE } from '../utils/env';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isMobileDevice } from '../utils/mobile';
+import { takeScreenshot } from '../utils/screenshot';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
-import { takeScreenshot } from '../utils/screenshot';
-import { utils, writeFile } from 'xlsx';
 
 interface NumPadButtonProps {
     input: Digits | string;
@@ -35,7 +37,7 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
 
     return (
         <div
-            className="w-20 h-20 active:bg-lime-300 rounded-2xl border border-lime-500 relative flex justify-center m-3 items-center font-semibold text-3xl border-[3px]"
+            className="w-20 h-20 active:bg-lime-300 rounded-2xl border-lime-500 relative flex justify-center m-3 items-center font-semibold text-3xl border-[3px]"
             onClick={onClick}
             onContextMenu={onClick}
         >
@@ -60,6 +62,7 @@ const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu, 
 };
 
 export const NumPad: FC = () => {
+    const { maxValue, maxDecimals, paymentMethods, inventory, toCurrency } = useConfig();
     const {
         total,
         amount,
@@ -85,7 +88,7 @@ export const NumPad: FC = () => {
         setLocalTransactions(transactions);
     }, [transactions]);
 
-    const regExp = useMemo(() => new RegExp('^\\d*([.,]\\d{0,' + maxDecimals + '})?$'), []);
+    const regExp = useMemo(() => new RegExp('^\\d*([.,]\\d{0,' + maxDecimals + '})?$'), [maxDecimals]);
 
     const [value, setValue] = useState('0');
     const onInput = useCallback(
@@ -128,9 +131,9 @@ export const NumPad: FC = () => {
 
     const onPay = useCallback(() => {
         if (total && !amount) {
-            openPopup('Paiement : ' + total.toCurrency(), paymentMethods, addPayment);
+            openPopup('Paiement : ' + toCurrency(total), paymentMethods, addPayment);
         }
-    }, [amount, openPopup, total, addPayment]);
+    }, [amount, openPopup, total, addPayment, paymentMethods, toCurrency]);
 
     const getTaxesByCategory = useCallback(() => {
         return inventory
@@ -143,7 +146,7 @@ export const NumPad: FC = () => {
                     .filter((category, index, array) => array.indexOf(category) === index);
                 return { index, rate, categories };
             });
-    }, []);
+    }, [inventory]);
 
     const getTaxAmountByCategory = useCallback(
         (
@@ -242,7 +245,7 @@ export const NumPad: FC = () => {
                     ' x ' +
                     quantity +
                     ' ==> ' +
-                    amount.toCurrency()
+                    toCurrency(amount)
             )
             .concat([''])
             .concat([' TAUX \n HT \n TVA \n TTC '])
@@ -255,29 +258,29 @@ export const NumPad: FC = () => {
                             ' ' +
                             rate +
                             '%\n' +
-                            ht.toCurrency() +
+                            toCurrency(ht) +
                             '\n' +
-                            tva.toCurrency() +
+                            toCurrency(tva) +
                             '\n' +
-                            total.toCurrency()
+                            toCurrency(total)
                         );
                     })
                     .concat([
                         'TOTAL\n' +
-                            totalTaxes.ht.toCurrency() +
+                            toCurrency(totalTaxes.ht) +
                             '\n' +
-                            totalTaxes.tva.toCurrency() +
+                            toCurrency(totalTaxes.tva) +
                             '\n' +
-                            totalTaxes.total.toCurrency(),
+                            toCurrency(totalTaxes.total),
                     ])
             )
             .concat([''])
             .concat(
                 payments.map(
-                    ({ category, quantity, amount }) => category + ' x ' + quantity + ' ==> ' + amount.toCurrency()
+                    ({ category, quantity, amount }) => category + ' x ' + quantity + ' ==> ' + toCurrency(amount)
                 )
             );
-    }, [getTaxAmountByCategory, getTaxesByCategory, localTransactions, getTransactionsDetails]);
+    }, [getTaxAmountByCategory, getTaxesByCategory, localTransactions, getTransactionsDetails, toCurrency]);
 
     const showTransactionsSummary = useCallback(() => {
         if (!localTransactions?.length) return;
@@ -288,7 +291,7 @@ export const NumPad: FC = () => {
         const totalProducts = categories.reduce((total, category) => total + category.quantity, 0);
 
         openPopup(
-            totalProducts + 'pdts | ' + localTransactions.length + 'vts : ' + totalAmount.toCurrency(),
+            totalProducts + 'pdts | ' + localTransactions.length + 'vts : ' + toCurrency(totalAmount),
             summary || [''],
             (index) => {
                 if (!categories?.length || index >= categories.length) {
@@ -316,19 +319,19 @@ export const NumPad: FC = () => {
                         })
                 );
                 const summary = array.map(
-                    ({ label, quantity, amount }) => label + ' x ' + quantity + ' ==> ' + amount.toCurrency()
+                    ({ label, quantity, amount }) => label + ' x ' + quantity + ' ==> ' + toCurrency(amount)
                 );
 
                 setTimeout(() =>
                     openPopup(
-                        category.category + ' x' + category.quantity + ': ' + category.amount.toCurrency(),
+                        category.category + ' x' + category.quantity + ': ' + toCurrency(category.amount),
                         summary,
                         () => setTimeout(showTransactionsSummary)
                     )
                 );
             }
         );
-    }, [openPopup, localTransactions, getTransactionsDetails, getTransactionsSummary]);
+    }, [openPopup, localTransactions, getTransactionsDetails, getTransactionsSummary, toCurrency]);
 
     const sendEmail = useCallback(
         (subject: string, attachment: string) => {
@@ -360,7 +363,7 @@ export const NumPad: FC = () => {
             const transactionsData = localTransactions.map(({ amount, method, date }, index) => {
                 return {
                     ID: index,
-                    Montant: amount.toCurrency(),
+                    Montant: toCurrency(amount),
                     Paiement: method,
                     Heure: date,
                 };
@@ -373,9 +376,9 @@ export const NumPad: FC = () => {
                             TransactionID: index,
                             Catégorie: category,
                             Produit: label,
-                            Prix: amount.toCurrency(),
+                            Prix: toCurrency(amount),
                             Quantité: quantity,
-                            Total: (amount * quantity).toCurrency(),
+                            Total: toCurrency(amount * quantity),
                         };
                     });
                 })
@@ -395,9 +398,9 @@ export const NumPad: FC = () => {
                     return {
                         Catégorie: category,
                         Taux: rate + '%',
-                        HT: ht.toCurrency(),
-                        TVA: tva.toCurrency(),
-                        TTC: total.toCurrency(),
+                        HT: toCurrency(ht),
+                        TVA: toCurrency(tva),
+                        TTC: toCurrency(total),
                     };
                 })
                 .filter((t) => t) as {
@@ -419,14 +422,14 @@ export const NumPad: FC = () => {
             });
             writeFile(workbook, fileName + '.xlsx', { compression: true });
         },
-        [localTransactions]
+        [localTransactions, inventory, toCurrency]
     );
 
     const showTransactionsSummaryMenu = useCallback<MouseEventHandler>(
         (e) => {
             e.preventDefault();
             openPopup(
-                'TicketZ ' + defaultDate,
+                'TicketZ ' + DEFAULT_DATE,
                 ["Capture d'écran", 'Email', 'Feuille de calcul', 'Afficher'],
                 (index) => {
                     switch (index) {
@@ -434,17 +437,17 @@ export const NumPad: FC = () => {
                             setTimeout(() => {
                                 showTransactionsSummary();
                                 setTimeout(() => {
-                                    takeScreenshot('popup', 'TicketZ ' + defaultDate + '.png').then(() => {
+                                    takeScreenshot('popup', 'TicketZ ' + DEFAULT_DATE + '.png').then(() => {
                                         closePopup();
                                     });
                                 }, 200);
                             });
                             break;
                         case 1:
-                            sendEmail('TicketZ ' + defaultDate, 'TicketZ ' + defaultDate + '.png');
+                            sendEmail('TicketZ ' + DEFAULT_DATE, 'TicketZ ' + DEFAULT_DATE + '.png');
                             break;
                         case 2:
-                            downloadData('TicketZ ' + defaultDate);
+                            downloadData('TicketZ ' + DEFAULT_DATE);
                             break;
                         case 3:
                             setTimeout(showTransactionsSummary);
@@ -464,7 +467,7 @@ export const NumPad: FC = () => {
 
     useEffect(() => {
         setAmount(parseInt(value) / Math.pow(10, maxDecimals));
-    }, [value, setAmount]);
+    }, [value, setAmount, maxDecimals]);
     useEffect(() => {
         if (!amount) {
             setValue('0');
