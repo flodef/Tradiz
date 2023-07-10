@@ -10,12 +10,19 @@ export async function LoadData() {
         })
         .then(ConvertParametersData);
 
+    let param = {} as {
+        maxValue: number;
+        maxDecimals: number;
+        currency: string;
+        paymentMethods: string[];
+        lastModif: Date;
+    };
+
     const param0 = parameters.at(0);
     const max = (
         param0?.includes('.') && (param0.includes(',') || param0.includes(' ')) ? param0.replace(/,| /g, '') : param0
     )?.replace(/[^\d.-]/g, '');
 
-    let param = {} as { maxValue: number; maxDecimals: number; currency: string; paymentMethods: string[] };
     if (max && param0 && parseFloat(max)) {
         param.maxValue = parseFloat(max);
         param.maxDecimals = max.indexOf('.') == -1 ? 0 : max.length - max.indexOf('.') - 1;
@@ -28,6 +35,8 @@ export async function LoadData() {
 
     const param1 = parameters.at(1)?.split(',');
     param.paymentMethods = param1?.length && param1.every((item) => !/\d/.test(item)) ? param1 : [];
+
+    param.lastModif = new Date(parameters.at(2) ?? 0);
 
     const products = await fetch(getData('Produits', 'fetchProducts'))
         .catch((error) => {
