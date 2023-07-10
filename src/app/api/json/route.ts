@@ -11,6 +11,6 @@ export async function GET(request: Request) {
         case 'products':
             return NextResponse.json(products);
         default:
-            return null;
+            return NextResponse.json({});
     }
 }

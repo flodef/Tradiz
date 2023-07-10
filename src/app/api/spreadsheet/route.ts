@@ -22,6 +22,6 @@ export async function GET(request: Request) {
 
         return NextResponse.json(data);
     } else {
-        return null;
+        return NextResponse.json({});
     }
 }
