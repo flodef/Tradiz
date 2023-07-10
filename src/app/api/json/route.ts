@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import parameters from '../../data/parameters.json';
-import products from '../../data/products.json';
+import parameters from '../data/parameters.json';
+import products from '../data/products.json';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
