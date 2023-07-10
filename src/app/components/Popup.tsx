@@ -57,7 +57,7 @@ export const Popup: FC = () => {
         >
             <div>
                 <div className="flex justify-between bg-lime-200">
-                    <div className="text-2xl truncate font-semibold py-3 pl-3">{popupTitle}</div>
+                    <div className="text-2xl font-semibold py-3 pl-3">{popupTitle}</div>
                     <CloseButton onClose={closePopup} />
                 </div>
             </div>
