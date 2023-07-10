@@ -1,6 +1,6 @@
 'use client';
 
-import { FC, MouseEventHandler, useCallback, useMemo, useState } from 'react';
+import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useState } from 'react';
 import { State, useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
@@ -48,7 +48,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
 };
 
 export const Category: FC = () => {
-    const { inventory, state } = useConfig();
+    const { inventory, state, lastModified, setState } = useConfig();
     const { addProduct, amount, setAmount, selectedCategory, setSelectedCategory, setQuantity } = useData();
     const { openPopup } = usePopup();
 
@@ -109,6 +109,22 @@ export const Category: FC = () => {
             ),
         [selectedCategory, selectedProduct, inventory]
     );
+
+    useEffect(() => {
+        switch (state) {
+            case State.error:
+                openPopup(
+                    'Erreur chargement données',
+                    [`Utiliser sauvegarde du ${lastModified}`, 'Réessayer'],
+                    (index) => {
+                        setState(index === 1 ? State.init : State.done);
+                    }
+                );
+                break;
+            case State.fatal:
+                openPopup('Erreur fatale', ['Rafraîchir la page'], () => setState(State.init));
+        }
+    }, [state, openPopup, setSelectedCategory, lastModified, setState]);
 
     return (
         <div
