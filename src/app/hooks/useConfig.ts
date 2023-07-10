@@ -4,6 +4,7 @@ export enum State {
     init,
     loading,
     error,
+    fatal,
     done,
 }
 
@@ -19,7 +20,9 @@ export interface ConfigContextState {
     maxValue: number;
     currency: string;
     paymentMethods: string[];
+    lastModified: string;
     inventory: InventoryItem[];
+    setState: (value: State) => void;
     toCurrency: (value: number) => string;
 }
 
