@@ -53,7 +53,7 @@ export function requestFullscreen(): void {
         document.documentElement.webkitRequestFullscreen ||
         document.documentElement.mozRequestFullScreen ||
         document.documentElement.msRequestFullscreen;
-    if (requestFullscreen) {
+    if (requestFullscreen && process.env.NEXT_PUBLIC_VERCEL_ENV) {
         requestFullscreen.call(document.documentElement).catch((error) => console.warn(error));
     }
 }
