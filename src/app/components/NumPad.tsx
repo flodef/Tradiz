@@ -291,7 +291,7 @@ export const NumPad: FC = () => {
         const totalProducts = categories.reduce((total, category) => total + category.quantity, 0);
 
         openPopup(
-            totalProducts + 'pdts | ' + localTransactions.length + 'vts : ' + toCurrency(totalAmount),
+            totalProducts + ' produits | ' + localTransactions.length + ' ventes : ' + toCurrency(totalAmount),
             summary || [''],
             (index) => {
                 if (!categories?.length || index >= categories.length) {

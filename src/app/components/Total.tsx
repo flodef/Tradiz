@@ -114,7 +114,7 @@ export const Total: FC = () => {
         const summary = localTransactions.map(displayTransaction);
 
         openPopup(
-            totalTransactions + ' vts : ' + toCurrency(totalAmount),
+            totalTransactions + ' ventes : ' + toCurrency(totalAmount),
             summary,
             (i) => showBoughtProducts(i, showTransactions),
             {
@@ -128,19 +128,22 @@ export const Total: FC = () => {
         return total ? showProducts : localTransactions?.length ? showTransactions : () => {};
     }, [showProducts, showTransactions, total, localTransactions]);
 
-    const canDisplayTransactions = useMemo(() => {
-        return localTransactions?.length;
-    }, [localTransactions]);
+    const canDisplayTotal = useMemo(() => {
+        return total || amount || selectedCategory || !localTransactions?.length;
+    }, [total, amount, selectedCategory, localTransactions]);
 
     const totalDisplay = useMemo(() => {
-        return !canDisplayTransactions ? (
+        return canDisplayTotal ? (
             <div>
                 Total : <Amount value={total} showZero />
             </div>
         ) : (
-            'Ticket : ' + localTransactions?.length + ' vts'
+            <span>
+                {'Ticket : ' + localTransactions?.length}
+                <span className="text-xl">ventes</span>
+            </span>
         );
-    }, [total, localTransactions, canDisplayTransactions]);
+    }, [total, localTransactions, canDisplayTotal]);
 
     const totalDisplayClassName = 'text-5xl truncate text-center font-bold py-3 ';
 
@@ -170,7 +173,7 @@ export const Total: FC = () => {
                 </div>
 
                 <div className="text-center text-2xl font-bold py-3 hidden md:block md:max-h-[90%] md:overflow-y-auto">
-                    {!canDisplayTransactions
+                    {canDisplayTotal
                         ? products.current?.map(displayProduct).map((product, index) => (
                               <div
                                   key={index}
