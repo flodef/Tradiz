@@ -1,6 +1,6 @@
 'use client';
 
-import { FC, ReactNode, useEffect, useState } from 'react';
+import { FC, ReactNode, useCallback, useEffect, useState } from 'react';
 import { ConfigContext, InventoryItem, State } from '../hooks/useConfig';
 import { LoadData } from '../utils/data';
 import { useLocalStorage } from '../utils/localStorage';
@@ -15,6 +15,7 @@ interface Config {
         maxDecimals: number;
         currency: string;
         paymentMethods: string[];
+        lastModified: string;
     };
     inventory: InventoryItem[];
 }
@@ -26,34 +27,57 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     const [maxValue, setMaxValue] = useState(999.99);
     const [currency, setCurrency] = useState('€');
     const [paymentMethods, setPaymentMethods] = useState(['CB', 'Espèces', 'Chèque']);
+    const [lastModified, setLastModified] = useState(new Date().toLocaleString());
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
+
+    const updateConfig = useCallback((data: Config) => {
+        setInventory(data.inventory);
+        setMaxDecimals(data.parameters.maxDecimals);
+        setMaxValue(data.parameters.maxValue);
+        setCurrency(data.parameters.currency);
+        setLastModified(data.parameters.lastModified);
+        setPaymentMethods(data.parameters.paymentMethods);
+    }, []);
+
+    const storeData = useCallback(
+        (data: Config | undefined) => {
+            if (data?.inventory.length && data?.parameters) {
+                setConfig(data);
+                updateConfig(data);
+                return true;
+            } else {
+                return false;
+            }
+        },
+        [setConfig, updateConfig]
+    );
 
     useEffect(() => {
         if (state === State.init) {
             setState(State.loading);
             LoadData()
                 .then((data) => {
-                    setConfig(data);
-                    updateConfig(data);
+                    if (!storeData(data)) throw new Error('Empty config data');
+
                     setState(State.done);
                 })
-                .catch(() => {
+                .catch((error) => {
+                    console.error(error);
+
                     if (config) {
                         updateConfig(config);
                     } else {
-                        setState(State.error);
+                        LoadData(false).then((data) => {
+                            if (!storeData(data)) {
+                                setState(State.fatal);
+                                return;
+                            }
+                        });
                     }
+                    setState(State.error);
                 });
         }
-    }, [setConfig, config, state]);
-
-    function updateConfig(data: Config) {
-        setInventory(data.inventory);
-        setMaxDecimals(data.parameters.maxDecimals);
-        setMaxValue(data.parameters.maxValue);
-        setCurrency(data.parameters.currency);
-        setPaymentMethods(data.parameters.paymentMethods);
-    }
+    }, [state, config, storeData, updateConfig]);
 
     function toCurrency(value: number) {
         return value.toCurrency(maxDecimals, currency);
@@ -63,10 +87,12 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
         <ConfigContext.Provider
             value={{
                 state,
+                setState,
                 maxDecimals,
                 maxValue,
                 currency,
                 paymentMethods,
+                lastModified,
                 inventory,
                 toCurrency,
             }}
