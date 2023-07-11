@@ -9,18 +9,21 @@ import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
 
 export const Total: FC = () => {
-    const { toCurrency } = useConfig();
+    const { paymentMethods, toCurrency } = useConfig();
     const {
         total,
+        getCurrentTotal,
         amount,
         products,
         selectedCategory,
+        addProduct,
         deleteProduct,
+        addPayment,
         transactions,
         saveTransactions,
         editTransaction,
     } = useData();
-    const { openPopup } = usePopup();
+    const { openPopup, closePopup } = usePopup();
 
     // Hack to avoid differences between the server and the client, generating hydration issues
     const [localTransactions, setLocalTransactions] = useState<
@@ -52,58 +55,110 @@ export const Total: FC = () => {
         [toCurrency]
     );
 
-    const confirmDeleteProduct = useCallback((deleteAction: (index: number) => void, fallback: () => void) => {
+    const confirmDeleteProduct = useCallback((deleteAction: (index: number) => void) => {
         return {
             confirmTitle: 'Effacer ?',
-            action: (index: number) => {
-                deleteAction(index);
-                setTimeout(fallback);
-            },
+            action: deleteAction,
         };
     }, []);
 
-    const showProducts = useCallback(() => {
-        if (!products.current?.length) return;
+    const showProducts = useCallback(
+        (newAmount = amount) => {
+            let canPay = total && !newAmount;
+            if (newAmount && selectedCategory) {
+                addProduct(selectedCategory);
+                canPay = true;
+            }
+            if (!products.current?.length) return;
 
-        openPopup(
-            'Total : ' +
-                toCurrency(products.current.reduce((total, product) => total + product.amount * product.quantity, 0)),
-            products.current.map(displayProduct),
-            undefined,
-            confirmDeleteProduct(deleteProduct, showProducts)
-        );
-    }, [openPopup, products, displayProduct, deleteProduct, confirmDeleteProduct, toCurrency]);
+            const newTotal = toCurrency(getCurrentTotal());
+
+            openPopup(
+                products.current.length + ' produits : ' + newTotal,
+                products.current.map(displayProduct).concat(canPay ? ['', 'PAYER'] : []),
+                (index, option) => {
+                    if (option === 'PAYER') {
+                        openPopup('Paiement : ' + newTotal, paymentMethods, (i, o) => addPayment(o));
+                    }
+                },
+                true,
+                confirmDeleteProduct((i) => {
+                    deleteProduct(i);
+                    if (products.current?.length) {
+                        showProducts(0);
+                    } else {
+                        closePopup();
+                    }
+                })
+            );
+        },
+        [
+            total,
+            getCurrentTotal,
+            amount,
+            addProduct,
+            addPayment,
+            selectedCategory,
+            products,
+            openPopup,
+            closePopup,
+            displayProduct,
+            confirmDeleteProduct,
+            deleteProduct,
+            toCurrency,
+            paymentMethods,
+        ]
+    );
+
+    const deleteBoughtProduct = useCallback(
+        (index: number, transaction: Transaction, backToProducts: () => void, backToTransactions: () => void) => {
+            if (!localTransactions?.length) return;
+
+            transaction.products.splice(index, 1);
+            transaction.amount = transaction.products.reduce(
+                (total, product) => total + product.amount * product.quantity,
+                0
+            );
+            if (!transaction.amount) {
+                localTransactions.splice(index, 1);
+                backToTransactions();
+            } else {
+                backToProducts();
+            }
+            saveTransactions(localTransactions);
+        },
+        [localTransactions, saveTransactions]
+    );
 
     const showBoughtProducts = useCallback(
         (index: number, fallback?: () => void) => {
             const transaction = localTransactions?.at(index);
             if (!transaction || !transaction.amount) return;
 
-            setTimeout(() =>
-                openPopup(
-                    toCurrency(transaction.amount) + ' en ' + transaction.method,
-                    transaction.products.map(displayProduct),
-                    fallback ? () => setTimeout(fallback) : undefined,
-                    confirmDeleteProduct(
-                        (i) => {
-                            if (!localTransactions?.length) return;
-
-                            transaction.products.splice(i, 1);
-                            transaction.amount = transaction.products.reduce(
-                                (total, product) => total + product.amount * product.quantity,
-                                0
-                            );
-                            if (!transaction.amount) {
-                                localTransactions.splice(index, 1);
-                            }
-                            saveTransactions(localTransactions);
-                        },
-                        () => showBoughtProducts(index, fallback)
-                    )
-                )
+            openPopup(
+                toCurrency(transaction.amount) + ' en ' + transaction.method,
+                transaction.products.map(displayProduct),
+                fallback ? fallback : undefined,
+                true,
+                confirmDeleteProduct((i) => {
+                    deleteBoughtProduct(
+                        i,
+                        transaction,
+                        () => showBoughtProducts(index, fallback),
+                        fallback ? fallback : closePopup
+                    );
+                })
             );
         },
-        [localTransactions, openPopup, displayProduct, confirmDeleteProduct, saveTransactions, toCurrency]
+        [
+            localTransactions,
+            openPopup,
+            closePopup,
+            displayProduct,
+            confirmDeleteProduct,
+            toCurrency,
+            deleteBoughtProduct,
+        ]
     );
 
     const showTransactions = useCallback(() => {
@@ -114,23 +169,27 @@ export const Total: FC = () => {
         const summary = localTransactions.map(displayTransaction);
 
         openPopup(
-            totalTransactions + ' ventes : ' + toCurrency(totalAmount),
+            `${totalTransactions} vente${totalTransactions > 1 ? 's' : ''} : ${toCurrency(totalAmount)}`,
             summary,
             (i) => showBoughtProducts(i, showTransactions),
+            true,
             {
                 confirmTitle: 'Modifier ?',
-                action: editTransaction,
+                action: (i) => {
+                    editTransaction(i);
+                    closePopup();
+                },
             }
         );
-    }, [openPopup, localTransactions, editTransaction, displayTransaction, showBoughtProducts, toCurrency]);
-
-    const handleClick = useMemo(() => {
-        return total ? showProducts : localTransactions?.length ? showTransactions : () => {};
-    }, [showProducts, showTransactions, total, localTransactions]);
+    }, [openPopup, closePopup, localTransactions, editTransaction, displayTransaction, showBoughtProducts, toCurrency]);
 
     const canDisplayTotal = useMemo(() => {
         return total || amount || selectedCategory || !localTransactions?.length;
     }, [total, amount, selectedCategory, localTransactions]);
+
+    const handleClick = useMemo(() => {
+        return canDisplayTotal ? () => showProducts() : localTransactions?.length ? showTransactions : () => {};
+    }, [showProducts, showTransactions, canDisplayTotal, localTransactions]);
 
     const totalDisplay = useMemo(() => {
         return canDisplayTotal ? (
@@ -140,7 +199,7 @@ export const Total: FC = () => {
         ) : (
             <span>
                 {'Ticket : ' + localTransactions?.length}
-                <span className="text-xl">ventes</span>
+                <span className="text-xl">{`vente${(localTransactions?.length ?? 0) > 1 ? 's' : ''}`}</span>
             </span>
         );
     }, [total, localTransactions, canDisplayTotal]);
@@ -158,7 +217,9 @@ export const Total: FC = () => {
                     className={
                         totalDisplayClassName +
                         'md:hidden border-b-[3px] border-orange-300' +
-                        (total || localTransactions?.length ? ' active:bg-orange-300 ' : '')
+                        ((canDisplayTotal && total) || (!canDisplayTotal && localTransactions?.length)
+                            ? ' active:bg-orange-300 '
+                            : '')
                     }
                     onClick={handleClick}
                     onContextMenu={(e) => {
