@@ -17,7 +17,8 @@ function useRemovePopupClass(className: string): string {
 }
 
 export const Popup: FC = () => {
-    const { popupTitle, popupOptions, popupAction, popupSpecialAction, openPopup, closePopup } = usePopup();
+    const { popupTitle, popupOptions, popupAction, popupStayOpen, popupSpecialAction, openPopup, closePopup } =
+        usePopup();
     const optionCount = popupOptions.filter((option) => option.trim()).length;
 
     const handleClick = useCallback(
@@ -25,24 +26,29 @@ export const Popup: FC = () => {
             if (!popupAction) return;
 
             popupAction(index, option);
-            closePopup();
+            if (!popupStayOpen) closePopup();
         },
-        [closePopup, popupAction]
+        [popupAction, closePopup, popupStayOpen]
     );
 
     const handleContextMenu = useCallback(
         (index: number) => {
             if (!popupSpecialAction) return;
 
-            openPopup(popupSpecialAction.confirmTitle, ['Oui', 'Non'], (index) => {
-                if (index === 0) {
-                    popupSpecialAction.action(index);
-                } else {
-                    setTimeout(() => openPopup(popupTitle, popupOptions, popupAction, popupSpecialAction));
-                }
-            });
+            openPopup(
+                popupSpecialAction.confirmTitle,
+                ['Oui', 'Non'],
+                (index) => {
+                    if (index === 0) {
+                        popupSpecialAction.action(index);
+                    } else {
+                        openPopup(popupTitle, popupOptions, popupAction, popupStayOpen, popupSpecialAction);
+                    }
+                },
+                true
+            );
         },
-        [openPopup, popupSpecialAction, popupAction, popupOptions, popupTitle]
+        [openPopup, popupSpecialAction, popupAction, popupOptions, popupTitle, popupStayOpen]
     );
 
     return (

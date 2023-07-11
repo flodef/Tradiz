@@ -119,7 +119,9 @@ export const NumPad: FC = () => {
                     break;
                 case 'contextmenu':
                     openPopup('Supprimer Total ?', ['Oui', 'Non'], (i) => {
-                        if (i === 0) clearTotal();
+                        if (i === 0) {
+                            clearTotal();
+                        }
                     });
                     break;
                 default:
@@ -131,7 +133,7 @@ export const NumPad: FC = () => {
 
     const onPay = useCallback(() => {
         if (total && !amount) {
-            openPopup('Paiement : ' + toCurrency(total), paymentMethods, addPayment);
+            openPopup('Paiement : ' + toCurrency(total), paymentMethods, (i, o) => addPayment(o));
         }
     }, [amount, openPopup, total, addPayment, paymentMethods, toCurrency]);
 
@@ -291,13 +293,12 @@ export const NumPad: FC = () => {
         const totalProducts = categories.reduce((total, category) => total + category.quantity, 0);
 
         openPopup(
-            totalProducts + ' produits | ' + localTransactions.length + ' ventes : ' + toCurrency(totalAmount),
+            `${totalProducts} produit${totalProducts > 1 ? 's' : ''} | ${localTransactions.length} vente${
+                localTransactions.length > 1 ? 's' : ''
+            } : ${toCurrency(totalAmount)}`,
             summary || [''],
             (index) => {
-                if (!categories?.length || index >= categories.length) {
-                    setTimeout(showTransactionsSummary);
-                    return;
-                }
+                if (!categories?.length || index >= categories.length) return;
 
                 const category = categories[index];
                 const array = [] as { label: string; quantity: number; amount: number }[];
@@ -322,14 +323,14 @@ export const NumPad: FC = () => {
                     ({ label, quantity, amount }) => label + ' x ' + quantity + ' ==> ' + toCurrency(amount)
                 );
 
-                setTimeout(() =>
-                    openPopup(
-                        category.category + ' x' + category.quantity + ': ' + toCurrency(category.amount),
-                        summary,
-                        () => setTimeout(showTransactionsSummary)
-                    )
+                openPopup(
+                    category.category + ' x' + category.quantity + ': ' + toCurrency(category.amount),
+                    summary,
+                    showTransactionsSummary,
+                    true
                 );
-            }
+            },
+            true
         );
     }, [openPopup, localTransactions, getTransactionsDetails, getTransactionsSummary, toCurrency]);
 
@@ -434,28 +435,29 @@ export const NumPad: FC = () => {
                 (index) => {
                     switch (index) {
                         case 0:
+                            showTransactionsSummary();
                             setTimeout(() => {
-                                showTransactionsSummary();
-                                setTimeout(() => {
-                                    takeScreenshot('popup', 'TicketZ ' + DEFAULT_DATE + '.png').then(() => {
-                                        closePopup();
-                                    });
-                                }, 200);
-                            });
+                                takeScreenshot('popup', 'TicketZ ' + DEFAULT_DATE + '.png').then(() => {
+                                    closePopup();
+                                });
+                            }); // Set timeout to give time to the popup to display and the screenshot to be taken
                             break;
                         case 1:
                             sendEmail('TicketZ ' + DEFAULT_DATE, 'TicketZ ' + DEFAULT_DATE + '.png');
+                            closePopup();
                             break;
                         case 2:
                             downloadData('TicketZ ' + DEFAULT_DATE);
+                            closePopup();
                             break;
                         case 3:
-                            setTimeout(showTransactionsSummary);
+                            showTransactionsSummary();
                             break;
                         default:
                             console.error('Unhandled index: ' + index);
                     }
-                }
+                },
+                true
             );
         },
         [openPopup, closePopup, showTransactionsSummary, sendEmail, downloadData]
