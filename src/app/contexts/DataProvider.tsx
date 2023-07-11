@@ -23,31 +23,27 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [amount, setAmount] = useState(0);
     const [quantity, setQuantity] = useState(0);
     const [selectedCategory, setSelectedCategory] = useState('');
-    const products = useRef<[DataElement] | undefined>();
+    const products = useRef<[DataElement]>();
     const [transactions, setTransactions] = useLocalStorage<[Transaction] | undefined>(
         'Transactions ' + DEFAULT_DATE,
         undefined
     );
 
     const updateTotal = useCallback(() => {
-        setTotal(
-            products.current
-                ? products.current.reduce((total, product) => total + product.amount * product.quantity, 0)
-                : 0
-        );
+        setTotal(getCurrentTotal());
     }, []);
 
     const clearAmount = useCallback(() => {
         setAmount(0);
         setQuantity(0);
         setSelectedCategory('');
-    }, []);
+        updateTotal();
+    }, [updateTotal]);
 
     const clearTotal = useCallback(() => {
-        clearAmount();
         products.current = undefined;
-        updateTotal();
-    }, [clearAmount, updateTotal]);
+        clearAmount();
+    }, [clearAmount]);
 
     const addProduct = useCallback(
         (product: string | DataElement) => {
@@ -73,11 +69,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 products.current = addElement(products.current, element);
             }
 
-            updateTotal();
-
             clearAmount();
         },
-        [amount, quantity, clearAmount, products, selectedCategory, updateTotal]
+        [amount, quantity, clearAmount, products, selectedCategory]
     );
 
     const deleteProduct = useCallback(
@@ -86,16 +80,16 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             products.current.splice(index, 1).at(0);
 
-            updateTotal();
+            clearAmount();
         },
-        [products, updateTotal]
+        [products, clearAmount]
     );
 
     const saveTransactions = useCallback(
         (transactions: [Transaction]) => {
             setTransactions(undefined);
             if (transactions.length) {
-                setTimeout(() => setTransactions(transactions));
+                setTimeout(() => setTransactions(transactions)); // Set a time out to avoid a bug with the localStorage when the transactions are not updated
             }
         },
         [setTransactions]
@@ -112,29 +106,35 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const addPayment = useCallback(
-        (index: number, method: string) => {
-            if (!total || !method || !products.current) return;
+        (method: string) => {
+            if (!method || !products.current) return;
 
             const currentHour = new Date().getHours() + 'h' + ('0' + new Date().getMinutes()).slice(-2);
             let newTransactions = addElement(transactions, {
                 method: method,
-                amount: total,
+                amount: getCurrentTotal(),
                 date: currentHour,
                 products: products.current,
             });
 
             saveTransactions(newTransactions);
 
-            clearAmount();
             clearTotal();
         },
-        [clearAmount, clearTotal, total, products, saveTransactions, transactions]
+        [clearTotal, products, saveTransactions, transactions]
     );
+
+    function getCurrentTotal() {
+        return products.current
+            ? products.current.reduce((total, product) => total + product.amount * product.quantity, 0)
+            : 0;
+    }
 
     return (
         <DataContext.Provider
             value={{
                 total,
+                getCurrentTotal,
                 amount,
                 setAmount,
                 quantity,
