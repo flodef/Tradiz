@@ -1,6 +1,6 @@
 'use client';
 
-import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, MouseEventHandler, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { addElement } from '../contexts/DataProvider';
 import { useConfig } from '../hooks/useConfig';
@@ -10,8 +10,7 @@ import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { WalletIcon } from '../images/WalletIcon';
 import { DEFAULT_DATE } from '../utils/env';
-import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
-import { isMobileDevice } from '../utils/mobile';
+import { requestFullscreen } from '../utils/fullscreen';
 import { takeScreenshot } from '../utils/screenshot';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
@@ -27,9 +26,7 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
     const onClick = useCallback<MouseEventHandler>(
         (e) => {
             e.preventDefault();
-            if (!isFullscreen() && isMobileDevice()) {
-                requestFullscreen();
-            }
+            requestFullscreen();
             onInput(input);
         },
         [onInput, input]
@@ -48,15 +45,35 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
 
 const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu, className }) => {
     const onClick = useCallback(() => {
-        if (!isFullscreen() && isMobileDevice()) {
-            requestFullscreen();
-        }
+        requestFullscreen();
         onInput(input);
     }, [onInput, input]);
 
     return (
         <div className={className} onClick={onClick} onContextMenu={onContextMenu}>
             {input}
+        </div>
+    );
+};
+
+interface ImageButtonProps {
+    children: ReactNode;
+    onInput(e: any): void;
+    className?: string;
+}
+const ImageButton: FC<ImageButtonProps> = ({ children, onInput, className }) => {
+    const onClick = useCallback<MouseEventHandler>(
+        (e) => {
+            e.preventDefault();
+            requestFullscreen();
+            onInput(e);
+        },
+        [onInput]
+    );
+
+    return (
+        <div className={className} onClick={onClick} onContextMenu={onClick}>
+            {children}
         </div>
     );
 };
@@ -508,9 +525,9 @@ export const NumPad: FC = () => {
                     value={amount * Math.max(quantity, 1)}
                     showZero
                 />
-                <div className={f1} onClick={onBackspace} onContextMenu={onBackspace}>
+                <ImageButton className={f1} onInput={onBackspace}>
                     <BackspaceIcon />
-                </div>
+                </ImageButton>
                 <FunctionButton className={f2} input="&times;" onInput={multiply} />
                 <FunctionButton
                     className={f3}
@@ -531,12 +548,12 @@ export const NumPad: FC = () => {
                 <div className="flex justify-evenly">
                     <NumPadButton input={0} onInput={onInput} />
                     <NumPadButton input={'00'} onInput={onInput} />
-                    <div
+                    <ImageButton
                         className={sx}
-                        onClick={canPay ? onPay : canAddProduct ? () => addProduct(selectedCategory) : () => {}}
+                        onInput={canPay ? onPay : canAddProduct ? () => addProduct(selectedCategory) : () => {}}
                     >
                         {canPay ? <WalletIcon /> : canAddProduct ? <BasketIcon /> : ''}
-                    </div>
+                    </ImageButton>
                 </div>
             </div>
         </div>

@@ -5,8 +5,7 @@ import { State, useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { CATEGORY_SEPARATOR, OTHER_KEYWORD } from '../utils/env';
-import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
-import { isMobileDevice } from '../utils/mobile';
+import { requestFullscreen } from '../utils/fullscreen';
 import { useAddPopupClass } from './Popup';
 
 interface CategoryInputButton {
@@ -20,9 +19,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
     const onClick = useCallback<MouseEventHandler>(
         (e) => {
             e.preventDefault();
-            if (!isFullscreen() && isMobileDevice()) {
-                requestFullscreen();
-            }
+            requestFullscreen();
 
             onInput(input, e.type);
         },
