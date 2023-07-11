@@ -38,8 +38,8 @@ export const Popup: FC = () => {
             openPopup(
                 popupSpecialAction.confirmTitle,
                 ['Oui', 'Non'],
-                (index) => {
-                    if (index === 0) {
+                (i) => {
+                    if (i === 0) {
                         popupSpecialAction.action(index);
                     } else {
                         openPopup(popupTitle, popupOptions, popupAction, popupStayOpen, popupSpecialAction);
