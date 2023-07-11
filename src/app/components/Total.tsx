@@ -7,6 +7,7 @@ import { usePopup } from '../hooks/usePopup';
 import { OTHER_KEYWORD } from '../utils/env';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
+import { requestFullscreen } from '../utils/fullscreen';
 
 export const Total: FC = () => {
     const { paymentMethods, toCurrency } = useConfig();
@@ -111,16 +112,22 @@ export const Total: FC = () => {
     );
 
     const deleteBoughtProduct = useCallback(
-        (index: number, transaction: Transaction, backToProducts: () => void, backToTransactions: () => void) => {
+        (
+            productIndex: number,
+            transactionIndex: number,
+            transaction: Transaction,
+            backToProducts: () => void,
+            backToTransactions: () => void
+        ) => {
             if (!localTransactions?.length) return;
 
-            transaction.products.splice(index, 1);
+            transaction.products.splice(productIndex, 1);
             transaction.amount = transaction.products.reduce(
                 (total, product) => total + product.amount * product.quantity,
                 0
             );
             if (!transaction.amount) {
-                localTransactions.splice(index, 1);
+                localTransactions.splice(transactionIndex, 1);
                 backToTransactions();
             } else {
                 backToProducts();
@@ -143,6 +150,7 @@ export const Total: FC = () => {
                 confirmDeleteProduct((i) => {
                     deleteBoughtProduct(
                         i,
+                        index,
                         transaction,
                         () => showBoughtProducts(index, fallback),
                         fallback ? fallback : closePopup
@@ -187,8 +195,13 @@ export const Total: FC = () => {
         return total || amount || selectedCategory || !localTransactions?.length;
     }, [total, amount, selectedCategory, localTransactions]);
 
-    const handleClick = useMemo(() => {
-        return canDisplayTotal ? () => showProducts() : localTransactions?.length ? showTransactions : () => {};
+    const handleClick = useCallback(() => {
+        requestFullscreen();
+        if (canDisplayTotal) {
+            showProducts();
+        } else if (localTransactions?.length) {
+            showTransactions();
+        }
     }, [showProducts, showTransactions, canDisplayTotal, localTransactions]);
 
     const totalDisplay = useMemo(() => {
