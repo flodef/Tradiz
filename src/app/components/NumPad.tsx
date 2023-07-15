@@ -4,7 +4,7 @@ import { FC, MouseEventHandler, ReactNode, useCallback, useEffect, useMemo, useS
 import { utils, writeFile } from 'xlsx';
 import { addElement } from '../contexts/DataProvider';
 import { useConfig } from '../hooks/useConfig';
-import { DataElement, Digits, useData } from '../hooks/useData';
+import { DataElement, useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
@@ -12,8 +12,11 @@ import { WalletIcon } from '../images/WalletIcon';
 import { DEFAULT_DATE } from '../utils/env';
 import { requestFullscreen } from '../utils/fullscreen';
 import { takeScreenshot } from '../utils/screenshot';
+import { Digits } from '../utils/types';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
+import { QRCode } from './QRCode';
+import { PaymentStatus, usePayment } from '../hooks/usePayment';
 
 interface NumPadButtonProps {
     input: Digits | string;
@@ -94,6 +97,7 @@ export const NumPad: FC = () => {
         addProduct,
     } = useData();
     const { openPopup, closePopup } = usePopup();
+    const { generate, paymentStatus, error, retry } = usePayment();
 
     const max = maxValue * Math.pow(10, maxDecimals);
 
@@ -148,11 +152,85 @@ export const NumPad: FC = () => {
         [clearAmount, clearTotal, openPopup]
     );
 
+    const openQRCode = useCallback(
+        (onCancel: (onConfirm: () => void) => void, onConfirm: () => void) => {
+            openPopup(
+                'Paiement : ' + toCurrency(total),
+                [<QRCode key="QRCode" />],
+                () => {
+                    const status = paymentStatus.current;
+                    paymentStatus.current = PaymentStatus.New;
+                    if (status === PaymentStatus.Pending) {
+                        onCancel(onConfirm);
+                    } else if (status === PaymentStatus.Error) {
+                        generate();
+                    } else {
+                        closePopup();
+                        addPayment('Crypto');
+                    }
+                },
+                true
+            );
+        },
+        [addPayment, closePopup, generate, paymentStatus, toCurrency, total, openPopup]
+    );
+
+    const cancelOrConfirmPaiement = useCallback(
+        (onConfirm: () => void) => {
+            openPopup(
+                'Paiement : ' + toCurrency(total),
+                ['Attendre paiement', 'Annuler paiement'],
+                (index) => {
+                    if (index === 1) {
+                        onConfirm();
+                    } else {
+                        retry();
+                        openQRCode(cancelOrConfirmPaiement, onConfirm);
+                    }
+                },
+                true
+            );
+        },
+        [openPopup, toCurrency, total, openQRCode, retry]
+    );
+
     const onPay = useCallback(() => {
         if (total && !amount) {
-            openPopup('Paiement : ' + toCurrency(total), paymentMethods, (i, o) => addPayment(o));
+            openPopup(
+                'Paiement : ' + toCurrency(total),
+                paymentMethods,
+                (index, option) => {
+                    if (index < 0) return;
+
+                    if (option === 'Crypto') {
+                        generate();
+                        openQRCode(cancelOrConfirmPaiement, onPay);
+                    } else {
+                        addPayment(option);
+                        closePopup();
+                    }
+                },
+                true
+            );
         }
-    }, [amount, openPopup, total, addPayment, paymentMethods, toCurrency]);
+    }, [
+        amount,
+        openPopup,
+        closePopup,
+        total,
+        addPayment,
+        paymentMethods,
+        toCurrency,
+        generate,
+        openQRCode,
+        cancelOrConfirmPaiement,
+    ]);
+
+    useEffect(() => {
+        if (error?.message === 'Transaction timed out') {
+            cancelOrConfirmPaiement(onPay);
+        }
+    }, [error, cancelOrConfirmPaiement, onPay]);
 
     const getTaxesByCategory = useCallback(() => {
         return inventory
@@ -315,7 +393,7 @@ export const NumPad: FC = () => {
             } : ${toCurrency(totalAmount)}`,
             summary || [''],
             (index) => {
-                if (!categories?.length || index >= categories.length) return;
+                if (!categories?.length || index >= categories.length || index < 0) return;
 
                 const category = categories[index];
                 const array = [] as { label: string; quantity: number; amount: number }[];
@@ -451,6 +529,8 @@ export const NumPad: FC = () => {
                 ["Capture d'écran", 'Email', 'Feuille de calcul', 'Afficher'],
                 (index) => {
                     switch (index) {
+                        case -1:
+                            return;
                         case 0:
                             showTransactionsSummary();
                             setTimeout(() => {
