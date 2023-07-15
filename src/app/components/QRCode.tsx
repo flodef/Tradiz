@@ -3,7 +3,7 @@ import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { PaymentStatus, usePayment } from '../hooks/usePayment';
 import { createQROptions } from '../utils/createQR';
 
-const minSize = 400;
+const minSize = 320;
 
 interface CheckmarkProps {
     isOK: boolean;
@@ -105,6 +105,6 @@ export const QRCode: FC = () => {
             <div>Annuler</div>
         </div>
     ) : (
-        <Checkmark isOK={paymentStatus.current !== PaymentStatus.Error} size={size * 0.75} />
+        <Checkmark isOK={paymentStatus.current !== PaymentStatus.Error} size={size * 0.9} />
     );
 };
