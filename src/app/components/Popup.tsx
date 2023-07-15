@@ -19,7 +19,7 @@ function useRemovePopupClass(className: string): string {
 export const Popup: FC = () => {
     const { popupTitle, popupOptions, popupAction, popupStayOpen, popupSpecialAction, openPopup, closePopup } =
         usePopup();
-    const optionCount = popupOptions.filter((option) => option.trim()).length;
+    const optionCount = popupOptions.filter((option) => option?.toString().trim()).length;
 
     const handleClick = useCallback(
         (index: number, option: string) => {
@@ -64,12 +64,17 @@ export const Popup: FC = () => {
             <div>
                 <div className="flex justify-between bg-lime-200">
                     <div className="text-2xl font-semibold py-3 pl-3">{popupTitle}</div>
-                    <CloseButton onClose={closePopup} />
+                    <CloseButton
+                        onClose={() => {
+                            closePopup();
+                            handleClick(-1, '');
+                        }}
+                    />
                 </div>
             </div>
             <div>
                 {popupOptions.map((option, index) =>
-                    option.trim() ? (
+                    option?.toString().trim() ? (
                         <div
                             className={
                                 // (popupAction || popupSpecialAction ? 'active:bg-lime-300 ' : '') +
@@ -83,15 +88,15 @@ export const Popup: FC = () => {
                                 'w-full relative flex justify-around items-center font-semibold text-xl text-center'
                             }
                             key={index}
-                            onClick={() => handleClick(index, option)}
+                            onClick={() => handleClick(index, option.toString())}
                             onContextMenu={(e) => {
                                 e.preventDefault();
                                 handleContextMenu(index);
                             }}
                         >
-                            {option.split('\n').map((line, index) => (
-                                <div key={index}>{line}</div>
-                            ))}
+                            {typeof option === 'string'
+                                ? option.split('\n').map((line, index) => <div key={index}>{line}</div>)
+                                : option}
                         </div>
                     ) : (
                         <div key={index} className="border-b-2 border-lime-300" />

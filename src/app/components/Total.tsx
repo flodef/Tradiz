@@ -4,10 +4,9 @@ import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useConfig } from '../hooks/useConfig';
 import { DataElement, Transaction, useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
-import { OTHER_KEYWORD } from '../utils/env';
+import { requestFullscreen } from '../utils/fullscreen';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
-import { requestFullscreen } from '../utils/fullscreen';
 
 export const Total: FC = () => {
     const { paymentMethods, toCurrency } = useConfig();
@@ -19,6 +18,7 @@ export const Total: FC = () => {
         selectedCategory,
         addProduct,
         deleteProduct,
+        displayProduct,
         addPayment,
         transactions,
         saveTransactions,
@@ -34,34 +34,12 @@ export const Total: FC = () => {
         setLocalTransactions(transactions);
     }, [transactions]);
 
-    const displayProduct = useCallback(
-        (product: DataElement) => {
-            return (
-                (product.label && product.label !== OTHER_KEYWORD ? product.label : product.category) +
-                ' : ' +
-                toCurrency(product.amount) +
-                ' x ' +
-                product.quantity +
-                ' = ' +
-                toCurrency(product.amount * product.quantity)
-            );
-        },
-        [toCurrency]
-    );
-
     const displayTransaction = useCallback(
         (transaction: Transaction) => {
             return toCurrency(transaction.amount) + ' en ' + transaction.method + ' à ' + transaction.date;
         },
         [toCurrency]
     );
-
-    const confirmDeleteProduct = useCallback((deleteAction: (index: number) => void) => {
-        return {
-            confirmTitle: 'Effacer ?',
-            action: deleteAction,
-        };
-    }, []);
 
     const showProducts = useCallback(
         (newAmount = amount) => {
@@ -79,18 +57,22 @@ export const Total: FC = () => {
                 products.current.map(displayProduct).concat(canPay ? ['', 'PAYER'] : []),
                 (index, option) => {
                     if (option === 'PAYER') {
+                        //TODO : refacto
                         openPopup('Paiement : ' + newTotal, paymentMethods, (i, o) => addPayment(o));
                     }
                 },
                 true,
-                confirmDeleteProduct((i) => {
-                    deleteProduct(i);
-                    if (products.current?.length) {
-                        showProducts(0);
-                    } else {
-                        closePopup();
-                    }
-                })
+                {
+                    confirmTitle: 'Effacer ?',
+                    action: (i) => {
+                        deleteProduct(i);
+                        if (products.current?.length) {
+                            showProducts(0);
+                        } else {
+                            closePopup();
+                        }
+                    },
+                }
             );
         },
         [
@@ -104,7 +86,6 @@ export const Total: FC = () => {
             openPopup,
             closePopup,
             displayProduct,
-            confirmDeleteProduct,
             deleteProduct,
             toCurrency,
             paymentMethods,
@@ -140,33 +121,28 @@ export const Total: FC = () => {
     const showBoughtProducts = useCallback(
         (index: number, fallback?: () => void) => {
             const transaction = localTransactions?.at(index);
-            if (!transaction || !transaction.amount) return;
+            if (!transaction || !transaction.amount || index < 0) return;
 
             openPopup(
                 toCurrency(transaction.amount) + ' en ' + transaction.method,
                 transaction.products.map(displayProduct),
                 fallback ? fallback : undefined,
                 true,
-                confirmDeleteProduct((i) => {
-                    deleteBoughtProduct(
-                        i,
-                        index,
-                        transaction,
-                        () => showBoughtProducts(index, fallback),
-                        fallback ? fallback : closePopup
-                    );
-                })
+                {
+                    confirmTitle: 'Effacer ?',
+                    action: (i) => {
+                        deleteBoughtProduct(
+                            i,
+                            index,
+                            transaction,
+                            () => showBoughtProducts(index, fallback),
+                            fallback ? fallback : closePopup
+                        );
+                    },
+                }
             );
         },
-        [
-            localTransactions,
-            openPopup,
-            closePopup,
-            displayProduct,
-            confirmDeleteProduct,
-            toCurrency,
-            deleteBoughtProduct,
-        ]
+        [localTransactions, openPopup, closePopup, displayProduct, toCurrency, deleteBoughtProduct]
     );
 
     const showTransactions = useCallback(() => {

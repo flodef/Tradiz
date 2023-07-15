@@ -9,7 +9,7 @@ import { usePopup } from '../hooks/usePopup';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { WalletIcon } from '../images/WalletIcon';
-import { DEFAULT_DATE } from '../utils/env';
+import { DEFAULT_DATE } from '../utils/constants';
 import { requestFullscreen } from '../utils/fullscreen';
 import { takeScreenshot } from '../utils/screenshot';
 import { Digits } from '../utils/types';

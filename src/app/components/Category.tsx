@@ -4,7 +4,7 @@ import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useState } from
 import { State, useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
-import { CATEGORY_SEPARATOR, OTHER_KEYWORD } from '../utils/env';
+import { CATEGORY_SEPARATOR, OTHER_KEYWORD } from '../utils/constants';
 import { requestFullscreen } from '../utils/fullscreen';
 import { useAddPopupClass } from './Popup';
 
@@ -77,6 +77,8 @@ export const Category: FC = () => {
                     item.category,
                     item.products.map(({ label }) => label).concat(OTHER_KEYWORD),
                     (index, option) => {
+                        if (index < 0) return;
+
                         setSelectedProduct(option);
                         const newCategory = item.category.concat(CATEGORY_SEPARATOR, option);
                         if (amount) {

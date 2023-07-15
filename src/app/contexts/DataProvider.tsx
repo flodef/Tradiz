@@ -1,8 +1,9 @@
 'use client';
 
 import { FC, ReactNode, useCallback, useRef, useState } from 'react';
+import { useConfig } from '../hooks/useConfig';
 import { DataContext, DataElement, Transaction } from '../hooks/useData';
-import { CATEGORY_SEPARATOR, DEFAULT_DATE } from '../utils/env';
+import { CATEGORY_SEPARATOR, DEFAULT_DATE, OTHER_KEYWORD } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
 
 export interface DataProviderProps {
@@ -19,6 +20,8 @@ export function addElement<T>(array: [T] | undefined, element: T): [T] {
 }
 
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
+    const { toCurrency } = useConfig();
+
     const [total, setTotal] = useState(0);
     const [amount, setAmount] = useState(0);
     const [quantity, setQuantity] = useState(0);
@@ -76,13 +79,28 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const deleteProduct = useCallback(
         (index: number) => {
-            if (!products.current?.length) return;
+            if (!products.current?.length || !products.current.at(index)) return;
 
             products.current.splice(index, 1).at(0);
 
             clearAmount();
         },
         [products, clearAmount]
+    );
+
+    const displayProduct = useCallback(
+        (product: DataElement) => {
+            return (
+                (product.label && product.label !== OTHER_KEYWORD ? product.label : product.category) +
+                ' : ' +
+                toCurrency(product.amount) +
+                ' x ' +
+                product.quantity +
+                ' = ' +
+                toCurrency(product.amount * product.quantity)
+            );
+        },
+        [toCurrency]
     );
 
     const saveTransactions = useCallback(
@@ -143,6 +161,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 setSelectedCategory,
                 addProduct,
                 deleteProduct,
+                displayProduct,
                 clearAmount,
                 clearTotal,
                 products,
