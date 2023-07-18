@@ -9,8 +9,8 @@ module.exports = {
         extend: {
             animation: {
                 blink: 'blink 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                strokeCircle: 'stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards',
-                strokeCheck: 'stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards',
+                strokeCircle: 'stroke .6s cubic-bezier(0.65, 0, 0.45, 1) forwards',
+                strokeCheck: 'stroke .3s cubic-bezier(0.65, 0, 0.45, 1) .8s forwards',
                 fillGreen: 'fillGreen .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both',
                 fillRed: 'fillRed .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both',
             },
@@ -27,10 +27,10 @@ module.exports = {
                     '50%': { transform: 'scale3d(1.1, 1.1, 1)' },
                 },
                 fillGreen: {
-                    '100%': { boxShadow: 'inset 0px 0px 0px 500px #84cc16' },
+                    '100%': { boxShadow: 'inset 0px 0px 0px 150px #84cc16' },
                 },
                 fillRed: {
-                    '100%': { boxShadow: 'inset 0px 0px 0px 500px #ef4444' },
+                    '100%': { boxShadow: 'inset 0px 0px 0px 150px #ef4444' },
                 },
             },
             backgroundImage: {
