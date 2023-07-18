@@ -99,12 +99,12 @@ export const QRCode: FC = () => {
         }
     }, [ref, qr, options]);
 
-    return paymentStatus.current === PaymentStatus.New || paymentStatus.current === PaymentStatus.Pending ? (
+    return paymentStatus.current === PaymentStatus.Pending ? (
         <div id="tata" className="flex flex-col">
             <div ref={ref} className="rounded-2xl" />
             <div>Annuler</div>
         </div>
-    ) : (
+    ) : paymentStatus.current !== PaymentStatus.New ? (
         <Checkmark isOK={paymentStatus.current !== PaymentStatus.Error} size={size * 0.9} />
-    );
+    ) : null;
 };
