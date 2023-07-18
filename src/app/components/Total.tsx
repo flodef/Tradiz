@@ -1,8 +1,8 @@
 'use client';
 
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { useConfig } from '../hooks/useConfig';
 import { DataElement, Transaction, useData } from '../hooks/useData';
+import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { requestFullscreen } from '../utils/fullscreen';
 import { Amount } from './Amount';
@@ -28,7 +28,6 @@ const TotalDisplay: FC<TotalDisplayProps> = ({ canDisplayTotal, total, localTran
 };
 
 export const Total: FC = () => {
-    const { paymentMethods, toCurrency } = useConfig();
     const {
         total,
         getCurrentTotal,
@@ -38,12 +37,13 @@ export const Total: FC = () => {
         addProduct,
         deleteProduct,
         displayProduct,
-        addPayment,
         transactions,
         saveTransactions,
         editTransaction,
+        toCurrency,
     } = useData();
     const { openPopup, closePopup } = usePopup();
+    const { onPay } = usePay();
 
     // Hack to avoid differences between the server and the client, generating hydration issues
     const [localTransactions, setLocalTransactions] = useState<
@@ -76,8 +76,7 @@ export const Total: FC = () => {
                 products.current.map(displayProduct).concat(canPay ? ['', 'PAYER'] : []),
                 (index, option) => {
                     if (option === 'PAYER') {
-                        //TODO : refacto
-                        openPopup('Paiement : ' + newTotal, paymentMethods, (i, o) => addPayment(o));
+                        onPay();
                     }
                 },
                 true,
@@ -99,7 +98,7 @@ export const Total: FC = () => {
             getCurrentTotal,
             amount,
             addProduct,
-            addPayment,
+            onPay,
             selectedCategory,
             products,
             openPopup,
@@ -107,7 +106,6 @@ export const Total: FC = () => {
             displayProduct,
             deleteProduct,
             toCurrency,
-            paymentMethods,
         ]
     );
 

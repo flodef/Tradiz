@@ -16,7 +16,7 @@ import { Digits } from '../utils/types';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
 import { QRCode } from './QRCode';
-import { PaymentStatus, usePayment } from '../hooks/usePayment';
+import { usePay } from '../hooks/usePay';
 
 interface NumPadButtonProps {
     input: Digits | string;
@@ -82,7 +82,7 @@ const ImageButton: FC<ImageButtonProps> = ({ children, onInput, className }) => 
 };
 
 export const NumPad: FC = () => {
-    const { maxValue, maxDecimals, paymentMethods, inventory, toCurrency } = useConfig();
+    const { maxValue, maxDecimals, inventory } = useConfig();
     const {
         total,
         amount,
@@ -91,13 +91,13 @@ export const NumPad: FC = () => {
         setQuantity,
         clearAmount,
         clearTotal,
-        addPayment,
         transactions,
         selectedCategory,
         addProduct,
+        toCurrency,
     } = useData();
     const { openPopup, closePopup } = usePopup();
-    const { generate, paymentStatus, error, retry } = usePayment();
+    const { onPay } = usePay();
 
     const max = maxValue * Math.pow(10, maxDecimals);
 
@@ -151,85 +151,6 @@ export const NumPad: FC = () => {
         },
         [clearAmount, clearTotal, openPopup]
     );
-
-    const openQRCode = useCallback(
-        (onCancel: (onConfirm: () => void) => void, onConfirm: () => void) => {
-            openPopup(
-                'Paiement : ' + toCurrency(total),
-                [<QRCode key="QRCode" />],
-                () => {
-                    if (paymentStatus.current === PaymentStatus.Pending) {
-                        onCancel(onConfirm);
-                    } else if (paymentStatus.current === PaymentStatus.Error) {
-                        generate();
-                    } else {
-                        addPayment('Crypto');
-                        closePopup(() => (paymentStatus.current = PaymentStatus.New));
-                    }
-                },
-                true
-            );
-        },
-        [addPayment, closePopup, generate, paymentStatus, toCurrency, total, openPopup]
-    );
-
-    const cancelOrConfirmPaiement = useCallback(
-        (onConfirm: () => void) => {
-            openPopup(
-                'Paiement : ' + toCurrency(total),
-                ['Attendre paiement', 'Annuler paiement'],
-                (index) => {
-                    if (index === 1) {
-                        onConfirm();
-                        paymentStatus.current = PaymentStatus.New;
-                    } else {
-                        retry();
-                        openQRCode(cancelOrConfirmPaiement, onConfirm);
-                    }
-                },
-                true
-            );
-        },
-        [openPopup, toCurrency, total, openQRCode, retry, paymentStatus]
-    );
-
-    const onPay = useCallback(() => {
-        if (total && !amount) {
-            openPopup(
-                'Paiement : ' + toCurrency(total),
-                paymentMethods,
-                (index, option) => {
-                    if (index < 0) return;
-
-                    if (option === 'Crypto') {
-                        generate();
-                        openQRCode(cancelOrConfirmPaiement, onPay);
-                    } else {
-                        addPayment(option);
-                        closePopup();
-                    }
-                },
-                true
-            );
-        }
-    }, [
-        amount,
-        openPopup,
-        closePopup,
-        total,
-        addPayment,
-        paymentMethods,
-        toCurrency,
-        generate,
-        openQRCode,
-        cancelOrConfirmPaiement,
-    ]);
-
-    useEffect(() => {
-        if (error?.message === 'Transaction timed out') {
-            cancelOrConfirmPaiement(onPay);
-        }
-    }, [error, cancelOrConfirmPaiement, onPay]);
 
     const getTaxesByCategory = useCallback(() => {
         return inventory
@@ -588,6 +509,9 @@ export const NumPad: FC = () => {
     const f1 = f + (amount || total ? 'active:bg-lime-300 text-lime-500' : 'invisible');
     const f2 = f + (quantity ? 'bg-lime-300 ' : '') + (amount ? 'active:bg-lime-300 text-lime-500' : 'invisible');
     const f3 = f + (localTransactions ? 'active:bg-lime-300 text-lime-500' : 'invisible');
+
+    const t = <QRCode />;
+    console.log(t);
 
     return (
         <div
