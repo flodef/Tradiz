@@ -21,7 +21,7 @@ export enum AirdropStatus {
     ConfirmingTokenTransfer = 'confirmingTokenTransfer',
 }
 
-export interface PaymentContextState {
+export interface SolanaContextState {
     amount: BigNumber | undefined;
     memo: string | undefined;
     setMemo(memo: string | undefined): void;
@@ -37,8 +37,8 @@ export interface PaymentContextState {
     errorText: string;
 }
 
-export const PaymentContext = createContext<PaymentContextState>({} as PaymentContextState);
+export const SolanaContext = createContext<SolanaContextState>({} as SolanaContextState);
 
-export function usePayment(): PaymentContextState {
-    return useContext(PaymentContext);
+export function usePayment(): SolanaContextState {
+    return useContext(SolanaContext);
 }

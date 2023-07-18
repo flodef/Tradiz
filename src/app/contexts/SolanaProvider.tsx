@@ -12,7 +12,7 @@ import {
 import BigNumber from 'bignumber.js';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useData } from '../hooks/useData';
-import { PaymentContext, PaymentStatus } from '../hooks/usePayment';
+import { SolanaContext, PaymentStatus } from '../hooks/useSolana';
 import { Confirmations } from '../utils/types';
 import { validateTransfer } from '../utils/validateTransfer';
 
@@ -269,7 +269,7 @@ export const PaymentProvider: FC<PaymentProviderProps> = ({ children }) => {
     }, [error]);
 
     return (
-        <PaymentContext.Provider
+        <SolanaContext.Provider
             value={{
                 amount,
                 memo,
@@ -286,6 +286,6 @@ export const PaymentProvider: FC<PaymentProviderProps> = ({ children }) => {
             }}
         >
             {children}
-        </PaymentContext.Provider>
+        </SolanaContext.Provider>
     );
 };

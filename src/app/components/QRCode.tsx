@@ -1,6 +1,6 @@
 import QRCodeStyling from '@solana/qr-code-styling';
 import { FC, useEffect, useMemo, useRef, useState } from 'react';
-import { PaymentStatus, usePayment } from '../hooks/usePayment';
+import { PaymentStatus, usePayment } from '../hooks/useSolana';
 import { createQROptions } from '../utils/createQR';
 
 const minSize = 320;

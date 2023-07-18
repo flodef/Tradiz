@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { useData } from './useData';
-import { PaymentStatus, usePayment } from './usePayment';
+import { PaymentStatus, usePayment } from './useSolana';
 import { usePopup } from './usePopup';
 import { useConfig } from './useConfig';
 import { QRCode } from '../components/QRCode';

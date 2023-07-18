@@ -4,7 +4,7 @@ import { Popup } from './components/Popup';
 import { Total } from './components/Total';
 import { ConfigProvider } from './contexts/ConfigProvider';
 import { DataProvider } from './contexts/DataProvider';
-import { PaymentProvider } from './contexts/PaymentProvider';
+import { PaymentProvider } from './contexts/SolanaProvider';
 import { PopupProvider } from './contexts/PopupProvider';
 import {} from './utils/currency';
 
