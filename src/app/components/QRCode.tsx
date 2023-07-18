@@ -13,7 +13,6 @@ interface CheckmarkProps {
 const Checkmark: FC<CheckmarkProps> = ({ size, isOK = true }) => {
     const { errorText } = usePayment();
 
-    const color = isOK ? 'lime' : 'red';
     const text = isOK ? 'Paiement reçu' : `Paiement non reçu : ${errorText}\nRéessayer ?`;
     return (
         <div className="flex flex-col items-center">
@@ -31,7 +30,7 @@ const Checkmark: FC<CheckmarkProps> = ({ size, isOK = true }) => {
                 height={size}
             >
                 <circle
-                    className={`stroke-2 fill-none animate-strokeCircle stroke-${color}-500`}
+                    className={`stroke-2 fill-none animate-strokeCircle ${isOK ? 'stroke-lime-500' : 'stroke-red-500'}`}
                     cx="26"
                     cy="26"
                     r="25"
@@ -49,7 +48,7 @@ const Checkmark: FC<CheckmarkProps> = ({ size, isOK = true }) => {
                 />
             </svg>
             {text.split('\n').map((item) => (
-                <p className={`text-${color}-500`} key={item}>
+                <p className={isOK ? 'text-lime-500' : 'text-red-500'} key={item}>
                     {item}
                 </p>
             ))}
