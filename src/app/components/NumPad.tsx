@@ -158,15 +158,13 @@ export const NumPad: FC = () => {
                 'Paiement : ' + toCurrency(total),
                 [<QRCode key="QRCode" />],
                 () => {
-                    const status = paymentStatus.current;
-                    paymentStatus.current = PaymentStatus.New;
-                    if (status === PaymentStatus.Pending) {
+                    if (paymentStatus.current === PaymentStatus.Pending) {
                         onCancel(onConfirm);
-                    } else if (status === PaymentStatus.Error) {
+                    } else if (paymentStatus.current === PaymentStatus.Error) {
                         generate();
                     } else {
-                        closePopup();
                         addPayment('Crypto');
+                        closePopup(() => (paymentStatus.current = PaymentStatus.New));
                     }
                 },
                 true
@@ -183,6 +181,7 @@ export const NumPad: FC = () => {
                 (index) => {
                     if (index === 1) {
                         onConfirm();
+                        paymentStatus.current = PaymentStatus.New;
                     } else {
                         retry();
                         openQRCode(cancelOrConfirmPaiement, onConfirm);
@@ -191,7 +190,7 @@ export const NumPad: FC = () => {
                 true
             );
         },
-        [openPopup, toCurrency, total, openQRCode, retry]
+        [openPopup, toCurrency, total, openQRCode, retry, paymentStatus]
     );
 
     const onPay = useCallback(() => {

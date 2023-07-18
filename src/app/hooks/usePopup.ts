@@ -10,7 +10,7 @@ export interface PopupContextState {
         specialAction?: { confirmTitle: string; action: (index: number) => void }
     ) => void;
 
-    closePopup: () => void;
+    closePopup: (callback?: () => void) => void;
     popupTitle: string;
     popupOptions: string[] | ReactNode[];
     popupAction?: (index: number, option: string) => void;

@@ -39,9 +39,10 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
         []
     );
 
-    const closePopup = useCallback(() => {
+    const closePopup = useCallback((callback?: () => void) => {
         setTimeout(() => {
             setIsPopupOpen(false);
+            if (callback) callback();
         }, 100);
     }, []);
 
