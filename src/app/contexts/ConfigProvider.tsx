@@ -79,10 +79,6 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
         }
     }, [state, config, storeData, updateConfig]);
 
-    function toCurrency(value: number) {
-        return value.toCurrency(maxDecimals, currency);
-    }
-
     return (
         <ConfigContext.Provider
             value={{
@@ -94,7 +90,6 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                 paymentMethods,
                 lastModified,
                 inventory,
-                toCurrency,
             }}
         >
             {children}

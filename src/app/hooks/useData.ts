@@ -33,6 +33,7 @@ export interface DataContextState {
     transactions: [Transaction] | undefined;
     saveTransactions: (transactions: [Transaction]) => void;
     editTransaction: (index: number) => void;
+    toCurrency: (value: number) => string;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);

@@ -20,7 +20,7 @@ export function addElement<T>(array: [T] | undefined, element: T): [T] {
 }
 
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
-    const { toCurrency } = useConfig();
+    const { maxDecimals, currency } = useConfig();
 
     const [total, setTotal] = useState(0);
     const [amount, setAmount] = useState(0);
@@ -30,6 +30,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [transactions, setTransactions] = useLocalStorage<[Transaction] | undefined>(
         'Transactions ' + DEFAULT_DATE,
         undefined
+    );
+
+    const toCurrency = useCallback(
+        (value: number) => {
+            return value.toCurrency(maxDecimals, currency);
+        },
+        [maxDecimals, currency]
     );
 
     const updateTotal = useCallback(() => {
@@ -169,6 +176,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 transactions,
                 saveTransactions,
                 editTransaction,
+                toCurrency,
             }}
         >
             {children}

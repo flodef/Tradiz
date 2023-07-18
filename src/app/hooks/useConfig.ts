@@ -23,7 +23,6 @@ export interface ConfigContextState {
     lastModified: string;
     inventory: InventoryItem[];
     setState: (value: State) => void;
-    toCurrency: (value: number) => string;
 }
 
 export const ConfigContext = createContext<ConfigContextState>({} as ConfigContextState);
