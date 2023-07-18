@@ -51,11 +51,6 @@ export const PaymentProvider: FC<PaymentProviderProps> = ({ children }) => {
         }
     }, [error]);
 
-    // TODO : remove this
-    useEffect(() => {
-        console.log('Payment status:', paymentStatus.current);
-    }, [paymentStatus]);
-
     const url = useMemo(() => {
         return encodeURL({
             recipient,

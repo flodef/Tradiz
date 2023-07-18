@@ -72,19 +72,13 @@ export const QRCode: FC = () => {
     const { url } = usePayment();
     const options = useMemo(
         () =>
-            createQROptions(
-                url,
-                size,
-                'transparent',
-                '#34A5FF', // TODO : '#2A2A2A',
-                {
-                    type: 'linear',
-                    colorStops: [
-                        { offset: 0, color: '#9945FF' },
-                        { offset: 1, color: '#14F195' },
-                    ],
-                } // TODO : undefined
-            ),
+            createQROptions(url, size, 'transparent', '#34A5FF', {
+                type: 'linear',
+                colorStops: [
+                    { offset: 0, color: '#9945FF' },
+                    { offset: 1, color: '#14F195' },
+                ],
+            }),
         [url, size]
     );
 
