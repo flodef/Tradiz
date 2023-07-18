@@ -8,6 +8,25 @@ import { requestFullscreen } from '../utils/fullscreen';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
 
+interface TotalDisplayProps {
+    canDisplayTotal: boolean;
+    total: number;
+    localTransactions?: [{ method: string; amount: number; date: string; products: [DataElement] }];
+}
+
+const TotalDisplay: FC<TotalDisplayProps> = ({ canDisplayTotal, total, localTransactions }) => {
+    return canDisplayTotal ? (
+        <div>
+            Total : <Amount value={total} showZero />
+        </div>
+    ) : (
+        <span>
+            {'Ticket : ' + localTransactions?.length}
+            <span className="text-xl">{`vente${(localTransactions?.length ?? 0) > 1 ? 's' : ''}`}</span>
+        </span>
+    );
+};
+
 export const Total: FC = () => {
     const { paymentMethods, toCurrency } = useConfig();
     const {
@@ -168,7 +187,7 @@ export const Total: FC = () => {
     }, [openPopup, closePopup, localTransactions, editTransaction, displayTransaction, showBoughtProducts, toCurrency]);
 
     const canDisplayTotal = useMemo(() => {
-        return total || amount || selectedCategory || !localTransactions?.length;
+        return (total || amount || selectedCategory || !localTransactions?.length) as boolean;
     }, [total, amount, selectedCategory, localTransactions]);
 
     const handleClick = useCallback(() => {
@@ -179,19 +198,6 @@ export const Total: FC = () => {
             showTransactions();
         }
     }, [showProducts, showTransactions, canDisplayTotal, localTransactions]);
-
-    const totalDisplay = useMemo(() => {
-        return canDisplayTotal ? (
-            <div>
-                Total : <Amount value={total} showZero />
-            </div>
-        ) : (
-            <span>
-                {'Ticket : ' + localTransactions?.length}
-                <span className="text-xl">{`vente${(localTransactions?.length ?? 0) > 1 ? 's' : ''}`}</span>
-            </span>
-        );
-    }, [total, localTransactions, canDisplayTotal]);
 
     const totalDisplayClassName = 'text-5xl truncate text-center font-bold py-3 ';
 
@@ -216,10 +222,18 @@ export const Total: FC = () => {
                         handleClick();
                     }}
                 >
-                    {totalDisplay}
+                    <TotalDisplay
+                        total={total}
+                        canDisplayTotal={canDisplayTotal}
+                        localTransactions={localTransactions}
+                    />
                 </div>
                 <div className={totalDisplayClassName + 'hidden border-b-[3px] border-orange-300 md:block'}>
-                    {totalDisplay}
+                    <TotalDisplay
+                        total={total}
+                        canDisplayTotal={canDisplayTotal}
+                        localTransactions={localTransactions}
+                    />
                 </div>
 
                 <div className="text-center text-2xl font-bold py-3 hidden md:block md:max-h-[90%] md:overflow-y-auto">
