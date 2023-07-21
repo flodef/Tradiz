@@ -27,10 +27,10 @@ module.exports = {
                     '50%': { transform: 'scale3d(1.1, 1.1, 1)' },
                 },
                 fillGreen: {
-                    '100%': { boxShadow: 'inset 0px 0px 0px 150px #84cc16' },
+                    '100%': { boxShadow: 'inset 0px 0px 0px 180px #84cc16' },
                 },
                 fillRed: {
-                    '100%': { boxShadow: 'inset 0px 0px 0px 150px #ef4444' },
+                    '100%': { boxShadow: 'inset 0px 0px 0px 180px #ef4444' },
                 },
             },
             backgroundImage: {
