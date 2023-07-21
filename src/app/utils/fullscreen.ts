@@ -1,5 +1,3 @@
-import { isMobileDevice } from './mobile';
-
 declare global {
     interface Document {
         readonly webkitCurrentFullScreenElement?: Element | null;

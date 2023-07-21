@@ -1,5 +1,6 @@
-// import { useMediaQuery } from 'react-responsive';
+import { useWindowSize } from '../hooks/useWindowSize';
 
+// Detects if the device is a mobile
 export function isMobileDevice() {
     return (
         typeof window !== 'undefined' &&
@@ -9,6 +10,12 @@ export function isMobileDevice() {
     );
 }
 
-// export function useIsMobileSize() {
-//     return useMediaQuery({ query: '(max-width: 767px)' });
-// }
+// Detects if the screen size is a mobile size (does not update on screen resize - use useIsMobile instead)
+export function isMobileSize() {
+    return typeof window === 'undefined' || window.screen.availWidth <= 767;
+}
+
+// Detects if the screen size is a mobile size (update on screen resize)
+export function useIsMobile() {
+    return useWindowSize().width <= 767;
+}
