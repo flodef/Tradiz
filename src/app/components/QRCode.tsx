@@ -3,7 +3,7 @@ import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { PaymentStatus, usePayment } from '../hooks/useSolana';
 import { createQROptions } from '../utils/createQR';
 
-const minSize = 320;
+const minSize = 400;
 
 interface CheckmarkProps {
     isOK: boolean;
