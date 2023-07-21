@@ -5,27 +5,9 @@ import { DataElement, Transaction, useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { requestFullscreen } from '../utils/fullscreen';
+import { isMobileSize, useIsMobile } from '../utils/mobile';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
-
-interface TotalDisplayProps {
-    canDisplayTotal: boolean;
-    total: number;
-    localTransactions?: [{ method: string; amount: number; date: string; products: [DataElement] }];
-}
-
-const TotalDisplay: FC<TotalDisplayProps> = ({ canDisplayTotal, total, localTransactions }) => {
-    return canDisplayTotal ? (
-        <div>
-            Total : <Amount value={total} showZero />
-        </div>
-    ) : (
-        <span>
-            {'Ticket : ' + localTransactions?.length}
-            <span className="text-xl">{`vente${(localTransactions?.length ?? 0) > 1 ? 's' : ''}`}</span>
-        </span>
-    );
-};
 
 export const Total: FC = () => {
     const {
@@ -62,20 +44,20 @@ export const Total: FC = () => {
 
     const showProducts = useCallback(
         (newAmount = amount) => {
-            let canPay = total && !newAmount;
             if (newAmount && selectedCategory) {
                 addProduct(selectedCategory);
-                canPay = true;
             }
-            if (!products.current?.length) return;
+            if (!isMobileSize()) {
+                onPay();
+            }
+            if (!products.current?.length || !isMobileSize()) return;
 
-            const newTotal = toCurrency(getCurrentTotal());
-
+            const payLabel = 'PAYER';
             openPopup(
-                products.current.length + ' produits : ' + newTotal,
-                products.current.map(displayProduct).concat(canPay ? ['', 'PAYER'] : []),
+                products.current.length + ' produits : ' + toCurrency(getCurrentTotal()),
+                products.current.map(displayProduct).concat(['', payLabel]),
                 (index, option) => {
-                    if (option === 'PAYER') {
+                    if (option === payLabel) {
                         onPay();
                     }
                 },
@@ -94,7 +76,6 @@ export const Total: FC = () => {
             );
         },
         [
-            total,
             getCurrentTotal,
             amount,
             addProduct,
@@ -163,7 +144,7 @@ export const Total: FC = () => {
     );
 
     const showTransactions = useCallback(() => {
-        if (!localTransactions?.length) return;
+        if (!localTransactions?.length || !isMobileSize()) return;
 
         const totalAmount = localTransactions.reduce((total, transaction) => total + transaction.amount, 0);
         const totalTransactions = localTransactions.length;
@@ -197,7 +178,14 @@ export const Total: FC = () => {
         }
     }, [showProducts, showTransactions, canDisplayTotal, localTransactions]);
 
-    const totalDisplayClassName = 'text-5xl truncate text-center font-bold py-3 ';
+    const totalDisplayClassName =
+        'text-5xl truncate text-center font-bold py-3 ' +
+        (useIsMobile()
+            ? 'md:hidden border-b-[3px] border-orange-300' +
+              ((canDisplayTotal && total) || (!canDisplayTotal && localTransactions?.length)
+                  ? ' active:bg-orange-300 '
+                  : '')
+            : 'hidden border-b-[3px] border-orange-300 md:block');
 
     return (
         <div>
@@ -207,31 +195,23 @@ export const Total: FC = () => {
                 )}
             >
                 <div
-                    className={
-                        totalDisplayClassName +
-                        'md:hidden border-b-[3px] border-orange-300' +
-                        ((canDisplayTotal && total) || (!canDisplayTotal && localTransactions?.length)
-                            ? ' active:bg-orange-300 '
-                            : '')
-                    }
+                    className={totalDisplayClassName}
                     onClick={handleClick}
                     onContextMenu={(e) => {
                         e.preventDefault();
                         handleClick();
                     }}
                 >
-                    <TotalDisplay
-                        total={total}
-                        canDisplayTotal={canDisplayTotal}
-                        localTransactions={localTransactions}
-                    />
-                </div>
-                <div className={totalDisplayClassName + 'hidden border-b-[3px] border-orange-300 md:block'}>
-                    <TotalDisplay
-                        total={total}
-                        canDisplayTotal={canDisplayTotal}
-                        localTransactions={localTransactions}
-                    />
+                    {canDisplayTotal ? (
+                        <div>
+                            Total : <Amount value={total} showZero />
+                        </div>
+                    ) : (
+                        <span>
+                            {'Ticket : ' + localTransactions?.length}
+                            <span className="text-xl">{`vente${(localTransactions?.length ?? 0) > 1 ? 's' : ''}`}</span>
+                        </span>
+                    )}
                 </div>
 
                 <div className="text-center text-2xl font-bold py-3 hidden md:block md:max-h-[90%] md:overflow-y-auto">
