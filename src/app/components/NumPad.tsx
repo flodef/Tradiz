@@ -5,6 +5,7 @@ import { utils, writeFile } from 'xlsx';
 import { addElement } from '../contexts/DataProvider';
 import { useConfig } from '../hooks/useConfig';
 import { DataElement, useData } from '../hooks/useData';
+import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
@@ -16,7 +17,6 @@ import { Digits } from '../utils/types';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
 import { QRCode } from './QRCode';
-import { usePay } from '../hooks/usePay';
 
 interface NumPadButtonProps {
     input: Digits | string;
@@ -97,7 +97,7 @@ export const NumPad: FC = () => {
         toCurrency,
     } = useData();
     const { openPopup, closePopup } = usePopup();
-    const { onPay } = usePay();
+    const { onPay, canPay, canAddProduct } = usePay();
 
     const max = maxValue * Math.pow(10, maxDecimals);
 
@@ -498,9 +498,6 @@ export const NumPad: FC = () => {
         [4, 5, 6],
         [1, 2, 3],
     ];
-
-    const canPay = useMemo(() => total && !amount && !selectedCategory, [total, amount, selectedCategory]);
-    const canAddProduct = useMemo(() => amount && selectedCategory, [amount, selectedCategory]);
 
     let s = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl ';
     const sx = s + (canPay || canAddProduct ? 'active:bg-lime-300 text-lime-500' : 'invisible');

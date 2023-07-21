@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { QRCode } from '../components/QRCode';
 import { useConfig } from './useConfig';
 import { useData } from './useData';
@@ -7,9 +7,12 @@ import { PaymentStatus, usePayment } from './useSolana';
 
 export const usePay = () => {
     const { openPopup, closePopup } = usePopup();
-    const { addPayment, getCurrentTotal, toCurrency } = useData();
+    const { addPayment, getCurrentTotal, toCurrency, total, amount, selectedCategory } = useData();
     const { generate, paymentStatus, error, retry } = usePayment();
     const { paymentMethods } = useConfig();
+
+    const canPay = useMemo(() => total && !amount && !selectedCategory, [total, amount, selectedCategory]);
+    const canAddProduct = useMemo(() => amount && selectedCategory, [amount, selectedCategory]);
 
     const openQRCode = useCallback(
         (onCancel: (onConfirm: () => void) => void, onConfirm: () => void) => {
@@ -36,11 +39,13 @@ export const usePay = () => {
         (onConfirm: () => void) => {
             openPopup(
                 'Paiement : ' + toCurrency(getCurrentTotal()),
-                ['Attendre paiement', 'Annuler paiement'],
+                ['Attendre paiement', 'Retour paiement', 'Annuler paiement'],
                 (index) => {
                     if (index === 1) {
                         onConfirm();
                         paymentStatus.current = PaymentStatus.New;
+                    } else if (index === 2) {
+                        closePopup(() => (paymentStatus.current = PaymentStatus.New));
                     } else {
                         retry();
                         openQRCode(cancelOrConfirmPaiement, onConfirm);
@@ -49,7 +54,7 @@ export const usePay = () => {
                 true
             );
         },
-        [openPopup, toCurrency, getCurrentTotal, openQRCode, retry, paymentStatus]
+        [openPopup, toCurrency, getCurrentTotal, openQRCode, retry, paymentStatus, closePopup]
     );
 
     const onPay = useCallback(() => {
@@ -90,5 +95,5 @@ export const usePay = () => {
         }
     }, [error, cancelOrConfirmPaiement, onPay]);
 
-    return { onPay };
+    return { onPay, canPay, canAddProduct };
 };
