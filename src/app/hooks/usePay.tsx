@@ -1,20 +1,20 @@
 import { useCallback, useEffect } from 'react';
-import { useData } from './useData';
-import { PaymentStatus, usePayment } from './useSolana';
-import { usePopup } from './usePopup';
-import { useConfig } from './useConfig';
 import { QRCode } from '../components/QRCode';
+import { useConfig } from './useConfig';
+import { useData } from './useData';
+import { usePopup } from './usePopup';
+import { PaymentStatus, usePayment } from './useSolana';
 
 export const usePay = () => {
     const { openPopup, closePopup } = usePopup();
-    const { total, amount, addPayment, toCurrency } = useData();
+    const { addPayment, getCurrentTotal, toCurrency } = useData();
     const { generate, paymentStatus, error, retry } = usePayment();
     const { paymentMethods } = useConfig();
 
     const openQRCode = useCallback(
         (onCancel: (onConfirm: () => void) => void, onConfirm: () => void) => {
             openPopup(
-                'Paiement : ' + toCurrency(total),
+                'Paiement : ' + toCurrency(getCurrentTotal()),
                 [<QRCode key="QRCode" />],
                 () => {
                     if (paymentStatus.current === PaymentStatus.Pending) {
@@ -29,13 +29,13 @@ export const usePay = () => {
                 true
             );
         },
-        [addPayment, closePopup, generate, paymentStatus, toCurrency, total, openPopup]
+        [addPayment, closePopup, generate, paymentStatus, toCurrency, getCurrentTotal, openPopup]
     );
 
     const cancelOrConfirmPaiement = useCallback(
         (onConfirm: () => void) => {
             openPopup(
-                'Paiement : ' + toCurrency(total),
+                'Paiement : ' + toCurrency(getCurrentTotal()),
                 ['Attendre paiement', 'Annuler paiement'],
                 (index) => {
                     if (index === 1) {
@@ -49,11 +49,12 @@ export const usePay = () => {
                 true
             );
         },
-        [openPopup, toCurrency, total, openQRCode, retry, paymentStatus]
+        [openPopup, toCurrency, getCurrentTotal, openQRCode, retry, paymentStatus]
     );
 
     const onPay = useCallback(() => {
-        if (total && !amount) {
+        const total = getCurrentTotal();
+        if (total) {
             openPopup(
                 'Paiement : ' + toCurrency(total),
                 paymentMethods,
@@ -72,10 +73,9 @@ export const usePay = () => {
             );
         }
     }, [
-        amount,
         openPopup,
         closePopup,
-        total,
+        getCurrentTotal,
         addPayment,
         paymentMethods,
         toCurrency,
