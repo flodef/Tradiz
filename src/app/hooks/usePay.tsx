@@ -3,12 +3,12 @@ import { QRCode } from '../components/QRCode';
 import { useConfig } from './useConfig';
 import { useData } from './useData';
 import { usePopup } from './usePopup';
-import { PaymentStatus, usePayment } from './useSolana';
+import { PaymentStatus, Solana, usePayment } from './useSolana';
 
 export const usePay = () => {
     const { openPopup, closePopup } = usePopup();
     const { addPayment, getCurrentTotal, toCurrency, total, amount, selectedCategory } = useData();
-    const { generate, paymentStatus, error, retry } = usePayment();
+    const { init, generate, refPaymentStatus, error, retry } = usePayment();
     const { paymentMethods } = useConfig();
 
     const canPay = useMemo(() => total && !amount && !selectedCategory, [total, amount, selectedCategory]);
@@ -19,33 +19,42 @@ export const usePay = () => {
             openPopup(
                 'Paiement : ' + toCurrency(getCurrentTotal()),
                 [<QRCode key="QRCode" />],
-                () => {
-                    if (paymentStatus.current === PaymentStatus.Pending) {
+                (index) => {
+                    if (refPaymentStatus.current === PaymentStatus.Pending) {
                         onCancel(onConfirm);
-                    } else if (paymentStatus.current === PaymentStatus.Error) {
-                        generate();
-                    } else {
+                    } else if (refPaymentStatus.current === PaymentStatus.Error) {
+                        if (index >= 0) {
+                            generate();
+                        } else {
+                            setTimeout(init, 200);
+                        }
+                    } else if (refPaymentStatus.current === PaymentStatus.Finalized) {
                         addPayment('Crypto');
-                        closePopup(() => (paymentStatus.current = PaymentStatus.New));
+                        closePopup(init);
+                    } else {
+                        retry();
+                        if (index < 0) {
+                            openQRCode(onCancel, onConfirm);
+                        }
                     }
                 },
                 true
             );
         },
-        [addPayment, closePopup, generate, paymentStatus, toCurrency, getCurrentTotal, openPopup]
+        [addPayment, closePopup, generate, retry, refPaymentStatus, toCurrency, getCurrentTotal, openPopup, init]
     );
 
     const cancelOrConfirmPaiement = useCallback(
         (onConfirm: () => void) => {
             openPopup(
                 'Paiement : ' + toCurrency(getCurrentTotal()),
-                ['Attendre paiement', 'Retour paiement', 'Annuler paiement'],
+                ['Attendre paiement', 'Changer mode paiement', 'Annuler paiement'],
                 (index) => {
                     if (index === 1) {
                         onConfirm();
-                        paymentStatus.current = PaymentStatus.New;
+                        init();
                     } else if (index === 2) {
-                        closePopup(() => (paymentStatus.current = PaymentStatus.New));
+                        closePopup(init);
                     } else {
                         retry();
                         openQRCode(cancelOrConfirmPaiement, onConfirm);
@@ -54,7 +63,7 @@ export const usePay = () => {
                 true
             );
         },
-        [openPopup, toCurrency, getCurrentTotal, openQRCode, retry, paymentStatus, closePopup]
+        [openPopup, toCurrency, getCurrentTotal, openQRCode, retry, closePopup, init]
     );
 
     const onPay = useCallback(() => {
@@ -62,11 +71,11 @@ export const usePay = () => {
         if (total) {
             openPopup(
                 'Paiement : ' + toCurrency(total),
-                paymentMethods,
+                paymentMethods.map((item) => item.method),
                 (index, option) => {
                     if (index < 0) return;
 
-                    if (option === 'Crypto') {
+                    if (option === Solana) {
                         generate();
                         openQRCode(cancelOrConfirmPaiement, onPay);
                     } else {
