@@ -1,44 +1,41 @@
 'use client';
 
 import { encodeURL, findReference, FindReferenceError, ValidateTransferError } from '@solana/pay';
-import {
-    clusterApiUrl,
-    ConfirmedSignatureInfo,
-    Connection,
-    Keypair,
-    PublicKey,
-    TransactionSignature,
-} from '@solana/web3.js';
+import { ConfirmedSignatureInfo, Connection, Keypair, PublicKey, TransactionSignature } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
-import { SolanaContext, PaymentStatus } from '../hooks/useSolana';
+import { PaymentStatus, Solana, SolanaContext } from '../hooks/useSolana';
+import { ENDPOINT, SPL_TOKEN } from '../utils/constants';
 import { Confirmations } from '../utils/types';
 import { validateTransfer } from '../utils/validateTransfer';
 
-export interface PaymentProviderProps {
+export interface SolanaProviderProps {
     children: ReactNode;
 }
 
-export const PaymentProvider: FC<PaymentProviderProps> = ({ children }) => {
+export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
     const { total } = useData();
+    const { paymentMethods, shopName: label, thanksMessage: message } = useConfig();
 
-    //TODO: load those values from config
-    const splToken = useMemo(() => new PublicKey('J99D2TvHcev22FF8rNfdUXQx31qzuoVdXRpRiPzJCH6c'), []);
-    const recipient = useMemo(() => new PublicKey('GZLPJYkR3diD8c8vpgb7sXHEH9sG1R9sWa3yPwaL9Peb'), []);
-    const label = "Le pain d'Annette";
-    const message = 'Merci pour votre achat !';
+    const splToken = useMemo(() => SPL_TOKEN, []);
+    const recipient = useMemo(
+        () => new PublicKey(paymentMethods.find((item) => item.method === Solana)?.reference ?? 0),
+        [paymentMethods]
+    );
     const requiredConfirmations = 1;
 
     const amount = useMemo(() => BigNumber(total), [total]);
-    const connection = useRef(new Connection(clusterApiUrl('devnet'), 'confirmed'));
+    const connection = useRef(new Connection(ENDPOINT, 'confirmed'));
     const [memo, setMemo] = useState<string>();
     const [reference, setReference] = useState<PublicKey>();
     const [signature, setSignature] = useState<TransactionSignature>();
-    const paymentStatus = useRef(PaymentStatus.New);
+    const [paymentStatus, setPaymentStatus] = useState(PaymentStatus.New);
     const [confirmations, setConfirmations] = useState<Confirmations>(0);
     const [error, setError] = useState<Error>();
     const [refresh, setRefresh] = useState(false);
+    const refPaymentStatus = useRef(paymentStatus);
 
     const confirmationProgress = useMemo(
         () => confirmations / requiredConfirmations,
@@ -47,9 +44,14 @@ export const PaymentProvider: FC<PaymentProviderProps> = ({ children }) => {
 
     useEffect(() => {
         if (error) {
-            paymentStatus.current = PaymentStatus.Error;
+            setPaymentStatus(PaymentStatus.Error);
+            setReference(undefined);
         }
     }, [error]);
+
+    useEffect(() => {
+        refPaymentStatus.current = paymentStatus;
+    }, [paymentStatus]);
 
     const url = useMemo(() => {
         return encodeURL({
@@ -63,8 +65,13 @@ export const PaymentProvider: FC<PaymentProviderProps> = ({ children }) => {
         });
     }, [label, memo, message, recipient, splToken, reference, amount]);
 
+    const init = useCallback(() => {
+        setPaymentStatus(PaymentStatus.New);
+        setReference(undefined);
+    }, [setPaymentStatus, setReference]);
+
     const generate = useCallback(() => {
-        paymentStatus.current = PaymentStatus.Pending;
+        setPaymentStatus(PaymentStatus.Pending);
         setReference(Keypair.generate().publicKey);
         setConfirmations(0);
         setMemo(undefined);
@@ -74,17 +81,20 @@ export const PaymentProvider: FC<PaymentProviderProps> = ({ children }) => {
     }, [setError]);
 
     const retry = useCallback(() => {
-        paymentStatus.current = PaymentStatus.Pending;
-        setConfirmations(0);
-        setSignature(undefined);
-        setError(undefined);
-        setRefresh(true);
+        if (refPaymentStatus.current === PaymentStatus.Error) {
+            setPaymentStatus(PaymentStatus.Pending);
+            setConfirmations(0);
+            setSignature(undefined);
+            setError(undefined);
+            setRefresh(true);
+        }
+        watchDog.current = 0;
     }, [setError]);
 
     // When the status is pending, poll for the transaction using the reference key
     const watchDog = useRef(0);
     useEffect(() => {
-        if (!(paymentStatus.current === PaymentStatus.Pending && reference && !signature && refresh)) return;
+        if (!(paymentStatus === PaymentStatus.Pending && reference && !signature && refresh)) return;
         let changed = false;
 
         const interval = setInterval(async () => {
@@ -96,13 +106,13 @@ export const PaymentProvider: FC<PaymentProviderProps> = ({ children }) => {
                     watchDog.current = 0;
                     clearInterval(interval);
                     setSignature(signature.signature);
-                    paymentStatus.current = PaymentStatus.Confirmed;
+                    setPaymentStatus(PaymentStatus.Confirmed);
                 }
             } catch (error: any) {
                 const isTimeOut = watchDog.current++ > 120;
 
                 // If status is no longer correct or the watch dog has expired, stop polling
-                if (paymentStatus.current !== PaymentStatus.Pending || isTimeOut) {
+                if (paymentStatus !== PaymentStatus.Pending || isTimeOut) {
                     setRefresh(false);
                     watchDog.current = 0;
                     clearInterval(interval);
@@ -125,7 +135,7 @@ export const PaymentProvider: FC<PaymentProviderProps> = ({ children }) => {
 
     // When the status is confirmed, validate the transaction against the provided params
     useEffect(() => {
-        if (!(paymentStatus.current === PaymentStatus.Confirmed && signature && amount)) return;
+        if (!(paymentStatus === PaymentStatus.Confirmed && signature && amount)) return;
         let changed = false;
 
         const run = async () => {
@@ -142,11 +152,11 @@ export const PaymentProvider: FC<PaymentProviderProps> = ({ children }) => {
                     { maxSupportedTransactionVersion: 0 }
                 );
                 if (!changed) {
-                    paymentStatus.current = PaymentStatus.Valid;
+                    setPaymentStatus(PaymentStatus.Valid);
                 }
             } catch (error: any) {
                 // If status is no longer correct, stop polling
-                if (paymentStatus.current !== PaymentStatus.Confirmed) return;
+                if (paymentStatus !== PaymentStatus.Confirmed) return;
 
                 // If the RPC node doesn't have the transaction yet, try again
                 if (
@@ -171,7 +181,7 @@ export const PaymentProvider: FC<PaymentProviderProps> = ({ children }) => {
 
     // When the status is valid, poll for confirmations until the transaction is finalized
     useEffect(() => {
-        if (!(paymentStatus.current === PaymentStatus.Valid && signature)) return;
+        if (!(paymentStatus === PaymentStatus.Valid && signature)) return;
         let changed = false;
 
         const interval = setInterval(async () => {
@@ -187,7 +197,7 @@ export const PaymentProvider: FC<PaymentProviderProps> = ({ children }) => {
 
                     if (confirmations >= requiredConfirmations || status.confirmationStatus === 'finalized') {
                         clearInterval(interval);
-                        paymentStatus.current = PaymentStatus.Finalized;
+                        setPaymentStatus(PaymentStatus.Finalized);
                     }
                 }
             } catch (error: any) {
@@ -202,6 +212,12 @@ export const PaymentProvider: FC<PaymentProviderProps> = ({ children }) => {
     }, [paymentStatus, signature, connection, requiredConfirmations, setError]);
 
     const errorText = useMemo(() => {
+        const errorCode = error?.message.split(':')[0].trim();
+        switch (errorCode) {
+            case '401':
+                return 'Problème de connection au serveur de paiement !';
+        }
+
         switch (error?.message) {
             case 'WalletNotConnectedError':
                 return 'Porte-monnaie non connecté !';
@@ -277,8 +293,10 @@ export const PaymentProvider: FC<PaymentProviderProps> = ({ children }) => {
                 reference,
                 signature,
                 paymentStatus,
+                refPaymentStatus,
                 confirmationProgress,
                 url,
+                init,
                 generate,
                 retry,
                 error,
