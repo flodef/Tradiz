@@ -16,7 +16,6 @@ import { takeScreenshot } from '../utils/screenshot';
 import { Digits } from '../utils/types';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
-import { QRCode } from './QRCode';
 
 interface NumPadButtonProps {
     input: Digits | string;
@@ -506,9 +505,6 @@ export const NumPad: FC = () => {
     const f1 = f + (amount || total ? 'active:bg-lime-300 text-lime-500' : 'invisible');
     const f2 = f + (quantity ? 'bg-lime-300 ' : '') + (amount ? 'active:bg-lime-300 text-lime-500' : 'invisible');
     const f3 = f + (localTransactions ? 'active:bg-lime-300 text-lime-500' : 'invisible');
-
-    const t = <QRCode />;
-    console.log(t);
 
     return (
         <div

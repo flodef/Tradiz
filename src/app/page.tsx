@@ -4,7 +4,7 @@ import { Popup } from './components/Popup';
 import { Total } from './components/Total';
 import { ConfigProvider } from './contexts/ConfigProvider';
 import { DataProvider } from './contexts/DataProvider';
-import { PaymentProvider } from './contexts/SolanaProvider';
+import { SolanaProvider } from './contexts/SolanaProvider';
 import { PopupProvider } from './contexts/PopupProvider';
 import {} from './utils/currency';
 
@@ -14,14 +14,14 @@ export default function Home() {
             <ConfigProvider>
                 <DataProvider>
                     <PopupProvider>
-                        <PaymentProvider>
+                        <SolanaProvider>
                             <div className="z-10 h-screen flex flex-col justify-between">
                                 <Total />
                                 <NumPad />
                                 <Category />
                             </div>
                             <Popup />
-                        </PaymentProvider>
+                        </SolanaProvider>
                     </PopupProvider>
                 </DataProvider>
             </ConfigProvider>
