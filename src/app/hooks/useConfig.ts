@@ -8,6 +8,11 @@ export enum State {
     done,
 }
 
+export interface PaymentMethod {
+    method: string;
+    reference?: string;
+}
+
 export interface InventoryItem {
     category: string;
     rate: number;
@@ -16,13 +21,15 @@ export interface InventoryItem {
 
 export interface ConfigContextState {
     state: State;
+    setState: (value: State) => void;
+    shopName: string;
+    thanksMessage: string;
     maxDecimals: number;
     maxValue: number;
     currency: string;
-    paymentMethods: string[];
+    paymentMethods: PaymentMethod[];
     lastModified: string;
     inventory: InventoryItem[];
-    setState: (value: State) => void;
 }
 
 export const ConfigContext = createContext<ConfigContextState>({} as ConfigContextState);

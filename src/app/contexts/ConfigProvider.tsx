@@ -1,7 +1,7 @@
 'use client';
 
 import { FC, ReactNode, useCallback, useEffect, useState } from 'react';
-import { ConfigContext, InventoryItem, State } from '../hooks/useConfig';
+import { ConfigContext, InventoryItem, PaymentMethod, State } from '../hooks/useConfig';
 import { LoadData } from '../utils/data';
 import { useLocalStorage } from '../utils/localStorage';
 
@@ -9,34 +9,52 @@ export interface ConfigProviderProps {
     children: ReactNode;
 }
 
+export interface Parameters {
+    shopName: string;
+    thanksMessage: string;
+    maxValue: number;
+    maxDecimals: number;
+    currency: string;
+    lastModified: string;
+}
+
 interface Config {
-    parameters: {
-        maxValue: number;
-        maxDecimals: number;
-        currency: string;
-        paymentMethods: string[];
-        lastModified: string;
-    };
+    parameters: Parameters;
+    paymentMethods: PaymentMethod[];
     inventory: InventoryItem[];
 }
 
 export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     const [state, setState] = useState(State.init);
     const [config, setConfig] = useLocalStorage<Config | undefined>('Parameters', undefined);
-    const [maxDecimals, setMaxDecimals] = useState(2);
+    const [shopName, setShopName] = useState('');
+    const [thanksMessage, setThanksMessage] = useState('Merci de votre visite !');
     const [maxValue, setMaxValue] = useState(999.99);
+    const [maxDecimals, setMaxDecimals] = useState(2);
     const [currency, setCurrency] = useState('€');
-    const [paymentMethods, setPaymentMethods] = useState(['CB', 'Espèces', 'Chèque']);
+    const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
+        {
+            method: 'CB',
+        },
+        {
+            method: 'Espèces',
+        },
+        {
+            method: 'Chèque',
+        },
+    ]);
     const [lastModified, setLastModified] = useState(new Date().toLocaleString());
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
 
     const updateConfig = useCallback((data: Config) => {
-        setInventory(data.inventory);
+        setShopName(data.parameters.shopName);
+        setThanksMessage(data.parameters.thanksMessage);
         setMaxDecimals(data.parameters.maxDecimals);
         setMaxValue(data.parameters.maxValue);
         setCurrency(data.parameters.currency);
         setLastModified(data.parameters.lastModified);
-        setPaymentMethods(data.parameters.paymentMethods);
+        setPaymentMethods(data.paymentMethods);
+        setInventory(data.inventory);
     }, []);
 
     const storeData = useCallback(
@@ -84,6 +102,8 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
             value={{
                 state,
                 setState,
+                shopName,
+                thanksMessage,
                 maxDecimals,
                 maxValue,
                 currency,
