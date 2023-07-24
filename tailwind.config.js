@@ -10,17 +10,21 @@ module.exports = {
             animation: {
                 blink: 'blink 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                 strokeCircle: 'stroke .6s cubic-bezier(0.65, 0, 0.45, 1) forwards',
+                strokeCircleSlow: 'stroke 3s cubic-bezier(0.65, 0, 0.45, 1) forwards',
                 strokeCheck: 'stroke .3s cubic-bezier(0.65, 0, 0.45, 1) .8s forwards',
                 fillGreen: 'fillGreen .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both',
                 fillRed: 'fillRed .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both',
                 swing: 'swing 1.3s ease-in-out infinite alternate',
                 swinghair: 'swinghair 1.3s ease-in-out infinite alternate',
                 flip: 'flip 1000ms 1.6s ease-in-out forwards',
-                cross1: 'cross1 300ms 1s ease-in-out forwards',
-                cross2: 'cross2 400ms 1.2s ease-in-out forwards',
+                cross1a: 'cross1 300ms 1s ease-in-out forwards',
+                cross2a: 'cross2 400ms 1.2s ease-in-out forwards',
+                cross1b: 'cross1 400ms 1.1s ease-in-out forwards',
+                cross2b: 'cross2 500ms 1.3s ease-in-out forwards',
                 flipReverse: 'flipReverse 300ms',
                 cross1Reverse: 'cross1Reverse 300ms',
                 cross2Reverse: 'cross2Reverse 300ms',
+                spin: 'spin 2s linear infinite',
             },
             keyframes: {
                 blink: {
@@ -119,6 +123,10 @@ module.exports = {
                     '0%': {
                         transform: 'rotate(-90deg) rotateY(180deg) translateX(3vmin)',
                     },
+                },
+                spin: {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' },
                 },
             },
             colors: {
