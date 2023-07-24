@@ -3,6 +3,7 @@ import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { PaymentStatus, usePayment } from '../hooks/useSolana';
 import { ColorScheme, useWindowParam } from '../hooks/useWindowParam';
 import { createQROptions } from '../utils/createQR';
+import { useWindowSize } from '../hooks/useWindowSize';
 
 const minSize = 400;
 
