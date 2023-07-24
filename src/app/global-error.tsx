@@ -30,6 +30,20 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
     const zeroAClassName = zeroClassName.replaceAll('$', 'a') + ' ' + crossClassName;
     const zeroBClassName = zeroClassName.replaceAll('$', 'b') + ' ' + crossClassName;
 
+    const zeroClassName =
+        'relative before:rotate-45 before:scale-x-0 before:scale-y-75 before:animate-cross1$ ' +
+        'after:-rotate-45 after:scale-x-0 after:scale-y-75 after:animate-cross2$ ' +
+        'group-hover:before:animate-cross1Reverse group-hover:after:animate-cross2Reverse';
+    const barClassName =
+        " absolute block content-[''] w-[140%] h-[10vmin] " +
+        'bg-secondary-active-light bg-gradient-to-t from-secondary-active-light to-secondary-light ' +
+        'dark:bg-secondary-active-dark dark:bg-gradient-to-t dark:from-secondary-active-dark dark:to-secondary-dark ' +
+        'left-[-20%] top-[45%] shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)]';
+    const crossClassName =
+        barClassName.replaceAll(' ', ' before:').trim() + ' ' + barClassName.replaceAll(' ', ' after:').trim();
+    const zeroAClassName = zeroClassName.replaceAll('$', 'a') + ' ' + crossClassName;
+    const zeroBClassName = zeroClassName.replaceAll('$', 'b') + ' ' + crossClassName;
+
     return (
         <div className={openSans.className}>
             <div
