@@ -181,17 +181,18 @@ export const Total: FC = () => {
     const totalDisplayClassName =
         'text-5xl truncate text-center font-bold py-3 ' +
         (useIsMobile()
-            ? 'md:hidden border-b-[3px] border-orange-300' +
+            ? 'md:hidden border-b-[3px] border-active-light dark:border-active-dark ' +
               ((canDisplayTotal && total) || (!canDisplayTotal && localTransactions?.length)
-                  ? ' active:bg-orange-300 '
+                  ? 'active:bg-active-light dark:active:bg-active-dark '
                   : '')
-            : 'hidden border-b-[3px] border-orange-300 md:block');
+            : 'hidden border-b-[3px] border-active-light dark:border-active-dark md:block');
 
     return (
         <div>
             <div
                 className={useAddPopupClass(
-                    'inset-x-0 min-h-[75px] md:absolute md:left-1/2 md:h-full md:border-lime-300 md:border-l-4'
+                    'inset-x-0 min-h-[75px] md:absolute md:left-1/2 md:h-full md:border-l-4 ' +
+                        'md:border-secondary-active-light dark:border-secondary-active-dark'
                 )}
             >
                 <div

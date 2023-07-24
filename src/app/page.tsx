@@ -10,7 +10,13 @@ import {} from './utils/currency';
 
 export default function Home() {
     return (
-        <main className="absolute inset-0 bg-orange-100 text-amber-600 grid select-none overflow-y-auto md:overflow-y-hidden">
+        <main
+            className={
+                'absolute inset-0 grid select-none overflow-y-auto md:overflow-y-hidden ' +
+                'bg-gradient-to-tr from-low-light to-high-light text-writing-light ' +
+                'dark:bg-gradient-to-tr dark:from-low-dark dark:to-high-dark dark:text-writing-dark'
+            }
+        >
             <ConfigProvider>
                 <DataProvider>
                     <PopupProvider>
