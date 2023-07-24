@@ -8,6 +8,8 @@ import { useEffect } from 'react';
 const openSans = Open_Sans({ subsets: ['latin'], weight: ['400', '700'] });
 
 export default function GlobalError({ error, reset }: { error: Error; reset: () => void }) {
+    const { reload } = useRouter();
+
     useEffect(() => {
         // Log the error to an error reporting service
         console.error(error);
