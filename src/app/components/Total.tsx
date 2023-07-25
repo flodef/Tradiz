@@ -188,67 +188,65 @@ export const Total: FC = () => {
             : 'hidden border-b-[3px] border-active-light dark:border-active-dark md:block');
 
     return (
-        <div>
+        <div
+            className={useAddPopupClass(
+                'inset-x-0 min-h-[75px] md:absolute md:left-1/2 md:h-full md:border-l-4 ' +
+                    'md:border-secondary-active-light dark:border-secondary-active-dark'
+            )}
+        >
             <div
-                className={useAddPopupClass(
-                    'inset-x-0 min-h-[75px] md:absolute md:left-1/2 md:h-full md:border-l-4 ' +
-                        'md:border-secondary-active-light dark:border-secondary-active-dark'
-                )}
+                className={totalDisplayClassName}
+                onClick={handleClick}
+                onContextMenu={(e) => {
+                    e.preventDefault();
+                    handleClick();
+                }}
             >
-                <div
-                    className={totalDisplayClassName}
-                    onClick={handleClick}
-                    onContextMenu={(e) => {
-                        e.preventDefault();
-                        handleClick();
-                    }}
-                >
-                    {canDisplayTotal ? (
-                        <div>
-                            Total : <Amount value={total} showZero />
-                        </div>
-                    ) : (
-                        <span>
-                            {'Ticket : ' + localTransactions?.length}
-                            <span className="text-xl">{`vente${(localTransactions?.length ?? 0) > 1 ? 's' : ''}`}</span>
-                        </span>
-                    )}
-                </div>
+                {canDisplayTotal ? (
+                    <div>
+                        Total : <Amount value={total} showZero />
+                    </div>
+                ) : (
+                    <span>
+                        {'Ticket : ' + localTransactions?.length}
+                        <span className="text-xl">{`vente${(localTransactions?.length ?? 0) > 1 ? 's' : ''}`}</span>
+                    </span>
+                )}
+            </div>
 
-                <div className="text-center text-2xl font-bold py-3 hidden md:block md:max-h-[90%] md:overflow-y-auto">
-                    {canDisplayTotal
-                        ? products.current?.map(displayProduct).map((product, index) => (
-                              <div
-                                  key={index}
-                                  onContextMenu={(e) => {
-                                      e.preventDefault();
-                                      openPopup('Effacer ?', ['Oui', 'Non'], (i) => {
-                                          if (i === 0) {
-                                              deleteProduct(index);
-                                          }
-                                      });
-                                  }}
-                              >
-                                  {product}
-                              </div>
-                          ))
-                        : localTransactions?.map(displayTransaction).map((transaction, index) => (
-                              <div
-                                  key={index}
-                                  onClick={() => showBoughtProducts(index)}
-                                  onContextMenu={(e) => {
-                                      e.preventDefault();
-                                      openPopup('Modifier ?', ['Oui', 'Non'], (i) => {
-                                          if (i === 0) {
-                                              editTransaction(index);
-                                          }
-                                      });
-                                  }}
-                              >
-                                  {transaction}
-                              </div>
-                          ))}
-                </div>
+            <div className="text-center text-2xl font-bold py-3 hidden md:block md:max-h-[90%] md:overflow-y-auto">
+                {canDisplayTotal
+                    ? products.current?.map(displayProduct).map((product, index) => (
+                          <div
+                              key={index}
+                              onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  openPopup('Effacer ?', ['Oui', 'Non'], (i) => {
+                                      if (i === 0) {
+                                          deleteProduct(index);
+                                      }
+                                  });
+                              }}
+                          >
+                              {product}
+                          </div>
+                      ))
+                    : localTransactions?.map(displayTransaction).map((transaction, index) => (
+                          <div
+                              key={index}
+                              onClick={() => showBoughtProducts(index)}
+                              onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  openPopup('Modifier ?', ['Oui', 'Non'], (i) => {
+                                      if (i === 0) {
+                                          editTransaction(index);
+                                      }
+                                  });
+                              }}
+                          >
+                              {transaction}
+                          </div>
+                      ))}
             </div>
         </div>
     );
