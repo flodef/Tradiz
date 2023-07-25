@@ -4,6 +4,7 @@ import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useState } from
 import { State, useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
+import Loading from '../loading';
 import { CATEGORY_SEPARATOR, OTHER_KEYWORD } from '../utils/constants';
 import { requestFullscreen } from '../utils/fullscreen';
 import { useAddPopupClass } from './Popup';
@@ -135,11 +136,7 @@ export const Category: FC = () => {
                     'divide-active-light border-active-light dark:divide-active-dark dark:border-active-dark'
             )}
         >
-            {(state === State.init || state === State.loading) && (
-                <div className="min-h-[113px] flex justify-center items-center font-semibold text-2xl">
-                    Chargement...
-                </div>
-            )}
+            {(state === State.init || state === State.loading) && <div className="min-h-[113px]">{Loading()}</div>}
             {state === State.done && categories.length > 0 && (
                 <div className={rowClassName}>
                     {categories.slice(0, 3).map((category, index) => (
