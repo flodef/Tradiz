@@ -38,16 +38,6 @@ export const LoadingText: FC<LoadingTextProps> = ({ text, fullscreen = true }) =
                     {item}
                 </span>
             ))}
-            {/* <span class="inline-block my-0 mx-1 blur-0 animate-loading0">C</span>
-            <span class="inline-block my-0 mx-1 blur-0 animate-loading1">H</span>
-            <span class="inline-block my-0 mx-1 blur-0 animate-loading2">A</span>
-            <span class="inline-block my-0 mx-1 blur-0 animate-loading3">R</span>
-            <span class="inline-block my-0 mx-1 blur-0 animate-loading4">G</span>
-            <span class="inline-block my-0 mx-1 blur-0 animate-loading5">E</span>
-            <span class="inline-block my-0 mx-1 blur-0 animate-loading6">M</span>
-            <span class="inline-block my-0 mx-1 blur-0 animate-loading7">E</span>
-            <span class="inline-block my-0 mx-1 blur-0 animate-loading8">N</span>
-            <span class="inline-block my-0 mx-1 blur-0 animate-loading9">T</span> */}
         </div>
     );
 };
