@@ -136,7 +136,7 @@ export const Category: FC = () => {
                     'divide-active-light border-active-light dark:divide-active-dark dark:border-active-dark'
             )}
         >
-            {(state === State.init || state === State.loading) && (
+            {(state === State.init || state === State.loading || state === State.error) && (
                 <div className="min-h-[113px] flex items-center justify-center">{Loading(false)}</div>
             )}
             {state === State.done && categories.length > 0 && (
