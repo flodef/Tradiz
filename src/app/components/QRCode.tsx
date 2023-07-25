@@ -79,9 +79,17 @@ const Checkmark: FC<CheckmarkProps> = ({ size, isOK = true }) => {
 
 export const QRCode: FC = () => {
     const { paymentStatus } = usePayment();
-    const { width, colorScheme } = useWindowParam();
+    const { width, height, colorScheme } = useWindowParam();
 
-    const size = useMemo(() => Math.min((width > 48 ? width : window.screen.availWidth) - 48, minSize), [width]);
+    const size = useMemo(
+        () =>
+            Math.min(
+                (width > 48 ? width : window.screen.availWidth) - 48,
+                (height > 48 ? height : window.screen.availHeight) - 48,
+                minSize
+            ),
+        [width, height]
+    );
 
     const [qrLow, setQrLow] = useState('');
     const [qrHigh, setQrHigh] = useState('');
