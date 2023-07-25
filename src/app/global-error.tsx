@@ -59,6 +59,40 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
                         <span className="five">5</span>
                         <span className={zeroAClassName}>0</span>
                         <span className={zeroBClassName}>0</span>
+                        {/* <span
+                            className={
+                                'relative before:rotate-45 before:scale-x-0 before:scale-y-75 before:animate-cross1a ' +
+                                'after:-rotate-45 after:scale-x-0 after:scale-y-75 after:animate-cross2a ' +
+                                'group-hover:before:animate-cross1Reverse group-hover:after:animate-cross2Reverse' +
+                                "before:absolute before:block before:content-[''] before:w-[140%] before:h-[10vmin] " +
+                                'before:bg-secondary-active-light before:bg-gradient-to-t before:from-secondary-active-light before:to-secondary-light ' +
+                                'before:dark:bg-secondary-active-dark before:dark:bg-gradient-to-t before:dark:from-secondary-active-dark before:dark:to-secondary-dark ' +
+                                'before:left-[-20%] before:top-[45%] before:shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)] ' +
+                                "after:absolute after:block after:content-[''] after:w-[140%] after:h-[10vmin] " +
+                                'after:bg-secondary-active-light after:bg-gradient-to-t after:from-secondary-active-light after:to-secondary-light ' +
+                                'after:dark:bg-secondary-active-dark after:dark:bg-gradient-to-t after:dark:from-secondary-active-dark after:dark:to-secondary-dark ' +
+                                'after:left-[-20%] after:top-[45%] after:shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)]'
+                            }
+                        >
+                            0
+                        </span> */}
+                        {/* <span
+                            className={
+                                'relative before:rotate-45 before:scale-x-0 before:scale-y-75 before:animate-cross1b ' +
+                                'after:-rotate-45 after:scale-x-0 after:scale-y-75 after:animate-cross2b ' +
+                                'group-hover:before:animate-cross1Reverse group-hover:after:animate-cross2Reverse' +
+                                "before:absolute before:block before:content-[''] before:w-[140%] before:h-[10vmin] " +
+                                'before:bg-secondary-active-light before:bg-gradient-to-t before:from-secondary-active-light before:to-secondary-light ' +
+                                'before:dark:bg-secondary-active-dark before:dark:bg-gradient-to-t before:dark:from-secondary-active-dark before:dark:to-secondary-dark ' +
+                                'before:left-[-20%] before:top-[45%] before:shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)] ' +
+                                "after:absolute after:block after:content-[''] after:w-[140%] after:h-[10vmin] " +
+                                'after:bg-secondary-active-light after:bg-gradient-to-t after:from-secondary-active-light after:to-secondary-light ' +
+                                'after:dark:bg-secondary-active-dark after:dark:bg-gradient-to-t after:dark:from-secondary-active-dark after:dark:to-secondary-dark ' +
+                                'after:left-[-20%] after:top-[45%] after:shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)]'
+                            }
+                        >
+                            0
+                        </span> */}
                     </h1>
                     <p className="px-6 cursor-pointer" onClick={reload}>
                         Recharger la page
