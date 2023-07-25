@@ -3,7 +3,19 @@ export default function Loading(fullscreen = true) {
     // You can add any UI inside Loading, including a Skeleton.
 
     const phrase = 'CHARGEMENT'.split('');
-    const classNames = phrase.map((_, i) => 'inline-block my-0 mx-1 blur-0 animate-loading' + i);
+    const rootClassName = 'inline-block my-0 mx-1 blur-0 ';
+    const animateClassNames = [
+        'animate-loading0',
+        'animate-loading1',
+        'animate-loading2',
+        'animate-loading3',
+        'animate-loading4',
+        'animate-loading5',
+        'animate-loading6',
+        'animate-loading7',
+        'animate-loading8',
+        'animate-loading9',
+    ];
 
     return (
         <div
@@ -14,7 +26,7 @@ export default function Loading(fullscreen = true) {
             style={{ background: 'inherit' }}
         >
             {phrase.map((item, i) => (
-                <span key={i} className={classNames[i]}>
+                <span key={i} className={rootClassName + animateClassNames[i]}>
                     {item}
                 </span>
             ))}
