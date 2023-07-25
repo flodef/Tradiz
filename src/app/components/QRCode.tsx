@@ -1,8 +1,8 @@
 import QRCodeStyling from '@solana/qr-code-styling';
 import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { PaymentStatus, usePayment } from '../hooks/useSolana';
+import { ColorScheme, useWindowParam } from '../hooks/useWindowParam';
 import { createQROptions } from '../utils/createQR';
-import { useWindowSize } from '../hooks/useWindowSize';
 
 const minSize = 400;
 
@@ -79,21 +79,39 @@ const Checkmark: FC<CheckmarkProps> = ({ size, isOK = true }) => {
 
 export const QRCode: FC = () => {
     const { paymentStatus } = usePayment();
-    const { width } = useWindowSize();
+    const { width, colorScheme } = useWindowParam();
 
     const size = useMemo(() => Math.min((width > 48 ? width : window.screen.availWidth) - 48, minSize), [width]);
+
+    const [qrLow, setQrLow] = useState('');
+    const [qrHigh, setQrHigh] = useState('');
+    const [qrWriting, setQrWriting] = useState('');
+
+    useEffect(() => {
+        if (colorScheme === ColorScheme.Light) {
+            // light mode
+            setQrLow('#ea580c'); // orange-600
+            setQrHigh('#a3e635'); // lime-400
+            setQrWriting('#84cc16'); // lime-500
+        } else {
+            // dark mode
+            setQrLow('#fde047'); // yellow-300
+            setQrHigh('#a3e635'); // lime-400
+            setQrWriting('#f97316'); // orange-500
+        }
+    }, [colorScheme]);
 
     const { url } = usePayment();
     const options = useMemo(
         () =>
-            createQROptions(url, size, 'transparent', '#34A5FF', {
+            createQROptions(url, size, 'transparent', qrWriting, {
                 type: 'linear',
                 colorStops: [
-                    { offset: 0, color: '#9945FF' },
-                    { offset: 1, color: '#14F195' },
+                    { offset: 0, color: qrLow },
+                    { offset: 1, color: qrHigh },
                 ],
             }),
-        [url, size]
+        [url, size, qrLow, qrHigh, qrWriting]
     );
 
     const qr = useMemo(() => new QRCodeStyling(), []);
