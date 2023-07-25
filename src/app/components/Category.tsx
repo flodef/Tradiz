@@ -136,7 +136,9 @@ export const Category: FC = () => {
                     'divide-active-light border-active-light dark:divide-active-dark dark:border-active-dark'
             )}
         >
-            {(state === State.init || state === State.loading) && <div className="min-h-[113px]">{Loading()}</div>}
+            {(state === State.init || state === State.loading) && (
+                <div className="min-h-[113px] flex items-center justify-center">{Loading(false)}</div>
+            )}
             {state === State.done && categories.length > 0 && (
                 <div className={rowClassName}>
                     {categories.slice(0, 3).map((category, index) => (
