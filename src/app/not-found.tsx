@@ -3,10 +3,7 @@ import Link from 'next/link';
 // inspired by https://codepen.io/uiswarup/pen/dyoyLOp
 export default function NotFound() {
     return (
-        <Link
-            className="flex justify-center bg-gradient-to-r from-low-light to-high-light dark:from-low-dark dark:to-high-dark"
-            href="/"
-        >
+        <Link className="flex justify-center" href="/">
             <div
                 className={
                     'container h-screen w-screen flex flex-col justify-center font-bold ' +
