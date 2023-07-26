@@ -7,6 +7,7 @@ import { useConfig } from '../hooks/useConfig';
 import { DataElement, useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
+import { useWindowParam } from '../hooks/useWindowParam';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { WalletIcon } from '../images/WalletIcon';
@@ -517,11 +518,14 @@ export const NumPad: FC = () => {
         (amount ? color : 'invisible');
     const f3 = f + (localTransactions ? color : 'invisible');
 
+    const { height } = useWindowParam();
+
     return (
         <div
             className={useAddPopupClass(
-                'block inset-0 justify-evenly min-w-[375px] w-full max-w-lg self-center ' +
-                    'md:absolute md:bottom-[116px] md:w-1/2 md:justify-center md:max-w-[50%] md:overflow-auto'
+                'inset-0 justify-evenly min-w-[375px] w-full max-w-lg self-center ' +
+                    'md:absolute md:bottom-[116px] md:w-1/2 md:justify-center md:max-w-[50%] ' +
+                    (height < 590 ? ' block overflow-auto ' : ' flex flex-col justify-center items-center ')
             )}
         >
             <div className="flex justify-around text-4xl text-center font-bold pt-0 max-w-lg w-full self-center">
