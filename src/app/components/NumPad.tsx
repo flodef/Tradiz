@@ -625,6 +625,8 @@ export const NumPad: FC = () => {
     );
     const left = useMemo(() => Math.max(((width < 768 ? width : width / 2) - 512) / 2, 0), [width]);
 
+    const { height } = useWindowParam();
+
     return (
         <div
             className={useAddPopupClass(
