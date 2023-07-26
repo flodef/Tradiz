@@ -4,7 +4,7 @@ import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useState } from
 import { State, useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
-import Loading from '../loading';
+import Loading, { LoadingType } from '../loading';
 import { CATEGORY_SEPARATOR, OTHER_KEYWORD } from '../utils/constants';
 import { requestFullscreen } from '../utils/fullscreen';
 import { useAddPopupClass } from './Popup';
@@ -137,7 +137,7 @@ export const Category: FC = () => {
             )}
         >
             {(state === State.init || state === State.loading || state === State.error) && (
-                <div className="min-h-[113px] flex items-center justify-center">{Loading(false)}</div>
+                <div className="min-h-[113px] flex items-center justify-center">{Loading(LoadingType.Dot, false)}</div>
             )}
             {state === State.done && categories.length > 0 && (
                 <div className={rowClassName}>
