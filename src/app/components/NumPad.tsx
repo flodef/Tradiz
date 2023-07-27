@@ -611,7 +611,12 @@ export const NumPad: FC = () => {
     );
     const left = useMemo(() => Math.max(((width < 768 ? width : width / 2) - 512) / 2, 0), [width]);
 
-    const { height } = useWindowParam();
+    const { width, height } = useWindowParam();
+    const shouldUseOverflow = useMemo(
+        () => (height < 590 && width >= 768) || (height < 660 && width < 768),
+        [width, height]
+    );
+    const left = useMemo(() => Math.max(((width < 768 ? width : width / 2) - 512) / 2, 0), [width]);
 
     return (
         <div
