@@ -50,9 +50,10 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
                         className={
                             'text-white text-[50vmin] text-center relative mb-[5vmin] mt-[-10vmin] cursor-pointer group-hover:scale-110 ' +
                             "group-hover:before:animate-flipReverse before:content-['('] before:absolute before:-rotate-90 " +
-                            'before:right-[25vmin] before:bottom-[-30vmin] before:block before:text-[115%] before:animate-flip '
+                            'before:right-[25vmin] before:bottom-[-30vmin] before:block before:text-[115%] before:animate-flip ' +
+                            'transition-transform duration-300'
                         }
-                        style={{ textShadow: '0 1vmin 5vmin rgba(0, 0, 0, 0.5)', transition: 'transform 300ms' }}
+                        style={{ textShadow: '0 1vmin 5vmin rgba(0, 0, 0, 0.5)' }}
                         onClick={retry}
                     >
                         <span className="five">5</span>

@@ -137,7 +137,7 @@ export const Category: FC = () => {
             )}
         >
             {(state === State.init || state === State.loading || state === State.error) && (
-                <div className="min-h-[113px] flex items-center justify-center">{Loading(LoadingType.Dot, false)}</div>
+                <div className="h-[113px] flex items-center justify-center">{Loading(LoadingType.Spinner, false)}</div>
             )}
             {state === State.done && categories.length > 0 && (
                 <div className={rowClassName}>
