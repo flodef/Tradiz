@@ -48,12 +48,15 @@ export const usePay = () => {
         (onConfirm: () => void) => {
             openPopup(
                 'Paiement : ' + toCurrency(getCurrentTotal()),
-                ['Attendre paiement', 'Changer mode paiement', 'Annuler paiement'],
+                ['Attendre paiement', 'Changer mode paiement', 'Forcer validation paiement', 'Annuler paiement'],
                 (index) => {
                     if (index === 1) {
                         onConfirm();
                         init();
                     } else if (index === 2) {
+                        addPayment('Crypto');
+                        closePopup(init);
+                    } else if (index === 3) {
                         closePopup(init);
                     } else {
                         retry();
@@ -63,7 +66,7 @@ export const usePay = () => {
                 true
             );
         },
-        [openPopup, toCurrency, getCurrentTotal, openQRCode, retry, closePopup, init]
+        [openPopup, toCurrency, getCurrentTotal, openQRCode, retry, closePopup, init, addPayment]
     );
 
     const onPay = useCallback(() => {
