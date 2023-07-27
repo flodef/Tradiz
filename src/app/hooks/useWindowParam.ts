@@ -13,6 +13,7 @@ export function useWindowParam() {
         height: -1,
     });
     const [colorScheme, setColorScheme] = useState(ColorScheme.Light);
+    const [isOnline, setIsOnline] = useState(true);
 
     useEffect(() => {
         // only execute all the code below in client side
@@ -31,18 +32,23 @@ export function useWindowParam() {
         // Add event listener
         window.addEventListener('resize', handleResize);
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', handleColorScheme);
+        window.addEventListener('online', () => setIsOnline(true), false);
+        window.addEventListener('offline', () => setIsOnline(false), false);
 
         // Call handler right away so state gets updated with initial window size
         handleResize();
         setColorScheme(
             window.matchMedia('(prefers-color-scheme: dark)').matches ? ColorScheme.Dark : ColorScheme.Light
         );
+        setIsOnline(window.navigator.onLine);
 
         // Remove event listener on cleanup
         return () => {
             window.removeEventListener('resize', handleResize);
             window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', handleColorScheme);
+            window.removeEventListener('online', () => setIsOnline(true));
+            window.removeEventListener('offline', () => setIsOnline(false));
         };
     }, []); // Empty array ensures that effect is only run on mount
-    return { width: windowSize.width, height: windowSize.height, colorScheme };
+    return { width: windowSize.width, height: windowSize.height, colorScheme, isOnline };
 }
