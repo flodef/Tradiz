@@ -35,6 +35,8 @@ module.exports = {
                 growReverse: 'grow 500ms linear 0ms infinite reverse',
                 worm1: 'worm1 2s linear infinite',
                 worm2: 'worm2 2s linear infinite',
+                blur: 'blurText .3s ease-in-out forwards',
+                unblur: 'blurText .3s ease-in-out forwards reverse',
                 loading0: 'blurText 1.5s 0s infinite linear alternate',
                 loading1: 'blurText 1.5s 0.2s infinite linear alternate',
                 loading2: 'blurText 1.5s 0.4s infinite linear alternate',
