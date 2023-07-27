@@ -156,12 +156,16 @@ module.exports = {
             },
             colors: {
                 'writing-light': '#d97706', // amber-600
-                'bg-light': '#f1f5f9', // slate-100
+                'main-from-light': '#fff7ed', // orange-50 */
+                'main-to-light': '#fed7aa', // orange-200 */
+                'popup-light': '#f1f5f9', // slate-100
                 'active-light': '#fdba74', // orange-300
                 'secondary-light': '#84cc16', // lime-500
                 'secondary-active-light': '#bef264', // lime-300
                 'writing-dark': '#fde047', // yellow-400
-                'bg-dark': '#713f12', // yellow-900
+                'main-from-dark': '#65a30d', // lime-600 */
+                'main-to-dark': '#365314', // green-900 */
+                'popup-dark': '#713f12', // yellow-900
                 'active-dark': '#84cc16', // lime-500
                 'secondary-dark': '#fdba74', // orange-300
                 'secondary-active-dark': '#f97316', // orange-500
