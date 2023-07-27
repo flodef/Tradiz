@@ -99,7 +99,7 @@ export const NumPad: FC = () => {
         addProduct,
         toCurrency,
     } = useData();
-    const { openPopup, closePopup } = usePopup();
+    const { openPopup, closePopup, isPopupOpen } = usePopup();
     const { onPay, canPay, canAddProduct } = usePay();
 
     const max = maxValue * Math.pow(10, maxDecimals);
@@ -518,54 +518,81 @@ export const NumPad: FC = () => {
         (amount ? color : 'invisible');
     const f3 = f + (localTransactions ? color : 'invisible');
 
-    const { height } = useWindowParam();
+    const { width, height } = useWindowParam();
+    const shouldUseOverflow = useMemo(
+        () => (height < 590 && width >= 768) || (height < 660 && width < 768),
+        [width, height]
+    );
+    const left = useMemo(() => Math.max(((width < 768 ? width : width / 2) - 512) / 2, 0), [width]);
 
     return (
         <div
             className={useAddPopupClass(
-                'inset-0 justify-evenly min-w-[375px] w-full max-w-lg self-center ' +
-                    'md:absolute md:bottom-[116px] md:w-1/2 md:justify-center md:max-w-[50%] ' +
-                    (height < 590 ? ' block overflow-auto ' : ' flex flex-col justify-center items-center ')
+                'inset-0 min-w-[375px] w-full self-center absolute bottom-[116px] ' +
+                    'md:top-0 md:w-1/2 md:justify-center md:max-w-[50%] ' +
+                    (shouldUseOverflow
+                        ? isPopupOpen
+                            ? ' top-[76px] '
+                            : ' top-32 block overflow-auto '
+                        : ' flex flex-col justify-center items-center top-20 md:top-0 ')
             )}
         >
-            <div className="flex justify-around text-4xl text-center font-bold pt-0 max-w-lg w-full self-center">
-                <Amount
+            <div className="flex flex-col justify-center items-center w-full">
+                <div
                     className={
-                        'min-w-[145px] text-right leading-normal ' +
-                        (selectedCategory && !amount ? 'animate-blink' : '')
+                        shouldUseOverflow
+                            ? isPopupOpen
+                                ? 'fixed top-0 right-0  max-w-lg md:right-0 '
+                                : 'fixed top-[76px] right-0 max-w-lg md:top-0 md:z-10 md:right-1/2 '
+                            : 'static top-0 max-w-lg w-full '
                     }
-                    value={amount * Math.max(quantity, 1)}
-                    showZero
-                />
-                <ImageButton className={f1} onInput={onBackspace}>
-                    <BackspaceIcon />
-                </ImageButton>
-                <FunctionButton className={f2} input="&times;" onInput={multiply} />
-                <FunctionButton
-                    className={f3}
-                    input="z"
-                    onInput={showTransactionsSummary}
-                    onContextMenu={showTransactionsSummaryMenu}
-                />
-            </div>
-
-            <div className="max-w-lg w-full self-center">
-                {NumPadList.map((row, index) => (
-                    <div className="flex justify-evenly" key={index}>
-                        {row.map((input) => (
-                            <NumPadButton input={input} onInput={onInput} key={input} />
-                        ))}
+                    style={{ left: left }}
+                >
+                    <div className="flex justify-around text-4xl text-center font-bold pt-0 max-w-lg w-full self-center">
+                        <Amount
+                            className={
+                                'min-w-[145px] text-right leading-normal ' +
+                                (selectedCategory && !amount ? 'animate-blink' : '')
+                            }
+                            value={amount * Math.max(quantity, 1)}
+                            showZero
+                        />
+                        <ImageButton className={f1} onInput={onBackspace}>
+                            <BackspaceIcon />
+                        </ImageButton>
+                        <FunctionButton className={f2} input="&times;" onInput={multiply} />
+                        <FunctionButton
+                            className={f3}
+                            input="z"
+                            onInput={showTransactionsSummary}
+                            onContextMenu={showTransactionsSummaryMenu}
+                        />
                     </div>
-                ))}
-                <div className="flex justify-evenly">
-                    <NumPadButton input={0} onInput={onInput} />
-                    <NumPadButton input={'00'} onInput={onInput} />
-                    <ImageButton
-                        className={sx}
-                        onInput={canPay ? onPay : canAddProduct ? () => addProduct(selectedCategory) : () => {}}
-                    >
-                        {canPay ? <WalletIcon /> : canAddProduct ? <BasketIcon /> : ''}
-                    </ImageButton>
+                </div>
+
+                <div
+                    className={
+                        'max-w-lg w-full self-center md:top-14 overflow-auto bottom-0 ' +
+                        (shouldUseOverflow ? (isPopupOpen ? ' top-14 absolute ' : ' top-0 absolute ') : ' static ')
+                    }
+                >
+                    {NumPadList.map((row, index) => (
+                        <div className="flex justify-evenly" key={index}>
+                            {row.map((input) => (
+                                <NumPadButton input={input} onInput={onInput} key={input} />
+                            ))}
+                        </div>
+                    ))}
+                    <div className="flex justify-evenly">
+                        <NumPadButton input={0} onInput={onInput} />
+                        <NumPadButton input={'00'} onInput={onInput} />
+                        <ImageButton
+                            className={sx}
+                            onInput={canPay ? onPay : canAddProduct ? () => addProduct(selectedCategory) : () => {}}
+                        >
+                            {canPay ? <WalletIcon /> : canAddProduct ? <BasketIcon /> : ''}
+                        </ImageButton>
+                    </div>
                 </div>
             </div>
         </div>

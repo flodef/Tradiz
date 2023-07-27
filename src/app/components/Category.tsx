@@ -132,7 +132,7 @@ export const Category: FC = () => {
     return (
         <div
             className={useAddPopupClass(
-                'inset-x-0 divide-y border-t-[3px] md:absolute md:bottom-0 md:w-1/2 ' +
+                'inset-x-0 divide-y border-t-[3px] absolute bottom-0 md:w-1/2 ' +
                     'divide-active-light border-active-light dark:divide-active-dark dark:border-active-dark'
             )}
         >
