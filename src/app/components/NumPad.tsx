@@ -2,9 +2,9 @@
 
 import { FC, MouseEventHandler, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { utils, writeFile } from 'xlsx';
-import { addElement } from '../contexts/DataProvider';
+import { addElement, transactionsKeyword, transactionsRegex } from '../contexts/DataProvider';
 import { useConfig } from '../hooks/useConfig';
-import { DataElement, useData } from '../hooks/useData';
+import { DataElement, Transaction, useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useWindowParam } from '../hooks/useWindowParam';
@@ -102,16 +102,21 @@ export const NumPad: FC = () => {
     const { openPopup, closePopup, isPopupOpen } = usePopup();
     const { onPay, canPay, canAddProduct } = usePay();
 
-    const max = maxValue * Math.pow(10, maxDecimals);
-
     // Hack to avoid differences between the server and the client, generating hydration issues
-    const [localTransactions, setLocalTransactions] = useState<
-        [{ method: string; amount: number; date: string; products: [DataElement] }] | undefined
-    >();
+    const [localTransactions, setLocalTransactions] = useState<[Transaction] | undefined>();
     useEffect(() => {
         setLocalTransactions(transactions);
     }, [transactions]);
 
+    const [historicalTransactions, setHistoricalTransactions] = useState<string[]>();
+    const getHistoricalTransactions = useCallback(() => {
+        return Object.keys(localStorage).filter((key) => transactionsRegex.test(key));
+    }, []);
+    useEffect(() => {
+        setHistoricalTransactions(getHistoricalTransactions());
+    }, [getHistoricalTransactions]);
+
+    const max = maxValue * Math.pow(10, maxDecimals);
     const regExp = useMemo(() => new RegExp('^\\d*([.,]\\d{0,' + maxDecimals + '})?$'), [maxDecimals]);
 
     const [value, setValue] = useState('0');
@@ -203,13 +208,13 @@ export const NumPad: FC = () => {
         []
     );
 
-    const getTransactionsDetails = useCallback(() => {
-        if (!localTransactions?.length) return;
+    const getTransactionsDetails = useCallback((transactions: [Transaction]) => {
+        if (!transactions?.length) return;
 
         let categories: [DataElement] | undefined = undefined;
         let payments: [DataElement] | undefined = undefined;
 
-        localTransactions.forEach((transaction) => {
+        transactions.forEach((transaction) => {
             const payment = payments?.find((payment) => payment.category === transaction.method);
             if (payment) {
                 payment.quantity++;
@@ -241,124 +246,185 @@ export const NumPad: FC = () => {
         if (!payments) payments = [{ category: '', quantity: 0, amount: 0 }];
 
         return { categories, payments };
-    }, [localTransactions]);
+    }, []);
 
-    const getTransactionsSummary = useCallback(() => {
-        if (!localTransactions?.length) return;
+    const getTransactionsSummary = useCallback(
+        (transactions: [Transaction]) => {
+            if (!transactions?.length) return;
 
-        const details = getTransactionsDetails();
-        const categories = details?.categories as [DataElement];
-        const payments = details?.payments as [DataElement];
+            const details = getTransactionsDetails(transactions);
+            const categories = details?.categories as [DataElement];
+            const payments = details?.payments as [DataElement];
 
-        const taxes = getTaxesByCategory();
-        const taxAmount = getTaxAmountByCategory(taxes, categories);
-        let totalTaxes = { total: 0, ht: 0, tva: 0 };
-        taxAmount.forEach(({ total, ht, tva }) => {
-            totalTaxes.total += total;
-            totalTaxes.ht += ht;
-            totalTaxes.tva += tva;
-        });
+            const taxes = getTaxesByCategory();
+            const taxAmount = getTaxAmountByCategory(taxes, categories);
+            let totalTaxes = { total: 0, ht: 0, tva: 0 };
+            taxAmount.forEach(({ total, ht, tva }) => {
+                totalTaxes.total += total;
+                totalTaxes.ht += ht;
+                totalTaxes.tva += tva;
+            });
 
-        return categories
-            ?.map(
-                ({ category, quantity, amount }) =>
-                    '[T' +
-                    taxes?.find((tax) => tax.categories.includes(category))?.index +
-                    '] ' +
-                    category +
-                    ' x ' +
-                    quantity +
-                    ' ==> ' +
-                    toCurrency(amount)
-            )
-            .concat([''])
-            .concat([' TAUX \n HT \n TVA \n TTC '])
-            .concat(
-                taxAmount
-                    .map(({ index, rate, total, ht, tva }) => {
-                        return (
-                            'T' +
-                            index +
-                            ' ' +
-                            rate +
-                            '%\n' +
-                            toCurrency(ht) +
-                            '\n' +
-                            toCurrency(tva) +
-                            '\n' +
-                            toCurrency(total)
-                        );
-                    })
-                    .concat([
-                        'TOTAL\n' +
-                            toCurrency(totalTaxes.ht) +
-                            '\n' +
-                            toCurrency(totalTaxes.tva) +
-                            '\n' +
-                            toCurrency(totalTaxes.total),
-                    ])
-            )
-            .concat([''])
-            .concat(
-                payments.map(
-                    ({ category, quantity, amount }) => category + ' x ' + quantity + ' ==> ' + toCurrency(amount)
+            return categories
+                ?.map(
+                    ({ category, quantity, amount }) =>
+                        '[T' +
+                        taxes?.find((tax) => tax.categories.includes(category))?.index +
+                        '] ' +
+                        category +
+                        ' x ' +
+                        quantity +
+                        ' ==> ' +
+                        toCurrency(amount)
                 )
-            );
-    }, [getTaxAmountByCategory, getTaxesByCategory, localTransactions, getTransactionsDetails, toCurrency]);
-
-    const showTransactionsSummary = useCallback(() => {
-        if (!localTransactions?.length) return;
-
-        const summary = getTransactionsSummary();
-        const categories = getTransactionsDetails()?.categories as [DataElement];
-        const totalAmount = localTransactions.reduce((total, transaction) => total + transaction.amount, 0);
-        const totalProducts = categories.reduce((total, category) => total + category.quantity, 0);
-
-        openPopup(
-            `${totalProducts} produit${totalProducts > 1 ? 's' : ''} | ${localTransactions.length} vente${
-                localTransactions.length > 1 ? 's' : ''
-            } : ${toCurrency(totalAmount)}`,
-            summary || [''],
-            (index) => {
-                if (!categories?.length || index >= categories.length || index < 0) return;
-
-                const category = categories[index];
-                const array = [] as { label: string; quantity: number; amount: number }[];
-                localTransactions?.flatMap(({ products }) =>
-                    products
-                        .filter((product) => product.category === category.category)
-                        .forEach(({ label, quantity, amount }) => {
-                            const index = array.findIndex((p) => p.label === label);
-                            if (index >= 0) {
-                                array[index].quantity += quantity;
-                                array[index].amount += quantity * amount;
-                            } else {
-                                array.push({
-                                    label: label || '',
-                                    quantity: quantity,
-                                    amount: quantity * amount,
-                                });
-                            }
+                .concat([''])
+                .concat([' TAUX \n HT \n TVA \n TTC '])
+                .concat(
+                    taxAmount
+                        .map(({ index, rate, total, ht, tva }) => {
+                            return (
+                                'T' +
+                                index +
+                                ' ' +
+                                rate +
+                                '%\n' +
+                                toCurrency(ht) +
+                                '\n' +
+                                toCurrency(tva) +
+                                '\n' +
+                                toCurrency(total)
+                            );
                         })
+                        .concat([
+                            'TOTAL\n' +
+                                toCurrency(totalTaxes.ht) +
+                                '\n' +
+                                toCurrency(totalTaxes.tva) +
+                                '\n' +
+                                toCurrency(totalTaxes.total),
+                        ])
+                )
+                .concat([''])
+                .concat(
+                    payments.map(
+                        ({ category, quantity, amount }) => category + ' x ' + quantity + ' ==> ' + toCurrency(amount)
+                    )
                 );
-                const summary = array.map(
-                    ({ label, quantity, amount }) => label + ' x ' + quantity + ' ==> ' + toCurrency(amount)
-                );
+        },
+        [getTaxAmountByCategory, getTaxesByCategory, getTransactionsDetails, toCurrency]
+    );
+    const showHistoricalTransactions = useCallback(
+        (
+            showTransactionsCallback: (transactions: [Transaction], fallback: () => void) => void,
+            fallback?: () => void
+        ) => {
+            if (!historicalTransactions?.length) return;
+
+            const items = getHistoricalTransactions()
+                .map((key) => key.split(' ')[1])
+                .sort()
+                .reverse();
+            openPopup(
+                'Historique',
+                items.map((key) =>
+                    new Date(key).toLocaleDateString(undefined, {
+                        weekday: 'short',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                    })
+                ),
+                (index) => {
+                    if (index < 0 && fallback) {
+                        fallback();
+                    } else if (index >= 0) {
+                        const transactions = localStorage.getItem(transactionsKeyword + ' ' + items[index]);
+                        if (!transactions) return;
+
+                        console.log(transactions);
+                        showTransactionsCallback(JSON.parse(transactions), () =>
+                            showHistoricalTransactions(showTransactionsCallback, fallback)
+                        );
+                    }
+                },
+                true
+            );
+        },
+        [openPopup, historicalTransactions, getHistoricalTransactions]
+    );
+
+    const showTransactionsSummary = useCallback(
+        (transactions = localTransactions, fallback?: () => void) => {
+            if (!transactions?.length) {
+                showHistoricalTransactions(showTransactionsSummary);
+            } else {
+                const summary = getTransactionsSummary(transactions);
+                const categories = getTransactionsDetails(transactions)?.categories as [DataElement];
+                const totalAmount = transactions.reduce((total, transaction) => total + transaction.amount, 0);
+                const totalProducts = categories.reduce((total, category) => total + category.quantity, 0);
 
                 openPopup(
-                    category.category + ' x' + category.quantity + ': ' + toCurrency(category.amount),
-                    summary,
-                    showTransactionsSummary,
+                    `${totalProducts} produit${totalProducts > 1 ? 's' : ''} | ${transactions.length} vente${
+                        transactions.length > 1 ? 's' : ''
+                    } : ${toCurrency(totalAmount)}`,
+                    summary || [''],
+                    (index) => {
+                        if (index < 0 && fallback) {
+                            fallback();
+                        } else {
+                            if (!categories?.length || index >= categories.length || index < 0) return;
+
+                            const category = categories[index];
+                            const array = [] as { label: string; quantity: number; amount: number }[];
+                            transactions?.flatMap(({ products }) =>
+                                products
+                                    .filter((product) => product.category === category.category)
+                                    .forEach(({ label, quantity, amount }) => {
+                                        const index = array.findIndex((p) => p.label === label);
+                                        if (index >= 0) {
+                                            array[index].quantity += quantity;
+                                            array[index].amount += quantity * amount;
+                                        } else {
+                                            array.push({
+                                                label: label || '',
+                                                quantity: quantity,
+                                                amount: quantity * amount,
+                                            });
+                                        }
+                                    })
+                            );
+
+                            const summary = array.map(
+                                ({ label, quantity, amount }) => label + ' x ' + quantity + ' ==> ' + toCurrency(amount)
+                            );
+
+                            openPopup(
+                                category.category + ' x' + category.quantity + ': ' + toCurrency(category.amount),
+                                summary,
+                                () => showTransactionsSummary(transactions, fallback),
+                                true
+                            );
+                        }
+                    },
                     true
                 );
-            },
-            true
-        );
-    }, [openPopup, localTransactions, getTransactionsDetails, getTransactionsSummary, toCurrency]);
+            }
+        },
+        [
+            openPopup,
+            localTransactions,
+            getTransactionsDetails,
+            getTransactionsSummary,
+            toCurrency,
+            showHistoricalTransactions,
+        ]
+    );
 
     const sendEmail = useCallback(
         (subject: string) => {
-            const summary = (getTransactionsSummary() ?? [])
+            if (!localTransactions?.length) return;
+
+            const summary = (getTransactionsSummary(localTransactions) ?? [])
                 .map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
                 .join('\n');
 
@@ -375,7 +441,7 @@ export const NumPad: FC = () => {
             link.target = '_blank';
             link.click();
         },
-        [getTransactionsSummary]
+        [getTransactionsSummary, localTransactions]
     );
 
     const downloadData = useCallback(
@@ -450,40 +516,56 @@ export const NumPad: FC = () => {
     const showTransactionsSummaryMenu = useCallback<MouseEventHandler>(
         (e) => {
             e.preventDefault();
-            openPopup(
-                'TicketZ ' + DEFAULT_DATE,
-                ["Capture d'écran", 'Email', 'Feuille de calcul', 'Afficher'],
-                (index) => {
-                    switch (index) {
-                        case -1:
-                            return;
-                        case 0:
-                            showTransactionsSummary();
-                            setTimeout(() => {
-                                takeScreenshot('popup', 'TicketZ ' + DEFAULT_DATE + '.png').then(() => {
-                                    closePopup();
-                                });
-                            }); // Set timeout to give time to the popup to display and the screenshot to be taken
-                            break;
-                        case 1:
-                            sendEmail('TicketZ ' + DEFAULT_DATE);
-                            closePopup();
-                            break;
-                        case 2:
-                            downloadData('TicketZ ' + DEFAULT_DATE);
-                            closePopup();
-                            break;
-                        case 3:
-                            showTransactionsSummary();
-                            break;
-                        default:
-                            console.error('Unhandled index: ' + index);
-                    }
-                },
-                true
-            );
+
+            if (localTransactions?.length) {
+                openPopup(
+                    'TicketZ ' + DEFAULT_DATE,
+                    ["Capture d'écran", 'Email', 'Feuille de calcul', 'Historique', 'Afficher'],
+                    (index) => {
+                        const fallback = () => showTransactionsSummaryMenu(e);
+                        switch (index) {
+                            case 0:
+                                showTransactionsSummary();
+                                setTimeout(() => {
+                                    takeScreenshot('popup', 'TicketZ ' + DEFAULT_DATE + '.png').then(() => {
+                                        closePopup();
+                                    });
+                                }); // Set timeout to give time to the popup to display and the screenshot to be taken
+                                break;
+                            case 1:
+                                sendEmail('TicketZ ' + DEFAULT_DATE);
+                                closePopup();
+                                break;
+                            case 2:
+                                downloadData('TicketZ ' + DEFAULT_DATE);
+                                closePopup();
+                                break;
+                            case 3:
+                                showHistoricalTransactions(showTransactionsSummary, fallback);
+                                break;
+                            case 4:
+                                showTransactionsSummary(undefined, fallback);
+                                break;
+                            default:
+                                return;
+                        }
+                    },
+                    true
+                );
+            } else if (historicalTransactions?.length) {
+                showHistoricalTransactions(showTransactionsSummary);
+            }
         },
-        [openPopup, closePopup, showTransactionsSummary, sendEmail, downloadData]
+        [
+            openPopup,
+            closePopup,
+            showTransactionsSummary,
+            sendEmail,
+            downloadData,
+            localTransactions,
+            historicalTransactions,
+            showHistoricalTransactions,
+        ]
     );
 
     const multiply = useCallback(() => {
@@ -516,7 +598,7 @@ export const NumPad: FC = () => {
         f +
         (quantity ? 'bg-secondary-active-light dark:bg-secondary-active-dark ' : '') +
         (amount ? color : 'invisible');
-    const f3 = f + (localTransactions ? color : 'invisible');
+    const f3 = f + (localTransactions?.length || historicalTransactions?.length ? color : 'invisible');
 
     const { width, height } = useWindowParam();
     const shouldUseOverflow = useMemo(
@@ -564,7 +646,7 @@ export const NumPad: FC = () => {
                         <FunctionButton
                             className={f3}
                             input="z"
-                            onInput={showTransactionsSummary}
+                            onInput={() => showTransactionsSummary()}
                             onContextMenu={showTransactionsSummaryMenu}
                         />
                     </div>
