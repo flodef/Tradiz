@@ -10,15 +10,17 @@ export function useAddPopupClass(className: string): string {
     return className + (isPopupOpen ? ' blur-sm pointer-events-none md:blur-none md:pointer-events-auto ' : '');
 }
 
-function useRemovePopupClass(className: string): string {
-    const { isPopupOpen } = usePopup();
-
-    return className + (isPopupOpen ? '' : ' hidden ');
-}
-
 export const Popup: FC = () => {
-    const { popupTitle, popupOptions, popupAction, popupStayOpen, popupSpecialAction, openPopup, closePopup } =
-        usePopup();
+    const {
+        popupTitle,
+        popupOptions,
+        popupAction,
+        popupStayOpen,
+        popupSpecialAction,
+        openPopup,
+        closePopup,
+        isPopupOpen,
+    } = usePopup();
     const optionCount = popupOptions.filter((option) => option?.toString().trim()).length;
 
     const handleClick = useCallback(
@@ -54,21 +56,22 @@ export const Popup: FC = () => {
     return (
         // <div className={removePopupClass('z-20 opacity-50 bg-gray-900 h-screen w-screen grid absolute')}>
         <div
-            id="popup"
-            className={useRemovePopupClass(
-                'z-30 w-[90%] max-h-[90%] max-w-[400px] overflow-y-auto overflow-x-hidden absolute opacity-100 brightness-100 ' +
-                    'justify-self-center bg-popup-light dark:bg-popup-dark h-fit rounded-2xl self-center blur-none border-black border-[3px] ' +
-                    'md:border-[0px] md:w-1/2 md:max-w-[50%] md:max-h-full md:left-1/2 md:bottom-0 md:rounded-none md:border-l-4 ' +
-                    'md:border-secondary-active-light dark:border-secondary-active-dark'
-            )}
+            data-open={isPopupOpen}
+            className={
+                'z-30 w-[90%] max-h-[90%] max-w-[400px] overflow-y-auto overflow-x-hidden absolute ' +
+                'justify-self-center bg-popup-light dark:bg-popup-dark h-fit rounded-2xl self-center blur-none border-black border-[3px] ' +
+                'md:border-[0px] md:w-1/2 md:max-w-[50%] md:max-h-full md:left-1/2 md:bottom-0 md:rounded-none md:border-l-4 ' +
+                'md:border-secondary-active-light dark:border-secondary-active-dark data-[open=false]:hidden'
+            }
         >
             <div>
                 <div className="flex justify-between bg-secondary-active-light dark:bg-secondary-active-dark">
                     <div className="text-2xl font-semibold py-3 pl-3">{popupTitle}</div>
                     <CloseButton
                         onClose={() => {
-                            closePopup();
-                            handleClick(-1, '');
+                            closePopup(() => {
+                                handleClick(-1, '');
+                            });
                         }}
                     />
                 </div>
