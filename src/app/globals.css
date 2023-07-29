@@ -3,16 +3,16 @@
 @tailwind utilities;
 
 :root {
-    --foreground-rgb: 217, 121, 6;
-    --background-start-rgb: 255, 247, 237;
-    --background-end-rgb: 254, 215, 170;
+    --foreground-rgb: 217, 121, 6; /* #d97906 // amber-600 */
+    --background-start-rgb: 255, 247, 237; /* #fff7ed // orange-50 */
+    --background-end-rgb: 254, 215, 170; /* #fed7aa // orange-200 */
 }
 
 @media (prefers-color-scheme: dark) {
     :root {
-        --foreground-rgb: 253, 224, 71;
-        --background-start-rgb: 101, 163, 13;
-        --background-end-rgb: 54, 83, 20;
+        --foreground-rgb: 253, 224, 71; /* #fde047 // yellow-300 */
+        --background-start-rgb: 101, 163, 13; /* #65a30d // lime-600 */
+        --background-end-rgb: 54, 83, 20; /* #365314 // green-900 */
     }
 }
 
