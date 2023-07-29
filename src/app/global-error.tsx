@@ -1,22 +1,20 @@
 'use client'; // Error components must be Client Components
 
-import { useEffect } from 'react';
+// inspired by https://codepen.io/altreiter/pen/EedZRQ
 import { Open_Sans } from 'next/font/google';
 import Link from 'next/link';
-import { Router, useRouter } from 'next/router';
+import { useEffect } from 'react';
 
 const openSans = Open_Sans({ subsets: ['latin'], weight: ['400', '700'] });
 
 export default function GlobalError({ error, reset }: { error: Error; reset: () => void }) {
-    const { reload } = useRouter();
-
     useEffect(() => {
         // Log the error to an error reporting service
         console.error(error);
     }, [error]);
 
     const retry = () => setTimeout(reset, 1000); // Attempt to recover by trying to re-render the segment
-    const hardReset = () => setTimeout(reload, 1000); // Hard reset by reloading the page
+    const reload = () => setTimeout(() => location.reload(), 1000); // Hard reset by reloading the page
 
     const zeroClassName =
         'relative before:rotate-45 before:scale-x-0 before:scale-y-75 before:animate-cross1$ ' +
@@ -62,7 +60,7 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
                         <span className={zeroAClassName}>0</span>
                         <span className={zeroBClassName}>0</span>
                     </h1>
-                    <p className="px-6 cursor-pointer" onClick={hardReset}>
+                    <p className="px-6 cursor-pointer" onClick={reload}>
                         Recharger la page
                     </p>
                 </div>
