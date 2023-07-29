@@ -2,7 +2,7 @@ import { Parameters } from '../contexts/ConfigProvider';
 import { InventoryItem } from '../hooks/useConfig';
 
 export async function LoadData(isOutOfLocalHost: boolean = true) {
-    if (isOutOfLocalHost && !navigator?.onLine) throw new Error('The web app is offline');
+    if (isOutOfLocalHost && !navigator.onLine) throw new Error('The web app is offline');
 
     const param = await fetchData('Paramètres', 'parameters', isOutOfLocalHost).then(ConvertParametersData);
     if (!param?.length) return;
@@ -95,7 +95,7 @@ async function ConvertPaymentMethodsData(response: void | Response) {
         if (!data.values?.length) throw new Error('missing data pattern');
 
         return data.values
-            .filter((item, i) => i !== 0)
+            .filter((_, i) => i !== 0)
             .map((item) => {
                 return {
                     method: item.at(0)?.trim() ?? '',
@@ -113,7 +113,7 @@ async function ConvertProductsData(response: void | Response) {
         if (!data.values?.length) throw new Error('missing data pattern');
 
         return data.values
-            .filter((item, i) => i !== 0)
+            .filter((_, i) => i !== 0)
             .map((item) => {
                 return {
                     category: item.at(0)?.toString().trim() ?? '',

@@ -79,7 +79,7 @@ const Checkmark: FC<CheckmarkProps> = ({ size, isOK = true }) => {
 
 export const QRCode: FC = () => {
     const { paymentStatus } = usePayment();
-    const { width, height, colorScheme } = useWindowParam();
+    const { width, height, colorScheme, isOnline } = useWindowParam();
 
     const size = useMemo(
         () =>
@@ -135,7 +135,7 @@ export const QRCode: FC = () => {
     return paymentStatus === PaymentStatus.Pending ? (
         <div className="flex flex-col">
             <div ref={ref} className="rounded-2xl" />
-            <div>Annuler</div>
+            <div>Options | {isOnline ? 'Connecté' : 'Hors-Connection'}</div>
         </div>
     ) : paymentStatus === PaymentStatus.Finalized || paymentStatus === PaymentStatus.Error ? (
         <Checkmark isOK={paymentStatus !== PaymentStatus.Error} size={size * 0.8} />
