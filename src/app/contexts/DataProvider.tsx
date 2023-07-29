@@ -6,6 +6,9 @@ import { DataContext, DataElement, Transaction } from '../hooks/useData';
 import { CATEGORY_SEPARATOR, DEFAULT_DATE, OTHER_KEYWORD } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
 
+export const transactionsKeyword = 'Transactions';
+export const transactionsRegex = /Transactions \d{4}-\d{1,2}-\d{1,2}/;
+
 export interface DataProviderProps {
     children: ReactNode;
 }
@@ -28,7 +31,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [selectedCategory, setSelectedCategory] = useState('');
     const products = useRef<[DataElement]>();
     const [transactions, setTransactions] = useLocalStorage<[Transaction] | undefined>(
-        'Transactions ' + DEFAULT_DATE,
+        transactionsKeyword + ' ' + DEFAULT_DATE,
         undefined
     );
 
