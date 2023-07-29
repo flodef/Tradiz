@@ -1,7 +1,7 @@
 'use client';
 
 import { FC, ReactNode, useCallback, useEffect, useState } from 'react';
-import { ConfigContext, InventoryItem, PaymentMethod, State } from '../hooks/useConfig';
+import { ConfigContext, Currency, InventoryItem, PaymentMethod, State } from '../hooks/useConfig';
 import { LoadData } from '../utils/data';
 import { useLocalStorage } from '../utils/localStorage';
 
@@ -12,14 +12,13 @@ export interface ConfigProviderProps {
 export interface Parameters {
     shopName: string;
     thanksMessage: string;
-    maxValue: number;
-    maxDecimals: number;
-    currency: string;
+    mercurial: string;
     lastModified: string;
 }
 
 interface Config {
     parameters: Parameters;
+    currencies: Currency[];
     paymentMethods: PaymentMethod[];
     inventory: InventoryItem[];
 }
@@ -28,10 +27,18 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     const [state, setState] = useState(State.init);
     const [config, setConfig] = useLocalStorage<Config | undefined>('Parameters', undefined);
     const [shopName, setShopName] = useState('');
-    const [thanksMessage, setThanksMessage] = useState('Merci de votre visite !');
-    const [maxValue, setMaxValue] = useState(999.99);
-    const [maxDecimals, setMaxDecimals] = useState(2);
-    const [currency, setCurrency] = useState('€');
+    const [thanksMessage, setThanksMessage] = useState('');
+    const [lastModified, setLastModified] = useState('');
+    const [currencyIndex, setCurrencyIndex] = useState(0);
+    const [currencies, setCurrencies] = useState<Currency[]>([
+        {
+            label: 'Euro',
+            maxValue: 999.99,
+            symbol: '€',
+            maxDecimals: 2,
+            isOutOfComptability: false,
+        },
+    ]);
     const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
         {
             method: 'CB',
@@ -43,23 +50,20 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
             method: 'Chèque',
         },
     ]);
-    const [lastModified, setLastModified] = useState(new Date().toLocaleString());
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
 
     const updateConfig = useCallback((data: Config) => {
         setShopName(data.parameters.shopName);
         setThanksMessage(data.parameters.thanksMessage);
-        setMaxDecimals(data.parameters.maxDecimals);
-        setMaxValue(data.parameters.maxValue);
-        setCurrency(data.parameters.currency);
         setLastModified(data.parameters.lastModified);
+        setCurrencies(data.currencies);
         setPaymentMethods(data.paymentMethods);
         setInventory(data.inventory);
     }, []);
 
     const storeData = useCallback(
         (data: Config | undefined) => {
-            if (data?.inventory.length && data?.parameters) {
+            if (data?.currencies.length && data?.paymentMethods.length && data?.inventory.length && data?.parameters) {
                 setConfig(data);
                 updateConfig(data);
                 return true;
@@ -104,11 +108,11 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                 setState,
                 shopName,
                 thanksMessage,
-                maxDecimals,
-                maxValue,
-                currency,
-                paymentMethods,
                 lastModified,
+                currencyIndex,
+                setCurrencyIndex,
+                currencies,
+                paymentMethods,
                 inventory,
             }}
         >

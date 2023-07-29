@@ -85,7 +85,7 @@ const ImageButton: FC<ImageButtonProps> = ({ children, onInput, className }) => 
 };
 
 export const NumPad: FC = () => {
-    const { maxValue, maxDecimals, inventory } = useConfig();
+    const { currencies, currencyIndex, inventory } = useConfig();
     const {
         total,
         amount,
@@ -116,7 +116,11 @@ export const NumPad: FC = () => {
         setHistoricalTransactions(getHistoricalTransactions());
     }, [getHistoricalTransactions]);
 
-    const max = maxValue * Math.pow(10, maxDecimals);
+    const maxDecimals = currencies[currencyIndex].maxDecimals;
+    const max = useMemo(
+        () => currencies[currencyIndex].maxValue * Math.pow(10, maxDecimals),
+        [currencies, currencyIndex, maxDecimals]
+    );
     const regExp = useMemo(() => new RegExp('^\\d*([.,]\\d{0,' + maxDecimals + '})?$'), [maxDecimals]);
 
     const [value, setValue] = useState('0');
