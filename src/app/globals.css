@@ -12,7 +12,7 @@
     :root {
         --foreground-rgb: 253, 224, 71; /* #fde047 // yellow-300 */
         --background-start-rgb: 101, 163, 13; /* #65a30d // lime-600 */
-        --background-end-rgb: 54, 83, 20; /* #365314 // green-900 */
+        --background-end-rgb: 54, 83, 20; /* #365314 // lime-900 */
     }
 }
 
