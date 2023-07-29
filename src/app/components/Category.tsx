@@ -31,9 +31,10 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
     return (
         <div
             className={
-                'w-1/3 relative flex justify-center py-3 items-center font-semibold text-2xl active:bg-orange-300 truncate' +
+                'w-1/3 relative flex justify-center py-3 items-center font-semibold text-2xl truncate ' +
+                'active:bg-active-light active:dark:bg-active-dark ' +
                 ((input !== OTHER_KEYWORD ? category.includes(input) : input === category.at(0))
-                    ? ' bg-orange-300'
+                    ? ' bg-active-light dark:bg-active-dark'
                     : '')
             }
             onClick={onClick}
@@ -125,10 +126,13 @@ export const Category: FC = () => {
         }
     }, [state, openPopup, setSelectedCategory, lastModified, setState]);
 
+    const rowClassName = 'flex justify-evenly divide-x divide-active-light dark:divide-active-dark';
+
     return (
         <div
             className={useAddPopupClass(
-                'inset-x-0 divide-y divide-orange-300 border-t-[3px] border-orange-300 md:absolute md:bottom-0 md:w-1/2'
+                'inset-x-0 divide-y border-t-[3px] md:absolute md:bottom-0 md:w-1/2 ' +
+                    'divide-active-light border-active-light dark:divide-active-dark dark:border-active-dark'
             )}
         >
             {(state === State.init || state === State.loading) && (
@@ -137,14 +141,14 @@ export const Category: FC = () => {
                 </div>
             )}
             {state === State.done && categories.length > 0 && (
-                <div className="flex justify-evenly divide-x divide-orange-300">
+                <div className={rowClassName}>
                     {categories.slice(0, 3).map((category, index) => (
                         <CategoryButton key={index} input={category} onInput={onInput} />
                     ))}
                 </div>
             )}
             {state === State.done && categories.length > 3 && (
-                <div className="flex justify-evenly divide-x divide-orange-300">
+                <div className={rowClassName}>
                     {categories.slice(3, 6).map((category, index) => (
                         <CategoryButton
                             key={index}

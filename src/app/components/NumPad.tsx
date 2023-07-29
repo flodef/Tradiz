@@ -36,7 +36,10 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
 
     return (
         <div
-            className="w-20 h-20 active:bg-lime-300 rounded-2xl border-lime-500 relative flex justify-center m-3 items-center font-semibold text-3xl border-[3px]"
+            className={
+                'w-20 h-20 relative flex justify-center m-3 items-center font-semibold text-3xl border-[3px] rounded-2xl ' +
+                'border-secondary-light active:bg-secondary-active-light dark:border-secondary-dark dark:active:bg-secondary-active-dark'
+            }
             onClick={onClick}
             onContextMenu={onClick}
         >
@@ -349,7 +352,7 @@ export const NumPad: FC = () => {
     }, [openPopup, localTransactions, getTransactionsDetails, getTransactionsSummary, toCurrency]);
 
     const sendEmail = useCallback(
-        (subject: string, attachment: string) => {
+        (subject: string) => {
             const summary = (getTransactionsSummary() ?? [])
                 .map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
                 .join('\n');
@@ -364,7 +367,6 @@ export const NumPad: FC = () => {
                 ) +
                 encodeURIComponent(summary);
 
-            link.href += '&attachment=' + attachment;
             link.target = '_blank';
             link.click();
         },
@@ -459,7 +461,7 @@ export const NumPad: FC = () => {
                             }); // Set timeout to give time to the popup to display and the screenshot to be taken
                             break;
                         case 1:
-                            sendEmail('TicketZ ' + DEFAULT_DATE, 'TicketZ ' + DEFAULT_DATE + '.png');
+                            sendEmail('TicketZ ' + DEFAULT_DATE);
                             closePopup();
                             break;
                         case 2:
@@ -498,13 +500,18 @@ export const NumPad: FC = () => {
         [1, 2, 3],
     ];
 
-    let s = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl ';
-    const sx = s + (canPay || canAddProduct ? 'active:bg-lime-300 text-lime-500' : 'invisible');
+    const color =
+        'text-secondary-light active:bg-secondary-active-light dark:text-secondary-dark dark:active:bg-secondary-active-dark';
+    const s = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl ';
+    const sx = s + (canPay || canAddProduct ? color : 'invisible');
 
-    let f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
-    const f1 = f + (amount || total ? 'active:bg-lime-300 text-lime-500' : 'invisible');
-    const f2 = f + (quantity ? 'bg-lime-300 ' : '') + (amount ? 'active:bg-lime-300 text-lime-500' : 'invisible');
-    const f3 = f + (localTransactions ? 'active:bg-lime-300 text-lime-500' : 'invisible');
+    const f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
+    const f1 = f + (amount || total ? color : 'invisible');
+    const f2 =
+        f +
+        (quantity ? 'bg-secondary-active-light dark:bg-secondary-active-dark ' : '') +
+        (amount ? color : 'invisible');
+    const f3 = f + (localTransactions ? color : 'invisible');
 
     return (
         <div
@@ -515,8 +522,8 @@ export const NumPad: FC = () => {
             <div className="flex justify-around text-4xl text-center font-bold pt-0 max-w-lg w-full self-center">
                 <Amount
                     className={
-                        'min-w-[145px] text-right leading-normal' +
-                        (selectedCategory && !amount ? ' animate-blink ' : '')
+                        'min-w-[145px] text-right leading-normal ' +
+                        (selectedCategory && !amount ? 'animate-blink' : '')
                     }
                     value={amount * Math.max(quantity, 1)}
                     showZero

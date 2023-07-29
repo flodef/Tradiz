@@ -58,11 +58,12 @@ export const Popup: FC = () => {
             className={useRemovePopupClass(
                 'z-30 w-[90%] max-h-[90%] max-w-[400px] overflow-y-auto overflow-x-hidden absolute opacity-100 brightness-100 ' +
                     'justify-self-center bg-slate-100 h-fit rounded-2xl self-center blur-none border-black border-[3px] ' +
-                    'md:border-[0px] md:w-1/2 md:max-w-[50%] md:left-1/2 md:bottom-0 md:rounded-none md:border-lime-300 md:border-l-4'
+                    'md:border-[0px] md:w-1/2 md:max-w-[50%] md:left-1/2 md:bottom-0 md:rounded-none md:border-l-4 ' +
+                    'md:border-secondary-active-light dark:border-secondary-active-dark'
             )}
         >
             <div>
-                <div className="flex justify-between bg-lime-200">
+                <div className="flex justify-between bg-secondary-active-light dark:bg-secondary-active-dark">
                     <div className="text-2xl font-semibold py-3 pl-3">{popupTitle}</div>
                     <CloseButton
                         onClose={() => {
@@ -77,7 +78,6 @@ export const Popup: FC = () => {
                     option?.toString().trim() ? (
                         <div
                             className={
-                                // (popupAction || popupSpecialAction ? 'active:bg-lime-300 ' : '') +
                                 (optionCount <= 7
                                     ? 'py-3 '
                                     : optionCount <= 10
@@ -99,7 +99,10 @@ export const Popup: FC = () => {
                                 : option}
                         </div>
                     ) : (
-                        <div key={index} className="border-b-2 border-lime-300" />
+                        <div
+                            key={index}
+                            className="border-b-2 border-secondary-active-light dark:border-secondary-active-dark"
+                        />
                     )
                 )}
             </div>
