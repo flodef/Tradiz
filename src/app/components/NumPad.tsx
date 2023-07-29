@@ -141,17 +141,21 @@ export const NumPad: FC = () => {
                     clearAmount();
                     break;
                 case 'contextmenu':
-                    openPopup('Supprimer Total ?', ['Oui', 'Non'], (i) => {
-                        if (i === 0) {
-                            clearTotal();
-                        }
-                    });
+                    if (total > 0) {
+                        openPopup('Supprimer Total ?', ['Oui', 'Non'], (i) => {
+                            if (i === 0) {
+                                clearTotal();
+                            }
+                        });
+                    } else {
+                        clearAmount();
+                    }
                     break;
                 default:
                     console.error('Unhandled type: ' + e.type);
             }
         },
-        [clearAmount, clearTotal, openPopup]
+        [clearAmount, clearTotal, openPopup, total]
     );
 
     const getTaxesByCategory = useCallback(() => {
@@ -516,7 +520,8 @@ export const NumPad: FC = () => {
     return (
         <div
             className={useAddPopupClass(
-                'inset-0 flex flex-col justify-evenly min-w-[375px] w-full max-w-lg self-center md:w-1/2 md:absolute md:justify-center md:bottom-[116px] md:max-w-[50%]'
+                'inset-0 flex flex-col justify-evenly min-w-[375px] w-full max-w-lg self-center ' +
+                    'md:absolute md:bottom-[116px] md:w-1/2 md:justify-center md:max-w-[50%] md:overflow-auto'
             )}
         >
             <div className="flex justify-around text-4xl text-center font-bold pt-0 max-w-lg w-full self-center">

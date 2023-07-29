@@ -18,7 +18,7 @@ export default function Home() {
                 <DataProvider>
                     <PopupProvider>
                         <SolanaProvider>
-                            <div className="z-10 h-screen flex flex-col justify-between">
+                            <div className="z-10 flex flex-col justify-between">
                                 <Total />
                                 <NumPad />
                                 <Category />
