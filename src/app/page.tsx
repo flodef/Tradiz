@@ -4,18 +4,15 @@ import { Popup } from './components/Popup';
 import { Total } from './components/Total';
 import { ConfigProvider } from './contexts/ConfigProvider';
 import { DataProvider } from './contexts/DataProvider';
-import { SolanaProvider } from './contexts/SolanaProvider';
 import { PopupProvider } from './contexts/PopupProvider';
+import { SolanaProvider } from './contexts/SolanaProvider';
 import {} from './utils/currency';
 
 export default function Home() {
     return (
         <main
-            className={
-                'absolute inset-0 grid select-none overflow-y-auto md:overflow-y-hidden ' +
-                'bg-gradient-to-tr from-low-light to-high-light text-writing-light ' +
-                'dark:bg-gradient-to-tr dark:from-low-dark dark:to-high-dark dark:text-writing-dark'
-            }
+            className={'absolute inset-0 grid select-none overflow-y-auto md:overflow-y-hidden'}
+            style={{ background: 'inherit' }}
         >
             <ConfigProvider>
                 <DataProvider>
