@@ -190,7 +190,7 @@ export const Total: FC = () => {
     return (
         <div
             className={useAddPopupClass(
-                'inset-x-0 min-h-[75px] md:absolute md:left-1/2 md:h-full md:border-l-4 ' +
+                'inset-x-0 h-[75px] md:absolute md:left-1/2 md:h-full md:border-l-4 ' +
                     'md:border-secondary-active-light dark:border-secondary-active-dark'
             )}
         >
