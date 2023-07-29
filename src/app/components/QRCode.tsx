@@ -2,12 +2,32 @@ import QRCodeStyling from '@solana/qr-code-styling';
 import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { PaymentStatus, usePayment } from '../hooks/useSolana';
 import { createQROptions } from '../utils/createQR';
+import { useWindowSize } from '../hooks/useWindowSize';
 
 const minSize = 400;
 
-interface CheckmarkProps {
-    isOK: boolean;
+interface LoadingCircleProps {
     size: number;
+}
+const LoadingCircle: FC<LoadingCircleProps> = ({ size }) => {
+    return (
+        <div style={{ width: size, height: size + 72 }}>
+            <div
+                className={
+                    'absolute border-transparent rounded-full border-[10px] my-4 mb-11 ' +
+                    "before:content-[''] before:absolute before:top-[-10px] before:left-[-10px] before:w-[inherit] before:h-[inherit] " +
+                    'before:border-transparent before:border-t-ok before:border-r-ok before:rounded-full before:border-[10px] ' +
+                    'before:animate-spin '
+                }
+                style={{ width: size, height: size }}
+            />
+        </div>
+    );
+};
+
+interface CheckmarkProps {
+    size: number;
+    isOK?: boolean;
 }
 
 const Checkmark: FC<CheckmarkProps> = ({ size, isOK = true }) => {
@@ -18,10 +38,10 @@ const Checkmark: FC<CheckmarkProps> = ({ size, isOK = true }) => {
         <div className="flex flex-col items-center">
             <svg
                 className={
-                    'my-4 rounded-[50%] block stroke-2 stroke-white' +
+                    'my-4 rounded-[50%] block stroke-2 stroke-white ' +
                     (isOK
-                        ? ' shadow-[inset_0px_0px_0px_rgba(132,204,22,1)] animate-fillGreen'
-                        : ' shadow-[inset_0px_0px_0px_rgba(239,68,68,1)] animate-fillRed')
+                        ? 'shadow-[inset_0px_0px_0px_rgba(132,204,22,1)] animate-fillGreen'
+                        : 'shadow-[inset_0px_0px_0px_rgba(239,68,68,1)] animate-fillRed')
                 }
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 52 52"
@@ -30,7 +50,7 @@ const Checkmark: FC<CheckmarkProps> = ({ size, isOK = true }) => {
                 height={size}
             >
                 <circle
-                    className={`stroke-2 fill-none animate-strokeCircle ${isOK ? 'stroke-lime-500' : 'stroke-red-500'}`}
+                    className={`stroke-2 fill-none animate-strokeCircle ${isOK ? 'stroke-ok' : 'stroke-error'}`}
                     cx="26"
                     cy="26"
                     r="25"
@@ -39,6 +59,7 @@ const Checkmark: FC<CheckmarkProps> = ({ size, isOK = true }) => {
                     strokeDasharray={size + 110}
                     strokeDashoffset={size + 110}
                 />
+
                 <path
                     className="origin-[50%_50%] animate-strokeCheck"
                     fill="none"
@@ -48,7 +69,7 @@ const Checkmark: FC<CheckmarkProps> = ({ size, isOK = true }) => {
                 />
             </svg>
             {text.split('\n').map((item) => (
-                <p className={isOK ? 'text-lime-500' : 'text-red-500'} key={item}>
+                <p className={(isOK ? 'text-ok' : 'text-error') + ' mb-3'} key={item}>
                     {item}
                 </p>
             ))}
@@ -58,16 +79,9 @@ const Checkmark: FC<CheckmarkProps> = ({ size, isOK = true }) => {
 
 export const QRCode: FC = () => {
     const { paymentStatus } = usePayment();
+    const { width } = useWindowSize();
 
-    const [size, setSize] = useState(() =>
-        typeof window === 'undefined' ? minSize : Math.min(window.screen.availWidth - 48, minSize)
-    );
-    useEffect(() => {
-        const listener = () => setSize(Math.min(window.screen.availWidth - 48, minSize));
-
-        window.addEventListener('resize', listener);
-        return () => window.removeEventListener('resize', listener);
-    }, []);
+    const size = useMemo(() => Math.min((width > 48 ? width : window.screen.availWidth) - 48, minSize), [width]);
 
     const { url } = usePayment();
     const options = useMemo(
@@ -100,20 +114,6 @@ export const QRCode: FC = () => {
     ) : paymentStatus === PaymentStatus.Finalized || paymentStatus === PaymentStatus.Error ? (
         <Checkmark isOK={paymentStatus !== PaymentStatus.Error} size={size * 0.8} />
     ) : (
-        <div className="flex flex-col items-center">
-            <svg
-                className="animate-spin my-10 h-72 w-72 text-lime-500"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-            >
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-            </svg>
-        </div>
+        <LoadingCircle size={size * 0.8} />
     );
 };
