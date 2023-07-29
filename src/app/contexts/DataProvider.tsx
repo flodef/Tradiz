@@ -23,7 +23,7 @@ export function addElement<T>(array: [T] | undefined, element: T): [T] {
 }
 
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
-    const { maxDecimals, currency } = useConfig();
+    const { currencies, currencyIndex } = useConfig();
 
     const [total, setTotal] = useState(0);
     const [amount, setAmount] = useState(0);
@@ -37,9 +37,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const toCurrency = useCallback(
         (value: number) => {
-            return value.toCurrency(maxDecimals, currency);
+            return value.toCurrency(currencies[currencyIndex].maxDecimals, currencies[currencyIndex].symbol);
         },
-        [maxDecimals, currency]
+        [currencies, currencyIndex]
     );
 
     const updateTotal = useCallback(() => {

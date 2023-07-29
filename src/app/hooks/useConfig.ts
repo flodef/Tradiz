@@ -8,15 +8,23 @@ export enum State {
     done,
 }
 
+export interface Currency {
+    label: string;
+    maxValue: number;
+    symbol: string;
+    maxDecimals: number;
+    isOutOfComptability: boolean;
+}
+
 export interface PaymentMethod {
     method: string;
-    reference?: string;
+    address?: string;
 }
 
 export interface InventoryItem {
     category: string;
     rate: number;
-    products: { label: string; price: number }[];
+    products: { label: string; prices: number[] }[];
 }
 
 export interface ConfigContextState {
@@ -24,11 +32,11 @@ export interface ConfigContextState {
     setState: (value: State) => void;
     shopName: string;
     thanksMessage: string;
-    maxDecimals: number;
-    maxValue: number;
-    currency: string;
-    paymentMethods: PaymentMethod[];
     lastModified: string;
+    currencyIndex: number;
+    setCurrencyIndex: (index: number) => void;
+    currencies: Currency[];
+    paymentMethods: PaymentMethod[];
     inventory: InventoryItem[];
 }
 

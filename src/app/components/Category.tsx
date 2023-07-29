@@ -47,7 +47,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
 };
 
 export const Category: FC = () => {
-    const { inventory, state, lastModified, setState } = useConfig();
+    const { inventory, state, lastModified, setState, currencyIndex } = useConfig();
     const { addProduct, amount, setAmount, selectedCategory, setSelectedCategory, setQuantity } = useData();
     const { openPopup } = usePopup();
 
@@ -87,7 +87,7 @@ export const Category: FC = () => {
                             addCategory(newCategory);
                         }
                         if (!amount || selectedCategory) {
-                            const price = item.products.at(index)?.price;
+                            const price = item.products.at(index)?.prices[currencyIndex];
                             if (option !== OTHER_KEYWORD && price) {
                                 setAmount(price);
                                 setQuantity(-1); // Set the multiplier to 1 (ready for the next input)
@@ -98,7 +98,17 @@ export const Category: FC = () => {
                 );
             }
         },
-        [openPopup, amount, setAmount, addCategory, setSelectedCategory, selectedCategory, setQuantity, inventory]
+        [
+            openPopup,
+            amount,
+            setAmount,
+            addCategory,
+            setSelectedCategory,
+            selectedCategory,
+            setQuantity,
+            inventory,
+            currencyIndex,
+        ]
     );
 
     const categories = useMemo(

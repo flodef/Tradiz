@@ -23,7 +23,7 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
 
     const splToken = useMemo(() => SPL_TOKEN, []);
     const recipient = useMemo(
-        () => new PublicKey(paymentMethods.find((item) => item.method === Solana)?.reference ?? 0),
+        () => new PublicKey(paymentMethods.find((item) => item.method === Solana)?.address ?? 0),
         [paymentMethods]
     );
     const requiredConfirmations = 1;

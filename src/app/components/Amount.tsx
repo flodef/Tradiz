@@ -10,7 +10,7 @@ export interface AmountProps {
 }
 
 export const Amount: FC<AmountProps> = ({ className, value, showZero, decimals }) => {
-    const { currency, maxDecimals } = useConfig();
+    const { currencies, currencyIndex } = useConfig();
 
     const NON_BREAKING_SPACE = '\u00a0';
 
@@ -20,11 +20,14 @@ export const Amount: FC<AmountProps> = ({ className, value, showZero, decimals }
         if (typeof value === 'string') return value;
         return num.toString();
     }, [value, showZero]);
+    const currency = useMemo(() => {
+        return currencies[currencyIndex];
+    }, [currencies, currencyIndex]);
 
     return amount !== NON_BREAKING_SPACE ? (
         <span className={className}>
-            {decimals || maxDecimals ? parseFloat(amount).toFixed(decimals ?? maxDecimals) : amount}
-            <span className="text-xl">{currency}</span>
+            {decimals || currency.maxDecimals ? parseFloat(amount).toFixed(decimals ?? currency.maxDecimals) : amount}
+            <span className="text-xl">{currency.symbol}</span>
         </span>
     ) : null;
 };
