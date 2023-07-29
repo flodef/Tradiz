@@ -8,7 +8,7 @@ export async function LoadData(isOutOfLocalHost: boolean = true) {
     if (!param?.length) return;
 
     const parameters = {} as Parameters;
-    parameters.shopName = param.at(0) ?? '';
+    parameters.shopName = process.env.NEXT_PUBLIC_SHOP_NAME ?? ''; // TODO param.at(0) ?? '';
     parameters.thanksMessage = param.at(1) ?? '';
 
     const param2 = param.at(2);
