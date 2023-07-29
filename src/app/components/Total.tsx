@@ -28,9 +28,7 @@ export const Total: FC = () => {
     const { onPay } = usePay();
 
     // Hack to avoid differences between the server and the client, generating hydration issues
-    const [localTransactions, setLocalTransactions] = useState<
-        [{ method: string; amount: number; date: string; products: [DataElement] }] | undefined
-    >();
+    const [localTransactions, setLocalTransactions] = useState<[Transaction] | undefined>();
     useEffect(() => {
         setLocalTransactions(transactions);
     }, [transactions]);
@@ -107,13 +105,17 @@ export const Total: FC = () => {
             );
             if (!transaction.amount) {
                 localTransactions.splice(transactionIndex, 1);
-                backToTransactions();
+                if (localTransactions.length) {
+                    backToTransactions();
+                } else {
+                    closePopup();
+                }
             } else {
                 backToProducts();
             }
             saveTransactions(localTransactions);
         },
-        [localTransactions, saveTransactions]
+        [localTransactions, saveTransactions, closePopup]
     );
 
     const showBoughtProducts = useCallback(
