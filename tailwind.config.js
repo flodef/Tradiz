@@ -1,4 +1,7 @@
 /** @type {import('tailwindcss').Config} */
+
+const colors = require('tailwindcss/colors');
+
 module.exports = {
     content: [
         './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
@@ -28,6 +31,8 @@ module.exports = {
                 move: 'move 500ms linear 0ms infinite',
                 grow: 'grow 500ms linear 0ms infinite',
                 growReverse: 'grow 500ms linear 0ms infinite reverse',
+                worm1: 'worm1 2s linear infinite',
+                worm2: 'worm2 2s linear infinite',
                 loading0: 'blurText 1.5s 0s infinite linear alternate',
                 loading1: 'blurText 1.5s 0.2s infinite linear alternate',
                 loading2: 'blurText 1.5s 0.4s infinite linear alternate',
@@ -153,24 +158,35 @@ module.exports = {
                     '0%': { transform: 'scale(0, 0)', opacity: 0 },
                     '100%': { transform: 'scale(1, 1)', opacity: 1 },
                 },
+                worm1: {
+                    '0%': { strokeDashoffset: 0 },
+                    '50%': { strokeDashoffset: -358 },
+                    '50.01%': { strokeDashoffset: 358 },
+                    '100%': { strokeDashoffset: 0 },
+                },
+                worm2: {
+                    '0%': { strokeDashoffset: 358 },
+                    '50%': { strokeDashoffset: 0 },
+                    '100%': { strokeDashoffset: -358 },
+                },
             },
             colors: {
-                'writing-light': '#d97706', // amber-600
-                'main-from-light': '#fff7ed', // orange-50 */
-                'main-to-light': '#fed7aa', // orange-200 */
-                'popup-light': '#f1f5f9', // slate-100
-                'active-light': '#fdba74', // orange-300
-                'secondary-light': '#84cc16', // lime-500
-                'secondary-active-light': '#bef264', // lime-300
-                'writing-dark': '#fde047', // yellow-400
-                'main-from-dark': '#65a30d', // lime-600 */
-                'main-to-dark': '#365314', // green-900 */
-                'popup-dark': '#713f12', // yellow-900
-                'active-dark': '#84cc16', // lime-500
-                'secondary-dark': '#fdba74', // orange-300
-                'secondary-active-dark': '#f97316', // orange-500
-                ok: '#84cc16', // lime-500
-                error: '#ef4444', // red-500
+                'writing-light': colors.amber['600'], // amber-600
+                'main-from-light': colors.orange['50'], // orange-50 */
+                'main-to-light': colors.orange['200'], // orange-200 */
+                'popup-light': colors.slate['100'], // slate-100
+                'active-light': colors.orange['300'], // orange-300
+                'secondary-light': colors.lime['500'], // lime-500
+                'secondary-active-light': colors.lime['400'], // lime-300
+                'writing-dark': colors.yellow['400'], // yellow-400
+                'main-from-dark': colors.lime['600'], // lime-600 */
+                'main-to-dark': colors.green['900'], // green-900 */
+                'popup-dark': colors.yellow['900'], // yellow-900
+                'active-dark': colors.lime['500'], // lime-500
+                'secondary-dark': colors.orange['300'], // orange-300
+                'secondary-active-dark': colors.orange['500'], // orange-500
+                ok: colors.green['500'], // green-500
+                error: colors.red['500'], // red-500
             },
             backgroundImage: {
                 'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
