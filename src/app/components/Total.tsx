@@ -56,7 +56,7 @@ export const Total: FC = () => {
             openPopup(
                 products.current.length + ' produits : ' + toCurrency(getCurrentTotal()),
                 products.current.map(displayProduct).concat(['', payLabel]),
-                (index, option) => {
+                (_, option) => {
                     if (option === payLabel) {
                         onPay();
                     }
