@@ -1,9 +1,10 @@
 {
     "values": [
-        ["Moyen", "Référence"],
+        ["Moyen", "Addresse", "Caché"],
         ["CB"],
         ["Espèce"],
         ["Chèque"],
-        ["Solana", "GZLPJYkR3diD8c8vpgb7sXHEH9sG1R9sWa3yPwaL9Peb"]
+        ["Solana", "GZLPJYkR3diD8c8vpgb7sXHEH9sG1R9sWa3yPwaL9Peb"],
+        ["Ğ1 June", "Lzyz2aHDpZ4bdr78qfcjEmfcX1iGnAc7K1GkwipPGmu:2LK", "TRUE"]
     ]
 }
