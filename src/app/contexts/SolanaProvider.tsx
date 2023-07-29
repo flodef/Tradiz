@@ -45,7 +45,6 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
     useEffect(() => {
         if (error) {
             setPaymentStatus(PaymentStatus.Error);
-            setReference(undefined);
         }
     }, [error]);
 
