@@ -520,7 +520,7 @@ export const NumPad: FC = () => {
     return (
         <div
             className={useAddPopupClass(
-                'inset-0 flex flex-col justify-evenly min-w-[375px] w-full max-w-lg self-center ' +
+                'block inset-0 justify-evenly min-w-[375px] w-full max-w-lg self-center ' +
                     'md:absolute md:bottom-[116px] md:w-1/2 md:justify-center md:max-w-[50%] md:overflow-auto'
             )}
         >
