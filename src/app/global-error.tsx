@@ -35,7 +35,6 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
             <div
                 className={
                     'w-screen h-screen overflow-hidden flex flex-col items-center justify-center font-bold ' +
-                    'bg-gradient-to-tr from-low-light to-high-light dark:from-low-dark dark:to-high-dark ' +
                     'uppercase text-[3vmin] text-center text-secondary-light dark:text-secondary-dark'
                 }
             >
