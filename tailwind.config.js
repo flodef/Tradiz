@@ -25,6 +25,16 @@ module.exports = {
                 cross1Reverse: 'cross1Reverse 300ms',
                 cross2Reverse: 'cross2Reverse 300ms',
                 spin: 'spin 2s linear infinite',
+                loading0: 'blurText 1.5s 0s infinite linear alternate',
+                loading1: 'blurText 1.5s 0.2s infinite linear alternate',
+                loading2: 'blurText 1.5s 0.4s infinite linear alternate',
+                loading3: 'blurText 1.5s 0.6s infinite linear alternate',
+                loading4: 'blurText 1.5s 0.8s infinite linear alternate',
+                loading5: 'blurText 1.5s 1s infinite linear alternate',
+                loading6: 'blurText 1.5s 1.2s infinite linear alternate',
+                loading7: 'blurText 1.5s 1.4s infinite linear alternate',
+                loading8: 'blurText 1.5s 1.6s infinite linear alternate',
+                loading9: 'blurText 1.5s 1.8s infinite linear alternate',
             },
             keyframes: {
                 blink: {
@@ -127,6 +137,10 @@ module.exports = {
                 spin: {
                     '0%': { transform: 'rotate(0deg)' },
                     '100%': { transform: 'rotate(360deg)' },
+                },
+                blurText: {
+                    '0%': { filter: 'blur(0px)' },
+                    '100%': { filter: 'blur(4px)' },
                 },
             },
             colors: {

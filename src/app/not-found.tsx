@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+// inspired by https://codepen.io/uiswarup/pen/dyoyLOp
 export default function NotFound() {
     return (
         <Link
