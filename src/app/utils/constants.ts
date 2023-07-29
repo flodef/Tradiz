@@ -2,7 +2,11 @@ import { PublicKey, clusterApiUrl } from '@solana/web3.js';
 
 export const OTHER_KEYWORD = 'Autres';
 export const CATEGORY_SEPARATOR = '>';
-export const DEFAULT_DATE = [new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate()].join('-');
+export const DEFAULT_DATE = [
+    new Date().getFullYear(),
+    ('0' + (new Date().getMonth() + 1)).slice(-2),
+    ('0' + new Date().getDate()).slice(-2),
+].join('-');
 export const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
 export const IS_DEV = process.env.NEXT_PUBLIC_IS_DEV === 'true';
 export const SPL_TOKEN = new PublicKey(

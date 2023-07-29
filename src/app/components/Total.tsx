@@ -28,9 +28,7 @@ export const Total: FC = () => {
     const { onPay } = usePay();
 
     // Hack to avoid differences between the server and the client, generating hydration issues
-    const [localTransactions, setLocalTransactions] = useState<
-        [{ method: string; amount: number; date: string; products: [DataElement] }] | undefined
-    >();
+    const [localTransactions, setLocalTransactions] = useState<[Transaction] | undefined>();
     useEffect(() => {
         setLocalTransactions(transactions);
     }, [transactions]);
@@ -56,7 +54,7 @@ export const Total: FC = () => {
             openPopup(
                 products.current.length + ' produits : ' + toCurrency(getCurrentTotal()),
                 products.current.map(displayProduct).concat(['', payLabel]),
-                (index, option) => {
+                (_, option) => {
                     if (option === payLabel) {
                         onPay();
                     }
@@ -107,13 +105,17 @@ export const Total: FC = () => {
             );
             if (!transaction.amount) {
                 localTransactions.splice(transactionIndex, 1);
-                backToTransactions();
+                if (localTransactions.length) {
+                    backToTransactions();
+                } else {
+                    closePopup();
+                }
             } else {
                 backToProducts();
             }
             saveTransactions(localTransactions);
         },
-        [localTransactions, saveTransactions]
+        [localTransactions, saveTransactions, closePopup]
     );
 
     const showBoughtProducts = useCallback(
@@ -181,73 +183,72 @@ export const Total: FC = () => {
     const totalDisplayClassName =
         'text-5xl truncate text-center font-bold py-3 ' +
         (useIsMobile()
-            ? 'md:hidden border-b-[3px] border-orange-300' +
+            ? 'md:hidden border-b-[3px] border-active-light dark:border-active-dark ' +
               ((canDisplayTotal && total) || (!canDisplayTotal && localTransactions?.length)
-                  ? ' active:bg-orange-300 '
+                  ? 'active:bg-active-light dark:active:bg-active-dark '
                   : '')
-            : 'hidden border-b-[3px] border-orange-300 md:block');
+            : 'hidden border-b-[3px] border-active-light dark:border-active-dark md:block');
 
     return (
-        <div>
+        <div
+            className={useAddPopupClass(
+                'inset-x-0 h-[75px] md:absolute md:left-1/2 md:h-full md:border-l-4 ' +
+                    'md:border-secondary-active-light dark:border-secondary-active-dark'
+            )}
+        >
             <div
-                className={useAddPopupClass(
-                    'inset-x-0 min-h-[75px] md:absolute md:left-1/2 md:h-full md:border-lime-300 md:border-l-4'
-                )}
+                className={totalDisplayClassName}
+                onClick={handleClick}
+                onContextMenu={(e) => {
+                    e.preventDefault();
+                    handleClick();
+                }}
             >
-                <div
-                    className={totalDisplayClassName}
-                    onClick={handleClick}
-                    onContextMenu={(e) => {
-                        e.preventDefault();
-                        handleClick();
-                    }}
-                >
-                    {canDisplayTotal ? (
-                        <div>
-                            Total : <Amount value={total} showZero />
-                        </div>
-                    ) : (
-                        <span>
-                            {'Ticket : ' + localTransactions?.length}
-                            <span className="text-xl">{`vente${(localTransactions?.length ?? 0) > 1 ? 's' : ''}`}</span>
-                        </span>
-                    )}
-                </div>
+                {canDisplayTotal ? (
+                    <div>
+                        Total : <Amount value={total} showZero />
+                    </div>
+                ) : (
+                    <span>
+                        {'Ticket : ' + localTransactions?.length}
+                        <span className="text-xl">{`vente${(localTransactions?.length ?? 0) > 1 ? 's' : ''}`}</span>
+                    </span>
+                )}
+            </div>
 
-                <div className="text-center text-2xl font-bold py-3 hidden md:block md:max-h-[90%] md:overflow-y-auto">
-                    {canDisplayTotal
-                        ? products.current?.map(displayProduct).map((product, index) => (
-                              <div
-                                  key={index}
-                                  onContextMenu={(e) => {
-                                      e.preventDefault();
-                                      openPopup('Effacer ?', ['Oui', 'Non'], (i) => {
-                                          if (i === 0) {
-                                              deleteProduct(index);
-                                          }
-                                      });
-                                  }}
-                              >
-                                  {product}
-                              </div>
-                          ))
-                        : localTransactions?.map(displayTransaction).map((transaction, index) => (
-                              <div
-                                  key={index}
-                                  onClick={() => showBoughtProducts(index)}
-                                  onContextMenu={(e) => {
-                                      e.preventDefault();
-                                      openPopup('Modifier ?', ['Oui', 'Non'], (i) => {
-                                          if (i === 0) {
-                                              editTransaction(index);
-                                          }
-                                      });
-                                  }}
-                              >
-                                  {transaction}
-                              </div>
-                          ))}
-                </div>
+            <div className="text-center text-2xl font-bold py-3 hidden md:block md:max-h-[90%] md:overflow-y-auto">
+                {canDisplayTotal
+                    ? products.current?.map(displayProduct).map((product, index) => (
+                          <div
+                              key={index}
+                              onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  openPopup('Effacer ?', ['Oui', 'Non'], (i) => {
+                                      if (i === 0) {
+                                          deleteProduct(index);
+                                      }
+                                  });
+                              }}
+                          >
+                              {product}
+                          </div>
+                      ))
+                    : localTransactions?.map(displayTransaction).map((transaction, index) => (
+                          <div
+                              key={index}
+                              onClick={() => showBoughtProducts(index)}
+                              onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  openPopup('Modifier ?', ['Oui', 'Non'], (i) => {
+                                      if (i === 0) {
+                                          editTransaction(index);
+                                      }
+                                  });
+                              }}
+                          >
+                              {transaction}
+                          </div>
+                      ))}
             </div>
         </div>
     );

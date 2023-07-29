@@ -2,11 +2,12 @@
 
 import { FC, MouseEventHandler, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { utils, writeFile } from 'xlsx';
-import { addElement } from '../contexts/DataProvider';
+import { addElement, transactionsKeyword, transactionsRegex } from '../contexts/DataProvider';
 import { useConfig } from '../hooks/useConfig';
-import { DataElement, useData } from '../hooks/useData';
+import { DataElement, Transaction, useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
+import { useWindowParam } from '../hooks/useWindowParam';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { WalletIcon } from '../images/WalletIcon';
@@ -36,7 +37,10 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
 
     return (
         <div
-            className="w-20 h-20 active:bg-lime-300 rounded-2xl border-lime-500 relative flex justify-center m-3 items-center font-semibold text-3xl border-[3px]"
+            className={
+                'w-20 h-20 relative flex justify-center m-3 items-center font-semibold text-3xl border-[3px] rounded-2xl ' +
+                'border-secondary-light active:bg-secondary-active-light dark:border-secondary-dark dark:active:bg-secondary-active-dark'
+            }
             onClick={onClick}
             onContextMenu={onClick}
         >
@@ -81,7 +85,7 @@ const ImageButton: FC<ImageButtonProps> = ({ children, onInput, className }) => 
 };
 
 export const NumPad: FC = () => {
-    const { maxValue, maxDecimals, inventory } = useConfig();
+    const { currencies, currencyIndex, inventory } = useConfig();
     const {
         total,
         amount,
@@ -95,19 +99,28 @@ export const NumPad: FC = () => {
         addProduct,
         toCurrency,
     } = useData();
-    const { openPopup, closePopup } = usePopup();
+    const { openPopup, closePopup, isPopupOpen } = usePopup();
     const { onPay, canPay, canAddProduct } = usePay();
 
-    const max = maxValue * Math.pow(10, maxDecimals);
-
     // Hack to avoid differences between the server and the client, generating hydration issues
-    const [localTransactions, setLocalTransactions] = useState<
-        [{ method: string; amount: number; date: string; products: [DataElement] }] | undefined
-    >();
+    const [localTransactions, setLocalTransactions] = useState<[Transaction] | undefined>();
     useEffect(() => {
         setLocalTransactions(transactions);
     }, [transactions]);
 
+    const [historicalTransactions, setHistoricalTransactions] = useState<string[]>();
+    const getHistoricalTransactions = useCallback(() => {
+        return Object.keys(localStorage).filter((key) => transactionsRegex.test(key));
+    }, []);
+    useEffect(() => {
+        setHistoricalTransactions(getHistoricalTransactions());
+    }, [getHistoricalTransactions]);
+
+    const maxDecimals = currencies[currencyIndex].maxDecimals;
+    const max = useMemo(
+        () => currencies[currencyIndex].maxValue * Math.pow(10, maxDecimals),
+        [currencies, currencyIndex, maxDecimals]
+    );
     const regExp = useMemo(() => new RegExp('^\\d*([.,]\\d{0,' + maxDecimals + '})?$'), [maxDecimals]);
 
     const [value, setValue] = useState('0');
@@ -138,17 +151,21 @@ export const NumPad: FC = () => {
                     clearAmount();
                     break;
                 case 'contextmenu':
-                    openPopup('Supprimer Total ?', ['Oui', 'Non'], (i) => {
-                        if (i === 0) {
-                            clearTotal();
-                        }
-                    });
+                    if (total > 0) {
+                        openPopup('Supprimer Total ?', ['Oui', 'Non'], (i) => {
+                            if (i === 0) {
+                                clearTotal();
+                            }
+                        });
+                    } else {
+                        clearAmount();
+                    }
                     break;
                 default:
                     console.error('Unhandled type: ' + e.type);
             }
         },
-        [clearAmount, clearTotal, openPopup]
+        [clearAmount, clearTotal, openPopup, total]
     );
 
     const getTaxesByCategory = useCallback(() => {
@@ -195,13 +212,13 @@ export const NumPad: FC = () => {
         []
     );
 
-    const getTransactionsDetails = useCallback(() => {
-        if (!localTransactions?.length) return;
+    const getTransactionsDetails = useCallback((transactions: [Transaction]) => {
+        if (!transactions?.length) return;
 
         let categories: [DataElement] | undefined = undefined;
         let payments: [DataElement] | undefined = undefined;
 
-        localTransactions.forEach((transaction) => {
+        transactions.forEach((transaction) => {
             const payment = payments?.find((payment) => payment.category === transaction.method);
             if (payment) {
                 payment.quantity++;
@@ -233,124 +250,185 @@ export const NumPad: FC = () => {
         if (!payments) payments = [{ category: '', quantity: 0, amount: 0 }];
 
         return { categories, payments };
-    }, [localTransactions]);
+    }, []);
 
-    const getTransactionsSummary = useCallback(() => {
-        if (!localTransactions?.length) return;
+    const getTransactionsSummary = useCallback(
+        (transactions: [Transaction]) => {
+            if (!transactions?.length) return;
 
-        const details = getTransactionsDetails();
-        const categories = details?.categories as [DataElement];
-        const payments = details?.payments as [DataElement];
+            const details = getTransactionsDetails(transactions);
+            const categories = details?.categories as [DataElement];
+            const payments = details?.payments as [DataElement];
 
-        const taxes = getTaxesByCategory();
-        const taxAmount = getTaxAmountByCategory(taxes, categories);
-        let totalTaxes = { total: 0, ht: 0, tva: 0 };
-        taxAmount.forEach(({ total, ht, tva }) => {
-            totalTaxes.total += total;
-            totalTaxes.ht += ht;
-            totalTaxes.tva += tva;
-        });
+            const taxes = getTaxesByCategory();
+            const taxAmount = getTaxAmountByCategory(taxes, categories);
+            let totalTaxes = { total: 0, ht: 0, tva: 0 };
+            taxAmount.forEach(({ total, ht, tva }) => {
+                totalTaxes.total += total;
+                totalTaxes.ht += ht;
+                totalTaxes.tva += tva;
+            });
 
-        return categories
-            ?.map(
-                ({ category, quantity, amount }) =>
-                    '[T' +
-                    taxes?.find((tax) => tax.categories.includes(category))?.index +
-                    '] ' +
-                    category +
-                    ' x ' +
-                    quantity +
-                    ' ==> ' +
-                    toCurrency(amount)
-            )
-            .concat([''])
-            .concat([' TAUX \n HT \n TVA \n TTC '])
-            .concat(
-                taxAmount
-                    .map(({ index, rate, total, ht, tva }) => {
-                        return (
-                            'T' +
-                            index +
-                            ' ' +
-                            rate +
-                            '%\n' +
-                            toCurrency(ht) +
-                            '\n' +
-                            toCurrency(tva) +
-                            '\n' +
-                            toCurrency(total)
-                        );
-                    })
-                    .concat([
-                        'TOTAL\n' +
-                            toCurrency(totalTaxes.ht) +
-                            '\n' +
-                            toCurrency(totalTaxes.tva) +
-                            '\n' +
-                            toCurrency(totalTaxes.total),
-                    ])
-            )
-            .concat([''])
-            .concat(
-                payments.map(
-                    ({ category, quantity, amount }) => category + ' x ' + quantity + ' ==> ' + toCurrency(amount)
+            return categories
+                ?.map(
+                    ({ category, quantity, amount }) =>
+                        '[T' +
+                        taxes?.find((tax) => tax.categories.includes(category))?.index +
+                        '] ' +
+                        category +
+                        ' x ' +
+                        quantity +
+                        ' ==> ' +
+                        toCurrency(amount)
                 )
-            );
-    }, [getTaxAmountByCategory, getTaxesByCategory, localTransactions, getTransactionsDetails, toCurrency]);
-
-    const showTransactionsSummary = useCallback(() => {
-        if (!localTransactions?.length) return;
-
-        const summary = getTransactionsSummary();
-        const categories = getTransactionsDetails()?.categories as [DataElement];
-        const totalAmount = localTransactions.reduce((total, transaction) => total + transaction.amount, 0);
-        const totalProducts = categories.reduce((total, category) => total + category.quantity, 0);
-
-        openPopup(
-            `${totalProducts} produit${totalProducts > 1 ? 's' : ''} | ${localTransactions.length} vente${
-                localTransactions.length > 1 ? 's' : ''
-            } : ${toCurrency(totalAmount)}`,
-            summary || [''],
-            (index) => {
-                if (!categories?.length || index >= categories.length || index < 0) return;
-
-                const category = categories[index];
-                const array = [] as { label: string; quantity: number; amount: number }[];
-                localTransactions?.flatMap(({ products }) =>
-                    products
-                        .filter((product) => product.category === category.category)
-                        .forEach(({ label, quantity, amount }) => {
-                            const index = array.findIndex((p) => p.label === label);
-                            if (index >= 0) {
-                                array[index].quantity += quantity;
-                                array[index].amount += quantity * amount;
-                            } else {
-                                array.push({
-                                    label: label || '',
-                                    quantity: quantity,
-                                    amount: quantity * amount,
-                                });
-                            }
+                .concat([''])
+                .concat([' TAUX \n HT \n TVA \n TTC '])
+                .concat(
+                    taxAmount
+                        .map(({ index, rate, total, ht, tva }) => {
+                            return (
+                                'T' +
+                                index +
+                                ' ' +
+                                rate +
+                                '%\n' +
+                                toCurrency(ht) +
+                                '\n' +
+                                toCurrency(tva) +
+                                '\n' +
+                                toCurrency(total)
+                            );
                         })
+                        .concat([
+                            'TOTAL\n' +
+                                toCurrency(totalTaxes.ht) +
+                                '\n' +
+                                toCurrency(totalTaxes.tva) +
+                                '\n' +
+                                toCurrency(totalTaxes.total),
+                        ])
+                )
+                .concat([''])
+                .concat(
+                    payments.map(
+                        ({ category, quantity, amount }) => category + ' x ' + quantity + ' ==> ' + toCurrency(amount)
+                    )
                 );
-                const summary = array.map(
-                    ({ label, quantity, amount }) => label + ' x ' + quantity + ' ==> ' + toCurrency(amount)
-                );
+        },
+        [getTaxAmountByCategory, getTaxesByCategory, getTransactionsDetails, toCurrency]
+    );
+    const showHistoricalTransactions = useCallback(
+        (
+            showTransactionsCallback: (transactions: [Transaction], fallback: () => void) => void,
+            fallback?: () => void
+        ) => {
+            if (!historicalTransactions?.length) return;
+
+            const items = getHistoricalTransactions()
+                .map((key) => key.split(' ')[1])
+                .sort()
+                .reverse();
+            openPopup(
+                'Historique',
+                items.map((key) =>
+                    new Date(key).toLocaleDateString(undefined, {
+                        weekday: 'short',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                    })
+                ),
+                (index) => {
+                    if (index < 0 && fallback) {
+                        fallback();
+                    } else if (index >= 0) {
+                        const transactions = localStorage.getItem(transactionsKeyword + ' ' + items[index]);
+                        if (!transactions) return;
+
+                        console.log(transactions);
+                        showTransactionsCallback(JSON.parse(transactions), () =>
+                            showHistoricalTransactions(showTransactionsCallback, fallback)
+                        );
+                    }
+                },
+                true
+            );
+        },
+        [openPopup, historicalTransactions, getHistoricalTransactions]
+    );
+
+    const showTransactionsSummary = useCallback(
+        (transactions = localTransactions, fallback?: () => void) => {
+            if (!transactions?.length) {
+                showHistoricalTransactions(showTransactionsSummary);
+            } else {
+                const summary = getTransactionsSummary(transactions);
+                const categories = getTransactionsDetails(transactions)?.categories as [DataElement];
+                const totalAmount = transactions.reduce((total, transaction) => total + transaction.amount, 0);
+                const totalProducts = categories.reduce((total, category) => total + category.quantity, 0);
 
                 openPopup(
-                    category.category + ' x' + category.quantity + ': ' + toCurrency(category.amount),
-                    summary,
-                    showTransactionsSummary,
+                    `${totalProducts} produit${totalProducts > 1 ? 's' : ''} | ${transactions.length} vente${
+                        transactions.length > 1 ? 's' : ''
+                    } : ${toCurrency(totalAmount)}`,
+                    summary || [''],
+                    (index) => {
+                        if (index < 0 && fallback) {
+                            fallback();
+                        } else {
+                            if (!categories?.length || index >= categories.length || index < 0) return;
+
+                            const category = categories[index];
+                            const array = [] as { label: string; quantity: number; amount: number }[];
+                            transactions?.flatMap(({ products }) =>
+                                products
+                                    .filter((product) => product.category === category.category)
+                                    .forEach(({ label, quantity, amount }) => {
+                                        const index = array.findIndex((p) => p.label === label);
+                                        if (index >= 0) {
+                                            array[index].quantity += quantity;
+                                            array[index].amount += quantity * amount;
+                                        } else {
+                                            array.push({
+                                                label: label || '',
+                                                quantity: quantity,
+                                                amount: quantity * amount,
+                                            });
+                                        }
+                                    })
+                            );
+
+                            const summary = array.map(
+                                ({ label, quantity, amount }) => label + ' x ' + quantity + ' ==> ' + toCurrency(amount)
+                            );
+
+                            openPopup(
+                                category.category + ' x' + category.quantity + ': ' + toCurrency(category.amount),
+                                summary,
+                                () => showTransactionsSummary(transactions, fallback),
+                                true
+                            );
+                        }
+                    },
                     true
                 );
-            },
-            true
-        );
-    }, [openPopup, localTransactions, getTransactionsDetails, getTransactionsSummary, toCurrency]);
+            }
+        },
+        [
+            openPopup,
+            localTransactions,
+            getTransactionsDetails,
+            getTransactionsSummary,
+            toCurrency,
+            showHistoricalTransactions,
+        ]
+    );
 
     const sendEmail = useCallback(
-        (subject: string, attachment: string) => {
-            const summary = (getTransactionsSummary() ?? [])
+        (subject: string) => {
+            if (!localTransactions?.length) return;
+
+            const summary = (getTransactionsSummary(localTransactions) ?? [])
                 .map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
                 .join('\n');
 
@@ -364,11 +442,10 @@ export const NumPad: FC = () => {
                 ) +
                 encodeURIComponent(summary);
 
-            link.href += '&attachment=' + attachment;
             link.target = '_blank';
             link.click();
         },
-        [getTransactionsSummary]
+        [getTransactionsSummary, localTransactions]
     );
 
     const downloadData = useCallback(
@@ -443,40 +520,56 @@ export const NumPad: FC = () => {
     const showTransactionsSummaryMenu = useCallback<MouseEventHandler>(
         (e) => {
             e.preventDefault();
-            openPopup(
-                'TicketZ ' + DEFAULT_DATE,
-                ["Capture d'écran", 'Email', 'Feuille de calcul', 'Afficher'],
-                (index) => {
-                    switch (index) {
-                        case -1:
-                            return;
-                        case 0:
-                            showTransactionsSummary();
-                            setTimeout(() => {
-                                takeScreenshot('popup', 'TicketZ ' + DEFAULT_DATE + '.png').then(() => {
-                                    closePopup();
-                                });
-                            }); // Set timeout to give time to the popup to display and the screenshot to be taken
-                            break;
-                        case 1:
-                            sendEmail('TicketZ ' + DEFAULT_DATE, 'TicketZ ' + DEFAULT_DATE + '.png');
-                            closePopup();
-                            break;
-                        case 2:
-                            downloadData('TicketZ ' + DEFAULT_DATE);
-                            closePopup();
-                            break;
-                        case 3:
-                            showTransactionsSummary();
-                            break;
-                        default:
-                            console.error('Unhandled index: ' + index);
-                    }
-                },
-                true
-            );
+
+            if (localTransactions?.length) {
+                openPopup(
+                    'TicketZ ' + DEFAULT_DATE,
+                    ["Capture d'écran", 'Email', 'Feuille de calcul', 'Historique', 'Afficher'],
+                    (index) => {
+                        const fallback = () => showTransactionsSummaryMenu(e);
+                        switch (index) {
+                            case 0:
+                                showTransactionsSummary();
+                                setTimeout(() => {
+                                    takeScreenshot('popup', 'TicketZ ' + DEFAULT_DATE + '.png').then(() => {
+                                        closePopup();
+                                    });
+                                }); // Set timeout to give time to the popup to display and the screenshot to be taken
+                                break;
+                            case 1:
+                                sendEmail('TicketZ ' + DEFAULT_DATE);
+                                closePopup();
+                                break;
+                            case 2:
+                                downloadData('TicketZ ' + DEFAULT_DATE);
+                                closePopup();
+                                break;
+                            case 3:
+                                showHistoricalTransactions(showTransactionsSummary, fallback);
+                                break;
+                            case 4:
+                                showTransactionsSummary(undefined, fallback);
+                                break;
+                            default:
+                                return;
+                        }
+                    },
+                    true
+                );
+            } else if (historicalTransactions?.length) {
+                showHistoricalTransactions(showTransactionsSummary);
+            }
         },
-        [openPopup, closePopup, showTransactionsSummary, sendEmail, downloadData]
+        [
+            openPopup,
+            closePopup,
+            showTransactionsSummary,
+            sendEmail,
+            downloadData,
+            localTransactions,
+            historicalTransactions,
+            showHistoricalTransactions,
+        ]
     );
 
     const multiply = useCallback(() => {
@@ -498,58 +591,94 @@ export const NumPad: FC = () => {
         [1, 2, 3],
     ];
 
-    let s = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl ';
-    const sx = s + (canPay || canAddProduct ? 'active:bg-lime-300 text-lime-500' : 'invisible');
+    const color =
+        'text-secondary-light active:bg-secondary-active-light dark:text-secondary-dark dark:active:bg-secondary-active-dark';
+    const s = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl ';
+    const sx = s + (canPay || canAddProduct ? color : 'invisible');
 
-    let f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
-    const f1 = f + (amount || total ? 'active:bg-lime-300 text-lime-500' : 'invisible');
-    const f2 = f + (quantity ? 'bg-lime-300 ' : '') + (amount ? 'active:bg-lime-300 text-lime-500' : 'invisible');
-    const f3 = f + (localTransactions ? 'active:bg-lime-300 text-lime-500' : 'invisible');
+    const f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
+    const f1 = f + (amount || total ? color : 'invisible');
+    const f2 =
+        f +
+        (quantity ? 'bg-secondary-active-light dark:bg-secondary-active-dark ' : '') +
+        (amount ? color : 'invisible');
+    const f3 = f + (localTransactions?.length || historicalTransactions?.length ? color : 'invisible');
+
+    const { width, height } = useWindowParam();
+    const shouldUseOverflow = useMemo(
+        () => (height < 590 && width >= 768) || (height < 660 && width < 768),
+        [width, height]
+    );
+    const left = useMemo(() => Math.max(((width < 768 ? width : width / 2) - 512) / 2, 0), [width]);
 
     return (
         <div
             className={useAddPopupClass(
-                'inset-0 flex flex-col justify-evenly min-w-[375px] w-full max-w-lg self-center md:w-1/2 md:absolute md:justify-center md:bottom-[116px] md:max-w-[50%]'
+                'inset-0 min-w-[375px] w-full self-center absolute bottom-[116px] ' +
+                    'md:top-0 md:w-1/2 md:justify-center md:max-w-[50%] ' +
+                    (shouldUseOverflow
+                        ? isPopupOpen
+                            ? ' top-[76px] '
+                            : ' top-32 block overflow-auto '
+                        : ' flex flex-col justify-center items-center top-20 md:top-0 ')
             )}
         >
-            <div className="flex justify-around text-4xl text-center font-bold pt-0 max-w-lg w-full self-center">
-                <Amount
+            <div className="flex flex-col justify-center items-center w-full">
+                <div
                     className={
-                        'min-w-[145px] text-right leading-normal' +
-                        (selectedCategory && !amount ? ' animate-blink ' : '')
+                        shouldUseOverflow
+                            ? isPopupOpen
+                                ? 'fixed top-0 right-0  max-w-lg md:right-0 '
+                                : 'fixed top-[76px] right-0 max-w-lg md:top-0 md:z-10 md:right-1/2 '
+                            : 'static top-0 max-w-lg w-full '
                     }
-                    value={amount * Math.max(quantity, 1)}
-                    showZero
-                />
-                <ImageButton className={f1} onInput={onBackspace}>
-                    <BackspaceIcon />
-                </ImageButton>
-                <FunctionButton className={f2} input="&times;" onInput={multiply} />
-                <FunctionButton
-                    className={f3}
-                    input="z"
-                    onInput={showTransactionsSummary}
-                    onContextMenu={showTransactionsSummaryMenu}
-                />
-            </div>
-
-            <div className="max-w-lg w-full self-center">
-                {NumPadList.map((row, index) => (
-                    <div className="flex justify-evenly" key={index}>
-                        {row.map((input) => (
-                            <NumPadButton input={input} onInput={onInput} key={input} />
-                        ))}
+                    style={{ left: left }}
+                >
+                    <div className="flex justify-around text-4xl text-center font-bold pt-0 max-w-lg w-full self-center">
+                        <Amount
+                            className={
+                                'min-w-[145px] text-right leading-normal ' +
+                                (selectedCategory && !amount ? 'animate-blink' : '')
+                            }
+                            value={amount * Math.max(quantity, 1)}
+                            showZero
+                        />
+                        <ImageButton className={f1} onInput={onBackspace}>
+                            <BackspaceIcon />
+                        </ImageButton>
+                        <FunctionButton className={f2} input="&times;" onInput={multiply} />
+                        <FunctionButton
+                            className={f3}
+                            input="z"
+                            onInput={() => showTransactionsSummary()}
+                            onContextMenu={showTransactionsSummaryMenu}
+                        />
                     </div>
-                ))}
-                <div className="flex justify-evenly">
-                    <NumPadButton input={0} onInput={onInput} />
-                    <NumPadButton input={'00'} onInput={onInput} />
-                    <ImageButton
-                        className={sx}
-                        onInput={canPay ? onPay : canAddProduct ? () => addProduct(selectedCategory) : () => {}}
-                    >
-                        {canPay ? <WalletIcon /> : canAddProduct ? <BasketIcon /> : ''}
-                    </ImageButton>
+                </div>
+
+                <div
+                    className={
+                        'max-w-lg w-full self-center md:top-14 overflow-auto bottom-0 ' +
+                        (shouldUseOverflow ? (isPopupOpen ? ' top-14 absolute ' : ' top-0 absolute ') : ' static ')
+                    }
+                >
+                    {NumPadList.map((row, index) => (
+                        <div className="flex justify-evenly" key={index}>
+                            {row.map((input) => (
+                                <NumPadButton input={input} onInput={onInput} key={input} />
+                            ))}
+                        </div>
+                    ))}
+                    <div className="flex justify-evenly">
+                        <NumPadButton input={0} onInput={onInput} />
+                        <NumPadButton input={'00'} onInput={onInput} />
+                        <ImageButton
+                            className={sx}
+                            onInput={canPay ? onPay : canAddProduct ? () => addProduct(selectedCategory) : () => {}}
+                        >
+                            {canPay ? <WalletIcon /> : canAddProduct ? <BasketIcon /> : ''}
+                        </ImageButton>
+                    </div>
                 </div>
             </div>
         </div>

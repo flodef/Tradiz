@@ -1,4 +1,4 @@
-import { useWindowSize } from '../hooks/useWindowSize';
+import { useWindowParam } from '../hooks/useWindowParam';
 
 // Detects if the device is a mobile
 export function isMobileDevice() {
@@ -17,5 +17,5 @@ export function isMobileSize() {
 
 // Detects if the screen size is a mobile size (update on screen resize)
 export function useIsMobile() {
-    return useWindowSize().width <= 767;
+    return useWindowParam().width <= 767;
 }

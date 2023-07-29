@@ -6,6 +6,9 @@ import { DataContext, DataElement, Transaction } from '../hooks/useData';
 import { CATEGORY_SEPARATOR, DEFAULT_DATE, OTHER_KEYWORD } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
 
+export const transactionsKeyword = 'Transactions';
+export const transactionsRegex = /Transactions \d{4}-\d{1,2}-\d{1,2}/;
+
 export interface DataProviderProps {
     children: ReactNode;
 }
@@ -20,7 +23,7 @@ export function addElement<T>(array: [T] | undefined, element: T): [T] {
 }
 
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
-    const { maxDecimals, currency } = useConfig();
+    const { currencies, currencyIndex } = useConfig();
 
     const [total, setTotal] = useState(0);
     const [amount, setAmount] = useState(0);
@@ -28,15 +31,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [selectedCategory, setSelectedCategory] = useState('');
     const products = useRef<[DataElement]>();
     const [transactions, setTransactions] = useLocalStorage<[Transaction] | undefined>(
-        'Transactions ' + DEFAULT_DATE,
+        transactionsKeyword + ' ' + DEFAULT_DATE,
         undefined
     );
 
     const toCurrency = useCallback(
         (value: number) => {
-            return value.toCurrency(maxDecimals, currency);
+            return value.toCurrency(currencies[currencyIndex].maxDecimals, currencies[currencyIndex].symbol);
         },
-        [maxDecimals, currency]
+        [currencies, currencyIndex]
     );
 
     const updateTotal = useCallback(() => {

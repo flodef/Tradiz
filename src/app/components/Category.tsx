@@ -4,6 +4,7 @@ import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useState } from
 import { State, useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
+import Loading, { LoadingType } from '../loading';
 import { CATEGORY_SEPARATOR, OTHER_KEYWORD } from '../utils/constants';
 import { requestFullscreen } from '../utils/fullscreen';
 import { useAddPopupClass } from './Popup';
@@ -31,9 +32,10 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
     return (
         <div
             className={
-                'w-1/3 relative flex justify-center py-3 items-center font-semibold text-2xl active:bg-orange-300 truncate' +
+                'w-1/3 relative flex justify-center py-3 items-center font-semibold text-2xl truncate ' +
+                'active:bg-active-light active:dark:bg-active-dark ' +
                 ((input !== OTHER_KEYWORD ? category.includes(input) : input === category.at(0))
-                    ? ' bg-orange-300'
+                    ? ' bg-active-light dark:bg-active-dark'
                     : '')
             }
             onClick={onClick}
@@ -45,7 +47,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
 };
 
 export const Category: FC = () => {
-    const { inventory, state, lastModified, setState } = useConfig();
+    const { inventory, state, lastModified, setState, currencyIndex } = useConfig();
     const { addProduct, amount, setAmount, selectedCategory, setSelectedCategory, setQuantity } = useData();
     const { openPopup } = usePopup();
 
@@ -85,7 +87,7 @@ export const Category: FC = () => {
                             addCategory(newCategory);
                         }
                         if (!amount || selectedCategory) {
-                            const price = item.products.at(index)?.price;
+                            const price = item.products.at(index)?.prices[currencyIndex];
                             if (option !== OTHER_KEYWORD && price) {
                                 setAmount(price);
                                 setQuantity(-1); // Set the multiplier to 1 (ready for the next input)
@@ -96,7 +98,17 @@ export const Category: FC = () => {
                 );
             }
         },
-        [openPopup, amount, setAmount, addCategory, setSelectedCategory, selectedCategory, setQuantity, inventory]
+        [
+            openPopup,
+            amount,
+            setAmount,
+            addCategory,
+            setSelectedCategory,
+            selectedCategory,
+            setQuantity,
+            inventory,
+            currencyIndex,
+        ]
     );
 
     const categories = useMemo(
@@ -125,26 +137,27 @@ export const Category: FC = () => {
         }
     }, [state, openPopup, setSelectedCategory, lastModified, setState]);
 
+    const rowClassName = 'flex justify-evenly divide-x divide-active-light dark:divide-active-dark';
+
     return (
         <div
             className={useAddPopupClass(
-                'inset-x-0 divide-y divide-orange-300 border-t-[3px] border-orange-300 md:absolute md:bottom-0 md:w-1/2'
+                'inset-x-0 divide-y border-t-[3px] absolute bottom-0 md:w-1/2 ' +
+                    'divide-active-light border-active-light dark:divide-active-dark dark:border-active-dark'
             )}
         >
-            {(state === State.init || state === State.loading) && (
-                <div className="min-h-[113px] flex justify-center items-center font-semibold text-2xl">
-                    Chargement...
-                </div>
+            {(state === State.init || state === State.loading || state === State.error) && (
+                <div className="h-[113px] flex items-center justify-center">{Loading(LoadingType.Dot, false)}</div>
             )}
             {state === State.done && categories.length > 0 && (
-                <div className="flex justify-evenly divide-x divide-orange-300">
+                <div className={rowClassName}>
                     {categories.slice(0, 3).map((category, index) => (
                         <CategoryButton key={index} input={category} onInput={onInput} />
                     ))}
                 </div>
             )}
             {state === State.done && categories.length > 3 && (
-                <div className="flex justify-evenly divide-x divide-orange-300">
+                <div className={rowClassName}>
                     {categories.slice(3, 6).map((category, index) => (
                         <CategoryButton
                             key={index}

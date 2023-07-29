@@ -10,6 +10,7 @@ import { PaymentStatus, Solana, SolanaContext } from '../hooks/useSolana';
 import { ENDPOINT, SPL_TOKEN } from '../utils/constants';
 import { Confirmations } from '../utils/types';
 import { validateTransfer } from '../utils/validateTransfer';
+import { useWindowParam } from '../hooks/useWindowParam';
 
 export interface SolanaProviderProps {
     children: ReactNode;
@@ -18,10 +19,11 @@ export interface SolanaProviderProps {
 export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
     const { total } = useData();
     const { paymentMethods, shopName: label, thanksMessage: message } = useConfig();
+    const { isOnline } = useWindowParam();
 
     const splToken = useMemo(() => SPL_TOKEN, []);
     const recipient = useMemo(
-        () => new PublicKey(paymentMethods.find((item) => item.method === Solana)?.reference ?? 0),
+        () => new PublicKey(paymentMethods.find((item) => item.method === Solana)?.address ?? 0),
         [paymentMethods]
     );
     const requiredConfirmations = 1;
@@ -45,7 +47,6 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
     useEffect(() => {
         if (error) {
             setPaymentStatus(PaymentStatus.Error);
-            setReference(undefined);
         }
     }, [error]);
 
@@ -94,7 +95,7 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
     // When the status is pending, poll for the transaction using the reference key
     const watchDog = useRef(0);
     useEffect(() => {
-        if (!(paymentStatus === PaymentStatus.Pending && reference && !signature && refresh)) return;
+        if (!(paymentStatus === PaymentStatus.Pending && reference && !signature && refresh && isOnline)) return;
         let changed = false;
 
         const interval = setInterval(async () => {
@@ -131,7 +132,7 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
             watchDog.current = 0;
             clearInterval(interval);
         };
-    }, [paymentStatus, reference, signature, connection, setError, refresh]);
+    }, [paymentStatus, reference, signature, connection, setError, refresh, isOnline]);
 
     // When the status is confirmed, validate the transaction against the provided params
     useEffect(() => {
