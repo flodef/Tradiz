@@ -4,19 +4,19 @@
 
 :root {
     --foreground-rgb: 217, 121, 6;
-    --background-start-rgb: 254, 215, 170;
-    --background-end-rgb: 255, 247, 237;
+    --background-start-rgb: 255, 247, 237;
+    --background-end-rgb: 254, 215, 170;
 }
 
 @media (prefers-color-scheme: dark) {
     :root {
-        --foreground-rgb: 217, 121, 6;
-        --background-start-rgb: 254, 215, 170;
-        --background-end-rgb: 255, 247, 237;
+        --foreground-rgb: 253, 224, 71;
+        --background-start-rgb: 101, 163, 13;
+        --background-end-rgb: 54, 83, 20;
     }
 }
 
 body {
     color: rgb(var(--foreground-rgb));
-    background: linear-gradient(45deg, rgb(var(--background-end-rgb)), rgb(var(--background-start-rgb)));
+    background: linear-gradient(45deg, rgb(var(--background-start-rgb)), rgb(var(--background-end-rgb)));
 }
