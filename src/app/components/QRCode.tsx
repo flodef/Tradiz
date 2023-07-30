@@ -109,60 +109,6 @@ export const QRCode: FC = () => {
         }
     }, [colorScheme]);
 
-    const [qrLow, setQrLow] = useState('');
-    const [qrHigh, setQrHigh] = useState('');
-    const [qrWriting, setQrWriting] = useState('');
-
-    useEffect(() => {
-        if (colorScheme === ColorScheme.Light) {
-            // light mode
-            setQrLow('#ea580c'); // orange-600
-            setQrHigh('#a3e635'); // lime-400
-            setQrWriting('#84cc16'); // lime-500
-        } else {
-            // dark mode
-            setQrLow('#fde047'); // yellow-300
-            setQrHigh('#a3e635'); // lime-400
-            setQrWriting('#f97316'); // orange-500
-        }
-    }, [colorScheme]);
-
-    const [qrLow, setQrLow] = useState('');
-    const [qrHigh, setQrHigh] = useState('');
-    const [qrWriting, setQrWriting] = useState('');
-
-    useEffect(() => {
-        if (colorScheme === ColorScheme.Light) {
-            // light mode
-            setQrLow('#ea580c'); // orange-600
-            setQrHigh('#a3e635'); // lime-400
-            setQrWriting('#84cc16'); // lime-500
-        } else {
-            // dark mode
-            setQrLow('#fde047'); // yellow-300
-            setQrHigh('#a3e635'); // lime-400
-            setQrWriting('#f97316'); // orange-500
-        }
-    }, [colorScheme]);
-
-    const [qrLow, setQrLow] = useState('');
-    const [qrHigh, setQrHigh] = useState('');
-    const [qrWriting, setQrWriting] = useState('');
-
-    useEffect(() => {
-        if (colorScheme === ColorScheme.Light) {
-            // light mode
-            setQrLow('#ea580c'); // orange-600
-            setQrHigh('#a3e635'); // lime-400
-            setQrWriting('#84cc16'); // lime-500
-        } else {
-            // dark mode
-            setQrLow('#fde047'); // yellow-300
-            setQrHigh('#a3e635'); // lime-400
-            setQrWriting('#f97316'); // orange-500
-        }
-    }, [colorScheme]);
-
     const { url } = usePayment();
     const options = useMemo(
         () =>
