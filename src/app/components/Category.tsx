@@ -75,6 +75,7 @@ export const Category: FC = () => {
             if (eventType === 'contextmenu' && amount) {
                 addCategory(item.category.concat(CATEGORY_SEPARATOR, OTHER_KEYWORD));
             } else {
+                setSelectedCategory(item.category);
                 openPopup(
                     item.category,
                     item.products.map(({ label }) => label).concat(OTHER_KEYWORD),
@@ -114,7 +115,9 @@ export const Category: FC = () => {
     const categories = useMemo(
         () =>
             inventory.map(({ category }) =>
-                category !== selectedCategory.split(CATEGORY_SEPARATOR).at(0) || selectedProduct === OTHER_KEYWORD
+                category === selectedCategory ||
+                category !== selectedCategory.split(CATEGORY_SEPARATOR).at(0) ||
+                selectedProduct === OTHER_KEYWORD
                     ? category
                     : selectedProduct
             ),
