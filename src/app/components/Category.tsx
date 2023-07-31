@@ -7,14 +7,16 @@ import { usePopup } from '../hooks/usePopup';
 import Loading, { LoadingType } from '../loading';
 import { CATEGORY_SEPARATOR, OTHER_KEYWORD } from '../utils/constants';
 import { requestFullscreen } from '../utils/fullscreen';
+import { sendEmail } from '../utils/sendEmail';
 import { useAddPopupClass } from './Popup';
 
 interface CategoryInputButton {
     input: string;
     onInput: (input: string, eventType: string) => void;
+    length: number;
 }
 
-const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
+const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => {
     const { selectedCategory } = useData();
 
     const onClick = useCallback<MouseEventHandler>(
@@ -28,12 +30,14 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
     );
 
     const category = selectedCategory.split(CATEGORY_SEPARATOR);
+    const width = length === 1 ? 'w-full' : length === 2 ? 'w-1/2' : 'w-1/3';
 
     return (
         <div
             className={
-                'w-1/3 relative flex justify-center py-3 items-center font-semibold text-2xl truncate ' +
+                'relative flex justify-center py-3 items-center font-semibold text-2xl truncate ' +
                 'active:bg-active-light active:dark:bg-active-dark ' +
+                width +
                 ((input !== OTHER_KEYWORD ? category.includes(input) : input === category.at(0))
                     ? ' bg-active-light dark:bg-active-dark'
                     : '')
@@ -41,7 +45,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput }) => {
             onClick={onClick}
             onContextMenu={onClick}
         >
-            {input.slice(0, 10)}
+            {input.slice(0, 30 / length)}
         </div>
     );
 };
@@ -136,38 +140,49 @@ export const Category: FC = () => {
                 );
                 break;
             case State.fatal:
-                openPopup('Erreur fatale', ['Rafraîchir la page'], () => setState(State.init));
+                openPopup('Erreur fatale', ['Rafraîchir la page', 'Contacter flo@fims.fi'], (i) => {
+                    if (i === 1) {
+                        sendEmail('Erreur fatale', 'Une erreur de chargement de données est survenue !');
+                    } else {
+                        setState(State.init);
+                    }
+                });
         }
     }, [state, openPopup, setSelectedCategory, lastModified, setState]);
+
+    const row1Slice = categories.length <= 2 ? 1 : categories.length >= 3 && categories.length <= 4 ? 2 : 3;
+    const row2Slice =
+        categories.length >= 2 && categories.length <= 3 ? 1 : categories.length >= 4 && categories.length <= 5 ? 2 : 3;
 
     const rowClassName = 'flex justify-evenly divide-x divide-active-light dark:divide-active-dark';
 
     return (
         <div
             className={useAddPopupClass(
-                'inset-x-0 divide-y border-t-[3px] absolute bottom-0 md:w-1/2 ' +
-                    'divide-active-light border-active-light dark:divide-active-dark dark:border-active-dark'
+                'inset-x-0 border-t-[3px] absolute bottom-0 md:w-1/2 border-active-light dark:border-active-dark'
             )}
         >
             {(state === State.init || state === State.loading || state === State.error) && (
                 <div className="h-[113px] flex items-center justify-center">{Loading(LoadingType.Dot, false)}</div>
             )}
-            {state === State.done && categories.length > 0 && (
-                <div className={rowClassName}>
-                    {categories.slice(0, 3).map((category, index) => (
-                        <CategoryButton key={index} input={category} onInput={onInput} />
-                    ))}
-                </div>
-            )}
-            {state === State.done && categories.length > 3 && (
-                <div className={rowClassName}>
-                    {categories.slice(3, 6).map((category, index) => (
-                        <CategoryButton
-                            key={index}
-                            input={category === categories[5] && categories.length > 6 ? OTHER_KEYWORD : category}
-                            onInput={onInput}
-                        />
-                    ))}
+            {state === State.done && (
+                <div className="divide-y divide-active-light dark:divide-active-dark">
+                    <div className={rowClassName}>
+                        {categories.slice(0, row1Slice).map((category, index) => (
+                            <CategoryButton key={index} input={category} onInput={onInput} length={row1Slice} />
+                        ))}
+                    </div>
+
+                    <div className={rowClassName}>
+                        {categories.slice(row1Slice, 6).map((category, index) => (
+                            <CategoryButton
+                                key={index}
+                                input={category === categories[5] && categories.length > 6 ? OTHER_KEYWORD : category}
+                                onInput={onInput}
+                                length={row2Slice}
+                            />
+                        ))}
+                    </div>
                 </div>
             )}
         </div>
