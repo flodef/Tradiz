@@ -25,7 +25,7 @@ export const Total: FC = () => {
         toCurrency,
     } = useData();
     const { openPopup, closePopup } = usePopup();
-    const { onPay } = usePay();
+    const { Pay } = usePay();
 
     // Hack to avoid differences between the server and the client, generating hydration issues
     const [localTransactions, setLocalTransactions] = useState<[Transaction] | undefined>();
@@ -46,7 +46,7 @@ export const Total: FC = () => {
                 addProduct(selectedCategory);
             }
             if (!isMobileSize()) {
-                onPay();
+                Pay();
             }
             if (!products.current?.length || !isMobileSize()) return;
 
@@ -56,7 +56,7 @@ export const Total: FC = () => {
                 products.current.map(displayProduct).concat(['', payLabel]),
                 (_, option) => {
                     if (option === payLabel) {
-                        onPay();
+                        Pay();
                     }
                 },
                 true,
@@ -77,7 +77,7 @@ export const Total: FC = () => {
             getCurrentTotal,
             amount,
             addProduct,
-            onPay,
+            Pay,
             selectedCategory,
             products,
             openPopup,

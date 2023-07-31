@@ -11,9 +11,10 @@ import { useWindowParam } from '../hooks/useWindowParam';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { WalletIcon } from '../images/WalletIcon';
-import { DEFAULT_DATE } from '../utils/constants';
+import { CATEGORY_SEPARATOR, DEFAULT_DATE } from '../utils/constants';
 import { requestFullscreen } from '../utils/fullscreen';
 import { takeScreenshot } from '../utils/screenshot';
+import { sendEmail } from '../utils/sendEmail';
 import { Digits } from '../utils/types';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
@@ -85,7 +86,7 @@ const ImageButton: FC<ImageButtonProps> = ({ children, onInput, className }) => 
 };
 
 export const NumPad: FC = () => {
-    const { currencies, currencyIndex, inventory } = useConfig();
+    const { currencies, currencyIndex, setCurrencyIndex, inventory } = useConfig();
     const {
         total,
         amount,
@@ -100,7 +101,7 @@ export const NumPad: FC = () => {
         toCurrency,
     } = useData();
     const { openPopup, closePopup, isPopupOpen } = usePopup();
-    const { onPay, canPay, canAddProduct } = usePay();
+    const { Pay, canPay, canAddProduct } = usePay();
 
     // Hack to avoid differences between the server and the client, generating hydration issues
     const [localTransactions, setLocalTransactions] = useState<[Transaction] | undefined>();
@@ -424,26 +425,17 @@ export const NumPad: FC = () => {
         ]
     );
 
-    const sendEmail = useCallback(
+    const processEmail = useCallback(
         (subject: string) => {
             if (!localTransactions?.length) return;
 
             const summary = (getTransactionsSummary(localTransactions) ?? [])
                 .map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
                 .join('\n');
+            const message =
+                'Bonjour,\n\nCi-joint le Ticket Z du ' + new Date().toLocaleDateString() + ' :\n\n' + summary;
 
-            const link = document.createElement('a');
-            link.href =
-                'mailto:?subject=' +
-                subject +
-                '&body=' +
-                encodeURIComponent(
-                    'Bonjour,\n\nCi-joint le Ticket Z du ' + new Date().toLocaleDateString() + ' :\n\n'
-                ) +
-                encodeURIComponent(summary);
-
-            link.target = '_blank';
-            link.click();
+            sendEmail(subject, message);
         },
         [getTransactionsSummary, localTransactions]
     );
@@ -537,7 +529,7 @@ export const NumPad: FC = () => {
                                 }); // Set timeout to give time to the popup to display and the screenshot to be taken
                                 break;
                             case 1:
-                                sendEmail('TicketZ ' + DEFAULT_DATE);
+                                processEmail('TicketZ ' + DEFAULT_DATE);
                                 closePopup();
                                 break;
                             case 2:
@@ -564,13 +556,68 @@ export const NumPad: FC = () => {
             openPopup,
             closePopup,
             showTransactionsSummary,
-            sendEmail,
+            processEmail,
             downloadData,
             localTransactions,
             historicalTransactions,
             showHistoricalTransactions,
         ]
     );
+
+    const showCurrencies = useCallback(() => {
+        if (currencies.length < 2) return;
+
+        openPopup(
+            'Changer ' + currencies[currencyIndex].label,
+            currencies.filter((_, index) => index !== currencyIndex).map(({ label }) => label),
+            (index, option) => {
+                if (index === -1) return;
+
+                if (total) {
+                    openPopup('Ticket en cours...', ['Effacer le ticket', 'Payer le ticket'], (index) => {
+                        switch (index) {
+                            case 0:
+                                clearTotal();
+                                break;
+                            case 1:
+                                Pay();
+                                break;
+                            default:
+                                closePopup(showCurrencies);
+                                return;
+                        }
+                    });
+                } else {
+                    closePopup();
+
+                    const index = currencies.findIndex(({ label }) => label === option);
+                    setCurrencyIndex(index);
+                    if (amount) {
+                        const selectedProduct = selectedCategory.split(CATEGORY_SEPARATOR).at(1);
+                        setAmount(
+                            inventory
+                                .find(({ products }) => products.some(({ label }) => label === selectedProduct))
+                                ?.products.find(({ label }) => label === selectedProduct)?.prices[index] ?? 0
+                        );
+                    }
+                }
+            },
+            true
+        );
+    }, [
+        openPopup,
+        currencies,
+        currencyIndex,
+        setCurrencyIndex,
+        total,
+        amount,
+        setAmount,
+        selectedCategory,
+        inventory,
+        closePopup,
+        clearTotal,
+        Pay,
+    ]);
 
     const multiply = useCallback(() => {
         setQuantity(-1);
@@ -642,6 +689,7 @@ export const NumPad: FC = () => {
                             }
                             value={amount * Math.max(quantity, 1)}
                             showZero
+                            onClick={showCurrencies}
                         />
                         <ImageButton className={f1} onInput={onBackspace}>
                             <BackspaceIcon />
@@ -674,7 +722,7 @@ export const NumPad: FC = () => {
                         <NumPadButton input={'00'} onInput={onInput} />
                         <ImageButton
                             className={sx}
-                            onInput={canPay ? onPay : canAddProduct ? () => addProduct(selectedCategory) : () => {}}
+                            onInput={canPay ? Pay : canAddProduct ? () => addProduct(selectedCategory) : () => {}}
                         >
                             {canPay ? <WalletIcon /> : canAddProduct ? <BasketIcon /> : ''}
                         </ImageButton>
