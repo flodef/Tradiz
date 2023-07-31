@@ -2,8 +2,8 @@
 
 import { FC, ReactNode, useCallback, useEffect, useState } from 'react';
 import { ConfigContext, Currency, InventoryItem, PaymentMethod, State } from '../hooks/useConfig';
-import { LoadData } from '../utils/data';
 import { useLocalStorage } from '../utils/localStorage';
+import { LoadData } from '../utils/processData';
 
 export interface ConfigProviderProps {
     children: ReactNode;
@@ -28,7 +28,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     const [config, setConfig] = useLocalStorage<Config | undefined>('Parameters', undefined);
     const [shopName, setShopName] = useState('');
     const [thanksMessage, setThanksMessage] = useState('');
-    const [lastModified, setLastModified] = useState('');
+    const [lastModified, setLastModified] = useState(new Date().toLocaleString());
     const [currencyIndex, setCurrencyIndex] = useState(0);
     const [currencies, setCurrencies] = useState<Currency[]>([
         {

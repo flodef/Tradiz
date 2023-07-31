@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const fileName = searchParams.get('fileName');
     switch (fileName) {
-        case 'currency':
+        case 'currencies':
             return NextResponse.json(currencies);
         case 'parameters':
             return NextResponse.json(parameters);

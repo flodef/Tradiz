@@ -1,10 +1,10 @@
 {
     "values": [
         ["Intitulé (Symbole)", "Valeur maximale", "Symbole", "Décimales", "Hors compta"],
-        ["Euro (€)", "999.99", "€", "2", "FALSE"],
-        ["June (Ğ1)", "999", "Ğ1", "0", "TRUE"],
-        ["Mercuriale Faible (Ğ1)", "999", "Ğ1", "0", "TRUE"],
-        ["Mercuriale Forte (Ğ1)", "999", "Ğ1", "0", "TRUE"],
-        ["PAF (€)", "999", "€", "0", "TRUE"]
+        ["Euro (€)", 999.99, "€", 2, false],
+        ["June (Ğ1)", 999, "Ğ1", 0, true],
+        ["Mercuriale Faible (Ğ1)", 999, "Ğ1", 0, true],
+        ["Mercuriale Forte (Ğ1)", 999, "Ğ1", 0, true],
+        ["PAF (€)", 999, "€", 0, true]
     ]
 }

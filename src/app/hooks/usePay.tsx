@@ -26,7 +26,7 @@ export const usePay = () => {
                         if (index >= 0) {
                             generate();
                         } else {
-                            setTimeout(init, 200);
+                            closePopup(init);
                         }
                     } else if (refPaymentStatus.current === PaymentStatus.Finalized) {
                         addPayment('Crypto');
@@ -74,43 +74,45 @@ export const usePay = () => {
         [openPopup, toCurrency, getCurrentTotal, openQRCode, retry, closePopup, init, addPayment]
     );
 
-    const onPay = useCallback(() => {
-        const total = getCurrentTotal();
-        if (total) {
-            openPopup(
-                'Paiement : ' + toCurrency(total),
-                paymentMethods.map((item) => item.method),
-                (index, option) => {
-                    if (index < 0) return;
+    const selectPayment = useCallback(
+        (option: string, fallback: () => void) => {
+            if (option === Solana) {
+                generate();
+                openQRCode(cancelOrConfirmPaiement, fallback);
+            } else {
+                addPayment(option);
+                closePopup();
+            }
+        },
+        [openQRCode, cancelOrConfirmPaiement, generate, addPayment, closePopup]
+    );
 
-                    if (option === Solana) {
-                        generate();
-                        openQRCode(cancelOrConfirmPaiement, onPay);
-                    } else {
-                        addPayment(option);
-                        closePopup();
-                    }
-                },
-                true
-            );
+    const Pay = useCallback(() => {
+        const total = getCurrentTotal();
+        if (total && paymentMethods.length) {
+            const paymentMethodsLabels = paymentMethods.map((item) => item.method);
+            if (paymentMethodsLabels.length === 1) {
+                selectPayment(paymentMethodsLabels[0], Pay);
+            } else {
+                openPopup(
+                    'Paiement : ' + toCurrency(total),
+                    paymentMethodsLabels,
+                    (index, option) => {
+                        if (index < 0) return;
+
+                        selectPayment(option, Pay);
+                    },
+                    true
+                );
+            }
         }
-    }, [
-        openPopup,
-        closePopup,
-        getCurrentTotal,
-        addPayment,
-        paymentMethods,
-        toCurrency,
-        generate,
-        openQRCode,
-        cancelOrConfirmPaiement,
-    ]);
+    }, [selectPayment, openPopup, getCurrentTotal, paymentMethods, toCurrency]);
 
     useEffect(() => {
         if (error?.message === 'Transaction timed out') {
-            cancelOrConfirmPaiement(onPay);
+            cancelOrConfirmPaiement(Pay);
         }
-    }, [error, cancelOrConfirmPaiement, onPay]);
+    }, [error, cancelOrConfirmPaiement, Pay]);
 
-    return { onPay, canPay, canAddProduct };
+    return { Pay, canPay, canAddProduct };
 };
