@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
-    if (process.env.GOOGLE_SPREADSHEET_ID && process.env.GOOGLE_API_KEY && process.env.NEXT_PUBLIC_VERCEL_ENV) {
+    if (process.env.GOOGLE_SPREADSHEET_ID && process.env.GOOGLE_API_KEY) {
         const { searchParams } = new URL(request.url);
         const sheetName = searchParams.get('sheetName');
         const isRaw = searchParams.get('isRaw') === 'true';
