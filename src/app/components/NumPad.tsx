@@ -117,11 +117,9 @@ export const NumPad: FC = () => {
         setHistoricalTransactions(getHistoricalTransactions());
     }, [getHistoricalTransactions]);
 
-    const maxDecimals = currencies[currencyIndex].maxDecimals;
-    const max = useMemo(
-        () => currencies[currencyIndex].maxValue * Math.pow(10, maxDecimals),
-        [currencies, currencyIndex, maxDecimals]
-    );
+    const maxValue = useMemo(() => currencies[currencyIndex].maxValue, [currencies, currencyIndex]);
+    const maxDecimals = useMemo(() => currencies[currencyIndex].maxDecimals, [currencies, currencyIndex]);
+    const max = useMemo(() => maxValue * Math.pow(10, maxDecimals), [maxValue, maxDecimals]);
     const regExp = useMemo(() => new RegExp('^\\d*([.,]\\d{0,' + maxDecimals + '})?$'), [maxDecimals]);
 
     const [value, setValue] = useState('0');
@@ -137,11 +135,13 @@ export const NumPad: FC = () => {
                     return value;
                 });
             } else {
-                let newValue = quantity > 0 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString();
-                setQuantity(parseInt(newValue));
+                const newQuantity = parseFloat(
+                    quantity > 0 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString()
+                );
+                setQuantity(amount * newQuantity <= maxValue ? newQuantity : Math.floor(maxValue / amount));
             }
         },
-        [max, regExp, quantity, setQuantity]
+        [max, regExp, quantity, setQuantity, amount, maxValue]
     );
 
     const onBackspace = useCallback<MouseEventHandler>(
