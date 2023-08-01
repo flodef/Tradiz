@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { QRCode } from '../components/QRCode';
 import { useConfig } from './useConfig';
+import { Crypto, PaymentStatus, usePayment } from './useCrypto';
 import { useData } from './useData';
 import { usePopup } from './usePopup';
-import { PaymentStatus, Solana, usePayment } from './useSolana';
 
 export const usePay = () => {
     const { openPopup, closePopup } = usePopup();
     const { addPayment, getCurrentTotal, toCurrency, total, amount, selectedCategory } = useData();
-    const { init, generate, refPaymentStatus, error, retry } = usePayment();
+    const { init, generate, refPaymentStatus, error, retry, setCrypto } = usePayment();
     const { paymentMethods } = useConfig();
 
     const canPay = useMemo(() => total && !amount && !selectedCategory, [total, amount, selectedCategory]);
@@ -48,7 +48,7 @@ export const usePay = () => {
         (onConfirm: () => void) => {
             openPopup(
                 'Paiement : ' + toCurrency(getCurrentTotal()),
-                ['Attendre paiement', 'Changer mode paiement', 'Forcer validation paiement', 'Annuler paiement'],
+                ['Attendre paiement', 'Changer mode paiement', 'Valider paiement', 'Annuler paiement'],
                 (index) => {
                     switch (index) {
                         case 1:
@@ -76,7 +76,8 @@ export const usePay = () => {
 
     const selectPayment = useCallback(
         (option: string, fallback: () => void) => {
-            if (option === Solana) {
+            if (option === Crypto.Solana || option === Crypto.June) {
+                setCrypto(option);
                 generate();
                 openQRCode(cancelOrConfirmPaiement, fallback);
             } else {
@@ -84,7 +85,7 @@ export const usePay = () => {
                 closePopup();
             }
         },
-        [openQRCode, cancelOrConfirmPaiement, generate, addPayment, closePopup]
+        [openQRCode, cancelOrConfirmPaiement, generate, addPayment, closePopup, setCrypto]
     );
 
     const Pay = useCallback(() => {

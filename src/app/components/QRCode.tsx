@@ -1,6 +1,6 @@
 import QRCodeStyling from '@solana/qr-code-styling';
 import { FC, useEffect, useMemo, useRef, useState } from 'react';
-import { PaymentStatus, usePayment } from '../hooks/useSolana';
+import { PaymentStatus, usePayment } from '../hooks/useCrypto';
 import { ColorScheme, useWindowParam } from '../hooks/useWindowParam';
 import { createQROptions } from '../utils/createQR';
 

@@ -5,28 +5,38 @@ import { ConfirmedSignatureInfo, Connection, Keypair, PublicKey, TransactionSign
 import BigNumber from 'bignumber.js';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConfig } from '../hooks/useConfig';
+import { Crypto, CryptoContext, PaymentStatus } from '../hooks/useCrypto';
 import { useData } from '../hooks/useData';
-import { PaymentStatus, Solana, SolanaContext } from '../hooks/useSolana';
+import { useWindowParam } from '../hooks/useWindowParam';
 import { ENDPOINT, SPL_TOKEN } from '../utils/constants';
 import { Confirmations } from '../utils/types';
 import { validateTransfer } from '../utils/validateTransfer';
-import { useWindowParam } from '../hooks/useWindowParam';
 
-export interface SolanaProviderProps {
+export interface CryptoProviderProps {
     children: ReactNode;
 }
 
-export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
+export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
     const { total } = useData();
     const { paymentMethods, shopName: label, thanksMessage: message } = useConfig();
     const { isOnline } = useWindowParam();
 
-    const splToken = useMemo(() => SPL_TOKEN, []);
-    const recipient = useMemo(
-        () => new PublicKey(paymentMethods.find((item) => item.method === Solana)?.address ?? 0),
-        [paymentMethods]
-    );
     const requiredConfirmations = 1;
+
+    const [crypto, setCrypto] = useState<Crypto>();
+    const splToken = useMemo(() => SPL_TOKEN, []);
+    const recipient = useMemo(() => {
+        switch (crypto) {
+            case Crypto.Solana:
+                return new PublicKey(paymentMethods.find((item) => item.method === Crypto.Solana)?.address ?? 0);
+            case Crypto.June:
+                return new PublicKey(
+                    paymentMethods.find((item) => item.method === Crypto.June)?.address?.split(':')[0] ?? 0
+                );
+            default:
+                return new PublicKey(0);
+        }
+    }, [paymentMethods, crypto]);
 
     const amount = useMemo(() => BigNumber(total), [total]);
     const connection = useRef(new Connection(ENDPOINT, 'confirmed'));
@@ -34,15 +44,9 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
     const [reference, setReference] = useState<PublicKey>();
     const [signature, setSignature] = useState<TransactionSignature>();
     const [paymentStatus, setPaymentStatus] = useState(PaymentStatus.New);
-    const [confirmations, setConfirmations] = useState<Confirmations>(0);
     const [error, setError] = useState<Error>();
     const [refresh, setRefresh] = useState(false);
     const refPaymentStatus = useRef(paymentStatus);
-
-    const confirmationProgress = useMemo(
-        () => confirmations / requiredConfirmations,
-        [confirmations, requiredConfirmations]
-    );
 
     useEffect(() => {
         if (error) {
@@ -55,36 +59,47 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
     }, [paymentStatus]);
 
     const url = useMemo(() => {
-        return encodeURL({
-            recipient,
-            amount,
-            splToken,
-            reference,
-            label,
-            message,
-            memo,
-        });
-    }, [label, memo, message, recipient, splToken, reference, amount]);
+        switch (crypto) {
+            case Crypto.Solana:
+                return encodeURL({
+                    recipient,
+                    amount,
+                    splToken,
+                    reference,
+                    label,
+                    message,
+                    memo,
+                });
+            case Crypto.June:
+                const url = new URL('june://' + recipient.toBase58());
+
+                if (amount) {
+                    url.searchParams.append('amount', amount.toString());
+                }
+
+                return url;
+            default:
+                return '';
+        }
+    }, [label, memo, message, recipient, splToken, reference, amount, crypto]);
 
     const init = useCallback(() => {
         setPaymentStatus(PaymentStatus.New);
         setReference(undefined);
-    }, [setPaymentStatus, setReference]);
+    }, []);
 
     const generate = useCallback(() => {
         setPaymentStatus(PaymentStatus.Pending);
-        setReference(Keypair.generate().publicKey);
-        setConfirmations(0);
+        setReference(crypto === Crypto.Solana ? Keypair.generate().publicKey : undefined);
         setMemo(undefined);
         setSignature(undefined);
         setError(undefined);
         setRefresh(true);
-    }, [setError]);
+    }, [setError, crypto]);
 
     const retry = useCallback(() => {
         if (refPaymentStatus.current === PaymentStatus.Error) {
             setPaymentStatus(PaymentStatus.Pending);
-            setConfirmations(0);
             setSignature(undefined);
             setError(undefined);
             setRefresh(true);
@@ -194,7 +209,6 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
 
                 if (!changed) {
                     const confirmations = (status.confirmations || 0) as Confirmations;
-                    setConfirmations(confirmations);
 
                     if (confirmations >= requiredConfirmations || status.confirmationStatus === 'finalized') {
                         clearInterval(interval);
@@ -286,16 +300,11 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
     }, [error]);
 
     return (
-        <SolanaContext.Provider
+        <CryptoContext.Provider
             value={{
-                amount,
-                memo,
-                setMemo,
-                reference,
-                signature,
+                setCrypto,
                 paymentStatus,
                 refPaymentStatus,
-                confirmationProgress,
                 url,
                 init,
                 generate,
@@ -305,6 +314,6 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
             }}
         >
             {children}
-        </SolanaContext.Provider>
+        </CryptoContext.Provider>
     );
 };
