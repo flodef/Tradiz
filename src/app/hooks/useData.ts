@@ -21,6 +21,7 @@ export interface DataContextState {
     setAmount: (amount: number) => void;
     quantity: number;
     setQuantity: (quantity: number) => void;
+    toQuadratic: (quantity: number) => number;
     selectedCategory: string;
     setSelectedCategory: (category: string) => void;
     addProduct: (category: string | DataElement) => void;

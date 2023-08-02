@@ -1,7 +1,7 @@
 'use client';
 
 import { FC, ReactNode, useCallback, useRef, useState } from 'react';
-import { useConfig } from '../hooks/useConfig';
+import { Mercurial, useConfig } from '../hooks/useConfig';
 import { DataContext, DataElement, Transaction } from '../hooks/useData';
 import { CATEGORY_SEPARATOR, DEFAULT_DATE, OTHER_KEYWORD } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
@@ -23,7 +23,7 @@ export function addElement<T>(array: [T] | undefined, element: T): [T] {
 }
 
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
-    const { currencies, currencyIndex } = useConfig();
+    const { currencies, currencyIndex, mercurial } = useConfig();
 
     const [total, setTotal] = useState(0);
     const [amount, setAmount] = useState(0);
@@ -42,9 +42,36 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [currencies, currencyIndex]
     );
 
+    const toQuadratic = useCallback(
+        (quantity: number) => {
+            switch (mercurial) {
+                case Mercurial.exponential:
+                    return Math.pow(2, quantity - 1);
+                case Mercurial.soft:
+                    return quantity <= 2
+                        ? quantity
+                        : Array(quantity - 1)
+                              .fill(1)
+                              .map((_, i) => i + 1)
+                              .reduce((a, b) => a + b);
+                case Mercurial.zelet:
+                    return quantity <= 2 ? quantity : Math.pow(quantity, 2);
+                default:
+                    return quantity;
+            }
+        },
+        [mercurial]
+    );
+
+    const getCurrentTotal = useCallback(() => {
+        return products.current
+            ? products.current.reduce((total, product) => total + product.amount * toQuadratic(product.quantity), 0)
+            : 0;
+    }, [products, toQuadratic]);
+
     const updateTotal = useCallback(() => {
         setTotal(getCurrentTotal());
-    }, []);
+    }, [getCurrentTotal]);
 
     const clearAmount = useCallback(() => {
         setAmount(0);
@@ -107,10 +134,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 ' x ' +
                 product.quantity +
                 ' = ' +
-                toCurrency(product.amount * product.quantity)
+                toCurrency(product.amount * toQuadratic(product.quantity))
             );
         },
-        [toCurrency]
+        [toCurrency, toQuadratic]
     );
 
     const saveTransactions = useCallback(
@@ -149,14 +176,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             clearTotal();
         },
-        [clearTotal, products, saveTransactions, transactions]
+        [clearTotal, products, saveTransactions, transactions, getCurrentTotal]
     );
-
-    function getCurrentTotal() {
-        return products.current
-            ? products.current.reduce((total, product) => total + product.amount * product.quantity, 0)
-            : 0;
-    }
 
     return (
         <DataContext.Provider
@@ -167,6 +188,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 setAmount,
                 quantity,
                 setQuantity,
+                toQuadratic,
                 selectedCategory,
                 setSelectedCategory,
                 addProduct,

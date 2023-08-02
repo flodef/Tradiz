@@ -1,7 +1,7 @@
 'use client';
 
 import { FC, ReactNode, useCallback, useEffect, useState } from 'react';
-import { ConfigContext, Currency, InventoryItem, PaymentMethod, State } from '../hooks/useConfig';
+import { ConfigContext, Currency, InventoryItem, Mercurial, PaymentMethod, State } from '../hooks/useConfig';
 import { useLocalStorage } from '../utils/localStorage';
 import { LoadData } from '../utils/processData';
 
@@ -12,7 +12,7 @@ export interface ConfigProviderProps {
 export interface Parameters {
     shopName: string;
     thanksMessage: string;
-    mercurial: string;
+    mercurial: Mercurial;
     lastModified: string;
 }
 
@@ -28,6 +28,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     const [config, setConfig] = useLocalStorage<Config | undefined>('Parameters', undefined);
     const [shopName, setShopName] = useState('');
     const [thanksMessage, setThanksMessage] = useState('');
+    const [mercurial, setMercurial] = useState('');
     const [lastModified, setLastModified] = useState(new Date().toLocaleString());
     const [currencyIndex, setCurrencyIndex] = useState(0);
     const [currencies, setCurrencies] = useState<Currency[]>([
@@ -55,6 +56,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     const updateConfig = useCallback((data: Config) => {
         setShopName(data.parameters.shopName);
         setThanksMessage(data.parameters.thanksMessage);
+        setMercurial(data.parameters.mercurial);
         setLastModified(data.parameters.lastModified);
         setCurrencies(data.currencies);
         setPaymentMethods(data.paymentMethods);
@@ -108,6 +110,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                 setState,
                 shopName,
                 thanksMessage,
+                mercurial,
                 lastModified,
                 currencyIndex,
                 setCurrencyIndex,

@@ -8,6 +8,13 @@ export enum State {
     done,
 }
 
+export enum Mercurial {
+    none = '',
+    exponential = 'Exponentielle',
+    soft = 'Douce',
+    zelet = 'Zelet',
+}
+
 export interface Currency {
     label: string;
     maxValue: number;
@@ -32,6 +39,7 @@ export interface ConfigContextState {
     setState: (value: State) => void;
     shopName: string;
     thanksMessage: string;
+    mercurial: string;
     lastModified: string;
     currencyIndex: number;
     setCurrencyIndex: (index: number) => void;

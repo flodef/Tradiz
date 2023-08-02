@@ -93,6 +93,7 @@ export const NumPad: FC = () => {
         setAmount,
         quantity,
         setQuantity,
+        toQuadratic,
         clearAmount,
         clearTotal,
         transactions,
@@ -138,10 +139,11 @@ export const NumPad: FC = () => {
                 const newQuantity = parseFloat(
                     quantity > 0 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString()
                 );
-                setQuantity(amount * newQuantity <= maxValue ? newQuantity : Math.floor(maxValue / amount));
+                const quadratic = toQuadratic(newQuantity);
+                setQuantity(amount * quadratic <= maxValue ? newQuantity : Math.floor(maxValue / quadratic / amount));
             }
         },
-        [max, regExp, quantity, setQuantity, amount, maxValue]
+        [max, regExp, quantity, setQuantity, amount, maxValue, toQuadratic]
     );
 
     const onBackspace = useCallback<MouseEventHandler>(
@@ -213,53 +215,53 @@ export const NumPad: FC = () => {
         []
     );
 
-    const getTransactionsDetails = useCallback((transactions: [Transaction]) => {
-        if (!transactions?.length) return;
+    const getTransactionsDetails = useCallback(
+        (transactions: [Transaction]) => {
+            if (!transactions?.length) return;
 
-        let categories: [DataElement] | undefined = undefined;
-        let payments: [DataElement] | undefined = undefined;
+            let categories: [DataElement] | undefined = undefined;
+            let payments: [DataElement] | undefined = undefined;
 
-        transactions.forEach((transaction) => {
-            const payment = payments?.find((payment) => payment.category === transaction.method);
-            if (payment) {
-                payment.quantity++;
-                payment.amount += transaction.amount;
-            } else {
-                payments = addElement(payments, {
-                    category: transaction.method,
-                    quantity: 1,
-                    amount: transaction.amount,
-                });
-            }
-
-            transaction.products.forEach((product) => {
-                const transaction = categories?.find((transaction) => transaction.category === product.category);
-                if (transaction) {
-                    transaction.quantity += product.quantity;
-                    transaction.amount += product.amount * product.quantity;
+            transactions.forEach((transaction) => {
+                const payment = payments?.find((payment) => payment.category === transaction.method);
+                if (payment) {
+                    payment.quantity++;
+                    payment.amount += transaction.amount;
                 } else {
-                    categories = addElement(categories, {
-                        category: product.category,
-                        quantity: product.quantity,
-                        amount: product.amount * product.quantity,
+                    payments = addElement(payments, {
+                        category: transaction.method,
+                        quantity: 1,
+                        amount: transaction.amount,
                     });
                 }
+
+                transaction.products.forEach((product) => {
+                    const transaction = categories?.find((transaction) => transaction.category === product.category);
+                    if (transaction) {
+                        transaction.quantity += product.quantity;
+                        transaction.amount += product.amount * toQuadratic(product.quantity);
+                    } else {
+                        categories = addElement(categories, {
+                            category: product.category,
+                            quantity: product.quantity,
+                            amount: product.amount * toQuadratic(product.quantity),
+                        });
+                    }
+                });
             });
-        });
 
-        if (!categories) categories = [{ category: '', quantity: 0, amount: 0 }];
-        if (!payments) payments = [{ category: '', quantity: 0, amount: 0 }];
-
-        return { categories, payments };
-    }, []);
+            return { categories, payments };
+        },
+        [toQuadratic]
+    );
 
     const getTransactionsSummary = useCallback(
         (transactions: [Transaction]) => {
             if (!transactions?.length) return;
 
             const details = getTransactionsDetails(transactions);
-            const categories = details?.categories as [DataElement];
-            const payments = details?.payments as [DataElement];
+            const categories = details?.categories as [DataElement] | undefined;
+            const payments = details?.payments as [DataElement] | undefined;
 
             const taxes = getTaxesByCategory();
             const taxAmount = getTaxAmountByCategory(taxes, categories);
@@ -311,9 +313,9 @@ export const NumPad: FC = () => {
                 )
                 .concat([''])
                 .concat(
-                    payments.map(
+                    payments?.map(
                         ({ category, quantity, amount }) => category + ' x ' + quantity + ' ==> ' + toCurrency(amount)
-                    )
+                    ) ?? []
                 );
         },
         [getTaxAmountByCategory, getTaxesByCategory, getTransactionsDetails, toCurrency]
@@ -364,9 +366,9 @@ export const NumPad: FC = () => {
                 showHistoricalTransactions(showTransactionsSummary);
             } else {
                 const summary = getTransactionsSummary(transactions);
-                const categories = getTransactionsDetails(transactions)?.categories as [DataElement];
+                const categories = getTransactionsDetails(transactions)?.categories as [DataElement] | undefined;
                 const totalAmount = transactions.reduce((total, transaction) => total + transaction.amount, 0);
-                const totalProducts = categories.reduce((total, category) => total + category.quantity, 0);
+                const totalProducts = categories?.reduce((total, category) => total + category.quantity, 0) ?? 0;
 
                 openPopup(
                     `${totalProducts} produit${totalProducts > 1 ? 's' : ''} | ${transactions.length} vente${
@@ -388,12 +390,12 @@ export const NumPad: FC = () => {
                                         const index = array.findIndex((p) => p.label === label);
                                         if (index >= 0) {
                                             array[index].quantity += quantity;
-                                            array[index].amount += quantity * amount;
+                                            array[index].amount += amount * toQuadratic(quantity);
                                         } else {
                                             array.push({
                                                 label: label || '',
                                                 quantity: quantity,
-                                                amount: quantity * amount,
+                                                amount: amount * toQuadratic(quantity),
                                             });
                                         }
                                     })
@@ -422,6 +424,7 @@ export const NumPad: FC = () => {
             getTransactionsSummary,
             toCurrency,
             showHistoricalTransactions,
+            toQuadratic,
         ]
     );
 
@@ -462,7 +465,7 @@ export const NumPad: FC = () => {
                             Produit: label,
                             Prix: toCurrency(amount),
                             Quantité: quantity,
-                            Total: toCurrency(amount * quantity),
+                            Total: toCurrency(amount * toQuadratic(quantity)),
                         };
                     });
                 })
@@ -473,7 +476,7 @@ export const NumPad: FC = () => {
                     const total = localTransactions
                         .flatMap(({ products }) => products)
                         .filter(({ category: c }) => c === category)
-                        .map(({ amount, quantity }) => amount * quantity)
+                        .map(({ amount, quantity }) => amount * toQuadratic(quantity))
                         .reduce((total, amount) => total + amount, 0);
                     if (!total) return;
 
@@ -506,7 +509,7 @@ export const NumPad: FC = () => {
             });
             writeFile(workbook, fileName + '.xlsx', { compression: true });
         },
-        [localTransactions, inventory, toCurrency]
+        [localTransactions, inventory, toCurrency, toQuadratic]
     );
 
     const showTransactionsSummaryMenu = useCallback<MouseEventHandler>(
@@ -687,7 +690,7 @@ export const NumPad: FC = () => {
                                 'min-w-[145px] text-right leading-normal ' +
                                 (selectedCategory && !amount ? 'animate-blink' : '')
                             }
-                            value={amount * Math.max(quantity, 1)}
+                            value={amount * Math.max(toQuadratic(quantity), 1)}
                             showZero
                             onClick={showCurrencies}
                         />

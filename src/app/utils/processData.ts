@@ -1,5 +1,5 @@
 import { Parameters } from '../contexts/ConfigProvider';
-import { InventoryItem } from '../hooks/useConfig';
+import { InventoryItem, Mercurial } from '../hooks/useConfig';
 
 class MissingDataError extends Error {
     name = 'MissingDataError';
@@ -20,7 +20,7 @@ export async function LoadData(isOutOfLocalHost: boolean = true) {
     const parameters = {} as Parameters;
     parameters.shopName = process.env.NEXT_PUBLIC_SHOP_NAME ?? '';
     parameters.thanksMessage = param.at(0) ?? 'Merci de votre visite !';
-    parameters.mercurial = param.at(1) ?? '';
+    parameters.mercurial = (param.at(1) ?? '') as Mercurial;
     parameters.lastModified = param.at(2) ?? new Date('0').toLocaleString();
 
     const paymentMethods = await fetchData('Paiement', 'paymentMethods', isOutOfLocalHost).then(
