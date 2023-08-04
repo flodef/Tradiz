@@ -28,7 +28,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     const [config, setConfig] = useLocalStorage<Config | undefined>('Parameters', undefined);
     const [shopName, setShopName] = useState('');
     const [thanksMessage, setThanksMessage] = useState('');
-    const [mercurial, setMercurial] = useState('');
+    const [mercurial, setMercurial] = useState(Mercurial.none);
     const [lastModified, setLastModified] = useState(new Date().toLocaleString());
     const [currencyIndex, setCurrencyIndex] = useState(0);
     const [currencies, setCurrencies] = useState<Currency[]>([

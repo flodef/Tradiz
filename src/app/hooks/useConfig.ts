@@ -9,7 +9,7 @@ export enum State {
 }
 
 export enum Mercurial {
-    none = '',
+    none = 'Aucune',
     exponential = 'Exponentielle',
     soft = 'Douce',
     zelet = 'Zelet',
@@ -39,7 +39,7 @@ export interface ConfigContextState {
     setState: (value: State) => void;
     shopName: string;
     thanksMessage: string;
-    mercurial: string;
+    mercurial: Mercurial;
     lastModified: string;
     currencyIndex: number;
     setCurrencyIndex: (index: number) => void;
