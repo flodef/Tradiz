@@ -2,7 +2,7 @@
 
 import { FC, ReactNode, useCallback, useRef, useState } from 'react';
 import { Mercurial, useConfig } from '../hooks/useConfig';
-import { DataContext, DataElement, Transaction } from '../hooks/useData';
+import { DataContext, ProductElement, Transaction } from '../hooks/useData';
 import { CATEGORY_SEPARATOR, DEFAULT_DATE, OTHER_KEYWORD } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
 
@@ -28,23 +28,24 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [total, setTotal] = useState(0);
     const [amount, setAmount] = useState(0);
     const [quantity, setQuantity] = useState(0);
+    const [currentMercurial, setCurrentMercurial] = useState<Mercurial>(mercurial);
     const [selectedCategory, setSelectedCategory] = useState('');
-    const products = useRef<[DataElement]>();
+    const products = useRef<[ProductElement]>();
     const [transactions, setTransactions] = useLocalStorage<[Transaction] | undefined>(
         transactionsKeyword + ' ' + DEFAULT_DATE,
         undefined
     );
 
     const toCurrency = useCallback(
-        (value: number) => {
-            return value.toCurrency(currencies[currencyIndex].maxDecimals, currencies[currencyIndex].symbol);
+        (value: number, currency = currencies[currencyIndex]) => {
+            return value.toCurrency(currency.maxDecimals, currency.symbol);
         },
         [currencies, currencyIndex]
     );
 
-    const toQuadratic = useCallback(
+    const toMercurial = useCallback(
         (quantity: number) => {
-            switch (mercurial) {
+            switch (currentMercurial) {
                 case Mercurial.exponential:
                     return Math.pow(2, quantity - 1);
                 case Mercurial.soft:
@@ -60,14 +61,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     return quantity;
             }
         },
-        [mercurial]
+        [currentMercurial]
     );
 
     const getCurrentTotal = useCallback(() => {
-        return products.current
-            ? products.current.reduce((total, product) => total + product.amount * toQuadratic(product.quantity), 0)
-            : 0;
-    }, [products, toQuadratic]);
+        return products.current ? products.current.reduce((t, { total }) => t + total, 0) : 0;
+    }, [products]);
 
     const updateTotal = useCallback(() => {
         setTotal(getCurrentTotal());
@@ -76,9 +75,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const clearAmount = useCallback(() => {
         setAmount(0);
         setQuantity(0);
+        setCurrentMercurial(mercurial);
         setSelectedCategory('');
         updateTotal();
-    }, [updateTotal]);
+    }, [updateTotal, mercurial]);
 
     const clearTotal = useCallback(() => {
         products.current = undefined;
@@ -86,8 +86,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, [clearAmount]);
 
     const addProduct = useCallback(
-        (product: string | DataElement) => {
-            let element: DataElement = { category: '', label: '', quantity: 0, amount: 0 };
+        (product: string | ProductElement) => {
+            let element: ProductElement = {
+                category: '',
+                label: '',
+                quantity: 0,
+                amount: 0,
+                total: 0,
+                currency: currencies[0],
+            };
             if (typeof product === 'object') {
                 element = product;
             } else {
@@ -96,22 +103,25 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 element.label = p.at(1) ?? '';
                 element.quantity = Math.max(1, quantity);
                 element.amount = amount;
+                element.total = amount * toMercurial(element.quantity);
+                element.currency = currencies[currencyIndex];
             }
 
-            if (!element.category || !element.amount || !element.quantity) return;
+            if (!element.total) return;
 
             const p = products.current?.find(
                 ({ label, amount }) => label === element.label && amount === element.amount
             );
             if (p) {
                 p.quantity += element.quantity;
+                p.total += element.total;
             } else {
                 products.current = addElement(products.current, element);
             }
 
             clearAmount();
         },
-        [amount, quantity, clearAmount, products, selectedCategory]
+        [amount, quantity, clearAmount, products, selectedCategory, currencies, currencyIndex, toMercurial]
     );
 
     const deleteProduct = useCallback(
@@ -126,7 +136,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const displayProduct = useCallback(
-        (product: DataElement) => {
+        (product: ProductElement) => {
             return (
                 (product.label && product.label !== OTHER_KEYWORD ? product.label : product.category) +
                 ' : ' +
@@ -134,10 +144,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 ' x ' +
                 product.quantity +
                 ' = ' +
-                toCurrency(product.amount * toQuadratic(product.quantity))
+                toCurrency(product.total, product.currency)
             );
         },
-        [toCurrency, toQuadratic]
+        [toCurrency]
     );
 
     const saveTransactions = useCallback(
@@ -188,7 +198,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 setAmount,
                 quantity,
                 setQuantity,
-                toQuadratic,
+                toMercurial,
+                setCurrentMercurial,
                 selectedCategory,
                 setSelectedCategory,
                 addProduct,
