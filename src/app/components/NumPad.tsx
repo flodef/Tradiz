@@ -3,7 +3,7 @@
 import { FC, MouseEventHandler, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { addElement, transactionsKeyword, transactionsRegex } from '../contexts/DataProvider';
-import { useConfig } from '../hooks/useConfig';
+import { Mercurial, useConfig } from '../hooks/useConfig';
 import { DataElement, Transaction, useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
@@ -93,7 +93,8 @@ export const NumPad: FC = () => {
         setAmount,
         quantity,
         setQuantity,
-        toQuadratic,
+        toMercurial,
+        setCurrentMercurial,
         clearAmount,
         clearTotal,
         transactions,
@@ -139,11 +140,11 @@ export const NumPad: FC = () => {
                 const newQuantity = parseFloat(
                     quantity > 0 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString()
                 );
-                const quadratic = toQuadratic(newQuantity);
+                const quadratic = toMercurial(newQuantity);
                 setQuantity(amount * quadratic <= maxValue ? newQuantity : Math.floor(maxValue / quadratic / amount));
             }
         },
-        [max, regExp, quantity, setQuantity, amount, maxValue, toQuadratic]
+        [max, regExp, quantity, setQuantity, amount, maxValue, toMercurial]
     );
 
     const onBackspace = useCallback<MouseEventHandler>(
@@ -215,45 +216,42 @@ export const NumPad: FC = () => {
         []
     );
 
-    const getTransactionsDetails = useCallback(
-        (transactions: [Transaction]) => {
-            if (!transactions?.length) return;
+    const getTransactionsDetails = useCallback((transactions: [Transaction]) => {
+        if (!transactions?.length) return;
 
-            let categories: [DataElement] | undefined = undefined;
-            let payments: [DataElement] | undefined = undefined;
+        let categories: [DataElement] | undefined = undefined;
+        let payments: [DataElement] | undefined = undefined;
 
-            transactions.forEach((transaction) => {
-                const payment = payments?.find((payment) => payment.category === transaction.method);
-                if (payment) {
-                    payment.quantity++;
-                    payment.amount += transaction.amount;
+        transactions.forEach((transaction) => {
+            const payment = payments?.find((payment) => payment.category === transaction.method);
+            if (payment) {
+                payment.quantity++;
+                payment.amount += transaction.amount;
+            } else {
+                payments = addElement(payments, {
+                    category: transaction.method,
+                    quantity: 1,
+                    amount: transaction.amount,
+                });
+            }
+
+            transaction.products.forEach((product) => {
+                const transaction = categories?.find((transaction) => transaction.category === product.category);
+                if (transaction) {
+                    transaction.quantity += product.quantity;
+                    transaction.amount += product.total;
                 } else {
-                    payments = addElement(payments, {
-                        category: transaction.method,
-                        quantity: 1,
-                        amount: transaction.amount,
+                    categories = addElement(categories, {
+                        category: product.category,
+                        quantity: product.quantity,
+                        amount: product.total,
                     });
                 }
-
-                transaction.products.forEach((product) => {
-                    const transaction = categories?.find((transaction) => transaction.category === product.category);
-                    if (transaction) {
-                        transaction.quantity += product.quantity;
-                        transaction.amount += product.amount * toQuadratic(product.quantity);
-                    } else {
-                        categories = addElement(categories, {
-                            category: product.category,
-                            quantity: product.quantity,
-                            amount: product.amount * toQuadratic(product.quantity),
-                        });
-                    }
-                });
             });
+        });
 
-            return { categories, payments };
-        },
-        [toQuadratic]
-    );
+        return { categories, payments };
+    }, []);
 
     const getTransactionsSummary = useCallback(
         (transactions: [Transaction]) => {
@@ -348,7 +346,6 @@ export const NumPad: FC = () => {
                         const transactions = localStorage.getItem(transactionsKeyword + ' ' + items[index]);
                         if (!transactions) return;
 
-                        console.log(transactions);
                         showTransactionsCallback(JSON.parse(transactions), () =>
                             showHistoricalTransactions(showTransactionsCallback, fallback)
                         );
@@ -386,16 +383,16 @@ export const NumPad: FC = () => {
                             transactions?.flatMap(({ products }) =>
                                 products
                                     .filter((product) => product.category === category.category)
-                                    .forEach(({ label, quantity, amount }) => {
+                                    .forEach(({ label, quantity, total }) => {
                                         const index = array.findIndex((p) => p.label === label);
                                         if (index >= 0) {
                                             array[index].quantity += quantity;
-                                            array[index].amount += amount * toQuadratic(quantity);
+                                            array[index].amount += total;
                                         } else {
                                             array.push({
                                                 label: label || '',
                                                 quantity: quantity,
-                                                amount: amount * toQuadratic(quantity),
+                                                amount: total,
                                             });
                                         }
                                     })
@@ -424,7 +421,6 @@ export const NumPad: FC = () => {
             getTransactionsSummary,
             toCurrency,
             showHistoricalTransactions,
-            toQuadratic,
         ]
     );
 
@@ -458,14 +454,14 @@ export const NumPad: FC = () => {
 
             const productData = localTransactions
                 .map(({ products }, index) => {
-                    return products.map(({ category, label, amount, quantity }) => {
+                    return products.map(({ category, label, amount, quantity, total }) => {
                         return {
                             TransactionID: index,
                             Catégorie: category,
                             Produit: label,
                             Prix: toCurrency(amount),
                             Quantité: quantity,
-                            Total: toCurrency(amount * toQuadratic(quantity)),
+                            Total: toCurrency(total),
                         };
                     });
                 })
@@ -476,8 +472,7 @@ export const NumPad: FC = () => {
                     const total = localTransactions
                         .flatMap(({ products }) => products)
                         .filter(({ category: c }) => c === category)
-                        .map(({ amount, quantity }) => amount * toQuadratic(quantity))
-                        .reduce((total, amount) => total + amount, 0);
+                        .reduce((t, { total }) => t + total, 0);
                     if (!total) return;
 
                     const ht = total / (1 + rate / 100);
@@ -509,7 +504,7 @@ export const NumPad: FC = () => {
             });
             writeFile(workbook, fileName + '.xlsx', { compression: true });
         },
-        [localTransactions, inventory, toCurrency, toQuadratic]
+        [localTransactions, inventory, toCurrency]
     );
 
     const showTransactionsSummaryMenu = useCallback<MouseEventHandler>(
@@ -626,6 +621,21 @@ export const NumPad: FC = () => {
         setQuantity(-1);
     }, [setQuantity]);
 
+    const mercuriale = useCallback<MouseEventHandler>(
+        (e) => {
+            e.preventDefault();
+
+            const mercurials = Object.values(Mercurial);
+            openPopup('Mercuriale quadratique', mercurials, (index) => {
+                if (quantity === 0) {
+                    multiply();
+                }
+                setCurrentMercurial(mercurials[index]);
+            });
+        },
+        [setCurrentMercurial, openPopup, quantity, multiply]
+    );
+
     useEffect(() => {
         setAmount(parseInt(value) / Math.pow(10, maxDecimals));
     }, [value, setAmount, maxDecimals]);
@@ -690,14 +700,14 @@ export const NumPad: FC = () => {
                                 'min-w-[145px] text-right leading-normal ' +
                                 (selectedCategory && !amount ? 'animate-blink' : '')
                             }
-                            value={amount * Math.max(toQuadratic(quantity), 1)}
+                            value={amount * Math.max(toMercurial(quantity), 1)}
                             showZero
                             onClick={showCurrencies}
                         />
                         <ImageButton className={f1} onInput={onBackspace}>
                             <BackspaceIcon />
                         </ImageButton>
-                        <FunctionButton className={f2} input="&times;" onInput={multiply} />
+                        <FunctionButton className={f2} input="&times;" onInput={multiply} onContextMenu={mercuriale} />
                         <FunctionButton
                             className={f3}
                             input="z"
