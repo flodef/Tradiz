@@ -42,7 +42,7 @@ export interface ConfigContextState {
     mercurial: Mercurial;
     lastModified: string;
     currencyIndex: number;
-    setCurrencyIndex: (index: number) => void;
+    setCurrency: (currency: string) => void;
     currencies: Currency[];
     paymentMethods: PaymentMethod[];
     inventory: InventoryItem[];

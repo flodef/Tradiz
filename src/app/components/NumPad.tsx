@@ -86,7 +86,7 @@ const ImageButton: FC<ImageButtonProps> = ({ children, onInput, className }) => 
 };
 
 export const NumPad: FC = () => {
-    const { currencies, currencyIndex, setCurrencyIndex, inventory } = useConfig();
+    const { currencies, currencyIndex, setCurrency, inventory } = useConfig();
     const {
         total,
         amount,
@@ -576,6 +576,7 @@ export const NumPad: FC = () => {
                         switch (index) {
                             case 0:
                                 clearTotal();
+                                setCurrency(option);
                                 break;
                             case 1:
                                 Pay();
@@ -588,9 +589,9 @@ export const NumPad: FC = () => {
                 } else {
                     closePopup();
 
-                    const index = currencies.findIndex(({ label }) => label === option);
-                    setCurrencyIndex(index);
+                    setCurrency(option);
                     if (amount) {
+                        const index = currencies.findIndex(({ label }) => label === option);
                         const selectedProduct = selectedCategory.split(CATEGORY_SEPARATOR).at(1);
                         setAmount(
                             inventory
@@ -606,7 +607,7 @@ export const NumPad: FC = () => {
         openPopup,
         currencies,
         currencyIndex,
-        setCurrencyIndex,
+        setCurrency,
         total,
         amount,
         setAmount,

@@ -53,6 +53,16 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     ]);
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
 
+    const setCurrency = useCallback(
+        (currency: string) => {
+            const index = currencies.findIndex(({ label }) => label === currency);
+            if (index !== -1) {
+                setCurrencyIndex(index);
+            }
+        },
+        [currencies]
+    );
+
     const updateConfig = useCallback((data: Config) => {
         setShopName(data.parameters.shopName);
         setThanksMessage(data.parameters.thanksMessage);
@@ -113,7 +123,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                 mercurial,
                 lastModified,
                 currencyIndex,
-                setCurrencyIndex,
+                setCurrency,
                 currencies,
                 paymentMethods,
                 inventory,
