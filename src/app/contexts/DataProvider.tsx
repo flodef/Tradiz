@@ -172,13 +172,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const addPayment = useCallback(
         (method: string) => {
-            if (!method || !products.current) return;
+            if (!method || !products.current?.length) return;
 
             const currentHour = new Date().getHours() + 'h' + ('0' + new Date().getMinutes()).slice(-2);
             let newTransactions = addElement(transactions, {
                 method: method,
                 amount: getCurrentTotal(),
                 date: currentHour,
+                currency: products.current.at(0)?.currency ?? currencies[currencyIndex],
                 products: products.current,
             });
 
@@ -186,7 +187,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             clearTotal();
         },
-        [clearTotal, products, saveTransactions, transactions, getCurrentTotal]
+        [clearTotal, products, saveTransactions, transactions, getCurrentTotal, currencies, currencyIndex]
     );
 
     return (

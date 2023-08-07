@@ -17,6 +17,7 @@ export interface Transaction {
     method: string;
     amount: number;
     date: string;
+    currency: Currency;
     products: [ProductElement];
 }
 
@@ -41,7 +42,7 @@ export interface DataContextState {
     transactions: [Transaction] | undefined;
     saveTransactions: (transactions: [Transaction]) => void;
     editTransaction: (index: number) => void;
-    toCurrency: (value: number) => string;
+    toCurrency: (value: number, currency?: Currency) => string;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);
