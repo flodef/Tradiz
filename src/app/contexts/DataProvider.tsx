@@ -1,6 +1,6 @@
 'use client';
 
-import { FC, ReactNode, useCallback, useRef, useState } from 'react';
+import { FC, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Mercurial, useConfig } from '../hooks/useConfig';
 import { DataContext, ProductElement, Transaction } from '../hooks/useData';
 import { CATEGORY_SEPARATOR, DEFAULT_DATE, OTHER_KEYWORD } from '../utils/constants';
@@ -35,6 +35,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         transactionsKeyword + ' ' + DEFAULT_DATE,
         undefined
     );
+
+    useEffect(() => {
+        setCurrentMercurial(mercurial);
+    }, [mercurial]);
 
     const toCurrency = useCallback(
         (value: number, currency = currencies[currencyIndex]) => {
