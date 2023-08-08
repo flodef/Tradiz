@@ -226,8 +226,8 @@ export const NumPad: FC = () => {
     const getTransactionsDetails = useCallback((transactions: Transaction[]) => {
         if (!transactions?.length) return;
 
-        let categories: [DataElement] | undefined = undefined;
-        let payments: [DataElement] | undefined = undefined;
+        let categories: DataElement[] | undefined = undefined;
+        let payments: DataElement[] | undefined = undefined;
 
         transactions.forEach((transaction) => {
             if (!transaction.products?.length) return;

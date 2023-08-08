@@ -18,7 +18,7 @@ export interface Transaction {
     amount: number;
     date: string;
     currency: Currency;
-    products: [ProductElement];
+    products: ProductElement[];
 }
 
 export interface DataContextState {
@@ -37,10 +37,10 @@ export interface DataContextState {
     displayProduct: (product: ProductElement) => string;
     clearAmount: () => void;
     clearTotal: () => void;
-    products: MutableRefObject<[ProductElement] | undefined>;
+    products: MutableRefObject<ProductElement[] | undefined>;
     addPayment: (method: string) => void;
-    transactions: [Transaction] | undefined;
-    saveTransactions: (transactions: [Transaction]) => void;
+    transactions: Transaction[] | undefined;
+    saveTransactions: (transactions: Transaction[]) => void;
     editTransaction: (index: number) => void;
     toCurrency: (value: number, currency?: Currency) => string;
 }

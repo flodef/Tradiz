@@ -13,7 +13,7 @@ export interface DataProviderProps {
     children: ReactNode;
 }
 
-export function addElement<T>(array: [T] | undefined, element: T): [T] {
+export function addElement<T>(array: T[] | undefined, element: T): T[] {
     if (!array?.length) {
         return [element];
     } else {
@@ -30,8 +30,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [quantity, setQuantity] = useState(0);
     const [currentMercurial, setCurrentMercurial] = useState<Mercurial>(mercurial);
     const [selectedCategory, setSelectedCategory] = useState('');
-    const products = useRef<[ProductElement]>();
-    const [transactions, setTransactions] = useLocalStorage<[Transaction] | undefined>(
+    const products = useRef<ProductElement[]>();
+    const [transactions, setTransactions] = useLocalStorage<Transaction[] | undefined>(
         transactionsKeyword + ' ' + DEFAULT_DATE,
         undefined
     );
@@ -155,7 +155,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const saveTransactions = useCallback(
-        (transactions: [Transaction]) => {
+        (transactions: Transaction[]) => {
             setTransactions(undefined);
             if (transactions.length) {
                 setTimeout(() => setTransactions(transactions)); // Set a time out to avoid a bug with the localStorage when the transactions are not updated
