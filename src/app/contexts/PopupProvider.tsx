@@ -16,6 +16,7 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
     const [popupSpecialAction, setPopupSpecialAction] = useState<{
         confirmTitle: string;
         action: (index: number) => void;
+        maxIndex?: number;
     }>();
 
     const openPopup = useCallback(
@@ -24,7 +25,7 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
             options: string[] | ReactNode[],
             action?: (index: number, option: string) => void,
             stayOpen = false,
-            specialAction?: { confirmTitle: string; action: (index: number) => void }
+            specialAction?: { confirmTitle: string; action: (index: number) => void; maxIndex?: number }
         ) => {
             setPopupTitle(title);
             setPopupOptions(options);

@@ -10,6 +10,8 @@ import { isMobileSize, useIsMobile } from '../utils/mobile';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
 
+const payLabel = 'PAYER';
+
 export const Total: FC = () => {
     const {
         total,
@@ -57,7 +59,6 @@ export const Total: FC = () => {
             }
             if (!products.current?.length || !isMobileSize()) return;
 
-            const payLabel = 'PAYER';
             openPopup(
                 products.current.length + ' produits : ' + toCurrency(getCurrentTotal(), products.current[0].currency),
                 products.current.map(displayProduct).concat(['', payLabel]),
@@ -69,12 +70,17 @@ export const Total: FC = () => {
                 true,
                 {
                     confirmTitle: 'Effacer ?',
+                    maxIndex: products.current.length,
                     action: (i) => {
-                        deleteProduct(i);
-                        if (products.current?.length) {
-                            showProducts(0);
+                        if (!products.current?.at(i)) {
+                            Pay();
                         } else {
-                            closePopup();
+                            deleteProduct(i);
+                            if (products.current?.length) {
+                                showProducts(0);
+                            } else {
+                                closePopup();
+                            }
                         }
                     },
                 }
@@ -214,7 +220,7 @@ export const Total: FC = () => {
         <div
             className={useAddPopupClass(
                 'inset-x-0 h-[75px] md:absolute md:left-1/2 md:h-full md:border-l-4 ' +
-                    'md:border-secondary-active-light dark:border-secondary-active-dark'
+                    'md:border-secondary-active-light md:dark:border-secondary-active-dark'
             )}
         >
             <div

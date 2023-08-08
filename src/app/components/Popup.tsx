@@ -35,7 +35,7 @@ export const Popup: FC = () => {
 
     const handleContextMenu = useCallback(
         (index: number) => {
-            if (!popupSpecialAction) return;
+            if (!popupSpecialAction || index > (popupSpecialAction.maxIndex ?? Number.POSITIVE_INFINITY)) return;
 
             openPopup(
                 popupSpecialAction.confirmTitle,
