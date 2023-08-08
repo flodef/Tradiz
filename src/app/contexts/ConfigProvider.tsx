@@ -37,7 +37,6 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
             maxValue: 999.99,
             symbol: '€',
             maxDecimals: 2,
-            isOutOfComptability: false,
         },
     ]);
     const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([

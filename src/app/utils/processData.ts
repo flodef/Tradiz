@@ -133,7 +133,6 @@ async function ConvertCurrenciesData(response: void | Response) {
                     maxValue: Number(item.at(1)),
                     symbol: String(item.at(2)).trim() ?? '',
                     maxDecimals: Number(item.at(3)),
-                    isOutOfComptability: Boolean(item.at(4)),
                 };
             });
     });

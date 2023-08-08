@@ -20,7 +20,6 @@ export interface Currency {
     maxValue: number;
     symbol: string;
     maxDecimals: number;
-    isOutOfComptability: boolean;
 }
 
 export interface PaymentMethod {
