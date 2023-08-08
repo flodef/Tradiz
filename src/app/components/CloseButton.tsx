@@ -12,6 +12,10 @@ export const CloseButton: FC<CloseButtonProps> = ({ onClose }) => {
                 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark'
             }
             onClick={onClose}
+            onContextMenu={(e) => {
+                e.preventDefault();
+                onClose();
+            }}
             aria-label="Close"
         >
             <svg
