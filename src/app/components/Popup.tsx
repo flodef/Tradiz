@@ -54,62 +54,66 @@ export const Popup: FC = () => {
     );
 
     return (
-        // <div className={removePopupClass('z-20 opacity-50 bg-gray-900 h-screen w-screen grid absolute')}>
-        <div
-            data-open={isPopupOpen}
-            className={
-                'z-30 w-[90%] max-h-[90%] max-w-[400px] overflow-y-auto overflow-x-hidden absolute ' +
-                'justify-self-center bg-popup-light dark:bg-popup-dark h-fit rounded-2xl self-center blur-none border-black border-[3px] ' +
-                'md:border-[0px] md:w-1/2 md:max-w-[50%] md:max-h-full md:left-1/2 md:bottom-0 md:rounded-none md:border-l-4 ' +
-                'md:border-secondary-active-light dark:border-secondary-active-dark data-[open=false]:hidden'
-            }
-        >
-            <div>
-                <div className="flex justify-between bg-secondary-active-light dark:bg-secondary-active-dark">
-                    <div className="text-2xl font-semibold py-3 pl-3">{popupTitle}</div>
-                    <CloseButton
-                        onClose={() => {
-                            closePopup(() => {
-                                handleClick(-1, '');
-                            });
-                        }}
-                    />
+        <div className="absolute h-screen w-screen grid">
+            <div
+                data-open={isPopupOpen}
+                className={'absolute inset-0 z-20 opacity-50 bg-gray-900 data-[open=false]:hidden'}
+            ></div>
+            <div
+                data-open={isPopupOpen}
+                className={
+                    'absolute z-30 w-[90%] max-h-[90%] max-w-[400px] overflow-y-auto overflow-x-hidden justify-self-center ' +
+                    'bg-popup-light dark:bg-popup-dark h-fit rounded-2xl self-center blur-none border-black border-[3px] ' +
+                    'md:border-[0px] md:w-1/2 md:max-w-[50%] md:max-h-full md:left-1/2 md:bottom-0 md:rounded-none md:border-l-4 ' +
+                    'md:border-secondary-active-light dark:border-secondary-active-dark data-[open=false]:hidden'
+                }
+            >
+                <div>
+                    <div className="flex justify-between bg-secondary-active-light dark:bg-secondary-active-dark">
+                        <div className="text-2xl font-semibold py-3 pl-3">{popupTitle}</div>
+                        <CloseButton
+                            onClose={() => {
+                                closePopup(() => {
+                                    handleClick(-1, '');
+                                });
+                            }}
+                        />
+                    </div>
+                </div>
+                <div>
+                    {popupOptions.map((option, index) =>
+                        option?.toString().trim() ? (
+                            <div
+                                className={
+                                    (optionCount <= 7
+                                        ? 'py-3 '
+                                        : optionCount <= 10
+                                        ? 'py-2 '
+                                        : optionCount <= 13
+                                        ? 'py-1 '
+                                        : '') +
+                                    'w-full relative flex justify-around items-center font-semibold text-xl text-center'
+                                }
+                                key={index}
+                                onClick={() => handleClick(index, option.toString())}
+                                onContextMenu={(e) => {
+                                    e.preventDefault();
+                                    handleContextMenu(index);
+                                }}
+                            >
+                                {typeof option === 'string'
+                                    ? option.split('\n').map((line, index) => <div key={index}>{line}</div>)
+                                    : option}
+                            </div>
+                        ) : (
+                            <div
+                                key={index}
+                                className="border-b-2 border-secondary-active-light dark:border-secondary-active-dark"
+                            />
+                        )
+                    )}
                 </div>
             </div>
-            <div>
-                {popupOptions.map((option, index) =>
-                    option?.toString().trim() ? (
-                        <div
-                            className={
-                                (optionCount <= 7
-                                    ? 'py-3 '
-                                    : optionCount <= 10
-                                    ? 'py-2 '
-                                    : optionCount <= 13
-                                    ? 'py-1 '
-                                    : '') +
-                                'w-full relative flex justify-around items-center font-semibold text-xl text-center'
-                            }
-                            key={index}
-                            onClick={() => handleClick(index, option.toString())}
-                            onContextMenu={(e) => {
-                                e.preventDefault();
-                                handleContextMenu(index);
-                            }}
-                        >
-                            {typeof option === 'string'
-                                ? option.split('\n').map((line, index) => <div key={index}>{line}</div>)
-                                : option}
-                        </div>
-                    ) : (
-                        <div
-                            key={index}
-                            className="border-b-2 border-secondary-active-light dark:border-secondary-active-dark"
-                        />
-                    )
-                )}
-            </div>
         </div>
-        // </div>
     );
 };
