@@ -1,7 +1,8 @@
 'use client';
 
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { DataElement, Transaction, useData } from '../hooks/useData';
+import { Currency } from '../hooks/useConfig';
+import { Transaction, useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { requestFullscreen } from '../utils/fullscreen';
@@ -35,7 +36,13 @@ export const Total: FC = () => {
 
     const displayTransaction = useCallback(
         (transaction: Transaction) => {
-            return toCurrency(transaction.amount) + ' en ' + transaction.method + ' à ' + transaction.date;
+            return (
+                toCurrency(transaction.amount, transaction.currency) +
+                ' en ' +
+                transaction.method +
+                ' à ' +
+                transaction.date
+            );
         },
         [toCurrency]
     );
@@ -52,7 +59,7 @@ export const Total: FC = () => {
 
             const payLabel = 'PAYER';
             openPopup(
-                products.current.length + ' produits : ' + toCurrency(getCurrentTotal()),
+                products.current.length + ' produits : ' + toCurrency(getCurrentTotal(), products.current[0].currency),
                 products.current.map(displayProduct).concat(['', payLabel]),
                 (_, option) => {
                     if (option === payLabel) {
@@ -124,7 +131,7 @@ export const Total: FC = () => {
             if (!transaction || !transaction.amount || index < 0) return;
 
             openPopup(
-                toCurrency(transaction.amount) + ' en ' + transaction.method,
+                toCurrency(transaction.amount, transaction.currency) + ' en ' + transaction.method,
                 transaction.products.map(displayProduct),
                 fallback ? fallback : undefined,
                 true,
@@ -148,12 +155,26 @@ export const Total: FC = () => {
     const showTransactions = useCallback(() => {
         if (!localTransactions?.length || !isMobileSize()) return;
 
-        const totalAmount = localTransactions.reduce((total, transaction) => total + transaction.amount, 0);
         const totalTransactions = localTransactions.length;
         const summary = localTransactions.map(displayTransaction);
+        const currencies: { [key: string]: { amount: number; currency: Currency } } = {};
+        localTransactions.forEach((transaction) => {
+            if (currencies[transaction.currency.symbol]) {
+                currencies[transaction.currency.symbol].amount += transaction.amount;
+            } else {
+                currencies[transaction.currency.symbol] = {
+                    amount: transaction.amount,
+                    currency: transaction.currency,
+                };
+            }
+        });
 
         openPopup(
-            `${totalTransactions} vente${totalTransactions > 1 ? 's' : ''} : ${toCurrency(totalAmount)}`,
+            `${totalTransactions} vente${totalTransactions > 1 ? 's' : ''} : ${Object.values(currencies)
+                .map((currency) => {
+                    return `${toCurrency(currency.amount, currency.currency)}`;
+                })
+                .join(' + ')}`,
             summary,
             (i) => showBoughtProducts(i, showTransactions),
             true,

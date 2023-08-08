@@ -106,7 +106,7 @@ export const NumPad: FC = () => {
     const { Pay, canPay, canAddProduct } = usePay();
 
     // Hack to avoid differences between the server and the client, generating hydration issues
-    const [localTransactions, setLocalTransactions] = useState<[Transaction] | undefined>();
+    const [localTransactions, setLocalTransactions] = useState<Transaction[] | undefined>();
     useEffect(() => {
         setLocalTransactions(transactions);
     }, [transactions]);
@@ -216,13 +216,15 @@ export const NumPad: FC = () => {
         []
     );
 
-    const getTransactionsDetails = useCallback((transactions: [Transaction]) => {
+    const getTransactionsDetails = useCallback((transactions: Transaction[]) => {
         if (!transactions?.length) return;
 
         let categories: [DataElement] | undefined = undefined;
         let payments: [DataElement] | undefined = undefined;
 
         transactions.forEach((transaction) => {
+            if (!transaction.products?.length) return;
+
             const payment = payments?.find((payment) => payment.category === transaction.method);
             if (payment) {
                 payment.quantity++;
@@ -254,7 +256,7 @@ export const NumPad: FC = () => {
     }, []);
 
     const getTransactionsSummary = useCallback(
-        (transactions: [Transaction]) => {
+        (transactions: Transaction[]) => {
             if (!transactions?.length) return;
 
             const details = getTransactionsDetails(transactions);
@@ -320,7 +322,7 @@ export const NumPad: FC = () => {
     );
     const showHistoricalTransactions = useCallback(
         (
-            showTransactionsCallback: (transactions: [Transaction], fallback: () => void) => void,
+            showTransactionsCallback: (transactions: Transaction[], fallback: () => void) => void,
             fallback?: () => void
         ) => {
             if (!historicalTransactions?.length) return;
@@ -362,14 +364,17 @@ export const NumPad: FC = () => {
             if (!transactions?.length) {
                 showHistoricalTransactions(showTransactionsSummary);
             } else {
-                const summary = getTransactionsSummary(transactions);
-                const categories = getTransactionsDetails(transactions)?.categories as [DataElement] | undefined;
-                const totalAmount = transactions.reduce((total, transaction) => total + transaction.amount, 0);
+                const currentTransactions = transactions.filter(
+                    ({ currency }) => currency.symbol === currencies[currencyIndex].symbol
+                );
+                const summary = getTransactionsSummary(currentTransactions);
+                const categories = getTransactionsDetails(currentTransactions)?.categories as [DataElement] | undefined;
                 const totalProducts = categories?.reduce((total, category) => total + category.quantity, 0) ?? 0;
+                const totalAmount = currentTransactions.reduce((total, transaction) => total + transaction.amount, 0);
 
                 openPopup(
-                    `${totalProducts} produit${totalProducts > 1 ? 's' : ''} | ${transactions.length} vente${
-                        transactions.length > 1 ? 's' : ''
+                    `${totalProducts} produit${totalProducts > 1 ? 's' : ''} | ${currentTransactions.length} vente${
+                        currentTransactions.length > 1 ? 's' : ''
                     } : ${toCurrency(totalAmount)}`,
                     summary || [''],
                     (index) => {
@@ -378,11 +383,15 @@ export const NumPad: FC = () => {
                         } else {
                             if (!categories?.length || index >= categories.length || index < 0) return;
 
-                            const category = categories[index];
+                            const element = categories[index];
                             const array = [] as { label: string; quantity: number; amount: number }[];
                             transactions?.flatMap(({ products }) =>
                                 products
-                                    .filter((product) => product.category === category.category)
+                                    .filter(
+                                        ({ category, currency }) =>
+                                            category === element.category &&
+                                            currency.symbol === currencies[currencyIndex].symbol
+                                    )
                                     .forEach(({ label, quantity, total }) => {
                                         const index = array.findIndex((p) => p.label === label);
                                         if (index >= 0) {
@@ -403,7 +412,7 @@ export const NumPad: FC = () => {
                             );
 
                             openPopup(
-                                category.category + ' x' + category.quantity + ': ' + toCurrency(category.amount),
+                                element.category + ' x' + element.quantity + ': ' + toCurrency(element.amount),
                                 summary,
                                 () => showTransactionsSummary(transactions, fallback),
                                 true
@@ -421,6 +430,8 @@ export const NumPad: FC = () => {
             getTransactionsSummary,
             toCurrency,
             showHistoricalTransactions,
+            currencies,
+            currencyIndex,
         ]
     );
 
@@ -443,10 +454,10 @@ export const NumPad: FC = () => {
         (fileName: string) => {
             if (!localTransactions?.length) return;
 
-            const transactionsData = localTransactions.map(({ amount, method, date }, index) => {
+            const transactionsData = localTransactions.map(({ amount, method, date, currency }, index) => {
                 return {
                     ID: index,
-                    Montant: toCurrency(amount),
+                    Montant: toCurrency(amount, currency),
                     Paiement: method,
                     Heure: date,
                 };
@@ -454,36 +465,47 @@ export const NumPad: FC = () => {
 
             const productData = localTransactions
                 .map(({ products }, index) => {
-                    return products.map(({ category, label, amount, quantity, total }) => {
+                    return products.map(({ category, label, amount, quantity, total, currency }) => {
                         return {
                             TransactionID: index,
                             Catégorie: category,
                             Produit: label,
-                            Prix: toCurrency(amount),
+                            Prix: toCurrency(amount, currency),
                             Quantité: quantity,
-                            Total: toCurrency(total),
+                            Total: toCurrency(total, currency),
                         };
                     });
                 })
                 .flatMap((p) => p);
 
+            //TODO: find a solution for downloading all currencies
             const tvaData = inventory
-                .map(({ category, rate }) => {
-                    const total = localTransactions
-                        .flatMap(({ products }) => products)
-                        .filter(({ category: c }) => c === category)
-                        .reduce((t, { total }) => t + total, 0);
-                    if (!total) return;
+                .flatMap(({ category, rate }) => {
+                    return currencies
+                        .filter(
+                            ({ symbol }, index, array) =>
+                                array.findIndex((currency) => currency.symbol === symbol) === index
+                        )
+                        .map((currency) => {
+                            const total = localTransactions
+                                .flatMap(({ products }) => products)
+                                .filter(
+                                    ({ category: cat, currency: cur }) =>
+                                        cat === category && cur.symbol === currency.symbol
+                                )
+                                .reduce((t, { total }) => t + total, 0);
+                            if (!total) return;
 
-                    const ht = total / (1 + rate / 100);
-                    const tva = total - ht;
-                    return {
-                        Catégorie: category,
-                        Taux: rate + '%',
-                        HT: toCurrency(ht),
-                        TVA: toCurrency(tva),
-                        TTC: toCurrency(total),
-                    };
+                            const ht = total / (1 + rate / 100);
+                            const tva = total - ht;
+                            return {
+                                Catégorie: category,
+                                Taux: rate + '%',
+                                HT: toCurrency(ht, currency),
+                                TVA: toCurrency(tva, currency),
+                                TTC: toCurrency(total, currency),
+                            };
+                        });
                 })
                 .filter((t) => t) as {
                 Catégorie: string;
@@ -492,6 +514,8 @@ export const NumPad: FC = () => {
                 TVA: string;
                 TTC: string;
             }[];
+
+            console.log(tvaData);
 
             const workbook = utils.book_new();
             [
@@ -504,7 +528,7 @@ export const NumPad: FC = () => {
             });
             writeFile(workbook, fileName + '.xlsx', { compression: true });
         },
-        [localTransactions, inventory, toCurrency]
+        [localTransactions, inventory, toCurrency, currencies]
     );
 
     const showTransactionsSummaryMenu = useCallback<MouseEventHandler>(
@@ -658,7 +682,7 @@ export const NumPad: FC = () => {
     const sx = s + (canPay || canAddProduct ? color : 'invisible');
 
     const f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
-    const f1 = f + (amount || total ? color : 'invisible');
+    const f1 = f + (amount || total || selectedCategory ? color : 'invisible');
     const f2 =
         f +
         (quantity ? 'bg-secondary-active-light dark:bg-secondary-active-dark ' : '') +
