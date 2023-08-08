@@ -141,7 +141,11 @@ export const NumPad: FC = () => {
                     quantity > 0 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString()
                 );
                 const quadratic = toMercurial(newQuantity);
-                setQuantity(amount * quadratic <= maxValue ? newQuantity : Math.floor(maxValue / quadratic / amount));
+                setQuantity(
+                    amount * quadratic <= maxValue
+                        ? newQuantity
+                        : Math.max(Math.floor(maxValue / quadratic / amount), 1)
+                );
             }
         },
         [max, regExp, quantity, setQuantity, amount, maxValue, toMercurial]
