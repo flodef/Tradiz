@@ -60,6 +60,7 @@ export const Popup: FC = () => {
                 className={'absolute inset-0 z-20 opacity-50 bg-gray-900 data-[open=false]:hidden'}
             ></div>
             <div
+                id="popup" // id is mandatory for the screenshot to work
                 data-open={isPopupOpen}
                 className={
                     'absolute z-30 w-[90%] max-h-[90%] max-w-[400px] overflow-y-auto overflow-x-hidden justify-self-center ' +
