@@ -3,7 +3,7 @@
 import { FC, MouseEventHandler, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { addElement, transactionsKeyword, transactionsRegex } from '../contexts/DataProvider';
-import { Mercurial, useConfig } from '../hooks/useConfig';
+import { Mercurial, State, useConfig } from '../hooks/useConfig';
 import { DataElement, Transaction, useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
@@ -27,20 +27,23 @@ interface NumPadButtonProps {
 }
 
 const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
+    const { state } = useConfig();
+
     const onClick = useCallback<MouseEventHandler>(
         (e) => {
             e.preventDefault();
             requestFullscreen();
-            onInput(input);
+            if (state === State.done) onInput(input);
         },
-        [onInput, input]
+        [onInput, input, state]
     );
 
     return (
         <div
             className={
                 'w-20 h-20 relative flex justify-center m-3 items-center font-semibold text-3xl border-[3px] rounded-2xl ' +
-                'border-secondary-light active:bg-secondary-active-light dark:border-secondary-dark dark:active:bg-secondary-active-dark'
+                'border-secondary-light dark:border-secondary-dark ' +
+                (state === State.done ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark' : '')
             }
             onClick={onClick}
             onContextMenu={onClick}
