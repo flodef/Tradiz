@@ -118,7 +118,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             );
             if (p) {
                 p.quantity += element.quantity;
-                p.total += element.total;
+                p.total = element.amount * toMercurial(p.quantity);
             } else {
                 products.current = addElement(products.current, element);
             }
