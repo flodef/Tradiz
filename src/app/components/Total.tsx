@@ -11,24 +11,7 @@ import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
 
 const payLabel = 'PAYER';
-
-interface SummaryButtonProps {
-    onClick: MouseEventHandler;
-    label: string;
-}
-
-const SummaryButton: FC<SummaryButtonProps> = ({ onClick, label }) => {
-    return (
-        <div
-            key="total"
-            className={'mt-3 pt-1 border-t-4 border-secondary-active-light dark:border-secondary-active-dark'}
-            onClick={onClick}
-            onContextMenu={onClick}
-        >
-            {label}
-        </div>
-    );
-};
+const totalLabel = 'TOTAL';
 
 export const Total: FC = () => {
     const {
@@ -53,6 +36,8 @@ export const Total: FC = () => {
     useEffect(() => {
         setLocalTransactions(transactions);
     }, [transactions]);
+
+    const label = useIsMobile() ? totalLabel : payLabel;
 
     const displayTransaction = useCallback(
         (transaction: Transaction) => {
@@ -257,7 +242,7 @@ export const Total: FC = () => {
             <div className={totalDisplayClassName} onClick={handleClick} onContextMenu={handleClick}>
                 {canDisplayTotal ? (
                     <div>
-                        Total : <Amount value={total} showZero />
+                        {label} <Amount value={total ? total : amount} showZero />
                     </div>
                 ) : (
                     <span>
@@ -269,24 +254,21 @@ export const Total: FC = () => {
 
             <div className="text-center text-2xl font-bold py-3 hidden md:block md:max-h-[90%] md:overflow-y-auto">
                 {canDisplayTotal
-                    ? products.current
-                          ?.map(displayProduct)
-                          .map((product, index) => (
-                              <div
-                                  key={index}
-                                  onContextMenu={(e) => {
-                                      e.preventDefault();
-                                      openPopup('Effacer ?', ['Oui', 'Non'], (i) => {
-                                          if (i === 0) {
-                                              deleteProduct(index);
-                                          }
-                                      });
-                                  }}
-                              >
-                                  {product}
-                              </div>
-                          ))
-                          .concat(<SummaryButton key="summary" onClick={handleClick} label={payLabel} />)
+                    ? products.current?.map(displayProduct).map((product, index) => (
+                          <div
+                              key={index}
+                              onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  openPopup('Effacer ?', ['Oui', 'Non'], (i) => {
+                                      if (i === 0) {
+                                          deleteProduct(index);
+                                      }
+                                  });
+                              }}
+                          >
+                              {product}
+                          </div>
+                      ))
                     : localTransactions
                           ?.map(displayTransaction)
                           .map((transaction, index) => (
@@ -306,7 +288,14 @@ export const Total: FC = () => {
                               </div>
                           ))
                           .concat(
-                              <SummaryButton key="summary" onClick={handleClick} label={displayTransactionsTitle} />
+                              <div
+                                  key="total"
+                                  className={
+                                      'mt-3 pt-1 border-t-4 border-secondary-active-light dark:border-secondary-active-dark'
+                                  }
+                              >
+                                  {displayTransactionsTitle}
+                              </div>
                           )}
             </div>
         </div>
