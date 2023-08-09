@@ -1,6 +1,6 @@
 import QRCodeStyling from '@solana/qr-code-styling';
 import { FC, useEffect, useMemo, useRef, useState } from 'react';
-import { PaymentStatus, usePayment } from '../hooks/useCrypto';
+import { PaymentStatus, useCrypto } from '../hooks/useCrypto';
 import { ColorScheme, useWindowParam } from '../hooks/useWindowParam';
 import { createQROptions } from '../utils/createQR';
 
@@ -31,7 +31,7 @@ interface CheckmarkProps {
 }
 
 const Checkmark: FC<CheckmarkProps> = ({ size, isOK = true }) => {
-    const { errorText } = usePayment();
+    const { errorText } = useCrypto();
 
     const text = isOK ? 'Paiement reçu' : `Paiement non reçu${errorText ? ' : ' + errorText : ''}\nRéessayer ?`;
     return (
@@ -78,7 +78,7 @@ const Checkmark: FC<CheckmarkProps> = ({ size, isOK = true }) => {
 };
 
 export const QRCode: FC = () => {
-    const { paymentStatus } = usePayment();
+    const { paymentStatus } = useCrypto();
     const { width, height, colorScheme, isOnline } = useWindowParam();
 
     const size = useMemo(
@@ -109,7 +109,7 @@ export const QRCode: FC = () => {
         }
     }, [colorScheme]);
 
-    const { url } = usePayment();
+    const { url } = useCrypto();
     const options = useMemo(
         () =>
             createQROptions(url, size, 'transparent', qrWriting, {

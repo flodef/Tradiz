@@ -15,12 +15,12 @@ export enum PaymentStatus {
 }
 
 export interface CryptoContextState {
-    setCrypto: (crypto: Crypto) => void;
+    crypto: Crypto;
     paymentStatus: PaymentStatus;
     refPaymentStatus: MutableRefObject<PaymentStatus>;
     url: string | URL;
     init: () => void;
-    generate: () => void;
+    generate: (crypto: Crypto) => void;
     retry: () => void;
     error: Error | undefined;
     errorText: string;
@@ -28,6 +28,6 @@ export interface CryptoContextState {
 
 export const CryptoContext = createContext<CryptoContextState>({} as CryptoContextState);
 
-export function usePayment(): CryptoContextState {
+export function useCrypto(): CryptoContextState {
     return useContext(CryptoContext);
 }

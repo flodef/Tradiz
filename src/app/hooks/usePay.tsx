@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { QRCode } from '../components/QRCode';
 import { useConfig } from './useConfig';
-import { Crypto, PaymentStatus, usePayment } from './useCrypto';
+import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
 import { useData } from './useData';
 import { usePopup } from './usePopup';
 
 export const usePay = () => {
     const { openPopup, closePopup } = usePopup();
     const { addPayment, getCurrentTotal, toCurrency, total, amount, selectedCategory } = useData();
-    const { init, generate, refPaymentStatus, error, retry, setCrypto } = usePayment();
+    const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
     const { paymentMethods } = useConfig();
 
     const canPay = useMemo(() => total && !amount && !selectedCategory, [total, amount, selectedCategory]);
@@ -24,7 +24,7 @@ export const usePay = () => {
                         onCancel(onConfirm);
                     } else if (refPaymentStatus.current === PaymentStatus.Error) {
                         if (index >= 0) {
-                            generate();
+                            generate(crypto);
                         } else {
                             closePopup(init);
                         }
@@ -41,7 +41,18 @@ export const usePay = () => {
                 true
             );
         },
-        [addPayment, closePopup, generate, retry, refPaymentStatus, toCurrency, getCurrentTotal, openPopup, init]
+        [
+            addPayment,
+            closePopup,
+            generate,
+            retry,
+            refPaymentStatus,
+            toCurrency,
+            getCurrentTotal,
+            openPopup,
+            init,
+            crypto,
+        ]
     );
 
     const cancelOrConfirmPaiement = useCallback(
@@ -77,15 +88,14 @@ export const usePay = () => {
     const selectPayment = useCallback(
         (option: string, fallback: () => void) => {
             if (option === Crypto.Solana || option === Crypto.June) {
-                setCrypto(option);
-                generate();
+                generate(option);
                 openQRCode(cancelOrConfirmPaiement, fallback);
             } else {
                 addPayment(option);
                 closePopup();
             }
         },
-        [openQRCode, cancelOrConfirmPaiement, generate, addPayment, closePopup, setCrypto]
+        [openQRCode, cancelOrConfirmPaiement, generate, addPayment, closePopup]
     );
 
     const Pay = useCallback(() => {

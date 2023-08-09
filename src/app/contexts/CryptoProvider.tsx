@@ -23,7 +23,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
 
     const requiredConfirmations = 1;
 
-    const [crypto, setCrypto] = useState<Crypto>();
+    const [crypto, setCrypto] = useState<Crypto>(Crypto.Solana);
     const splToken = useMemo(() => SPL_TOKEN, []);
     const recipient = useMemo(() => {
         switch (crypto) {
@@ -88,14 +88,18 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
         setReference(undefined);
     }, []);
 
-    const generate = useCallback(() => {
-        setPaymentStatus(PaymentStatus.Pending);
-        setReference(crypto === Crypto.Solana ? Keypair.generate().publicKey : undefined);
-        setMemo(undefined);
-        setSignature(undefined);
-        setError(undefined);
-        setRefresh(true);
-    }, [setError, crypto]);
+    const generate = useCallback(
+        (crypto: Crypto) => {
+            setCrypto(crypto);
+            setPaymentStatus(PaymentStatus.Pending);
+            setReference(crypto === Crypto.Solana ? Keypair.generate().publicKey : undefined);
+            setMemo(undefined);
+            setSignature(undefined);
+            setError(undefined);
+            setRefresh(true);
+        },
+        [setError]
+    );
 
     const retry = useCallback(() => {
         if (refPaymentStatus.current === PaymentStatus.Error) {
@@ -302,7 +306,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
     return (
         <CryptoContext.Provider
             value={{
-                setCrypto,
+                crypto,
                 paymentStatus,
                 refPaymentStatus,
                 url,
