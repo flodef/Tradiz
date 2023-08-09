@@ -98,12 +98,12 @@ export const usePay = () => {
         [openQRCode, cancelOrConfirmPaiement, generate, addPayment, closePopup]
     );
 
-    const Pay = useCallback(() => {
+    const pay = useCallback(() => {
         const total = getCurrentTotal();
         if (total && paymentMethods.length) {
             const paymentMethodsLabels = paymentMethods.map((item) => item.method);
             if (paymentMethodsLabels.length === 1) {
-                selectPayment(paymentMethodsLabels[0], Pay);
+                selectPayment(paymentMethodsLabels[0], pay);
             } else {
                 openPopup(
                     'Paiement : ' + toCurrency(total),
@@ -111,7 +111,7 @@ export const usePay = () => {
                     (index, option) => {
                         if (index < 0) return;
 
-                        selectPayment(option, Pay);
+                        selectPayment(option, pay);
                     },
                     true
                 );
@@ -121,9 +121,9 @@ export const usePay = () => {
 
     useEffect(() => {
         if (error?.message === 'Transaction timed out') {
-            cancelOrConfirmPaiement(Pay);
+            cancelOrConfirmPaiement(pay);
         }
-    }, [error, cancelOrConfirmPaiement, Pay]);
+    }, [error, cancelOrConfirmPaiement, pay]);
 
-    return { Pay, canPay, canAddProduct };
+    return { pay, canPay, canAddProduct };
 };
