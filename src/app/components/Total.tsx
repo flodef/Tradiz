@@ -5,6 +5,7 @@ import { Currency } from '../hooks/useConfig';
 import { Transaction, useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
+import { useSummary } from '../hooks/useSummary';
 import { requestFullscreen } from '../utils/fullscreen';
 import { isMobileSize, useIsMobile } from '../utils/mobile';
 import { Amount } from './Amount';
@@ -28,8 +29,9 @@ export const Total: FC = () => {
         editTransaction,
         toCurrency,
     } = useData();
+    const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
-    const { Pay } = usePay();
+    const { pay } = usePay();
 
     // Hack to avoid differences between the server and the client, generating hydration issues
     const [localTransactions, setLocalTransactions] = useState<Transaction[] | undefined>();
@@ -75,57 +77,36 @@ export const Total: FC = () => {
             .join(' + ')}`;
     }, [toCurrency, localTransactions]);
 
-    const showProducts = useCallback(
-        (newAmount = amount) => {
-            if (newAmount && selectedCategory) {
-                addProduct(selectedCategory);
-            }
-            if (!isMobileSize()) {
-                Pay();
-            }
-            if (!products.current?.length || !isMobileSize()) return;
+    const showProducts = useCallback(() => {
+        if (!products.current?.length) return;
 
-            openPopup(
-                products.current.length + ' produits : ' + toCurrency(getCurrentTotal(), products.current[0].currency),
-                products.current.map(displayProduct).concat(['', payLabel]),
-                (_, option) => {
-                    if (option === payLabel) {
-                        Pay();
+        openPopup(
+            products.current.length + ' produits : ' + toCurrency(getCurrentTotal(), products.current[0].currency),
+            products.current.map(displayProduct).concat(['', payLabel]),
+            (_, option) => {
+                if (option === payLabel) {
+                    pay();
+                }
+            },
+            true,
+            {
+                confirmTitle: 'Effacer ?',
+                maxIndex: products.current.length,
+                action: (i) => {
+                    if (!products.current?.at(i)) {
+                        pay();
+                    } else {
+                        deleteProduct(i);
+                        if (products.current?.length) {
+                            showProducts();
+                        } else {
+                            closePopup();
+                        }
                     }
                 },
-                true,
-                {
-                    confirmTitle: 'Effacer ?',
-                    maxIndex: products.current.length,
-                    action: (i) => {
-                        if (!products.current?.at(i)) {
-                            Pay();
-                        } else {
-                            deleteProduct(i);
-                            if (products.current?.length) {
-                                showProducts(0);
-                            } else {
-                                closePopup();
-                            }
-                        }
-                    },
-                }
-            );
-        },
-        [
-            getCurrentTotal,
-            amount,
-            addProduct,
-            Pay,
-            selectedCategory,
-            products,
-            openPopup,
-            closePopup,
-            displayProduct,
-            deleteProduct,
-            toCurrency,
-        ]
-    );
+            }
+        );
+    }, [getCurrentTotal, pay, products, openPopup, closePopup, displayProduct, deleteProduct, toCurrency]);
 
     const deleteBoughtProduct = useCallback(
         (
@@ -185,7 +166,7 @@ export const Total: FC = () => {
     );
 
     const showTransactions = useCallback(() => {
-        if (!localTransactions?.length || !isMobileSize()) return;
+        if (!localTransactions?.length) return;
 
         const summary = localTransactions.map(displayTransaction);
 
@@ -215,12 +196,38 @@ export const Total: FC = () => {
             e.preventDefault();
             requestFullscreen();
             if (canDisplayTotal) {
-                showProducts();
+                if (amount && selectedCategory) {
+                    addProduct(selectedCategory);
+                }
+                if (isMobileSize()) {
+                    showProducts();
+                } else {
+                    pay();
+                }
             } else if (localTransactions?.length) {
-                showTransactions();
+                if (isMobileSize()) {
+                    showTransactions();
+                } else {
+                    if (e.type === 'click') {
+                        showTransactionsSummary();
+                    } else {
+                        showTransactionsSummaryMenu(e);
+                    }
+                }
             }
         },
-        [showProducts, showTransactions, canDisplayTotal, localTransactions]
+        [
+            showProducts,
+            showTransactions,
+            canDisplayTotal,
+            localTransactions,
+            pay,
+            addProduct,
+            amount,
+            selectedCategory,
+            showTransactionsSummary,
+            showTransactionsSummaryMenu,
+        ]
     );
 
     const totalDisplayClassName =
