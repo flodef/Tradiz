@@ -49,18 +49,36 @@ export const useSummary = () => {
             }[],
             categories: DataElement[] | undefined
         ) => {
+            const emptyCategory =
+                categories
+                    ?.filter(
+                        ({ category }) => taxes?.find((tax) => tax.categories.includes(category))?.index === undefined
+                    )
+                    .reduce((total, { amount }) => total + amount, 0) || 0;
+
             return taxes
                 .map(({ index, categories: taxcategories, rate }) => {
                     const total = taxcategories
                         .map((category) => categories?.find((c) => c.category === category)?.amount || 0)
                         .reduce((total, amount) => total + amount, 0);
-                    if (!total) return ' ';
+                    if (!total) return;
                     const ht = total / (1 + rate / 100);
                     const tva = total - ht;
 
                     return { index, rate, total, ht, tva };
                 })
-                .filter((line) => line !== ' ') as {
+                .concat(
+                    emptyCategory
+                        ? {
+                              index: NaN,
+                              rate: 0,
+                              total: emptyCategory,
+                              ht: emptyCategory,
+                              tva: 0,
+                          }
+                        : undefined
+                )
+                .filter((line) => line) as {
                 index: number;
                 rate: number;
                 total: number;
@@ -131,7 +149,7 @@ export const useSummary = () => {
                 ?.map(
                     ({ category, quantity, amount }) =>
                         '[T' +
-                        taxes?.find((tax) => tax.categories.includes(category))?.index +
+                        (taxes?.find((tax) => tax.categories.includes(category))?.index ?? '') +
                         '] ' +
                         category +
                         ' x ' +
@@ -146,7 +164,7 @@ export const useSummary = () => {
                         .map(({ index, rate, total, ht, tva }) => {
                             return (
                                 'T' +
-                                index +
+                                (isNaN(index) ? '' : index) +
                                 ' ' +
                                 rate +
                                 '%\n' +
