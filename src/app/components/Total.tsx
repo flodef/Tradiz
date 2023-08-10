@@ -28,6 +28,8 @@ export const Total: FC = () => {
         saveTransactions,
         editTransaction,
         toCurrency,
+        toMercurial,
+        quantity,
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
@@ -249,7 +251,7 @@ export const Total: FC = () => {
             <div className={totalDisplayClassName} onClick={handleClick} onContextMenu={handleClick}>
                 {canDisplayTotal ? (
                     <div>
-                        {label} <Amount value={total ? total : amount} showZero />
+                        {label} <Amount value={total + amount * Math.max(toMercurial(quantity), 1)} showZero />
                     </div>
                 ) : (
                     <span>
