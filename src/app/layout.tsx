@@ -4,8 +4,8 @@ import { Inter } from 'next/font/google';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
-    title: process.env.NEXT_PUBLIC_SHOP_NAME ?? 'Fims POS',
-    description: 'Caisse enregistreuse',
+    title: 'FiMs POS',
+    description: 'Systeme de gestion de caisse',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
