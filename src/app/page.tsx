@@ -8,13 +8,13 @@ import { DataProvider } from './contexts/DataProvider';
 import { PopupProvider } from './contexts/PopupProvider';
 import {} from './utils/currency';
 
-export default function Home() {
+export default function Home(user: string) {
     return (
         <main
             className={'absolute inset-0 grid select-none overflow-y-auto md:overflow-y-hidden'}
             style={{ background: 'inherit' }}
         >
-            <ConfigProvider>
+            <ConfigProvider user={user}>
                 <DataProvider>
                     <PopupProvider>
                         <CryptoProvider>

@@ -3,10 +3,11 @@
 import { FC, ReactNode, useCallback, useEffect, useState } from 'react';
 import { ConfigContext, Currency, InventoryItem, Mercurial, PaymentMethod, State } from '../hooks/useConfig';
 import { useLocalStorage } from '../utils/localStorage';
-import { LoadData } from '../utils/processData';
+import { loadData } from '../utils/processData';
 
 export interface ConfigProviderProps {
     children: ReactNode;
+    user: string;
 }
 
 export interface Parameters {
@@ -23,7 +24,7 @@ interface Config {
     inventory: InventoryItem[];
 }
 
-export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
+export const ConfigProvider: FC<ConfigProviderProps> = ({ children, user }) => {
     const [state, setState] = useState(State.init);
     const [config, setConfig] = useLocalStorage<Config | undefined>('Parameters', undefined);
     const [shopName, setShopName] = useState('');
@@ -88,7 +89,8 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     useEffect(() => {
         if (state === State.init) {
             setState(State.loading);
-            LoadData()
+
+            loadData(user)
                 .then((data) => {
                     if (!storeData(data)) throw new Error('Empty config data');
 
@@ -100,7 +102,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                     if (config) {
                         updateConfig(config);
                     } else {
-                        LoadData(false).then((data) => {
+                        loadData(user, false).then((data) => {
                             if (!storeData(data)) {
                                 setState(State.fatal);
                                 return;
@@ -110,7 +112,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                     setState(State.error);
                 });
         }
-    }, [state, config, storeData, updateConfig]);
+    }, [state, config, storeData, updateConfig, user]);
 
     return (
         <ConfigContext.Provider
