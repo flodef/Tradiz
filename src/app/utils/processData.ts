@@ -11,22 +11,38 @@ class WrongDataPatternError extends Error {
     message = 'wrong data pattern';
 }
 
+interface DataName {
+    json: string;
+    sheet: string;
+}
+
+const dataNames: { [key: string]: DataName } = {
+    parameters: { json: 'parameters', sheet: 'Paramètres' },
+    paymentMethods: { json: 'paymentMethods', sheet: 'Paiements' },
+    currencies: { json: 'currencies', sheet: '_Monnaies' },
+    products: { json: 'products', sheet: '_Produits' },
+};
+
 export async function loadData(user: string, isOutOfLocalHost = true) {
     if (isOutOfLocalHost && !navigator.onLine) throw new Error('The web app is offline');
 
-    const id = await fetch(`./api/spreadsheet?sheetName=index`)
-        .catch((error) => {
-            console.error(error);
-        })
-        .then(convertIndexData)
-        .then((data) =>
-            data
-                ?.filter(({ user: u }) => u === user)
-                .map(({ id }) => id)
-                .at(0)
-        );
+    const id = isOutOfLocalHost
+        ? typeof user === 'string' // if user is a string, it means that the app is used by a customer (custom path)
+            ? await fetch(`./api/spreadsheet?sheetName=index`)
+                  .catch((error) => {
+                      console.error(error);
+                  })
+                  .then(convertIndexData)
+                  .then((data) =>
+                      data
+                          ?.filter(({ user: u }) => u === user)
+                          .map(({ id }) => id)
+                          .at(0)
+                  )
+            : '' // if user is not a string, it means that the app is used by a shop (root path)
+        : undefined;
 
-    const param = await fetchData('Paramètres', 'parameters', id, false).then(convertParametersData);
+    const param = await fetchData(dataNames.parameters, id, false).then(convertParametersData);
     if (!param?.length) return;
 
     const parameters = {} as Parameters;
@@ -35,13 +51,13 @@ export async function loadData(user: string, isOutOfLocalHost = true) {
     parameters.mercurial = (param.at(2) ?? Object.values(Mercurial).at(0)) as Mercurial;
     parameters.lastModified = param.at(3) ?? new Date('0').toLocaleString();
 
-    const paymentMethods = await fetchData('Paiement', 'paymentMethods', id).then(convertPaymentMethodsData);
+    const paymentMethods = await fetchData(dataNames.paymentMethods, id).then(convertPaymentMethodsData);
     if (!paymentMethods?.length) return;
 
-    const allCurrencies = await fetchData('_Monnaie', 'currencies', id).then(convertCurrenciesData);
+    const allCurrencies = await fetchData(dataNames.currencies, id).then(convertCurrenciesData);
     if (!allCurrencies?.length) return;
 
-    const data = await fetchData('_Produits', 'products', id).then(convertProductsData);
+    const data = await fetchData(dataNames.products, id).then(convertProductsData);
     if (!data?.products?.length || !data?.currencies?.length) return;
 
     const currencies = data.currencies.map((item) => {
@@ -80,11 +96,11 @@ export async function loadData(user: string, isOutOfLocalHost = true) {
     };
 }
 
-async function fetchData(sheetName: string, fileName: string, id: string | undefined, isRaw = true) {
+async function fetchData(dataName: DataName, id: string | undefined, isRaw = true) {
     return await fetch(
-        id
-            ? `./api/spreadsheet?sheetName=${sheetName}&id=${id}&isRaw=${isRaw.toString()}`
-            : `./api/json?fileName=${fileName}`
+        id !== undefined
+            ? `./api/spreadsheet?sheetName=${dataName.sheet}&id=${id}&isRaw=${isRaw.toString()}`
+            : `./api/json?fileName=${dataName.json}`
     ).catch((error) => {
         console.error(error);
     });
@@ -156,12 +172,12 @@ async function convertPaymentMethodsData(response: void | Response) {
 async function convertCurrenciesData(response: void | Response) {
     if (typeof response === 'undefined') return;
     return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
-        checkData(data, 5);
+        checkData(data, 4);
 
         return data.values
             .filter((_, i) => i !== 0)
             .map((item) => {
-                checkColumn(item, 5);
+                checkColumn(item, 4);
                 return {
                     label: String(item.at(0)).trim() ?? '',
                     maxValue: Number(item.at(1)),
