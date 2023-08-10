@@ -90,12 +90,22 @@ export const usePay = () => {
             if (option === Crypto.Solana || option === Crypto.June) {
                 generate(option);
                 openQRCode(cancelOrConfirmPaiement, fallback);
+            } else if (option === 'Virement') {
+                openPopup(
+                    'IBAN : ' + paymentMethods.find((item) => item.method === 'Virement')?.address ?? '',
+                    ['Valider paiement', 'Annuler paiement'],
+                    (index) => {
+                        if (index === 0) {
+                            addPayment(option);
+                        }
+                    }
+                );
             } else {
                 addPayment(option);
                 closePopup();
             }
         },
-        [openQRCode, cancelOrConfirmPaiement, generate, addPayment, closePopup]
+        [openQRCode, cancelOrConfirmPaiement, generate, addPayment, closePopup, paymentMethods, openPopup]
     );
 
     const pay = useCallback(() => {
