@@ -112,7 +112,10 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
                 .catch((error) => {
                     console.error(error);
 
-                    if (config?.parameters.hasUserAccess) {
+                    if (error instanceof UserNotFoundError) {
+                        setShopEmail(String(error.cause));
+                        setState(State.unidentified);
+                    } else if (config?.parameters.hasUserAccess) {
                         updateConfig(config);
                         setState(State.error);
                     } else {
