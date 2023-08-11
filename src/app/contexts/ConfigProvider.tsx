@@ -3,18 +3,25 @@
 import { FC, ReactNode, useCallback, useEffect, useState } from 'react';
 import { ConfigContext, Currency, InventoryItem, Mercurial, PaymentMethod, State } from '../hooks/useConfig';
 import { useLocalStorage } from '../utils/localStorage';
-import { loadData } from '../utils/processData';
+import { UserNotFoundError, checkUser, loadData } from '../utils/processData';
 
 export interface ConfigProviderProps {
     children: ReactNode;
-    user: string;
+    shop: string;
 }
 
 export interface Parameters {
     shopName: string;
+    shopEmail: string;
     thanksMessage: string;
     mercurial: Mercurial;
     lastModified: string;
+}
+
+export interface User {
+    key: string;
+    name: string;
+    role: string;
 }
 
 interface Config {
@@ -22,12 +29,14 @@ interface Config {
     currencies: Currency[];
     paymentMethods: PaymentMethod[];
     inventory: InventoryItem[];
+    users: User[] | undefined;
 }
 
-export const ConfigProvider: FC<ConfigProviderProps> = ({ children, user }) => {
+export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const [state, setState] = useState(State.init);
     const [config, setConfig] = useLocalStorage<Config | undefined>('Parameters', undefined);
     const [shopName, setShopName] = useState('');
+    const [shopEmail, setShopEmail] = useState('');
     const [thanksMessage, setThanksMessage] = useState('');
     const [mercurial, setMercurial] = useState(Mercurial.none);
     const [lastModified, setLastModified] = useState(new Date().toLocaleString());
@@ -52,6 +61,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, user }) => {
         },
     ]);
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
+    const [users, setUsers] = useState<User[] | undefined>([]); // TODO find what to do with this
 
     const setCurrency = useCallback(
         (currency: string) => {
@@ -65,12 +75,14 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, user }) => {
 
     const updateConfig = useCallback((data: Config) => {
         setShopName(data.parameters.shopName);
+        setShopEmail(data.parameters.shopEmail);
         setThanksMessage(data.parameters.thanksMessage);
         setMercurial(data.parameters.mercurial);
         setLastModified(data.parameters.lastModified);
         setCurrencies(data.currencies);
         setPaymentMethods(data.paymentMethods);
         setInventory(data.inventory);
+        setUsers(data.users);
     }, []);
 
     const storeData = useCallback(
@@ -90,7 +102,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, user }) => {
         if (state === State.init) {
             setState(State.loading);
 
-            loadData(user)
+            loadData(shop)
                 .then((data) => {
                     if (!storeData(data)) throw new Error('Empty config data');
 
@@ -101,24 +113,27 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, user }) => {
 
                     if (config) {
                         updateConfig(config);
+                        setState(checkUser(config.users) ? State.error : State.unidentified);
                     } else {
-                        loadData(user, false).then((data) => {
-                            if (!storeData(data)) {
-                                setState(State.fatal);
-                                return;
-                            }
-                        });
+                        loadData(shop, false)
+                            .then((data) => {
+                                setState(storeData(data) ? State.error : State.fatal);
+                            })
+                            .catch((error) => {
+                                console.error(error);
+                                setState(error instanceof UserNotFoundError ? State.unidentified : State.fatal);
+                            });
                     }
-                    setState(State.error);
                 });
         }
-    }, [state, config, storeData, updateConfig, user]);
+    }, [state, config, storeData, updateConfig, shop]);
 
     return (
         <ConfigContext.Provider
             value={{
                 state,
                 setState,
+                shopEmail,
                 shopName,
                 thanksMessage,
                 mercurial,

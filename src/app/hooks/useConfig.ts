@@ -5,6 +5,7 @@ export enum State {
     loading,
     error,
     fatal,
+    unidentified,
     done,
 }
 
@@ -36,6 +37,7 @@ export interface InventoryItem {
 export interface ConfigContextState {
     state: State;
     setState: (value: State) => void;
+    shopEmail: string;
     shopName: string;
     thanksMessage: string;
     mercurial: Mercurial;

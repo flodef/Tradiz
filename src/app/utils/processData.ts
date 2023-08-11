@@ -1,5 +1,6 @@
-import { Parameters } from '../contexts/ConfigProvider';
+import { Parameters, User } from '../contexts/ConfigProvider';
 import { InventoryItem, Mercurial } from '../hooks/useConfig';
+import { EMAIL } from './constants';
 
 class MissingDataError extends Error {
     name = 'MissingDataError';
@@ -9,6 +10,11 @@ class MissingDataError extends Error {
 class WrongDataPatternError extends Error {
     name = 'WrongDataPatternError';
     message = 'wrong data pattern';
+}
+
+export class UserNotFoundError extends Error {
+    name = 'UserNotFoundError';
+    message = 'user not found';
 }
 
 interface DataName {
@@ -21,13 +27,17 @@ const dataNames: { [key: string]: DataName } = {
     paymentMethods: { json: 'paymentMethods', sheet: 'Paiements' },
     currencies: { json: 'currencies', sheet: '_Monnaies' },
     products: { json: 'products', sheet: '_Produits' },
+    users: { json: 'users', sheet: 'Utilisateurs' },
 };
 
-export async function loadData(user: string, isOutOfLocalHost = true) {
+//TODO To be replaced by the public key of the shop
+export const pubkey = '0x000000';
+
+export async function loadData(shop: string, isOutOfLocalHost = true) {
     if (isOutOfLocalHost && !navigator.onLine) throw new Error('The web app is offline');
 
     const id = isOutOfLocalHost
-        ? typeof user === 'string' // if user is a string, it means that the app is used by a customer (custom path)
+        ? typeof shop === 'string' // if shop is a string, it means that the app is used by a customer (custom path)
             ? await fetch(`./api/spreadsheet?sheetName=index`)
                   .catch((error) => {
                       console.error(error);
@@ -35,21 +45,25 @@ export async function loadData(user: string, isOutOfLocalHost = true) {
                   .then(convertIndexData)
                   .then((data) =>
                       data
-                          ?.filter(({ user: u }) => u === user)
+                          ?.filter(({ shop: s }) => s === shop)
                           .map(({ id }) => id)
                           .at(0)
                   )
-            : '' // if user is not a string, it means that the app is used by a shop (root path)
+            : '' // if shop is not a string, it means that the app is used by a shop (root path)
         : undefined;
+
+    const users = await fetchData(dataNames.users, id, false).then(convertUsersData);
+    if (!checkUser(users)) throw new UserNotFoundError();
 
     const param = await fetchData(dataNames.parameters, id, false).then(convertParametersData);
     if (!param?.length) return;
 
     const parameters = {} as Parameters;
     parameters.shopName = param.at(0) ?? '';
-    parameters.thanksMessage = param.at(1) ?? 'Merci de votre visite !';
-    parameters.mercurial = (param.at(2) ?? Object.values(Mercurial).at(0)) as Mercurial;
-    parameters.lastModified = param.at(3) ?? new Date('0').toLocaleString();
+    parameters.shopEmail = param.at(1) ?? EMAIL;
+    parameters.thanksMessage = param.at(2) ?? 'Merci de votre visite !';
+    parameters.mercurial = (param.at(3) ?? Object.values(Mercurial).at(0)) as Mercurial;
+    parameters.lastModified = param.at(4) ?? new Date('0').toLocaleString();
 
     const paymentMethods = await fetchData(dataNames.paymentMethods, id).then(convertPaymentMethodsData);
     if (!paymentMethods?.length) return;
@@ -93,7 +107,12 @@ export async function loadData(user: string, isOutOfLocalHost = true) {
         currencies,
         paymentMethods,
         inventory,
+        users,
     };
+}
+
+export function checkUser(users: User[] | undefined) {
+    return !users?.length || users.filter(({ key }) => key === pubkey).length;
 }
 
 async function fetchData(dataName: DataName, id: string | undefined, isRaw = true) {
@@ -132,17 +151,35 @@ async function convertIndexData(response: void | Response) {
         return data.values.map((item) => {
             checkColumn(item, 2);
             return {
-                user: item.at(0),
+                shop: item.at(0),
                 id: item.at(1),
             };
         });
     });
 }
 
+async function convertUsersData(response: void | Response) {
+    if (typeof response === 'undefined') return;
+    return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
+        checkData(data, 3);
+
+        return data.values
+            .filter((_, i) => i !== 0)
+            .map((item) => {
+                checkColumn(item, 3);
+                return {
+                    key: String(item.at(0)).trim() ?? '',
+                    name: String(item.at(1)).trim() ?? '',
+                    role: String(item.at(2)).trim() ?? '',
+                };
+            });
+    });
+}
+
 async function convertParametersData(response: void | Response) {
     if (typeof response === 'undefined') return;
     return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-        checkData(data, 2, 2, 4, 4);
+        checkData(data, 2, 2, 5, 5);
 
         return data.values.map((item) => {
             checkColumn(item, 2);

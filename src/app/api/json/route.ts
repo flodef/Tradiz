@@ -3,6 +3,7 @@ import currencies from '../data/currencies.json';
 import parameters from '../data/parameters.json';
 import paymentMethods from '../data/paymentMethods.json';
 import products from '../data/products.json';
+import users from '../data/users.json';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -16,6 +17,8 @@ export async function GET(request: Request) {
             return NextResponse.json(paymentMethods);
         case 'products':
             return NextResponse.json(products);
+        case 'users':
+            return NextResponse.json(users);
         default:
             return NextResponse.json({});
     }

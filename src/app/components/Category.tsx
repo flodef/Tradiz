@@ -5,8 +5,9 @@ import { State, useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import Loading, { LoadingType } from '../loading';
-import { CATEGORY_SEPARATOR, OTHER_KEYWORD } from '../utils/constants';
+import { CATEGORY_SEPARATOR, EMAIL, OTHER_KEYWORD } from '../utils/constants';
 import { requestFullscreen } from '../utils/fullscreen';
+import { pubkey } from '../utils/processData';
 import { sendEmail } from '../utils/sendEmail';
 import { useAddPopupClass } from './Popup';
 
@@ -51,7 +52,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
 };
 
 export const Category: FC = () => {
-    const { inventory, state, lastModified, setState, currencyIndex } = useConfig();
+    const { inventory, state, lastModified, setState, currencyIndex, shopEmail } = useConfig();
     const { addProduct, amount, setAmount, selectedCategory, setSelectedCategory, setQuantity } = useData();
     const { openPopup } = usePopup();
 
@@ -139,16 +140,34 @@ export const Category: FC = () => {
                     }
                 );
                 break;
-            case State.fatal:
-                openPopup('Erreur fatale', ['Rafraîchir la page', 'Contacter flo@fims.fi'], (i) => {
+            case State.unidentified:
+                openPopup('Utilisateur non identifié', ['Rafraîchir la page', 'Contacter ' + shopEmail], (i) => {
                     if (i === 1) {
-                        sendEmail('Erreur fatale', 'Une erreur de chargement de données est survenue !');
+                        sendEmail(
+                            shopEmail,
+                            "Demande d'accès utilisateur",
+                            `Bonjour, je souhaite accéder à l'application de caisse avec les informations suivantes : 
+                            \n- Clé : ${pubkey} 
+                            \n- Nom : (Indiquez votre nom)
+                            \n- Rôle : [Caisse / Service / Cuisine] (Gardez celui qui convient)
+                            \n\nMerci de me donner les droits d'accès.`
+                        );
                     } else {
                         setState(State.init);
                     }
                 });
+                break;
+            case State.fatal:
+                openPopup('Erreur fatale', ['Rafraîchir la page', 'Contacter ' + EMAIL], (i) => {
+                    if (i === 1) {
+                        sendEmail(EMAIL, 'Erreur fatale', 'Une erreur de chargement de données est survenue !');
+                    } else {
+                        setState(State.init);
+                    }
+                });
+                break;
         }
-    }, [state, openPopup, setSelectedCategory, lastModified, setState]);
+    }, [state, openPopup, setSelectedCategory, lastModified, setState, shopEmail]);
 
     const row1Slice = categories.length <= 2 ? 1 : categories.length >= 3 && categories.length <= 4 ? 2 : 3;
     const row2Slice =
