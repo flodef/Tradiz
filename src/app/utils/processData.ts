@@ -31,7 +31,7 @@ const dataNames: { [key: string]: DataName } = {
 };
 
 //TODO To be replaced by the public key of the shop
-export const pubkey = '0x000000';
+export const pubkey = '0x00000';
 
 export async function loadData(shop: string, isOutOfLocalHost = true) {
     if (isOutOfLocalHost && !navigator.onLine) throw new Error('The web app is offline');
@@ -52,7 +52,9 @@ export async function loadData(shop: string, isOutOfLocalHost = true) {
             : '' // if shop is not a string, it means that the app is used by a shop (root path)
         : undefined;
 
-    const users = await fetchData(dataNames.users, id, false).then(convertUsersData);
+    const users = await fetchData(dataNames.users, id, false)
+        .then(convertUsersData)
+        .catch(() => undefined); // That's fine if there is no user data
     if (!checkUser(users)) throw new UserNotFoundError();
 
     const param = await fetchData(dataNames.parameters, id, false).then(convertParametersData);
