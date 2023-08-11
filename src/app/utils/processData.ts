@@ -1,3 +1,4 @@
+import { Keypair } from '@solana/web3.js';
 import { Parameters } from '../contexts/ConfigProvider';
 import { InventoryItem, Mercurial } from '../hooks/useConfig';
 import { EMAIL } from './constants';
@@ -33,8 +34,14 @@ const dataNames: { [key: string]: DataName } = {
     users: { json: 'users', sheet: 'Utilisateurs' },
 };
 
-//TODO To be replaced by the public key of the shop
-export const pubkey = '0x00000';
+export function getPublicKey() {
+    let publicKey = localStorage.getItem('PublicKey');
+    if (!publicKey) {
+        publicKey = Keypair.generate().publicKey.toString();
+        localStorage.setItem('PublicKey', publicKey);
+    }
+    return publicKey;
+}
 
 export async function loadData(shop: string, isOutOfLocalHost = true) {
     if (isOutOfLocalHost && !navigator.onLine) throw new Error('The web app is offline');
@@ -61,7 +68,8 @@ export async function loadData(shop: string, isOutOfLocalHost = true) {
     const users = await fetchData(dataNames.users, id, false)
         .then(convertUsersData)
         .catch(() => undefined); // That's fine if there is no user data
-    if (users?.length && !users.filter(({ key }) => key === pubkey).length) throw new UserNotFoundError(param.at(1));
+    const publicKey = users?.length ? getPublicKey() : undefined;
+    if (users?.length && !users.filter(({ key }) => key === publicKey).length) throw new UserNotFoundError(param.at(1));
 
     const parameters = {} as Parameters;
     parameters.shopName = param.at(0) ?? '';

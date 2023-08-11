@@ -7,7 +7,7 @@ import { usePopup } from '../hooks/usePopup';
 import Loading, { LoadingType } from '../loading';
 import { CATEGORY_SEPARATOR, EMAIL, OTHER_KEYWORD } from '../utils/constants';
 import { requestFullscreen } from '../utils/fullscreen';
-import { pubkey } from '../utils/processData';
+import { getPublicKey } from '../utils/processData';
 import { sendEmail } from '../utils/sendEmail';
 import { useAddPopupClass } from './Popup';
 
@@ -147,7 +147,7 @@ export const Category: FC = () => {
                             shopEmail,
                             "Demande d'accès utilisateur",
                             `Bonjour, je souhaite accéder à l'application de caisse avec les informations suivantes : 
-                            \n- Clé : ${pubkey} 
+                            \n- Clé : ${getPublicKey()} 
                             \n- Nom : (Indiquez votre nom)
                             \n- Rôle : [Caisse / Service / Cuisine] (Gardez celui qui convient)
                             \n\nMerci de me donner les droits d'accès.`
