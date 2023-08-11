@@ -3,7 +3,7 @@
 import { FC, ReactNode, useCallback, useEffect, useState } from 'react';
 import { ConfigContext, Currency, InventoryItem, Mercurial, PaymentMethod, State } from '../hooks/useConfig';
 import { useLocalStorage } from '../utils/localStorage';
-import { UserNotFoundError, checkUser, loadData } from '../utils/processData';
+import { UserNotFoundError, loadData } from '../utils/processData';
 
 export interface ConfigProviderProps {
     children: ReactNode;
@@ -16,6 +16,7 @@ export interface Parameters {
     thanksMessage: string;
     mercurial: Mercurial;
     lastModified: string;
+    hasUserAccess: boolean;
 }
 
 export interface User {
@@ -29,7 +30,6 @@ interface Config {
     currencies: Currency[];
     paymentMethods: PaymentMethod[];
     inventory: InventoryItem[];
-    users: User[] | undefined;
 }
 
 export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
@@ -61,7 +61,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
         },
     ]);
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
-    const [users, setUsers] = useState<User[] | undefined>([]); // TODO find what to do with this
+    const [_, setHasUserAccess] = useState(false);
 
     const setCurrency = useCallback(
         (currency: string) => {
@@ -79,10 +79,10 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
         setThanksMessage(data.parameters.thanksMessage);
         setMercurial(data.parameters.mercurial);
         setLastModified(data.parameters.lastModified);
+        setHasUserAccess(data.parameters.hasUserAccess);
         setCurrencies(data.currencies);
         setPaymentMethods(data.paymentMethods);
         setInventory(data.inventory);
-        setUsers(data.users);
     }, []);
 
     const storeData = useCallback(
@@ -113,7 +113,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
 
                     if (config) {
                         updateConfig(config);
-                        setState(checkUser(config.users) ? State.error : State.unidentified);
+                        setState(config.parameters.hasUserAccess ? State.error : State.unidentified);
                     } else {
                         loadData(shop, false)
                             .then((data) => {

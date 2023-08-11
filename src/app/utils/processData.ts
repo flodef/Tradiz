@@ -55,7 +55,7 @@ export async function loadData(shop: string, isOutOfLocalHost = true) {
     const users = await fetchData(dataNames.users, id, false)
         .then(convertUsersData)
         .catch(() => undefined); // That's fine if there is no user data
-    if (!checkUser(users)) throw new UserNotFoundError();
+    if (users?.length && !users.filter(({ key }) => key === pubkey).length) throw new UserNotFoundError();
 
     const param = await fetchData(dataNames.parameters, id, false).then(convertParametersData);
     if (!param?.length) return;
@@ -66,6 +66,7 @@ export async function loadData(shop: string, isOutOfLocalHost = true) {
     parameters.thanksMessage = param.at(2) ?? 'Merci de votre visite !';
     parameters.mercurial = (param.at(3) ?? Object.values(Mercurial).at(0)) as Mercurial;
     parameters.lastModified = param.at(4) ?? new Date('0').toLocaleString();
+    parameters.hasUserAccess = true;
 
     const paymentMethods = await fetchData(dataNames.paymentMethods, id).then(convertPaymentMethodsData);
     if (!paymentMethods?.length) return;
@@ -109,12 +110,7 @@ export async function loadData(shop: string, isOutOfLocalHost = true) {
         currencies,
         paymentMethods,
         inventory,
-        users,
     };
-}
-
-export function checkUser(users: User[] | undefined) {
-    return !users?.length || users.filter(({ key }) => key === pubkey).length;
 }
 
 async function fetchData(dataName: DataName, id: string | undefined, isRaw = true) {
