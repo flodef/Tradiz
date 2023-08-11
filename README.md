@@ -54,14 +54,25 @@ Pour les virements ainsi que les paiements en monnaie numérique nécessitant un
 
 Il est enfin possible de cacher une méthode de paiement en cochant la colonne **Caché**.
 
+#### Utilisateurs
+
+L'onglet **Utilisateurs** contient la liste des utilisateurs de l'application. Cela permet de restreindre l'accès à l'application, ainsi que de donner des droits différents à chaque utilisateur en fonction de son rôle : caisse, service ou cuisine.
+
+Chaque utilisateur doit avoir :
+
+-   **une clé publique**, propre à son appareil de connexion
+-   **un nom** permettant de l'identifier
+-   **un rôle** : caisse, service ou cuisine
+
 #### Paramètres
 
 L'onglet **Paramètres** contient les différents paramètres de l'application :
 
--   le nom du commerce
--   un message de remerciement à afficher après un paiement
--   une mercuriale quadratique à utiliser lors d'un paiement (la mercuriale quadratique est une fonction mathématique permettant de calculer le prix d'un produit en fonction de la quantité achetée)
--   la dernière date de mise à jour des données (se calcule automatiquement, à ne pas modifier)
+-   **le nom du commerce**
+-   **l'email du commerce** : pour recevoir les demandes d'accès à l'application si vous en restreignez l'accès
+-   **un message de remerciement à afficher après un paiement**
+-   **une mercuriale quadratique à utiliser lors d'un paiement** : la mercuriale quadratique est une fonction mathématique permettant de calculer le prix d'un produit en fonction de la quantité achetée
+-   **la dernière date de mise à jour des données** : se calcule automatiquement, à ne pas modifier
 
 ### Partager le fichier de données
 
@@ -139,13 +150,18 @@ Une fois dans le Dashboard, cliquer sur le projet puis aller dans les variables 
 
 Il y a 2 paramètres à entrer afin d'accéder aux données contenues dans le fichier Google Sheet :
 
--   GOOGLE_SPREADSHEET_ID : l'identifiant pointant vers le fichier
--   GOOGLE_API_KEY : la clé permettant l'accès vers le fichier
+-   **GOOGLE_SPREADSHEET_ID** : l'identifiant pointant vers le fichier
+-   **GOOGLE_API_KEY** : la clé permettant l'accès vers le fichier
 
 Pour ce faire :
 
 -   entrer dans le champ **Key** : `GOOGLE_SPREADSHEET_ID` et dans le champ **Value** : _Votre_Identifiant_Fichier_
 -   entrer dans le champ **Key** : `GOOGLE_API_KEY` et dans le champ **Value** : _Votre_Clé_Accès_Fichier_
+
+Il existe également d'autres **paramètres optionnels** permettant de personnaliser l'application uniquement si vous utilisez le réseau Solana pour les paiements :
+
+-   **NEXT_PUBLIC_CLUSTER_ENDPOINT** est l'adresse d'un serveur permettant de gérer les interactions avec le réseau Solana.
+-   **NEXT_PUBLIC_IS_DEV** est un booléen permettant de définir si l'application est en mode développement ou production. Cela permet d'effectuer des tests sans dépenser de SOL. _Par défaut, false. Valeur possible : true ou false._
 
 ### Application des paramètres
 
