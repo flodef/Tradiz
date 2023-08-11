@@ -1,5 +1,6 @@
 import { PublicKey, clusterApiUrl } from '@solana/web3.js';
 
+export const EMAIL = 'flo@fims.fi';
 export const OTHER_KEYWORD = 'Autres';
 export const CATEGORY_SEPARATOR = '>';
 export const DEFAULT_DATE = [

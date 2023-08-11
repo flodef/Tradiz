@@ -319,7 +319,7 @@ export const useSummary = () => {
             const message =
                 'Bonjour,\n\nCi-joint le Ticket Z du ' + new Date().toLocaleDateString() + ' :\n\n' + summary;
 
-            sendEmail(subject, message);
+            sendEmail('', subject, message);
         },
         [getTransactionsSummary, localTransactions]
     );
