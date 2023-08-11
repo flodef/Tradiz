@@ -1,6 +1,6 @@
 import { Keypair } from '@solana/web3.js';
 import { Parameters } from '../contexts/ConfigProvider';
-import { InventoryItem, Mercurial } from '../hooks/useConfig';
+import { InventoryItem, Mercurial, Role } from '../hooks/useConfig';
 import { EMAIL } from './constants';
 
 class MissingDataError extends Error {
@@ -69,15 +69,16 @@ export async function loadData(shop: string, isOutOfLocalHost = true) {
         .then(convertUsersData)
         .catch(() => undefined); // That's fine if there is no user data
     const publicKey = users?.length ? getPublicKey() : undefined;
-    if (users?.length && !users.filter(({ key }) => key === publicKey).length) throw new UserNotFoundError(param.at(1));
+    const user = users?.length ? users.filter(({ key }) => key === publicKey).at(0) : { role: Role.cashier };
+    if (!user || user.role === Role.none) throw new UserNotFoundError(param.at(1));
 
     const parameters = {} as Parameters;
     parameters.shopName = param.at(0) ?? '';
     parameters.shopEmail = param.at(1) ?? EMAIL;
     parameters.thanksMessage = param.at(2) ?? 'Merci de votre visite !';
-    parameters.mercurial = (param.at(3) ?? Object.values(Mercurial).at(0)) as Mercurial;
+    parameters.mercurial = (param.at(3) ?? Mercurial.none) as Mercurial;
     parameters.lastModified = param.at(4) ?? new Date('0').toLocaleString();
-    parameters.hasUserAccess = true;
+    parameters.user = user;
 
     const paymentMethods = await fetchData(dataNames.paymentMethods, id).then(convertPaymentMethodsData);
     if (!paymentMethods?.length) return;
@@ -179,7 +180,7 @@ async function convertUsersData(response: void | Response) {
                 return {
                     key: String(item.at(0)).trim() ?? '',
                     name: String(item.at(1)).trim() ?? '',
-                    role: String(item.at(2)).trim() ?? '',
+                    role: (String(item.at(2)).trim() ?? Role.cashier) as Role,
                 };
             });
     });

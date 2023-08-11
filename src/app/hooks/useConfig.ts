@@ -9,6 +9,19 @@ export enum State {
     done,
 }
 
+export enum Role {
+    none = 'Aucun',
+    cashier = 'Caisse',
+    service = 'Service',
+    kitchen = 'Cuisine',
+}
+
+export interface User {
+    key?: string;
+    name?: string;
+    role: Role;
+}
+
 export enum Mercurial {
     none = 'Aucune',
     exponential = 'Exponentielle',
@@ -41,6 +54,7 @@ export interface ConfigContextState {
     shopName: string;
     thanksMessage: string;
     mercurial: Mercurial;
+    user: User;
     lastModified: string;
     currencyIndex: number;
     setCurrency: (currency: string) => void;
