@@ -2,6 +2,7 @@
 
 import { FC, ReactNode, useCallback, useEffect, useState } from 'react';
 import { ConfigContext, Currency, InventoryItem, Mercurial, PaymentMethod, State } from '../hooks/useConfig';
+import { EMAIL } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
 import { UserNotFoundError, loadData } from '../utils/processData';
 
@@ -36,7 +37,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const [state, setState] = useState(State.init);
     const [config, setConfig] = useLocalStorage<Config | undefined>('Parameters', undefined);
     const [shopName, setShopName] = useState('');
-    const [shopEmail, setShopEmail] = useState('');
+    const [shopEmail, setShopEmail] = useState(EMAIL);
     const [thanksMessage, setThanksMessage] = useState('');
     const [mercurial, setMercurial] = useState(Mercurial.none);
     const [lastModified, setLastModified] = useState(new Date().toLocaleString());
@@ -111,9 +112,9 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
                 .catch((error) => {
                     console.error(error);
 
-                    if (config) {
+                    if (config?.parameters.hasUserAccess) {
                         updateConfig(config);
-                        setState(config.parameters.hasUserAccess ? State.error : State.unidentified);
+                        setState(State.error);
                     } else {
                         loadData(shop, false)
                             .then((data) => {
@@ -121,6 +122,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
                             })
                             .catch((error) => {
                                 console.error(error);
+                                setShopEmail(String(error.cause));
                                 setState(error instanceof UserNotFoundError ? State.unidentified : State.fatal);
                             });
                     }

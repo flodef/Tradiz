@@ -1,4 +1,4 @@
-import { Parameters, User } from '../contexts/ConfigProvider';
+import { Parameters } from '../contexts/ConfigProvider';
 import { InventoryItem, Mercurial } from '../hooks/useConfig';
 import { EMAIL } from './constants';
 
@@ -15,6 +15,9 @@ class WrongDataPatternError extends Error {
 export class UserNotFoundError extends Error {
     name = 'UserNotFoundError';
     message = 'user not found';
+    constructor(email: string | undefined) {
+        super(`user not found: ${email}`, { cause: email });
+    }
 }
 
 interface DataName {
@@ -52,13 +55,13 @@ export async function loadData(shop: string, isOutOfLocalHost = true) {
             : '' // if shop is not a string, it means that the app is used by a shop (root path)
         : undefined;
 
+    const param = await fetchData(dataNames.parameters, id, false).then(convertParametersData);
+    if (!param?.length) return;
+
     const users = await fetchData(dataNames.users, id, false)
         .then(convertUsersData)
         .catch(() => undefined); // That's fine if there is no user data
-    if (users?.length && !users.filter(({ key }) => key === pubkey).length) throw new UserNotFoundError();
-
-    const param = await fetchData(dataNames.parameters, id, false).then(convertParametersData);
-    if (!param?.length) return;
+    if (users?.length && !users.filter(({ key }) => key === pubkey).length) throw new UserNotFoundError(param.at(1));
 
     const parameters = {} as Parameters;
     parameters.shopName = param.at(0) ?? '';
