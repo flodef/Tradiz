@@ -17,28 +17,35 @@ const totalLabel = 'TOTAL';
 
 interface ItemProps {
     className?: string;
-    index: number;
     label: string;
-    question: string;
-    action: (key: number) => void;
     onClick?: () => void;
+    onContextMenu: () => void;
 }
 
-const Item: FC<ItemProps> = ({ index, label, question, action, onClick = () => {}, className }) => {
-    const { openPopup } = usePopup();
+function handleContextMenu(
+    question: string,
+    action: (index: number) => void,
+    index: number,
+    openPopup: (title: string, options: string[], callback: (index: number, option: string) => void) => void
+) {
+    openPopup(question + ' ?', ['Oui', 'Non'], (i: number) => {
+        if (i === 0) {
+            action(index);
+        }
+    });
+}
+
+const Item: FC<ItemProps> = ({ label, onClick = () => {}, onContextMenu, className }) => {
+    const handleContextMenu = useCallback<MouseEventHandler>(
+        (e) => {
+            e.preventDefault();
+            onContextMenu();
+        },
+        [onContextMenu]
+    );
+
     return (
-        <div
-            className={className}
-            onClick={onClick}
-            onContextMenu={(e) => {
-                e.preventDefault();
-                openPopup(question + ' ?', ['Oui', 'Non'], (i) => {
-                    if (i === 0) {
-                        action(index);
-                    }
-                });
-            }}
-        >
+        <div className={className} onClick={onClick} onContextMenu={handleContextMenu}>
             {label}
         </div>
     );
@@ -265,6 +272,27 @@ export const Total: FC = () => {
         ]
     );
 
+    const modifyProduct = useCallback(
+        (index: number) => {
+            handleContextMenu('Effacer', deleteProduct, index, openPopup);
+        },
+        [deleteProduct, openPopup]
+    );
+
+    const modifyTransaction = useCallback(
+        (index: number) => {
+            handleContextMenu(
+                localTransactions?.at(index) && isWaitingTransaction(localTransactions[index])
+                    ? 'Reprendre'
+                    : 'Modifier',
+                editTransaction,
+                index,
+                openPopup
+            );
+        },
+        [editTransaction, openPopup, localTransactions, isWaitingTransaction]
+    );
+
     const totalDisplayClassName =
         'text-5xl truncate text-center font-bold py-3 ' +
         (useIsMobile()
@@ -300,11 +328,10 @@ export const Total: FC = () => {
                           ?.map(displayProduct)
                           .map((product, index) => (
                               <Item
+                                  className="active:bg-active-light dark:active:bg-active-dark"
                                   key={index}
-                                  index={index}
                                   label={product}
-                                  question={'Effacer'}
-                                  action={deleteProduct}
+                                  onContextMenu={() => modifyProduct(index)}
                               />
                           ))
                     : localTransactions
@@ -312,19 +339,18 @@ export const Total: FC = () => {
                           .map((transaction, index) => (
                               <Item
                                   className={
-                                      isWaitingTransaction(localTransactions[index])
+                                      'active:bg-active-light dark:active:bg-active-dark ' +
+                                      (isWaitingTransaction(localTransactions[index])
                                           ? (localTransactions[index + 1] &&
                                             !isWaitingTransaction(localTransactions[index + 1])
                                                 ? 'mb-3 pb-3 border-b-4 border-active-light dark:border-active-dark '
                                                 : '') + 'animate-pulse'
-                                          : ''
+                                          : '')
                                   }
                                   key={index}
-                                  index={index}
                                   label={transaction}
-                                  onClick={() => showBoughtProducts(index)}
-                                  question={isWaitingTransaction(localTransactions[index]) ? 'Reprendre' : 'Modifier'}
-                                  action={editTransaction}
+                                  onClick={() => showBoughtProducts(index, () => modifyTransaction(index))}
+                                  onContextMenu={() => modifyTransaction(index)}
                               />
                           ))
                           .concat(
