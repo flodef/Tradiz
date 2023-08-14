@@ -1,8 +1,8 @@
 {
     "values": [
         ["Moyen", "Addresse", "Caché"],
-        ["CB", "", false],
-        ["Virement", "", false],
+        ["Carte Bancaire", "", false],
+        ["Virement", "FR76 43434334 43434 41343", false],
         ["Espèce", "", false],
         ["Chèque", "", false],
         ["Solana", "GZLPJYkR3diD8c8vpgb7sXHEH9sG1R9sWa3yPwaL9Peb", false],
