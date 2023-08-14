@@ -17,14 +17,16 @@ export const Popup: FC = () => {
         popupAction,
         popupStayOpen,
         popupSpecialAction,
+        popupIsSpecial,
         openPopup,
         closePopup,
         isPopupOpen,
     } = usePopup();
+
     const optionCount = popupOptions.filter((option) => option?.toString().trim()).length;
 
     const handleClick = useCallback(
-        (index: number, option: string) => {
+        (option: string, index: number) => {
             if (!popupAction) return;
 
             popupAction(index, option);
@@ -34,23 +36,32 @@ export const Popup: FC = () => {
     );
 
     const handleContextMenu = useCallback(
-        (index: number) => {
+        (option: string, index: number) => {
             if (!popupSpecialAction || index > (popupSpecialAction.maxIndex ?? Number.POSITIVE_INFINITY)) return;
 
             openPopup(
-                popupSpecialAction.confirmTitle,
+                popupIsSpecial && popupIsSpecial(option)
+                    ? popupSpecialAction.confirmTitle.split('|').at(1) ?? popupSpecialAction.confirmTitle
+                    : popupSpecialAction.confirmTitle.split('|')[0],
                 ['Oui', 'Non'],
                 (i) => {
                     if (i === 0) {
                         popupSpecialAction.action(index);
                     } else {
-                        openPopup(popupTitle, popupOptions, popupAction, popupStayOpen, popupSpecialAction);
+                        openPopup(
+                            popupTitle,
+                            popupOptions,
+                            popupAction,
+                            popupStayOpen,
+                            popupSpecialAction,
+                            popupIsSpecial
+                        );
                     }
                 },
                 true
             );
         },
-        [openPopup, popupSpecialAction, popupAction, popupOptions, popupTitle, popupStayOpen]
+        [openPopup, popupSpecialAction, popupAction, popupOptions, popupTitle, popupStayOpen, popupIsSpecial]
     );
 
     return (
@@ -75,7 +86,7 @@ export const Popup: FC = () => {
                         <CloseButton
                             onClose={() => {
                                 closePopup(() => {
-                                    handleClick(-1, '');
+                                    handleClick('', -1);
                                 });
                             }}
                         />
@@ -93,13 +104,14 @@ export const Popup: FC = () => {
                                         : optionCount <= 13
                                         ? 'py-1 '
                                         : '') +
+                                    (popupIsSpecial && popupIsSpecial(option.toString()) ? ' animate-pulse ' : '') +
                                     'w-full relative flex justify-around items-center font-semibold text-xl text-center'
                                 }
                                 key={index}
-                                onClick={() => handleClick(index, option.toString())}
+                                onClick={() => handleClick(option.toString(), index)}
                                 onContextMenu={(e) => {
                                     e.preventDefault();
-                                    handleContextMenu(index);
+                                    handleContextMenu(option.toString(), index);
                                 }}
                             >
                                 {typeof option === 'string'

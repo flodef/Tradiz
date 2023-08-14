@@ -17,5 +17,5 @@ export function isMobileSize() {
 
 // Detects if the screen size is a mobile size (update on screen resize)
 export function useIsMobile() {
-    return useWindowParam().width <= 767;
+    return useWindowParam().width < 768;
 }

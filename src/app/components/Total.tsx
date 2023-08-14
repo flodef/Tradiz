@@ -6,6 +6,7 @@ import { Transaction, useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
+import { WAITING_KEYWORD } from '../utils/constants';
 import { requestFullscreen } from '../utils/fullscreen';
 import { isMobileSize, useIsMobile } from '../utils/mobile';
 import { Amount } from './Amount';
@@ -188,15 +189,28 @@ export const Total: FC = () => {
     const showTransactions = useCallback(() => {
         if (!localTransactions?.length) return;
 
-        const summary = localTransactions.map(displayTransaction);
-
-        openPopup(displayTransactionsTitle, summary, (i) => showBoughtProducts(i, showTransactions), true, {
-            confirmTitle: 'Modifier ?',
-            action: (i) => {
-                editTransaction(i);
-                closePopup();
+        const waitingTransactions = localTransactions.filter(isWaitingTransaction);
+        const confirmedTransactions = localTransactions.filter((t) => !isWaitingTransaction(t));
+        const hasSeparation = waitingTransactions.length && confirmedTransactions.length;
+        const getIndex = (i: number) => (i > waitingTransactions.length && waitingTransactions.length ? i - 1 : i);
+        const summary = waitingTransactions
+            .map(displayTransaction)
+            .concat(hasSeparation ? [''] : [])
+            .concat(confirmedTransactions.map(displayTransaction));
+        openPopup(
+            displayTransactionsTitle,
+            summary,
+            (i) => showBoughtProducts(getIndex(i), showTransactions),
+            true,
+            {
+                confirmTitle: 'Modifier ?|Reprendre ?',
+                action: (i) => {
+                    editTransaction(getIndex(i));
+                    closePopup();
+                },
             },
-        });
+            (option: string) => option.includes(WAITING_KEYWORD)
+        );
     }, [
         openPopup,
         closePopup,
@@ -205,6 +219,7 @@ export const Total: FC = () => {
         displayTransaction,
         showBoughtProducts,
         displayTransactionsTitle,
+        isWaitingTransaction,
     ]);
 
     const canDisplayTotal = useMemo(() => {

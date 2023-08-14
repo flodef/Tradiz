@@ -7,7 +7,8 @@ export interface PopupContextState {
         options: string[] | ReactNode[],
         action?: (index: number, option: string) => void,
         stayOpen?: boolean,
-        specialAction?: { confirmTitle: string; action: (index: number) => void; maxIndex?: number }
+        specialAction?: { confirmTitle: string; action: (index: number) => void; maxIndex?: number },
+        isSpecial?: (option: string) => boolean
     ) => void;
 
     closePopup: (callback?: () => void) => void;
@@ -16,6 +17,7 @@ export interface PopupContextState {
     popupAction?: (index: number, option: string) => void;
     popupStayOpen: boolean;
     popupSpecialAction?: { confirmTitle: string; action: (index: number) => void; maxIndex?: number };
+    popupIsSpecial?: (option: string) => boolean;
 }
 
 export const PopupContext = createContext<PopupContextState>({} as PopupContextState);
