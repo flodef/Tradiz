@@ -203,8 +203,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [toCurrency]
     );
 
-    const isWaitingTransaction = useCallback((transaction: Transaction) => {
-        return transaction && transaction.method === WAITING_KEYWORD;
+    const isWaitingTransaction = useCallback((transaction?: Transaction) => {
+        return Boolean(transaction && transaction.method === WAITING_KEYWORD);
     }, []);
 
     const saveTransactions = useCallback(

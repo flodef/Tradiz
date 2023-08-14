@@ -46,7 +46,7 @@ export interface DataContextState {
     editTransaction: (index: number) => void;
     toCurrency: (value: number, currency?: Currency) => string;
     displayTransaction: (transaction: Transaction) => string;
-    isWaitingTransaction: (transaction: Transaction) => boolean;
+    isWaitingTransaction: (transaction?: Transaction) => boolean;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);

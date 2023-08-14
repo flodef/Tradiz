@@ -6,7 +6,7 @@ import { Transaction, useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
-import { WAITING_KEYWORD } from '../utils/constants';
+import { BACK_KEYWORD, WAITING_KEYWORD } from '../utils/constants';
 import { requestFullscreen } from '../utils/fullscreen';
 import { isMobileSize, useIsMobile } from '../utils/mobile';
 import { Amount } from './Amount';
@@ -26,13 +26,34 @@ function handleContextMenu(
     question: string,
     action: (index: number) => void,
     index: number,
-    openPopup: (title: string, options: string[], callback: (index: number, option: string) => void) => void
+    openPopup: (
+        title: string,
+        options: string[],
+        callback: (index: number, option: string) => void,
+        stayOpen: boolean
+    ) => void,
+    closePopup: () => void,
+    fallback: (index: number) => void = () => {}
 ) {
-    openPopup(question + ' ?', ['Oui', 'Non'], (i: number) => {
-        if (i === 0) {
-            action(index);
-        }
-    });
+    if (index >= 0) {
+        openPopup(
+            question + ' ?',
+            ['Oui', 'Non'],
+            (i) => {
+                switch (i) {
+                    case 0:
+                        action(index);
+                        closePopup();
+                        break;
+
+                    case 1:
+                        fallback(index);
+                        break;
+                }
+            },
+            true
+        );
+    }
 }
 
 const Item: FC<ItemProps> = ({ label, onClick = () => {}, onContextMenu, className }) => {
@@ -59,6 +80,7 @@ export const Total: FC = () => {
         products,
         selectedCategory,
         addProduct,
+        addProductQuantity,
         deleteProduct,
         displayProduct,
         transactions,
@@ -81,6 +103,27 @@ export const Total: FC = () => {
     }, [transactions]);
 
     const label = useIsMobile() ? totalLabel : payLabel;
+
+    const modifyProduct = useCallback(
+        (index: number) => {
+            handleContextMenu('Effacer', deleteProduct, index, openPopup, closePopup);
+        },
+        [deleteProduct, openPopup, closePopup]
+    );
+
+    const modifyTransaction = useCallback(
+        (index: number, fallback: (index: number) => void) => {
+            handleContextMenu(
+                isWaitingTransaction(localTransactions?.at(index)) ? 'Reprendre' : 'Modifier',
+                editTransaction,
+                index,
+                openPopup,
+                closePopup,
+                () => fallback(index)
+            );
+        },
+        [editTransaction, openPopup, localTransactions, isWaitingTransaction, closePopup]
+    );
 
     const displayTransactionsTitle = useMemo(() => {
         if (!localTransactions?.length) return '';
@@ -111,9 +154,12 @@ export const Total: FC = () => {
         openPopup(
             products.current.length + ' produits : ' + toCurrency(getCurrentTotal(), products.current[0].currency),
             products.current.map(displayProduct).concat(['', payLabel]),
-            (_, option) => {
+            (index, option) => {
                 if (option === payLabel) {
                     pay();
+                } else if (index >= 0) {
+                    addProductQuantity(products.current?.at(index));
+                    showProducts();
                 }
             },
             true,
@@ -134,7 +180,17 @@ export const Total: FC = () => {
                 },
             }
         );
-    }, [getCurrentTotal, pay, products, openPopup, closePopup, displayProduct, deleteProduct, toCurrency]);
+    }, [
+        getCurrentTotal,
+        pay,
+        products,
+        openPopup,
+        closePopup,
+        displayProduct,
+        deleteProduct,
+        toCurrency,
+        addProductQuantity,
+    ]);
 
     const deleteBoughtProduct = useCallback(
         (
@@ -167,14 +223,17 @@ export const Total: FC = () => {
     );
 
     const showBoughtProducts = useCallback(
-        (index: number, fallback?: () => void) => {
+        (index: number, fallback: () => void) => {
             const transaction = localTransactions?.at(index);
             if (!transaction || !transaction.amount || index < 0) return;
 
             openPopup(
                 toCurrency(transaction.amount, transaction.currency) + ' en ' + transaction.method,
-                transaction.products.map(displayProduct),
-                fallback ? fallback : undefined,
+                transaction.products.map(displayProduct).concat(isMobileSize() ? ['', BACK_KEYWORD] : []),
+                (i, o) =>
+                    o === BACK_KEYWORD
+                        ? fallback()
+                        : modifyTransaction(i !== -1 ? index : i, (i) => showBoughtProducts(i, fallback)),
                 true,
                 {
                     confirmTitle: 'Effacer ?',
@@ -184,13 +243,13 @@ export const Total: FC = () => {
                             index,
                             transaction,
                             () => showBoughtProducts(index, fallback),
-                            fallback ? fallback : closePopup
+                            () => modifyTransaction(i, (i) => showBoughtProducts(i, fallback))
                         );
                     },
                 }
             );
         },
-        [localTransactions, openPopup, closePopup, displayProduct, toCurrency, deleteBoughtProduct]
+        [localTransactions, openPopup, displayProduct, toCurrency, deleteBoughtProduct, modifyTransaction]
     );
 
     const showTransactions = useCallback(() => {
@@ -272,27 +331,6 @@ export const Total: FC = () => {
         ]
     );
 
-    const modifyProduct = useCallback(
-        (index: number) => {
-            handleContextMenu('Effacer', deleteProduct, index, openPopup);
-        },
-        [deleteProduct, openPopup]
-    );
-
-    const modifyTransaction = useCallback(
-        (index: number) => {
-            handleContextMenu(
-                localTransactions?.at(index) && isWaitingTransaction(localTransactions[index])
-                    ? 'Reprendre'
-                    : 'Modifier',
-                editTransaction,
-                index,
-                openPopup
-            );
-        },
-        [editTransaction, openPopup, localTransactions, isWaitingTransaction]
-    );
-
     const totalDisplayClassName =
         'text-5xl truncate text-center font-bold py-3 ' +
         ((canDisplayTotal && total) || (!canDisplayTotal && localTransactions?.length)
@@ -331,7 +369,7 @@ export const Total: FC = () => {
                                   className="active:bg-active-light dark:active:bg-active-dark"
                                   key={index}
                                   label={product}
-                                  onClick={() => modifyProduct(index)}
+                                  onClick={() => addProductQuantity(products.current?.at(index))}
                                   onContextMenu={() => modifyProduct(index)}
                               />
                           ))
@@ -341,17 +379,19 @@ export const Total: FC = () => {
                               <Item
                                   className={
                                       'active:bg-active-light dark:active:bg-active-dark ' +
-                                      (isWaitingTransaction(localTransactions[index])
-                                          ? (localTransactions[index + 1] &&
-                                            !isWaitingTransaction(localTransactions[index + 1])
+                                      (isWaitingTransaction(localTransactions.at(index))
+                                          ? (localTransactions.at(index + 1) &&
+                                            !isWaitingTransaction(localTransactions.at(index + 1))
                                                 ? 'mb-3 pb-3 border-b-4 border-active-light dark:border-active-dark '
                                                 : '') + 'animate-pulse'
                                           : '')
                                   }
                                   key={index}
                                   label={transaction}
-                                  onClick={() => showBoughtProducts(index, () => modifyTransaction(index))}
-                                  onContextMenu={() => modifyTransaction(index)}
+                                  onClick={() => showBoughtProducts(index, showTransactions)}
+                                  onContextMenu={() =>
+                                      modifyTransaction(index, (i) => showBoughtProducts(i, showTransactions))
+                                  }
                               />
                           ))
                           .concat(
