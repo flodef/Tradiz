@@ -1,9 +1,9 @@
 'use client';
 
 import { encodeURL, findReference, FindReferenceError, ValidateTransferError } from '@solana/pay';
-import { ConfirmedSignatureInfo, Connection, Keypair, PublicKey, TransactionSignature } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey, TransactionSignature } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
-import { FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, ReactNode, use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConfig } from '../hooks/useConfig';
 import { Crypto, CryptoContext, PaymentStatus } from '../hooks/useCrypto';
 import { useData } from '../hooks/useData';
@@ -17,7 +17,7 @@ export interface CryptoProviderProps {
 }
 
 export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
-    const { total } = useData();
+    const { total, products } = useData();
     const { paymentMethods, shopName: label, thanksMessage: message } = useConfig();
     const { isOnline } = useWindowParam();
 
@@ -47,6 +47,10 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
     const [error, setError] = useState<Error>();
     const [refresh, setRefresh] = useState(false);
     const refPaymentStatus = useRef(paymentStatus);
+
+    useEffect(() => {
+        BigNumber.config({ DECIMAL_PLACES: products.current?.at(0)?.currency.maxDecimals ?? 0 });
+    }, [products]);
 
     useEffect(() => {
         if (error) {
