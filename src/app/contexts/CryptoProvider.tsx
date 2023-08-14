@@ -118,9 +118,8 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
         let changed = false;
 
         const interval = setInterval(async () => {
-            let signature: ConfirmedSignatureInfo;
             try {
-                signature = await findReference(connection.current, reference);
+                const signature = await findReference(connection.current, reference);
 
                 if (!changed) {
                     watchDog.current = 0;

@@ -3,7 +3,7 @@
 import { FC, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Mercurial, useConfig } from '../hooks/useConfig';
 import { DataContext, ProductElement, Transaction } from '../hooks/useData';
-import { CATEGORY_SEPARATOR, DEFAULT_DATE, OTHER_KEYWORD } from '../utils/constants';
+import { CATEGORY_SEPARATOR, DEFAULT_DATE, OTHER_KEYWORD, WAITING_KEYWORD } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
 
 export const transactionsKeyword = 'Transactions';
@@ -154,6 +154,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [toCurrency]
     );
 
+    const isWaitingTransaction = useCallback((transaction: Transaction) => {
+        return transaction && transaction.method === WAITING_KEYWORD;
+    }, []);
+
     const saveTransactions = useCallback(
         (transactions: Transaction[]) => {
             setTransactions(undefined);
@@ -174,12 +178,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [transactions, saveTransactions, addProduct]
     );
 
-    const addPayment = useCallback(
+    const addTransaction = useCallback(
         (method: string) => {
             if (!method || !products.current?.length) return;
 
             const currentHour = new Date().getHours() + 'h' + ('0' + new Date().getMinutes()).slice(-2);
-            let newTransactions = addElement(transactions, {
+            const newTransactions = addElement(transactions, {
                 method: method,
                 amount: getCurrentTotal(),
                 date: currentHour,
@@ -187,11 +191,36 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 products: products.current,
             });
 
+            // Put the waiting transaction at the beginning of the list
+            newTransactions.sort((a, b) => (isWaitingTransaction(a) && !isWaitingTransaction(b) ? -1 : 1));
+
             saveTransactions(newTransactions);
 
             clearTotal();
         },
-        [clearTotal, products, saveTransactions, transactions, getCurrentTotal, currencies, currencyIndex]
+        [
+            clearTotal,
+            products,
+            saveTransactions,
+            transactions,
+            getCurrentTotal,
+            currencies,
+            currencyIndex,
+            isWaitingTransaction,
+        ]
+    );
+
+    const displayTransaction = useCallback(
+        (transaction: Transaction) => {
+            return (
+                toCurrency(transaction.amount, transaction.currency) +
+                (isWaitingTransaction(transaction) ? ' ' : ' en ') +
+                transaction.method +
+                ' à ' +
+                transaction.date
+            );
+        },
+        [toCurrency, isWaitingTransaction]
     );
 
     return (
@@ -213,11 +242,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 clearAmount,
                 clearTotal,
                 products,
-                addPayment,
+                addTransaction,
                 transactions,
                 saveTransactions,
                 editTransaction,
                 toCurrency,
+                displayTransaction,
+                isWaitingTransaction,
             }}
         >
             {children}

@@ -10,7 +10,7 @@ import { useWindowParam } from '../hooks/useWindowParam';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { WalletIcon } from '../images/WalletIcon';
-import { CATEGORY_SEPARATOR } from '../utils/constants';
+import { CATEGORY_SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
 import { requestFullscreen } from '../utils/fullscreen';
 import { Digits } from '../utils/types';
 import { Amount } from './Amount';
@@ -65,21 +65,27 @@ const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu, 
 
 interface ImageButtonProps {
     children: ReactNode;
-    onInput(e: any): void;
+    onClick: () => void;
+    onContextMenu: () => void;
     className?: string;
 }
-const ImageButton: FC<ImageButtonProps> = ({ children, onInput, className }) => {
-    const onClick = useCallback<MouseEventHandler>(
+const ImageButton: FC<ImageButtonProps> = ({ children, onClick, onContextMenu, className }) => {
+    const handleClick = useCallback<MouseEventHandler>(() => {
+        requestFullscreen();
+        onClick();
+    }, [onClick]);
+
+    const handleContextMenu = useCallback<MouseEventHandler>(
         (e) => {
             e.preventDefault();
             requestFullscreen();
-            onInput(e);
+            onContextMenu();
         },
-        [onInput]
+        [onContextMenu]
     );
 
     return (
-        <div className={className} onClick={onClick} onContextMenu={onClick}>
+        <div className={className} onClick={handleClick} onContextMenu={handleContextMenu}>
             {children}
         </div>
     );
@@ -99,6 +105,7 @@ export const NumPad: FC = () => {
         clearTotal,
         selectedCategory,
         addProduct,
+        addTransaction: addPayment,
     } = useData();
     const { openPopup, closePopup, isPopupOpen } = usePopup();
     const { pay, canPay, canAddProduct } = usePay();
@@ -137,30 +144,17 @@ export const NumPad: FC = () => {
         [max, regExp, quantity, setQuantity, amount, maxValue, toMercurial]
     );
 
-    const onBackspace = useCallback<MouseEventHandler>(
-        (e) => {
-            e.preventDefault();
-            switch (e.type.toString()) {
-                case 'click':
-                    clearAmount();
-                    break;
-                case 'contextmenu':
-                    if (total > 0) {
-                        openPopup('Supprimer Total ?', ['Oui', 'Non'], (i) => {
-                            if (i === 0) {
-                                clearTotal();
-                            }
-                        });
-                    } else {
-                        clearAmount();
-                    }
-                    break;
-                default:
-                    console.error('Unhandled type: ' + e.type);
-            }
-        },
-        [clearAmount, clearTotal, openPopup, total]
-    );
+    const onClearTotal = useCallback(() => {
+        if (total > 0) {
+            openPopup('Supprimer Total ?', ['Oui', 'Non'], (i) => {
+                if (i === 0) {
+                    clearTotal();
+                }
+            });
+        } else {
+            clearAmount();
+        }
+    }, [clearAmount, clearTotal, openPopup, total]);
 
     const showCurrencies = useCallback(() => {
         if (currencies.length < 2) return;
@@ -305,7 +299,7 @@ export const NumPad: FC = () => {
                             showZero
                             onClick={showCurrencies}
                         />
-                        <ImageButton className={f1} onInput={onBackspace}>
+                        <ImageButton className={f1} onClick={clearAmount} onContextMenu={onClearTotal}>
                             <BackspaceIcon />
                         </ImageButton>
                         <FunctionButton className={f2} input="&times;" onInput={multiply} onContextMenu={mercuriale} />
@@ -336,7 +330,8 @@ export const NumPad: FC = () => {
                         <NumPadButton input={'00'} onInput={onInput} />
                         <ImageButton
                             className={sx}
-                            onInput={canPay ? pay : canAddProduct ? () => addProduct(selectedCategory) : () => {}}
+                            onClick={canPay ? pay : canAddProduct ? () => addProduct(selectedCategory) : () => {}}
+                            onContextMenu={canPay ? () => addPayment(WAITING_KEYWORD) : canAddProduct ? pay : () => {}}
                         >
                             {canPay ? <WalletIcon /> : canAddProduct ? <BasketIcon /> : ''}
                         </ImageButton>

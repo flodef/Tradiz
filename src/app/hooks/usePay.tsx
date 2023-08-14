@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { QRCode } from '../components/QRCode';
+import { WAITING_KEYWORD } from '../utils/constants';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
 import { useData } from './useData';
@@ -7,7 +8,15 @@ import { usePopup } from './usePopup';
 
 export const usePay = () => {
     const { openPopup, closePopup } = usePopup();
-    const { addPayment, getCurrentTotal, toCurrency, total, amount, selectedCategory } = useData();
+    const {
+        addTransaction: addPayment,
+        getCurrentTotal,
+        toCurrency,
+        total,
+        amount,
+        selectedCategory,
+        addProduct,
+    } = useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
     const { paymentMethods } = useConfig();
 
@@ -87,31 +96,42 @@ export const usePay = () => {
 
     const selectPayment = useCallback(
         (option: string, fallback: () => void) => {
-            if (option === Crypto.Solana || option === Crypto.June) {
-                generate(option);
-                openQRCode(cancelOrConfirmPaiement, fallback);
-            } else if (option === 'Virement') {
-                openPopup(
-                    'IBAN : ' + paymentMethods.find((item) => item.method === 'Virement')?.address ?? '',
-                    ['Valider paiement', 'Annuler paiement'],
-                    (index) => {
-                        if (index === 0) {
-                            addPayment(option);
+            switch (option) {
+                case Crypto.Solana:
+                case Crypto.June:
+                    generate(option);
+                    openQRCode(cancelOrConfirmPaiement, fallback);
+                    break;
+                case 'Virement':
+                    openPopup(
+                        'IBAN : ' + paymentMethods.find((item) => item.method === 'Virement')?.address ?? '',
+                        ['Valider paiement', 'Annuler paiement'],
+                        (index) => {
+                            if (index === 0) {
+                                addPayment(option);
+                            }
                         }
-                    }
-                );
-            } else {
-                addPayment(option);
-                closePopup();
+                    );
+                    break;
+                default:
+                    addPayment(option.includes(WAITING_KEYWORD) ? WAITING_KEYWORD : option);
+                    closePopup();
+                    break;
             }
         },
         [openQRCode, cancelOrConfirmPaiement, generate, addPayment, closePopup, paymentMethods, openPopup]
     );
 
     const pay = useCallback(() => {
+        if (canAddProduct) {
+            addProduct(selectedCategory);
+        }
+
         const total = getCurrentTotal();
         if (total && paymentMethods.length) {
-            const paymentMethodsLabels = paymentMethods.map((item) => item.method);
+            const paymentMethodsLabels = paymentMethods
+                .map((item) => item.method)
+                .concat(['', 'METTRE ' + WAITING_KEYWORD]);
             if (paymentMethodsLabels.length === 1) {
                 selectPayment(paymentMethodsLabels[0], pay);
             } else {
@@ -127,7 +147,16 @@ export const usePay = () => {
                 );
             }
         }
-    }, [selectPayment, openPopup, getCurrentTotal, paymentMethods, toCurrency]);
+    }, [
+        selectPayment,
+        openPopup,
+        getCurrentTotal,
+        paymentMethods,
+        toCurrency,
+        canAddProduct,
+        addProduct,
+        selectedCategory,
+    ]);
 
     useEffect(() => {
         if (error?.message === 'Transaction timed out') {

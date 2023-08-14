@@ -14,6 +14,35 @@ import { useAddPopupClass } from './Popup';
 const payLabel = 'PAYER';
 const totalLabel = 'TOTAL';
 
+interface ItemProps {
+    className?: string;
+    index: number;
+    label: string;
+    question: string;
+    action: (key: number) => void;
+    onClick?: () => void;
+}
+
+const Item: FC<ItemProps> = ({ index, label, question, action, onClick = () => {}, className }) => {
+    const { openPopup } = usePopup();
+    return (
+        <div
+            className={className}
+            onClick={onClick}
+            onContextMenu={(e) => {
+                e.preventDefault();
+                openPopup(question + ' ?', ['Oui', 'Non'], (i) => {
+                    if (i === 0) {
+                        action(index);
+                    }
+                });
+            }}
+        >
+            {label}
+        </div>
+    );
+};
+
 export const Total: FC = () => {
     const {
         total,
@@ -30,10 +59,12 @@ export const Total: FC = () => {
         toCurrency,
         toMercurial,
         quantity,
+        displayTransaction,
+        isWaitingTransaction,
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
-    const { pay } = usePay();
+    const { pay, canAddProduct } = usePay();
 
     // Hack to avoid differences between the server and the client, generating hydration issues
     const [localTransactions, setLocalTransactions] = useState<Transaction[] | undefined>();
@@ -42,19 +73,6 @@ export const Total: FC = () => {
     }, [transactions]);
 
     const label = useIsMobile() ? totalLabel : payLabel;
-
-    const displayTransaction = useCallback(
-        (transaction: Transaction) => {
-            return (
-                toCurrency(transaction.amount, transaction.currency) +
-                ' en ' +
-                transaction.method +
-                ' à ' +
-                transaction.date
-            );
-        },
-        [toCurrency]
-    );
 
     const displayTransactionsTitle = useMemo(() => {
         if (!localTransactions?.length) return '';
@@ -198,7 +216,7 @@ export const Total: FC = () => {
             e.preventDefault();
             requestFullscreen();
             if (canDisplayTotal) {
-                if (amount && selectedCategory) {
+                if (canAddProduct) {
                     addProduct(selectedCategory);
                 }
                 if (isMobileSize()) {
@@ -225,10 +243,10 @@ export const Total: FC = () => {
             localTransactions,
             pay,
             addProduct,
-            amount,
             selectedCategory,
             showTransactionsSummary,
             showTransactionsSummaryMenu,
+            canAddProduct,
         ]
     );
 
@@ -263,38 +281,36 @@ export const Total: FC = () => {
 
             <div className="text-center text-2xl font-bold py-3 hidden md:block md:max-h-[90%] md:overflow-y-auto">
                 {canDisplayTotal
-                    ? products.current?.map(displayProduct).map((product, index) => (
-                          <div
-                              key={index}
-                              onContextMenu={(e) => {
-                                  e.preventDefault();
-                                  openPopup('Effacer ?', ['Oui', 'Non'], (i) => {
-                                      if (i === 0) {
-                                          deleteProduct(index);
-                                      }
-                                  });
-                              }}
-                          >
-                              {product}
-                          </div>
-                      ))
+                    ? products.current
+                          ?.map(displayProduct)
+                          .map((product, index) => (
+                              <Item
+                                  key={index}
+                                  index={index}
+                                  label={product}
+                                  question={'Effacer'}
+                                  action={deleteProduct}
+                              />
+                          ))
                     : localTransactions
                           ?.map(displayTransaction)
                           .map((transaction, index) => (
-                              <div
+                              <Item
+                                  className={
+                                      isWaitingTransaction(localTransactions[index])
+                                          ? (localTransactions[index + 1] &&
+                                            !isWaitingTransaction(localTransactions[index + 1])
+                                                ? 'mb-3 pb-3 border-b-4 border-active-light dark:border-active-dark '
+                                                : '') + 'animate-pulse'
+                                          : ''
+                                  }
                                   key={index}
+                                  index={index}
+                                  label={transaction}
                                   onClick={() => showBoughtProducts(index)}
-                                  onContextMenu={(e) => {
-                                      e.preventDefault();
-                                      openPopup('Modifier ?', ['Oui', 'Non'], (i) => {
-                                          if (i === 0) {
-                                              editTransaction(index);
-                                          }
-                                      });
-                                  }}
-                              >
-                                  {transaction}
-                              </div>
+                                  question={isWaitingTransaction(localTransactions[index]) ? 'Reprendre' : 'Modifier'}
+                                  action={editTransaction}
+                              />
                           ))
                           .concat(
                               <div

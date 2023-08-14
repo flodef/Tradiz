@@ -138,7 +138,7 @@ export const useSummary = () => {
 
             const taxes = getTaxesByCategory();
             const taxAmount = getTaxAmountByCategory(taxes, categories);
-            let totalTaxes = { total: 0, ht: 0, tva: 0 };
+            const totalTaxes = { total: 0, ht: 0, tva: 0 };
             taxAmount.forEach(({ total, ht, tva }) => {
                 totalTaxes.total += total;
                 totalTaxes.ht += ht;

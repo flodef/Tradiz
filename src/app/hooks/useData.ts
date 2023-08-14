@@ -38,11 +38,13 @@ export interface DataContextState {
     clearAmount: () => void;
     clearTotal: () => void;
     products: MutableRefObject<ProductElement[] | undefined>;
-    addPayment: (method: string) => void;
+    addTransaction: (method: string) => void;
     transactions: Transaction[] | undefined;
     saveTransactions: (transactions: Transaction[]) => void;
     editTransaction: (index: number) => void;
     toCurrency: (value: number, currency?: Currency) => string;
+    displayTransaction: (transaction: Transaction) => string;
+    isWaitingTransaction: (transaction: Transaction) => boolean;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);
