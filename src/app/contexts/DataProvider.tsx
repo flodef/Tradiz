@@ -68,6 +68,17 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [currentMercurial]
     );
 
+    const fromMercurial = useCallback(
+        (quantity: number) => {
+            quantity = Math.floor(quantity);
+            while (toMercurial(quantity) > quantity) {
+                quantity--;
+            }
+            return quantity;
+        },
+        [toMercurial]
+    );
+
     const getCurrentTotal = useCallback(() => {
         return products.current ? products.current.reduce((t, { total }) => t + total, 0) : 0;
     }, [products]);
@@ -89,6 +100,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         clearAmount();
     }, [clearAmount]);
 
+    const computeQuantity = useCallback(
+        (amount: number, quantity = 1, maxValue = currencies[currencyIndex].maxValue) => {
+            const quadratic = toMercurial(quantity);
+
+            return Math.max(1, amount * quadratic <= maxValue ? quantity : fromMercurial(maxValue / amount));
+        },
+        [currencies, currencyIndex, toMercurial, fromMercurial]
+    );
+
     const addProduct = useCallback(
         (product: string | ProductElement) => {
             let element: ProductElement = {
@@ -99,25 +119,28 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 total: 0,
                 currency: currencies[0],
             };
+
             if (typeof product === 'object') {
                 element = product;
             } else {
                 const p = (product ?? selectedCategory).split(CATEGORY_SEPARATOR);
                 element.category = p.at(0) ?? '';
                 element.label = p.at(1) ?? '';
-                element.quantity = Math.max(1, quantity);
+                element.quantity = quantity;
                 element.amount = amount;
-                element.total = amount * toMercurial(element.quantity);
                 element.currency = currencies[currencyIndex];
             }
 
-            if (!element.total) return;
+            element.quantity = computeQuantity(element.amount, element.quantity, element.currency.maxValue);
+            element.total = element.amount * toMercurial(element.quantity);
+
+            if (!element.amount || (!element.label && !element.category)) return;
 
             const p = products.current?.find(
                 ({ label, amount }) => label === element.label && amount === element.amount
             );
             if (p) {
-                p.quantity += element.quantity;
+                p.quantity = computeQuantity(element.amount, element.quantity + p.quantity, element.currency.maxValue);
                 p.total = element.amount * toMercurial(p.quantity);
             } else {
                 products.current = addElement(products.current, element);
@@ -125,7 +148,33 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             clearAmount();
         },
-        [amount, quantity, clearAmount, products, selectedCategory, currencies, currencyIndex, toMercurial]
+        [
+            amount,
+            quantity,
+            clearAmount,
+            products,
+            selectedCategory,
+            currencies,
+            currencyIndex,
+            toMercurial,
+            computeQuantity,
+        ]
+    );
+
+    const addProductQuantity = useCallback(
+        (product?: ProductElement) => {
+            if (!product) return;
+
+            addProduct({
+                category: product.category,
+                label: product.label,
+                amount: product.amount,
+                currency: product.currency,
+                quantity: 1,
+                total: 0,
+            });
+        },
+        [addProduct]
     );
 
     const deleteProduct = useCallback(
@@ -232,11 +281,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 setAmount,
                 quantity,
                 setQuantity,
+                computeQuantity,
                 toMercurial,
                 setCurrentMercurial,
                 selectedCategory,
                 setSelectedCategory,
                 addProduct,
+                addProductQuantity,
                 deleteProduct,
                 displayProduct,
                 clearAmount,

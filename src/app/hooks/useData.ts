@@ -28,11 +28,13 @@ export interface DataContextState {
     setAmount: (amount: number) => void;
     quantity: number;
     setQuantity: (quantity: number) => void;
+    computeQuantity: (amount: number, quantity: number, maxValue: number) => number;
     toMercurial: (quantity: number) => number;
     setCurrentMercurial: (mercurial: Mercurial) => void;
     selectedCategory: string;
     setSelectedCategory: (category: string) => void;
     addProduct: (category: string | ProductElement) => void;
+    addProductQuantity: (product?: ProductElement) => void;
     deleteProduct: (index: number) => void;
     displayProduct: (product: ProductElement) => string;
     clearAmount: () => void;

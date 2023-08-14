@@ -99,6 +99,7 @@ export const NumPad: FC = () => {
         setAmount,
         quantity,
         setQuantity,
+        computeQuantity,
         toMercurial,
         setCurrentMercurial,
         clearAmount,
@@ -133,15 +134,10 @@ export const NumPad: FC = () => {
                 const newQuantity = parseFloat(
                     quantity > 0 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString()
                 );
-                const quadratic = toMercurial(newQuantity);
-                setQuantity(
-                    amount * quadratic <= maxValue
-                        ? newQuantity
-                        : Math.max(Math.floor(maxValue / quadratic / amount), 1)
-                );
+                setQuantity(computeQuantity(amount, newQuantity, maxValue));
             }
         },
-        [max, regExp, quantity, setQuantity, amount, maxValue, toMercurial]
+        [max, regExp, quantity, setQuantity, maxValue, computeQuantity, amount]
     );
 
     const onClearTotal = useCallback(() => {
