@@ -125,6 +125,13 @@ export const Total: FC = () => {
         [editTransaction, openPopup, localTransactions, isWaitingTransaction, closePopup]
     );
 
+    const isConfirmedTransaction = useCallback(
+        (transaction?: Transaction) => {
+            return transaction && !isWaitingTransaction(transaction);
+        },
+        [isWaitingTransaction]
+    );
+
     const displayTransactionsTitle = useMemo(() => {
         if (!localTransactions?.length) return '';
 
@@ -256,7 +263,7 @@ export const Total: FC = () => {
         if (!localTransactions?.length) return;
 
         const waitingTransactions = localTransactions.filter(isWaitingTransaction);
-        const confirmedTransactions = localTransactions.filter((t) => !isWaitingTransaction(t));
+        const confirmedTransactions = localTransactions.filter(isConfirmedTransaction);
         const hasSeparation = waitingTransactions.length && confirmedTransactions.length;
         const getIndex = (i: number) => (i > waitingTransactions.length && waitingTransactions.length ? i - 1 : i);
         const summary = waitingTransactions
@@ -286,6 +293,7 @@ export const Total: FC = () => {
         showBoughtProducts,
         displayTransactionsTitle,
         isWaitingTransaction,
+        isConfirmedTransaction,
     ]);
 
     const canDisplayTotal = useMemo(() => {
@@ -380,8 +388,7 @@ export const Total: FC = () => {
                                   className={
                                       'active:bg-active-light dark:active:bg-active-dark ' +
                                       (isWaitingTransaction(localTransactions.at(index))
-                                          ? (localTransactions.at(index + 1) &&
-                                            !isWaitingTransaction(localTransactions.at(index + 1))
+                                          ? (isConfirmedTransaction(localTransactions.at(index + 1))
                                                 ? 'mb-3 pb-3 border-b-4 border-active-light dark:border-active-dark '
                                                 : '') + 'animate-pulse'
                                           : '')
