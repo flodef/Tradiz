@@ -295,11 +295,11 @@ export const Total: FC = () => {
 
     const totalDisplayClassName =
         'text-5xl truncate text-center font-bold py-3 ' +
+        ((canDisplayTotal && total) || (!canDisplayTotal && localTransactions?.length)
+            ? 'active:bg-active-light dark:active:bg-active-dark '
+            : '') +
         (useIsMobile()
-            ? 'md:hidden border-b-[3px] border-active-light dark:border-active-dark ' +
-              ((canDisplayTotal && total) || (!canDisplayTotal && localTransactions?.length)
-                  ? 'active:bg-active-light dark:active:bg-active-dark '
-                  : '')
+            ? 'md:hidden border-b-[3px] border-active-light dark:border-active-dark'
             : 'hidden border-b-[3px] border-active-light dark:border-active-dark md:block');
 
     return (
@@ -331,6 +331,7 @@ export const Total: FC = () => {
                                   className="active:bg-active-light dark:active:bg-active-dark"
                                   key={index}
                                   label={product}
+                                  onClick={() => modifyProduct(index)}
                                   onContextMenu={() => modifyProduct(index)}
                               />
                           ))
