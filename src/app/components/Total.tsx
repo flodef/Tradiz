@@ -132,7 +132,7 @@ export const Total: FC = () => {
         [isWaitingTransaction]
     );
 
-    const displayTransactionsTitle = useMemo(() => {
+    const displayTransactionsTitle = useCallback(() => {
         if (!localTransactions?.length) return '';
 
         const totalTransactions = localTransactions.length;
@@ -245,13 +245,7 @@ export const Total: FC = () => {
                 {
                     confirmTitle: 'Effacer ?',
                     action: (i) => {
-                        deleteBoughtProduct(
-                            i,
-                            index,
-                            transaction,
-                            () => showBoughtProducts(index, fallback),
-                            () => modifyTransaction(i, (i) => showBoughtProducts(i, fallback))
-                        );
+                        deleteBoughtProduct(i, index, transaction, () => showBoughtProducts(index, fallback), fallback);
                     },
                 }
             );
@@ -271,7 +265,7 @@ export const Total: FC = () => {
             .concat(hasSeparation ? [''] : [])
             .concat(confirmedTransactions.map(displayTransaction));
         openPopup(
-            displayTransactionsTitle,
+            displayTransactionsTitle(),
             summary,
             (i) => showBoughtProducts(getIndex(i), showTransactions),
             true,
@@ -408,7 +402,7 @@ export const Total: FC = () => {
                                       'mt-3 pt-1 border-t-4 border-secondary-active-light dark:border-secondary-active-dark'
                                   }
                               >
-                                  {displayTransactionsTitle}
+                                  {displayTransactionsTitle()}
                               </div>
                           )}
             </div>
