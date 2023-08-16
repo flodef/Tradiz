@@ -1,7 +1,7 @@
 'use client';
 
 import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useState } from 'react';
-import { Currency } from '../hooks/useConfig';
+import { Currency, State, useConfig } from '../hooks/useConfig';
 import { Transaction, useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
@@ -95,6 +95,7 @@ export const Total: FC = () => {
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
     const { pay, canAddProduct } = usePay();
+    const { state } = useConfig();
 
     // Hack to avoid differences between the server and the client, generating hydration issues
     const [localTransactions, setLocalTransactions] = useState<Transaction[] | undefined>();
@@ -106,13 +107,17 @@ export const Total: FC = () => {
 
     const modifyProduct = useCallback(
         (index: number) => {
+            if (state !== State.done) return;
+
             handleContextMenu('Effacer', deleteProduct, index, openPopup, closePopup);
         },
-        [deleteProduct, openPopup, closePopup]
+        [deleteProduct, openPopup, closePopup, state]
     );
 
     const modifyTransaction = useCallback(
         (index: number, fallback: (index: number) => void) => {
+            if (state !== State.done) return;
+
             handleContextMenu(
                 isWaitingTransaction(localTransactions?.at(index)) ? 'Reprendre' : 'Modifier',
                 editTransaction,
@@ -122,7 +127,7 @@ export const Total: FC = () => {
                 () => fallback(index)
             );
         },
-        [editTransaction, openPopup, localTransactions, isWaitingTransaction, closePopup]
+        [editTransaction, openPopup, localTransactions, isWaitingTransaction, closePopup, state]
     );
 
     const isConfirmedTransaction = useCallback(
@@ -232,7 +237,7 @@ export const Total: FC = () => {
     const showBoughtProducts = useCallback(
         (index: number, fallback: () => void) => {
             const transaction = localTransactions?.at(index);
-            if (!transaction || !transaction.amount || index < 0) return;
+            if (!transaction || !transaction.amount || index < 0 || state !== State.done) return;
 
             openPopup(
                 toCurrency(transaction.amount, transaction.currency) + ' en ' + transaction.method,
@@ -250,7 +255,7 @@ export const Total: FC = () => {
                 }
             );
         },
-        [localTransactions, openPopup, displayProduct, toCurrency, deleteBoughtProduct, modifyTransaction]
+        [localTransactions, openPopup, displayProduct, toCurrency, deleteBoughtProduct, modifyTransaction, state]
     );
 
     const showTransactions = useCallback(() => {
@@ -298,6 +303,9 @@ export const Total: FC = () => {
         (e) => {
             e.preventDefault();
             requestFullscreen();
+
+            if (state !== State.done) return;
+
             if (canDisplayTotal) {
                 if (canAddProduct) {
                     addProduct(selectedCategory);
@@ -314,7 +322,7 @@ export const Total: FC = () => {
                     if (e.type === 'click') {
                         showTransactionsSummary();
                     } else {
-                        showTransactionsSummaryMenu(e);
+                        showTransactionsSummaryMenu();
                     }
                 }
             }
@@ -330,14 +338,14 @@ export const Total: FC = () => {
             showTransactionsSummary,
             showTransactionsSummaryMenu,
             canAddProduct,
+            state,
         ]
     );
 
+    const clickClassName = state === State.done ? 'active:bg-active-light dark:active:bg-active-dark ' : '';
     const totalDisplayClassName =
         'text-5xl truncate text-center font-bold py-3 ' +
-        ((canDisplayTotal && total) || (!canDisplayTotal && localTransactions?.length)
-            ? 'active:bg-active-light dark:active:bg-active-dark '
-            : '') +
+        ((canDisplayTotal && total) || (!canDisplayTotal && localTransactions?.length) ? clickClassName : '') +
         (useIsMobile()
             ? 'md:hidden border-b-[3px] border-active-light dark:border-active-dark'
             : 'hidden border-b-[3px] border-active-light dark:border-active-dark md:block');
@@ -368,7 +376,7 @@ export const Total: FC = () => {
                           ?.map(displayProduct)
                           .map((product, index) => (
                               <Item
-                                  className="active:bg-active-light dark:active:bg-active-dark"
+                                  className={clickClassName}
                                   key={index}
                                   label={product}
                                   onClick={() => addProductQuantity(products.current?.at(index))}
@@ -380,7 +388,7 @@ export const Total: FC = () => {
                           .map((transaction, index) => (
                               <Item
                                   className={
-                                      'active:bg-active-light dark:active:bg-active-dark ' +
+                                      clickClassName +
                                       (isWaitingTransaction(localTransactions.at(index))
                                           ? (isConfirmedTransaction(localTransactions.at(index + 1))
                                                 ? 'mb-3 pb-3 border-b-4 border-active-light dark:border-active-dark '

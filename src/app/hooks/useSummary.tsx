@@ -1,4 +1,4 @@
-import { MouseEventHandler, useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { addElement, transactionsKeyword, transactionsRegex } from '../contexts/DataProvider';
 import { DEFAULT_DATE } from '../utils/constants';
@@ -402,60 +402,54 @@ export const useSummary = () => {
         [localTransactions, inventory, toCurrency, currencies]
     );
 
-    const showTransactionsSummaryMenu = useCallback<MouseEventHandler>(
-        (e) => {
-            e.preventDefault();
-
-            if (localTransactions?.length) {
-                openPopup(
-                    'TicketZ ' + DEFAULT_DATE,
-                    ["Capture d'écran", 'Email', 'Feuille de calcul', 'Historique', 'Afficher'],
-                    (index) => {
-                        const fallback = () => showTransactionsSummaryMenu(e);
-                        switch (index) {
-                            case 0:
-                                showTransactionsSummary();
-                                setTimeout(() => {
-                                    takeScreenshot('popup', 'TicketZ ' + DEFAULT_DATE + '.png').then(() => {
-                                        closePopup();
-                                    });
-                                }); // Set timeout to give time to the popup to display and the screenshot to be taken
-                                break;
-                            case 1:
-                                processEmail('TicketZ ' + DEFAULT_DATE);
-                                closePopup();
-                                break;
-                            case 2:
-                                downloadData('TicketZ ' + DEFAULT_DATE);
-                                closePopup();
-                                break;
-                            case 3:
-                                showHistoricalTransactions(showTransactionsSummary, fallback);
-                                break;
-                            case 4:
-                                showTransactionsSummary(undefined, fallback);
-                                break;
-                            default:
-                                return;
-                        }
-                    },
-                    true
-                );
-            } else if (historicalTransactions?.length) {
-                showHistoricalTransactions(showTransactionsSummary);
-            }
-        },
-        [
-            openPopup,
-            closePopup,
-            showTransactionsSummary,
-            processEmail,
-            downloadData,
-            localTransactions,
-            historicalTransactions,
-            showHistoricalTransactions,
-        ]
-    );
+    const showTransactionsSummaryMenu = useCallback(() => {
+        if (localTransactions?.length) {
+            openPopup(
+                'TicketZ ' + DEFAULT_DATE,
+                ["Capture d'écran", 'Email', 'Feuille de calcul', 'Historique', 'Afficher'],
+                (index) => {
+                    switch (index) {
+                        case 0:
+                            showTransactionsSummary();
+                            setTimeout(() => {
+                                takeScreenshot('popup', 'TicketZ ' + DEFAULT_DATE + '.png').then(() => {
+                                    closePopup();
+                                });
+                            }); // Set timeout to give time to the popup to display and the screenshot to be taken
+                            break;
+                        case 1:
+                            processEmail('TicketZ ' + DEFAULT_DATE);
+                            closePopup();
+                            break;
+                        case 2:
+                            downloadData('TicketZ ' + DEFAULT_DATE);
+                            closePopup();
+                            break;
+                        case 3:
+                            showHistoricalTransactions(showTransactionsSummary, showTransactionsSummaryMenu);
+                            break;
+                        case 4:
+                            showTransactionsSummary(undefined, showTransactionsSummaryMenu);
+                            break;
+                        default:
+                            return;
+                    }
+                },
+                true
+            );
+        } else if (historicalTransactions?.length) {
+            showHistoricalTransactions(showTransactionsSummary);
+        }
+    }, [
+        openPopup,
+        closePopup,
+        showTransactionsSummary,
+        processEmail,
+        downloadData,
+        localTransactions,
+        historicalTransactions,
+        showHistoricalTransactions,
+    ]);
 
     return { showTransactionsSummary, showTransactionsSummaryMenu, historicalTransactions, localTransactions };
 };

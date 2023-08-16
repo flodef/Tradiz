@@ -19,7 +19,7 @@ import { useAddPopupClass } from './Popup';
 interface NumPadButtonProps {
     input: Digits | string;
     onInput(key: Digits | string): void;
-    onContextMenu?(e: React.MouseEvent<HTMLDivElement, MouseEvent>): void;
+    onContextMenu?: () => void;
     className?: string;
 }
 
@@ -30,7 +30,10 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
         (e) => {
             e.preventDefault();
             requestFullscreen();
-            if (state === State.done) onInput(input);
+
+            if (state !== State.done) return;
+
+            onInput(input);
         },
         [onInput, input, state]
     );
@@ -51,13 +54,26 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
 };
 
 const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu, className }) => {
-    const onClick = useCallback(() => {
-        requestFullscreen();
-        onInput(input);
-    }, [onInput, input]);
+    const { state } = useConfig();
+
+    const onClick = useCallback<MouseEventHandler>(
+        (e) => {
+            e.preventDefault();
+            requestFullscreen();
+
+            if (state !== State.done) return;
+
+            if (e.type === 'click') {
+                onInput(input);
+            } else if (e.type === 'contextmenu' && onContextMenu) {
+                onContextMenu();
+            }
+        },
+        [onInput, onContextMenu, input, state]
+    );
 
     return (
-        <div className={className} onClick={onClick} onContextMenu={onContextMenu}>
+        <div className={className} onClick={onClick} onContextMenu={onClick}>
             {input}
         </div>
     );
@@ -92,7 +108,7 @@ const ImageButton: FC<ImageButtonProps> = ({ children, onClick, onContextMenu, c
 };
 
 export const NumPad: FC = () => {
-    const { currencies, currencyIndex, setCurrency, inventory } = useConfig();
+    const { currencies, currencyIndex, setCurrency, inventory, state } = useConfig();
     const {
         total,
         amount,
@@ -212,20 +228,15 @@ export const NumPad: FC = () => {
         setQuantity(-1);
     }, [setQuantity]);
 
-    const mercuriale = useCallback<MouseEventHandler>(
-        (e) => {
-            e.preventDefault();
-
-            const mercurials = Object.values(Mercurial);
-            openPopup('Mercuriale quadratique', mercurials, (index) => {
-                if (quantity === 0) {
-                    multiply();
-                }
-                setCurrentMercurial(mercurials[index]);
-            });
-        },
-        [setCurrentMercurial, openPopup, quantity, multiply]
-    );
+    const mercuriale = useCallback(() => {
+        const mercurials = Object.values(Mercurial);
+        openPopup('Mercuriale quadratique', mercurials, (index) => {
+            if (quantity === 0) {
+                multiply();
+            }
+            setCurrentMercurial(mercurials[index]);
+        });
+    }, [setCurrentMercurial, openPopup, quantity, multiply]);
 
     useEffect(() => {
         setAmount(parseInt(value) / Math.pow(10, maxDecimals));
@@ -242,8 +253,9 @@ export const NumPad: FC = () => {
         [1, 2, 3],
     ];
 
-    const color =
-        'text-secondary-light active:bg-secondary-active-light dark:text-secondary-dark dark:active:bg-secondary-active-dark';
+    const clickClassName =
+        state === State.done ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark ' : '';
+    const color = clickClassName + 'text-secondary-light dark:text-secondary-dark ';
     const s = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl ';
     const sx = s + (canPay || canAddProduct ? color : 'invisible');
 
