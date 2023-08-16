@@ -54,9 +54,10 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
 export const Category: FC = () => {
     const { inventory, state, lastModified, setState, currencyIndex, shopEmail } = useConfig();
     const { addProduct, amount, setAmount, selectedCategory, setSelectedCategory, setQuantity } = useData();
-    const { openPopup } = usePopup();
+    const { openPopup, closePopup } = usePopup();
 
     const [selectedProduct, setSelectedProduct] = useState('');
+    const [hasSentEmail, setHasSentEmail] = useState(false);
 
     const addCategory = useCallback(
         (newCategory: string) => {
@@ -141,33 +142,47 @@ export const Category: FC = () => {
                 );
                 break;
             case State.unidentified:
-                openPopup('Utilisateur non identifié', ['Rafraîchir la page', 'Contacter ' + shopEmail], (i) => {
-                    if (i === 1) {
-                        sendEmail(
-                            shopEmail,
-                            "Demande d'accès utilisateur",
-                            `Bonjour, je souhaite accéder à l'application de caisse avec les informations suivantes : 
+                openPopup(
+                    'Utilisateur non identifié',
+                    ['Rafraîchir la page'].concat(!hasSentEmail ? ['Contacter ' + shopEmail] : []),
+                    (i) => {
+                        if (i === 1) {
+                            sendEmail(
+                                shopEmail,
+                                "Demande d'accès utilisateur",
+                                `Bonjour, je souhaite accéder à l'application de caisse avec les informations suivantes : 
                             \n- Clé : ${getPublicKey()} 
                             \n- Nom : (Indiquez votre nom)
                             \n- Rôle : [Caisse / Service / Cuisine] (Gardez celui qui convient)
                             \n\nMerci de me donner les droits d'accès.`
-                        );
-                    } else {
-                        setState(State.init);
-                    }
-                });
+                            );
+                            setHasSentEmail(true);
+                        } else {
+                            closePopup();
+                            setState(State.init);
+                        }
+                    },
+                    true
+                );
                 break;
             case State.fatal:
-                openPopup('Erreur fatale', ['Rafraîchir la page', 'Contacter ' + EMAIL], (i) => {
-                    if (i === 1) {
-                        sendEmail(EMAIL, 'Erreur fatale', 'Une erreur de chargement de données est survenue !');
-                    } else {
-                        setState(State.init);
-                    }
-                });
+                openPopup(
+                    'Erreur fatale',
+                    ['Rafraîchir la page'].concat(!hasSentEmail ? ['Contacter ' + EMAIL] : []),
+                    (i) => {
+                        if (i === 1) {
+                            sendEmail(EMAIL, 'Erreur fatale', 'Une erreur de chargement de données est survenue !');
+                            setHasSentEmail(true);
+                        } else {
+                            closePopup();
+                            setState(State.init);
+                        }
+                    },
+                    true
+                );
                 break;
         }
-    }, [state, openPopup, setSelectedCategory, lastModified, setState, shopEmail]);
+    }, [state, openPopup, closePopup, setSelectedCategory, lastModified, setState, shopEmail, hasSentEmail]);
 
     const row1Slice = categories.length <= 2 ? 1 : categories.length >= 3 && categories.length <= 4 ? 2 : 3;
     const row2Slice =
