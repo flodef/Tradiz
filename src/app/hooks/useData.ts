@@ -11,6 +11,7 @@ export interface ProductElement extends DataElement {
     label: string;
     total: number;
     currency: Currency;
+    mercurial: Mercurial;
 }
 
 export interface Transaction {

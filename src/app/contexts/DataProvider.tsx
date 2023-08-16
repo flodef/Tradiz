@@ -48,8 +48,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const toMercurial = useCallback(
-        (quantity: number) => {
-            switch (currentMercurial) {
+        (quantity: number, mercurial = currentMercurial) => {
+            switch (mercurial) {
                 case Mercurial.exponential:
                     return Math.pow(2, quantity - 1);
                 case Mercurial.soft:
@@ -69,14 +69,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const fromMercurial = useCallback(
-        (quantity: number) => {
+        (quantity: number, maxValue: number, mercurial = currentMercurial) => {
             quantity = Math.floor(quantity);
-            while (toMercurial(quantity) > quantity) {
+            while (toMercurial(quantity, mercurial) > maxValue) {
                 quantity--;
             }
             return quantity;
         },
-        [toMercurial]
+        [toMercurial, currentMercurial]
     );
 
     const getCurrentTotal = useCallback(() => {
@@ -101,12 +101,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, [clearAmount]);
 
     const computeQuantity = useCallback(
-        (amount: number, quantity = 1, maxValue = currencies[currencyIndex].maxValue) => {
-            const quadratic = toMercurial(quantity);
+        (amount: number, quantity = 1, maxValue = currencies[currencyIndex].maxValue, mercurial = currentMercurial) => {
+            const quadratic = toMercurial(quantity, mercurial);
 
-            return Math.max(1, amount * quadratic <= maxValue ? quantity : fromMercurial(maxValue / amount));
+            return Math.max(
+                1,
+                amount * quadratic <= maxValue ? quantity : fromMercurial(maxValue / amount, maxValue, mercurial)
+            );
         },
-        [currencies, currencyIndex, toMercurial, fromMercurial]
+        [currencies, currencyIndex, toMercurial, fromMercurial, currentMercurial]
     );
 
     const addProduct = useCallback(
@@ -118,6 +121,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 amount: 0,
                 total: 0,
                 currency: currencies[0],
+                mercurial: currentMercurial,
             };
 
             if (typeof product === 'object') {
@@ -129,10 +133,16 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 element.quantity = quantity;
                 element.amount = amount;
                 element.currency = currencies[currencyIndex];
+                element.mercurial = currentMercurial;
             }
 
-            element.quantity = computeQuantity(element.amount, element.quantity, element.currency.maxValue);
-            element.total = element.amount * toMercurial(element.quantity);
+            element.quantity = computeQuantity(
+                element.amount,
+                element.quantity,
+                element.currency.maxValue,
+                element.mercurial
+            );
+            element.total = element.amount * toMercurial(element.quantity, element.mercurial);
 
             if (!element.amount || (!element.label && !element.category)) return;
 
@@ -140,8 +150,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 ({ label, amount }) => label === element.label && amount === element.amount
             );
             if (p) {
-                p.quantity = computeQuantity(element.amount, element.quantity + p.quantity, element.currency.maxValue);
-                p.total = element.amount * toMercurial(p.quantity);
+                p.quantity = computeQuantity(
+                    element.amount,
+                    element.quantity + p.quantity,
+                    element.currency.maxValue,
+                    element.mercurial
+                );
+                p.total = element.amount * toMercurial(p.quantity, element.mercurial);
             } else {
                 products.current = addElement(products.current, element);
             }
@@ -158,6 +173,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             currencyIndex,
             toMercurial,
             computeQuantity,
+            currentMercurial,
         ]
     );
 
@@ -170,6 +186,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 label: product.label,
                 amount: product.amount,
                 currency: product.currency,
+                mercurial: product.mercurial,
                 quantity: 1,
                 total: 0,
             });
