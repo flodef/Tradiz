@@ -12,6 +12,7 @@ import { BasketIcon } from '../images/BasketIcon';
 import { WalletIcon } from '../images/WalletIcon';
 import { CATEGORY_SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
 import { requestFullscreen } from '../utils/fullscreen';
+import { isMobileSize } from '../utils/mobile';
 import { Digits } from '../utils/types';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
@@ -269,10 +270,10 @@ export const NumPad: FC = () => {
 
     const { width, height } = useWindowParam();
     const shouldUseOverflow = useMemo(
-        () => (height < 590 && width >= 768) || (height < 660 && width < 768),
-        [width, height]
+        () => (height < 590 && !isMobileSize()) || (height < 660 && isMobileSize()),
+        [height]
     );
-    const left = useMemo(() => Math.max(((width < 768 ? width : width / 2) - 512) / 2, 0), [width]);
+    const left = useMemo(() => Math.max(((isMobileSize() ? width : width / 2) - 512) / 2, 0), [width]);
 
     return (
         <div
@@ -281,9 +282,9 @@ export const NumPad: FC = () => {
                     'md:top-0 md:w-1/2 md:justify-center md:max-w-[50%] ' +
                     (shouldUseOverflow
                         ? isPopupOpen
-                            ? ' top-[76px] '
-                            : ' top-32 block overflow-auto '
-                        : ' flex flex-col justify-center items-center top-20 md:top-0 ')
+                            ? 'top-[76px] '
+                            : 'top-32 block overflow-auto '
+                        : 'flex flex-col justify-center items-center top-20 md:top-0')
             )}
         >
             <div className="flex flex-col justify-center items-center w-full">
@@ -291,11 +292,11 @@ export const NumPad: FC = () => {
                     className={
                         shouldUseOverflow
                             ? isPopupOpen
-                                ? 'fixed top-0 right-0  max-w-lg md:right-0 '
+                                ? 'fixed top-0 right-0 max-w-lg md:right-0 '
                                 : 'fixed top-[76px] right-0 max-w-lg md:top-0 md:z-10 md:right-1/2 '
-                            : 'static top-0 max-w-lg w-full '
+                            : 'static max-w-lg w-full '
                     }
-                    style={{ left: left }}
+                    style={shouldUseOverflow ? { left: left } : {}}
                 >
                     <div className="flex justify-around text-4xl text-center font-bold pt-0 max-w-lg w-full self-center">
                         <Amount

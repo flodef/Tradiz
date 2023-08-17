@@ -6,6 +6,7 @@ import { Transaction, useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
+import { useWindowParam } from '../hooks/useWindowParam';
 import { BACK_KEYWORD, WAITING_KEYWORD } from '../utils/constants';
 import { requestFullscreen } from '../utils/fullscreen';
 import { isMobileSize, useIsMobile } from '../utils/mobile';
@@ -93,7 +94,7 @@ export const Total: FC = () => {
         isWaitingTransaction,
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
-    const { openPopup, closePopup } = usePopup();
+    const { openPopup, closePopup, isPopupOpen } = usePopup();
     const { pay, canAddProduct } = usePay();
     const { state } = useConfig();
 
@@ -343,21 +344,36 @@ export const Total: FC = () => {
     );
 
     const clickClassName = state === State.done ? 'active:bg-active-light dark:active:bg-active-dark ' : '';
-    const totalDisplayClassName =
-        'text-5xl truncate text-center font-bold py-3 ' +
-        ((canDisplayTotal && total) || (!canDisplayTotal && localTransactions?.length) ? clickClassName : '') +
-        (useIsMobile()
-            ? 'md:hidden border-b-[3px] border-active-light dark:border-active-dark'
-            : 'hidden border-b-[3px] border-active-light dark:border-active-dark md:block');
+    const widthClassName = isPopupOpen ? 'md:w-full ' : 'md:w-1/2 ';
+
+    const { width: screenWidth, height: screenHeight } = useWindowParam();
+    const left = useMemo(
+        () => (!isMobileSize() && !isPopupOpen ? screenWidth / 2 : undefined),
+        [screenWidth, isPopupOpen]
+    );
+    const height = useMemo(() => (!isMobileSize() ? screenHeight - 76 : undefined), [screenHeight]);
 
     return (
         <div
             className={useAddPopupClass(
-                'inset-x-0 h-[75px] md:absolute md:left-1/2 md:h-full md:border-l-4 ' +
-                    'md:border-secondary-active-light md:dark:border-secondary-active-dark'
+                'inset-x-0 h-[75px] md:absolute md:left-1/2 md:h-full md:border-l-4 overflow-y-auto ' +
+                    'md:border-secondary-active-light md:dark:border-secondary-active-dark '
             )}
         >
-            <div className={totalDisplayClassName} onClick={handleClick} onContextMenu={handleClick}>
+            <div
+                className={
+                    widthClassName +
+                    'w-full fixed text-5xl truncate text-center font-bold py-3 ' +
+                    ((canDisplayTotal && total) || (!canDisplayTotal && localTransactions?.length)
+                        ? clickClassName
+                        : '') +
+                    (useIsMobile()
+                        ? 'md:hidden border-b-[3px] border-active-light dark:border-active-dark'
+                        : 'hidden border-b-[3px] border-active-light dark:border-active-dark md:block')
+                }
+                onClick={handleClick}
+                onContextMenu={handleClick}
+            >
                 {canDisplayTotal ? (
                     <div>
                         {label} <Amount value={total + amount * Math.max(toMercurial(quantity), 1)} showZero />
@@ -370,49 +386,58 @@ export const Total: FC = () => {
                 )}
             </div>
 
-            <div className="text-center text-2xl font-bold py-3 hidden md:block md:max-h-[90%] md:overflow-y-auto">
-                {canDisplayTotal
-                    ? products.current
-                          ?.map(displayProduct)
-                          .map((product, index) => (
-                              <Item
-                                  className={clickClassName}
-                                  key={index}
-                                  label={product}
-                                  onClick={() => addProductQuantity(products.current?.at(index))}
-                                  onContextMenu={() => modifyProduct(index)}
-                              />
-                          ))
-                    : localTransactions
-                          ?.map(displayTransaction)
-                          .map((transaction, index) => (
-                              <Item
-                                  className={
-                                      clickClassName +
-                                      (isWaitingTransaction(localTransactions.at(index))
-                                          ? (isConfirmedTransaction(localTransactions.at(index + 1))
-                                                ? 'mb-3 pb-3 border-b-4 border-active-light dark:border-active-dark '
-                                                : '') + 'animate-pulse'
-                                          : '')
-                                  }
-                                  key={index}
-                                  label={transaction}
-                                  onClick={() => showBoughtProducts(index, showTransactions)}
-                                  onContextMenu={() =>
-                                      modifyTransaction(index, (i) => showBoughtProducts(i, showTransactions))
-                                  }
-                              />
-                          ))
-                          .concat(
-                              <div
-                                  key="total"
-                                  className={
-                                      'mt-3 pt-1 border-t-4 border-secondary-active-light dark:border-secondary-active-dark'
-                                  }
-                              >
-                                  {displayTransactionsTitle()}
-                              </div>
-                          )}
+            <div>
+                <div
+                    className={
+                        widthClassName +
+                        'fixed top-[76px] left-0 w-1/2 h-screen text-center text-2xl ' +
+                        'font-bold py-3 overflow-y-auto hidden md:block'
+                    }
+                    style={{ left: left, height: height }}
+                >
+                    {canDisplayTotal
+                        ? products.current
+                              ?.map(displayProduct)
+                              .map((product, index) => (
+                                  <Item
+                                      className={clickClassName}
+                                      key={index}
+                                      label={product}
+                                      onClick={() => addProductQuantity(products.current?.at(index))}
+                                      onContextMenu={() => modifyProduct(index)}
+                                  />
+                              ))
+                        : localTransactions
+                              ?.map(displayTransaction)
+                              .map((transaction, index) => (
+                                  <Item
+                                      className={
+                                          clickClassName +
+                                          (isWaitingTransaction(localTransactions.at(index))
+                                              ? (isConfirmedTransaction(localTransactions.at(index + 1))
+                                                    ? 'mb-3 pb-3 border-b-4 border-active-light dark:border-active-dark '
+                                                    : '') + 'animate-pulse'
+                                              : '')
+                                      }
+                                      key={index}
+                                      label={transaction}
+                                      onClick={() => showBoughtProducts(index, showTransactions)}
+                                      onContextMenu={() =>
+                                          modifyTransaction(index, (i) => showBoughtProducts(i, showTransactions))
+                                      }
+                                  />
+                              ))
+                              .concat(
+                                  <div
+                                      key="total"
+                                      className={
+                                          'mt-3 pt-1 border-t-4 border-secondary-active-light dark:border-secondary-active-dark'
+                                      }
+                                  >
+                                      {displayTransactionsTitle()}
+                                  </div>
+                              )}
+                </div>
             </div>
         </div>
     );
