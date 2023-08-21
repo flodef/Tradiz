@@ -69,16 +69,17 @@ export async function loadData(shop: string, isOutOfLocalHost = true) {
         .then(convertUsersData)
         .catch(() => undefined); // That's fine if there is no user data
     const publicKey = users?.length ? getPublicKey() : undefined;
-    const user = users?.length ? users.filter(({ key }) => key === publicKey).at(0) : { role: Role.cashier };
+    const user = users?.length ? users.filter(({ key }) => key === publicKey).at(0) : { name: '', role: Role.cashier };
     if (!user || user.role === Role.none) throw new UserNotFoundError(param.at(1));
 
-    const parameters = {} as Parameters;
-    parameters.shopName = param.at(0) ?? '';
-    parameters.shopEmail = param.at(1) ?? EMAIL;
-    parameters.thanksMessage = param.at(2) ?? 'Merci de votre visite !';
-    parameters.mercurial = (param.at(3) ?? Mercurial.none) as Mercurial;
-    parameters.lastModified = param.at(4) ?? new Date('0').toLocaleString();
-    parameters.user = user;
+    const parameters: Parameters = {
+        shopName: param.at(0) ?? '',
+        shopEmail: param.at(1) ?? EMAIL,
+        thanksMessage: param.at(2) ?? 'Merci de votre visite !',
+        mercurial: (param.at(3) ?? Mercurial.none) as Mercurial,
+        lastModified: param.at(4) ?? new Date('0').toLocaleString(),
+        user: user,
+    };
 
     const paymentMethods = await fetchData(dataNames.paymentMethods, id).then(convertPaymentMethodsData);
     if (!paymentMethods?.length) return;

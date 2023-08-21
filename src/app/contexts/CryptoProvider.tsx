@@ -3,7 +3,7 @@
 import { encodeURL, findReference, FindReferenceError, ValidateTransferError } from '@solana/pay';
 import { Connection, Keypair, PublicKey, TransactionSignature } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
-import { FC, ReactNode, use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConfig } from '../hooks/useConfig';
 import { Crypto, CryptoContext, PaymentStatus } from '../hooks/useCrypto';
 import { useData } from '../hooks/useData';
@@ -49,7 +49,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
     const refPaymentStatus = useRef(paymentStatus);
 
     useEffect(() => {
-        BigNumber.config({ DECIMAL_PLACES: products.current?.at(0)?.currency.maxDecimals ?? 0 });
+        BigNumber.config({ DECIMAL_PLACES: products.current.at(0)?.currency.maxDecimals ?? 0 });
     }, [products]);
 
     useEffect(() => {

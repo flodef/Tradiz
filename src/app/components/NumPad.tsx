@@ -123,7 +123,7 @@ export const NumPad: FC = () => {
         clearTotal,
         selectedCategory,
         addProduct,
-        addTransaction: addPayment,
+        addTransaction,
     } = useData();
     const { openPopup, closePopup, isPopupOpen } = usePopup();
     const { pay, canPay, canAddProduct } = usePay();
@@ -266,7 +266,7 @@ export const NumPad: FC = () => {
         f +
         (quantity ? 'bg-secondary-active-light dark:bg-secondary-active-dark ' : '') +
         (amount ? color : 'invisible');
-    const f3 = f + (localTransactions?.length || historicalTransactions?.length ? color : 'invisible');
+    const f3 = f + (localTransactions.length || historicalTransactions.length ? color : 'invisible');
 
     const { width, height } = useWindowParam();
     const shouldUseOverflow = useMemo(
@@ -340,7 +340,9 @@ export const NumPad: FC = () => {
                         <ImageButton
                             className={sx}
                             onClick={canPay ? pay : canAddProduct ? () => addProduct(selectedCategory) : () => {}}
-                            onContextMenu={canPay ? () => addPayment(WAITING_KEYWORD) : canAddProduct ? pay : () => {}}
+                            onContextMenu={
+                                canPay ? () => addTransaction(WAITING_KEYWORD) : canAddProduct ? pay : () => {}
+                            }
                         >
                             {canPay ? <WalletIcon /> : canAddProduct ? <BasketIcon /> : ''}
                         </ImageButton>

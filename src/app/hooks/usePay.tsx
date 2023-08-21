@@ -8,15 +8,7 @@ import { usePopup } from './usePopup';
 
 export const usePay = () => {
     const { openPopup, closePopup } = usePopup();
-    const {
-        addTransaction: addPayment,
-        getCurrentTotal,
-        toCurrency,
-        total,
-        amount,
-        selectedCategory,
-        addProduct,
-    } = useData();
+    const { addTransaction, getCurrentTotal, toCurrency, total, amount, selectedCategory, addProduct } = useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
     const { paymentMethods } = useConfig();
 
@@ -38,7 +30,7 @@ export const usePay = () => {
                             closePopup(init);
                         }
                     } else if (refPaymentStatus.current === PaymentStatus.Finalized) {
-                        addPayment('Crypto');
+                        addTransaction('Crypto');
                         closePopup(init);
                     } else {
                         retry();
@@ -51,7 +43,7 @@ export const usePay = () => {
             );
         },
         [
-            addPayment,
+            addTransaction,
             closePopup,
             generate,
             retry,
@@ -76,7 +68,7 @@ export const usePay = () => {
                             init();
                             break;
                         case 2:
-                            addPayment('Crypto');
+                            addTransaction('Crypto');
                             closePopup(init);
                             break;
                         case 3:
@@ -91,7 +83,7 @@ export const usePay = () => {
                 true
             );
         },
-        [openPopup, toCurrency, getCurrentTotal, openQRCode, retry, closePopup, init, addPayment]
+        [openPopup, toCurrency, getCurrentTotal, openQRCode, retry, closePopup, init, addTransaction]
     );
 
     const selectPayment = useCallback(
@@ -108,18 +100,18 @@ export const usePay = () => {
                         ['Valider paiement', 'Annuler paiement'],
                         (index) => {
                             if (index === 0) {
-                                addPayment(option);
+                                addTransaction(option);
                             }
                         }
                     );
                     break;
                 default:
-                    addPayment(option.includes(WAITING_KEYWORD) ? WAITING_KEYWORD : option);
+                    addTransaction(option.includes(WAITING_KEYWORD) ? WAITING_KEYWORD : option);
                     closePopup();
                     break;
             }
         },
-        [openQRCode, cancelOrConfirmPaiement, generate, addPayment, closePopup, paymentMethods, openPopup]
+        [openQRCode, cancelOrConfirmPaiement, generate, addTransaction, closePopup, paymentMethods, openPopup]
     );
 
     const pay = useCallback(() => {
