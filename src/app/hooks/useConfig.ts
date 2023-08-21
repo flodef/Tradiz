@@ -18,7 +18,7 @@ export enum Role {
 
 export interface User {
     key?: string;
-    name?: string;
+    name: string;
     role: Role;
 }
 

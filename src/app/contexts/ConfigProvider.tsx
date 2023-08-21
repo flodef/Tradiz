@@ -43,7 +43,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const [shopEmail, setShopEmail] = useState(EMAIL);
     const [thanksMessage, setThanksMessage] = useState('');
     const [mercurial, setMercurial] = useState(Mercurial.none);
-    const [user, setUser] = useState<User>({ role: Role.none });
+    const [user, setUser] = useState<User>({ name: '', role: Role.none });
     const [lastModified, setLastModified] = useState(new Date().toLocaleString());
     const [currencyIndex, setCurrencyIndex] = useState(0);
     const [currencies, setCurrencies] = useState<Currency[]>([
