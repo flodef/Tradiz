@@ -7,19 +7,20 @@ export interface DataElement {
     amount: number;
 }
 
-export interface ProductElement extends DataElement {
+export interface Product extends DataElement {
     label: string;
     total: number;
-    currency: Currency;
     mercurial: Mercurial;
 }
 
 export interface Transaction {
+    validator: string;
     method: string;
     amount: number;
-    date: string;
+    createdDate: number;
+    modifiedDate: number;
     currency: Currency;
-    products: ProductElement[];
+    products: Product[];
 }
 
 export interface DataContextState {
@@ -29,25 +30,26 @@ export interface DataContextState {
     setAmount: (amount: number) => void;
     quantity: number;
     setQuantity: (quantity: number) => void;
-    computeQuantity: (amount: number, quantity: number, maxValue: number) => number;
+    computeQuantity: (amount: number, quantity: number, mercurial?: Mercurial) => number;
     toMercurial: (quantity: number) => number;
     setCurrentMercurial: (mercurial: Mercurial) => void;
     selectedCategory: string;
     setSelectedCategory: (category: string) => void;
-    addProduct: (category: string | ProductElement) => void;
-    addProductQuantity: (product?: ProductElement) => void;
+    addProduct: (category: string | Product) => void;
+    addProductQuantity: (product?: Product) => void;
     deleteProduct: (index: number) => void;
-    displayProduct: (product: ProductElement) => string;
+    displayProduct: (product: Product, currency?: Currency) => string;
     clearAmount: () => void;
     clearTotal: () => void;
-    products: MutableRefObject<ProductElement[] | undefined>;
-    addTransaction: (method: string) => void;
-    transactions: Transaction[] | undefined;
-    saveTransactions: (transactions: Transaction[]) => void;
+    products: MutableRefObject<Product[]>;
+    transactions: Transaction[];
+    updateTransaction: (item: string | Transaction) => void;
     editTransaction: (index: number) => void;
-    toCurrency: (value: number, currency?: Currency) => string;
+    deleteTransaction: (index: number) => void;
     displayTransaction: (transaction: Transaction) => string;
     isWaitingTransaction: (transaction?: Transaction) => boolean;
+    transactionsFilename: string;
+    toCurrency: (element: { amount: number; currency: Currency } | number | Product | Transaction) => string;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);
