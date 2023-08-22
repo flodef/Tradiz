@@ -123,12 +123,12 @@ export const NumPad: FC = () => {
         clearTotal,
         selectedCategory,
         addProduct,
-        addTransaction,
+        updateTransaction,
+        transactions,
     } = useData();
     const { openPopup, closePopup, isPopupOpen } = usePopup();
     const { pay, canPay, canAddProduct } = usePay();
-    const { showTransactionsSummary, showTransactionsSummaryMenu, historicalTransactions, localTransactions } =
-        useSummary();
+    const { showTransactionsSummary, showTransactionsSummaryMenu, historicalTransactions } = useSummary();
 
     const maxValue = useMemo(() => currencies[currencyIndex].maxValue, [currencies, currencyIndex]);
     const maxDecimals = useMemo(() => currencies[currencyIndex].maxDecimals, [currencies, currencyIndex]);
@@ -151,15 +151,15 @@ export const NumPad: FC = () => {
                 const newQuantity = parseFloat(
                     quantity > 0 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString()
                 );
-                setQuantity(computeQuantity(amount, newQuantity, maxValue));
+                setQuantity(computeQuantity(amount, newQuantity));
             }
         },
-        [max, regExp, quantity, setQuantity, maxValue, computeQuantity, amount]
+        [max, regExp, quantity, setQuantity, computeQuantity, amount]
     );
 
     const onClearTotal = useCallback(() => {
         if (total > 0) {
-            openPopup('Supprimer Total ?', ['Oui', 'Non'], (i) => {
+            openPopup('Supprimer commande ?', ['Oui', 'Non'], (i) => {
                 if (i === 0) {
                     clearTotal();
                 }
@@ -179,20 +179,26 @@ export const NumPad: FC = () => {
                 if (index === -1) return;
 
                 if (total) {
-                    openPopup('Ticket en cours...', ['Effacer le ticket', 'Payer le ticket'], (index) => {
-                        switch (index) {
-                            case 0:
-                                clearTotal();
-                                setCurrency(option);
-                                break;
-                            case 1:
-                                pay();
-                                break;
-                            default:
-                                closePopup(showCurrencies);
-                                return;
-                        }
-                    });
+                    openPopup(
+                        'Ticket en cours...',
+                        ['Effacer le ticket', 'Payer le ticket'],
+                        (index) => {
+                            switch (index) {
+                                case 0:
+                                    clearTotal();
+                                    setCurrency(option);
+                                    closePopup();
+                                    break;
+                                case 1:
+                                    pay();
+                                    break;
+                                default:
+                                    closePopup(showCurrencies);
+                                    return;
+                            }
+                        },
+                        true
+                    );
                 } else {
                     closePopup();
 
@@ -266,7 +272,7 @@ export const NumPad: FC = () => {
         f +
         (quantity ? 'bg-secondary-active-light dark:bg-secondary-active-dark ' : '') +
         (amount ? color : 'invisible');
-    const f3 = f + (localTransactions.length || historicalTransactions.length ? color : 'invisible');
+    const f3 = f + (transactions.length || historicalTransactions.length ? color : 'invisible');
 
     const { width, height } = useWindowParam();
     const shouldUseOverflow = useMemo(
@@ -341,7 +347,7 @@ export const NumPad: FC = () => {
                             className={sx}
                             onClick={canPay ? pay : canAddProduct ? () => addProduct(selectedCategory) : () => {}}
                             onContextMenu={
-                                canPay ? () => addTransaction(WAITING_KEYWORD) : canAddProduct ? pay : () => {}
+                                canPay ? () => updateTransaction(WAITING_KEYWORD) : canAddProduct ? pay : () => {}
                             }
                         >
                             {canPay ? <WalletIcon /> : canAddProduct ? <BasketIcon /> : ''}

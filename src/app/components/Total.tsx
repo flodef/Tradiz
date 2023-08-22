@@ -1,6 +1,6 @@
 'use client';
 
-import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, MouseEventHandler, useCallback, useMemo, useState } from 'react';
 import { Currency, State, useConfig } from '../hooks/useConfig';
 import { Transaction, useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
@@ -34,7 +34,7 @@ function handleContextMenu(
         stayOpen: boolean
     ) => void,
     closePopup: () => void,
-    fallback: (index: number) => void = () => {}
+    fallback: (index: number) => void = closePopup
 ) {
     if (index >= 0) {
         openPopup(
@@ -85,8 +85,9 @@ export const Total: FC = () => {
         deleteProduct,
         displayProduct,
         transactions,
-        saveTransactions,
         editTransaction,
+        updateTransaction,
+        deleteTransaction,
         toCurrency,
         toMercurial,
         quantity,
@@ -98,11 +99,7 @@ export const Total: FC = () => {
     const { pay, canAddProduct } = usePay();
     const { state } = useConfig();
 
-    // Hack to avoid differences between the server and the client, generating hydration issues
-    const [localTransactions, setLocalTransactions] = useState<Transaction[] | undefined>();
-    useEffect(() => {
-        setLocalTransactions(transactions);
-    }, [transactions]);
+    const [needRefresh, setNeedRefresh] = useState(false);
 
     const label = useIsMobile() ? totalLabel : payLabel;
 
@@ -120,7 +117,7 @@ export const Total: FC = () => {
             if (state !== State.done) return;
 
             handleContextMenu(
-                isWaitingTransaction(localTransactions?.at(index)) ? 'Reprendre' : 'Modifier',
+                isWaitingTransaction(transactions.at(index)) ? 'Reprendre' : 'Modifier',
                 editTransaction,
                 index,
                 openPopup,
@@ -128,7 +125,7 @@ export const Total: FC = () => {
                 () => fallback(index)
             );
         },
-        [editTransaction, openPopup, localTransactions, isWaitingTransaction, closePopup, state]
+        [editTransaction, openPopup, transactions, isWaitingTransaction, closePopup, state]
     );
 
     const isConfirmedTransaction = useCallback(
@@ -139,11 +136,11 @@ export const Total: FC = () => {
     );
 
     const displayTransactionsTitle = useCallback(() => {
-        if (!localTransactions?.length) return '';
+        if (!transactions.length) return '';
 
-        const totalTransactions = localTransactions.length;
+        const totalTransactions = transactions.length;
         const currencies: { [key: string]: { amount: number; currency: Currency } } = {};
-        localTransactions.forEach((transaction) => {
+        transactions.forEach((transaction) => {
             if (currencies[transaction.currency.symbol]) {
                 currencies[transaction.currency.symbol].amount += transaction.amount;
             } else {
@@ -155,23 +152,23 @@ export const Total: FC = () => {
         });
 
         return `${totalTransactions} vente${totalTransactions > 1 ? 's' : ''} : ${Object.values(currencies)
-            .map((currency) => {
-                return `${toCurrency(currency.amount, currency.currency)}`;
+            .map((element) => {
+                return `${toCurrency(element)}`;
             })
             .join(' + ')}`;
-    }, [toCurrency, localTransactions]);
+    }, [toCurrency, transactions]);
 
     const showProducts = useCallback(() => {
-        if (!products.current?.length) return;
+        if (!products.current.length) return;
 
         openPopup(
-            products.current.length + ' produits : ' + toCurrency(getCurrentTotal(), products.current[0].currency),
-            products.current.map(displayProduct).concat(['', payLabel]),
+            products.current.length + ' produits : ' + toCurrency(getCurrentTotal()),
+            products.current.map((product) => displayProduct(product)).concat(['', payLabel]),
             (index, option) => {
                 if (option === payLabel) {
                     pay();
                 } else if (index >= 0) {
-                    addProductQuantity(products.current?.at(index));
+                    addProductQuantity(products.current.at(index));
                     showProducts();
                 }
             },
@@ -180,11 +177,11 @@ export const Total: FC = () => {
                 confirmTitle: 'Effacer ?',
                 maxIndex: products.current.length,
                 action: (i) => {
-                    if (!products.current?.at(i)) {
+                    if (!products.current.at(i)) {
                         pay();
                     } else {
                         deleteProduct(i);
-                        if (products.current?.length) {
+                        if (products.current.length) {
                             showProducts();
                         } else {
                             closePopup();
@@ -213,7 +210,7 @@ export const Total: FC = () => {
             backToProducts: () => void,
             backToTransactions: () => void
         ) => {
-            if (!localTransactions?.length) return;
+            if (!transactions.length) return;
 
             transaction.products.splice(productIndex, 1);
             transaction.amount = transaction.products.reduce(
@@ -221,28 +218,31 @@ export const Total: FC = () => {
                 0
             );
             if (!transaction.amount) {
-                localTransactions.splice(transactionIndex, 1);
-                if (localTransactions.length) {
+                deleteTransaction(transactionIndex);
+                if (transactions.length) {
                     backToTransactions();
                 } else {
                     closePopup();
                 }
+                setNeedRefresh(true);
             } else {
+                updateTransaction(transaction);
                 backToProducts();
             }
-            saveTransactions(localTransactions);
         },
-        [localTransactions, saveTransactions, closePopup]
+        [transactions, closePopup, updateTransaction, deleteTransaction]
     );
 
     const showBoughtProducts = useCallback(
         (index: number, fallback: () => void) => {
-            const transaction = localTransactions?.at(index);
+            const transaction = transactions.at(index);
             if (!transaction || !transaction.amount || index < 0 || state !== State.done) return;
 
             openPopup(
-                toCurrency(transaction.amount, transaction.currency) + ' en ' + transaction.method,
-                transaction.products.map(displayProduct).concat(isMobileSize() ? ['', BACK_KEYWORD] : []),
+                toCurrency(transaction) + ' en ' + transaction.method,
+                transaction.products
+                    .map((product) => displayProduct(product, transaction.currency))
+                    .concat(isMobileSize() ? ['', BACK_KEYWORD] : []),
                 (i, o) =>
                     o === BACK_KEYWORD
                         ? fallback()
@@ -256,14 +256,14 @@ export const Total: FC = () => {
                 }
             );
         },
-        [localTransactions, openPopup, displayProduct, toCurrency, deleteBoughtProduct, modifyTransaction, state]
+        [transactions, openPopup, displayProduct, toCurrency, deleteBoughtProduct, modifyTransaction, state]
     );
 
     const showTransactions = useCallback(() => {
-        if (!localTransactions?.length) return;
+        if (!transactions.length) return;
 
-        const waitingTransactions = localTransactions.filter(isWaitingTransaction);
-        const confirmedTransactions = localTransactions.filter(isConfirmedTransaction);
+        const waitingTransactions = transactions.filter(isWaitingTransaction);
+        const confirmedTransactions = transactions.filter(isConfirmedTransaction);
         const hasSeparation = waitingTransactions.length && confirmedTransactions.length;
         const getIndex = (i: number) => (i > waitingTransactions.length && waitingTransactions.length ? i - 1 : i);
         const summary = waitingTransactions
@@ -287,7 +287,7 @@ export const Total: FC = () => {
     }, [
         openPopup,
         closePopup,
-        localTransactions,
+        transactions,
         editTransaction,
         displayTransaction,
         showBoughtProducts,
@@ -297,8 +297,9 @@ export const Total: FC = () => {
     ]);
 
     const canDisplayTotal = useMemo(() => {
-        return (total || amount || selectedCategory || !localTransactions?.length) as boolean;
-    }, [total, amount, selectedCategory, localTransactions]);
+        setNeedRefresh(false);
+        return Boolean(needRefresh || total || amount || selectedCategory || !transactions.length);
+    }, [total, amount, selectedCategory, transactions, needRefresh]);
 
     const handleClick = useCallback<MouseEventHandler>(
         (e) => {
@@ -316,7 +317,7 @@ export const Total: FC = () => {
                 } else {
                     pay();
                 }
-            } else if (localTransactions?.length) {
+            } else if (transactions.length) {
                 if (isMobileSize()) {
                     showTransactions();
                 } else {
@@ -332,7 +333,7 @@ export const Total: FC = () => {
             showProducts,
             showTransactions,
             canDisplayTotal,
-            localTransactions,
+            transactions,
             pay,
             addProduct,
             selectedCategory,
@@ -348,10 +349,10 @@ export const Total: FC = () => {
 
     const { width: screenWidth, height: screenHeight } = useWindowParam();
     const left = useMemo(
-        () => (!isMobileSize() && !isPopupOpen ? screenWidth / 2 : undefined),
+        () => (!isMobileSize() && !isPopupOpen && screenWidth > 0 ? screenWidth / 2 : undefined),
         [screenWidth, isPopupOpen]
     );
-    const height = useMemo(() => (!isMobileSize() ? screenHeight - 76 : undefined), [screenHeight]);
+    const height = useMemo(() => (!isMobileSize() && screenHeight > 0 ? screenHeight - 76 : undefined), [screenHeight]);
 
     return (
         <div
@@ -364,9 +365,7 @@ export const Total: FC = () => {
                 className={
                     widthClassName +
                     'w-full fixed text-5xl truncate text-center font-bold py-3 ' +
-                    ((canDisplayTotal && total) || (!canDisplayTotal && localTransactions?.length)
-                        ? clickClassName
-                        : '') +
+                    ((canDisplayTotal && total) || (!canDisplayTotal && transactions.length) ? clickClassName : '') +
                     (useIsMobile()
                         ? 'md:hidden border-b-[3px] border-active-light dark:border-active-dark'
                         : 'hidden border-b-[3px] border-active-light dark:border-active-dark md:block')
@@ -380,64 +379,60 @@ export const Total: FC = () => {
                     </div>
                 ) : (
                     <span>
-                        {'Ticket : ' + localTransactions?.length}
-                        <span className="text-xl">{`vente${(localTransactions?.length ?? 0) > 1 ? 's' : ''}`}</span>
+                        {'Ticket : ' + transactions.length}
+                        <span className="text-xl">{`vente${(transactions.length ?? 0) > 1 ? 's' : ''}`}</span>
                     </span>
                 )}
             </div>
 
-            <div>
-                <div
-                    className={
-                        widthClassName +
-                        'fixed top-[76px] left-0 w-1/2 h-screen text-center text-2xl ' +
-                        'font-bold py-3 overflow-y-auto hidden md:block'
-                    }
-                    style={{ left: left, height: height }}
-                >
-                    {canDisplayTotal
-                        ? products.current
-                              ?.map(displayProduct)
-                              .map((product, index) => (
-                                  <Item
-                                      className={clickClassName}
-                                      key={index}
-                                      label={product}
-                                      onClick={() => addProductQuantity(products.current?.at(index))}
-                                      onContextMenu={() => modifyProduct(index)}
-                                  />
-                              ))
-                        : localTransactions
-                              ?.map(displayTransaction)
-                              .map((transaction, index) => (
-                                  <Item
-                                      className={
-                                          clickClassName +
-                                          (isWaitingTransaction(localTransactions.at(index))
-                                              ? (isConfirmedTransaction(localTransactions.at(index + 1))
-                                                    ? 'mb-3 pb-3 border-b-4 border-active-light dark:border-active-dark '
-                                                    : '') + 'animate-pulse'
-                                              : '')
-                                      }
-                                      key={index}
-                                      label={transaction}
-                                      onClick={() => showBoughtProducts(index, showTransactions)}
-                                      onContextMenu={() =>
-                                          modifyTransaction(index, (i) => showBoughtProducts(i, showTransactions))
-                                      }
-                                  />
-                              ))
-                              .concat(
-                                  <div
-                                      key="total"
-                                      className={
-                                          'mt-3 pt-1 border-t-4 border-secondary-active-light dark:border-secondary-active-dark'
-                                      }
-                                  >
-                                      {displayTransactionsTitle()}
-                                  </div>
-                              )}
-                </div>
+            <div
+                className={
+                    widthClassName +
+                    'fixed top-[76px] left-0 w-1/2 h-screen text-center text-2xl ' +
+                    'font-bold py-3 overflow-y-auto hidden md:block'
+                }
+                style={{ left: left, height: height }}
+            >
+                {canDisplayTotal
+                    ? products.current
+                          .map((product) => displayProduct(product))
+                          .map((product, index) => (
+                              <Item
+                                  className={clickClassName}
+                                  key={index}
+                                  label={product}
+                                  onClick={() => addProductQuantity(products.current.at(index))}
+                                  onContextMenu={() => modifyProduct(index)}
+                              />
+                          ))
+                    : transactions
+                          .map(displayTransaction)
+                          .map((transaction, index) => (
+                              <Item
+                                  className={
+                                      clickClassName +
+                                      (isWaitingTransaction(transactions.at(index))
+                                          ? (isConfirmedTransaction(transactions.at(index + 1))
+                                                ? 'mb-3 pb-3 border-b-4 border-active-light dark:border-active-dark '
+                                                : '') + 'animate-pulse'
+                                          : '')
+                                  }
+                                  key={index}
+                                  label={transaction}
+                                  onClick={() => showBoughtProducts(index, () => closePopup())}
+                                  onContextMenu={() => modifyTransaction(index, () => closePopup())}
+                              />
+                          ))
+                          .concat(
+                              <div
+                                  key="total"
+                                  className={
+                                      'mt-3 pt-1 border-t-4 border-secondary-active-light dark:border-secondary-active-dark'
+                                  }
+                              >
+                                  {displayTransactionsTitle()}
+                              </div>
+                          )}
             </div>
         </div>
     );

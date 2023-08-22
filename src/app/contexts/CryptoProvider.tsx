@@ -17,8 +17,8 @@ export interface CryptoProviderProps {
 }
 
 export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
-    const { total, products } = useData();
-    const { paymentMethods, shopName: label, thanksMessage: message } = useConfig();
+    const { total } = useData();
+    const { paymentMethods, shopName: label, thanksMessage: message, currencies, currencyIndex } = useConfig();
     const { isOnline } = useWindowParam();
 
     const requiredConfirmations = 1;
@@ -49,8 +49,8 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
     const refPaymentStatus = useRef(paymentStatus);
 
     useEffect(() => {
-        BigNumber.config({ DECIMAL_PLACES: products.current.at(0)?.currency.maxDecimals ?? 0 });
-    }, [products]);
+        BigNumber.config({ DECIMAL_PLACES: currencies[currencyIndex].maxDecimals ?? 0 });
+    }, [currencies, currencyIndex]);
 
     useEffect(() => {
         if (error) {
