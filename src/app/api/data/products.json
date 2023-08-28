@@ -1,6 +1,6 @@
 {
     "values": [
-        ["Taux", "Catégorie", "Nom", "Euro (€)"],
+        ["Taux", "Catégorie", "Nom", "Euro (€)", "June (Ğ1)"],
         [0.055, "Boulange", "Baguette", 1.3],
         [0.055, "Boulange", "Baguette graine", 1.6],
         [0.055, "Boulange", "Campagne (500g)", 3.0],
