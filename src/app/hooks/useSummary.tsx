@@ -113,13 +113,13 @@ export const useSummary = () => {
         return { categories, payments };
     }, []);
 
-    const getTransactionsSummary = useCallback(
+    const getTransactionsData = useCallback(
         (transactions: Transaction[]) => {
-            if (!transactions.length) return;
+            if (!transactions.length) return { categories: [], payments: [], summary: [] };
 
-            const details = getTransactionsDetails(transactions);
+            const { categories, payments } = getTransactionsDetails(transactions);
             const taxes = getTaxesByCategory();
-            const taxAmount = getTaxAmountByCategory(taxes, details.categories);
+            const taxAmount = getTaxAmountByCategory(taxes, categories);
             const totalTaxes = { total: 0, ht: 0, tva: 0 };
             taxAmount.forEach((t) => {
                 totalTaxes.total += t?.total ?? 0;
@@ -127,51 +127,56 @@ export const useSummary = () => {
                 totalTaxes.tva += t?.tva ?? 0;
             });
 
-            return details.categories
-                .map(
-                    ({ category, quantity, amount }) =>
-                        '[T' +
-                        (taxes.find((tax) => tax.categories.includes(category))?.index ?? '') +
-                        '] ' +
-                        category +
-                        ' x ' +
-                        quantity +
-                        ' ==> ' +
-                        toCurrency(amount)
-                )
-                .concat([''])
-                .concat([' TAUX \n HT \n TVA \n TTC '])
-                .concat(
-                    taxAmount
-                        .map((t) => {
-                            return t
-                                ? 'T' +
-                                      (isNaN(t.index) ? '' : t.index) +
-                                      ' ' +
-                                      t.rate +
-                                      '%\n' +
-                                      toCurrency(t.ht) +
-                                      '\n' +
-                                      toCurrency(t.tva) +
-                                      '\n' +
-                                      toCurrency(t.total)
-                                : '';
-                        })
-                        .concat([
-                            'TOTAL\n' +
-                                toCurrency(totalTaxes.ht) +
-                                '\n' +
-                                toCurrency(totalTaxes.tva) +
-                                '\n' +
-                                toCurrency(totalTaxes.total),
-                        ])
-                )
-                .concat([''])
-                .concat(
-                    details.payments.map(
-                        ({ category, quantity, amount }) => category + ' x ' + quantity + ' ==> ' + toCurrency(amount)
-                    ) ?? []
-                );
+            return {
+                categories: categories,
+                payments: payments,
+                summary: categories
+                    .map(
+                        ({ category, quantity, amount }) =>
+                            '[T' +
+                            (taxes.find((tax) => tax.categories.includes(category))?.index ?? '') +
+                            '] ' +
+                            category +
+                            ' x ' +
+                            quantity +
+                            ' ==> ' +
+                            toCurrency(amount)
+                    )
+                    .concat([''])
+                    .concat([' TAUX \n HT \n TVA \n TTC '])
+                    .concat(
+                        taxAmount
+                            .map((t) => {
+                                return t
+                                    ? 'T' +
+                                          (isNaN(t.index) ? '' : t.index) +
+                                          ' ' +
+                                          t.rate +
+                                          '%\n' +
+                                          toCurrency(t.ht) +
+                                          '\n' +
+                                          toCurrency(t.tva) +
+                                          '\n' +
+                                          toCurrency(t.total)
+                                    : '';
+                            })
+                            .concat([
+                                'TOTAL\n' +
+                                    toCurrency(totalTaxes.ht) +
+                                    '\n' +
+                                    toCurrency(totalTaxes.tva) +
+                                    '\n' +
+                                    toCurrency(totalTaxes.total),
+                            ])
+                    )
+                    .concat([''])
+                    .concat(
+                        payments.map(
+                            ({ category, quantity, amount }) =>
+                                category + ' x ' + quantity + ' ==> ' + toCurrency(amount)
+                        ) ?? []
+                    ),
+            };
         },
         [getTaxAmountByCategory, getTaxesByCategory, getTransactionsDetails, toCurrency]
     );
@@ -217,6 +222,67 @@ export const useSummary = () => {
         [openPopup, historicalTransactions, getHistoricalTransactions, transactionsFilename]
     );
 
+    const displayCategoryDetails = useCallback(
+        (element: DataElement, transactions: Transaction[], fallback?: () => void) => {
+            const array: { label: string; quantity: number; amount: number }[] = [];
+            transactions.flatMap(({ products }) =>
+                products
+                    .filter(({ category }) => category === element.category)
+                    .forEach(({ label, quantity, total }) => {
+                        const index = array.findIndex((p) => p.label === label);
+                        if (index >= 0) {
+                            array[index].quantity += quantity;
+                            array[index].amount += total;
+                        } else {
+                            array.push({
+                                label: label || '',
+                                quantity: quantity,
+                                amount: total,
+                            });
+                        }
+                    })
+            );
+
+            const detail = array.map(
+                ({ label, quantity, amount }) => label + ' x ' + quantity + ' ==> ' + toCurrency(amount)
+            );
+
+            openPopup(
+                element.category + ' x' + element.quantity + ': ' + toCurrency(element.amount),
+                detail,
+                fallback,
+                true
+            );
+        },
+        [openPopup, toCurrency]
+    );
+
+    const displayPaymentDetails = useCallback(
+        (element: DataElement, transactions: Transaction[], fallback?: () => void) => {
+            const detail = transactions
+                .filter(({ method }) => method === element.category)
+                .map(({ products, amount, modifiedDate }) => {
+                    return (
+                        products.length +
+                        ' produit' +
+                        (products.length > 1 ? 's' : '') +
+                        ' ==> ' +
+                        toCurrency(amount) +
+                        ' à ' +
+                        new Date(modifiedDate).toTimeString().slice(0, 9)
+                    );
+                });
+
+            openPopup(
+                element.category + ' x' + element.quantity + ': ' + toCurrency(element.amount),
+                detail,
+                fallback,
+                true
+            );
+        },
+        [openPopup, toCurrency]
+    );
+
     const showTransactionsSummary = useCallback(
         (newTransactions = transactions, fallback?: () => void) => {
             if (!newTransactions.length) {
@@ -227,8 +293,7 @@ export const useSummary = () => {
             const filteredTransactions = newTransactions.filter(
                 (transaction) => transaction.currency.symbol === currencies[currencyIndex].symbol
             );
-            const summary = getTransactionsSummary(filteredTransactions);
-            const categories = getTransactionsDetails(filteredTransactions).categories;
+            const { summary, categories, payments } = getTransactionsData(filteredTransactions);
             const totalProducts = categories.reduce((total, category) => total + category.quantity, 0) ?? 0;
             const totalAmount = filteredTransactions.reduce((total, transaction) => total + transaction.amount, 0);
 
@@ -238,40 +303,18 @@ export const useSummary = () => {
                 } : ${toCurrency(totalAmount)}`,
                 summary || [''],
                 (index) => {
-                    if (index < 0 && fallback) {
-                        fallback();
-                    } else {
-                        if (!categories.length || index >= categories.length || index < 0) return;
+                    if (index < 0 && fallback) fallback();
+                    if (index < 0) return;
 
-                        const element = categories[index];
-                        const array: { label: string; quantity: number; amount: number }[] = [];
-                        filteredTransactions.flatMap(({ products }) =>
-                            products
-                                .filter(({ category }) => category === element.category)
-                                .forEach(({ label, quantity, total }) => {
-                                    const index = array.findIndex((p) => p.label === label);
-                                    if (index >= 0) {
-                                        array[index].quantity += quantity;
-                                        array[index].amount += total;
-                                    } else {
-                                        array.push({
-                                            label: label || '',
-                                            quantity: quantity,
-                                            amount: total,
-                                        });
-                                    }
-                                })
+                    if (index < categories.length) {
+                        displayCategoryDetails(categories[index], filteredTransactions, () =>
+                            showTransactionsSummary(newTransactions, fallback)
                         );
-
-                        const summary = array.map(
-                            ({ label, quantity, amount }) => label + ' x ' + quantity + ' ==> ' + toCurrency(amount)
-                        );
-
-                        openPopup(
-                            element.category + ' x' + element.quantity + ': ' + toCurrency(element.amount),
-                            summary,
-                            () => showTransactionsSummary(newTransactions, fallback),
-                            true
+                    } else if (index >= summary.length - payments.length) {
+                        displayPaymentDetails(
+                            payments[index - (summary.length - payments.length)],
+                            filteredTransactions,
+                            () => showTransactionsSummary(newTransactions, fallback)
                         );
                     }
                 },
@@ -281,13 +324,13 @@ export const useSummary = () => {
         [
             openPopup,
             transactions,
-            getTransactionsDetails,
-            getTransactionsSummary,
+            getTransactionsData,
             toCurrency,
             showHistoricalTransactions,
             currencies,
             currencyIndex,
-            ,
+            displayCategoryDetails,
+            displayPaymentDetails,
         ]
     );
 
@@ -298,15 +341,15 @@ export const useSummary = () => {
             const filteredTransactions = transactions.filter(
                 (transaction) => transaction.currency.symbol === currencies[currencyIndex].symbol
             );
-            const summary = (getTransactionsSummary(filteredTransactions) ?? [])
-                .map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
+            const summary = getTransactionsData(filteredTransactions)
+                .summary.map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
                 .join('\n');
             const message =
                 'Bonjour,\n\nCi-joint le Ticket Z du ' + new Date().toLocaleDateString() + ' :\n\n' + summary;
 
             sendEmail('', subject, message);
         },
-        [getTransactionsSummary, transactions, currencies, currencyIndex]
+        [getTransactionsData, transactions, currencies, currencyIndex]
     );
 
     const downloadData = useCallback(
