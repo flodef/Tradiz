@@ -128,23 +128,22 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 localStorage.removeItem(transactionsFilename);
             }
 
+            const index = transaction.createdDate;
+            transactionId.current = action === DatabaseAction.update ? index : 0;
+
             if (!firestore) return;
 
-            const index = transaction.createdDate;
             switch (action) {
                 case DatabaseAction.add:
                     setDoc(doc(firestore, transactionsFilename, index.toString()), transaction);
-                    transactionId.current = 0;
                     break;
                 case DatabaseAction.update:
                     updateDoc(doc(firestore, transactionsFilename, index.toString()), {
                         method: PROCESSING_KEYWORD,
                     });
-                    transactionId.current = index;
                     break;
                 case DatabaseAction.delete:
                     deleteDoc(doc(firestore, transactionsFilename, index.toString()));
-                    transactionId.current = 0;
                     break;
             }
         },
