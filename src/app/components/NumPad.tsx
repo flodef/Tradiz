@@ -173,7 +173,7 @@ export const NumPad: FC = () => {
         if (currencies.length < 2) return;
 
         openPopup(
-            'Changer ' + currencies[currencyIndex].label,
+            'Changer ' + currencies[currencyIndex].label + ' pour :',
             currencies.filter((_, index) => index !== currencyIndex).map(({ label }) => label),
             (index, option) => {
                 if (index === -1) return;
@@ -237,7 +237,7 @@ export const NumPad: FC = () => {
 
     const mercuriale = useCallback(() => {
         const mercurials = Object.values(Mercurial);
-        openPopup('Mercuriale quadratique', mercurials, (index) => {
+        openPopup('Fonction coût quadratique', mercurials, (index) => {
             if (quantity === 0) {
                 multiply();
             }
