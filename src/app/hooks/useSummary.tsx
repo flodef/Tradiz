@@ -219,7 +219,10 @@ export const useSummary = () => {
 
     const showTransactionsSummary = useCallback(
         (newTransactions = transactions, fallback?: () => void) => {
-            if (!newTransactions.length) showHistoricalTransactions(showTransactionsSummary);
+            if (!newTransactions.length) {
+                showHistoricalTransactions(showTransactionsSummary);
+                return;
+            }
 
             const filteredTransactions = newTransactions.filter(
                 (transaction) => transaction.currency.symbol === currencies[currencyIndex].symbol
@@ -310,10 +313,15 @@ export const useSummary = () => {
         (fileName: string) => {
             if (!transactions.length) return;
 
+            const getTransactionID = (modifiedDate: number, index: number) => {
+                const date = new Date(modifiedDate);
+                return [date.getFullYear(), date.getMonth() + 1, date.getDate(), index].join('-');
+            };
+
             const transactionsData = transactions.map((transaction, index) => {
                 const date = new Date(transaction.modifiedDate);
                 return {
-                    ID: index,
+                    ID: getTransactionID(transaction.modifiedDate, index),
                     Montant: toCurrency(transaction),
                     Paiement: transaction.method,
                     Date: date.toLocaleDateString(),
@@ -322,10 +330,10 @@ export const useSummary = () => {
             });
 
             const productData = transactions
-                .map(({ products, currency }, index) => {
+                .map(({ products, modifiedDate, currency }, index) => {
                     return products.map(({ category, label, amount, quantity, total }) => {
                         return {
-                            Transaction: index,
+                            Transaction: getTransactionID(modifiedDate, index),
                             Catégorie: category,
                             Produit: label,
                             Prix: toCurrency({ amount: amount, currency: currency }),
@@ -382,14 +390,20 @@ export const useSummary = () => {
         if (transactions.length) {
             openPopup(
                 'TicketZ ' + DEFAULT_DATE,
-                ["Capture d'écran", 'Email', 'Feuille de calcul', 'Historique', 'Afficher'],
+                [
+                    "Capture d'écran",
+                    'Email',
+                    'Feuille de calcul',
+                    historicalTransactions.length ? 'Historique' : '',
+                    'Afficher',
+                ],
                 (index) => {
                     switch (index) {
                         case 0:
                             showTransactionsSummary();
                             setTimeout(() => {
                                 takeScreenshot('popup', 'TicketZ ' + DEFAULT_DATE + '.png').then(() => {
-                                    closePopup();
+                                    openPopup("Capture d'écran", ['La capture a bien été enregistrée'], () => {});
                                 });
                             }); // Set timeout to give time to the popup to display and the screenshot to be taken
                             break;
