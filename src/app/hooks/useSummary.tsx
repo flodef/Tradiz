@@ -316,6 +316,13 @@ export const useSummary = () => {
                             filteredTransactions,
                             () => showTransactionsSummary(newTransactions, fallback)
                         );
+                    } else {
+                        openPopup(
+                            'TVA',
+                            summary.slice(categories.length + 1, -payments.length - 1),
+                            () => showTransactionsSummary(newTransactions, fallback),
+                            true
+                        );
                     }
                 },
                 true
