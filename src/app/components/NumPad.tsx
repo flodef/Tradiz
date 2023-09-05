@@ -203,15 +203,16 @@ export const NumPad: FC = () => {
                     closePopup();
 
                     setCurrency(option);
-                    if (amount) {
-                        const index = currencies.findIndex(({ label }) => label === option);
-                        const selectedProduct = selectedCategory.split(CATEGORY_SEPARATOR).at(1);
-                        setAmount(
-                            inventory
-                                .find(({ products }) => products.some(({ label }) => label === selectedProduct))
-                                ?.products.find(({ label }) => label === selectedProduct)?.prices[index] ?? 0
-                        );
-                    }
+                    const index = currencies.findIndex(({ label }) => label === option);
+                    const maxDecimals = currencies[index].maxDecimals;
+                    const selectedProduct = selectedCategory.split(CATEGORY_SEPARATOR).at(1);
+                    const amount = selectedProduct
+                        ? inventory
+                              .find(({ products }) => products.some(({ label }) => label === selectedProduct))
+                              ?.products.find(({ label }) => label === selectedProduct)?.prices[index] ?? 0
+                        : 0;
+                    setValue((amount * Math.pow(10, maxDecimals)).toString());
+                    setQuantity(0);
                 }
             },
             true
@@ -222,8 +223,7 @@ export const NumPad: FC = () => {
         currencyIndex,
         setCurrency,
         total,
-        amount,
-        setAmount,
+        setQuantity,
         selectedCategory,
         inventory,
         closePopup,
