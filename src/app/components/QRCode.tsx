@@ -135,7 +135,7 @@ export const QRCode: FC = () => {
     return paymentStatus === PaymentStatus.Pending ? (
         <div className="flex flex-col">
             <div ref={ref} className="rounded-2xl" />
-            <div>Options | {isOnline ? 'Connecté' : 'Hors-Connection'}</div>
+            <div>Options{!isOnline ? ' [Hors-Connection]' : ''}</div>
         </div>
     ) : paymentStatus === PaymentStatus.Finalized || paymentStatus === PaymentStatus.Error ? (
         <Checkmark isOK={paymentStatus !== PaymentStatus.Error} size={size * 0.8} />
