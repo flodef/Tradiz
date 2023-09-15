@@ -18,6 +18,7 @@ import { DataContext, Product, Transaction } from '../hooks/useData';
 import {
     CATEGORY_SEPARATOR,
     DEFAULT_DATE,
+    DELETED_KEYWORD,
     OTHER_KEYWORD,
     PROCESSING_KEYWORD,
     TRANSACTIONS_KEYWORD,
@@ -143,7 +144,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     });
                     break;
                 case DatabaseAction.delete:
-                    deleteDoc(doc(firestore, transactionsFilename, index.toString()));
+                    updateDoc(doc(firestore, transactionsFilename, index.toString()), {
+                        method: DELETED_KEYWORD,
+                    });
                     break;
             }
         },
