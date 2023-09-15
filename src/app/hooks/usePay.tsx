@@ -116,41 +116,44 @@ export const usePay = () => {
         [openQRCode, cancelOrConfirmPaiement, generate, updateTransaction, closePopup, paymentMethods, openPopup]
     );
 
-    const pay = useCallback(() => {
-        if (canAddProduct) {
-            addProduct(selectedCategory);
-        }
-
-        const total = getCurrentTotal();
-        if (total && paymentMethods.length) {
-            const paymentMethodsLabels = paymentMethods
-                .map((item) => item.method)
-                .concat(['', 'METTRE ' + WAITING_KEYWORD]);
-            if (paymentMethodsLabels.length === 1) {
-                selectPayment(paymentMethodsLabels[0], pay);
-            } else {
-                openPopup(
-                    'Paiement : ' + toCurrency(total),
-                    paymentMethodsLabels,
-                    (index, option) => {
-                        if (index < 0) return;
-
-                        selectPayment(option, pay);
-                    },
-                    true
-                );
+    const pay = useCallback(
+        (shouldAddProduct = true) => {
+            if (shouldAddProduct && canAddProduct) {
+                addProduct(selectedCategory);
             }
-        }
-    }, [
-        selectPayment,
-        openPopup,
-        getCurrentTotal,
-        paymentMethods,
-        toCurrency,
-        canAddProduct,
-        addProduct,
-        selectedCategory,
-    ]);
+
+            const total = getCurrentTotal();
+            if (total && paymentMethods.length) {
+                const paymentMethodsLabels = paymentMethods
+                    .map((item) => item.method)
+                    .concat(['', 'METTRE ' + WAITING_KEYWORD]);
+                if (paymentMethodsLabels.length === 1) {
+                    selectPayment(paymentMethodsLabels[0], pay);
+                } else {
+                    openPopup(
+                        'Paiement : ' + toCurrency(total),
+                        paymentMethodsLabels,
+                        (index, option) => {
+                            if (index < 0) return;
+
+                            selectPayment(option, pay);
+                        },
+                        true
+                    );
+                }
+            }
+        },
+        [
+            selectPayment,
+            openPopup,
+            getCurrentTotal,
+            paymentMethods,
+            toCurrency,
+            canAddProduct,
+            addProduct,
+            selectedCategory,
+        ]
+    );
 
     useEffect(() => {
         if (error?.message === 'Transaction timed out') {
