@@ -90,6 +90,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
     const init = useCallback(() => {
         setPaymentStatus(PaymentStatus.New);
         setReference(undefined);
+        setError(undefined);
     }, []);
 
     const generate = useCallback(

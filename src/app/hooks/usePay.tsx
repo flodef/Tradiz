@@ -58,6 +58,8 @@ export const usePay = () => {
 
     const cancelOrConfirmPaiement = useCallback(
         (onConfirm: () => void) => {
+            if (getCurrentTotal() === 0) return;
+
             openPopup(
                 'Paiement : ' + toCurrency(getCurrentTotal()),
                 ['Attendre paiement', 'Changer mode paiement', 'Valider paiement', 'Annuler paiement'],
