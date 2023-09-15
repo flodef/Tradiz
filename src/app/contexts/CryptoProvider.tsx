@@ -8,7 +8,7 @@ import { useConfig } from '../hooks/useConfig';
 import { Crypto, CryptoContext, PaymentStatus } from '../hooks/useCrypto';
 import { useData } from '../hooks/useData';
 import { useWindowParam } from '../hooks/useWindowParam';
-import { ENDPOINT, SPL_TOKEN } from '../utils/constants';
+import { ENDPOINT, SPL_TOKEN, TRANSACTION_TIME_OUT } from '../utils/constants';
 import { Confirmations } from '../utils/types';
 import { validateTransfer } from '../utils/validateTransfer';
 
@@ -133,7 +133,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
                     setPaymentStatus(PaymentStatus.Confirmed);
                 }
             } catch (error: any) {
-                const isTimeOut = watchDog.current++ > 120;
+                const isTimeOut = watchDog.current++ > TRANSACTION_TIME_OUT * 4;
 
                 // If status is no longer correct or the watch dog has expired, stop polling
                 if (paymentStatus !== PaymentStatus.Pending || isTimeOut) {

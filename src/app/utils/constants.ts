@@ -16,6 +16,7 @@ export const DEFAULT_DATE = [
 ].join('-');
 
 // Solana
+export const TRANSACTION_TIME_OUT = 60; // Time out in seconds
 export const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
 export const IS_DEV = process.env.NEXT_PUBLIC_IS_DEV === 'true';
 export const SPL_TOKEN = new PublicKey(
