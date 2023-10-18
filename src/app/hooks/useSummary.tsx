@@ -8,7 +8,7 @@ import { DataElement, Transaction, useData } from './useData';
 import { usePopup } from './usePopup';
 
 export const useSummary = () => {
-    const { currencies, currencyIndex, inventory } = useConfig();
+    const { currencies, currencyIndex, inventory, shopEmail } = useConfig();
     const { transactions, toCurrency, transactionsFilename } = useData();
     const { openPopup, closePopup } = usePopup();
 
@@ -354,9 +354,9 @@ export const useSummary = () => {
             const message =
                 'Bonjour,\n\nCi-joint le Ticket Z du ' + new Date().toLocaleDateString() + ' :\n\n' + summary;
 
-            sendEmail('', subject, message);
+            sendEmail(shopEmail, subject, message);
         },
-        [getTransactionsData, transactions, currencies, currencyIndex]
+        [getTransactionsData, transactions, currencies, currencyIndex, shopEmail]
     );
 
     const downloadData = useCallback(
@@ -394,31 +394,21 @@ export const useSummary = () => {
                 })
                 .flatMap((p) => p);
 
-            const tvaData = inventory
-                .flatMap(({ category, rate }) => {
-                    return currencies
-                        .filter(
-                            ({ symbol }, index, array) =>
-                                array.findIndex((currency) => currency.symbol === symbol) === index
-                        )
-                        .map((currency) => {
-                            const total = transactions
-                                .filter(({ currency: cur }) => cur.symbol === currency.symbol)
-                                .flatMap(({ products }) => products)
-                                .filter(({ category: cat }) => cat === category)
-                                .reduce((t, { total }) => t + total, 0);
-                            if (!total) return;
+            const { categories } = getTransactionsDetails(transactions);
+            const taxes = getTaxesByCategory();
+            const taxAmount = getTaxAmountByCategory(taxes, categories);
 
-                            const ht = total / (1 + rate / 100);
-                            const tva = total - ht;
-                            return {
-                                Catégorie: category,
-                                Taux: rate + '%',
-                                HT: toCurrency({ amount: ht, currency: currency }),
-                                TVA: toCurrency({ amount: tva, currency: currency }),
-                                TTC: toCurrency({ amount: total, currency: currency }),
-                            };
-                        });
+            const tvaData = taxAmount
+                .filter((tax) => tax)
+                .map((tax) => {
+                    return tax
+                        ? {
+                              Taux: tax.rate + '%',
+                              HT: toCurrency(tax.ht),
+                              TVA: toCurrency(tax.tva),
+                              TTC: toCurrency(tax.total),
+                          }
+                        : {};
                 })
                 .filter((t) => t);
 
@@ -433,7 +423,7 @@ export const useSummary = () => {
             });
             writeFile(workbook, fileName + '.xlsx', { compression: true });
         },
-        [transactions, inventory, toCurrency, currencies]
+        [transactions, toCurrency, getTransactionsDetails, getTaxesByCategory, getTaxAmountByCategory]
     );
 
     const showTransactionsSummaryMenu = useCallback(() => {
