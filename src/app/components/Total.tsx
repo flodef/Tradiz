@@ -363,7 +363,8 @@ export const Total: FC = () => {
             >
                 {canDisplayTotal ? (
                     <div>
-                        {label} <Amount value={total + amount * Math.max(toMercurial(quantity), 1)} showZero />
+                        {canDisplayTotal && total ? label : totalLabel}{' '}
+                        <Amount value={total + amount * Math.max(toMercurial(quantity), 1)} showZero />
                     </div>
                 ) : (
                     <span>
