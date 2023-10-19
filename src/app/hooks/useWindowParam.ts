@@ -12,6 +12,10 @@ export function useWindowParam() {
         width: -1,
         height: -1,
     });
+    const [windowPosition, setWindowPosition] = useState({
+        top: -1,
+        left: -1,
+    });
     const [colorScheme, setColorScheme] = useState(ColorScheme.Light);
     const [isOnline, setIsOnline] = useState(true);
 
@@ -19,10 +23,13 @@ export function useWindowParam() {
         // only execute all the code below in client side
         // Handler to call on window resize
         const handleResize = () => {
-            // Set window width/height to state
             setWindowSize({
                 width: window.innerWidth,
                 height: window.innerHeight,
+            });
+            setWindowPosition({
+                top: window.screenTop,
+                left: window.screenLeft,
             });
         };
         const handleColorScheme = (event: MediaQueryListEvent) => {
@@ -50,5 +57,12 @@ export function useWindowParam() {
             window.removeEventListener('offline', () => setIsOnline(false));
         };
     }, []); // Empty array ensures that effect is only run on mount
-    return { width: windowSize.width, height: windowSize.height, colorScheme, isOnline };
+    return {
+        width: windowSize.width,
+        height: windowSize.height,
+        top: windowPosition.top,
+        left: windowPosition.left,
+        colorScheme,
+        isOnline,
+    };
 }

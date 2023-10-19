@@ -281,12 +281,21 @@ export const NumPad: FC = () => {
             : 'invisible');
     const f3 = f + (transactions.length || historicalTransactions.length ? color : 'invisible');
 
-    const { width, height } = useWindowParam();
+    const { width, height, left: x, top: y } = useWindowParam();
     const shouldUseOverflow = useMemo(
         () => (height < 590 && !isMobileSize()) || (height < 660 && isMobileSize()),
         [height]
     );
     const left = useMemo(() => Math.max(((isMobileSize() ? width : width / 2) - 512) / 2, 0), [width]);
+
+    // Check if the app is in fullscreen otherwise open a popup asking to click for setting it
+    useEffect(() => {
+        if (height && width && (x || y) && state === State.done) {
+            openPopup('Plein écran', ['Mettre en plein écran'], () => {
+                requestFullscreen();
+            });
+        }
+    }, [openPopup, height, width, x, y, state]);
 
     return (
         <div
