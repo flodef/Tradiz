@@ -82,7 +82,9 @@ export const Popup: FC = () => {
             >
                 <div>
                     <div className="flex justify-between bg-secondary-active-light dark:bg-secondary-active-dark">
-                        <div className="text-2xl font-semibold py-3 pl-3">{popupTitle}</div>
+                        <div className="text-2xl font-semibold py-3 pl-3 text-popup-dark dark:text-popup-light">
+                            {popupTitle}
+                        </div>
                         <CloseButton
                             onClose={() => {
                                 closePopup(() => {
@@ -92,18 +94,12 @@ export const Popup: FC = () => {
                         />
                     </div>
                 </div>
-                <div>
+                <div className="py-1">
                     {popupOptions.map((option, index) =>
                         option?.toString().trim() ? (
                             <div
                                 className={
-                                    (optionCount <= 7
-                                        ? 'py-3 '
-                                        : optionCount <= 10
-                                        ? 'py-2 '
-                                        : optionCount <= 13
-                                        ? 'py-1 '
-                                        : '') +
+                                    'py-2 ' +
                                     (popupIsSpecial && popupIsSpecial(option.toString()) ? ' animate-pulse ' : '') +
                                     'w-full relative flex justify-around items-center font-semibold text-xl text-center'
                                 }

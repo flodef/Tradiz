@@ -44,7 +44,9 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
             className={
                 'w-20 h-20 relative flex justify-center m-3 items-center font-semibold text-3xl border-[3px] rounded-2xl ' +
                 'border-secondary-light dark:border-secondary-dark ' +
-                (state === State.done ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark' : '')
+                (state === State.done
+                    ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark active:dark:text-popup-light'
+                    : '')
             }
             onClick={onClick}
             onContextMenu={onClick}
@@ -262,7 +264,9 @@ export const NumPad: FC = () => {
 
     const clickClassName =
         state === State.done ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark ' : '';
-    const color = clickClassName + 'text-secondary-light dark:text-secondary-dark ';
+    const color =
+        clickClassName +
+        'text-secondary-light dark:text-secondary-dark active:text-popup-dark active:dark:text-popup-light ';
     const s = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl ';
     const sx = s + (canPay || canAddProduct ? color : 'invisible');
 
@@ -270,8 +274,11 @@ export const NumPad: FC = () => {
     const f1 = f + (amount || total || selectedCategory ? color : 'invisible');
     const f2 =
         f +
-        (quantity ? 'bg-secondary-active-light dark:bg-secondary-active-dark ' : '') +
-        (amount ? color : 'invisible');
+        (amount
+            ? quantity
+                ? 'bg-secondary-active-light dark:bg-secondary-active-dark text-popup-dark dark:text-popup-light '
+                : color
+            : 'invisible');
     const f3 = f + (transactions.length || historicalTransactions.length ? color : 'invisible');
 
     const { width, height } = useWindowParam();

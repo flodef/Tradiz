@@ -37,10 +37,10 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
         <div
             className={
                 'relative flex justify-center py-3 items-center font-semibold text-2xl truncate ' +
-                'active:bg-active-light active:dark:bg-active-dark ' +
+                'active:bg-active-light active:dark:bg-active-dark active:text-popup-dark active:dark:text-popup-light ' +
                 width +
                 ((input !== OTHER_KEYWORD ? category.includes(input) : input === category.at(0))
-                    ? ' bg-active-light dark:bg-active-dark'
+                    ? ' bg-active-light dark:bg-active-dark text-popup-dark dark:text-popup-light'
                     : '')
             }
             onClick={onClick}
