@@ -81,7 +81,6 @@ export const Total: FC = () => {
         products,
         selectedCategory,
         addProduct,
-        addProductQuantity,
         deleteProduct,
         displayProduct,
         transactions,
@@ -168,7 +167,6 @@ export const Total: FC = () => {
                 if (option === payLabel) {
                     pay(false);
                 } else if (index >= 0) {
-                    addProductQuantity(products.current.at(index));
                     showProducts();
                 }
             },
@@ -190,17 +188,7 @@ export const Total: FC = () => {
                 },
             }
         );
-    }, [
-        getCurrentTotal,
-        pay,
-        products,
-        openPopup,
-        closePopup,
-        displayProduct,
-        deleteProduct,
-        toCurrency,
-        addProductQuantity,
-    ]);
+    }, [getCurrentTotal, pay, products, openPopup, closePopup, displayProduct, deleteProduct, toCurrency]);
 
     const deleteBoughtProduct = useCallback(
         (
@@ -389,7 +377,7 @@ export const Total: FC = () => {
                 className={
                     widthClassName +
                     'fixed top-[76px] left-0 w-1/2 h-screen text-center text-2xl ' +
-                    'font-bold py-3 overflow-y-auto hidden md:block'
+                    'py-1 font-bold overflow-y-auto hidden md:block'
                 }
                 style={{ left: left, height: height }}
             >
@@ -398,10 +386,9 @@ export const Total: FC = () => {
                           .map((product) => displayProduct(product))
                           .map((product, index) => (
                               <Item
-                                  className={clickClassName}
+                                  className={clickClassName + 'py-2 '}
                                   key={index}
                                   label={product}
-                                  onClick={() => addProductQuantity(products.current.at(index))}
                                   onContextMenu={() => modifyProduct(index)}
                               />
                           ))
@@ -411,6 +398,7 @@ export const Total: FC = () => {
                               <Item
                                   className={
                                       clickClassName +
+                                      'py-2 ' +
                                       (isWaitingTransaction(transactions.at(index))
                                           ? (isConfirmedTransaction(transactions.at(index + 1))
                                                 ? 'mb-3 pb-3 border-b-4 border-active-light dark:border-active-dark '
