@@ -401,7 +401,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 (isWaitingTransaction(transaction) ? ' ' : ' en ') +
                 transaction.method +
                 ' à ' +
-                new Date(transaction.modifiedDate).toTimeString().slice(0, 9)
+                new Date(transaction.createdDate).toTimeString().slice(0, 9)
             );
         },
         [toCurrency, isWaitingTransaction]
