@@ -290,7 +290,7 @@ export const NumPad: FC = () => {
 
     // Check if the app is in fullscreen otherwise open a popup asking to click for setting it
     useEffect(() => {
-        if (height && width && (x || y) && state === State.done) {
+        if (state === State.done && (height < window.screen.availHeight || width < window.screen.availWidth)) {
             openPopup('Plein écran', ['Mettre en plein écran'], () => {
                 requestFullscreen();
             });
