@@ -54,7 +54,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
 export const Category: FC = () => {
     const { inventory, state, lastModified, setState, currencyIndex, shopEmail } = useConfig();
     const { addProduct, amount, setAmount, selectedCategory, setSelectedCategory, setQuantity } = useData();
-    const { openPopup, closePopup } = usePopup();
+    const { openPopup, openFullscreenPopup, closePopup } = usePopup();
 
     const [selectedProduct, setSelectedProduct] = useState('');
     const [hasSentEmail, setHasSentEmail] = useState(false);
@@ -133,7 +133,7 @@ export const Category: FC = () => {
     useEffect(() => {
         switch (state) {
             case State.error:
-                openPopup(
+                openFullscreenPopup(
                     'Erreur chargement données',
                     [`Utiliser sauvegarde du ${lastModified}`, 'Réessayer'],
                     (index) => {
@@ -142,7 +142,7 @@ export const Category: FC = () => {
                 );
                 break;
             case State.unidentified:
-                openPopup(
+                openFullscreenPopup(
                     'Utilisateur non identifié',
                     ['Rafraîchir la page'].concat(!hasSentEmail ? ['Contacter ' + shopEmail] : []),
                     (i) => {
@@ -166,7 +166,7 @@ export const Category: FC = () => {
                 );
                 break;
             case State.fatal:
-                openPopup(
+                openFullscreenPopup(
                     'Erreur fatale',
                     ['Rafraîchir la page'].concat(!hasSentEmail ? ['Contacter ' + EMAIL] : []),
                     (i) => {
@@ -182,7 +182,7 @@ export const Category: FC = () => {
                 );
                 break;
         }
-    }, [state, openPopup, closePopup, setSelectedCategory, lastModified, setState, shopEmail, hasSentEmail]);
+    }, [state, openFullscreenPopup, closePopup, setSelectedCategory, lastModified, setState, shopEmail, hasSentEmail]);
 
     const row1Slice = categories.length <= 2 ? 1 : categories.length >= 3 && categories.length <= 4 ? 2 : 3;
     const row2Slice =

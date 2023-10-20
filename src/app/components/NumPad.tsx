@@ -128,7 +128,7 @@ export const NumPad: FC = () => {
         updateTransaction,
         transactions,
     } = useData();
-    const { openPopup, closePopup, isPopupOpen } = usePopup();
+    const { openPopup, openFullscreenPopup, closePopup, isPopupOpen } = usePopup();
     const { pay, canPay, canAddProduct } = usePay();
     const { showTransactionsSummary, showTransactionsSummaryMenu, historicalTransactions } = useSummary();
 
@@ -281,7 +281,7 @@ export const NumPad: FC = () => {
             : 'invisible');
     const f3 = f + (transactions.length || historicalTransactions.length ? color : 'invisible');
 
-    const { width, height, left: x, top: y } = useWindowParam();
+    const { width, height } = useWindowParam();
     const shouldUseOverflow = useMemo(
         () => (height < 590 && !isMobileSize()) || (height < 660 && isMobileSize()),
         [height]
@@ -291,11 +291,19 @@ export const NumPad: FC = () => {
     // Check if the app is in fullscreen otherwise open a popup asking to click for setting it
     useEffect(() => {
         if (state === State.done && (height < window.screen.availHeight || width < window.screen.availWidth)) {
-            openPopup('Plein écran', ['Mettre en plein écran'], () => {
-                requestFullscreen();
-            });
+            openFullscreenPopup(
+                'Plein écran',
+                ['Mettre en plein écran'],
+                () => {
+                    requestFullscreen();
+                    setTimeout(() => {
+                        closePopup();
+                    }, 100);
+                },
+                true
+            );
         }
-    }, [openPopup, height, width, x, y, state]);
+    }, [openFullscreenPopup, height, width, state, closePopup]);
 
     return (
         <div

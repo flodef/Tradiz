@@ -10,7 +10,12 @@ export interface PopupContextState {
         specialAction?: { confirmTitle: string; action: (index: number) => void; maxIndex?: number },
         isSpecial?: (option: string) => boolean
     ) => void;
-
+    openFullscreenPopup: (
+        title: string,
+        options: string[] | ReactNode[],
+        action?: (index: number, option: string) => void,
+        stayOpen?: boolean
+    ) => void;
     closePopup: (callback?: () => void) => void;
     popupTitle: string;
     popupOptions: string[] | ReactNode[];
@@ -18,6 +23,7 @@ export interface PopupContextState {
     popupStayOpen: boolean;
     popupSpecialAction?: { confirmTitle: string; action: (index: number) => void; maxIndex?: number };
     popupIsSpecial?: (option: string) => boolean;
+    popupIsFullscreen: boolean;
 }
 
 export const PopupContext = createContext<PopupContextState>({} as PopupContextState);

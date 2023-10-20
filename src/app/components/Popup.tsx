@@ -3,6 +3,7 @@
 import { FC, useCallback } from 'react';
 import { usePopup } from '../hooks/usePopup';
 import { requestFullscreen } from '../utils/fullscreen';
+import { useIsMobile } from '../utils/mobile';
 import { CloseButton } from './CloseButton';
 
 export function useAddPopupClass(className: string): string {
@@ -19,12 +20,11 @@ export const Popup: FC = () => {
         popupStayOpen,
         popupSpecialAction,
         popupIsSpecial,
+        popupIsFullscreen,
         openPopup,
         closePopup,
         isPopupOpen,
     } = usePopup();
-
-    const optionCount = popupOptions.filter((option) => option?.toString().trim()).length;
 
     const handleClick = useCallback(
         (option: string, index: number) => {
@@ -79,8 +79,11 @@ export const Popup: FC = () => {
                 className={
                     'absolute z-30 w-[90%] max-h-[90%] max-w-[400px] overflow-y-auto overflow-x-hidden justify-self-center ' +
                     'bg-popup-light dark:bg-popup-dark h-fit rounded-2xl self-center blur-none border-black border-[3px] ' +
-                    'md:border-[0px] md:w-1/2 md:max-w-[50%] md:max-h-full md:left-1/2 md:bottom-0 md:rounded-none md:border-l-4 ' +
-                    'md:border-secondary-active-light dark:border-secondary-active-dark data-[open=false]:hidden'
+                    'dark:border-secondary-active-dark data-[open=false]:hidden ' +
+                    (!useIsMobile() && !popupIsFullscreen
+                        ? 'md:border-[0px] md:w-1/2 md:max-w-[50%] md:max-h-full md:left-1/2 md:bottom-0 md:rounded-none ' +
+                          'md:border-l-4 md:border-secondary-active-light'
+                        : '')
                 }
             >
                 <div>
