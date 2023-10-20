@@ -336,14 +336,11 @@ export const Total: FC = () => {
     const widthClassName = isPopupOpen ? 'md:w-full ' : 'md:w-1/2 ';
 
     const { width: screenWidth, height: screenHeight } = useWindowParam();
-    const componentLeft = useMemo(
-        () => (!isMobileSize() && !isPopupOpen && screenWidth > 0 ? screenWidth / 2 : undefined),
+    const left = useMemo(
+        () => (!isMobileSize() && !isPopupOpen && screenWidth > 0 ? screenWidth / 2 : 0),
         [screenWidth, isPopupOpen]
     );
-    const componentHeight = useMemo(
-        () => (!isMobileSize() && screenHeight > 0 ? screenHeight - 76 : undefined),
-        [screenHeight]
-    );
+    const height = useMemo(() => (!isMobileSize() && screenHeight > 0 ? screenHeight - 76 : 0), [screenHeight]);
 
     return (
         <div
@@ -383,7 +380,7 @@ export const Total: FC = () => {
                     'fixed top-[76px] left-0 w-1/2 h-screen text-center text-2xl ' +
                     'py-1 font-bold overflow-y-auto hidden md:block'
                 }
-                style={{ left: componentLeft, height: componentHeight }}
+                style={{ left: left, height: height }}
             >
                 {canDisplayTotal
                     ? products.current

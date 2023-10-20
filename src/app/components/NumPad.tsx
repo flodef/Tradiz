@@ -281,21 +281,21 @@ export const NumPad: FC = () => {
             : 'invisible');
     const f3 = f + (transactions.length || historicalTransactions.length ? color : 'invisible');
 
-    const { width, height, left, top } = useWindowParam();
+    const { width, height, left: x, top: y } = useWindowParam();
     const shouldUseOverflow = useMemo(
         () => (height < 590 && !isMobileSize()) || (height < 660 && isMobileSize()),
         [height]
     );
-    const componentLeft = useMemo(() => Math.max(((isMobileSize() ? width : width / 2) - 512) / 2, 0), [width]);
+    const left = useMemo(() => Math.max(((isMobileSize() ? width : width / 2) - 512) / 2, 0), [width]);
 
     // Check if the app is in fullscreen otherwise open a popup asking to click for setting it
     useEffect(() => {
-        if (height && width && (left || top) && state === State.done) {
+        if (height && width && (x || y) && state === State.done) {
             openPopup('Plein écran', ['Mettre en plein écran'], () => {
                 requestFullscreen();
             });
         }
-    }, [openPopup, height, width, left, top, state]);
+    }, [openPopup, height, width, x, y, state]);
 
     return (
         <div
@@ -318,7 +318,7 @@ export const NumPad: FC = () => {
                                 : 'fixed top-[76px] right-0 max-w-lg md:top-0 md:z-10 md:right-1/2 '
                             : 'static max-w-lg w-full '
                     }
-                    style={shouldUseOverflow ? { left: componentLeft } : {}}
+                    style={shouldUseOverflow ? { left: left } : {}}
                 >
                     <div className="flex justify-around text-4xl text-center font-bold pt-0 max-w-lg w-full self-center">
                         <Amount
