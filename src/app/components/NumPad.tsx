@@ -295,7 +295,7 @@ export const NumPad: FC = () => {
             !isPopupOpen &&
             (height < window.screen.availHeight || width < window.screen.availWidth)
         ) {
-            openFullscreenPopup('Plein écran', ['Mettre en plein écran']);
+            openFullscreenPopup('Plein écran', ['Mettre en plein écran'], () => closePopup());
         }
     }, [openFullscreenPopup, isPopupOpen, height, width, state, closePopup]);
 
