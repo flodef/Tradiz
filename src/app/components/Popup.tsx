@@ -2,6 +2,7 @@
 
 import { FC, useCallback } from 'react';
 import { usePopup } from '../hooks/usePopup';
+import { requestFullscreen } from '../utils/fullscreen';
 import { CloseButton } from './CloseButton';
 
 export function useAddPopupClass(className: string): string {
@@ -27,6 +28,7 @@ export const Popup: FC = () => {
 
     const handleClick = useCallback(
         (option: string, index: number) => {
+            requestFullscreen();
             if (!popupAction) return;
 
             popupAction(index, option);
@@ -37,6 +39,7 @@ export const Popup: FC = () => {
 
     const handleContextMenu = useCallback(
         (option: string, index: number) => {
+            requestFullscreen();
             if (!popupSpecialAction || index > (popupSpecialAction.maxIndex ?? Number.POSITIVE_INFINITY)) return;
 
             openPopup(
@@ -87,6 +90,7 @@ export const Popup: FC = () => {
                         </div>
                         <CloseButton
                             onClose={() => {
+                                requestFullscreen();
                                 closePopup(() => {
                                     handleClick('', -1);
                                 });
