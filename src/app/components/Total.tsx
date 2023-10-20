@@ -390,6 +390,7 @@ export const Total: FC = () => {
                                   className={clickClassName + 'py-2 '}
                                   key={index}
                                   label={product}
+                                  onClick={() => modifyProduct(index)}
                                   onContextMenu={() => modifyProduct(index)}
                               />
                           ))
