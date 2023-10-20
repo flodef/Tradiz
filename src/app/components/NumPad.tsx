@@ -11,7 +11,7 @@ import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { WalletIcon } from '../images/WalletIcon';
 import { CATEGORY_SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
-import { requestFullscreen } from '../utils/fullscreen';
+import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isMobileSize } from '../utils/mobile';
 import { Digits } from '../utils/types';
 import { Amount } from './Amount';
@@ -293,6 +293,7 @@ export const NumPad: FC = () => {
         if (
             state === State.done &&
             !isPopupOpen &&
+            !isFullscreen() &&
             (height < window.screen.availHeight || width < window.screen.availWidth)
         ) {
             openFullscreenPopup('Plein écran', ['Mettre en plein écran'], () => closePopup(requestFullscreen), true);
