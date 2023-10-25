@@ -99,12 +99,12 @@ export const useSummary = () => {
                 const transaction = categories.find((transaction) => transaction.category === product.category);
                 if (transaction) {
                     transaction.quantity += product.quantity;
-                    transaction.amount += product.total;
+                    transaction.amount += product.total ?? 0;
                 } else {
                     categories.unshift({
                         category: product.category,
                         quantity: product.quantity,
-                        amount: product.total,
+                        amount: product.total ?? 0,
                     });
                 }
             });
@@ -232,12 +232,12 @@ export const useSummary = () => {
                         const index = array.findIndex((p) => p.label === label);
                         if (index >= 0) {
                             array[index].quantity += quantity;
-                            array[index].amount += total;
+                            array[index].amount += total ?? 0;
                         } else {
                             array.push({
                                 label: label || '',
                                 quantity: quantity,
-                                amount: total,
+                                amount: total ?? 0,
                             });
                         }
                     })
@@ -388,7 +388,7 @@ export const useSummary = () => {
                             Produit: label,
                             Prix: toCurrency({ amount: amount, currency: currency }),
                             Quantité: quantity,
-                            Total: toCurrency({ amount: total, currency: currency }),
+                            Total: toCurrency({ amount: total ?? 0, currency: currency }),
                         };
                     });
                 })
