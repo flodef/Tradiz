@@ -165,7 +165,7 @@ export const Total: FC = () => {
             products.current.map((product) => displayProduct(product)).concat(['', payLabel]),
             (index, option) => {
                 if (option === payLabel) {
-                    pay(false);
+                    pay();
                 } else if (index >= 0) {
                     showProducts();
                 }
@@ -304,7 +304,7 @@ export const Total: FC = () => {
                 if (isMobileSize()) {
                     showProducts();
                 } else {
-                    pay(false);
+                    pay();
                 }
             } else if (transactions.length) {
                 if (isMobileSize()) {
