@@ -297,9 +297,10 @@ export const Total: FC = () => {
             if (state !== State.done) return;
 
             if (canDisplayTotal) {
-                if (canAddProduct) {
-                    addProduct(selectedCategory);
-                }
+                //TODO : Remove
+                // if (canAddProduct) {
+                //     addProduct(selectedCategory);
+                // }
                 if (isMobileSize()) {
                     showProducts();
                 } else {
@@ -323,11 +324,8 @@ export const Total: FC = () => {
             canDisplayTotal,
             transactions,
             pay,
-            addProduct,
-            selectedCategory,
             showTransactionsSummary,
             showTransactionsSummaryMenu,
-            canAddProduct,
             state,
         ]
     );
@@ -363,8 +361,7 @@ export const Total: FC = () => {
             >
                 {canDisplayTotal ? (
                     <div>
-                        {canDisplayTotal && total ? label : totalLabel}{' '}
-                        <Amount value={total + amount * Math.max(toMercurial(quantity), 1)} showZero />
+                        {canDisplayTotal && total ? label : totalLabel} <Amount value={total} showZero />
                     </div>
                 ) : (
                     <span>

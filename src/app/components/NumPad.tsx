@@ -121,7 +121,7 @@ export const NumPad: FC = () => {
         computeQuantity,
         toMercurial,
         setCurrentMercurial,
-        clearAmount,
+        removeProduct,
         clearTotal,
         selectedCategory,
         addProduct,
@@ -167,9 +167,9 @@ export const NumPad: FC = () => {
                 }
             });
         } else {
-            clearAmount();
+            removeProduct();
         }
-    }, [clearAmount, clearTotal, openPopup, total]);
+    }, [removeProduct, clearTotal, openPopup, total]);
 
     const showCurrencies = useCallback(() => {
         if (currencies.length < 2) return;
@@ -294,7 +294,8 @@ export const NumPad: FC = () => {
             state === State.done &&
             !isPopupOpen &&
             !isFullscreen() &&
-            (height < window.screen.availHeight || width < window.screen.availWidth)
+            (height < window.screen.availHeight || width < window.screen.availWidth) &&
+            process.env.NEXT_PUBLIC_VERCEL_ENV
         ) {
             openFullscreenPopup('Plein écran', ['Mettre en plein écran'], () => closePopup(requestFullscreen), true);
         }
@@ -333,7 +334,7 @@ export const NumPad: FC = () => {
                             showZero
                             onClick={showCurrencies}
                         />
-                        <ImageButton className={f1} onClick={clearAmount} onContextMenu={onClearTotal}>
+                        <ImageButton className={f1} onClick={removeProduct} onContextMenu={onClearTotal}>
                             <BackspaceIcon />
                         </ImageButton>
                         <FunctionButton className={f2} input="&times;" onInput={multiply} onContextMenu={mercuriale} />

@@ -53,82 +53,11 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
 
 export const Category: FC = () => {
     const { inventory, state, lastModified, setState, currencyIndex, shopEmail } = useConfig();
-    const { addProduct, amount, setAmount, selectedCategory, setSelectedCategory, setQuantity } = useData();
+    const { addProduct, amount, setAmount, selectedCategory, setSelectedCategory, setQuantity, clearAmount } =
+        useData();
     const { openPopup, openFullscreenPopup, closePopup } = usePopup();
 
-    const [selectedProduct, setSelectedProduct] = useState('');
     const [hasSentEmail, setHasSentEmail] = useState(false);
-
-    const addCategory = useCallback(
-        (newCategory: string) => {
-            if (!selectedCategory) {
-                addProduct(newCategory);
-            } else {
-                addProduct(selectedCategory);
-                setSelectedCategory(newCategory);
-            }
-        },
-        [addProduct, selectedCategory, setSelectedCategory]
-    );
-
-    const onInput = useCallback(
-        (input: string, eventType: string) => {
-            const item =
-                inventory.find(({ category }) => category === input) ??
-                inventory.find(({ products }) => products.some(({ label }) => label === input));
-            if (!item) return;
-
-            if (eventType === 'contextmenu' && amount) {
-                addCategory(item.category.concat(CATEGORY_SEPARATOR, OTHER_KEYWORD));
-            } else {
-                setSelectedCategory(item.category);
-                openPopup(
-                    item.category,
-                    item.products.map(({ label }) => label).concat(OTHER_KEYWORD),
-                    (index, option) => {
-                        if (index < 0) return;
-
-                        setSelectedProduct(option);
-                        const newCategory = item.category.concat(CATEGORY_SEPARATOR, option);
-                        if (amount) {
-                            addCategory(newCategory);
-                        }
-                        if (!amount || selectedCategory) {
-                            const price = item.products.at(index)?.prices[currencyIndex];
-                            if (option !== OTHER_KEYWORD && price) {
-                                setAmount(price);
-                                setQuantity(-1); // Set the multiplier to 1 (ready for the next input)
-                            }
-                            setSelectedCategory(newCategory);
-                        }
-                    }
-                );
-            }
-        },
-        [
-            openPopup,
-            amount,
-            setAmount,
-            addCategory,
-            setSelectedCategory,
-            selectedCategory,
-            setQuantity,
-            inventory,
-            currencyIndex,
-        ]
-    );
-
-    const categories = useMemo(
-        () =>
-            inventory.map(({ category }) =>
-                category === selectedCategory ||
-                category !== selectedCategory.split(CATEGORY_SEPARATOR).at(0) ||
-                selectedProduct === OTHER_KEYWORD
-                    ? category
-                    : selectedProduct
-            ),
-        [selectedCategory, selectedProduct, inventory]
-    );
 
     useEffect(() => {
         switch (state) {
@@ -183,6 +112,98 @@ export const Category: FC = () => {
                 break;
         }
     }, [state, openFullscreenPopup, closePopup, setSelectedCategory, lastModified, setState, shopEmail, hasSentEmail]);
+
+    const addCategory = useCallback(
+        (newCategory: string) => {
+            //TODO : Remove
+            // if (!selectedCategory) {
+            //     addProduct(newCategory);
+            // } else {
+            //     addProduct(selectedCategory);
+            //     setSelectedCategory(newCategory);
+            // }
+            addProduct(newCategory);
+        },
+        [addProduct]
+    );
+
+    const onInput = useCallback(
+        (input: string, eventType: string) => {
+            const item =
+                inventory.find(({ category }) => category === input) ??
+                inventory.find(({ products }) => products.some(({ label }) => label === input));
+            if (!item) return;
+
+            if (eventType === 'contextmenu' && amount) {
+                addCategory(item.category.concat(CATEGORY_SEPARATOR, OTHER_KEYWORD));
+                clearAmount();
+            } else {
+                setSelectedCategory(item.category);
+                openPopup(
+                    item.category,
+                    item.products.map(({ label }) => label).concat(OTHER_KEYWORD),
+                    (index, option) => {
+                        if (index < 0) {
+                            clearAmount();
+                            return;
+                        }
+                        //TODO : Rework
+                        // setSelectedProduct(option);
+                        const newCategory = item.category.concat(CATEGORY_SEPARATOR, option);
+                        if (amount && (!selectedCategory || selectedCategory === newCategory)) {
+                            addCategory(newCategory);
+                            clearAmount();
+                        } else {
+                            // TODO : Remove
+                            // if (!amount || selectedCategory) {
+                            const price = item.products.at(index)?.prices[currencyIndex];
+
+                            setAmount(price ?? 0);
+                            setQuantity(-1); // Set the multiplier to 1 (ready for the next input)
+
+                            if (option !== OTHER_KEYWORD && price) {
+                                addProduct({
+                                    category: item.category,
+                                    label: option,
+                                    quantity: 1,
+                                    amount: price,
+                                });
+                            }
+
+                            setSelectedCategory(newCategory);
+                        }
+                    }
+                );
+            }
+        },
+        [
+            openPopup,
+            amount,
+            setAmount,
+            addCategory,
+            setSelectedCategory,
+            selectedCategory,
+            setQuantity,
+            inventory,
+            currencyIndex,
+            addProduct,
+            clearAmount,
+        ]
+    );
+
+    const categories = useMemo(
+        () =>
+            //TODO : Remove
+            // inventory.map(({ category }) =>
+            //     category === selectedCategory ||
+            //     category !== selectedCategory.split(CATEGORY_SEPARATOR).at(0) ||
+            //     selectedProduct === OTHER_KEYWORD
+            //         ? category
+            //         : selectedProduct
+            // ),
+            inventory.map(({ category }) => category),
+        [inventory]
+    );
 
     const row1Slice = categories.length <= 2 ? 1 : categories.length >= 3 && categories.length <= 4 ? 2 : 3;
     const row2Slice =
