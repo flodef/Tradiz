@@ -9,8 +9,8 @@ export interface DataElement {
 
 export interface Product extends DataElement {
     label: string;
-    total: number;
-    mercurial: Mercurial;
+    total?: number;
+    mercurial?: Mercurial;
 }
 
 export interface Transaction {
@@ -36,7 +36,7 @@ export interface DataContextState {
     selectedCategory: string;
     setSelectedCategory: (category: string) => void;
     addProduct: (category: string | Product) => void;
-    addProductQuantity: (product?: Product) => void;
+    removeProduct: (product?: Product) => void;
     deleteProduct: (index: number) => void;
     displayProduct: (product: Product, currency?: Currency) => string;
     clearAmount: () => void;

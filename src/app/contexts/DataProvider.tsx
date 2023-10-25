@@ -214,7 +214,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const getCurrentTotal = useCallback(() => {
-        return products.current ? products.current.reduce((t, { total }) => t + total, 0) : 0;
+        return products.current ? products.current.reduce((t, { total }) => t + (total ?? 0), 0) : 0;
     }, [products]);
 
     const updateTotal = useCallback(() => {
@@ -258,8 +258,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                           label: (item ?? selectedCategory).split(CATEGORY_SEPARATOR).at(1) ?? '',
                           quantity: quantity,
                           amount: amount,
-                          mercurial: currentMercurial,
-                          total: 0,
                       };
 
             product.quantity = computeQuantity(product.amount, product.quantity, product.mercurial);
@@ -268,34 +266,25 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!product.amount || (!product.label && !product.category)) return;
 
             const p = products.current.find(
-                ({ label, amount }) => label === product.label && amount === product.amount
+                ({ label, category, amount }) =>
+                    label === product.label && category === product.category && amount === product.amount
             );
             if (p) {
-                p.quantity = computeQuantity(product.amount, product.quantity + p.quantity, product.mercurial);
+                p.quantity = computeQuantity(
+                    product.amount,
+                    product.quantity + (product.quantity === 1 ? p.quantity : 0),
+                    product.mercurial
+                );
                 p.total = product.amount * toMercurial(p.quantity, product.mercurial);
             } else {
                 products.current.unshift(product);
             }
 
-            clearAmount();
+            // clearAmount();
+            updateTotal();
+            setQuantity(-1);
         },
-        [amount, quantity, clearAmount, products, selectedCategory, toMercurial, computeQuantity, currentMercurial]
-    );
-
-    const addProductQuantity = useCallback(
-        (product?: Product) => {
-            if (!product) return;
-
-            addProduct({
-                category: product.category,
-                label: product.label,
-                amount: product.amount,
-                mercurial: product.mercurial,
-                quantity: 1,
-                total: 0,
-            });
-        },
-        [addProduct]
+        [amount, quantity, products, selectedCategory, toMercurial, computeQuantity, updateTotal]
     );
 
     const deleteProduct = useCallback(
@@ -313,6 +302,31 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [products, clearAmount, deleteTransaction]
     );
 
+    const removeProduct = useCallback(
+        (item?: Product) => {
+            const product = item ?? {
+                category: selectedCategory.split(CATEGORY_SEPARATOR).at(0) ?? '',
+                label: selectedCategory.split(CATEGORY_SEPARATOR).at(1) ?? '',
+            };
+            const p = products.current.find(
+                ({ label, category }) => label === product.label && category === product.category
+            );
+
+            console.log('removeProduct', selectedCategory, product, p);
+
+            if (!p) return;
+
+            if (p.quantity === 1) {
+                deleteProduct(products.current.indexOf(p));
+            } else {
+                p.quantity = computeQuantity(p.amount, p.quantity - 1, p.mercurial);
+                p.total = p.amount * toMercurial(p.quantity, p.mercurial);
+                updateTotal();
+            }
+        },
+        [selectedCategory, products, computeQuantity, toMercurial, deleteProduct, updateTotal]
+    );
+
     const displayProduct = useCallback(
         (product: Product, currency?: Currency) => {
             return (
@@ -322,7 +336,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 ' x ' +
                 product.quantity +
                 ' = ' +
-                toCurrency({ amount: product.total, currency: currency })
+                toCurrency({ amount: product.total ?? 0, currency: currency })
             );
         },
         [toCurrency]
@@ -422,7 +436,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 selectedCategory,
                 setSelectedCategory,
                 addProduct,
-                addProductQuantity,
+                removeProduct,
                 deleteProduct,
                 displayProduct,
                 clearAmount,
