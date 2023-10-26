@@ -129,7 +129,10 @@ export const Category: FC = () => {
                 setSelectedProduct({ category: item.category, label: OTHER_KEYWORD, quantity: 0, amount: 0 });
                 openPopup(
                     item.category,
-                    item.products.map(({ label }) => label).concat(OTHER_KEYWORD),
+                    item.products
+                        .map(({ label }) => label.charAt(0).toUpperCase() + label.slice(1))
+                        .sort((a, b) => a.localeCompare(b))
+                        .concat('', OTHER_KEYWORD),
                     (index, option) => {
                         if (index < 0) {
                             setSelectedProduct(undefined);
