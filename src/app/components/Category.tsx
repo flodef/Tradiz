@@ -140,9 +140,10 @@ export const Category: FC = () => {
                             return;
                         }
 
-                        const price = item.products.at(index)?.prices[currencyIndex];
-                        if (price || (amount && amount !== products.current.at(0)?.amount)) {
-                            const a = amount || price || 0;
+                        const isNewPrice = amount && amount !== products.current.at(0)?.amount;
+                        const price = item.products.find(({ label }) => label === option)?.prices[currencyIndex];
+                        if (price || isNewPrice) {
+                            const a = isNewPrice ? amount : price || 0;
                             addProduct({
                                 category: item.category,
                                 label: option,

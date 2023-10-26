@@ -1,22 +1,11 @@
 'use client';
 
 import { initializeApp } from 'firebase/app';
-import {
-    Firestore,
-    collection,
-    deleteDoc,
-    doc,
-    getFirestore,
-    onSnapshot,
-    query,
-    setDoc,
-    updateDoc,
-} from 'firebase/firestore';
+import { Firestore, collection, doc, getFirestore, onSnapshot, query, setDoc, updateDoc } from 'firebase/firestore';
 import { FC, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Currency, Mercurial, useConfig } from '../hooks/useConfig';
 import { DataContext, Product, Transaction } from '../hooks/useData';
 import {
-    CATEGORY_SEPARATOR,
     DEFAULT_DATE,
     DELETED_KEYWORD,
     OTHER_KEYWORD,
@@ -253,7 +242,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const product = item ?? selectedProduct;
             if (!product) return;
 
-            product.amount = amount || product.amount;
+            product.amount ||= amount;
             const newQuantity = computeQuantity(
                 product.amount,
                 quantity > 0 ? quantity : item ? product.quantity : 1, // + (item ? 0 : 1),
