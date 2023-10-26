@@ -5,7 +5,7 @@ import { State, useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import Loading, { LoadingType } from '../loading';
-import { CATEGORY_SEPARATOR, EMAIL, OTHER_KEYWORD } from '../utils/constants';
+import { EMAIL, OTHER_KEYWORD } from '../utils/constants';
 import { requestFullscreen } from '../utils/fullscreen';
 import { getPublicKey } from '../utils/processData';
 import { sendEmail } from '../utils/sendEmail';
@@ -18,7 +18,7 @@ interface CategoryInputButton {
 }
 
 const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => {
-    const { selectedCategory } = useData();
+    const { selectedProduct } = useData();
 
     const onClick = useCallback<MouseEventHandler>(
         (e) => {
@@ -30,7 +30,6 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
         [input, onInput]
     );
 
-    const category = selectedCategory.split(CATEGORY_SEPARATOR);
     const width = length === 1 ? 'w-full' : length === 2 ? 'w-1/2' : 'w-1/3';
 
     return (
@@ -39,7 +38,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
                 'relative flex justify-center py-3 items-center font-semibold text-2xl truncate ' +
                 'active:bg-active-light active:dark:bg-active-dark active:text-popup-dark active:dark:text-popup-light ' +
                 width +
-                ((input !== OTHER_KEYWORD ? category.includes(input) : input === category.at(0))
+                (selectedProduct?.category === input
                     ? ' bg-active-light dark:bg-active-dark text-popup-dark dark:text-popup-light'
                     : '')
             }
@@ -53,8 +52,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
 
 export const Category: FC = () => {
     const { inventory, state, lastModified, setState, currencyIndex, shopEmail } = useConfig();
-    const { addProduct, amount, setAmount, selectedCategory, setSelectedCategory, setQuantity, clearAmount } =
-        useData();
+    const { addProduct, amount, setAmount, setSelectedProduct, setQuantity, clearAmount, products } = useData();
     const { openPopup, openFullscreenPopup, closePopup } = usePopup();
 
     const [hasSentEmail, setHasSentEmail] = useState(false);
@@ -111,21 +109,7 @@ export const Category: FC = () => {
                 );
                 break;
         }
-    }, [state, openFullscreenPopup, closePopup, setSelectedCategory, lastModified, setState, shopEmail, hasSentEmail]);
-
-    const addCategory = useCallback(
-        (newCategory: string) => {
-            //TODO : Remove
-            // if (!selectedCategory) {
-            //     addProduct(newCategory);
-            // } else {
-            //     addProduct(selectedCategory);
-            //     setSelectedCategory(newCategory);
-            // }
-            addProduct(newCategory);
-        },
-        [addProduct]
-    );
+    }, [state, openFullscreenPopup, closePopup, lastModified, setState, shopEmail, hasSentEmail]);
 
     const onInput = useCallback(
         (input: string, eventType: string) => {
@@ -135,42 +119,44 @@ export const Category: FC = () => {
             if (!item) return;
 
             if (eventType === 'contextmenu' && amount) {
-                addCategory(item.category.concat(CATEGORY_SEPARATOR, OTHER_KEYWORD));
-                clearAmount();
+                addProduct({
+                    category: item.category,
+                    label: OTHER_KEYWORD,
+                    quantity: 1,
+                    amount: amount,
+                });
             } else {
-                setSelectedCategory(item.category);
+                setSelectedProduct({ category: item.category, label: OTHER_KEYWORD, quantity: 0, amount: 0 });
                 openPopup(
                     item.category,
                     item.products.map(({ label }) => label).concat(OTHER_KEYWORD),
                     (index, option) => {
                         if (index < 0) {
+                            setSelectedProduct(undefined);
                             clearAmount();
                             return;
                         }
-                        //TODO : Rework
-                        // setSelectedProduct(option);
-                        const newCategory = item.category.concat(CATEGORY_SEPARATOR, option);
-                        if (amount && (!selectedCategory || selectedCategory === newCategory)) {
-                            addCategory(newCategory);
-                            clearAmount();
-                        } else {
-                            // TODO : Remove
-                            // if (!amount || selectedCategory) {
-                            const price = item.products.at(index)?.prices[currencyIndex];
 
-                            setAmount(price ?? 0);
+                        const price = item.products.at(index)?.prices[currencyIndex];
+                        if (price || (amount && amount !== products.current.at(0)?.amount)) {
+                            const a = amount || price || 0;
+                            addProduct({
+                                category: item.category,
+                                label: option,
+                                quantity: 1,
+                                amount: a,
+                            });
+
+                            setAmount(a);
                             setQuantity(-1); // Set the multiplier to 1 (ready for the next input)
-
-                            if (option !== OTHER_KEYWORD && price) {
-                                addProduct({
-                                    category: item.category,
-                                    label: option,
-                                    quantity: 1,
-                                    amount: price,
-                                });
-                            }
-
-                            setSelectedCategory(newCategory);
+                        } else {
+                            clearAmount();
+                            setSelectedProduct({
+                                category: item.category,
+                                label: option,
+                                quantity: 1,
+                                amount: 0,
+                            });
                         }
                     }
                 );
@@ -180,30 +166,17 @@ export const Category: FC = () => {
             openPopup,
             amount,
             setAmount,
-            addCategory,
-            setSelectedCategory,
-            selectedCategory,
             setQuantity,
             inventory,
             currencyIndex,
             addProduct,
             clearAmount,
+            setSelectedProduct,
+            products,
         ]
     );
 
-    const categories = useMemo(
-        () =>
-            //TODO : Remove
-            // inventory.map(({ category }) =>
-            //     category === selectedCategory ||
-            //     category !== selectedCategory.split(CATEGORY_SEPARATOR).at(0) ||
-            //     selectedProduct === OTHER_KEYWORD
-            //         ? category
-            //         : selectedProduct
-            // ),
-            inventory.map(({ category }) => category),
-        [inventory]
-    );
+    const categories = useMemo(() => inventory.map(({ category }) => category), [inventory]);
 
     const row1Slice = categories.length <= 2 ? 1 : categories.length >= 3 && categories.length <= 4 ? 2 : 3;
     const row2Slice =

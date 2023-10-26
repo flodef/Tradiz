@@ -79,8 +79,7 @@ export const Total: FC = () => {
         getCurrentTotal,
         amount,
         products,
-        selectedCategory,
-        addProduct,
+        selectedProduct,
         deleteProduct,
         displayProduct,
         transactions,
@@ -88,14 +87,12 @@ export const Total: FC = () => {
         updateTransaction,
         deleteTransaction,
         toCurrency,
-        toMercurial,
-        quantity,
         displayTransaction,
         isWaitingTransaction,
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup, isPopupOpen } = usePopup();
-    const { pay, canAddProduct } = usePay();
+    const { pay } = usePay();
     const { state } = useConfig();
 
     const [needRefresh, setNeedRefresh] = useState(false);
@@ -286,8 +283,8 @@ export const Total: FC = () => {
 
     const canDisplayTotal = useMemo(() => {
         setNeedRefresh(false);
-        return Boolean(needRefresh || total || amount || selectedCategory || !transactions.length);
-    }, [total, amount, selectedCategory, transactions, needRefresh]);
+        return Boolean(needRefresh || total || amount || selectedProduct || !transactions.length);
+    }, [total, amount, selectedProduct, transactions, needRefresh]);
 
     const handleClick = useCallback<MouseEventHandler>(
         (e) => {
@@ -297,10 +294,6 @@ export const Total: FC = () => {
             if (state !== State.done) return;
 
             if (canDisplayTotal) {
-                //TODO : Remove
-                // if (canAddProduct) {
-                //     addProduct(selectedCategory);
-                // }
                 if (isMobileSize()) {
                     showProducts();
                 } else {

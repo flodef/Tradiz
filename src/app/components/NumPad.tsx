@@ -10,7 +10,7 @@ import { useWindowParam } from '../hooks/useWindowParam';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { WalletIcon } from '../images/WalletIcon';
-import { CATEGORY_SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
+import { WAITING_KEYWORD } from '../utils/constants';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isMobileSize } from '../utils/mobile';
 import { Digits } from '../utils/types';
@@ -111,11 +111,12 @@ const ImageButton: FC<ImageButtonProps> = ({ children, onClick, onContextMenu, c
 };
 
 export const NumPad: FC = () => {
-    const { currencies, currencyIndex, setCurrency, inventory, state } = useConfig();
+    const { currencies, currencyIndex, setCurrency, state } = useConfig();
     const {
         total,
         amount,
         setAmount,
+        clearAmount,
         quantity,
         setQuantity,
         computeQuantity,
@@ -123,7 +124,7 @@ export const NumPad: FC = () => {
         setCurrentMercurial,
         removeProduct,
         clearTotal,
-        selectedCategory,
+        selectedProduct,
         addProduct,
         updateTransaction,
         transactions,
@@ -138,6 +139,21 @@ export const NumPad: FC = () => {
     const regExp = useMemo(() => new RegExp('^\\d*([.,]\\d{0,' + maxDecimals + '})?$'), [maxDecimals]);
 
     const [value, setValue] = useState('0');
+
+    // Check if the app is in fullscreen otherwise open a popup asking to click for setting it
+    const { width, height } = useWindowParam();
+    useEffect(() => {
+        if (
+            state === State.done &&
+            !isPopupOpen &&
+            !isFullscreen() &&
+            (height < window.screen.availHeight || width < window.screen.availWidth) &&
+            process.env.NEXT_PUBLIC_VERCEL_ENV
+        ) {
+            openFullscreenPopup('Plein écran', ['Mettre en plein écran'], () => closePopup(requestFullscreen), true);
+        }
+    }, [openFullscreenPopup, isPopupOpen, height, width, state, closePopup]);
+
     const onInput = useCallback(
         (key: Digits | string) => {
             if (!quantity) {
@@ -158,6 +174,14 @@ export const NumPad: FC = () => {
         },
         [max, regExp, quantity, setQuantity, computeQuantity, amount]
     );
+
+    const onClear = useCallback(() => {
+        if (selectedProduct) {
+            removeProduct();
+        } else {
+            clearAmount();
+        }
+    }, [removeProduct, clearAmount, selectedProduct]);
 
     const onClearTotal = useCallback(() => {
         if (total > 0) {
@@ -207,12 +231,7 @@ export const NumPad: FC = () => {
                     setCurrency(option);
                     const index = currencies.findIndex(({ label }) => label === option);
                     const maxDecimals = currencies[index].maxDecimals;
-                    const selectedProduct = selectedCategory.split(CATEGORY_SEPARATOR).at(1);
-                    const amount = selectedProduct
-                        ? inventory
-                              .find(({ products }) => products.some(({ label }) => label === selectedProduct))
-                              ?.products.find(({ label }) => label === selectedProduct)?.prices[index] ?? 0
-                        : 0;
+                    const amount = selectedProduct?.amount ?? 0;
                     setValue((amount * Math.pow(10, maxDecimals)).toString());
                     setQuantity(0);
                 }
@@ -226,8 +245,7 @@ export const NumPad: FC = () => {
         setCurrency,
         total,
         setQuantity,
-        selectedCategory,
-        inventory,
+        selectedProduct,
         closePopup,
         clearTotal,
         pay,
@@ -271,7 +289,7 @@ export const NumPad: FC = () => {
     const sx = s + (canPay || canAddProduct ? color : 'invisible');
 
     const f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
-    const f1 = f + (amount || total || selectedCategory ? color : 'invisible');
+    const f1 = f + (amount || total || selectedProduct ? color : 'invisible');
     const f2 =
         f +
         (amount
@@ -281,25 +299,11 @@ export const NumPad: FC = () => {
             : 'invisible');
     const f3 = f + (transactions.length || historicalTransactions.length ? color : 'invisible');
 
-    const { width, height } = useWindowParam();
     const shouldUseOverflow = useMemo(
         () => (height < 590 && !isMobileSize()) || (height < 660 && isMobileSize()),
         [height]
     );
     const left = useMemo(() => Math.max(((isMobileSize() ? width : width / 2) - 512) / 2, 0), [width]);
-
-    // Check if the app is in fullscreen otherwise open a popup asking to click for setting it
-    useEffect(() => {
-        if (
-            state === State.done &&
-            !isPopupOpen &&
-            !isFullscreen() &&
-            (height < window.screen.availHeight || width < window.screen.availWidth) &&
-            process.env.NEXT_PUBLIC_VERCEL_ENV
-        ) {
-            openFullscreenPopup('Plein écran', ['Mettre en plein écran'], () => closePopup(requestFullscreen), true);
-        }
-    }, [openFullscreenPopup, isPopupOpen, height, width, state, closePopup]);
 
     return (
         <div
@@ -328,13 +332,13 @@ export const NumPad: FC = () => {
                         <Amount
                             className={
                                 'min-w-[145px] text-right leading-normal ' +
-                                (selectedCategory && !amount ? 'animate-blink' : '')
+                                (selectedProduct && !amount ? 'animate-blink' : '')
                             }
                             value={amount * Math.max(toMercurial(quantity), 1)}
                             showZero
                             onClick={showCurrencies}
                         />
-                        <ImageButton className={f1} onClick={removeProduct} onContextMenu={onClearTotal}>
+                        <ImageButton className={f1} onClick={onClear} onContextMenu={onClearTotal}>
                             <BackspaceIcon />
                         </ImageButton>
                         <FunctionButton className={f2} input="&times;" onInput={multiply} onContextMenu={mercuriale} />
@@ -365,7 +369,7 @@ export const NumPad: FC = () => {
                         <NumPadButton input={'00'} onInput={onInput} />
                         <ImageButton
                             className={sx}
-                            onClick={canPay ? pay : canAddProduct ? () => addProduct(selectedCategory) : () => {}}
+                            onClick={canPay ? pay : canAddProduct ? addProduct : () => {}}
                             onContextMenu={
                                 canPay ? () => updateTransaction(WAITING_KEYWORD) : canAddProduct ? pay : () => {}
                             }

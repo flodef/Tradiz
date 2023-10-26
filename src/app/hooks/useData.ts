@@ -33,9 +33,9 @@ export interface DataContextState {
     computeQuantity: (amount: number, quantity: number, mercurial?: Mercurial) => number;
     toMercurial: (quantity: number) => number;
     setCurrentMercurial: (mercurial: Mercurial) => void;
-    selectedCategory: string;
-    setSelectedCategory: (category: string) => void;
-    addProduct: (category: string | Product) => void;
+    selectedProduct: Product | undefined;
+    setSelectedProduct: (product?: Product) => void;
+    addProduct: (product?: Product) => void;
     removeProduct: (product?: Product) => void;
     deleteProduct: (index: number) => void;
     displayProduct: (product: Product, currency?: Currency) => string;

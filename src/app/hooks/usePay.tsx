@@ -8,12 +8,12 @@ import { usePopup } from './usePopup';
 
 export const usePay = () => {
     const { openPopup, closePopup } = usePopup();
-    const { updateTransaction, getCurrentTotal, toCurrency, total, amount, selectedCategory, addProduct } = useData();
+    const { updateTransaction, getCurrentTotal, toCurrency, total, amount, selectedProduct } = useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
     const { paymentMethods } = useConfig();
 
-    const canPay = useMemo(() => total && !amount && !selectedCategory, [total, amount, selectedCategory]);
-    const canAddProduct = useMemo(() => amount && selectedCategory, [amount, selectedCategory]);
+    const canPay = useMemo(() => Boolean(total && !amount && !selectedProduct), [total, amount, selectedProduct]);
+    const canAddProduct = useMemo(() => Boolean(amount && selectedProduct), [amount, selectedProduct]);
 
     const openQRCode = useCallback(
         (onCancel: (onConfirm: () => void) => void, onConfirm: () => void) => {
@@ -117,12 +117,6 @@ export const usePay = () => {
     );
 
     const pay = useCallback(() => {
-        //TODO : Remove
-        // (shouldAddProduct = true) => {
-        // if (shouldAddProduct && canAddProduct) {
-        //     addProduct(selectedCategory);
-        // }
-
         const total = getCurrentTotal();
         if (total && paymentMethods.length) {
             const paymentMethodsLabels = paymentMethods
