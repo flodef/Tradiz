@@ -244,13 +244,13 @@ async function convertProductsData(response: void | Response) {
         return {
             products: data.values
                 .filter((_, i) => i !== 0)
-                .filter((item) => !Boolean(item.at(2)))
+                .filter((item) => !Boolean(item.at(3)))
                 .map((item) => {
                     checkColumn(item, 4);
                     return {
                         rate: (Number(item.at(0)) ?? 0) * 100,
                         category: String(item.at(1)).trim(),
-                        label: String(item.at(3)).trim(),
+                        label: String(item.at(2)).trim(),
                         prices: item.filter((_, i) => i >= 4).map((price) => Number(price) ?? 0),
                     };
                 }),
