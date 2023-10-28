@@ -89,6 +89,9 @@ export const Total: FC = () => {
         toCurrency,
         displayTransaction,
         isWaitingTransaction,
+        setSelectedProduct,
+        setAmount,
+        setQuantity,
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup, isPopupOpen } = usePopup();
@@ -98,6 +101,22 @@ export const Total: FC = () => {
     const [needRefresh, setNeedRefresh] = useState(false);
 
     const label = useIsMobile() ? totalLabel : payLabel;
+
+    const selectProduct = useCallback(
+        (index: number) => {
+            if (state !== State.done) return;
+
+            if (selectedProduct === products.current.at(index)) {
+                setSelectedProduct(undefined);
+            } else {
+                setSelectedProduct(products.current.at(index));
+            }
+
+            setAmount(selectedProduct?.amount ?? 0);
+            setQuantity(-1);
+        },
+        [products, selectedProduct, setSelectedProduct, state, setAmount, setQuantity]
+    );
 
     const modifyProduct = useCallback(
         (index: number) => {
@@ -374,13 +393,18 @@ export const Total: FC = () => {
             >
                 {canDisplayTotal
                     ? products.current
-                          .map((product) => displayProduct(product))
-                          .map((product, index) => (
+                          .map((product) => {
+                              return {
+                                  product: displayProduct(product),
+                                  isSelectedProduct: product === selectedProduct,
+                              };
+                          })
+                          .map(({ product, isSelectedProduct }, index) => (
                               <Item
-                                  className={clickClassName + 'py-2 '}
+                                  className={clickClassName + 'py-2 ' + (isSelectedProduct ? 'animate-pulse' : '')}
                                   key={index}
                                   label={product}
-                                  onClick={() => modifyProduct(index)}
+                                  onClick={() => selectProduct(index)}
                                   onContextMenu={() => modifyProduct(index)}
                               />
                           ))
