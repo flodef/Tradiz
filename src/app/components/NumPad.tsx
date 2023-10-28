@@ -120,14 +120,13 @@ export const NumPad: FC = () => {
         quantity,
         setQuantity,
         computeQuantity,
-        toMercurial,
         setCurrentMercurial,
         removeProduct,
         clearTotal,
         selectedProduct,
-        addProduct,
         updateTransaction,
         transactions,
+        addProduct: _addProduct,
     } = useData();
     const { openPopup, openFullscreenPopup, closePopup, isPopupOpen } = usePopup();
     const { pay, canPay, canAddProduct } = usePay();
@@ -157,31 +156,40 @@ export const NumPad: FC = () => {
     const onInput = useCallback(
         (key: Digits | string) => {
             if (!quantity) {
-                setValue((value) => {
-                    let newValue = (value + key).trim().replace(/^0{2,}/, '0');
-                    if (newValue) {
-                        newValue = /^[.,]/.test(newValue) ? `0${newValue}` : newValue.replace(/^0+(\d)/, '$1');
-                        if (regExp.test(newValue)) return parseFloat(newValue) <= max ? newValue : max.toString();
+                let newValue = (value + key).trim().replace(/^0{2,}/, '0');
+                if (newValue) {
+                    newValue = /^[.,]/.test(newValue) ? `0${newValue}` : newValue.replace(/^0+(\d)/, '$1');
+                    if (regExp.test(newValue)) {
+                        newValue = parseFloat(newValue) <= max ? newValue : max.toString();
+                        setValue(newValue);
+                        if (selectedProduct) {
+                            selectedProduct.amount = parseFloat(newValue) / Math.pow(10, maxDecimals);
+                            computeQuantity(selectedProduct, selectedProduct.quantity);
+                            setQuantity(0);
+                        }
                     }
-                    return value;
-                });
-            } else {
-                const newQuantity = parseFloat(
-                    quantity > 0 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString()
+                }
+            } else if (selectedProduct) {
+                computeQuantity(
+                    selectedProduct,
+                    parseFloat(quantity > 0 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString())
                 );
-                setQuantity(computeQuantity(amount, newQuantity));
             }
         },
-        [max, regExp, quantity, setQuantity, computeQuantity, amount]
+        [max, regExp, quantity, computeQuantity, selectedProduct, value, setValue, maxDecimals, setQuantity]
     );
 
     const onClear = useCallback(() => {
-        if (selectedProduct) {
-            removeProduct();
+        if (selectedProduct?.amount && amount) {
+            if (quantity) {
+                removeProduct();
+            } else {
+                setAmount(0);
+            }
         } else {
             clearAmount();
         }
-    }, [removeProduct, clearAmount, selectedProduct]);
+    }, [removeProduct, clearAmount, selectedProduct, quantity, setAmount, amount]);
 
     const onClearTotal = useCallback(() => {
         if (total > 0) {
@@ -194,6 +202,14 @@ export const NumPad: FC = () => {
             removeProduct();
         }
     }, [removeProduct, clearTotal, openPopup, total]);
+
+    const addProduct = useCallback(() => {
+        if (selectedProduct?.amount && quantity) {
+            computeQuantity(selectedProduct, selectedProduct.quantity + 1);
+        } else {
+            _addProduct();
+        }
+    }, [selectedProduct, computeQuantity, _addProduct, quantity]);
 
     const showCurrencies = useCallback(() => {
         if (currencies.length < 2) return;
@@ -252,8 +268,11 @@ export const NumPad: FC = () => {
     ]);
 
     const multiply = useCallback(() => {
-        setQuantity(-1);
-    }, [setQuantity]);
+        if (selectedProduct) {
+            computeQuantity(selectedProduct, 1);
+        }
+        setQuantity(quantity ? 0 : -1);
+    }, [setQuantity, quantity, computeQuantity, selectedProduct]);
 
     const mercuriale = useCallback(() => {
         const mercurials = Object.values(Mercurial);
@@ -334,7 +353,7 @@ export const NumPad: FC = () => {
                                 'min-w-[145px] text-right leading-normal ' +
                                 (selectedProduct && !amount ? 'animate-blink' : '')
                             }
-                            value={amount * Math.max(toMercurial(quantity), 1)}
+                            value={selectedProduct?.total ?? 0}
                             showZero
                             onClick={showCurrencies}
                         />
