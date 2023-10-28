@@ -106,14 +106,12 @@ export const Total: FC = () => {
         (index: number) => {
             if (state !== State.done) return;
 
-            if (selectedProduct === products.current.at(index)) {
-                setSelectedProduct(undefined);
-            } else {
-                setSelectedProduct(products.current.at(index));
-            }
+            const newSelectedProduct =
+                products.current.at(index) === selectedProduct ? undefined : products.current.at(index);
 
-            setAmount(selectedProduct?.amount ?? 0);
-            setQuantity(-1);
+            setSelectedProduct(newSelectedProduct);
+            setAmount(newSelectedProduct?.amount ?? 0);
+            setQuantity(newSelectedProduct ? -1 : 0);
         },
         [products, selectedProduct, setSelectedProduct, state, setAmount, setQuantity]
     );
