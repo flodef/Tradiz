@@ -52,7 +52,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
 
 export const Category: FC = () => {
     const { inventory, state, lastModified, setState, currencyIndex, shopEmail } = useConfig();
-    const { addProduct, amount, setAmount, setSelectedProduct, setQuantity, clearAmount, products } = useData();
+    const { addProduct, amount, setAmount, setSelectedProduct, setQuantity, clearAmount, selectedProduct } = useData();
     const { openPopup, openFullscreenPopup, closePopup } = usePopup();
 
     const [hasSentEmail, setHasSentEmail] = useState(false);
@@ -140,8 +140,8 @@ export const Category: FC = () => {
                             return;
                         }
 
-                        const isNewPrice = amount && amount !== products.current.at(0)?.amount;
                         const price = item.products.find(({ label }) => label === option)?.prices[currencyIndex];
+                        const isNewPrice = amount && amount !== selectedProduct?.amount;
                         if (price || isNewPrice) {
                             const a = isNewPrice ? amount : price || 0;
                             addProduct({
@@ -176,7 +176,7 @@ export const Category: FC = () => {
             addProduct,
             clearAmount,
             setSelectedProduct,
-            products,
+            selectedProduct,
         ]
     );
 
