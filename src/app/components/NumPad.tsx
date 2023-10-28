@@ -353,7 +353,7 @@ export const NumPad: FC = () => {
                                 'min-w-[145px] text-right leading-normal ' +
                                 (selectedProduct && !amount ? 'animate-blink' : '')
                             }
-                            value={selectedProduct?.total ?? 0}
+                            value={selectedProduct?.total ?? amount}
                             showZero
                             onClick={showCurrencies}
                         />
