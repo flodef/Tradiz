@@ -225,16 +225,22 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, [clearAmount, deleteTransaction]);
 
     const computeQuantity = useCallback(
-        (amount: number, quantity = 1, mercurial = currentMercurial) => {
+        (product: Product, quantity: number) => {
             const maxValue = currencies[currencyIndex].maxValue;
-            const quadratic = toMercurial(quantity, mercurial);
+            const quadratic = toMercurial(quantity, product.mercurial);
 
-            return Math.max(
+            product.quantity = Math.max(
                 1,
-                amount * quadratic <= maxValue ? quantity : fromMercurial(maxValue / amount, maxValue, mercurial)
+                product.amount * quadratic <= maxValue
+                    ? quantity
+                    : fromMercurial(maxValue / product.amount, maxValue, product.mercurial)
             );
+            product.total = product.amount * toMercurial(product.quantity, product.mercurial);
+
+            setQuantity(product.quantity);
+            updateTotal();
         },
-        [currencies, currencyIndex, toMercurial, fromMercurial, currentMercurial]
+        [currencies, currencyIndex, toMercurial, fromMercurial, updateTotal]
     );
 
     const addProduct = useCallback(
@@ -243,38 +249,24 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!product) return;
 
             product.amount ||= amount;
-            const newQuantity = computeQuantity(
-                product.amount,
-                quantity > 0 ? quantity : item ? product.quantity : 1, // + (item ? 0 : 1),
-                product.mercurial
-            );
+            const newQuantity = item ? product.quantity : 1;
 
             if (!product.amount || (!product.label && !product.category)) return;
-
-            setSelectedProduct(product);
 
             const p = products.current.find(
                 ({ label, category, amount }) =>
                     label === product.label && category === product.category && amount === product.amount
             );
             if (p) {
-                p.quantity = computeQuantity(
-                    product.amount,
-                    newQuantity + (quantity < 0 ? p.quantity : 0),
-                    product.mercurial
-                );
-                p.total = product.amount * toMercurial(p.quantity, product.mercurial);
+                computeQuantity(p, newQuantity + p.quantity);
             } else {
-                product.quantity = newQuantity;
-                product.total = product.amount * toMercurial(product.quantity, product.mercurial);
                 products.current.unshift(product);
+                computeQuantity(product, newQuantity);
             }
 
-            // clearAmount();
-            updateTotal();
-            setQuantity(-1);
+            setSelectedProduct(p ?? product);
         },
-        [products, selectedProduct, toMercurial, computeQuantity, updateTotal, quantity, amount]
+        [products, selectedProduct, computeQuantity, amount]
     );
 
     const deleteProduct = useCallback(
@@ -303,16 +295,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             );
 
             if (!p) return;
-
+            //TODO
             if (p.quantity === 1) {
                 deleteProduct(products.current.indexOf(p));
             } else {
-                p.quantity = computeQuantity(p.amount, p.quantity - 1, p.mercurial);
-                p.total = p.amount * toMercurial(p.quantity, p.mercurial);
-                updateTotal();
+                computeQuantity(p, p.quantity - 1);
             }
         },
-        [selectedProduct, products, computeQuantity, toMercurial, deleteProduct, updateTotal]
+        [selectedProduct, products, computeQuantity, deleteProduct]
     );
 
     const displayProduct = useCallback(

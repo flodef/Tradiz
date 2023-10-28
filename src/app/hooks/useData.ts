@@ -30,8 +30,8 @@ export interface DataContextState {
     setAmount: (amount: number) => void;
     quantity: number;
     setQuantity: (quantity: number) => void;
-    computeQuantity: (amount: number, quantity: number, mercurial?: Mercurial) => number;
-    toMercurial: (quantity: number) => number;
+    computeQuantity: (product: Product, quantity: number) => void;
+    toMercurial: (quantity: number, mercurial?: Mercurial) => number;
     setCurrentMercurial: (mercurial: Mercurial) => void;
     selectedProduct: Product | undefined;
     setSelectedProduct: (product?: Product) => void;
