@@ -272,7 +272,8 @@ export const NumPad: FC = () => {
             computeQuantity(selectedProduct, 1);
         }
         setQuantity(quantity ? 0 : -1);
-    }, [setQuantity, quantity, computeQuantity, selectedProduct]);
+        setAmount(quantity ? 0 : selectedProduct?.amount ?? 0);
+    }, [setQuantity, quantity, computeQuantity, selectedProduct, setAmount]);
 
     const mercuriale = useCallback(() => {
         const mercurials = Object.values(Mercurial);
