@@ -248,10 +248,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const product = item ?? selectedProduct;
             if (!product) return;
 
-            product.amount ||= amount;
             const newQuantity = item ? product.quantity : 1;
 
-            if (!product.amount || (!product.label && !product.category)) return;
+            if (!product.label && !product.category) return;
 
             const p = products.current.find(
                 ({ label, category, amount }) =>
@@ -265,8 +264,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             }
 
             setSelectedProduct(p ?? product);
+            setAmount(product.amount);
+            setQuantity(product.amount ? -1 : 0);
         },
-        [products, selectedProduct, computeQuantity, amount]
+        [products, selectedProduct, computeQuantity]
     );
 
     const deleteProduct = useCallback(
@@ -289,13 +290,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const product = item ?? {
                 category: selectedProduct?.category,
                 label: selectedProduct?.label,
+                amount: selectedProduct?.amount,
             };
             const p = products.current.find(
-                ({ label, category }) => label === product.label && category === product.category
+                ({ label, category, amount }) =>
+                    label === product.label && category === product.category && amount === product.amount
             );
 
             if (!p) return;
-            //TODO
+            //TODO : what if all products are removed ?
             if (p.quantity === 1) {
                 deleteProduct(products.current.indexOf(p));
             } else {
