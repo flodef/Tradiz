@@ -4,8 +4,8 @@
     "icons": [
         {
             "src": "/favicon.ico",
-            "sizes": "any",
-            "type": "image/x-icon"
+            "type": "image/x-icon",
+            "sizes": "128x128"
         },
         {
             "src": "/images/icons-192.png",
@@ -21,7 +21,7 @@
     "id": "/?source=pwa",
     "start_url": "/?source=pwa",
     "background_color": "#3367D6",
-    "display": "fullscreen",
+    "display": "standalone",
     "scope": "/",
     "theme_color": "#3367D6"
 }
