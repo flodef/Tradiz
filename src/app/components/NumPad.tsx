@@ -180,8 +180,8 @@ export const NumPad: FC = () => {
     );
 
     const onClear = useCallback(() => {
-        if (selectedProduct?.amount && amount) {
-            if (quantity) {
+        if (selectedProduct) {
+            if (quantity || !amount) {
                 removeProduct();
             } else {
                 setAmount(0);
