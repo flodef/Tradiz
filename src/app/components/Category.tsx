@@ -142,42 +142,17 @@ export const Category: FC = () => {
 
                         const price = item.products.find(({ label }) => label === option)?.prices[currencyIndex];
                         const isNewPrice = amount && amount !== selectedProduct?.amount;
-                        if (price || isNewPrice) {
-                            const a = isNewPrice ? amount : price || 0;
-                            addProduct({
-                                category: item.category,
-                                label: option,
-                                quantity: 1,
-                                amount: a,
-                            });
-
-                            setAmount(a);
-                            setQuantity(-1); // Set the multiplier to 1 (ready for the next input)
-                        } else {
-                            clearAmount();
-                            setSelectedProduct({
-                                category: item.category,
-                                label: option,
-                                quantity: 1,
-                                amount: 0,
-                            });
-                        }
+                        addProduct({
+                            category: item.category,
+                            label: option,
+                            quantity: 1,
+                            amount: isNewPrice ? amount : price || 0,
+                        });
                     }
                 );
             }
         },
-        [
-            openPopup,
-            amount,
-            setAmount,
-            setQuantity,
-            inventory,
-            currencyIndex,
-            addProduct,
-            clearAmount,
-            setSelectedProduct,
-            selectedProduct,
-        ]
+        [openPopup, amount, inventory, currencyIndex, addProduct, clearAmount, setSelectedProduct, selectedProduct]
     );
 
     const categories = useMemo(() => inventory.map(({ category }) => category), [inventory]);
