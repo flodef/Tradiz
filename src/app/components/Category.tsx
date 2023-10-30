@@ -52,7 +52,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
 
 export const Category: FC = () => {
     const { inventory, state, lastModified, setState, currencyIndex, shopEmail } = useConfig();
-    const { addProduct, amount, setAmount, setSelectedProduct, setQuantity, clearAmount, selectedProduct } = useData();
+    const { addProduct, amount, setSelectedProduct, clearAmount, selectedProduct } = useData();
     const { openPopup, openFullscreenPopup, closePopup } = usePopup();
 
     const [hasSentEmail, setHasSentEmail] = useState(false);

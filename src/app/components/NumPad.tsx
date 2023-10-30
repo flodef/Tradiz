@@ -365,7 +365,7 @@ export const NumPad: FC = () => {
                         <FunctionButton
                             className={f3}
                             input="z"
-                            onInput={() => showTransactionsSummary()}
+                            onInput={() => showTransactionsSummary(showTransactionsSummaryMenu)}
                             onContextMenu={showTransactionsSummaryMenu}
                         />
                     </div>

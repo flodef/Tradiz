@@ -13,11 +13,7 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
     const [popupOptions, setPopupOptions] = useState<string[] | ReactNode[]>([]);
     const [popupAction, setPopupAction] = useState<(index: number, option: string) => void>();
     const [popupStayOpen, setPopupStayOpen] = useState(false);
-    const [popupSpecialAction, setPopupSpecialAction] = useState<{
-        confirmTitle: string;
-        action: (index: number) => void;
-        maxIndex?: number;
-    }>();
+    const [popupSpecialAction, setPopupSpecialAction] = useState<(index: number) => void>();
     const [popupIsSpecial, setPopupIsSpecial] = useState<(option: string) => boolean>();
     const [popupIsFullscreen, setPopupIsFullscreen] = useState(false);
 
@@ -27,7 +23,7 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
             options: string[] | ReactNode[],
             action?: (index: number, option: string) => void,
             stayOpen = false,
-            specialAction?: { confirmTitle: string; action: (index: number) => void; maxIndex?: number },
+            specialAction?: (index: number) => void,
             isSpecial?: (option: string) => boolean
         ) => {
             setPopupTitle(title);

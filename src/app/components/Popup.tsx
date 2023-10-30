@@ -21,7 +21,6 @@ export const Popup: FC = () => {
         popupSpecialAction,
         popupIsSpecial,
         popupIsFullscreen,
-        openPopup,
         closePopup,
         isPopupOpen,
     } = usePopup();
@@ -35,36 +34,6 @@ export const Popup: FC = () => {
             if (!popupStayOpen) closePopup();
         },
         [popupAction, closePopup, popupStayOpen]
-    );
-
-    const handleContextMenu = useCallback(
-        (option: string, index: number) => {
-            requestFullscreen();
-            if (!popupSpecialAction || index > (popupSpecialAction.maxIndex ?? Number.POSITIVE_INFINITY)) return;
-
-            openPopup(
-                popupIsSpecial && popupIsSpecial(option)
-                    ? popupSpecialAction.confirmTitle.split('|').at(1) ?? popupSpecialAction.confirmTitle
-                    : popupSpecialAction.confirmTitle.split('|')[0],
-                ['Oui', 'Non'],
-                (i) => {
-                    if (i === 0) {
-                        popupSpecialAction.action(index);
-                    } else {
-                        openPopup(
-                            popupTitle,
-                            popupOptions,
-                            popupAction,
-                            popupStayOpen,
-                            popupSpecialAction,
-                            popupIsSpecial
-                        );
-                    }
-                },
-                true
-            );
-        },
-        [openPopup, popupSpecialAction, popupAction, popupOptions, popupTitle, popupStayOpen, popupIsSpecial]
     );
 
     return (
@@ -114,7 +83,10 @@ export const Popup: FC = () => {
                                 onClick={() => handleClick(option.toString(), index)}
                                 onContextMenu={(e) => {
                                     e.preventDefault();
-                                    handleContextMenu(option.toString(), index);
+                                    requestFullscreen();
+                                    if (popupSpecialAction) {
+                                        popupSpecialAction(index);
+                                    }
                                 }}
                             >
                                 {typeof option === 'string'

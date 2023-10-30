@@ -182,10 +182,7 @@ export const useSummary = () => {
     );
 
     const showHistoricalTransactions = useCallback(
-        (
-            showTransactionsCallback: (transactions: Transaction[], fallback: () => void) => void,
-            fallback?: () => void
-        ) => {
+        (showTransactionsCallback: (menu: () => void, transactions: Transaction[]) => void, fallback?: () => void) => {
             if (!historicalTransactions.length) return;
 
             const items = getHistoricalTransactions()
@@ -211,8 +208,9 @@ export const useSummary = () => {
                         );
                         if (!transactions) return;
 
-                        showTransactionsCallback(JSON.parse(transactions), () =>
-                            showHistoricalTransactions(showTransactionsCallback, fallback)
+                        showTransactionsCallback(
+                            () => showHistoricalTransactions(showTransactionsCallback, fallback),
+                            JSON.parse(transactions)
                         );
                     }
                 },
@@ -284,9 +282,9 @@ export const useSummary = () => {
     );
 
     const showTransactionsSummary = useCallback(
-        (newTransactions = transactions, fallback?: () => void) => {
+        (menu: () => void, newTransactions = transactions) => {
             if (!newTransactions.length) {
-                showHistoricalTransactions(showTransactionsSummary);
+                showHistoricalTransactions(() => showTransactionsSummary(menu));
                 return;
             }
 
@@ -303,29 +301,29 @@ export const useSummary = () => {
                 } : ${toCurrency(totalAmount)}`,
                 summary || [''],
                 (index) => {
-                    if (index < 0 && fallback) fallback();
                     if (index < 0) return;
 
                     if (index < categories.length) {
                         displayCategoryDetails(categories[index], filteredTransactions, () =>
-                            showTransactionsSummary(newTransactions, fallback)
+                            showTransactionsSummary(menu, newTransactions)
                         );
                     } else if (index >= summary.length - payments.length) {
                         displayPaymentDetails(
                             payments[index - (summary.length - payments.length)],
                             filteredTransactions,
-                            () => showTransactionsSummary(newTransactions, fallback)
+                            () => showTransactionsSummary(menu, newTransactions)
                         );
                     } else {
                         openPopup(
                             'TVA',
                             summary.slice(categories.length + 1, -payments.length - 1),
-                            () => showTransactionsSummary(newTransactions, fallback),
+                            () => showTransactionsSummary(menu, newTransactions),
                             true
                         );
                     }
                 },
-                true
+                true,
+                menu
             );
         },
         [
@@ -440,7 +438,7 @@ export const useSummary = () => {
                 (index) => {
                     switch (index) {
                         case 0:
-                            showTransactionsSummary();
+                            showTransactionsSummary(showTransactionsSummaryMenu);
                             setTimeout(() => {
                                 takeScreenshot('popup', 'TicketZ ' + DEFAULT_DATE + '.png').then(() => {
                                     openPopup("Capture d'écran", ['La capture a bien été enregistrée'], () => {});
@@ -456,10 +454,13 @@ export const useSummary = () => {
                             closePopup();
                             break;
                         case 3:
-                            showHistoricalTransactions(showTransactionsSummary, showTransactionsSummaryMenu);
+                            showHistoricalTransactions(
+                                () => showTransactionsSummary(showTransactionsSummaryMenu),
+                                showTransactionsSummaryMenu
+                            );
                             break;
                         case 4:
-                            showTransactionsSummary(undefined, showTransactionsSummaryMenu);
+                            showTransactionsSummary(showTransactionsSummaryMenu);
                             break;
                         default:
                             return;
@@ -468,7 +469,7 @@ export const useSummary = () => {
                 true
             );
         } else if (historicalTransactions.length) {
-            showHistoricalTransactions(showTransactionsSummary);
+            showHistoricalTransactions(() => showTransactionsSummary(showTransactionsSummaryMenu));
         }
     }, [
         openPopup,

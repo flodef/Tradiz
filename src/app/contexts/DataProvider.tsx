@@ -298,7 +298,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             );
 
             if (!p) return;
-            //TODO : what if all products are removed ?
+
             if (p.quantity === 1) {
                 deleteProduct(products.current.indexOf(p));
             } else {

@@ -181,28 +181,47 @@ export const Total: FC = () => {
                 if (option === payLabel) {
                     pay();
                 } else if (index >= 0) {
-                    showProducts();
+                    closePopup(() => selectProduct(index));
                 }
             },
             true,
-            {
-                confirmTitle: 'Effacer ?',
-                maxIndex: products.current.length,
-                action: (i) => {
-                    if (!products.current.at(i)) {
-                        pay();
-                    } else {
-                        deleteProduct(i);
-                        if (products.current.length) {
-                            showProducts();
-                        } else {
-                            closePopup();
-                        }
-                    }
-                },
-            }
+            (index) => {
+                if (index > products.current.length) {
+                    pay();
+                } else {
+                    openPopup(
+                        'Effacer ?',
+                        ['Oui', 'Non'],
+                        (i) => {
+                            if (i === 0) {
+                                deleteProduct(index);
+                                if (products.current.length) {
+                                    showProducts();
+                                } else {
+                                    closePopup();
+                                }
+                            } else {
+                                showProducts();
+                            }
+                        },
+                        true
+                    );
+                }
+            },
+            (option) => Boolean(selectedProduct && option === displayProduct(selectedProduct))
         );
-    }, [getCurrentTotal, pay, products, openPopup, closePopup, displayProduct, deleteProduct, toCurrency]);
+    }, [
+        getCurrentTotal,
+        pay,
+        products,
+        openPopup,
+        closePopup,
+        displayProduct,
+        deleteProduct,
+        toCurrency,
+        selectProduct,
+        selectedProduct,
+    ]);
 
     const deleteBoughtProduct = useCallback(
         (
@@ -236,9 +255,9 @@ export const Total: FC = () => {
     );
 
     const showBoughtProducts = useCallback(
-        (index: number, fallback: () => void) => {
-            const transaction = transactions.at(index);
-            if (!transaction || !transaction.amount || index < 0 || state !== State.done) return;
+        (transactionIndex: number, fallback: () => void) => {
+            const transaction = transactions.at(transactionIndex);
+            if (!transaction || !transaction.amount || transactionIndex < 0 || state !== State.done) return;
 
             openPopup(
                 toCurrency(transaction) + ' en ' + transaction.method,
@@ -248,17 +267,31 @@ export const Total: FC = () => {
                 (i, o) =>
                     o === BACK_KEYWORD
                         ? fallback()
-                        : modifyTransaction(i !== -1 ? index : i, (i) => showBoughtProducts(i, fallback)),
+                        : modifyTransaction(i !== -1 ? transactionIndex : i, (i) => showBoughtProducts(i, fallback)),
                 true,
-                {
-                    confirmTitle: 'Effacer ?',
-                    action: (i) => {
-                        deleteBoughtProduct(i, index, transaction, () => showBoughtProducts(index, fallback), fallback);
-                    },
+                (productIndex) => {
+                    openPopup(
+                        'Effacer ?',
+                        ['Oui', 'Non'],
+                        (i) => {
+                            if (i === 0) {
+                                deleteBoughtProduct(
+                                    productIndex,
+                                    transactionIndex,
+                                    transaction,
+                                    () => showBoughtProducts(transactionIndex, fallback),
+                                    fallback
+                                );
+                            } else {
+                                showBoughtProducts(transactionIndex, fallback);
+                            }
+                        },
+                        true
+                    );
                 }
             );
         },
-        [transactions, openPopup, displayProduct, toCurrency, deleteBoughtProduct, modifyTransaction, state]
+        [transactions, openPopup, displayProduct, toCurrency, modifyTransaction, state, deleteBoughtProduct]
     );
 
     const showTransactions = useCallback(() => {
@@ -277,25 +310,32 @@ export const Total: FC = () => {
             summary,
             (i) => showBoughtProducts(getIndex(i), showTransactions),
             true,
-            {
-                confirmTitle: 'Modifier ?|Reprendre ?',
-                action: (i) => {
-                    editTransaction(getIndex(i));
-                    closePopup();
-                },
-            },
-            (option: string) => option.includes(WAITING_KEYWORD)
+            (index) => {
+                openPopup(
+                    isWaitingTransaction(transactions.at(index)) ? 'Reprendre ?' : 'Modifier ?',
+                    ['Oui', 'Non'],
+                    (i) => {
+                        if (i === 0) {
+                            editTransaction(getIndex(index));
+                            closePopup();
+                        } else {
+                            showTransactions();
+                        }
+                    },
+                    true
+                );
+            }
         );
     }, [
         openPopup,
-        closePopup,
         transactions,
-        editTransaction,
         displayTransaction,
         showBoughtProducts,
         displayTransactionsTitle,
         isWaitingTransaction,
         isConfirmedTransaction,
+        editTransaction,
+        closePopup,
     ]);
 
     const canDisplayTotal = useMemo(() => {
@@ -321,7 +361,7 @@ export const Total: FC = () => {
                     showTransactions();
                 } else {
                     if (e.type === 'click') {
-                        showTransactionsSummary();
+                        showTransactionsSummary(showTransactionsSummaryMenu);
                     } else {
                         showTransactionsSummaryMenu();
                     }
