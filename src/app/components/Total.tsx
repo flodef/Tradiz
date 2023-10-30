@@ -111,7 +111,7 @@ export const Total: FC = () => {
 
             setSelectedProduct(newSelectedProduct);
             setAmount(newSelectedProduct?.amount ?? 0);
-            setQuantity(newSelectedProduct ? -1 : 0);
+            setQuantity(newSelectedProduct?.amount ? -1 : 0);
         },
         [products, selectedProduct, setSelectedProduct, state, setAmount, setQuantity]
     );
