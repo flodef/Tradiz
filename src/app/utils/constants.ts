@@ -9,8 +9,10 @@ export const PROCESSING_KEYWORD = 'EN COURS';
 export const DELETED_KEYWORD = 'EFFACÉE';
 export const BACK_KEYWORD = 'RETOUR';
 export const CATEGORY_SEPARATOR = '>';
-export const GET_FORMATTED_DATE = (date = new Date()) =>
-    [date.getFullYear(), ('0' + (date.getMonth() + 1)).slice(-2), ('0' + date.getDate()).slice(-2)].join('-');
+export const GET_FORMATTED_DATE = (date = new Date(), precision = 3) =>
+    date.getFullYear() +
+    (precision > 1 ? '-' + ('0' + (date.getMonth() + 1)).slice(-2) : '') +
+    (precision > 2 ? '-' + ('0' + date.getDate()).slice(-2) : '');
 
 // Solana
 export const TRANSACTION_TIME_OUT = 60; // Time out in seconds
