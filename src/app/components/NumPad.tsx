@@ -30,7 +30,6 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
     const onClick = useCallback<MouseEventHandler>(
         (e) => {
             e.preventDefault();
-            requestFullscreen();
 
             if (state !== State.done) return;
 
@@ -62,7 +61,6 @@ const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu, 
     const onClick = useCallback<MouseEventHandler>(
         (e) => {
             e.preventDefault();
-            requestFullscreen();
 
             if (state !== State.done) return;
 
@@ -89,22 +87,16 @@ interface ImageButtonProps {
     className?: string;
 }
 const ImageButton: FC<ImageButtonProps> = ({ children, onClick, onContextMenu, className }) => {
-    const handleClick = useCallback<MouseEventHandler>(() => {
-        requestFullscreen();
-        onClick();
-    }, [onClick]);
-
     const handleContextMenu = useCallback<MouseEventHandler>(
         (e) => {
             e.preventDefault();
-            requestFullscreen();
             onContextMenu();
         },
         [onContextMenu]
     );
 
     return (
-        <div className={className} onClick={handleClick} onContextMenu={handleContextMenu}>
+        <div className={className} onClick={onClick} onContextMenu={handleContextMenu}>
             {children}
         </div>
     );

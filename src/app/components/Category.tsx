@@ -6,7 +6,6 @@ import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import Loading, { LoadingType } from '../loading';
 import { EMAIL, OTHER_KEYWORD } from '../utils/constants';
-import { requestFullscreen } from '../utils/fullscreen';
 import { getPublicKey } from '../utils/processData';
 import { sendEmail } from '../utils/sendEmail';
 import { useAddPopupClass } from './Popup';
@@ -23,7 +22,6 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
     const onClick = useCallback<MouseEventHandler>(
         (e) => {
             e.preventDefault();
-            requestFullscreen();
 
             onInput(input, e.type);
         },

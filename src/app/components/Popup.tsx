@@ -2,7 +2,6 @@
 
 import { FC, useCallback } from 'react';
 import { usePopup } from '../hooks/usePopup';
-import { requestFullscreen } from '../utils/fullscreen';
 import { useIsMobile } from '../utils/mobile';
 import { CloseButton } from './CloseButton';
 
@@ -27,7 +26,6 @@ export const Popup: FC = () => {
 
     const handleClick = useCallback(
         (option: string, index: number) => {
-            requestFullscreen();
             if (!popupAction) return;
 
             popupAction(index, option);
@@ -62,7 +60,6 @@ export const Popup: FC = () => {
                         </div>
                         <CloseButton
                             onClose={() => {
-                                requestFullscreen();
                                 closePopup(() => {
                                     handleClick('', -1);
                                 });
@@ -83,7 +80,6 @@ export const Popup: FC = () => {
                                 onClick={() => handleClick(option.toString(), index)}
                                 onContextMenu={(e) => {
                                     e.preventDefault();
-                                    requestFullscreen();
                                     if (popupSpecialAction) {
                                         popupSpecialAction(index);
                                     }

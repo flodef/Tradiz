@@ -1,6 +1,5 @@
 import { FC, MouseEventHandler, useCallback, useMemo } from 'react';
 import { useConfig } from '../hooks/useConfig';
-import { requestFullscreen } from '../utils/fullscreen';
 
 export interface AmountProps {
     className?: string;
@@ -28,7 +27,6 @@ export const Amount: FC<AmountProps> = ({ className, value, showZero, decimals, 
     const handleClick = useCallback<MouseEventHandler>(
         (e) => {
             e.preventDefault();
-            requestFullscreen();
 
             if (onClick) onClick();
         },

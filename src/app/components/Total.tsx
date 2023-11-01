@@ -7,8 +7,7 @@ import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
-import { BACK_KEYWORD, WAITING_KEYWORD } from '../utils/constants';
-import { requestFullscreen } from '../utils/fullscreen';
+import { BACK_KEYWORD } from '../utils/constants';
 import { isMobileSize, useIsMobile } from '../utils/mobile';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
@@ -346,7 +345,6 @@ export const Total: FC = () => {
     const handleClick = useCallback<MouseEventHandler>(
         (e) => {
             e.preventDefault();
-            requestFullscreen();
 
             if (state !== State.done) return;
 
