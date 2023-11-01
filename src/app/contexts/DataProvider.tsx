@@ -6,8 +6,8 @@ import { FC, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Currency, Mercurial, useConfig } from '../hooks/useConfig';
 import { DataContext, Product, Transaction } from '../hooks/useData';
 import {
-    DEFAULT_DATE,
     DELETED_KEYWORD,
+    GET_FORMATTED_DATE,
     OTHER_KEYWORD,
     PROCESSING_KEYWORD,
     TRANSACTIONS_KEYWORD,
@@ -47,7 +47,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             TRANSACTIONS_KEYWORD +
             (window && window.location.pathname.length > 1 ? window.location.pathname.replaceAll('/', '+') : '') +
             '_' +
-            DEFAULT_DATE;
+            GET_FORMATTED_DATE();
 
         setTransactionsFilename(filename);
 
