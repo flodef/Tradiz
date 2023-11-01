@@ -26,14 +26,26 @@ export const useSummary = () => {
         setHistoricalTransactions(getHistoricalTransactions());
     }, [getHistoricalTransactions]);
 
+    const getFilteredTransactions = useCallback(() => {
+        const t = tempTransactions.current.length ? tempTransactions.current : transactions.length ? transactions : [];
+        return t.filter((transaction) => transaction.currency.symbol === currencies[currencyIndex].symbol);
+    }, [currencies, currencyIndex, transactions]);
+
     const getTransactionDate = useCallback(
         () =>
-            transactions.length
-                ? new Date()
-                : tempTransactions.current.length
-                ? new Date(tempTransactions.current[0].createdDate)
-                : new Date(0),
-        [transactions]
+            tempTransactions.current.length
+                ? {
+                      date: new Date(tempTransactions.current[0].createdDate),
+                      period:
+                          Math.abs(
+                              tempTransactions.current[0].createdDate -
+                                  tempTransactions.current[tempTransactions.current.length - 1].createdDate
+                          ) < 86400000
+                              ? HistoricalPeriod.day
+                              : HistoricalPeriod.month,
+                  }
+                : { date: new Date(), period: HistoricalPeriod.day },
+        []
     );
 
     const getTaxesByCategory = useCallback(() => {
@@ -201,7 +213,7 @@ export const useSummary = () => {
         (
             historicalPeriod: HistoricalPeriod,
             menu: () => void,
-            showTransactionsCallback: (menu: () => void, transactions: Transaction[], fallback?: () => void) => void,
+            showTransactionsCallback: (menu: () => void, fallback?: () => void) => void,
             fallback?: () => void
         ) => {
             if (!historicalTransactions.length) return;
@@ -213,7 +225,6 @@ export const useSummary = () => {
                 .filter((key, index, array) => array.indexOf(key) === index)
                 .sort()
                 .reverse();
-            console.log(items);
             openPopup(
                 'Historique',
                 items.map((key) =>
@@ -244,7 +255,6 @@ export const useSummary = () => {
                             getHistoricalTransactions()
                                 .filter((key) => key.includes(items[index]))
                                 .forEach((key) => {
-                                    console.log(key);
                                     const transactions = localStorage.getItem(key);
                                     if (!transactions) return;
 
@@ -254,7 +264,7 @@ export const useSummary = () => {
                                 });
                         }
 
-                        showTransactionsCallback(menu, tempTransactions.current, () =>
+                        showTransactionsCallback(menu, () =>
                             showHistoricalTransactions(historicalPeriod, menu, showTransactionsCallback, fallback)
                         );
                     }
@@ -334,15 +344,13 @@ export const useSummary = () => {
     );
 
     const showTransactionsSummary = useCallback(
-        (menu: () => void, newTransactions = transactions, fallback?: () => void) => {
-            if (!newTransactions.length) {
+        (menu: () => void, fallback?: () => void) => {
+            const filteredTransactions = getFilteredTransactions();
+            if (!filteredTransactions.length) {
                 showHistoricalTransactions(HistoricalPeriod.month, menu, showTransactionsSummary);
                 return;
             }
 
-            const filteredTransactions = newTransactions.filter(
-                (transaction) => transaction.currency.symbol === currencies[currencyIndex].symbol
-            );
             const { summary, categories, payments } = getTransactionsData(filteredTransactions);
             const totalProducts = categories.reduce((total, category) => total + category.quantity, 0) ?? 0;
             const totalAmount = filteredTransactions.reduce((total, transaction) => total + transaction.amount, 0);
@@ -361,19 +369,19 @@ export const useSummary = () => {
 
                     if (index < categories.length) {
                         displayCategoryDetails(categories[index], filteredTransactions, () =>
-                            showTransactionsSummary(menu, newTransactions, fallback)
+                            showTransactionsSummary(menu, fallback)
                         );
                     } else if (index >= summary.length - payments.length) {
                         displayPaymentDetails(
                             payments[index - (summary.length - payments.length)],
                             filteredTransactions,
-                            () => showTransactionsSummary(menu, newTransactions, fallback)
+                            () => showTransactionsSummary(menu, fallback)
                         );
                     } else {
                         openPopup(
                             'TVA',
                             summary.slice(categories.length + 1, -payments.length - 1),
-                            () => showTransactionsSummary(menu, newTransactions, fallback),
+                            () => showTransactionsSummary(menu, fallback),
                             true
                         );
                     }
@@ -384,51 +392,49 @@ export const useSummary = () => {
         },
         [
             openPopup,
-            transactions,
             getTransactionsData,
             toCurrency,
             showHistoricalTransactions,
-            currencies,
-            currencyIndex,
             displayCategoryDetails,
             displayPaymentDetails,
+            getFilteredTransactions,
         ]
     );
 
     const processEmail = useCallback(
         (subject: string) => {
-            if (!transactions.length && !tempTransactions.current.length) return;
-
-            const t = transactions.length ? transactions : tempTransactions.current;
-            const filteredTransactions = t.filter(
-                (transaction) => transaction.currency.symbol === currencies[currencyIndex].symbol
-            );
-
+            const filteredTransactions = getFilteredTransactions();
             if (!filteredTransactions.length) return;
 
             const summary = getTransactionsData(filteredTransactions)
                 .summary.map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
                 .join('\n');
             const message =
-                'Bonjour,\n\nCi-joint le Ticket Z du ' + getTransactionDate().toLocaleDateString() + ' :\n\n' + summary;
+                'Bonjour,\n\nCi-joint le Ticket Z du ' +
+                (getTransactionDate().period === HistoricalPeriod.day
+                    ? getTransactionDate().date.toLocaleDateString()
+                    : 'mois de ' +
+                      getTransactionDate().date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })) +
+                ' :\n\n' +
+                summary;
 
             sendEmail(shopEmail, subject, message);
+            console.log(subject);
         },
-        [getTransactionsData, transactions, currencies, currencyIndex, shopEmail, getTransactionDate]
+        [getTransactionsData, shopEmail, getTransactionDate, getFilteredTransactions]
     );
 
     const downloadData = useCallback(
         (fileName: string) => {
-            if (!transactions.length && !tempTransactions.current.length) return;
-
-            const t = transactions.length ? transactions : tempTransactions.current;
+            const filteredTransactions = getFilteredTransactions();
+            if (!filteredTransactions.length) return;
 
             const getTransactionID = (modifiedDate: number, index: number) => {
                 const date = new Date(modifiedDate);
                 return [date.getFullYear(), date.getMonth() + 1, date.getDate(), index].join('-');
             };
 
-            const transactionsData = t.map((transaction, index) => {
+            const transactionsData = filteredTransactions.map((transaction, index) => {
                 const date = new Date(transaction.modifiedDate);
                 return {
                     ID: getTransactionID(transaction.modifiedDate, index),
@@ -439,7 +445,7 @@ export const useSummary = () => {
                 };
             });
 
-            const productData = t
+            const productData = filteredTransactions
                 .map(({ products, modifiedDate, currency }, index) => {
                     return products.map(({ category, label, amount, quantity, total }) => {
                         return {
@@ -454,7 +460,7 @@ export const useSummary = () => {
                 })
                 .flatMap((p) => p);
 
-            const { categories } = getTransactionsDetails(t);
+            const { categories } = getTransactionsDetails(filteredTransactions);
             const taxes = getTaxesByCategory();
             const taxAmount = getTaxAmountByCategory(taxes, categories);
 
@@ -483,12 +489,15 @@ export const useSummary = () => {
             });
             writeFile(workbook, fileName + '.xlsx', { compression: true });
         },
-        [transactions, toCurrency, getTransactionsDetails, getTaxesByCategory, getTaxAmountByCategory]
+        [toCurrency, getTransactionsDetails, getTaxesByCategory, getTaxAmountByCategory, getFilteredTransactions]
     );
 
     const showTransactionsSummaryMenu = useCallback(() => {
         if (transactions.length || tempTransactions.current.length) {
-            const formattedDate = GET_FORMATTED_DATE(getTransactionDate());
+            const formattedDate = GET_FORMATTED_DATE(
+                getTransactionDate().date,
+                getTransactionDate().period === HistoricalPeriod.day ? 3 : 2
+            );
             openPopup(
                 'TicketZ ' + formattedDate,
                 ["Capture d'écran", 'Email', 'Feuille de calcul']
@@ -497,7 +506,6 @@ export const useSummary = () => {
                 (index) => {
                     switch (index) {
                         case 0:
-                            tempTransactions.current = [];
                             showTransactionsSummary(() => {});
                             setTimeout(() => {
                                 takeScreenshot('popup', 'TicketZ ' + formattedDate + '.png').then(() => {
@@ -516,7 +524,6 @@ export const useSummary = () => {
                         case 3:
                         case 4:
                             if (historicalTransactions.length) {
-                                tempTransactions.current = [];
                                 showHistoricalTransactions(
                                     index === 3 ? HistoricalPeriod.day : HistoricalPeriod.month,
                                     showTransactionsSummaryMenu,
@@ -526,16 +533,10 @@ export const useSummary = () => {
                                 break;
                             }
                         case 5:
-                            showTransactionsSummary(
-                                showTransactionsSummaryMenu,
-                                tempTransactions.current ?? transactions,
-                                showTransactionsSummaryMenu
-                            );
+                            showTransactionsSummary(showTransactionsSummaryMenu, showTransactionsSummaryMenu);
                             break;
-                        default:
-                            tempTransactions.current = [];
-                            return;
                     }
+                    tempTransactions.current = [];
                 },
                 true
             );
