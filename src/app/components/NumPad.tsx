@@ -300,11 +300,11 @@ export const NumPad: FC = () => {
         [1, 2, 3],
     ];
 
-    const clickClassName =
-        state === State.done ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark ' : '';
     const color =
-        clickClassName +
-        'text-secondary-light dark:text-secondary-dark active:text-popup-dark active:dark:text-popup-light ';
+        state === State.done
+            ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark ' +
+              'text-secondary-light dark:text-secondary-dark active:text-popup-dark active:dark:text-popup-light '
+            : '';
     const s = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl ';
     const sx = s + (canPay || canAddProduct ? color : 'invisible');
 
