@@ -37,22 +37,33 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const transactionId = useRef(0);
     const [firestore, setFirestore] = useState<Firestore>();
+    const areTransactionLoaded = useRef(false);
 
     useEffect(() => {
         setCurrentMercurial(mercurial);
     }, [mercurial]);
 
     useEffect(() => {
-        const filename =
-            TRANSACTIONS_KEYWORD +
-            (window && window.location.pathname.length > 1 ? window.location.pathname.replaceAll('/', '+') : '') +
-            '_' +
-            GET_FORMATTED_DATE();
+        if (!transactionsFilename && !areTransactionLoaded.current) {
+            const filename =
+                TRANSACTIONS_KEYWORD +
+                (window && window.location.pathname.length > 1 ? window.location.pathname.replaceAll('/', '+') : '') +
+                '_' +
+                GET_FORMATTED_DATE();
 
-        setTransactionsFilename(filename);
+            const transactions = JSON.parse(localStorage.getItem(filename) || '[]') as Transaction[];
+            setTransactions(transactions);
+            areTransactionLoaded.current = true;
+            setTransactionsFilename(filename);
 
-        const transactions = JSON.parse(localStorage.getItem(filename) || '[]') as Transaction[];
-        setTransactions(transactions);
+            const d = new Date();
+            const ms =
+                new Date(d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + (d.getDate() + 1)).getTime() - d.getTime();
+            setTimeout(() => {
+                areTransactionLoaded.current = false;
+                setTransactionsFilename('');
+            }, ms); // Automatically reload at midnight
+        }
 
         if (!user.name) return;
 
@@ -69,7 +80,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     setFirestore(firebaseFirestore);
                 });
             });
-    }, [user]);
+    }, [user, transactionsFilename]);
 
     useEffect(() => {
         if (!firestore || !transactionsFilename) return;
