@@ -39,6 +39,7 @@ export interface Currency {
 export interface PaymentMethod {
     method: string;
     address?: string;
+    currency: string;
 }
 
 export interface InventoryItem {

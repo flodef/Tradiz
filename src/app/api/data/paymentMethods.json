@@ -1,11 +1,11 @@
 {
     "values": [
-        ["Moyen", "Addresse", "Caché"],
-        ["Carte Bancaire", "", false],
-        ["Virement", "FR76 43434334 43434 41343", false],
-        ["Espèce", "", false],
-        ["Chèque", "", false],
-        ["Solana", "GZLPJYkR3diD8c8vpgb7sXHEH9sG1R9sWa3yPwaL9Peb", false],
-        ["Ğ1 June", "BYxECKopSFLwM7wVZv9VJZSV1662udtZdobSLX7cNRpy:2ZG", false]
+        ["Moyen", "Addresse", "Monnaie", "Caché"],
+        ["Carte Bancaire", "", "€", false],
+        ["Virement", "FR76 43434334 43434 41343", "€", false],
+        ["Espèce", "", "€", false],
+        ["Chèque", "", "€", false],
+        ["Solana", "GZLPJYkR3diD8c8vpgb7sXHEH9sG1R9sWa3yPwaL9Peb", "€", false],
+        ["Ğ1 June", "BYxECKopSFLwM7wVZv9VJZSV1662udtZdobSLX7cNRpy:2ZG", "Ğ1", false]
     ]
 }

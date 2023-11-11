@@ -202,16 +202,17 @@ async function convertParametersData(response: void | Response) {
 async function convertPaymentMethodsData(response: void | Response) {
     if (typeof response === 'undefined') return;
     return await response.json().then((data: { values: (string | boolean)[][]; error: { message: string } }) => {
-        checkData(data, 3);
+        checkData(data, 4);
 
         return data.values
             .filter((_, i) => i !== 0)
-            .filter((item) => !Boolean(item.at(2)))
+            .filter((item) => !Boolean(item.at(3)))
             .map((item) => {
-                checkColumn(item, 3);
+                checkColumn(item, 4);
                 return {
                     method: String(item.at(0)).trim(),
                     address: String(item.at(1)).trim(),
+                    currency: String(item.at(2)).trim(),
                 };
             });
     });

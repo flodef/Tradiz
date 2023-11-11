@@ -10,7 +10,7 @@ export const usePay = () => {
     const { openPopup, closePopup } = usePopup();
     const { updateTransaction, getCurrentTotal, toCurrency, total, amount, selectedProduct } = useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
-    const { paymentMethods } = useConfig();
+    const { paymentMethods, currencies, currencyIndex } = useConfig();
 
     const canPay = useMemo(() => Boolean(total && !amount && !selectedProduct), [total, amount, selectedProduct]);
     const canAddProduct = useMemo(() => Boolean(amount && selectedProduct), [amount, selectedProduct]);
@@ -120,6 +120,7 @@ export const usePay = () => {
         const total = getCurrentTotal();
         if (total && paymentMethods.length) {
             const paymentMethodsLabels = paymentMethods
+                .filter((item) => item.currency === currencies[currencyIndex].symbol)
                 .map((item) => item.method)
                 .concat(['', 'METTRE ' + WAITING_KEYWORD]);
             if (paymentMethodsLabels.length === 1) {
@@ -137,7 +138,7 @@ export const usePay = () => {
                 );
             }
         }
-    }, [selectPayment, openPopup, getCurrentTotal, paymentMethods, toCurrency]);
+    }, [selectPayment, openPopup, getCurrentTotal, paymentMethods, toCurrency, currencies, currencyIndex]);
 
     useEffect(() => {
         if (error?.message === 'Transaction timed out') {

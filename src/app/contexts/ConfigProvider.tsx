@@ -57,12 +57,15 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
         {
             method: 'CB',
+            currency: '€',
         },
         {
             method: 'Espèces',
+            currency: '€',
         },
         {
             method: 'Chèque',
+            currency: '€',
         },
     ]);
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
