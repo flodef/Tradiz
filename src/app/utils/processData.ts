@@ -210,7 +210,7 @@ async function convertPaymentMethodsData(response: void | Response) {
             .map((item) => {
                 checkColumn(item, 4);
                 return {
-                    method: String(item.at(0)).trim(),
+                    method: NormalizedString(item.at(0)),
                     address: String(item.at(1)).trim(),
                     currency: String(item.at(2)).trim(),
                 };
@@ -228,7 +228,7 @@ async function convertCurrenciesData(response: void | Response) {
             .map((item) => {
                 checkColumn(item, 4);
                 return {
-                    label: String(item.at(0)).trim(),
+                    label: NormalizedString(item.at(0)),
                     maxValue: Number(item.at(1)),
                     symbol: String(item.at(2)).trim(),
                     maxDecimals: Number(item.at(3)),
@@ -250,12 +250,17 @@ async function convertProductsData(response: void | Response) {
                     checkColumn(item, 4);
                     return {
                         rate: (Number(item.at(0)) ?? 0) * 100,
-                        category: String(item.at(1)).trim(),
-                        label: String(item.at(2)).trim(),
+                        category: NormalizedString(item.at(1)),
+                        label: NormalizedString(item.at(2)),
                         prices: item.filter((_, i) => i >= 4).map((price) => Number(price) ?? 0),
                     };
                 }),
             currencies: data.values[0].filter((_, i) => i >= 4),
         };
     });
+}
+
+function NormalizedString(value: any) {
+    const label = String(value).trim();
+    return label.charAt(0).toUpperCase() + label.slice(1);
 }

@@ -128,7 +128,7 @@ export const Category: FC = () => {
                 openPopup(
                     item.category,
                     item.products
-                        .map(({ label }) => label.charAt(0).toUpperCase() + label.slice(1))
+                        .map(({ label }) => label)
                         .sort((a, b) => a.localeCompare(b))
                         .concat('', OTHER_KEYWORD),
                     (index, option) => {
