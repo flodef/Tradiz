@@ -406,8 +406,9 @@ export const useSummary = () => {
             const filteredTransactions = getFilteredTransactions();
             if (!filteredTransactions.length) return;
 
-            const summary = getTransactionsData(filteredTransactions)
-                .summary.map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
+            const data = getTransactionsData(filteredTransactions);
+            const summary = data.summary
+                .map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
                 .join('\n');
             const message =
                 'Bonjour,\n\nCi-joint le Ticket Z du ' +
@@ -415,13 +416,15 @@ export const useSummary = () => {
                     ? getTransactionDate().date.toLocaleDateString()
                     : 'mois de ' +
                       getTransactionDate().date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })) +
+                " d'un montant de " +
+                toCurrency(data.payments.reduce((total, payment) => total + payment.amount, 0)) +
                 ' :\n\n' +
                 summary;
 
             sendEmail(shopEmail, subject, message);
             console.log(subject);
         },
-        [getTransactionsData, shopEmail, getTransactionDate, getFilteredTransactions]
+        [getTransactionsData, shopEmail, getTransactionDate, getFilteredTransactions, toCurrency]
     );
 
     const downloadData = useCallback(
