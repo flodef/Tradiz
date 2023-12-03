@@ -119,18 +119,38 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
     // When the status is pending, poll for the transaction using the reference key
     const watchDog = useRef(0);
     useEffect(() => {
-        if (!(paymentStatus === PaymentStatus.Pending && reference && !signature && refresh && isOnline)) return;
+        if (!(paymentStatus === PaymentStatus.Pending && !signature && refresh && isOnline)) return;
         let changed = false;
 
         const interval = setInterval(async () => {
             try {
-                const signature = await findReference(connection.current, reference);
+                if (crypto === Crypto.Solana && reference) {
+                    const signature = await findReference(connection.current, reference);
 
-                if (!changed) {
-                    watchDog.current = 0;
-                    clearInterval(interval);
-                    setSignature(signature.signature);
-                    setPaymentStatus(PaymentStatus.Confirmed);
+                    if (!changed) {
+                        watchDog.current = 0;
+                        clearInterval(interval);
+                        setSignature(signature.signature);
+                        setPaymentStatus(PaymentStatus.Confirmed);
+                    }
+                } else if (crypto === Crypto.June) {
+                    const result = await fetch(`https://g1.duniter.org/tx/history/${recipient.toBase58()}`);
+                    const data = await result.json();
+                    const receiving =
+                        Number(
+                            data.history.pending
+                                .at(data.history.pending.length - 1)
+                                ?.outputs.at(0)
+                                ?.split(':')[0]
+                        ) / 100;
+
+                    if (receiving !== amount.toNumber()) throw new FindReferenceError();
+
+                    if (!changed) {
+                        watchDog.current = 0;
+                        clearInterval(interval);
+                        setPaymentStatus(PaymentStatus.Finalized);
+                    }
                 }
             } catch (error: any) {
                 const isTimeOut = watchDog.current++ > TRANSACTION_TIME_OUT * 4;
@@ -155,7 +175,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
             watchDog.current = 0;
             clearInterval(interval);
         };
-    }, [paymentStatus, reference, signature, connection, setError, refresh, isOnline]);
+    }, [paymentStatus, reference, signature, connection, setError, refresh, isOnline, crypto, recipient, amount]);
 
     // When the status is confirmed, validate the transaction against the provided params
     useEffect(() => {
