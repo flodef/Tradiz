@@ -62,7 +62,7 @@ export const usePay = () => {
 
             openPopup(
                 'Paiement : ' + toCurrency(getCurrentTotal()),
-                ['Attendre paiement', 'Changer mode paiement', 'Valider paiement', 'Annuler paiement'],
+                ['Attendre paiement', 'Changer mode paiement', 'Annuler paiement'],
                 (index) => {
                     switch (index) {
                         case 1:
@@ -70,10 +70,6 @@ export const usePay = () => {
                             init();
                             break;
                         case 2:
-                            updateTransaction('Crypto');
-                            closePopup(init);
-                            break;
-                        case 3:
                             closePopup(init);
                             break;
                         default:
@@ -85,7 +81,7 @@ export const usePay = () => {
                 true
             );
         },
-        [openPopup, toCurrency, getCurrentTotal, openQRCode, retry, closePopup, init, updateTransaction]
+        [openPopup, toCurrency, getCurrentTotal, openQRCode, retry, closePopup, init]
     );
 
     const selectPayment = useCallback(
