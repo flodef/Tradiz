@@ -1,6 +1,6 @@
 'use client';
 
-import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, MouseEventHandler, useEffect, useMemo, useState } from 'react';
 import { State, useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
@@ -19,14 +19,11 @@ interface CategoryInputButton {
 const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => {
     const { selectedProduct } = useData();
 
-    const onClick = useCallback<MouseEventHandler>(
-        (e) => {
-            e.preventDefault();
+    const onClick: MouseEventHandler = (e) => {
+        e.preventDefault();
 
-            onInput(input, e.type);
-        },
-        [input, onInput]
-    );
+        onInput(input, e.type);
+    };
 
     const width = length === 1 ? 'w-full' : length === 2 ? 'w-1/2' : 'w-1/3';
 
@@ -109,49 +106,46 @@ export const Category: FC = () => {
         }
     }, [state, openFullscreenPopup, closePopup, lastModified, setState, shopEmail, hasSentEmail]);
 
-    const onInput = useCallback(
-        (input: string, eventType: string) => {
-            const item =
-                inventory.find(({ category }) => category === input) ??
-                inventory.find(({ products }) => products.some(({ label }) => label === input));
-            if (!item) return;
+    const onInput = (input: string, eventType: string) => {
+        const item =
+            inventory.find(({ category }) => category === input) ??
+            inventory.find(({ products }) => products.some(({ label }) => label === input));
+        if (!item) return;
 
-            if (eventType === 'contextmenu' && amount) {
-                addProduct({
-                    category: item.category,
-                    label: OTHER_KEYWORD,
-                    quantity: 1,
-                    amount: amount,
-                });
-            } else {
-                setSelectedProduct({ category: item.category, label: OTHER_KEYWORD, quantity: 0, amount: 0 });
-                openPopup(
-                    item.category,
-                    item.products
-                        .map(({ label }) => label)
-                        .sort((a, b) => a.localeCompare(b))
-                        .concat('', OTHER_KEYWORD),
-                    (index, option) => {
-                        if (index < 0) {
-                            setSelectedProduct(undefined);
-                            clearAmount();
-                            return;
-                        }
-
-                        const price = item.products.find(({ label }) => label === option)?.prices[currencyIndex];
-                        const isNewPrice = amount && amount !== selectedProduct?.amount;
-                        addProduct({
-                            category: item.category,
-                            label: option,
-                            quantity: 1,
-                            amount: isNewPrice ? amount : price || 0,
-                        });
+        if (eventType === 'contextmenu') {
+            addProduct({
+                category: item.category,
+                label: OTHER_KEYWORD,
+                quantity: 1,
+                amount: amount,
+            });
+        } else {
+            setSelectedProduct({ category: item.category, label: OTHER_KEYWORD, quantity: 0, amount: 0 });
+            openPopup(
+                item.category,
+                item.products
+                    .map(({ label }) => label)
+                    .sort((a, b) => a.localeCompare(b))
+                    .concat('', OTHER_KEYWORD),
+                (index, option) => {
+                    if (index < 0) {
+                        setSelectedProduct(undefined);
+                        clearAmount();
+                        return;
                     }
-                );
-            }
-        },
-        [openPopup, amount, inventory, currencyIndex, addProduct, clearAmount, setSelectedProduct, selectedProduct]
-    );
+
+                    const price = item.products.find(({ label }) => label === option)?.prices[currencyIndex];
+                    const isNewPrice = amount && amount !== selectedProduct?.amount;
+                    addProduct({
+                        category: item.category,
+                        label: option,
+                        quantity: 1,
+                        amount: isNewPrice ? amount : price || 0,
+                    });
+                }
+            );
+        }
+    };
 
     const categories = useMemo(() => inventory.map(({ category }) => category), [inventory]);
 
