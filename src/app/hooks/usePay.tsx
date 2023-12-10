@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { QRCode } from '../components/QRCode';
-import { WAITING_KEYWORD } from '../utils/constants';
+import { IS_LOCAL, WAITING_KEYWORD } from '../utils/constants';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
 import { useData } from './useData';
@@ -62,7 +62,9 @@ export const usePay = () => {
 
             openPopup(
                 'Paiement : ' + toCurrency(getCurrentTotal()),
-                ['Attendre paiement', 'Changer mode paiement', 'Annuler paiement'],
+                ['Attendre paiement', 'Changer mode paiement', 'Annuler paiement'].concat(
+                    IS_LOCAL ? 'Valider paiement' : []
+                ),
                 (index) => {
                     switch (index) {
                         case 1:
@@ -70,6 +72,10 @@ export const usePay = () => {
                             init();
                             break;
                         case 2:
+                            closePopup(init);
+                            break;
+                        case 3:
+                            updateTransaction('Crypto');
                             closePopup(init);
                             break;
                         default:
@@ -81,7 +87,7 @@ export const usePay = () => {
                 true
             );
         },
-        [openPopup, toCurrency, getCurrentTotal, openQRCode, retry, closePopup, init]
+        [openPopup, toCurrency, getCurrentTotal, openQRCode, retry, closePopup, init, updateTransaction]
     );
 
     const selectPayment = useCallback(
