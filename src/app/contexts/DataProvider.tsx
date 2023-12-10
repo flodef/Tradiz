@@ -57,12 +57,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             setTransactionsFilename(filename);
 
             const d = new Date();
-            const ms =
+            const timeUntilMidnight =
                 new Date(d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + (d.getDate() + 1)).getTime() - d.getTime();
             setTimeout(() => {
                 areTransactionLoaded.current = false;
                 setTransactionsFilename('');
-            }, ms); // Automatically reload at midnight
+            }, timeUntilMidnight); // Automatically reload at midnight
         }
 
         if (!user.name) return;
