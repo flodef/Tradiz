@@ -10,7 +10,7 @@ import { useWindowParam } from '../hooks/useWindowParam';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { WalletIcon } from '../images/WalletIcon';
-import { WAITING_KEYWORD } from '../utils/constants';
+import { IS_LOCAL, WAITING_KEYWORD } from '../utils/constants';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isMobileSize } from '../utils/mobile';
 import { Digits } from '../utils/types';
@@ -139,7 +139,7 @@ export const NumPad: FC = () => {
             !isPopupOpen &&
             !isFullscreen() &&
             (height < window.screen.availHeight || width < window.screen.availWidth) &&
-            process.env.NEXT_PUBLIC_VERCEL_ENV
+            !IS_LOCAL
         ) {
             openFullscreenPopup('Plein écran', ['Mettre en plein écran'], () => closePopup(requestFullscreen), true);
         }

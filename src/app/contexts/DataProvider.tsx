@@ -25,7 +25,7 @@ export interface DataProviderProps {
 }
 
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
-    const { currencies, currencyIndex, mercurial, user } = useConfig();
+    const { currencies, currencyIndex, setCurrency, mercurial, user } = useConfig();
 
     const [transactionsFilename, setTransactionsFilename] = useState('');
     const [total, setTotal] = useState(0);
@@ -57,12 +57,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             setTransactionsFilename(filename);
 
             const d = new Date();
-            const ms =
+            const timeUntilMidnight =
                 new Date(d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + (d.getDate() + 1)).getTime() - d.getTime();
             setTimeout(() => {
                 areTransactionLoaded.current = false;
                 setTransactionsFilename('');
-            }, ms); // Automatically reload at midnight
+            }, timeUntilMidnight); // Automatically reload at midnight
         }
 
         if (!user.name) return;
@@ -349,6 +349,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!transactions.length) return;
 
             const transaction = transactions[index];
+            setCurrency(transaction.currency.label);
             transaction.products.forEach(addProduct);
             transaction.method = PROCESSING_KEYWORD;
 

@@ -1,3 +1,5 @@
+import { IS_LOCAL } from './constants';
+
 declare global {
     interface Document {
         readonly webkitCurrentFullScreenElement?: Element | null;
@@ -53,7 +55,7 @@ export function requestFullscreen(): void {
         document.documentElement.webkitRequestFullscreen ||
         document.documentElement.mozRequestFullScreen ||
         document.documentElement.msRequestFullscreen;
-    if (requestFullscreen && process.env.NEXT_PUBLIC_VERCEL_ENV) {
+    if (requestFullscreen && !IS_LOCAL) {
         requestFullscreen.call(document.documentElement).catch((error) => console.warn(error));
     }
 }

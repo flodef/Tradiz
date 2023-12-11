@@ -58,7 +58,7 @@ export interface ConfigContextState {
     user: User;
     lastModified: string;
     currencyIndex: number;
-    setCurrency: (currency: string) => void;
+    setCurrency: (label: string) => void;
     currencies: Currency[];
     paymentMethods: PaymentMethod[];
     inventory: InventoryItem[];
