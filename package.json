@@ -9,7 +9,7 @@
         "build": "next build",
         "start": "next start",
         "lint": "next lint",
-        "test": "jest --watch",
+        "test": "jest",
         "nuke": "shx rm -rf node_modules package-lock.json || true"
     },
     "dependencies": {
