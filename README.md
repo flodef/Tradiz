@@ -34,23 +34,27 @@ Afin d'avoir une interface épurée, il est recommandé de créer un maximum de 
 
 #### Monnaies
 
-Par défaut, la seule monnaie disponible est l'Euro. Il est possible d'ajouter d'autres monnaies, en ajoutant une ligne en dessous. Il est également possible d'ajouter la même monnaie avec une mercuriale différente (par exemple, pour afficher des prix différents pour les locaux et les touristes).
+Par défaut, la seule monnaie disponible est l'Euro. Il est possible d'ajouter d'autres monnaies, en ajoutant une ligne en dessous.
+Il est également possible d'ajouter la même monnaie avec une mercuriale différente (par exemple, pour afficher des prix différents pour les locaux et les touristes).
 
-Il est également possible de modifier le nom de la devise, son symbole, la valeur maximale lors d'un achat ainsi que le nombre de décimales à afficher.
+Enfin, il faut paramètrer le nom de la devise, son symbole, la valeur maximale lors d'un achat ainsi que le nombre de décimales à afficher.
 
 #### Produits
 
-L'onglet **Produits** contient la liste des produits, avec la catégorie associée, le nom du produit et son prix.
+L'onglet **Produits** contient la liste des produits, avec la catégorie associée, sa disponibilité, le nom du produit et son prix.
 
 Il est possible d'ajouter des prix différents pour un même produit. Pour cela, il faut avoir au préalable ajouté une autre monnaie (voir chapitre ci-dessus).
 
 Il faut ensuite ajouter une nouvelle colonne tout à droite : clic droit dans la colonne puis **Insérer une colonne à droite**. Puis ajouter le nom de la devise en haut de la colonne en la sélectionnant.
 
+Si un produit est inutilisé périodiquement, il est possible de le cacher de l'interface en cochant la colonne **Indisponible**.
+
 #### Paiements
 
 L'onglet **Paiements** contient la liste des moyens de paiements possibles.
 
-Pour les virements ainsi que les paiements en monnaie numérique nécessitant un QR code, il est possible d'ajouter une adresse vers laquelle envoyer le paiement.
+Pour les paiements en monnaie numérique nécessitant un QR code, il est nécessaire d'ajouter une adresse publique vers laquelle envoyer le paiement dans la colonne **Adresse**.
+Pour les virements, il est également nécessaire de renseigner un IBAN dans cette colonne.
 
 Il est enfin possible de cacher une méthode de paiement en cochant la colonne **Caché**.
 
