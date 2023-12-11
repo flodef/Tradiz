@@ -2,14 +2,17 @@
 
 import { Transaction, useData } from '@/app/hooks/useData';
 import { render } from '@testing-library/react';
-import Home from '@/app/page';
 import Page from '../src/app/[shop]/page';
-
-// jest.mock<FC>('Component');
+// import Home from '@/app/page';
+// import { DataProvider } from '@/app/contexts/DataProvider';
 
 describe('isWaitingTransaction', () => {
     // const addItem = jest.fn();
-    // render(<DataProvider></DataProvider>);
+    // render(
+    //     <DataProvider>
+    //         <div />
+    //     </DataProvider>
+    // );
     // render(Home(''));
     render(<Page params={{ shop: '' }} />);
 
@@ -18,8 +21,6 @@ describe('isWaitingTransaction', () => {
 
     // Returns true if transaction method is 'EN ATTENTE'
     it('should return true when transaction method is "EN ATTENTE"', () => {
-        // render(<Page params={''} />);
-
         const transaction: Transaction = {
             validator: 'validator',
             method: 'EN ATTENTE',
