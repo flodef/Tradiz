@@ -71,8 +71,8 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
 
     const setCurrency = useCallback(
-        (currency: string) => {
-            const index = currencies.findIndex(({ label }) => label === currency);
+        (label: string) => {
+            const index = currencies.findIndex(({ label: l }) => l === label);
             if (index !== -1) {
                 setCurrencyIndex(index);
             }
