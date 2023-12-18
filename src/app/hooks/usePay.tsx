@@ -63,7 +63,7 @@ export const usePay = () => {
             openPopup(
                 'Paiement : ' + toCurrency(getCurrentTotal()),
                 ['Attendre paiement', 'Changer mode paiement', 'Annuler paiement'].concat(
-                    IS_LOCAL ? 'Valider paiement' : []
+                    IS_LOCAL || currencies[currencyIndex].label === Crypto.June ? 'Valider paiement' : []
                 ),
                 (index) => {
                     switch (index) {
