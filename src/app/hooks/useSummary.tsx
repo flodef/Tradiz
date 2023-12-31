@@ -20,7 +20,9 @@ export const useSummary = () => {
     const tempTransactions = useRef<Transaction[]>([]);
     const [historicalTransactions, setHistoricalTransactions] = useState<string[]>([]);
     const getHistoricalTransactions = useCallback(() => {
-        return Object.keys(localStorage).filter((key) => key.split('_')[0] === transactionsFilename.split('_')[0]);
+        return Object.keys(localStorage).filter(
+            (key) => transactionsFilename && key.split('_')[0] === transactionsFilename.split('_')[0]
+        );
     }, [transactionsFilename]);
     useEffect(() => {
         setHistoricalTransactions(getHistoricalTransactions());
@@ -220,11 +222,14 @@ export const useSummary = () => {
 
             const isDayPeriod = historicalPeriod === HistoricalPeriod.day;
             const items = getHistoricalTransactions()
-                .map((key) => key.split('_')[1])
+                .map((key) => key.split('_')[1] ?? '')
                 .map((key) => (isDayPeriod ? key : key.split('-').slice(0, 2).join('-')))
-                .filter((key, index, array) => array.indexOf(key) === index)
+                .filter((key, index, array) => key && array.indexOf(key) === index)
                 .sort()
                 .reverse();
+
+            if (!items.length) return;
+
             openPopup(
                 'Historique',
                 items.map((key) =>
