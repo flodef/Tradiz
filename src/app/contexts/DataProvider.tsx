@@ -56,9 +56,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             areTransactionLoaded.current = true;
             setTransactionsFilename(filename);
 
-            const d = new Date();
-            const timeUntilMidnight =
-                new Date(d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + (d.getDate() + 1)).getTime() - d.getTime();
+            const now = new Date();
+            const midnight = new Date();
+            midnight.setDate(now.getDate() + 1);
+            midnight.setHours(0, 0, 0, 0);
+            const timeUntilMidnight = midnight.getTime() - now.getTime();
             setTimeout(() => {
                 areTransactionLoaded.current = false;
                 setTransactionsFilename('');

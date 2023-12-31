@@ -17,7 +17,10 @@ export function useLocalStorage<T>(key: string, defaultState: T): [T, Dispatch<S
 
     const isFirstRenderRef = useRef(true);
     useEffect(() => {
-        if (!key) return;
+        if (!key) {
+            console.warn('useLocalStorage: key is not defined');
+            return;
+        }
 
         if (isFirstRenderRef.current) {
             isFirstRenderRef.current = false;
