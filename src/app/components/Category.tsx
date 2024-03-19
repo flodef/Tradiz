@@ -55,6 +55,13 @@ export const Category: FC = () => {
     useEffect(() => {
         switch (state) {
             case State.error:
+                // If the app is running on localhost or demo.tradiz.fr, set the state to done and don't display the error message
+                const currentUrl = new URL(window.location.href);
+                if (currentUrl.hostname === 'localhost' || currentUrl.hostname === 'demo.tradiz.fr') {
+                    setTimeout(() => setState(State.done), 100);
+                    return;
+                }
+
                 openFullscreenPopup(
                     'Erreur chargement données',
                     [`Utiliser sauvegarde du ${lastModified}`, 'Réessayer'],
