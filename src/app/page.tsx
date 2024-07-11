@@ -6,7 +6,7 @@ import { ConfigProvider } from './contexts/ConfigProvider';
 import { CryptoProvider } from './contexts/CryptoProvider';
 import { DataProvider } from './contexts/DataProvider';
 import { PopupProvider } from './contexts/PopupProvider';
-import {} from './utils/currency';
+import {} from './utils/extensions';
 
 export default function Home(shop: string) {
     return (
