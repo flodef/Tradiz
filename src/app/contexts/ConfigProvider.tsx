@@ -34,6 +34,7 @@ interface Config {
     currencies: Currency[];
     paymentMethods: PaymentMethod[];
     inventory: InventoryItem[];
+    discounts: number[];
 }
 
 export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
@@ -69,6 +70,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
         },
     ]);
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
+    const [discounts, setDiscounts] = useState([0, 10, 20, 30, 50]);
 
     const setCurrency = useCallback(
         (label: string) => {
@@ -90,11 +92,18 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
         setCurrencies(data.currencies);
         setPaymentMethods(data.paymentMethods);
         setInventory(data.inventory);
+        setDiscounts(data.discounts);
     }, []);
 
     const storeData = useCallback(
         (data: Config | undefined) => {
-            if (data?.currencies.length && data?.paymentMethods.length && data?.inventory.length && data?.parameters) {
+            if (
+                data?.currencies.length &&
+                data?.paymentMethods.length &&
+                data?.inventory.length &&
+                data?.discounts.length &&
+                data?.parameters
+            ) {
                 setConfig(data);
                 updateConfig(data);
                 return true;
@@ -155,6 +164,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
                 currencies,
                 paymentMethods,
                 inventory,
+                discounts,
             }}
         >
             {children}

@@ -62,6 +62,7 @@ export interface ConfigContextState {
     currencies: Currency[];
     paymentMethods: PaymentMethod[];
     inventory: InventoryItem[];
+    discounts: number[];
 }
 
 export const ConfigContext = createContext<ConfigContextState>({} as ConfigContextState);

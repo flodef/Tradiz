@@ -30,6 +30,7 @@ const dataNames: { [key: string]: DataName } = {
     parameters: { json: 'parameters', sheet: 'Paramètres' },
     paymentMethods: { json: 'paymentMethods', sheet: 'Paiements' },
     currencies: { json: 'currencies', sheet: '_Monnaies' },
+    discounts: { json: 'discounts', sheet: 'Remises' },
     products: { json: 'products', sheet: '_Produits' },
     users: { json: 'users', sheet: 'Utilisateurs' },
 };
@@ -87,6 +88,9 @@ export async function loadData(shop: string, isOutOfLocalHost = true) {
     const allCurrencies = await fetchData(dataNames.currencies, id).then(convertCurrenciesData);
     if (!allCurrencies?.length) return;
 
+    const discounts = await fetchData(dataNames.discounts, id).then(convertDiscountsData);
+    if (!discounts?.length) return;
+
     const data = await fetchData(dataNames.products, id).then(convertProductsData);
     if (!data?.products?.length || !data?.currencies?.length) return;
 
@@ -123,6 +127,7 @@ export async function loadData(shop: string, isOutOfLocalHost = true) {
         currencies,
         paymentMethods,
         inventory,
+        discounts,
     };
 }
 
@@ -174,16 +179,14 @@ async function convertUsersData(response: void | Response) {
     return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
         checkData(data, 3);
 
-        return data.values
-            .filter((_, i) => i !== 0)
-            .map((item) => {
-                checkColumn(item, 3);
-                return {
-                    key: String(item.at(0)).trim(),
-                    name: String(item.at(1)).trim(),
-                    role: (String(item.at(2)).trim() ?? Role.cashier) as Role,
-                };
-            });
+        return data.values.removeHeader().map((item) => {
+            checkColumn(item, 3);
+            return {
+                key: String(item.at(0)).trim(),
+                name: String(item.at(1)).trim(),
+                role: (String(item.at(2)).trim() ?? Role.cashier) as Role,
+            };
+        });
     });
 }
 
@@ -205,12 +208,12 @@ async function convertPaymentMethodsData(response: void | Response) {
         checkData(data, 4);
 
         return data.values
-            .filter((_, i) => i !== 0)
+            .removeHeader()
             .filter((item) => !Boolean(item.at(3)))
             .map((item) => {
                 checkColumn(item, 4);
                 return {
-                    method: NormalizedString(item.at(0)),
+                    method: normalizedString(item.at(0)),
                     address: String(item.at(1)).trim(),
                     currency: String(item.at(2)).trim(),
                 };
@@ -223,17 +226,27 @@ async function convertCurrenciesData(response: void | Response) {
     return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
         checkData(data, 4);
 
-        return data.values
-            .filter((_, i) => i !== 0)
-            .map((item) => {
-                checkColumn(item, 4);
-                return {
-                    label: NormalizedString(item.at(0)),
-                    maxValue: Number(item.at(1)),
-                    symbol: String(item.at(2)).trim(),
-                    maxDecimals: Number(item.at(3)),
-                };
-            });
+        return data.values.removeHeader().map((item) => {
+            checkColumn(item, 4);
+            return {
+                label: normalizedString(item.at(0)),
+                maxValue: Number(item.at(1)),
+                symbol: String(item.at(2)).trim(),
+                maxDecimals: Number(item.at(3)),
+            };
+        });
+    });
+}
+
+async function convertDiscountsData(response: void | Response) {
+    if (typeof response === 'undefined') return;
+    return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
+        checkData(data, 1);
+
+        return data.values.removeHeader().map((item) => {
+            checkColumn(item, 1);
+            return Number(item.at(0));
+        });
     });
 }
 
@@ -244,14 +257,14 @@ async function convertProductsData(response: void | Response) {
 
         return {
             products: data.values
-                .filter((_, i) => i !== 0)
+                .removeHeader()
                 .filter((item) => !Boolean(item.at(3)))
                 .map((item) => {
                     checkColumn(item, 4);
                     return {
                         rate: (Number(item.at(0)) ?? 0) * 100,
-                        category: NormalizedString(item.at(1)),
-                        label: NormalizedString(item.at(2)),
+                        category: normalizedString(item.at(1)),
+                        label: normalizedString(item.at(2)),
                         prices: item.filter((_, i) => i >= 4).map((price) => Number(price) ?? 0),
                     };
                 }),
@@ -260,7 +273,7 @@ async function convertProductsData(response: void | Response) {
     });
 }
 
-function NormalizedString(value: any) {
+function normalizedString(value: any) {
     const label = String(value).trim();
     return label.charAt(0).toUpperCase() + label.slice(1);
 }

@@ -10,6 +10,7 @@ export interface DataElement {
 export interface Product extends DataElement {
     label: string;
     total?: number;
+    discount: number;
     mercurial?: Mercurial;
 }
 
@@ -31,6 +32,7 @@ export interface DataContextState {
     quantity: number;
     setQuantity: (quantity: number) => void;
     computeQuantity: (product: Product, quantity: number) => void;
+    setDiscount: (product: Product, discount: number) => void;
     toMercurial: (quantity: number, mercurial?: Mercurial) => number;
     setCurrentMercurial: (mercurial: Mercurial) => void;
     selectedProduct: Product | undefined;

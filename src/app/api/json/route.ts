@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import currencies from '../data/currencies.json';
+import discounts from '../data/discounts.json';
 import parameters from '../data/parameters.json';
 import paymentMethods from '../data/paymentMethods.json';
 import products from '../data/products.json';
@@ -11,6 +12,8 @@ export async function GET(request: Request) {
     switch (fileName) {
         case 'currencies':
             return NextResponse.json(currencies);
+        case 'discounts':
+            return NextResponse.json(discounts);
         case 'parameters':
             return NextResponse.json(parameters);
         case 'paymentMethods':

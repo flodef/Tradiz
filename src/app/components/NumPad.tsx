@@ -103,7 +103,7 @@ const ImageButton: FC<ImageButtonProps> = ({ children, onClick, onContextMenu, c
 };
 
 export const NumPad: FC = () => {
-    const { currencies, currencyIndex, setCurrency, state } = useConfig();
+    const { currencies, currencyIndex, setCurrency, state, discounts } = useConfig();
     const {
         total,
         amount,
@@ -112,6 +112,7 @@ export const NumPad: FC = () => {
         quantity,
         setQuantity,
         computeQuantity,
+        setDiscount,
         setCurrentMercurial,
         removeProduct,
         clearTotal,
@@ -267,6 +268,13 @@ export const NumPad: FC = () => {
         setAmount(quantity ? 0 : selectedProduct?.amount ?? 0);
     }, [setQuantity, quantity, computeQuantity, selectedProduct, setAmount]);
 
+    const discount = useCallback(() => {
+        if (!discounts.length || !selectedProduct) return;
+        openPopup('Remise', ['Aucune'].concat(discounts.map((discount) => discount + '%')), (index) =>
+            setDiscount(selectedProduct, !index ? 0 : discounts[index - 1])
+        );
+    }, [openPopup, quantity, multiply]);
+
     const mercuriale = useCallback(() => {
         const mercurials = Object.values(Mercurial);
         openPopup('Fonction coût quadratique', mercurials, (index) => {
@@ -353,7 +361,12 @@ export const NumPad: FC = () => {
                         <ImageButton className={f1} onClick={onClear} onContextMenu={onClearTotal}>
                             <BackspaceIcon />
                         </ImageButton>
-                        <FunctionButton className={f2} input="&times;" onInput={multiply} onContextMenu={mercuriale} />
+                        <FunctionButton
+                            className={f2}
+                            input="&times;"
+                            onInput={multiply}
+                            onContextMenu={discount ?? mercuriale}
+                        />
                         <FunctionButton
                             className={f3}
                             input="z"

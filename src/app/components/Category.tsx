@@ -124,10 +124,11 @@ export const Category: FC = () => {
                 category: item.category,
                 label: OTHER_KEYWORD,
                 quantity: 1,
+                discount: 0,
                 amount: amount,
             });
         } else {
-            setSelectedProduct({ category: item.category, label: OTHER_KEYWORD, quantity: 0, amount: 0 });
+            setSelectedProduct({ category: item.category, label: OTHER_KEYWORD, quantity: 0, discount: 0, amount: 0 });
             openPopup(
                 item.category,
                 item.products
@@ -147,6 +148,7 @@ export const Category: FC = () => {
                         category: item.category,
                         label: option,
                         quantity: 1,
+                        discount: 0,
                         amount: isNewPrice ? amount : price || 0,
                     });
                 }

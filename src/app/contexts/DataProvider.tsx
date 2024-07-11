@@ -237,18 +237,29 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         clearAmount();
     }, [clearAmount, deleteTransaction]);
 
+    const setDiscount = useCallback(
+        (product: Product, discount: number) => {
+            product.discount = discount;
+            product.total =
+                product.amount * (1 - product.discount / 100) * toMercurial(product.quantity, product.mercurial);
+            updateTotal();
+        },
+        [updateTotal]
+    );
+
     const computeQuantity = useCallback(
         (product: Product, quantity: number) => {
             const maxValue = currencies[currencyIndex].maxValue;
             const quadratic = toMercurial(quantity, product.mercurial);
+            const amount = product.amount * (1 - product.discount / 100);
 
             product.quantity = Math.max(
                 1,
-                product.amount * quadratic <= maxValue
+                amount * quadratic <= maxValue
                     ? quantity
                     : fromMercurial(maxValue / product.amount, maxValue, product.mercurial)
             );
-            product.total = product.amount * toMercurial(product.quantity, product.mercurial);
+            product.total = amount * toMercurial(product.quantity, product.mercurial);
 
             setQuantity(product.quantity);
             updateTotal();
@@ -330,7 +341,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 ' x ' +
                 product.quantity +
                 ' = ' +
-                toCurrency({ amount: product.total ?? 0, currency: currency })
+                toCurrency({ amount: product.total ?? 0, currency: currency }) +
+                (product.discount ? ' (-' + product.discount + '%)' : '')
             );
         },
         [toCurrency]
@@ -426,6 +438,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 quantity,
                 setQuantity,
                 computeQuantity,
+                setDiscount,
                 toMercurial,
                 setCurrentMercurial,
                 selectedProduct,
