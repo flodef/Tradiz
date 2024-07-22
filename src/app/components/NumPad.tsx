@@ -270,8 +270,13 @@ export const NumPad: FC = () => {
 
     const discount = useCallback(() => {
         if (!discounts.length || !selectedProduct) return;
-        openPopup('Remise', ['Aucune'].concat(discounts.map((discount) => discount + '%')), (index) =>
-            setDiscount(selectedProduct, !index ? 0 : discounts[index - 1])
+        const displayDiscounts = (discounts.some((discount) => discount === 0) ? discounts : [0].concat(discounts))
+            .filter((d) => d !== selectedProduct.discount)
+            .sort();
+        openPopup(
+            `Remise (${selectedProduct.discount ? selectedProduct.discount + '%' : 'Aucune'})`,
+            displayDiscounts.map((d) => (d ? d + '%' : ['Aucune'])),
+            (index) => setDiscount(selectedProduct, index < 0 ? selectedProduct.discount : displayDiscounts[index])
         );
     }, [openPopup, quantity, multiply]);
 
