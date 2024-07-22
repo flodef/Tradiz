@@ -13,7 +13,7 @@ import {
 } from '../hooks/useConfig';
 import { EMAIL } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
-import { UserNotFoundError, loadData } from '../utils/processData';
+import { UserNotFoundError, defaultCurrencies, defaultPaymentMethods, loadData } from '../utils/processData';
 
 export interface ConfigProviderProps {
     children: ReactNode;
@@ -47,30 +47,10 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const [user, setUser] = useState<User>({ name: '', role: Role.none });
     const [lastModified, setLastModified] = useState(new Date().toLocaleString());
     const [currencyIndex, setCurrencyIndex] = useState(0);
-    const [currencies, setCurrencies] = useState<Currency[]>([
-        {
-            label: 'Euro',
-            maxValue: 999.99,
-            symbol: '€',
-            maxDecimals: 2,
-        },
-    ]);
-    const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
-        {
-            method: 'CB',
-            currency: '€',
-        },
-        {
-            method: 'Espèces',
-            currency: '€',
-        },
-        {
-            method: 'Chèque',
-            currency: '€',
-        },
-    ]);
+    const [currencies, setCurrencies] = useState<Currency[]>(defaultCurrencies);
+    const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(defaultPaymentMethods);
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
-    const [discounts, setDiscounts] = useState([0, 10, 20, 30, 50]);
+    const [discounts, setDiscounts] = useState<number[]>([]);
 
     const setCurrency = useCallback(
         (label: string) => {

@@ -8,6 +8,11 @@ class MissingDataError extends Error {
     message = 'missing data';
 }
 
+class EmptyDataError extends Error {
+    name = 'EmptyDataError';
+    message = 'empty data';
+}
+
 class WrongDataPatternError extends Error {
     name = 'WrongDataPatternError';
     message = 'wrong data pattern';
@@ -35,6 +40,29 @@ const dataNames: { [key: string]: DataName } = {
     users: { json: 'users', sheet: 'Utilisateurs' },
 };
 
+export const defaultCurrencies = [
+    {
+        label: 'Euro',
+        maxValue: 999.99,
+        symbol: '€',
+        maxDecimals: 2,
+    },
+];
+export const defaultPaymentMethods = [
+    {
+        method: 'CB',
+        currency: '€',
+    },
+    {
+        method: 'Espèces',
+        currency: '€',
+    },
+    {
+        method: 'Chèque',
+        currency: '€',
+    },
+];
+
 export function getPublicKey() {
     let publicKey = localStorage.getItem('PublicKey');
     if (!publicKey) {
@@ -56,7 +84,7 @@ export async function loadData(shop: string, isOutOfLocalHost = true) {
                   .then(convertIndexData)
                   .then((data) =>
                       data
-                          ?.filter(({ shop: s }) => s === shop)
+                          .filter(({ shop: s }) => s === shop)
                           .map(({ id }) => id)
                           .at(0)
                   )
@@ -66,9 +94,7 @@ export async function loadData(shop: string, isOutOfLocalHost = true) {
     const param = await fetchData(dataNames.parameters, id, false).then(convertParametersData);
     if (!param?.length) return;
 
-    const users = await fetchData(dataNames.users, id, false)
-        .then(convertUsersData)
-        .catch(() => undefined); // That's fine if there is no user data
+    const users = await fetchData(dataNames.users, id, false).then(convertUsersData);
     const publicKey = users?.length ? getPublicKey() : undefined;
     const user = users?.length ? users.filter(({ key }) => key === publicKey).at(0) : { name: '', role: Role.cashier };
     if (!user || user.role === Role.none) throw new UserNotFoundError(param.at(1));
@@ -83,13 +109,8 @@ export async function loadData(shop: string, isOutOfLocalHost = true) {
     };
 
     const paymentMethods = await fetchData(dataNames.paymentMethods, id).then(convertPaymentMethodsData);
-    if (!paymentMethods?.length) return;
-
     const allCurrencies = await fetchData(dataNames.currencies, id).then(convertCurrenciesData);
-    if (!allCurrencies?.length) return;
-
     const discounts = await fetchData(dataNames.discounts, id).then(convertDiscountsData);
-    if (!discounts?.length) return;
 
     const data = await fetchData(dataNames.products, id).then(convertProductsData);
     if (!data?.products?.length || !data?.currencies?.length) return;
@@ -160,117 +181,154 @@ function checkColumn(item: any[], minCol: number) {
 }
 
 async function convertIndexData(response: void | Response) {
-    if (typeof response === 'undefined') return;
-    return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-        checkData(data, 2);
+    try {
+        if (typeof response === 'undefined') throw new EmptyDataError();
+        return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
+            checkData(data, 2);
 
-        return data.values.map((item) => {
-            checkColumn(item, 2);
-            return {
-                shop: item.at(0),
-                id: item.at(1),
-            };
+            return data.values.map((item) => {
+                checkColumn(item, 2);
+                return {
+                    shop: String(item.at(0)).trim(),
+                    id: String(item.at(1)).trim(),
+                };
+            });
         });
-    });
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
 }
 
 async function convertUsersData(response: void | Response) {
-    if (typeof response === 'undefined') return;
-    return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-        checkData(data, 3);
+    try {
+        if (typeof response === 'undefined') throw new EmptyDataError();
+        return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
+            if (!data?.values) return []; // That's fine if there is no user data
 
-        return data.values.removeHeader().map((item) => {
-            checkColumn(item, 3);
-            return {
-                key: String(item.at(0)).trim(),
-                name: String(item.at(1)).trim(),
-                role: (String(item.at(2)).trim() ?? Role.cashier) as Role,
-            };
+            checkData(data, 3);
+
+            return data.values.removeHeader().map((item) => {
+                checkColumn(item, 3);
+                return {
+                    key: String(item.at(0)).trim(),
+                    name: String(item.at(1)).trim(),
+                    role: (String(item.at(2)).trim() ?? Role.cashier) as Role,
+                };
+            });
         });
-    });
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
 }
 
 async function convertParametersData(response: void | Response) {
-    if (typeof response === 'undefined') return;
-    return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-        checkData(data, 2, 2, 5, 5);
+    try {
+        if (typeof response === 'undefined') throw new EmptyDataError();
+        return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
+            checkData(data, 2, 2, 5, 5);
 
-        return data.values.map((item) => {
-            checkColumn(item, 2);
-            return item.at(1);
+            return data.values.map((item) => {
+                checkColumn(item, 2);
+                return item.at(1);
+            });
         });
-    });
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
 }
 
 async function convertPaymentMethodsData(response: void | Response) {
-    if (typeof response === 'undefined') return;
-    return await response.json().then((data: { values: (string | boolean)[][]; error: { message: string } }) => {
-        checkData(data, 4);
+    try {
+        if (typeof response === 'undefined') throw new EmptyDataError();
+        return await response.json().then((data: { values: (string | boolean)[][]; error: { message: string } }) => {
+            checkData(data, 4);
 
-        return data.values
-            .removeHeader()
-            .filter((item) => !Boolean(item.at(3)))
-            .map((item) => {
-                checkColumn(item, 4);
-                return {
-                    method: normalizedString(item.at(0)),
-                    address: String(item.at(1)).trim(),
-                    currency: String(item.at(2)).trim(),
-                };
-            });
-    });
-}
-
-async function convertCurrenciesData(response: void | Response) {
-    if (typeof response === 'undefined') return;
-    return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
-        checkData(data, 4);
-
-        return data.values.removeHeader().map((item) => {
-            checkColumn(item, 4);
-            return {
-                label: normalizedString(item.at(0)),
-                maxValue: Number(item.at(1)),
-                symbol: String(item.at(2)).trim(),
-                maxDecimals: Number(item.at(3)),
-            };
-        });
-    });
-}
-
-async function convertDiscountsData(response: void | Response) {
-    if (typeof response === 'undefined') return;
-    return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
-        checkData(data, 1);
-
-        return data.values.removeHeader().map((item) => {
-            checkColumn(item, 1);
-            return Number(item.at(0));
-        });
-    });
-}
-
-async function convertProductsData(response: void | Response) {
-    if (typeof response === 'undefined') return;
-    return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
-        checkData(data, 4, 10);
-
-        return {
-            products: data.values
+            return data.values
                 .removeHeader()
                 .filter((item) => !Boolean(item.at(3)))
                 .map((item) => {
                     checkColumn(item, 4);
                     return {
-                        rate: (Number(item.at(0)) ?? 0) * 100,
-                        category: normalizedString(item.at(1)),
-                        label: normalizedString(item.at(2)),
-                        prices: item.filter((_, i) => i >= 4).map((price) => Number(price) ?? 0),
+                        method: normalizedString(item.at(0)),
+                        address: String(item.at(1)).trim(),
+                        currency: String(item.at(2)).trim(),
                     };
-                }),
-            currencies: data.values[0].filter((_, i) => i >= 4),
-        };
-    });
+                });
+        });
+    } catch (error) {
+        console.error(error);
+        return defaultPaymentMethods;
+    }
+}
+
+async function convertCurrenciesData(response: void | Response) {
+    try {
+        if (typeof response === 'undefined') throw new EmptyDataError();
+        return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
+            checkData(data, 4);
+
+            return data.values.removeHeader().map((item) => {
+                checkColumn(item, 4);
+                return {
+                    label: normalizedString(item.at(0)),
+                    maxValue: Number(item.at(1)),
+                    symbol: String(item.at(2)).trim(),
+                    maxDecimals: Number(item.at(3)),
+                };
+            });
+        });
+    } catch (error) {
+        console.error(error);
+        return defaultCurrencies;
+    }
+}
+
+async function convertDiscountsData(response: void | Response) {
+    try {
+        if (typeof response === 'undefined') throw new EmptyDataError();
+        return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
+            checkData(data, 1);
+
+            return data.values.removeHeader().map((item) => {
+                checkColumn(item, 1);
+                return Number(item.at(0));
+            });
+        });
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
+}
+
+async function convertProductsData(response: void | Response) {
+    try {
+        if (typeof response === 'undefined') throw new EmptyDataError();
+        return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
+            checkData(data, 4, 10);
+
+            return {
+                products: data.values
+                    .removeHeader()
+                    .filter((item) => !Boolean(item.at(3)))
+                    .map((item) => {
+                        checkColumn(item, 4);
+                        return {
+                            rate: (Number(item.at(0)) ?? 0) * 100,
+                            category: normalizedString(item.at(1)),
+                            label: normalizedString(item.at(2)),
+                            prices: item.filter((_, i) => i >= 4).map((price) => Number(price) ?? 0),
+                        };
+                    }),
+                currencies: data.values[0].filter((_, i) => i >= 4),
+            };
+        });
+    } catch (error) {
+        console.error(error);
+        return;
+    }
 }
 
 function normalizedString(value: any) {
