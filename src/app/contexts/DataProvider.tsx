@@ -67,7 +67,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             }, timeUntilMidnight); // Automatically reload at midnight
         }
 
-        if (!user.name) return;
+        // if (!user.name) return;
 
         fetch(`./api/firebase`)
             .catch((error) => {
