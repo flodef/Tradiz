@@ -119,13 +119,21 @@ export const Category: FC = () => {
             inventory.find(({ products }) => products.some(({ label }) => label === input));
         if (!item) return;
 
-        if (eventType === 'contextmenu') {
+        if (eventType === 'contextmenu' || item.products.length === 0) {
             addProduct({
                 category: item.category,
                 label: OTHER_KEYWORD,
                 quantity: 1,
                 discount: 0,
                 amount: amount,
+            });
+        } else if (item.products.length === 1) {
+            addProduct({
+                category: item.category,
+                label: item.products[0].label,
+                quantity: 1,
+                discount: 0,
+                amount: item.products[0].prices[currencyIndex],
             });
         } else {
             setSelectedProduct({ category: item.category, label: OTHER_KEYWORD, quantity: 0, discount: 0, amount: 0 });
