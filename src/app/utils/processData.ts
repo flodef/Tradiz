@@ -1,6 +1,6 @@
 import { Keypair } from '@solana/web3.js';
-import { Parameters } from '../contexts/ConfigProvider';
-import { InventoryItem, Mercurial, Role } from '../hooks/useConfig';
+import { Config, Parameters } from '../contexts/ConfigProvider';
+import { Currency, InventoryItem, Mercurial, PaymentMethod, Role } from '../hooks/useConfig';
 import { EMAIL } from './constants';
 
 class MissingDataError extends Error {
@@ -40,7 +40,7 @@ const dataNames: { [key: string]: DataName } = {
     users: { json: 'users', sheet: 'Utilisateurs' },
 };
 
-export const defaultCurrencies = [
+export const defaultCurrencies: Currency[] = [
     {
         label: 'Euro',
         maxValue: 999.99,
@@ -48,7 +48,7 @@ export const defaultCurrencies = [
         maxDecimals: 2,
     },
 ];
-export const defaultPaymentMethods = [
+export const defaultPaymentMethods: PaymentMethod[] = [
     {
         method: 'CB',
         currency: '€',
@@ -72,7 +72,7 @@ export function getPublicKey() {
     return publicKey;
 }
 
-export async function loadData(shop: string, isOutOfLocalHost = true) {
+export async function loadData(shop: string, isOutOfLocalHost = true): Promise<Config | undefined> {
     if (isOutOfLocalHost && !navigator.onLine) throw new Error('The web app is offline');
 
     const id = isOutOfLocalHost
@@ -290,11 +290,14 @@ async function convertDiscountsData(response: void | Response) {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
-            checkData(data, 1);
+            checkData(data, 2);
 
             return data.values.removeHeader().map((item) => {
-                checkColumn(item, 1);
-                return Number(item.at(0));
+                checkColumn(item, 2);
+                return {
+                    value: Number(item.at(0)),
+                    unity: String(item.at(1)).trim(),
+                };
             });
         });
     } catch (error) {

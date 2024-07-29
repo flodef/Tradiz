@@ -3,7 +3,7 @@
 import { initializeApp } from 'firebase/app';
 import { Firestore, collection, doc, getFirestore, onSnapshot, query, setDoc, updateDoc } from 'firebase/firestore';
 import { FC, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { Currency, Mercurial, useConfig } from '../hooks/useConfig';
+import { Currency, Discount, Mercurial, useConfig } from '../hooks/useConfig';
 import { DataContext, Product, Transaction } from '../hooks/useData';
 import {
     DELETED_KEYWORD,
@@ -237,11 +237,16 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         clearAmount();
     }, [clearAmount, deleteTransaction]);
 
+    const computeDiscount = useCallback((product: Product) => {
+        return product.discount.unity === '%'
+            ? product.amount * (1 - product.discount.value / 100)
+            : product.amount - product.discount.value;
+    }, []);
+
     const setDiscount = useCallback(
-        (product: Product, discount: number) => {
+        (product: Product, discount: Discount) => {
             product.discount = discount;
-            product.total =
-                product.amount * (1 - product.discount / 100) * toMercurial(product.quantity, product.mercurial);
+            product.total = computeDiscount(product) * toMercurial(product.quantity, product.mercurial);
             updateTotal();
         },
         [updateTotal]
@@ -251,13 +256,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         (product: Product, quantity: number) => {
             const maxValue = currencies[currencyIndex].maxValue;
             const quadratic = toMercurial(quantity, product.mercurial);
-            const amount = product.amount * (1 - product.discount / 100);
+            const amount = computeDiscount(product);
 
             product.quantity = Math.max(
                 1,
                 amount * quadratic <= maxValue
                     ? quantity
-                    : fromMercurial(maxValue / product.amount, maxValue, product.mercurial)
+                    : fromMercurial(maxValue / amount, maxValue, product.mercurial)
             );
             product.total = amount * toMercurial(product.quantity, product.mercurial);
 
@@ -342,7 +347,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 product.quantity +
                 ' = ' +
                 toCurrency({ amount: product.total ?? 0, currency: currency }) +
-                (product.discount ? ' (-' + product.discount + '%)' : '')
+                (product.discount.value ? ' (-' + product.discount.value + product.discount.unity + ')' : '')
             );
         },
         [toCurrency]

@@ -1,5 +1,5 @@
 import { MutableRefObject, createContext, useContext } from 'react';
-import { Currency, Mercurial } from './useConfig';
+import { Currency, Discount, Mercurial } from './useConfig';
 
 export interface DataElement {
     category: string;
@@ -10,7 +10,7 @@ export interface DataElement {
 export interface Product extends DataElement {
     label: string;
     total?: number;
-    discount: number;
+    discount: Discount;
     mercurial?: Mercurial;
 }
 
@@ -32,7 +32,7 @@ export interface DataContextState {
     quantity: number;
     setQuantity: (quantity: number) => void;
     computeQuantity: (product: Product, quantity: number) => void;
-    setDiscount: (product: Product, discount: number) => void;
+    setDiscount: (product: Product, discount: Discount) => void;
     toMercurial: (quantity: number, mercurial?: Mercurial) => number;
     setCurrentMercurial: (mercurial: Mercurial) => void;
     selectedProduct: Product | undefined;

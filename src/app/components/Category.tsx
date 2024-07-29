@@ -1,7 +1,7 @@
 'use client';
 
 import { FC, MouseEventHandler, useEffect, useMemo, useState } from 'react';
-import { State, useConfig } from '../hooks/useConfig';
+import { EmptyDiscount, State, useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import Loading, { LoadingType } from '../loading';
@@ -124,7 +124,7 @@ export const Category: FC = () => {
                 category: item.category,
                 label: OTHER_KEYWORD,
                 quantity: 1,
-                discount: 0,
+                discount: EmptyDiscount,
                 amount: amount,
             });
         } else if (item.products.length === 1) {
@@ -132,11 +132,17 @@ export const Category: FC = () => {
                 category: item.category,
                 label: item.products[0].label,
                 quantity: 1,
-                discount: 0,
+                discount: EmptyDiscount,
                 amount: item.products[0].prices[currencyIndex],
             });
         } else {
-            setSelectedProduct({ category: item.category, label: OTHER_KEYWORD, quantity: 0, discount: 0, amount: 0 });
+            setSelectedProduct({
+                category: item.category,
+                label: OTHER_KEYWORD,
+                quantity: 0,
+                discount: EmptyDiscount,
+                amount: 0,
+            });
             openPopup(
                 item.category,
                 item.products
@@ -156,7 +162,7 @@ export const Category: FC = () => {
                         category: item.category,
                         label: option,
                         quantity: 1,
-                        discount: 0,
+                        discount: EmptyDiscount,
                         amount: isNewPrice ? amount : price || 0,
                     });
                 }

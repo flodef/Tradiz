@@ -48,6 +48,12 @@ export interface InventoryItem {
     products: { label: string; prices: number[] }[];
 }
 
+export interface Discount {
+    value: number;
+    unity: string;
+}
+export const EmptyDiscount: Discount = { value: 0, unity: '' };
+
 export interface ConfigContextState {
     state: State;
     setState: (value: State) => void;
@@ -62,7 +68,7 @@ export interface ConfigContextState {
     currencies: Currency[];
     paymentMethods: PaymentMethod[];
     inventory: InventoryItem[];
-    discounts: number[];
+    discounts: Discount[];
 }
 
 export const ConfigContext = createContext<ConfigContextState>({} as ConfigContextState);

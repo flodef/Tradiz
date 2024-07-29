@@ -4,6 +4,7 @@ import { FC, ReactNode, useCallback, useEffect, useState } from 'react';
 import {
     ConfigContext,
     Currency,
+    Discount,
     InventoryItem,
     Mercurial,
     PaymentMethod,
@@ -29,12 +30,12 @@ export interface Parameters {
     user: User;
 }
 
-interface Config {
+export interface Config {
     parameters: Parameters;
     currencies: Currency[];
     paymentMethods: PaymentMethod[];
     inventory: InventoryItem[];
-    discounts: number[];
+    discounts: Discount[];
 }
 
 export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
@@ -50,7 +51,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const [currencies, setCurrencies] = useState<Currency[]>(defaultCurrencies);
     const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(defaultPaymentMethods);
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
-    const [discounts, setDiscounts] = useState<number[]>([]);
+    const [discounts, setDiscounts] = useState<Discount[]>([]);
 
     const setCurrency = useCallback(
         (label: string) => {

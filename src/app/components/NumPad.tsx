@@ -1,7 +1,7 @@
 'use client';
 
 import { FC, MouseEventHandler, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { Mercurial, State, useConfig } from '../hooks/useConfig';
+import { EmptyDiscount, Mercurial, State, useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
@@ -270,12 +270,14 @@ export const NumPad: FC = () => {
 
     const discount = useCallback(() => {
         if (!discounts.length || !selectedProduct) return;
-        const displayDiscounts = (discounts.some((discount) => discount === 0) ? discounts : [0].concat(discounts))
+        const displayDiscounts = (
+            discounts.some((discount) => discount.value === 0) ? discounts : [EmptyDiscount].concat(discounts)
+        )
             .filter((d) => d !== selectedProduct.discount)
-            .sort();
+            .sort((a, b) => a.value - b.value);
         openPopup(
-            `Remise (${selectedProduct.discount ? selectedProduct.discount + '%' : 'Aucune'})`,
-            displayDiscounts.map((d) => (d ? d + '%' : ['Aucune'])),
+            `Remise (${selectedProduct.discount.value ? selectedProduct.discount.value + selectedProduct.discount.unity : 'Aucune'})`,
+            displayDiscounts.map((d) => (d.value ? d.value + d.unity : ['Aucune'])),
             (index) => setDiscount(selectedProduct, index < 0 ? selectedProduct.discount : displayDiscounts[index])
         );
     }, [openPopup, quantity, multiply]);
