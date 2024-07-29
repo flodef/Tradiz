@@ -179,22 +179,22 @@ module.exports = {
                 },
             },
             colors: {
-                'writing-light': colors.amber['600'], // amber-600
-                'main-from-light': colors.orange['50'], // orange-50 */
-                'main-to-light': colors.orange['200'], // orange-200 */
-                'popup-light': colors.slate['100'], // slate-100
-                'active-light': colors.orange['300'], // orange-300
-                'secondary-light': colors.lime['500'], // lime-500
-                'secondary-active-light': colors.lime['400'], // lime-300
-                'writing-dark': colors.yellow['400'], // yellow-400
-                'main-from-dark': colors.lime['600'], // lime-600 */
-                'main-to-dark': colors.green['900'], // green-900 */
-                'popup-dark': colors.yellow['900'], // yellow-900
-                'active-dark': colors.lime['500'], // lime-500
-                'secondary-dark': colors.orange['300'], // orange-300
-                'secondary-active-dark': colors.orange['500'], // orange-500
-                ok: colors.green['500'], // green-500
-                error: colors.red['500'], // red-500
+                'writing-light': colors.blue['500'],
+                'main-from-light': colors.teal['50'],
+                'main-to-light': colors.teal['200'],
+                'popup-light': colors.slate['100'],
+                'active-light': colors.blue['300'],
+                'secondary-light': colors.blue['300'],
+                'secondary-active-light': colors.blue['400'],
+                'writing-dark': colors.yellow['400'],
+                'main-from-dark': colors.lime['600'],
+                'main-to-dark': colors.green['900'],
+                'popup-dark': colors.yellow['900'],
+                'active-dark': colors.lime['500'],
+                'secondary-dark': colors.orange['300'],
+                'secondary-active-dark': colors.orange['500'],
+                ok: colors.green['500'],
+                error: colors.red['500'],
             },
             backgroundImage: {
                 'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
