@@ -42,7 +42,7 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
         <div
             className={
                 'w-20 h-20 relative flex justify-center m-3 items-center font-semibold text-3xl border-[3px] rounded-2xl ' +
-                'border-secondary-light dark:border-secondary-dark ' +
+                'border-secondary-light dark:border-secondary-dark shadow-xl ' +
                 (state === State.done
                     ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark active:dark:text-popup-light'
                     : '')
