@@ -25,6 +25,7 @@ declare global {
     }
     interface Array<T> {
         removeHeader(): Array<T>;
+        removeEmpty(...index: (undefined | number | number[])[]): Array<T>;
     }
 }
 
@@ -115,4 +116,26 @@ Date.prototype.toLongDate = function () {
 
 Array.prototype.removeHeader = function () {
     return this.filter((_, i) => i !== 0);
+};
+
+Array.prototype.removeEmpty = function (...index: (undefined | number | number[])[]) {
+    return this.filter((item) => {
+        if (!(item instanceof Array) || index === undefined) {
+            return !!item;
+        } else {
+            let indexes: number[] = [];
+            if (index.length === 1 && typeof index[0] === 'number') {
+                // Handle the case with a single number
+                indexes = [index[0]];
+            } else if (index.length === 1 && Array.isArray(index[0])) {
+                // Handle the case with an array of numbers
+                indexes = index[0];
+            } else if (index.length) {
+                // Handle the case with multiple numbers
+                indexes = index.flat() as number[];
+            }
+
+            return indexes.length ? indexes.every((i) => !!item.at(i) || i > item.length) : item.every((i) => !!i);
+        }
+    });
 };

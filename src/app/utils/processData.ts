@@ -315,6 +315,7 @@ async function convertProductsData(response: void | Response) {
             return {
                 products: data.values
                     .removeHeader()
+                    .removeEmpty(1, 2)
                     .filter((item) => !Boolean(item.at(3)))
                     .map((item) => {
                         checkColumn(item, 4);
