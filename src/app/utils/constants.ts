@@ -1,5 +1,7 @@
 import { PublicKey, clusterApiUrl } from '@solana/web3.js';
 
+export const cls = (...classes: string[]) => classes.filter(Boolean).join(' ');
+
 // UI
 export const EMAIL = 'flo@fims.fi';
 export const OTHER_KEYWORD = 'Autres';
@@ -11,12 +13,6 @@ export const BACK_KEYWORD = 'RETOUR';
 export const CATEGORY_SEPARATOR = '>';
 export const TRANSACTION_TIME_OUT = 60; // Time out in seconds
 export const IS_LOCAL = !process.env.NEXT_PUBLIC_VERCEL_ENV;
-/**
- * Formats a date object into a string representation in the format "YYYY-MM-DD" based on the precision value.
- * @param date - The date object to be formatted. If not provided, the current date is used.
- * @param precision - An integer value indicating the level of precision in the formatted date. The default value is 3.
- * @returns A formatted string representing the date in the format "YYYY-MM-DD" based on the precision value.
- */
 export const GET_FORMATTED_DATE = (date = new Date(), precision = 3) =>
     !isNaN(date.getTime())
         ? date.getFullYear() +
