@@ -133,7 +133,7 @@ export const Category: FC = () => {
                 label: item.products[0].label,
                 quantity: 1,
                 discount: EmptyDiscount,
-                amount: item.products[0].prices[currencyIndex],
+                amount: amount || item.products[0].prices[currencyIndex],
             });
         } else {
             setSelectedProduct({
