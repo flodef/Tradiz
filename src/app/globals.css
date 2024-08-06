@@ -3,20 +3,19 @@
 @tailwind utilities;
 
 :root {
-    --foreground-rgb: 59, 130, 246 ; /* #3b82f6 // blue-600 */
-    --background-start-rgb: 240, 253, 250; /* #f0fdfa // teal-50 */
-    --background-end-rgb: 153, 246, 228 ; /* #99f6e4 // teal-200 */
-}
+    --writing-light-color: rgb(217, 119, 6);
+    --main-from-light-color: rgb(255, 247, 237);
+    --main-to-light-color: rgb(254, 215, 170);
+    --popup-light-color: rgb(241, 245, 249);
+    --active-light-color: rgb(253, 186, 116);
+    --secondary-light-color: rgb(132, 204, 22);
+    --secondary-active-light-color: rgb(163, 230, 53);
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --foreground-rgb: 253, 224, 71; /* #fde047 // yellow-300 */
-        --background-start-rgb: 101, 163, 13; /* #65a30d // lime-600 */
-        --background-end-rgb: 54, 83, 20; /* #365314 // lime-900 */
-    }
-}
-
-body {
-    color: rgb(var(--foreground-rgb));
-    background: linear-gradient(45deg, rgb(var(--background-start-rgb)), rgb(var(--background-end-rgb)));
+    --writing-dark-color: rgb(250, 204, 21);
+    --main-from-dark-color: rgb(101, 163, 13);
+    --main-to-dark-color: rgb(20, 83, 45);
+    --popup-dark-color: rgb(113, 63, 18);
+    --active-dark-color: rgb(132, 204, 22);
+    --secondary-dark-color: rgb(253, 186, 116);
+    --secondary-active-dark-color: rgb(249, 115, 22);
 }

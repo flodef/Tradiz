@@ -36,6 +36,7 @@ const dataNames: { [key: string]: DataName } = {
     paymentMethods: { json: 'paymentMethods', sheet: 'Paiements' },
     currencies: { json: 'currencies', sheet: '_Monnaies' },
     discounts: { json: 'discounts', sheet: 'Remises' },
+    colors: { json: 'colors', sheet: 'Couleurs' },
     products: { json: 'products', sheet: '_Produits' },
     users: { json: 'users', sheet: 'Utilisateurs' },
 };
@@ -111,6 +112,7 @@ export async function loadData(shop: string, isOutOfLocalHost = true): Promise<C
     const paymentMethods = await fetchData(dataNames.paymentMethods, id).then(convertPaymentMethodsData);
     const allCurrencies = await fetchData(dataNames.currencies, id).then(convertCurrenciesData);
     const discounts = await fetchData(dataNames.discounts, id).then(convertDiscountsData);
+    const colors = await fetchData(dataNames.colors, id).then(convertColorsData);
 
     const data = await fetchData(dataNames.products, id).then(convertProductsData);
     if (!data?.products?.length || !data?.currencies?.length) return;
@@ -149,6 +151,7 @@ export async function loadData(shop: string, isOutOfLocalHost = true): Promise<C
         paymentMethods,
         inventory,
         discounts,
+        colors,
     };
 }
 
@@ -297,6 +300,26 @@ async function convertDiscountsData(response: void | Response) {
                 return {
                     value: Number(item.at(0)),
                     unity: String(item.at(1)).trim(),
+                };
+            });
+        });
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
+}
+
+async function convertColorsData(response: void | Response) {
+    try {
+        if (typeof response === 'undefined') throw new EmptyDataError();
+        return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
+            checkData(data, 3, 3, 8, 8);
+
+            return data.values.removeHeader().map((item) => {
+                checkColumn(item, 3);
+                return {
+                    light: String(item.at(1)).trim(),
+                    dark: String(item.at(2)).trim(),
                 };
             });
         });

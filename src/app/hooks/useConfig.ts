@@ -54,6 +54,11 @@ export interface Discount {
 }
 export const EmptyDiscount: Discount = { value: 0, unity: '' };
 
+export interface Colors {
+    light: string;
+    dark: string;
+}
+
 export interface ConfigContextState {
     state: State;
     setState: (value: State) => void;
@@ -69,6 +74,7 @@ export interface ConfigContextState {
     paymentMethods: PaymentMethod[];
     inventory: InventoryItem[];
     discounts: Discount[];
+    colors: Colors[];
 }
 
 export const ConfigContext = createContext<ConfigContextState>({} as ConfigContextState);

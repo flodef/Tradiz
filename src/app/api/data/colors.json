@@ -1,0 +1,12 @@
+{
+    "values": [
+        ["Couleur", "Clair", "Sombre"],
+        ["Texte", "#d97706", "#facc15"],
+        ["Fond début dégradé", "#fff7ed", "#65a30d"],
+        ["Fond fin dégradé", "#fed7aa", "#14532d"],
+        ["Popup", "#f1f5f9", "#713f12"],
+        ["Activé", "#fdba74", "#84cc16"],
+        ["Secondaire", "#84cc16", "#fdba74"],
+        ["Secondaire activé", "#a3e635", "#f97316"]
+    ]
+}
