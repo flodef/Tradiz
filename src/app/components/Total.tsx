@@ -379,13 +379,9 @@ export const Total: FC = () => {
     );
 
     const clickClassName = state === State.done ? 'active:bg-active-light dark:active:bg-active-dark ' : '';
-    const widthClassName = isPopupOpen ? 'md:w-full ' : 'md:w-1/2 ';
 
     const { width: screenWidth, height: screenHeight } = useWindowParam();
-    const left = useMemo(
-        () => (!isMobileSize() && !isPopupOpen && screenWidth > 0 ? screenWidth / 2 : 0),
-        [screenWidth, isPopupOpen]
-    );
+    const left = useMemo(() => (!isMobileSize() && screenWidth > 0 ? screenWidth / 2 : 0), [screenWidth]);
     const height = useMemo(() => (!isMobileSize() && screenHeight > 0 ? screenHeight - 76 : 0), [screenHeight]);
 
     return (
@@ -397,8 +393,7 @@ export const Total: FC = () => {
         >
             <div
                 className={
-                    widthClassName +
-                    'w-full fixed text-5xl truncate text-center font-bold py-3 ' +
+                    'md:w-1/2 w-full fixed text-5xl truncate text-center font-bold py-3 ' +
                     ((canDisplayTotal && total) || (!canDisplayTotal && transactions.length) ? clickClassName : '') +
                     (useIsMobile()
                         ? 'md:hidden border-b-[3px] border-active-light dark:border-active-dark'
@@ -421,8 +416,7 @@ export const Total: FC = () => {
 
             <div
                 className={
-                    widthClassName +
-                    'fixed top-[76px] left-0 w-1/2 h-screen text-center text-2xl ' +
+                    'md:w-1/2 fixed top-[76px] left-0 w-1/2 h-screen text-center text-2xl ' +
                     'py-1 font-bold overflow-y-auto hidden md:block'
                 }
                 style={{ left: left, height: height }}
