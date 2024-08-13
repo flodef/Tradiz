@@ -18,6 +18,8 @@ export function useWindowParam() {
     });
     const [colorScheme, setColorScheme] = useState(ColorScheme.Light);
     const [isOnline, setIsOnline] = useState(true);
+    const [isLocalhost, setIsLocalhost] = useState(false);
+    const [isDemo, setIsDemo] = useState(false);
 
     useEffect(() => {
         // only execute all the code below in client side
@@ -48,6 +50,8 @@ export function useWindowParam() {
             window.matchMedia('(prefers-color-scheme: dark)').matches ? ColorScheme.Dark : ColorScheme.Light
         );
         setIsOnline(window.navigator.onLine);
+        setIsLocalhost(window.location.hostname === 'localhost');
+        setIsDemo(window.location.hostname === 'demo.tradiz.fr');
 
         // Remove event listener on cleanup
         return () => {
@@ -64,5 +68,7 @@ export function useWindowParam() {
         left: windowPosition.left,
         colorScheme,
         isOnline,
+        isLocalhost,
+        isDemo,
     };
 }

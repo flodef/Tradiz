@@ -4,6 +4,7 @@ import { FC, MouseEventHandler, useEffect, useMemo, useState } from 'react';
 import { EmptyDiscount, InventoryItem, State, useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
+import { useWindowParam } from '../hooks/useWindowParam';
 import Loading, { LoadingType } from '../loading';
 import { EMAIL, OTHER_KEYWORD } from '../utils/constants';
 import { getPublicKey } from '../utils/processData';
@@ -49,6 +50,7 @@ export const Category: FC = () => {
     const { inventory, state, lastModified, setState, currencyIndex, shopEmail } = useConfig();
     const { addProduct, amount, setSelectedProduct, clearAmount, selectedProduct } = useData();
     const { openPopup, openFullscreenPopup, closePopup } = usePopup();
+    const { isLocalhost, isDemo } = useWindowParam();
 
     const [hasSentEmail, setHasSentEmail] = useState(false);
 
@@ -56,8 +58,7 @@ export const Category: FC = () => {
         switch (state) {
             case State.error:
                 // If the app is running on localhost or demo.tradiz.fr, set the state to done and don't display the error message
-                const currentUrl = new URL(window.location.href);
-                if (currentUrl.hostname === 'localhost' || currentUrl.hostname === 'demo.tradiz.fr') {
+                if (isLocalhost || isDemo) {
                     setTimeout(() => setState(State.done), 100);
                     return;
                 }
