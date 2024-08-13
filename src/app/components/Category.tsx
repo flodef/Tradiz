@@ -1,7 +1,7 @@
 'use client';
 
 import { FC, MouseEventHandler, useEffect, useMemo, useState } from 'react';
-import { EmptyDiscount, State, useConfig } from '../hooks/useConfig';
+import { EmptyDiscount, InventoryItem, State, useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import Loading, { LoadingType } from '../loading';
@@ -113,6 +113,18 @@ export const Category: FC = () => {
         }
     }, [state, openFullscreenPopup, closePopup, lastModified, setState, shopEmail, hasSentEmail]);
 
+    const addSpecificProduct = (item: InventoryItem, option: string) => {
+        const price = item.products.find(({ label }) => label === option)?.prices[currencyIndex];
+        const isNewPrice = amount && amount !== selectedProduct?.amount;
+        addProduct({
+            category: item.category,
+            label: option,
+            quantity: 1,
+            discount: EmptyDiscount,
+            amount: isNewPrice ? amount : price || 0,
+        });
+    };
+
     const onInput = (input: string, eventType: string) => {
         const item =
             inventory.find(({ category }) => category === input) ??
@@ -128,13 +140,7 @@ export const Category: FC = () => {
                 amount: amount,
             });
         } else if (item.products.length === 1) {
-            addProduct({
-                category: item.category,
-                label: item.products[0].label,
-                quantity: 1,
-                discount: EmptyDiscount,
-                amount: amount || item.products[0].prices[currencyIndex],
-            });
+            addSpecificProduct(item, item.products[0].label);
         } else {
             setSelectedProduct({
                 category: item.category,
@@ -156,15 +162,7 @@ export const Category: FC = () => {
                         return;
                     }
 
-                    const price = item.products.find(({ label }) => label === option)?.prices[currencyIndex];
-                    const isNewPrice = amount && amount !== selectedProduct?.amount;
-                    addProduct({
-                        category: item.category,
-                        label: option,
-                        quantity: 1,
-                        discount: EmptyDiscount,
-                        amount: isNewPrice ? amount : price || 0,
-                    });
+                    addSpecificProduct(item, option);
                 }
             );
         }
