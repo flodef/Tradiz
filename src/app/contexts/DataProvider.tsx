@@ -5,6 +5,7 @@ import { Firestore, collection, doc, getFirestore, onSnapshot, query, setDoc, up
 import { FC, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Currency, Discount, Mercurial, useConfig } from '../hooks/useConfig';
 import { DataContext, Product, Transaction } from '../hooks/useData';
+import { useWindowParam } from '../hooks/useWindowParam';
 import {
     DELETED_KEYWORD,
     GET_FORMATTED_DATE,
@@ -26,6 +27,7 @@ export interface DataProviderProps {
 
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const { currencies, currencyIndex, setCurrency, mercurial, user } = useConfig();
+    const { isLocalhost, isDemo } = useWindowParam();
 
     const [transactionsFilename, setTransactionsFilename] = useState('');
     const [total, setTotal] = useState(0);
@@ -67,7 +69,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             }, timeUntilMidnight); // Automatically reload at midnight
         }
 
-        // if (!user.name) return;
+        if (isLocalhost || isDemo) return;
 
         fetch(`./api/firebase`)
             .catch((error) => {
