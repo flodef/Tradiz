@@ -6,7 +6,7 @@ import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { useWindowParam } from '../hooks/useWindowParam';
 import Loading, { LoadingType } from '../loading';
-import { EMAIL, OTHER_KEYWORD } from '../utils/constants';
+import { cls, EMAIL, OTHER_KEYWORD } from '../utils/constants';
 import { getPublicKey } from '../utils/processData';
 import { sendEmail } from '../utils/sendEmail';
 import { useAddPopupClass } from './Popup';
@@ -30,18 +30,18 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
 
     return (
         <div
-            className={
-                'relative flex justify-center py-3 items-center font-semibold text-2xl truncate ' +
-                'active:bg-active-light active:dark:bg-active-dark active:text-popup-dark active:dark:text-popup-light ' +
-                width +
-                (selectedProduct?.category === input
-                    ? ' bg-active-light dark:bg-active-dark text-popup-dark dark:text-popup-light'
-                    : '')
-            }
+            className={cls(
+                'relative flex justify-center py-3 items-center font-semibold text-2xl',
+                'active:bg-active-light active:dark:bg-active-dark active:text-popup-dark active:dark:text-popup-light',
+                width,
+                selectedProduct?.category === input
+                    ? 'bg-active-light dark:bg-active-dark text-popup-dark dark:text-popup-light'
+                    : ''
+            )}
             onClick={onClick}
             onContextMenu={onClick}
         >
-            {input.slice(0, 30 / length)}
+            <div className="truncate text-clip text-center">{input.slice(0, 30 / length)}</div>
         </div>
     );
 };
@@ -180,7 +180,7 @@ export const Category: FC = () => {
     return (
         <div
             className={useAddPopupClass(
-                'inset-x-0 border-t-[3px] absolute bottom-0 md:w-1/2 border-active-light dark:border-active-dark'
+                'inset-x-0 border-t-[3px] absolute bottom-0 md:w-1/2 border-active-light dark:border-active-dark overflow-hidden'
             )}
         >
             {(state === State.init || state === State.loading || state === State.error) && (
