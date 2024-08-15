@@ -6,7 +6,8 @@ export enum State {
     error,
     fatal,
     unidentified,
-    done,
+    preloaded,
+    loaded,
 }
 
 export enum Role {
@@ -62,6 +63,7 @@ export interface Colors {
 export interface ConfigContextState {
     state: State;
     setState: (value: State) => void;
+    isStateReady: boolean;
     shopEmail: string;
     shopName: string;
     thanksMessage: string;

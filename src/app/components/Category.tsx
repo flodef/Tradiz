@@ -41,7 +41,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
             onClick={onClick}
             onContextMenu={onClick}
         >
-            <div className="truncate text-clip text-center">{input.slice(0, 30 / length)}</div>
+            <div className="truncate text-clip text-center">{input}</div>
         </div>
     );
 };
@@ -59,7 +59,7 @@ export const Category: FC = () => {
             case State.error:
                 // If the app is running on localhost or demo.tradiz.fr, set the state to done and don't display the error message
                 if (isLocalhost || isDemo) {
-                    setTimeout(() => setState(State.done), 100);
+                    setTimeout(() => setState(State.loaded), 100);
                     return;
                 }
 
@@ -67,7 +67,7 @@ export const Category: FC = () => {
                     'Erreur chargement données',
                     [`Utiliser sauvegarde du ${lastModified}`, 'Réessayer'],
                     (index) => {
-                        setState(index === 1 ? State.init : State.done);
+                        setState(index === 1 ? State.init : State.loaded);
                     }
                 );
                 break;
@@ -186,7 +186,7 @@ export const Category: FC = () => {
             {(state === State.init || state === State.loading || state === State.error) && (
                 <div className="h-[113px] flex items-center justify-center">{Loading(LoadingType.Dot, false)}</div>
             )}
-            {state === State.done && (
+            {(state === State.preloaded || state === State.loaded) && (
                 <div className="divide-y divide-active-light dark:divide-active-dark">
                     <div className={rowClassName}>
                         {categories.slice(0, row1Slice).map((category, index) => (

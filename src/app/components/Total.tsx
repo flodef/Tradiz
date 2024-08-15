@@ -95,7 +95,7 @@ export const Total: FC = () => {
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup, isPopupOpen } = usePopup();
     const { pay } = usePay();
-    const { state } = useConfig();
+    const { isStateReady } = useConfig();
 
     const [needRefresh, setNeedRefresh] = useState(false);
 
@@ -103,7 +103,7 @@ export const Total: FC = () => {
 
     const selectProduct = useCallback(
         (index: number) => {
-            if (state !== State.done) return;
+            if (!isStateReady) return;
 
             const newSelectedProduct =
                 products.current.at(index) === selectedProduct ? undefined : products.current.at(index);
@@ -112,21 +112,21 @@ export const Total: FC = () => {
             setAmount(newSelectedProduct?.amount ?? 0);
             setQuantity(newSelectedProduct?.amount ? -1 : 0);
         },
-        [products, selectedProduct, setSelectedProduct, state, setAmount, setQuantity]
+        [products, selectedProduct, setSelectedProduct, isStateReady, setAmount, setQuantity]
     );
 
     const modifyProduct = useCallback(
         (index: number) => {
-            if (state !== State.done) return;
+            if (!isStateReady) return;
 
             handleContextMenu('Effacer', deleteProduct, index, openPopup, closePopup);
         },
-        [deleteProduct, openPopup, closePopup, state]
+        [deleteProduct, openPopup, closePopup, isStateReady]
     );
 
     const modifyTransaction = useCallback(
         (index: number, fallback: (index: number) => void) => {
-            if (state !== State.done) return;
+            if (!isStateReady) return;
 
             handleContextMenu(
                 isWaitingTransaction(transactions.at(index)) ? 'Reprendre' : 'Modifier',
@@ -137,7 +137,7 @@ export const Total: FC = () => {
                 () => fallback(index)
             );
         },
-        [editTransaction, openPopup, transactions, isWaitingTransaction, closePopup, state]
+        [editTransaction, openPopup, transactions, isWaitingTransaction, closePopup, isStateReady]
     );
 
     const isConfirmedTransaction = useCallback(
@@ -256,7 +256,7 @@ export const Total: FC = () => {
     const showBoughtProducts = useCallback(
         (transactionIndex: number, fallback: () => void) => {
             const transaction = transactions.at(transactionIndex);
-            if (!transaction || !transaction.amount || transactionIndex < 0 || state !== State.done) return;
+            if (!transaction || !transaction.amount || transactionIndex < 0 || !isStateReady) return;
 
             openPopup(
                 toCurrency(transaction) + ' en ' + transaction.method,
@@ -290,7 +290,7 @@ export const Total: FC = () => {
                 }
             );
         },
-        [transactions, openPopup, displayProduct, toCurrency, modifyTransaction, state, deleteBoughtProduct]
+        [transactions, openPopup, displayProduct, toCurrency, modifyTransaction, isStateReady, deleteBoughtProduct]
     );
 
     const showTransactions = useCallback(() => {
@@ -346,7 +346,7 @@ export const Total: FC = () => {
         (e) => {
             e.preventDefault();
 
-            if (state !== State.done) return;
+            if (!isStateReady) return;
 
             if (canDisplayTotal) {
                 if (isMobileSize()) {
@@ -374,11 +374,11 @@ export const Total: FC = () => {
             pay,
             showTransactionsSummary,
             showTransactionsSummaryMenu,
-            state,
+            isStateReady,
         ]
     );
 
-    const clickClassName = state === State.done ? 'active:bg-active-light dark:active:bg-active-dark ' : '';
+    const clickClassName = isStateReady ? 'active:bg-active-light dark:active:bg-active-dark ' : '';
 
     const { width: screenWidth, height: screenHeight } = useWindowParam();
     const left = useMemo(() => (!isMobileSize() && screenWidth > 0 ? screenWidth / 2 : 0), [screenWidth]);

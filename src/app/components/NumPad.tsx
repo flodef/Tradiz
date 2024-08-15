@@ -25,17 +25,17 @@ interface NumPadButtonProps {
 }
 
 const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
-    const { state } = useConfig();
+    const { isStateReady } = useConfig();
 
     const onClick = useCallback<MouseEventHandler>(
         (e) => {
             e.preventDefault();
 
-            if (state !== State.done) return;
+            if (!isStateReady) return;
 
             onInput(input);
         },
-        [onInput, input, state]
+        [onInput, input, isStateReady]
     );
 
     return (
@@ -43,7 +43,7 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
             className={
                 'w-20 h-20 relative flex justify-center m-3 items-center font-semibold text-3xl border-[3px] rounded-2xl ' +
                 'border-secondary-light dark:border-secondary-dark shadow-xl ' +
-                (state === State.done
+                (isStateReady
                     ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark active:dark:text-popup-light'
                     : '')
             }
@@ -56,13 +56,13 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
 };
 
 const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu, className }) => {
-    const { state } = useConfig();
+    const { isStateReady } = useConfig();
 
     const onClick = useCallback<MouseEventHandler>(
         (e) => {
             e.preventDefault();
 
-            if (state !== State.done) return;
+            if (!isStateReady) return;
 
             if (e.type === 'click') {
                 onInput(input);
@@ -70,7 +70,7 @@ const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu, 
                 onContextMenu();
             }
         },
-        [onInput, onContextMenu, input, state]
+        [onInput, onContextMenu, input, isStateReady]
     );
 
     return (
@@ -103,7 +103,7 @@ const ImageButton: FC<ImageButtonProps> = ({ children, onClick, onContextMenu, c
 };
 
 export const NumPad: FC = () => {
-    const { currencies, currencyIndex, setCurrency, state, discounts } = useConfig();
+    const { currencies, currencyIndex, setCurrency, isStateReady, discounts } = useConfig();
     const {
         total,
         amount,
@@ -136,7 +136,7 @@ export const NumPad: FC = () => {
     const { width, height } = useWindowParam();
     useEffect(() => {
         if (
-            state === State.done &&
+            isStateReady &&
             !isPopupOpen &&
             !isFullscreen() &&
             (height < window.screen.availHeight || width < window.screen.availWidth) &&
@@ -144,7 +144,7 @@ export const NumPad: FC = () => {
         ) {
             openFullscreenPopup('Plein écran', ['Mettre en plein écran'], () => closePopup(requestFullscreen), true);
         }
-    }, [openFullscreenPopup, isPopupOpen, height, width, state, closePopup]);
+    }, [openFullscreenPopup, isPopupOpen, height, width, isStateReady, closePopup]);
 
     const onInput = useCallback(
         (key: Digits | string) => {
@@ -307,11 +307,10 @@ export const NumPad: FC = () => {
         [1, 2, 3],
     ];
 
-    const color =
-        state === State.done
-            ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark ' +
-              'text-secondary-light dark:text-secondary-dark active:text-popup-dark active:dark:text-popup-light '
-            : '';
+    const color = isStateReady
+        ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark ' +
+          'text-secondary-light dark:text-secondary-dark active:text-popup-dark active:dark:text-popup-light '
+        : '';
     const s = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl ';
     const sx = s + (canPay || canAddProduct ? color : 'invisible');
 
