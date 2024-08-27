@@ -73,24 +73,28 @@ export function getPublicKey() {
     return publicKey;
 }
 
+const emptyShop = { id: undefined, fee: 0 };
+
 export async function loadData(shop: string, isOutOfLocalHost = true): Promise<Config | undefined> {
     if (isOutOfLocalHost && !navigator.onLine) throw new Error('The web app is offline');
 
-    const id = isOutOfLocalHost
+    const { id, fee } = isOutOfLocalHost
         ? typeof shop === 'string' // if shop is a string, it means that the app is used by a customer (custom path)
             ? await fetch(`./api/spreadsheet?sheetName=index`)
+                  .then(convertIndexData)
+                  .then(
+                      (data) =>
+                          data
+                              .filter(({ shop: s }) => s === shop)
+                              .map(({ id, fee }) => ({ id, fee }))
+                              .at(0) ?? emptyShop
+                  )
                   .catch((error) => {
                       console.error(error);
+                      return emptyShop;
                   })
-                  .then(convertIndexData)
-                  .then((data) =>
-                      data
-                          .filter(({ shop: s }) => s === shop)
-                          .map(({ id }) => id)
-                          .at(0)
-                  )
-            : '' // if shop is not a string, it means that the app is used by a shop (root path)
-        : undefined;
+            : { id: '', fee: 0 } // if shop is not a string, it means that the app is used by a shop (root path)
+        : emptyShop;
 
     const param = await fetchData(dataNames.parameters, id, false).then(convertParametersData);
     if (!param?.length) return;
@@ -187,13 +191,14 @@ async function convertIndexData(response: void | Response) {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-            checkData(data, 2);
+            checkData(data, 3);
 
             return data.values.map((item) => {
-                checkColumn(item, 2);
+                checkColumn(item, 3);
                 return {
                     shop: String(item.at(0)).trim(),
                     id: String(item.at(1)).trim(),
+                    fee: Number(item.at(2)),
                 };
             });
         });
