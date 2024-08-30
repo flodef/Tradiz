@@ -439,6 +439,7 @@ export const Total: FC = () => {
                               />
                           ))
                     : transactions
+                          .sort((a, b) => b.createdDate - a.createdDate)
                           .map(displayTransaction)
                           .map((transaction, index) => (
                               <Item
