@@ -88,12 +88,13 @@ export const Total: FC = () => {
         toCurrency,
         displayTransaction,
         isWaitingTransaction,
+        isDeletedTransaction,
         setSelectedProduct,
         setAmount,
         setQuantity,
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
-    const { openPopup, closePopup, isPopupOpen } = usePopup();
+    const { openPopup, closePopup } = usePopup();
     const { pay } = usePay();
     const { isStateReady } = useConfig();
 
@@ -439,6 +440,7 @@ export const Total: FC = () => {
                               />
                           ))
                     : transactions
+                          .filter((transaction) => !isDeletedTransaction(transaction))
                           .sort((a, b) => b.createdDate - a.createdDate)
                           .map(displayTransaction)
                           .map((transaction, index) => (
