@@ -280,7 +280,7 @@ export const NumPad: FC = () => {
             displayDiscounts.map((d) => (d.value ? d.value + d.unity : ['Aucune'])),
             (index) => setDiscount(selectedProduct, index < 0 ? selectedProduct.discount : displayDiscounts[index])
         );
-    }, [openPopup, quantity, multiply]);
+    }, [openPopup, selectedProduct, discounts, setDiscount]);
 
     const mercuriale = useCallback(() => {
         const mercurials = Object.values(Mercurial);

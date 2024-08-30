@@ -87,7 +87,18 @@ export const usePay = () => {
                 true
             );
         },
-        [openPopup, toCurrency, getCurrentTotal, openQRCode, retry, closePopup, init, updateTransaction]
+        [
+            openPopup,
+            toCurrency,
+            getCurrentTotal,
+            openQRCode,
+            retry,
+            closePopup,
+            init,
+            updateTransaction,
+            currencies,
+            currencyIndex,
+        ]
     );
 
     const selectPayment = useCallback(
