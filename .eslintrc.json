@@ -1,14 +1,14 @@
 {
-    "extends": ["next", "next/core-web-vitals"],
-    "plugins": ["prettier", "testing-library"],
+    "root": true,
+    "extends": ["next/core-web-vitals"],
+    "plugins": ["prettier", "jsx-a11y"],
     "rules": {
         "react/no-unescaped-entities": "off"
     },
     "overrides": [
         // Only uses Testing Library lint rules in test files
         {
-            "files": ["**/__tests__/**/*.[jt]s?(x)", "**/?(*.)+(spec|test).[jt]s?(x)"],
-            "extends": ["plugin:testing-library/react"]
+            "files": ["**/__tests__/**/*.[jt]s?(x)", "**/?(*.)+(spec|test).[jt]s?(x)", "**/?(*.)+(test).[jt]s?(x)"]
         }
     ]
 }
