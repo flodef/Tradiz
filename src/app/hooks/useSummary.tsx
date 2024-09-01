@@ -225,10 +225,17 @@ export const useSummary = () => {
             const historicalTransactions = getHistoricalTransactions();
             if (!historicalTransactions.length) {
                 if (isDbConnected) {
-                    openPopup('Synchronisation', ['Synchroniser'], (index) => {
-                        if (index === 0) {
-                            processTransactions(SyncAction.sync);
-                            closePopup();
+                    openPopup('Synchronisation', ['Synchroniser', 'Exporter', 'Importer'], (index) => {
+                        switch (index) {
+                            case 0:
+                                processTransactions(SyncAction.sync);
+                                break;
+                            case 1:
+                                processTransactions(SyncAction.export);
+                                break;
+                            case 2:
+                                fileInputRef.current?.click();
+                                break;
                         }
                     });
                 }
@@ -299,7 +306,7 @@ export const useSummary = () => {
                     )
             );
         },
-        [openPopup, getHistoricalTransactions, transactionsFilename, isDbConnected, processTransactions, closePopup]
+        [openPopup, getHistoricalTransactions, transactionsFilename, isDbConnected, processTransactions]
     );
 
     const displayCategoryDetails = useCallback(
