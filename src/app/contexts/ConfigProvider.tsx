@@ -109,7 +109,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     );
 
     useEffect(() => {
-        if (!colors.length) return;
+        if (!colors?.length) return;
 
         document.documentElement.style.setProperty('--writing-light-color', colors[0].light);
         document.documentElement.style.setProperty('--main-from-light-color', colors[1].light);
