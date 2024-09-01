@@ -1,6 +1,12 @@
 import { MutableRefObject, createContext, useContext } from 'react';
 import { Currency, Discount, Mercurial } from './useConfig';
 
+export enum SyncAction {
+    sync,
+    export,
+    import,
+}
+
 export type DataElement = {
     category: string;
     quantity: number;
@@ -50,7 +56,7 @@ export interface DataContextState {
     clearTotal: () => void;
     products: MutableRefObject<Product[]>;
     transactions: Transaction[];
-    getAllTransactions: () => void;
+    processTransactions: (syncAction: SyncAction) => void;
     updateTransaction: (item: string | Transaction) => void;
     editTransaction: (index: number) => void;
     deleteTransaction: (index: number) => void;

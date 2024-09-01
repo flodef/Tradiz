@@ -12,9 +12,9 @@ import {
     setDoc,
     updateDoc,
 } from 'firebase/firestore';
-import { FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Currency, Discount, Mercurial, useConfig } from '../hooks/useConfig';
-import { DataContext, Product, Transaction, TransactionSet } from '../hooks/useData';
+import { DataContext, Product, SyncAction, Transaction, TransactionSet } from '../hooks/useData';
 import { useWindowParam } from '../hooks/useWindowParam';
 import {
     DELETED_KEYWORD,
@@ -160,7 +160,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // If not, add the transaction, if yes, check which one has the biggest "modifiedDate".
     // If it's the cloud one, update the local, if it's the local one, update the cloud.
     // Then, check if the "transaction set" in local exists in the cloud, using the same method as above.
-    const syncTransactions = useCallback(
+    const fullSync = useCallback(
         (cloudTransactionSets: TransactionSet[], localTransactionSets: TransactionSet[]) => {
             if (!firestore) return;
 
@@ -241,46 +241,112 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [firestore, storeTransaction, isProcessingTransaction]
     );
 
-    const getAllTransactions = useCallback(async () => {
-        if (!firestore) return;
+    const syncTransactions = useCallback(
+        (localTransactionSets: TransactionSet[]) => {
+            if (!firestore) return;
 
-        const fileName = transactionsFilename.split('_')[0];
+            const fileName = transactionsFilename.split('_')[0];
 
-        const localTransactionSets: TransactionSet[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key?.includes(fileName)) {
-                const value = localStorage.getItem(key);
-                if (value) {
-                    const transactions = JSON.parse(value) as Transaction[];
-                    localTransactionSets.push({ id: key, transactions });
-                }
-            }
-        }
+            const cloudTransactionSets: TransactionSet[] = [];
+            getDocs(collection(firestore, 'Indexes')).then((querySnapshot) => {
+                const tx = querySnapshot.docs.filter((doc) => doc.id.includes(fileName));
+                let txToProcess = tx.length;
 
-        const cloudTransactionSets: TransactionSet[] = [];
-        getDocs(collection(firestore, 'Indexes')).then((querySnapshot) => {
-            const tx = querySnapshot.docs.filter((doc) => doc.id.includes(fileName));
-            let txToProcess = tx.length;
+                console.log('Loaded all tx:', txToProcess);
 
-            console.log('Loaded all tx:', txToProcess);
+                tx.forEach((doc) => {
+                    const id = doc.id;
+                    getDocs(collection(firestore, id)).then((query) => {
+                        const transactions: Transaction[] = [];
+                        query.forEach((doc) => transactions.push(doc.data() as Transaction));
+                        cloudTransactionSets.push({ id, transactions });
 
-            tx.forEach((doc) => {
-                const id = doc.id;
-                getDocs(collection(firestore, id)).then((query) => {
-                    const transactions: Transaction[] = [];
-                    query.forEach((doc) => transactions.push(doc.data() as Transaction));
-                    cloudTransactionSets.push({ id, transactions });
+                        console.log('txToProcess', txToProcess);
 
-                    console.log('txToProcess', txToProcess);
-
-                    if (!--txToProcess) {
-                        syncTransactions(cloudTransactionSets, localTransactionSets);
-                    }
+                        if (!--txToProcess) {
+                            fullSync(cloudTransactionSets, localTransactionSets);
+                        }
+                    });
                 });
             });
-        });
-    }, [firestore, transactionsFilename, syncTransactions]);
+        },
+        [firestore, transactionsFilename, fullSync]
+    );
+
+    const exportTransactions = useCallback((localTransactionSets: TransactionSet[]) => {
+        const jsonData = JSON.stringify(localTransactionSets);
+
+        // Create a Blob and URL object containing the JSON data
+        const blob = new Blob([jsonData], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        // Create a link element to trigger the download
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'Sauvegarde_' + new Date().toISOString().split('T')[0] + '.json';
+
+        // Append the link element to the document and trigger the download
+        document.body.appendChild(link);
+        link.click();
+
+        // Clean up the URL and link element
+        URL.revokeObjectURL(url);
+        document.body.removeChild(link);
+    }, []);
+
+    const importTransactions = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+
+        reader.onload = (event) => {
+            const jsonData = event.target?.result;
+            if (typeof jsonData === 'string') {
+                const data = JSON.parse(jsonData);
+
+                // Store the data in the localStorage
+                data.forEach((item: { id: string; transactions: any[] }) => {
+                    localStorage.setItem(item.id, JSON.stringify(item.transactions));
+                });
+            }
+        };
+
+        reader.readAsText(file);
+    }, []);
+
+    const processTransactions = useCallback(
+        (syncAction: SyncAction) => {
+            if (!firestore) return;
+
+            const fileName = transactionsFilename.split('_')[0];
+
+            const localTransactionSets: TransactionSet[] = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key?.includes(fileName)) {
+                    const value = localStorage.getItem(key);
+                    if (value) {
+                        const transactions = JSON.parse(value) as Transaction[];
+                        localTransactionSets.push({ id: key, transactions });
+                    }
+                }
+            }
+
+            switch (syncAction) {
+                case SyncAction.sync:
+                    syncTransactions(localTransactionSets);
+                    break;
+                case SyncAction.export:
+                    exportTransactions(localTransactionSets);
+                    break;
+                case SyncAction.import:
+                    // importTransactions();
+                    break;
+            }
+        },
+        [firestore, transactionsFilename, syncTransactions, exportTransactions]
+    );
 
     const saveTransactions = useCallback(
         (action: DatabaseAction, transaction: Transaction) => {
@@ -607,7 +673,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 clearTotal,
                 products,
                 transactions,
-                getAllTransactions,
+                processTransactions,
                 updateTransaction,
                 editTransaction,
                 deleteTransaction,

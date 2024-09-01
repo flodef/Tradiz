@@ -4,7 +4,7 @@ import { DELETED_KEYWORD, GET_FORMATTED_DATE, WAITING_KEYWORD } from '../utils/c
 import { takeScreenshot } from '../utils/screenshot';
 import { sendEmail } from '../utils/sendEmail';
 import { useConfig } from './useConfig';
-import { DataElement, Transaction, useData } from './useData';
+import { DataElement, SyncAction, Transaction, useData } from './useData';
 import { usePopup } from './usePopup';
 
 enum HistoricalPeriod {
@@ -14,7 +14,7 @@ enum HistoricalPeriod {
 
 export const useSummary = () => {
     const { currencies, currencyIndex, inventory, shopEmail } = useConfig();
-    const { transactions, toCurrency, transactionsFilename, isDbConnected, getAllTransactions } = useData();
+    const { transactions, toCurrency, transactionsFilename, isDbConnected, processTransactions } = useData();
     const { openPopup, closePopup } = usePopup();
 
     const tempTransactions = useRef<Transaction[]>([]);
@@ -226,7 +226,7 @@ export const useSummary = () => {
                 if (isDbConnected) {
                     openPopup('Synchronisation', ['Synchroniser'], (index) => {
                         if (index === 0) {
-                            getAllTransactions();
+                            processTransactions(SyncAction.sync);
                             closePopup();
                         }
                     });
@@ -298,7 +298,7 @@ export const useSummary = () => {
                     )
             );
         },
-        [openPopup, getHistoricalTransactions, transactionsFilename, isDbConnected, getAllTransactions, closePopup]
+        [openPopup, getHistoricalTransactions, transactionsFilename, isDbConnected, processTransactions, closePopup]
     );
 
     const displayCategoryDetails = useCallback(
@@ -525,7 +525,7 @@ export const useSummary = () => {
             openPopup(
                 'TicketZ ' + formattedDate,
                 (hasTransactions ? ["Capture d'écran", 'Email', 'Feuille de calcul'] : [])
-                    .concat(isDbConnected ? ['Synchroniser'] : [])
+                    .concat(isDbConnected ? ['Synchroniser', 'Exporter'] : [])
                     .concat(historicalTransactions.length ? ['Histo jour', 'Histo mois'] : [])
                     .concat(hasTransactions ? 'Afficher' : ''),
                 (_, option) => {
@@ -547,7 +547,11 @@ export const useSummary = () => {
                             closePopup();
                             break;
                         case 'Synchroniser':
-                            getAllTransactions();
+                            processTransactions(SyncAction.sync);
+                            closePopup();
+                            break;
+                        case 'Exporter':
+                            processTransactions(SyncAction.export);
                             closePopup();
                             break;
                         case 'Histo jour':
@@ -584,7 +588,7 @@ export const useSummary = () => {
         tempTransactions,
         getTransactionDate,
         isDbConnected,
-        getAllTransactions,
+        processTransactions,
     ]);
 
     return {
