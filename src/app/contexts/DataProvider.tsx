@@ -283,7 +283,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         // Create a link element to trigger the download
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'Sauvegarde_' + new Date().toISOString().split('T')[0] + '.json';
+        link.download = 'Sauvegarde_' + GET_FORMATTED_DATE() + '.json';
 
         // Append the link element to the document and trigger the download
         document.body.appendChild(link);
@@ -294,7 +294,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         document.body.removeChild(link);
     }, []);
 
-    const importTransactions = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const importTransactions = useCallback((event?: ChangeEvent<HTMLInputElement>) => {
+        if (!event) return;
+
         const file = event.target.files?.[0];
         if (!file) return;
 
@@ -316,7 +318,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, []);
 
     const processTransactions = useCallback(
-        (syncAction: SyncAction) => {
+        (syncAction: SyncAction, event?: ChangeEvent<HTMLInputElement>) => {
             if (!firestore) return;
 
             const fileName = transactionsFilename.split('_')[0];
@@ -341,11 +343,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     exportTransactions(localTransactionSets);
                     break;
                 case SyncAction.import:
-                    // importTransactions();
+                    importTransactions(event);
                     break;
             }
         },
-        [firestore, transactionsFilename, syncTransactions, exportTransactions]
+        [firestore, transactionsFilename, syncTransactions, exportTransactions, importTransactions]
     );
 
     const saveTransactions = useCallback(

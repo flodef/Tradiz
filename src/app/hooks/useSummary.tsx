@@ -17,9 +17,10 @@ export const useSummary = () => {
     const { transactions, toCurrency, transactionsFilename, isDbConnected, processTransactions } = useData();
     const { openPopup, closePopup } = usePopup();
 
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     const tempTransactions = useRef<Transaction[]>([]);
     const getHistoricalTransactions = useCallback(() => {
-        console.log('getHistoricalTransactions', transactionsFilename);
         return transactionsFilename
             ? Object.keys(localStorage).filter((key) => key.split('_')[0] === transactionsFilename.split('_')[0])
             : [];
@@ -517,15 +518,15 @@ export const useSummary = () => {
     const showTransactionsSummaryMenu = useCallback(() => {
         const hasTransactions = transactions.length || tempTransactions.current.length;
         const historicalTransactions = getHistoricalTransactions();
-        if (hasTransactions) {
+        if (hasTransactions || isDbConnected) {
             const formattedDate = GET_FORMATTED_DATE(
                 getTransactionDate().date,
                 getTransactionDate().period === HistoricalPeriod.day ? 3 : 2
             );
             openPopup(
-                'TicketZ ' + formattedDate,
+                'TicketZ ' + (hasTransactions ? formattedDate : ''),
                 (hasTransactions ? ["Capture d'écran", 'Email', 'Feuille de calcul'] : [])
-                    .concat(isDbConnected ? ['Synchroniser', 'Exporter'] : [])
+                    .concat(isDbConnected ? ['Synchroniser', 'Exporter', 'Importer'] : [])
                     .concat(historicalTransactions.length ? ['Histo jour', 'Histo mois'] : [])
                     .concat(hasTransactions ? 'Afficher' : ''),
                 (_, option) => {
@@ -552,6 +553,10 @@ export const useSummary = () => {
                             break;
                         case 'Exporter':
                             processTransactions(SyncAction.export);
+                            closePopup();
+                            break;
+                        case 'Importer':
+                            fileInputRef.current?.click();
                             closePopup();
                             break;
                         case 'Histo jour':
@@ -595,5 +600,6 @@ export const useSummary = () => {
         showTransactionsSummary,
         showTransactionsSummaryMenu,
         getHistoricalTransactions,
+        fileInputRef,
     };
 };
