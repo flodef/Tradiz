@@ -5,12 +5,12 @@ import {
     Firestore,
     collection,
     doc,
+    getDocs,
     getFirestore,
     onSnapshot,
     query,
     setDoc,
     updateDoc,
-    getDocs,
 } from 'firebase/firestore';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Currency, Discount, Mercurial, useConfig } from '../hooks/useConfig';
@@ -149,7 +149,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             }
 
             setTransactions(
-                transactions.sort((a, b) => (isWaitingTransaction(a) && !isWaitingTransaction(b) ? -1 : 1))
+                transactions.toSorted((a, b) => (isWaitingTransaction(a) && !isWaitingTransaction(b) ? -1 : 1))
             ); // Put the waiting transaction at the beginning of the list
         },
         [isWaitingTransaction, transactions, setTransactions]

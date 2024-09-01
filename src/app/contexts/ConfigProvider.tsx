@@ -17,11 +17,6 @@ import { EMAIL } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
 import { UserNotFoundError, defaultCurrencies, defaultPaymentMethods, loadData } from '../utils/processData';
 
-export interface ConfigProviderProps {
-    children: ReactNode;
-    shop: string;
-}
-
 export interface Parameters {
     shopName: string;
     shopEmail: string;
@@ -38,6 +33,11 @@ export interface Config {
     inventory: InventoryItem[];
     discounts: Discount[];
     colors: Colors[];
+}
+
+export interface ConfigProviderProps {
+    children: ReactNode;
+    shop: string;
 }
 
 export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
