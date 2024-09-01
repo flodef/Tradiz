@@ -119,11 +119,12 @@ export const NumPad: FC = () => {
         selectedProduct,
         updateTransaction,
         transactions,
+        isDbConnected,
         addProduct: _addProduct,
     } = useData();
     const { openPopup, openFullscreenPopup, closePopup, isPopupOpen } = usePopup();
     const { pay, canPay, canAddProduct } = usePay();
-    const { showTransactionsSummary, showTransactionsSummaryMenu, historicalTransactions } = useSummary();
+    const { showTransactionsSummary, showTransactionsSummaryMenu, getHistoricalTransactions } = useSummary();
 
     const maxValue = useMemo(() => currencies[currencyIndex].maxValue, [currencies, currencyIndex]);
     const maxDecimals = useMemo(() => currencies[currencyIndex].maxDecimals, [currencies, currencyIndex]);
@@ -323,7 +324,7 @@ export const NumPad: FC = () => {
                 ? 'bg-secondary-active-light dark:bg-secondary-active-dark text-popup-dark dark:text-popup-light '
                 : color
             : 'invisible');
-    const f3 = f + (transactions.length || historicalTransactions.length ? color : 'invisible');
+    const f3 = f + (transactions.length || getHistoricalTransactions().length || isDbConnected ? color : 'invisible');
 
     const shouldUseOverflow = useMemo(
         () => (height < 590 && !isMobileSize()) || (height < 660 && isMobileSize()),

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { DELETED_KEYWORD, GET_FORMATTED_DATE, WAITING_KEYWORD } from '../utils/constants';
 import { takeScreenshot } from '../utils/screenshot';
@@ -18,15 +18,12 @@ export const useSummary = () => {
     const { openPopup, closePopup } = usePopup();
 
     const tempTransactions = useRef<Transaction[]>([]);
-    const [historicalTransactions, setHistoricalTransactions] = useState<string[]>([]);
     const getHistoricalTransactions = useCallback(() => {
-        return Object.keys(localStorage).filter(
-            (key) => transactionsFilename && key.split('_')[0] === transactionsFilename.split('_')[0]
-        );
+        console.log('getHistoricalTransactions', transactionsFilename);
+        return transactionsFilename
+            ? Object.keys(localStorage).filter((key) => key.split('_')[0] === transactionsFilename.split('_')[0])
+            : [];
     }, [transactionsFilename]);
-    useEffect(() => {
-        setHistoricalTransactions(getHistoricalTransactions());
-    }, [getHistoricalTransactions]);
 
     const getFilteredTransactions = useCallback(() => {
         const t = tempTransactions.current.length ? tempTransactions.current : transactions.length ? transactions : [];
@@ -224,10 +221,21 @@ export const useSummary = () => {
             showTransactionsCallback: (menu: () => void, fallback?: () => void) => void,
             fallback?: () => void
         ) => {
-            if (!historicalTransactions.length) return;
+            const historicalTransactions = getHistoricalTransactions();
+            if (!historicalTransactions.length) {
+                if (isDbConnected) {
+                    openPopup('Synchronisation', ['Synchroniser'], (index) => {
+                        if (index === 0) {
+                            getAllTransactions();
+                            closePopup();
+                        }
+                    });
+                }
+                return;
+            }
 
             const isDayPeriod = historicalPeriod === HistoricalPeriod.day;
-            const items = getHistoricalTransactions()
+            const items = historicalTransactions
                 .map((key) => key.split('_')[1] ?? '')
                 .map((key) => (isDayPeriod ? key : key.split('-').slice(0, 2).join('-')))
                 .filter((key, index, array) => key && array.indexOf(key) === index)
@@ -290,7 +298,7 @@ export const useSummary = () => {
                     )
             );
         },
-        [openPopup, historicalTransactions, getHistoricalTransactions, transactionsFilename]
+        [openPopup, getHistoricalTransactions, transactionsFilename, isDbConnected, getAllTransactions, closePopup]
     );
 
     const displayCategoryDetails = useCallback(
@@ -507,17 +515,19 @@ export const useSummary = () => {
     );
 
     const showTransactionsSummaryMenu = useCallback(() => {
-        if (transactions.length || tempTransactions.current.length) {
+        const hasTransactions = transactions.length || tempTransactions.current.length;
+        const historicalTransactions = getHistoricalTransactions();
+        if (hasTransactions) {
             const formattedDate = GET_FORMATTED_DATE(
                 getTransactionDate().date,
                 getTransactionDate().period === HistoricalPeriod.day ? 3 : 2
             );
             openPopup(
                 'TicketZ ' + formattedDate,
-                ["Capture d'écran", 'Email', 'Feuille de calcul']
+                (hasTransactions ? ["Capture d'écran", 'Email', 'Feuille de calcul'] : [])
                     .concat(isDbConnected ? ['Synchroniser'] : [])
                     .concat(historicalTransactions.length ? ['Histo jour', 'Histo mois'] : [])
-                    .concat('Afficher'),
+                    .concat(hasTransactions ? 'Afficher' : ''),
                 (_, option) => {
                     switch (option) {
                         case "Capture d'écran":
@@ -537,7 +547,6 @@ export const useSummary = () => {
                             closePopup();
                             break;
                         case 'Synchroniser':
-                            console.log('sync');
                             getAllTransactions();
                             closePopup();
                             break;
@@ -560,7 +569,7 @@ export const useSummary = () => {
                 },
                 true
             );
-        } else if (historicalTransactions.length) {
+        } else {
             showHistoricalTransactions(HistoricalPeriod.month, showTransactionsSummaryMenu, showTransactionsSummary);
         }
     }, [
@@ -570,7 +579,7 @@ export const useSummary = () => {
         processEmail,
         downloadData,
         transactions,
-        historicalTransactions,
+        getHistoricalTransactions,
         showHistoricalTransactions,
         tempTransactions,
         getTransactionDate,
@@ -578,5 +587,9 @@ export const useSummary = () => {
         getAllTransactions,
     ]);
 
-    return { showTransactionsSummary, showTransactionsSummaryMenu, historicalTransactions, transactions };
+    return {
+        showTransactionsSummary,
+        showTransactionsSummaryMenu,
+        getHistoricalTransactions,
+    };
 };
