@@ -1,20 +1,20 @@
 import { MutableRefObject, createContext, useContext } from 'react';
 import { Currency, Discount, Mercurial } from './useConfig';
 
-export interface DataElement {
+export type DataElement = {
     category: string;
     quantity: number;
     amount: number;
-}
+};
 
-export interface Product extends DataElement {
+export type Product = DataElement & {
     label: string;
     total?: number;
     discount: Discount;
     mercurial?: Mercurial;
-}
+};
 
-export interface Transaction {
+export type Transaction = {
     validator: string;
     method: string;
     amount: number;
@@ -22,7 +22,12 @@ export interface Transaction {
     modifiedDate: number;
     currency: Currency;
     products: Product[];
-}
+};
+
+export type TransactionSet = {
+    id: string;
+    transactions: Transaction[];
+};
 
 export interface DataContextState {
     total: number;
@@ -45,13 +50,16 @@ export interface DataContextState {
     clearTotal: () => void;
     products: MutableRefObject<Product[]>;
     transactions: Transaction[];
+    getAllTransactions: () => void;
     updateTransaction: (item: string | Transaction) => void;
     editTransaction: (index: number) => void;
     deleteTransaction: (index: number) => void;
     displayTransaction: (transaction: Transaction) => string;
     isWaitingTransaction: (transaction?: Transaction) => boolean;
+    isDeletedTransaction: (transaction?: Transaction) => boolean;
     transactionsFilename: string;
     toCurrency: (element: { amount: number; currency: Currency } | number | Product | Transaction) => string;
+    isDbConnected: boolean;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { utils, writeFile } from 'xlsx';
-import { GET_FORMATTED_DATE } from '../utils/constants';
+import { DELETED_KEYWORD, GET_FORMATTED_DATE, WAITING_KEYWORD } from '../utils/constants';
 import { takeScreenshot } from '../utils/screenshot';
 import { sendEmail } from '../utils/sendEmail';
 import { useConfig } from './useConfig';
@@ -14,7 +14,7 @@ enum HistoricalPeriod {
 
 export const useSummary = () => {
     const { currencies, currencyIndex, inventory, shopEmail } = useConfig();
-    const { transactions, toCurrency, transactionsFilename } = useData();
+    const { transactions, toCurrency, transactionsFilename, isDbConnected, getAllTransactions } = useData();
     const { openPopup, closePopup } = usePopup();
 
     const tempTransactions = useRef<Transaction[]>([]);
@@ -30,7 +30,13 @@ export const useSummary = () => {
 
     const getFilteredTransactions = useCallback(() => {
         const t = tempTransactions.current.length ? tempTransactions.current : transactions.length ? transactions : [];
-        return t.filter((transaction) => transaction.currency.symbol === currencies[currencyIndex].symbol);
+        return t.filter(
+            (transaction) =>
+                transaction.currency.symbol === currencies[currencyIndex].symbol &&
+                !!transaction.products.length &&
+                transaction.method !== DELETED_KEYWORD &&
+                transaction.method !== WAITING_KEYWORD
+        );
     }, [currencies, currencyIndex, transactions]);
 
     const getTransactionDate = useCallback(
@@ -509,11 +515,12 @@ export const useSummary = () => {
             openPopup(
                 'TicketZ ' + formattedDate,
                 ["Capture d'écran", 'Email', 'Feuille de calcul']
+                    .concat(isDbConnected ? ['Synchroniser'] : [])
                     .concat(historicalTransactions.length ? ['Histo jour', 'Histo mois'] : [])
                     .concat('Afficher'),
-                (index) => {
-                    switch (index) {
-                        case 0:
+                (_, option) => {
+                    switch (option) {
+                        case "Capture d'écran":
                             showTransactionsSummary(() => {});
                             setTimeout(() => {
                                 takeScreenshot('popup', 'TicketZ ' + formattedDate + '.png').then(() => {
@@ -521,26 +528,31 @@ export const useSummary = () => {
                                 });
                             }); // Set timeout to give time to the popup to display and the screenshot to be taken
                             break;
-                        case 1:
+                        case 'Email':
                             processEmail('TicketZ ' + formattedDate);
                             closePopup();
                             break;
-                        case 2:
+                        case 'Feuille de calcul':
                             downloadData('TicketZ ' + formattedDate);
                             closePopup();
                             break;
-                        case 3:
-                        case 4:
+                        case 'Synchroniser':
+                            console.log('sync');
+                            getAllTransactions();
+                            closePopup();
+                            break;
+                        case 'Histo jour':
+                        case 'Histo mois':
                             if (historicalTransactions.length) {
                                 showHistoricalTransactions(
-                                    index === 3 ? HistoricalPeriod.day : HistoricalPeriod.month,
+                                    option === 'Histo jour' ? HistoricalPeriod.day : HistoricalPeriod.month,
                                     showTransactionsSummaryMenu,
                                     showTransactionsSummary,
                                     transactions.length ? showTransactionsSummaryMenu : undefined
                                 );
-                                break;
                             }
-                        case 5:
+                            break;
+                        case 'Afficher':
                             showTransactionsSummary(showTransactionsSummaryMenu, showTransactionsSummaryMenu);
                             break;
                     }
@@ -562,6 +574,8 @@ export const useSummary = () => {
         showHistoricalTransactions,
         tempTransactions,
         getTransactionDate,
+        isDbConnected,
+        getAllTransactions,
     ]);
 
     return { showTransactionsSummary, showTransactionsSummaryMenu, historicalTransactions, transactions };
