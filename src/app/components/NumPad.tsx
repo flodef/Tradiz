@@ -1,8 +1,8 @@
 'use client';
 
-import { FC, MouseEventHandler, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { EmptyDiscount, Mercurial, State, useConfig } from '../hooks/useConfig';
-import { SyncAction, useData } from '../hooks/useData';
+import { FC, MouseEventHandler, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { EmptyDiscount, Mercurial, useConfig } from '../hooks/useConfig';
+import { useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
@@ -118,15 +118,13 @@ export const NumPad: FC = () => {
         clearTotal,
         selectedProduct,
         updateTransaction,
-        processTransactions,
         transactions,
         isDbConnected,
         addProduct: _addProduct,
     } = useData();
     const { openPopup, openFullscreenPopup, closePopup, isPopupOpen } = usePopup();
     const { pay, canPay, canAddProduct } = usePay();
-    const { showTransactionsSummary, showTransactionsSummaryMenu, getHistoricalTransactions, fileInputRef } =
-        useSummary();
+    const { showTransactionsSummary, showTransactionsSummaryMenu, getHistoricalTransactions } = useSummary();
 
     const maxValue = useMemo(() => currencies[currencyIndex].maxValue, [currencies, currencyIndex]);
     const maxDecimals = useMemo(() => currencies[currencyIndex].maxDecimals, [currencies, currencyIndex]);
@@ -413,16 +411,6 @@ export const NumPad: FC = () => {
                     </div>
                 </div>
             </div>
-
-            {/* Needed to open file to import transactions */}
-            <input
-                className="hidden"
-                type="file"
-                accept=".json"
-                multiple={false}
-                ref={fileInputRef}
-                onChange={(event) => processTransactions(SyncAction.import, event)}
-            />
         </div>
     );
 };

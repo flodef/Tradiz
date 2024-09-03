@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { ReactNode, useCallback, useMemo, useRef } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { DELETED_KEYWORD, GET_FORMATTED_DATE, WAITING_KEYWORD } from '../utils/constants';
 import { takeScreenshot } from '../utils/screenshot';
@@ -18,6 +18,22 @@ export const useSummary = () => {
     const { openPopup, closePopup } = usePopup();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const ImportOption = useMemo(
+        () => (
+            <>
+                <input
+                    className="hidden"
+                    type="file"
+                    accept=".json"
+                    multiple={false}
+                    ref={fileInputRef}
+                    onChange={(event) => processTransactions(SyncAction.import, event)}
+                />
+                <div onClick={() => fileInputRef.current?.click()}>Importer</div>
+            </>
+        ),
+        [processTransactions]
+    );
 
     const tempTransactions = useRef<Transaction[]>([]);
     const getHistoricalTransactions = useCallback(() => {
@@ -215,6 +231,16 @@ export const useSummary = () => {
         [getTaxAmountByCategory, getTaxesByCategory, getTransactionsDetails, toCurrency]
     );
 
+    const showSyncMenu = useCallback(() => {
+        if (isDbConnected) {
+            openPopup(
+                'Synchronisation',
+                ['Synchroniser', ImportOption].concat(getHistoricalTransactions().length ? ['Exporter'] : []),
+                (index) => processTransactions(index === 0 ? SyncAction.sync : SyncAction.export)
+            );
+        }
+    }, [openPopup, processTransactions, ImportOption, isDbConnected, getHistoricalTransactions]);
+
     const showHistoricalTransactions = useCallback(
         (
             historicalPeriod: HistoricalPeriod,
@@ -224,21 +250,7 @@ export const useSummary = () => {
         ) => {
             const historicalTransactions = getHistoricalTransactions();
             if (!historicalTransactions.length) {
-                if (isDbConnected) {
-                    openPopup('Synchronisation', ['Synchroniser', 'Exporter', 'Importer'], (index) => {
-                        switch (index) {
-                            case 0:
-                                processTransactions(SyncAction.sync);
-                                break;
-                            case 1:
-                                processTransactions(SyncAction.export);
-                                break;
-                            case 2:
-                                fileInputRef.current?.click();
-                                break;
-                        }
-                    });
-                }
+                showSyncMenu();
                 return;
             }
 
@@ -306,7 +318,7 @@ export const useSummary = () => {
                     )
             );
         },
-        [openPopup, getHistoricalTransactions, transactionsFilename, isDbConnected, processTransactions]
+        [openPopup, getHistoricalTransactions, transactionsFilename, showSyncMenu]
     );
 
     const displayCategoryDetails = useCallback(
@@ -533,9 +545,9 @@ export const useSummary = () => {
             openPopup(
                 'TicketZ ' + (hasTransactions ? formattedDate : ''),
                 (hasTransactions ? ["Capture d'écran", 'Email', 'Feuille de calcul'] : [])
-                    .concat(isDbConnected ? ['Synchroniser', 'Exporter', 'Importer'] : [])
+                    .concat(isDbConnected ? ['Synchronisation'] : [])
                     .concat(historicalTransactions.length ? ['Histo jour', 'Histo mois'] : [])
-                    .concat(hasTransactions ? 'Afficher' : ''),
+                    .concat(hasTransactions ? 'Afficher' : []),
                 (_, option) => {
                     switch (option) {
                         case "Capture d'écran":
@@ -554,17 +566,8 @@ export const useSummary = () => {
                             downloadData('TicketZ ' + formattedDate);
                             closePopup();
                             break;
-                        case 'Synchroniser':
-                            processTransactions(SyncAction.sync);
-                            closePopup();
-                            break;
-                        case 'Exporter':
-                            processTransactions(SyncAction.export);
-                            closePopup();
-                            break;
-                        case 'Importer':
-                            fileInputRef.current?.click();
-                            closePopup();
+                        case 'Synchronisation':
+                            showSyncMenu();
                             break;
                         case 'Histo jour':
                         case 'Histo mois':
@@ -600,13 +603,12 @@ export const useSummary = () => {
         tempTransactions,
         getTransactionDate,
         isDbConnected,
-        processTransactions,
+        showSyncMenu,
     ]);
 
     return {
         showTransactionsSummary,
         showTransactionsSummaryMenu,
         getHistoricalTransactions,
-        fileInputRef,
     };
 };
