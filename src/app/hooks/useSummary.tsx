@@ -29,7 +29,9 @@ export const useSummary = () => {
                     ref={fileInputRef}
                     onChange={(event) => processTransactions(SyncAction.import, event)}
                 />
-                <div onClick={() => fileInputRef.current?.click()}>Importer</div>
+                <div onClick={() => fileInputRef.current?.dispatchEvent(new MouseEvent('click', { bubbles: true }))}>
+                    Importer
+                </div>
             </>
         ),
         [processTransactions]
@@ -236,7 +238,10 @@ export const useSummary = () => {
             openPopup(
                 'Synchronisation',
                 ['Synchroniser', ImportOption].concat(getHistoricalTransactions().length ? ['Exporter'] : []),
-                (index) => processTransactions(index === 0 ? SyncAction.sync : SyncAction.export)
+                (_, option) => {
+                    if (option === 'Synchroniser' || option === 'Exporter')
+                        processTransactions(option === 'Synchroniser' ? SyncAction.sync : SyncAction.export);
+                }
             );
         }
     }, [openPopup, processTransactions, ImportOption, isDbConnected, getHistoricalTransactions]);
