@@ -10,7 +10,7 @@ export interface PopupProviderProps {
 export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
     const [isPopupOpen, setIsPopupOpen] = useState(false);
     const [popupTitle, setPopupTitle] = useState<string>('');
-    const [popupOptions, setPopupOptions] = useState<string[] | ReactNode[]>([]);
+    const [popupOptions, setPopupOptions] = useState<(string | ReactNode)[]>([]);
     const [popupAction, setPopupAction] = useState<(index: number, option: string) => void>();
     const [popupStayOpen, setPopupStayOpen] = useState(false);
     const [popupSpecialAction, setPopupSpecialAction] = useState<(index: number) => void>();
@@ -20,7 +20,7 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
     const openPopup = useCallback(
         (
             title: string,
-            options: string[] | ReactNode[],
+            options: (string | ReactNode)[],
             action?: (index: number, option: string) => void,
             stayOpen = false,
             specialAction?: (index: number) => void,
@@ -44,7 +44,7 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
     const openFullscreenPopup = useCallback(
         (
             title: string,
-            options: string[] | ReactNode[],
+            options: (string | ReactNode)[],
             action?: (index: number, option: string) => void,
             stayOpen = false
         ) => {

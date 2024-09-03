@@ -4,7 +4,7 @@ export interface PopupContextState {
     isPopupOpen: boolean;
     openPopup: (
         title: string,
-        options: string[] | ReactNode[],
+        options: (string | ReactNode)[],
         action?: (index: number, option: string) => void,
         stayOpen?: boolean,
         specialAction?: (index: number) => void,
