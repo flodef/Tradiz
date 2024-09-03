@@ -17,21 +17,18 @@ export const useSummary = () => {
     const { transactions, toCurrency, transactionsFilename, isDbConnected, processTransactions } = useData();
     const { openPopup, closePopup } = usePopup();
 
-    const fileInputRef = useRef<HTMLInputElement>(null);
     const ImportOption = useMemo(
         () => (
             <>
                 <input
+                    id="fileInputRef"
                     className="hidden"
                     type="file"
                     accept=".json"
                     multiple={false}
-                    ref={fileInputRef}
                     onChange={(event) => processTransactions(SyncAction.import, event)}
                 />
-                <div onClick={() => fileInputRef.current?.dispatchEvent(new MouseEvent('click', { bubbles: true }))}>
-                    Importer
-                </div>
+                <div onClick={() => document.getElementById('fileInputRef')?.click()}>Importer</div>
             </>
         ),
         [processTransactions]
