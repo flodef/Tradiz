@@ -20,7 +20,7 @@ export const useSummary = () => {
     const ImportOption = useMemo(
         () => (
             <>
-                <label>
+                <label className="w-full cursor-pointer">
                     Import
                     <input
                         className="hidden"

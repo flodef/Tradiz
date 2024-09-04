@@ -139,6 +139,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         return Boolean(transaction && transaction.method === DELETED_KEYWORD);
     }, []);
 
+    const setLocalStorageItem = useCallback((key: string, value: string) => {
+        try {
+            localStorage.setItem(key, value);
+        } catch (error) {
+            alert('Erreur sauvegarde mémoire : capacité de stockage maximale atteinte !');
+        }
+    }, []);
+
     const storeTransaction = useCallback(
         (transaction: Transaction) => {
             const index = transactions.findIndex(({ createdDate }) => createdDate === transaction.createdDate);
@@ -175,7 +183,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const updateLocalTransaction = (id: string, transactions: Transaction[]) => {
                 const txToUpdate = transactions.filter((transaction) => !isProcessingTransaction(transaction));
                 if (txToUpdate.length) {
-                    localStorage.setItem(id, JSON.stringify(txToUpdate));
+                    setLocalStorageItem(id, JSON.stringify(txToUpdate));
                 }
                 txToUpdate
                     .filter((tx) => new Date(tx.createdDate).toLocaleDateString() === new Date().toLocaleDateString())
@@ -309,7 +317,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
                 // Store the data in the localStorage
                 data.forEach((item: { id: string; transactions: any[] }) => {
-                    localStorage.setItem(item.id, JSON.stringify(item.transactions));
+                    setLocalStorageItem(item.id, JSON.stringify(item.transactions));
                 });
             }
         };
@@ -358,7 +366,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             transaction.validator = user.name;
 
             if (transactions.length) {
-                localStorage.setItem(transactionsFilename, JSON.stringify(transactions));
+                setLocalStorageItem(transactionsFilename, JSON.stringify(transactions));
             } else {
                 localStorage.removeItem(transactionsFilename);
             }
