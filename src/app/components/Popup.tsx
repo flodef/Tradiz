@@ -5,6 +5,7 @@ import { usePopup } from '../hooks/usePopup';
 import { useIsMobile } from '../utils/mobile';
 import { CloseButton } from './CloseButton';
 import { requestFullscreen } from '../utils/fullscreen';
+import { cls } from '../utils/constants';
 
 export function useAddPopupClass(className: string): string {
     const { isPopupOpen } = usePopup();
@@ -45,15 +46,15 @@ export const Popup: FC = () => {
             <div
                 id="popup" // id is mandatory for the screenshot to work
                 data-open={isPopupOpen}
-                className={
-                    'absolute z-30 w-[90%] max-h-[90%] max-w-[400px] overflow-y-auto overflow-x-hidden justify-self-center ' +
-                    'bg-popup-light dark:bg-popup-dark h-fit rounded-2xl self-center blur-none border-black border-[3px] ' +
-                    'dark:border-secondary-active-dark data-[open=false]:hidden ' +
-                    (!useIsMobile() && !popupIsFullscreen
+                className={cls(
+                    'absolute z-30 w-[90%] max-h-[90%] max-w-[400px] overflow-y-auto overflow-x-hidden justify-self-center',
+                    'bg-popup-light dark:bg-popup-dark h-fit rounded-2xl self-center blur-none border-black border-[3px]',
+                    'dark:border-secondary-active-dark data-[open=false]:hidden',
+                    !useIsMobile() && !popupIsFullscreen
                         ? 'md:border-[0px] md:w-1/2 md:max-w-[50%] md:max-h-full md:left-1/2 md:bottom-0 md:rounded-none ' +
-                          'md:border-l-4 md:border-secondary-active-light'
-                        : '')
-                }
+                              'md:border-l-4 md:border-secondary-active-light'
+                        : ''
+                )}
             >
                 <div>
                     <div className="flex justify-between bg-secondary-active-light dark:bg-secondary-active-dark">
@@ -74,11 +75,12 @@ export const Popup: FC = () => {
                     {popupOptions.map((option, index) =>
                         option?.toString().trim() ? (
                             <div
-                                className={
-                                    'py-2 ' +
-                                    (popupIsSpecial && popupIsSpecial(option.toString()) ? ' animate-pulse ' : '') +
-                                    'w-full relative flex justify-around items-center font-semibold text-xl text-center'
-                                }
+                                className={cls(
+                                    'py-2 w-full relative flex justify-around items-center',
+                                    'font-semibold text-xl text-center cursor-pointer',
+                                    'hover:bg-active-light dark:hover:bg-active-dark',
+                                    popupIsSpecial && popupIsSpecial(option.toString()) ? 'animate-pulse' : ''
+                                )}
                                 key={index}
                                 onClick={() => handleClick(option.toString(), index)}
                                 onContextMenu={(e) => {
