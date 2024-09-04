@@ -246,7 +246,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }
             });
         },
-        [firestore, storeTransaction, isProcessingTransaction]
+        [firestore, storeTransaction, isProcessingTransaction, setLocalStorageItem]
     );
 
     const syncTransactions = useCallback(
@@ -302,28 +302,36 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         document.body.removeChild(link);
     }, []);
 
-    const importTransactions = useCallback((event?: ChangeEvent<HTMLInputElement>) => {
-        if (!event) return;
+    const importTransactions = useCallback(
+        (event?: ChangeEvent<HTMLInputElement>) => {
+            if (!event) return;
 
-        const file = event.target.files?.[0];
-        if (!file) return;
+            const file = event.target.files?.[0];
+            if (!file) return;
 
-        const reader = new FileReader();
+            const reader = new FileReader();
 
-        reader.onload = (event) => {
-            const jsonData = event.target?.result;
-            if (typeof jsonData === 'string') {
-                const data = JSON.parse(jsonData);
+            reader.onload = (event) => {
+                try {
+                    const jsonData = event.target?.result;
+                    alert('Import en cours...');
+                    if (typeof jsonData === 'string') {
+                        const data = JSON.parse(jsonData);
 
-                // Store the data in the localStorage
-                data.forEach((item: { id: string; transactions: any[] }) => {
-                    setLocalStorageItem(item.id, JSON.stringify(item.transactions));
-                });
-            }
-        };
+                        // Store the data in the localStorage
+                        data.forEach((item: { id: string; transactions: any[] }) => {
+                            setLocalStorageItem(item.id, JSON.stringify(item.transactions));
+                        });
+                    }
+                } catch (error) {
+                    alert(error);
+                }
+            };
 
-        reader.readAsText(file);
-    }, []);
+            reader.readAsText(file);
+        },
+        [setLocalStorageItem]
+    );
 
     const processTransactions = useCallback(
         (syncAction: SyncAction, event?: ChangeEvent<HTMLInputElement>) => {
@@ -393,7 +401,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     break;
             }
         },
-        [transactionsFilename, transactions, user, firestore]
+        [transactionsFilename, transactions, user, firestore, setLocalStorageItem]
     );
 
     const deleteTransaction = useCallback(

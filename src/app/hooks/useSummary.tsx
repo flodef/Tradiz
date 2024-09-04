@@ -21,7 +21,7 @@ export const useSummary = () => {
         () => (
             <>
                 <label className="w-full cursor-pointer">
-                    Import
+                    Importer
                     <input
                         className="hidden"
                         type="file"
