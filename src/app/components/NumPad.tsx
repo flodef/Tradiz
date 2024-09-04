@@ -143,7 +143,7 @@ export const NumPad: FC = () => {
             (height < window.screen.availHeight || width < window.screen.availWidth) &&
             !IS_LOCAL
         ) {
-            openFullscreenPopup('Plein écran', ['Mettre en plein écran'], () => closePopup(requestFullscreen), true);
+            openFullscreenPopup('Plein écran', ['Mettre en plein écran'], requestFullscreen);
         }
     }, [openFullscreenPopup, isPopupOpen, height, width, isStateReady, closePopup]);
 
