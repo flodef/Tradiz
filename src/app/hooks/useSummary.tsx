@@ -27,7 +27,10 @@ export const useSummary = () => {
                         type="file"
                         accept=".json"
                         multiple={false}
-                        onChange={(event) => processTransactions(SyncAction.import, event)}
+                        onChange={(event) => {
+                            alert('event:' + event);
+                            processTransactions(SyncAction.import, event);
+                        }}
                     />
                 </label>
             </>
