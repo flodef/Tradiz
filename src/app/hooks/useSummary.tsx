@@ -19,16 +19,24 @@ export const useSummary = () => {
 
     const ImportOption = useMemo(
         () => (
-            <label>
-                Import
+            <>
+                {/* <label>
+                    Import
+                    <input
+                        className="hidden"
+                        type="file"
+                        accept=".json"
+                        multiple={false}
+                        onChange={(event) => processTransactions(SyncAction.import, event)}
+                    />
+                </label> */}
                 <input
-                    className="hidden"
                     type="file"
                     accept=".json"
                     multiple={false}
                     onChange={(event) => processTransactions(SyncAction.import, event)}
                 />
-            </label>
+            </>
         ),
         [processTransactions]
     );

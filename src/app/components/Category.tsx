@@ -112,7 +112,7 @@ export const Category: FC = () => {
                 );
                 break;
         }
-    }, [state, openFullscreenPopup, closePopup, lastModified, setState, shopEmail, hasSentEmail]);
+    }, [state, openFullscreenPopup, closePopup, lastModified, setState, shopEmail, hasSentEmail, isDemo, isLocalhost]);
 
     const addSpecificProduct = (item: InventoryItem, option: string) => {
         const price = item.products.find(({ label }) => label === option)?.prices[currencyIndex];
