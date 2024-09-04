@@ -304,13 +304,16 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const importTransactions = useCallback(
         (event?: ChangeEvent<HTMLInputElement>) => {
+            alert('event:' + event);
             if (!event) return;
 
+            alert('file:' + event.target.files?.[0]);
             const file = event.target.files?.[0];
             if (!file) return;
 
             const reader = new FileReader();
 
+            alert('Lecture du fichier...');
             reader.onload = (event) => {
                 try {
                     const jsonData = event.target?.result;
@@ -326,6 +329,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 } catch (error) {
                     alert(error);
                 }
+            };
+            reader.onerror = (error) => {
+                alert(error);
             };
 
             reader.readAsText(file);
