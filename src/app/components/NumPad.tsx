@@ -136,15 +136,17 @@ export const NumPad: FC = () => {
     // Check if the app is in fullscreen otherwise open a popup asking to click for setting it
     const { width, height } = useWindowParam();
     useEffect(() => {
-        if (
-            isStateReady &&
-            !isPopupOpen &&
-            !isFullscreen() &&
-            (height < window.screen.availHeight || width < window.screen.availWidth) &&
-            !IS_LOCAL
-        ) {
-            openFullscreenPopup('Plein écran', ['Mettre en plein écran'], requestFullscreen);
-        }
+        setTimeout(() => {
+            if (
+                isStateReady &&
+                !isPopupOpen &&
+                !isFullscreen() &&
+                (height < window.screen.availHeight || width < window.screen.availWidth) &&
+                !IS_LOCAL
+            ) {
+                openFullscreenPopup('Plein écran', ['Mettre en plein écran'], requestFullscreen);
+            }
+        }, 100);
     }, [openFullscreenPopup, isPopupOpen, height, width, isStateReady, closePopup]);
 
     const onInput = useCallback(

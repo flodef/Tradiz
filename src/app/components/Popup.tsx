@@ -2,10 +2,9 @@
 
 import { FC, useCallback } from 'react';
 import { usePopup } from '../hooks/usePopup';
+import { cls } from '../utils/constants';
 import { useIsMobile } from '../utils/mobile';
 import { CloseButton } from './CloseButton';
-import { requestFullscreen } from '../utils/fullscreen';
-import { cls } from '../utils/constants';
 
 export function useAddPopupClass(className: string): string {
     const { isPopupOpen } = usePopup();
@@ -28,7 +27,6 @@ export const Popup: FC = () => {
 
     const handleClick = useCallback(
         (option: string, index: number) => {
-            requestFullscreen();
             if (!popupAction) return;
 
             popupAction(index, option);
@@ -63,7 +61,6 @@ export const Popup: FC = () => {
                         </div>
                         <CloseButton
                             onClose={() => {
-                                requestFullscreen();
                                 closePopup(() => {
                                     handleClick('', -1);
                                 });
