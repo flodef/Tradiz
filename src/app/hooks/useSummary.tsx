@@ -28,14 +28,14 @@ export const useSummary = () => {
                         accept=".json"
                         multiple={false}
                         onChange={(event) => {
-                            alert('event:' + event);
                             processTransactions(SyncAction.import, event);
+                            closePopup();
                         }}
                     />
                 </label>
             </>
         ),
-        [processTransactions]
+        [processTransactions, closePopup]
     );
 
     const tempTransactions = useRef<Transaction[]>([]);
@@ -242,7 +242,8 @@ export const useSummary = () => {
                 (_, option) => {
                     if (option === 'Synchroniser' || option === 'Exporter')
                         processTransactions(option === 'Synchroniser' ? SyncAction.sync : SyncAction.export);
-                }
+                },
+                true
             );
         }
     }, [openPopup, processTransactions, ImportOption, isDbConnected, getHistoricalTransactions]);

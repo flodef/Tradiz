@@ -304,30 +304,20 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const importTransactions = useCallback(
         (event?: ChangeEvent<HTMLInputElement>) => {
-            alert('event:' + event);
-            if (!event) return;
-
-            alert('file:' + event.target.files?.[0]);
-            const file = event.target.files?.[0];
+            const file = event?.target.files?.[0];
             if (!file) return;
 
             const reader = new FileReader();
 
-            alert('Lecture du fichier...');
             reader.onload = (event) => {
-                try {
-                    const jsonData = event.target?.result;
-                    alert('Import en cours...');
-                    if (typeof jsonData === 'string') {
-                        const data = JSON.parse(jsonData);
+                const jsonData = event.target?.result;
+                if (typeof jsonData === 'string') {
+                    const data = JSON.parse(jsonData);
 
-                        // Store the data in the localStorage
-                        data.forEach((item: { id: string; transactions: any[] }) => {
-                            setLocalStorageItem(item.id, JSON.stringify(item.transactions));
-                        });
-                    }
-                } catch (error) {
-                    alert(error);
+                    // Store the data in the localStorage
+                    data.forEach((item: { id: string; transactions: any[] }) => {
+                        setLocalStorageItem(item.id, JSON.stringify(item.transactions));
+                    });
                 }
             };
             reader.onerror = (error) => {

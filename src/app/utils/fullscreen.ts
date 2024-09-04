@@ -55,7 +55,7 @@ export function requestFullscreen(): void {
         document.documentElement.webkitRequestFullscreen ||
         document.documentElement.mozRequestFullScreen ||
         document.documentElement.msRequestFullscreen;
-    if (requestFullscreen && !IS_LOCAL) {
+    if (requestFullscreen) {
         requestFullscreen.call(document.documentElement).catch((error) => console.warn(error));
     }
 }
