@@ -240,13 +240,15 @@ export const useSummary = () => {
                 'Synchronisation',
                 ['Synchroniser', ImportOption].concat(getHistoricalTransactions().length ? ['Exporter'] : []),
                 (_, option) => {
-                    if (option === 'Synchroniser' || option === 'Exporter')
+                    if (option === 'Synchroniser' || option === 'Exporter') {
                         processTransactions(option === 'Synchroniser' ? SyncAction.sync : SyncAction.export);
+                        closePopup();
+                    }
                 },
                 true
             );
         }
-    }, [openPopup, processTransactions, ImportOption, isDbConnected, getHistoricalTransactions]);
+    }, [openPopup, processTransactions, ImportOption, isDbConnected, getHistoricalTransactions, closePopup]);
 
     const showHistoricalTransactions = useCallback(
         (
