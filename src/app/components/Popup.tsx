@@ -3,7 +3,7 @@
 import { FC, useCallback } from 'react';
 import { usePopup } from '../hooks/usePopup';
 import { cls } from '../utils/constants';
-import { useIsMobile } from '../utils/mobile';
+import { isMobileDevice, useIsMobile } from '../utils/mobile';
 import { CloseButton } from './CloseButton';
 
 export function useAddPopupClass(className: string): string {
@@ -68,14 +68,14 @@ export const Popup: FC = () => {
                         />
                     </div>
                 </div>
-                <div className="py-1">
+                <div>
                     {popupOptions.map((option, index) =>
                         option?.toString().trim() ? (
                             <div
                                 className={cls(
                                     'py-2 w-full relative flex justify-around items-center',
                                     'font-semibold text-xl text-center cursor-pointer',
-                                    'hover:bg-active-light dark:hover:bg-active-dark',
+                                    !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark' : '',
                                     popupIsSpecial && popupIsSpecial(option.toString()) ? 'animate-pulse' : ''
                                 )}
                                 key={index}
