@@ -165,14 +165,34 @@ export const NumPad: FC = () => {
                         }
                     }
                 }
-            } else if (selectedProduct) {
-                computeQuantity(
-                    selectedProduct,
-                    parseFloat(quantity > 0 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString())
-                );
+            } else {
+                const newQuantity =
+                    {
+                        '½': (quantity > 0 && quantity < 1 ? quantity : 1) / 2,
+                        '¼': (quantity > 0 && quantity < 1 ? quantity : 1) / 4,
+                    }[key.toString()] ??
+                    parseInt(quantity > 1 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString());
+                if (selectedProduct) {
+                    computeQuantity(selectedProduct, newQuantity);
+                } else {
+                    setQuantity(newQuantity);
+                    setAmount(amount * newQuantity);
+                }
             }
         },
-        [max, regExp, quantity, computeQuantity, selectedProduct, value, setValue, maxDecimals, setQuantity]
+        [
+            max,
+            regExp,
+            quantity,
+            computeQuantity,
+            selectedProduct,
+            value,
+            setValue,
+            maxDecimals,
+            setQuantity,
+            setAmount,
+            amount,
+        ]
     );
 
     const onClear = useCallback(() => {
@@ -266,10 +286,12 @@ export const NumPad: FC = () => {
     const multiply = useCallback(() => {
         if (selectedProduct) {
             computeQuantity(selectedProduct, 1);
+            setAmount(quantity ? 0 : selectedProduct.amount);
+        } else {
+            setAmount(quantity ? parseFloat(value) / Math.pow(10, maxDecimals) : amount);
         }
         setQuantity(quantity ? 0 : -1);
-        setAmount(quantity ? 0 : selectedProduct?.amount ?? 0);
-    }, [setQuantity, quantity, computeQuantity, selectedProduct, setAmount]);
+    }, [setQuantity, quantity, computeQuantity, selectedProduct, setAmount, value, maxDecimals, amount]);
 
     const discount = useCallback(() => {
         if (!discounts.length || !selectedProduct) return;
@@ -321,7 +343,7 @@ export const NumPad: FC = () => {
     const f1 = f + (amount || total || selectedProduct ? color : 'invisible');
     const f2 =
         f +
-        (amount
+        (selectedProduct || amount
             ? quantity
                 ? 'bg-secondary-active-light dark:bg-secondary-active-dark text-popup-dark dark:text-popup-light '
                 : color
@@ -361,7 +383,7 @@ export const NumPad: FC = () => {
                         <Amount
                             className={
                                 'min-w-[145px] text-right leading-normal ' +
-                                (selectedProduct && !amount ? 'animate-blink' : '')
+                                ((selectedProduct && !amount) || (quantity === 0 && amount) ? 'animate-blink' : '')
                             }
                             value={selectedProduct?.total ?? amount}
                             showZero
@@ -399,8 +421,8 @@ export const NumPad: FC = () => {
                         </div>
                     ))}
                     <div className="flex justify-evenly">
-                        <NumPadButton input={0} onInput={onInput} />
-                        <NumPadButton input={'00'} onInput={onInput} />
+                        <NumPadButton input={!quantity ? 0 : '½'} onInput={onInput} />
+                        <NumPadButton input={!quantity ? '00' : '¼'} onInput={onInput} />
                         <ImageButton
                             className={sx}
                             onClick={canPay ? pay : canAddProduct ? addProduct : () => {}}

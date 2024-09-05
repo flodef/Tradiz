@@ -503,12 +503,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const quadratic = toMercurial(quantity, product.mercurial);
             const amount = computeDiscount(product);
 
-            product.quantity = Math.max(
-                1,
+            product.quantity =
                 amount * quadratic <= maxValue
                     ? quantity
-                    : fromMercurial(maxValue / amount, maxValue, product.mercurial)
-            );
+                    : fromMercurial(maxValue / amount, maxValue, product.mercurial);
             product.total = amount * toMercurial(product.quantity, product.mercurial);
 
             setQuantity(product.quantity);
@@ -573,7 +571,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             if (!p) return;
 
-            if (p.quantity === 1) {
+            if (p.quantity <= 1) {
                 deleteProduct(products.current.indexOf(p));
             } else {
                 computeQuantity(p, p.quantity - 1);
