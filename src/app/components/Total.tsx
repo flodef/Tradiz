@@ -308,7 +308,7 @@ export const Total: FC = () => {
     }, [transactions, isWaitingTransaction, isConfirmedTransaction]);
     const getTransactionIndex = useCallback(
         (index: number) =>
-            transactions.findIndex((transaction) => transaction.createdDate === sortedTransactions[index].createdDate),
+            transactions.findIndex((transaction) => transaction.createdDate === sortedTransactions[index]?.createdDate),
         [sortedTransactions, transactions]
     );
 
@@ -390,11 +390,7 @@ export const Total: FC = () => {
         ]
     );
 
-    const clickClassName = isStateReady
-        ? !isMobileDevice()
-            ? 'hover:bg-active-light dark:hover:bg-active-dark'
-            : 'active:bg-active-light dark:active:bg-active-dark'
-        : '';
+    const clickClassName = isStateReady && !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark' : '';
 
     const { width: screenWidth, height: screenHeight } = useWindowParam();
     const left = useMemo(() => (!isMobileSize() && screenWidth > 0 ? screenWidth / 2 : 0), [screenWidth]);
