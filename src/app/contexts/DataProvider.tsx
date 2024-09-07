@@ -651,13 +651,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const displayTransaction = useCallback(
         (transaction: Transaction) => {
-            return (
-                toCurrency(transaction) +
-                (isWaitingTransaction(transaction) ? ' ' : ' en ') +
-                transaction.method +
-                ' à ' +
-                new Date(transaction.createdDate).toTimeString().slice(0, 9)
-            );
+            return transaction.createdDate && transaction.method
+                ? toCurrency(transaction) +
+                      (isWaitingTransaction(transaction) ? ' ' : ' en ') +
+                      transaction.method +
+                      ' à ' +
+                      new Date(transaction.createdDate).toTimeString().slice(0, 9)
+                : '';
         },
         [toCurrency, isWaitingTransaction]
     );

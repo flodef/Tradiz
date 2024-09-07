@@ -1,14 +1,14 @@
 'use client';
 
 import { FC, MouseEventHandler, useCallback, useMemo, useState } from 'react';
-import { Currency, State, useConfig } from '../hooks/useConfig';
+import { Currency, useConfig } from '../hooks/useConfig';
 import { Transaction, useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
-import { BACK_KEYWORD } from '../utils/constants';
-import { isMobileSize, useIsMobile } from '../utils/mobile';
+import { BACK_KEYWORD, cls } from '../utils/constants';
+import { isMobileDevice, isMobileSize, useIsMobile } from '../utils/mobile';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
 
@@ -143,9 +143,9 @@ export const Total: FC = () => {
 
     const isConfirmedTransaction = useCallback(
         (transaction?: Transaction) => {
-            return transaction && !isWaitingTransaction(transaction);
+            return transaction && !isWaitingTransaction(transaction) && !isDeletedTransaction(transaction);
         },
-        [isWaitingTransaction]
+        [isWaitingTransaction, isDeletedTransaction]
     );
 
     const displayTransactionsTitle = useCallback(() => {
@@ -294,29 +294,39 @@ export const Total: FC = () => {
         [transactions, openPopup, displayProduct, toCurrency, modifyTransaction, isStateReady, deleteBoughtProduct]
     );
 
+    const sortedTransactions = useMemo(() => {
+        if (!transactions.length) return [];
+
+        const waitingTransactions = transactions
+            .filter(isWaitingTransaction)
+            .sort((a, b) => b.createdDate - a.createdDate);
+        const confirmedTransactions = transactions
+            .filter(isConfirmedTransaction)
+            .sort((a, b) => b.createdDate - a.createdDate);
+        const hasSeparation = waitingTransactions.length && confirmedTransactions.length;
+        return waitingTransactions.concat(hasSeparation ? [{} as Transaction] : []).concat(confirmedTransactions);
+    }, [transactions, isWaitingTransaction, isConfirmedTransaction]);
+    const getTransactionIndex = useCallback(
+        (index: number) =>
+            transactions.findIndex((transaction) => transaction.createdDate === sortedTransactions[index].createdDate),
+        [sortedTransactions, transactions]
+    );
+
     const showTransactions = useCallback(() => {
         if (!transactions.length) return;
 
-        const waitingTransactions = transactions.filter(isWaitingTransaction);
-        const confirmedTransactions = transactions.filter(isConfirmedTransaction);
-        const hasSeparation = waitingTransactions.length && confirmedTransactions.length;
-        const getIndex = (i: number) => (i > waitingTransactions.length && waitingTransactions.length ? i - 1 : i);
-        const summary = waitingTransactions
-            .map(displayTransaction)
-            .concat(hasSeparation ? [''] : [])
-            .concat(confirmedTransactions.map(displayTransaction));
         openPopup(
             displayTransactionsTitle(),
-            summary,
-            (i) => showBoughtProducts(getIndex(i), showTransactions),
+            sortedTransactions.map(displayTransaction),
+            (i) => showBoughtProducts(getTransactionIndex(i), showTransactions),
             true,
             (index) => {
                 openPopup(
-                    isWaitingTransaction(transactions.at(index)) ? 'Reprendre ?' : 'Modifier ?',
+                    isWaitingTransaction(sortedTransactions.at(index)) ? 'Reprendre ?' : 'Modifier ?',
                     ['Oui', 'Non'],
                     (i) => {
                         if (i === 0) {
-                            editTransaction(getIndex(index));
+                            editTransaction(getTransactionIndex(index));
                             closePopup();
                         } else {
                             showTransactions();
@@ -333,9 +343,10 @@ export const Total: FC = () => {
         showBoughtProducts,
         displayTransactionsTitle,
         isWaitingTransaction,
-        isConfirmedTransaction,
         editTransaction,
         closePopup,
+        getTransactionIndex,
+        sortedTransactions,
     ]);
 
     const canDisplayTotal = useMemo(() => {
@@ -379,7 +390,11 @@ export const Total: FC = () => {
         ]
     );
 
-    const clickClassName = isStateReady ? 'active:bg-active-light dark:active:bg-active-dark ' : '';
+    const clickClassName = isStateReady
+        ? !isMobileDevice()
+            ? 'hover:bg-active-light dark:hover:bg-active-dark'
+            : 'active:bg-active-light dark:active:bg-active-dark'
+        : '';
 
     const { width: screenWidth, height: screenHeight } = useWindowParam();
     const left = useMemo(() => (!isMobileSize() && screenWidth > 0 ? screenWidth / 2 : 0), [screenWidth]);
@@ -393,13 +408,12 @@ export const Total: FC = () => {
             )}
         >
             <div
-                className={
-                    'md:w-1/2 w-full fixed text-5xl truncate text-center font-bold py-3 ' +
-                    ((canDisplayTotal && total) || (!canDisplayTotal && transactions.length) ? clickClassName : '') +
-                    (useIsMobile()
-                        ? 'md:hidden border-b-[3px] border-active-light dark:border-active-dark'
-                        : 'hidden border-b-[3px] border-active-light dark:border-active-dark md:block')
-                }
+                className={cls(
+                    'md:w-1/2 w-full fixed text-5xl truncate text-center font-bold py-3',
+                    'border-b-4 border-active-light dark:border-active-dark',
+                    (canDisplayTotal && total) || (!canDisplayTotal && transactions.length) ? clickClassName : '',
+                    useIsMobile() ? 'md:hidden' : 'hidden md:block'
+                )}
                 onClick={handleClick}
                 onContextMenu={handleClick}
             >
@@ -418,54 +432,56 @@ export const Total: FC = () => {
             <div
                 className={
                     'md:w-1/2 fixed top-[76px] left-0 w-1/2 h-screen text-center text-2xl ' +
-                    'py-1 font-bold overflow-y-auto hidden md:block'
+                    'font-bold overflow-y-auto hidden md:block'
                 }
                 style={{ left: left, height: height }}
             >
                 {canDisplayTotal
                     ? products.current
-                          .map((product) => {
-                              return {
-                                  product: displayProduct(product),
-                                  isSelectedProduct: product === selectedProduct,
-                              };
-                          })
+                          .map((product) => ({
+                              product: displayProduct(product),
+                              isSelectedProduct: product === selectedProduct,
+                          }))
                           .map(({ product, isSelectedProduct }, index) => (
                               <Item
-                                  className={clickClassName + 'py-2 ' + (isSelectedProduct ? 'animate-pulse' : '')}
+                                  className={cls('py-2', clickClassName, isSelectedProduct ? 'animate-pulse' : '')}
                                   key={index}
                                   label={product}
                                   onClick={() => selectProduct(index)}
                                   onContextMenu={() => modifyProduct(index)}
                               />
                           ))
-                    : transactions
-                          .filter((transaction) => !isDeletedTransaction(transaction))
-                          .sort((a, b) => b.createdDate - a.createdDate)
-                          .map(displayTransaction)
-                          .map((transaction, index) => (
-                              <Item
-                                  className={
-                                      clickClassName +
-                                      'py-2 ' +
-                                      (isWaitingTransaction(transactions.at(index))
-                                          ? (isConfirmedTransaction(transactions.at(index + 1))
-                                                ? 'mb-3 pb-3 border-b-4 border-active-light dark:border-active-dark '
-                                                : '') + 'animate-pulse'
-                                          : '')
-                                  }
-                                  key={index}
-                                  label={transaction}
-                                  onClick={() => showBoughtProducts(index, () => closePopup())}
-                                  onContextMenu={() => modifyTransaction(index, () => closePopup())}
-                              />
-                          ))
+                    : sortedTransactions
+                          .map((transaction) => ({
+                              transaction: displayTransaction(transaction),
+                              isWaitingTransaction: isWaitingTransaction(transaction),
+                          }))
+                          .map(({ transaction, isWaitingTransaction }, index) =>
+                              transaction ? (
+                                  <Item
+                                      className={cls(
+                                          'py-2',
+                                          clickClassName,
+                                          isWaitingTransaction ? 'animate-pulse' : ''
+                                      )}
+                                      key={index}
+                                      label={transaction}
+                                      onClick={() => showBoughtProducts(getTransactionIndex(index), () => closePopup())}
+                                      onContextMenu={() =>
+                                          modifyTransaction(getTransactionIndex(index), () => closePopup())
+                                      }
+                                  />
+                              ) : (
+                                  <div
+                                      key={index}
+                                      className="border-b-2 border-secondary-active-light dark:border-secondary-active-dark"
+                                  />
+                              )
+                          )
                           .concat(
                               <div
                                   key="total"
-                                  className={
-                                      'mt-3 pt-1 border-t-4 border-secondary-active-light dark:border-secondary-active-dark'
-                                  }
+                                  className="pt-1 border-t-4 border-secondary-active-light dark:border-secondary-active-dark"
                               >
                                   {displayTransactionsTitle()}
                               </div>
