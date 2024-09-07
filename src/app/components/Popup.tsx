@@ -75,7 +75,9 @@ export const Popup: FC = () => {
                                 className={cls(
                                     'py-2 w-full relative flex justify-around items-center',
                                     'font-semibold text-xl text-center cursor-pointer',
-                                    !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark' : '',
+                                    !isMobileDevice()
+                                        ? 'hover:bg-active-light dark:hover:bg-active-dark'
+                                        : 'active:bg-active-light dark:active:bg-active-dark',
                                     popupIsSpecial && popupIsSpecial(option.toString()) ? 'animate-pulse' : ''
                                 )}
                                 key={index}
