@@ -38,6 +38,7 @@ export const Popup: FC = () => {
     return (
         <div className="absolute h-screen w-screen grid">
             <div
+                onClick={() => closePopup()}
                 data-open={isPopupOpen}
                 className={'absolute inset-0 z-20 opacity-50 bg-gray-900 data-[open=false]:hidden'}
             ></div>
