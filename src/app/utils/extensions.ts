@@ -13,6 +13,7 @@ declare global {
         toShortFixed(maxDecimals?: number): string;
         toDecimalPlace(decimalPlace?: number, direction?: RoundingDirection): number;
         toClosestPowerOfTen(direction?: RoundingDirection): number;
+        clean(maxDecimals?: number): number;
     }
     interface String {
         fromCurrency(locale?: string): number;
@@ -88,6 +89,10 @@ Number.prototype.toClosestPowerOfTen = function (direction: RoundingDirection = 
     }
 
     return Math.pow(10, direction === 'down' ? power : power + 1);
+};
+
+Number.prototype.clean = function (maxDecimals = 2) {
+    return Number(this.toFixed(maxDecimals));
 };
 
 String.prototype.fromCurrency = function (locale?: string) {
