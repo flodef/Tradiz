@@ -11,10 +11,11 @@ import {
     query,
     setDoc,
     updateDoc,
+    where,
 } from 'firebase/firestore';
 import { ChangeEvent, FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Currency, Discount, Mercurial, useConfig } from '../hooks/useConfig';
-import { DataContext, Product, SyncAction, Transaction, TransactionSet } from '../hooks/useData';
+import { Discount, Mercurial, useConfig } from '../hooks/useConfig';
+import { DataContext, Product, SyncAction, SyncPeriod, Transaction, TransactionSet } from '../hooks/useData';
 import { useWindowParam } from '../hooks/useWindowParam';
 import {
     DELETED_KEYWORD,
@@ -37,14 +38,14 @@ export interface DataProviderProps {
 }
 
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
-    const { currencies, currencyIndex, setCurrency, mercurial, user } = useConfig();
-    const { isDemo } = useWindowParam();
+    const { currencies, currencyIndex, setCurrency, parameters } = useConfig();
+    const { isDemo, isOnline } = useWindowParam();
 
     const [transactionsFilename, setTransactionsFilename] = useState('');
     const [total, setTotal] = useState(0);
     const [amount, setAmount] = useState(0);
     const [quantity, setQuantity] = useState(0);
-    const [currentMercurial, setCurrentMercurial] = useState(mercurial);
+    const [currentMercurial, setCurrentMercurial] = useState(parameters.mercurial);
     const [selectedProduct, setSelectedProduct] = useState<Product>();
     const products = useRef<Product[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -52,36 +53,39 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [firestore, setFirestore] = useState<Firestore>();
     const areTransactionLoaded = useRef(false);
 
-    const isDbConnected = useMemo(() => !!firestore, [firestore]);
+    const isDbConnected = useMemo(() => !!firestore && isOnline, [firestore, isOnline]);
 
     useEffect(() => {
-        setCurrentMercurial(mercurial);
-    }, [mercurial]);
+        setCurrentMercurial(parameters.mercurial);
+    }, [parameters.mercurial]);
 
     useEffect(() => {
-        if (!transactionsFilename && !areTransactionLoaded.current) {
-            const filename =
-                TRANSACTIONS_KEYWORD +
-                (window && window.location.pathname.length > 1 ? window.location.pathname.replaceAll('/', '+') : '') +
-                '_' +
-                GET_FORMATTED_DATE();
+        if (
+            !parameters.shopName ||
+            parameters.shopId !== window.location.pathname.split('/')[1] ||
+            areTransactionLoaded.current
+        )
+            return;
 
-            const transactions = JSON.parse(localStorage.getItem(filename) || '[]') as Transaction[];
-            setTransactions(transactions);
-            areTransactionLoaded.current = true;
-            setTransactionsFilename(filename);
+        const filename = (parameters.shopId || TRANSACTIONS_KEYWORD) + '_' + GET_FORMATTED_DATE();
 
-            const now = new Date();
-            const midnight = new Date();
-            midnight.setDate(now.getDate() + 1);
-            midnight.setHours(0, 0, 0, 0);
-            const timeUntilMidnight = midnight.getTime() - now.getTime();
-            setTimeout(() => {
-                areTransactionLoaded.current = false;
-                setTransactionsFilename('');
-            }, timeUntilMidnight); // Automatically reload at midnight
-        }
+        const transactions = JSON.parse(localStorage.getItem(filename) || '[]') as Transaction[];
+        setTransactions(transactions);
+        areTransactionLoaded.current = true;
+        setTransactionsFilename(filename);
 
+        const now = new Date();
+        const midnight = new Date();
+        midnight.setDate(now.getDate() + 1);
+        midnight.setHours(0, 0, 0, 0);
+        const timeUntilMidnight = midnight.getTime() - now.getTime();
+        setTimeout(() => {
+            areTransactionLoaded.current = false;
+            setTransactionsFilename('');
+        }, timeUntilMidnight); // Automatically reload at midnight
+    }, [parameters.shopName, parameters.shopId]);
+
+    useEffect(() => {
         if (IS_DEV || isDemo) return;
 
         fetch(`./api/firebase`)
@@ -97,7 +101,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     setFirestore(firebaseFirestore);
                 });
             });
-    }, [user, transactionsFilename, isDemo]);
+    }, [isDemo]);
 
     useEffect(() => {
         if (!firestore || !transactionsFilename) return;
@@ -139,14 +143,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         return Boolean(transaction && transaction.method === DELETED_KEYWORD);
     }, []);
 
-    const setLocalStorageItem = useCallback((key: string, value: string) => {
-        try {
-            localStorage.setItem(key, value);
-        } catch (error) {
-            alert('Erreur sauvegarde mémoire : capacité de stockage maximale atteinte !');
-        }
-    }, []);
-
     const storeTransaction = useCallback(
         (transaction: Transaction) => {
             const index = transactions.findIndex(({ createdDate }) => createdDate === transaction.createdDate);
@@ -163,14 +159,54 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [isWaitingTransaction, transactions, setTransactions]
     );
 
+    const storeIndex = useCallback(
+        async (id: string) => {
+            if (!firestore) return;
+
+            const info = id.split('_');
+            await setDoc(doc(firestore, 'Indexes', id), { shop: info[0], date: info[1] });
+        },
+        [firestore]
+    );
+
+    const getLocalTransactions = useCallback(() => {
+        const localTransactionSets: TransactionSet[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key?.includes(parameters.shopId)) {
+                const value = localStorage.getItem(key);
+                if (value) {
+                    const transactions = JSON.parse(value) as Transaction[];
+                    localTransactionSets.push({ id: key, transactions });
+                }
+            }
+        }
+        return localTransactionSets.sort((a, b) => a.id.localeCompare(b.id));
+    }, [parameters.shopId]);
+
+    const setLocalStorageItem = useCallback(
+        (key: string, value: string) => {
+            try {
+                localStorage.setItem(key, value);
+            } catch (error) {
+                const localTransactionSets = getLocalTransactions();
+                localStorage.removeItem(localTransactionSets[0].id);
+                setLocalStorageItem(key, value);
+            }
+        },
+        [getLocalTransactions]
+    );
+
     // Check if the "transaction set" in the cloud exists in local (check by "id").
     // If not add it, if yes, check if every transaction in the cloud transaction set exist in local (check by "createdDate").
     // If not, add the transaction, if yes, check which one has the biggest "modifiedDate".
     // If it's the cloud one, update the local, if it's the local one, update the cloud.
     // Then, check if the "transaction set" in local exists in the cloud, using the same method as above.
     const fullSync = useCallback(
-        (cloudTransactionSets: TransactionSet[], localTransactionSets: TransactionSet[]) => {
+        (cloudTransactionSets: TransactionSet[]) => {
             if (!firestore) return;
+
+            let localTransactionSets = getLocalTransactions();
 
             console.log(
                 'syncTransactions',
@@ -180,89 +216,97 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 localTransactionSets.sort((a, b) => a.id.localeCompare(b.id))
             );
 
-            const updateLocalTransaction = (id: string, transactions: Transaction[]) => {
-                const txToUpdate = transactions.filter((transaction) => !isProcessingTransaction(transaction));
+            const updateLocalTransaction = (transactionSet: TransactionSet) => {
+                const txToUpdate = transactionSet.transactions.filter(
+                    (transaction) => !isProcessingTransaction(transaction)
+                );
                 if (txToUpdate.length) {
-                    setLocalStorageItem(id, JSON.stringify(txToUpdate));
+                    setLocalStorageItem(transactionSet.id, JSON.stringify(txToUpdate));
                 }
                 txToUpdate
                     .filter((tx) => new Date(tx.createdDate).toLocaleDateString() === new Date().toLocaleDateString())
                     .forEach((tx) => storeTransaction(tx));
             };
-            const updateCloudTransaction = (id: string, transaction: Transaction) => {
-                setDoc(doc(firestore, id, transaction.createdDate.toString()), transaction);
+            const updateCloudTransaction = async (id: string, transaction: Transaction) => {
+                await setDoc(doc(firestore, id, transaction.createdDate.toString()), transaction);
             };
 
             cloudTransactionSets.forEach((cloudTransactionSet) => {
                 const localTransactionSet = localTransactionSets.find((set) => set.id === cloudTransactionSet.id);
+                const updateTransactionSet: TransactionSet = {
+                    id: cloudTransactionSet.id,
+                    transactions: [],
+                };
 
                 if (!localTransactionSet) {
                     console.log('Added set to local', cloudTransactionSet.id);
-                    updateLocalTransaction(cloudTransactionSet.id, cloudTransactionSet.transactions);
+                    updateLocalTransaction(cloudTransactionSet);
                 } else {
-                    cloudTransactionSet.transactions.forEach((cloudTransaction) => {
+                    cloudTransactionSet.transactions.forEach(async (cloudTransaction) => {
                         const index = localTransactionSet.transactions.findIndex(
                             (localTransaction) => localTransaction.createdDate === cloudTransaction.createdDate
                         );
 
                         if (index === -1) {
                             console.log('Added transaction to local', cloudTransaction);
-                            localTransactionSet.transactions.push(cloudTransaction);
+                            updateTransactionSet.transactions.push(cloudTransaction);
                         } else {
                             const localTransaction = localTransactionSet.transactions[index];
 
                             if (cloudTransaction.modifiedDate > localTransaction.modifiedDate) {
                                 console.log('Updated transaction in local', cloudTransaction);
-                                localTransactionSet.transactions.splice(index, 1, cloudTransaction);
+                                updateTransactionSet.transactions.splice(index, 1, cloudTransaction);
                             } else if (cloudTransaction.modifiedDate < localTransaction.modifiedDate) {
                                 console.log('Updated transaction in cloud', localTransaction);
-                                updateCloudTransaction(cloudTransactionSet.id, localTransaction);
+                                await updateCloudTransaction(cloudTransactionSet.id, localTransaction);
                             }
                         }
                     });
-                    updateLocalTransaction(cloudTransactionSet.id, localTransactionSet.transactions);
+                    updateLocalTransaction(updateTransactionSet);
                 }
             });
 
-            localTransactionSets.forEach((localTransactionSet) => {
+            localTransactionSets = getLocalTransactions(); // Update local transaction sets after cloud sync
+            localTransactionSets.forEach(async (localTransactionSet) => {
                 const cloudTransactionSet = cloudTransactionSets.find((set) => set.id === localTransactionSet.id);
 
                 if (!cloudTransactionSet) {
                     console.log('Added set to cloud', localTransactionSet.id);
-                    localTransactionSet.transactions.forEach((localTransaction) =>
-                        updateCloudTransaction(localTransactionSet.id, localTransaction)
+                    await storeIndex(localTransactionSet.id);
+                    localTransactionSet.transactions.forEach(
+                        async (localTransaction) =>
+                            await updateCloudTransaction(localTransactionSet.id, localTransaction)
                     );
                 } else {
-                    localTransactionSet.transactions.forEach((localTransaction) => {
+                    localTransactionSet.transactions.forEach(async (localTransaction) => {
                         if (
                             !cloudTransactionSet.transactions.some(
                                 (cloudTransaction) => cloudTransaction.createdDate === localTransaction.createdDate
                             )
                         ) {
                             console.log('Added transaction to cloud', localTransaction);
-                            updateCloudTransaction(localTransactionSet.id, localTransaction);
+                            await updateCloudTransaction(localTransactionSet.id, localTransaction);
                         }
                     });
                 }
             });
         },
-        [firestore, storeTransaction, isProcessingTransaction, setLocalStorageItem]
+        [firestore, storeTransaction, isProcessingTransaction, setLocalStorageItem, storeIndex, getLocalTransactions]
     );
 
     const syncTransactions = useCallback(
-        (localTransactionSets: TransactionSet[]) => {
+        (period: SyncPeriod) => {
             if (!firestore) return;
 
-            const fileName = transactionsFilename.split('_')[0];
+            const criteria = period === SyncPeriod.day ? 'date' : 'shop';
+            const param = period === SyncPeriod.day ? GET_FORMATTED_DATE() : parameters.shopId;
 
             const cloudTransactionSets: TransactionSet[] = [];
-            getDocs(collection(firestore, 'Indexes')).then((querySnapshot) => {
-                const tx = querySnapshot.docs.filter((doc) => doc.id.includes(fileName));
-                let txToProcess = tx.length;
-
+            getDocs(query(collection(firestore, 'Indexes'), where(criteria, '==', param))).then((querySnapshot) => {
+                let txToProcess = querySnapshot.size;
                 console.log('Loaded all tx:', txToProcess);
 
-                tx.forEach((doc) => {
+                querySnapshot.forEach((doc) => {
                     const id = doc.id;
                     getDocs(collection(firestore, id)).then((query) => {
                         const transactions: Transaction[] = [];
@@ -272,16 +316,17 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         console.log('txToProcess', txToProcess);
 
                         if (!--txToProcess) {
-                            fullSync(cloudTransactionSets, localTransactionSets);
+                            fullSync(cloudTransactionSets);
                         }
                     });
                 });
             });
         },
-        [firestore, transactionsFilename, fullSync]
+        [firestore, fullSync, parameters.shopId]
     );
 
-    const exportTransactions = useCallback((localTransactionSets: TransactionSet[]) => {
+    const exportTransactions = useCallback(() => {
+        const localTransactionSets = getLocalTransactions();
         const jsonData = JSON.stringify(localTransactionSets);
 
         // Create a Blob and URL object containing the JSON data
@@ -300,7 +345,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         // Clean up the URL and link element
         URL.revokeObjectURL(url);
         document.body.removeChild(link);
-    }, []);
+    }, [getLocalTransactions]);
 
     const importTransactions = useCallback(
         (event?: ChangeEvent<HTMLInputElement>) => {
@@ -333,33 +378,19 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         (syncAction: SyncAction, event?: ChangeEvent<HTMLInputElement>) => {
             if (!firestore) return;
 
-            const fileName = transactionsFilename.split('_')[0];
-
-            const localTransactionSets: TransactionSet[] = [];
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key?.includes(fileName)) {
-                    const value = localStorage.getItem(key);
-                    if (value) {
-                        const transactions = JSON.parse(value) as Transaction[];
-                        localTransactionSets.push({ id: key, transactions });
-                    }
-                }
-            }
-
             switch (syncAction) {
                 case SyncAction.sync:
-                    syncTransactions(localTransactionSets);
+                    syncTransactions(SyncPeriod.full);
                     break;
                 case SyncAction.export:
-                    exportTransactions(localTransactionSets);
+                    exportTransactions();
                     break;
                 case SyncAction.import:
                     importTransactions(event);
                     break;
             }
         },
-        [firestore, transactionsFilename, syncTransactions, exportTransactions, importTransactions]
+        [firestore, syncTransactions, exportTransactions, importTransactions]
     );
 
     const saveTransactions = useCallback(
@@ -367,7 +398,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!transaction) return;
 
             transaction.modifiedDate = new Date().getTime();
-            transaction.validator = user.name;
+            transaction.amount = transaction.amount.clean(
+                currencies.find(({ label }) => label === transaction.currency)?.maxDecimals
+            );
+            transaction.validator = parameters.user.name;
 
             if (transactions.length) {
                 setLocalStorageItem(transactionsFilename, JSON.stringify(transactions));
@@ -383,7 +417,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             switch (action) {
                 case DatabaseAction.add:
                     setDoc(doc(firestore, transactionsFilename, index.toString()), transaction);
-                    setDoc(doc(firestore, 'Indexes', transactionsFilename), {});
+                    storeIndex(transactionsFilename);
                     break;
                 case DatabaseAction.update:
                     updateDoc(doc(firestore, transactionsFilename, index.toString()), {
@@ -397,7 +431,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     break;
             }
         },
-        [transactionsFilename, transactions, user, firestore, setLocalStorageItem]
+        [transactionsFilename, transactions, parameters.user, firestore, setLocalStorageItem, currencies, storeIndex]
     );
 
     const deleteTransaction = useCallback(
@@ -415,10 +449,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const toCurrency = useCallback(
-        (element: { amount: number; currency?: Currency } | number | Product | Transaction) => {
+        (element: { amount: number; currency?: string } | number | Product | Transaction) => {
             const currency =
                 (typeof element !== 'number' && element.hasOwnProperty('currency')
-                    ? (element as { currency: Currency }).currency
+                    ? currencies.find(({ label }) => label === (element as { currency: string }).currency)
                     : undefined) ?? currencies[currencyIndex];
             const amount = element.hasOwnProperty('amount')
                 ? (element as { amount: number }).amount
@@ -471,10 +505,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const clearAmount = useCallback(() => {
         setAmount(0);
         setQuantity(0);
-        setCurrentMercurial(mercurial);
+        setCurrentMercurial(parameters.mercurial);
         setSelectedProduct(undefined);
         updateTotal();
-    }, [updateTotal, mercurial]);
+    }, [updateTotal, parameters.mercurial]);
 
     const clearTotal = useCallback(() => {
         products.current = [];
@@ -581,7 +615,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const displayProduct = useCallback(
-        (product: Product, currency?: Currency) => {
+        (product: Product, currency?: string) => {
             return (
                 (product.label && product.label !== OTHER_KEYWORD ? product.label : product.category) +
                 ' : ' +
@@ -599,21 +633,22 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     useEffect(() => {
         const processingTransaction = !products.current.length
             ? transactions.find(
-                  (transaction) => isProcessingTransaction(transaction) && transaction.validator === user.name
+                  (transaction) =>
+                      isProcessingTransaction(transaction) && transaction.validator === parameters.user.name
               )
             : undefined;
         if (processingTransaction) {
             transactionId.current = processingTransaction.createdDate;
             processingTransaction.products.forEach(addProduct);
         }
-    }, [transactions, user, addProduct, isProcessingTransaction]);
+    }, [transactions, parameters.user, addProduct, isProcessingTransaction]);
 
     const editTransaction = useCallback(
         (index: number) => {
             if (!transactions.length) return;
 
             const transaction = transactions[index];
-            setCurrency(transaction.currency.label);
+            setCurrency(transaction.currency);
             transaction.products.forEach(addProduct);
             transaction.method = PROCESSING_KEYWORD;
 
@@ -631,12 +666,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 typeof item === 'object'
                     ? item
                     : {
+                          shop: parameters.shopId,
                           validator: '',
                           method: item,
                           amount: getCurrentTotal(),
                           createdDate: transactionId.current || currentTime,
                           modifiedDate: 0,
-                          currency: currencies[currencyIndex],
+                          currency: currencies[currencyIndex].label,
                           products: products.current,
                       };
 
@@ -646,7 +682,16 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             clearTotal();
         },
-        [clearTotal, products, saveTransactions, getCurrentTotal, currencies, currencyIndex, storeTransaction]
+        [
+            clearTotal,
+            products,
+            saveTransactions,
+            getCurrentTotal,
+            currencies,
+            currencyIndex,
+            storeTransaction,
+            parameters.shopId,
+        ]
     );
 
     const displayTransaction = useCallback(
