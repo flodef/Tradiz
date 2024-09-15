@@ -2,7 +2,8 @@ import { ChangeEvent, MutableRefObject, createContext, useContext } from 'react'
 import { Currency, Discount, Mercurial } from './useConfig';
 
 export enum SyncAction {
-    sync,
+    fullsync,
+    daysync,
     export,
     import,
 }

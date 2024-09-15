@@ -379,8 +379,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!firestore) return;
 
             switch (syncAction) {
-                case SyncAction.sync:
+                case SyncAction.fullsync:
                     syncTransactions(SyncPeriod.full);
+                    break;
+                case SyncAction.daysync:
+                    syncTransactions(SyncPeriod.day);
                     break;
                 case SyncAction.export:
                     exportTransactions();

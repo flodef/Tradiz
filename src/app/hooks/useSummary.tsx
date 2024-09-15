@@ -238,10 +238,17 @@ export const useSummary = () => {
         if (isDbConnected) {
             openPopup(
                 'Synchronisation',
-                ['Synchroniser', ImportOption].concat(getHistoricalTransactions().length ? ['Exporter'] : []),
+                ['Synchroniser (complet)', 'Synchroniser (jour)', ImportOption].concat(
+                    getHistoricalTransactions().length ? ['Exporter'] : []
+                ),
                 (_, option) => {
-                    if (option === 'Synchroniser' || option === 'Exporter') {
-                        processTransactions(option === 'Synchroniser' ? SyncAction.sync : SyncAction.export);
+                    const action = {
+                        'Synchroniser (complet)': SyncAction.fullsync,
+                        'Synchroniser (jour)': SyncAction.daysync,
+                        Exporter: SyncAction.export,
+                    }[option];
+                    if (action) {
+                        processTransactions(action);
                         closePopup();
                     }
                 },
