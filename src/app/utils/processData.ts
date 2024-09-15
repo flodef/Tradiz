@@ -41,6 +41,16 @@ const dataNames: { [key: string]: DataName } = {
     users: { json: 'users', sheet: 'Utilisateurs' },
 };
 
+export const defaultParameters: Parameters = {
+    shopId: '',
+    shopName: '',
+    shopEmail: EMAIL,
+    thanksMessage: '',
+    mercurial: Mercurial.none,
+    lastModified: new Date().toLocaleString(),
+    user: { name: '', role: Role.none },
+};
+
 export const defaultCurrencies: Currency[] = [
     {
         label: 'Euro',
@@ -105,6 +115,7 @@ export async function loadData(shop: string, isOutOfLocalHost = true): Promise<C
     if (!user || user.role === Role.none) throw new UserNotFoundError(param.at(1));
 
     const parameters: Parameters = {
+        shopId: shop,
         shopName: param.at(0) ?? '',
         shopEmail: param.at(1) ?? EMAIL,
         thanksMessage: param.at(2) ?? 'Merci de votre visite !',
