@@ -171,7 +171,7 @@ export const NumPad: FC = () => {
                         '½': (quantity > 0 && quantity < 1 ? quantity : 1) / 2,
                         '¼': (quantity > 0 && quantity < 1 ? quantity : 1) / 4,
                     }[key.toString()] ??
-                    parseInt(quantity > 1 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString());
+                    parseInt(quantity >= 1 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString());
                 if (selectedProduct) {
                     computeQuantity(selectedProduct, newQuantity);
                 } else {
@@ -421,8 +421,8 @@ export const NumPad: FC = () => {
                         </div>
                     ))}
                     <div className="flex justify-evenly">
-                        <NumPadButton input={!quantity ? 0 : '½'} onInput={onInput} />
-                        <NumPadButton input={!quantity ? '00' : '¼'} onInput={onInput} />
+                        <NumPadButton input={0} onInput={onInput} />
+                        <NumPadButton input={!quantity ? '00' : '½'} onInput={onInput} />
                         <ImageButton
                             className={sx}
                             onClick={canPay ? pay : canAddProduct ? addProduct : () => {}}
