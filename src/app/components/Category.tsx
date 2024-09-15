@@ -47,7 +47,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
 };
 
 export const Category: FC = () => {
-    const { inventory, state, lastModified, setState, currencyIndex, shopEmail } = useConfig();
+    const { inventory, state, setState, currencyIndex, parameters } = useConfig();
     const { addProduct, amount, setSelectedProduct, clearAmount, selectedProduct } = useData();
     const { openPopup, openFullscreenPopup, closePopup } = usePopup();
     const { isLocalhost, isDemo } = useWindowParam();
@@ -65,7 +65,7 @@ export const Category: FC = () => {
 
                 openFullscreenPopup(
                     'Erreur chargement données',
-                    [`Utiliser sauvegarde du ${lastModified}`, 'Réessayer'],
+                    [`Utiliser sauvegarde du ${parameters.lastModified}`, 'Réessayer'],
                     (index) => {
                         setState(index === 1 ? State.init : State.loaded);
                     }
@@ -74,11 +74,11 @@ export const Category: FC = () => {
             case State.unidentified:
                 openFullscreenPopup(
                     'Utilisateur non identifié',
-                    ['Rafraîchir la page'].concat(!hasSentEmail ? ['Contacter ' + shopEmail] : []),
+                    ['Rafraîchir la page'].concat(!hasSentEmail ? ['Contacter ' + parameters.shopEmail] : []),
                     (i) => {
                         if (i === 1) {
                             sendEmail(
-                                shopEmail,
+                                parameters.shopEmail,
                                 "Demande d'accès utilisateur",
                                 `Bonjour, je souhaite accéder à l'application de caisse avec les informations suivantes : 
                             \n- Clé : ${getPublicKey()} 
@@ -112,7 +112,17 @@ export const Category: FC = () => {
                 );
                 break;
         }
-    }, [state, openFullscreenPopup, closePopup, lastModified, setState, shopEmail, hasSentEmail, isDemo, isLocalhost]);
+    }, [
+        state,
+        openFullscreenPopup,
+        closePopup,
+        parameters.lastModified,
+        setState,
+        parameters.shopEmail,
+        hasSentEmail,
+        isDemo,
+        isLocalhost,
+    ]);
 
     const addSpecificProduct = (item: InventoryItem, option: string) => {
         const price = item.products.find(({ label }) => label === option)?.prices[currencyIndex];

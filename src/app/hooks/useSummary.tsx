@@ -13,7 +13,7 @@ enum HistoricalPeriod {
 }
 
 export const useSummary = () => {
-    const { currencies, currencyIndex, inventory, shopEmail } = useConfig();
+    const { currencies, currencyIndex, inventory, parameters } = useConfig();
     const { transactions, toCurrency, transactionsFilename, isDbConnected, processTransactions } = useData();
     const { openPopup, closePopup } = usePopup();
 
@@ -49,7 +49,7 @@ export const useSummary = () => {
         const t = tempTransactions.current.length ? tempTransactions.current : transactions.length ? transactions : [];
         return t.filter(
             (transaction) =>
-                transaction.currency.symbol === currencies[currencyIndex].symbol &&
+                transaction.currency === currencies[currencyIndex].label &&
                 !!transaction.products.length &&
                 transaction.method !== DELETED_KEYWORD &&
                 transaction.method !== WAITING_KEYWORD
@@ -469,10 +469,10 @@ export const useSummary = () => {
                 ' :\n\n' +
                 summary;
 
-            sendEmail(shopEmail, subject, message);
+            sendEmail(parameters.shopEmail, subject, message);
             console.log(subject);
         },
-        [getTransactionsData, shopEmail, getTransactionDate, getFilteredTransactions, toCurrency]
+        [getTransactionsData, parameters.shopEmail, getTransactionDate, getFilteredTransactions, toCurrency]
     );
 
     const downloadData = useCallback(

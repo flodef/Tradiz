@@ -9,15 +9,20 @@ import {
     InventoryItem,
     Mercurial,
     PaymentMethod,
-    Role,
     State,
     User,
 } from '../hooks/useConfig';
-import { EMAIL } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
-import { UserNotFoundError, defaultCurrencies, defaultPaymentMethods, loadData } from '../utils/processData';
+import {
+    UserNotFoundError,
+    defaultCurrencies,
+    defaultParameters,
+    defaultPaymentMethods,
+    loadData,
+} from '../utils/processData';
 
 export interface Parameters {
+    shopId: string;
     shopName: string;
     shopEmail: string;
     thanksMessage: string;
@@ -42,13 +47,8 @@ export interface ConfigProviderProps {
 
 export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const [state, setState] = useState(State.init);
-    const [config, setConfig] = useLocalStorage<Config | undefined>('Parameters', undefined);
-    const [shopName, setShopName] = useState('');
-    const [shopEmail, setShopEmail] = useState(EMAIL);
-    const [thanksMessage, setThanksMessage] = useState('');
-    const [mercurial, setMercurial] = useState(Mercurial.none);
-    const [user, setUser] = useState<User>({ name: '', role: Role.none });
-    const [lastModified, setLastModified] = useState(new Date().toLocaleString());
+    const [config, setConfig] = useLocalStorage<Config | undefined>('Config', undefined);
+    const [parameters, setParameters] = useState<Parameters>(defaultParameters);
     const [currencyIndex, setCurrencyIndex] = useState(0);
     const [currencies, setCurrencies] = useState<Currency[]>(defaultCurrencies);
     const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(defaultPaymentMethods);
@@ -71,12 +71,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const loadConfig = useCallback((data: Config | undefined) => {
         if (!data) return;
 
-        setShopName(data.parameters.shopName);
-        setShopEmail(data.parameters.shopEmail);
-        setThanksMessage(data.parameters.thanksMessage);
-        setMercurial(data.parameters.mercurial);
-        setLastModified(data.parameters.lastModified);
-        setUser(data.parameters.user);
+        setParameters(data.parameters);
         setCurrencies(data.currencies);
         setPaymentMethods(data.paymentMethods);
         setInventory(data.inventory);
@@ -141,7 +136,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
                         console.error(error);
 
                         if (error instanceof UserNotFoundError) {
-                            setShopEmail(String(error.cause));
+                            parameters.shopEmail = String(error.cause);
                             setState(State.unidentified);
                         } else {
                             setState(State.error);
@@ -149,7 +144,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
                     });
             }
         }
-    }, [state, config, storeData, loadConfig, shop]);
+    }, [state, config, storeData, loadConfig, shop, parameters]);
 
     return (
         <ConfigContext.Provider
@@ -157,12 +152,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
                 state,
                 setState,
                 isStateReady,
-                shopEmail,
-                shopName,
-                thanksMessage,
-                mercurial,
-                user,
-                lastModified,
+                parameters,
                 currencyIndex,
                 setCurrency,
                 currencies,

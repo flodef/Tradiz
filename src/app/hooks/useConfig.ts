@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react';
+import { Parameters } from '../contexts/ConfigProvider';
 
 export enum State {
     init,
@@ -64,12 +65,7 @@ export interface ConfigContextState {
     state: State;
     setState: (value: State) => void;
     isStateReady: boolean;
-    shopEmail: string;
-    shopName: string;
-    thanksMessage: string;
-    mercurial: Mercurial;
-    user: User;
-    lastModified: string;
+    parameters: Parameters;
     currencyIndex: number;
     setCurrency: (label: string) => void;
     currencies: Currency[];

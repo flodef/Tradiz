@@ -18,7 +18,7 @@ export interface CryptoProviderProps {
 
 export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
     const { total } = useData();
-    const { paymentMethods, shopName: label, thanksMessage: message, currencies, currencyIndex } = useConfig();
+    const { paymentMethods, parameters, currencies, currencyIndex } = useConfig();
     const { isOnline } = useWindowParam();
 
     const requiredConfirmations = 1;
@@ -70,8 +70,8 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
                     amount,
                     splToken,
                     reference,
-                    label,
-                    message,
+                    label: parameters.shopName,
+                    message: parameters.thanksMessage,
                     memo,
                 });
             case Crypto.June:
@@ -85,7 +85,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
             default:
                 return '';
         }
-    }, [label, memo, message, recipient, splToken, reference, amount, crypto]);
+    }, [parameters.shopName, memo, parameters.thanksMessage, recipient, splToken, reference, amount, crypto]);
 
     const init = useCallback(() => {
         setPaymentStatus(PaymentStatus.New);
