@@ -7,6 +7,11 @@ export enum SyncAction {
     import,
 }
 
+export enum SyncPeriod {
+    day,
+    full,
+}
+
 export type DataElement = {
     category: string;
     quantity: number;
@@ -21,12 +26,13 @@ export type Product = DataElement & {
 };
 
 export type Transaction = {
+    shop: string;
     validator: string;
     method: string;
     amount: number;
     createdDate: number;
     modifiedDate: number;
-    currency: Currency;
+    currency: string;
     products: Product[];
 };
 
@@ -51,7 +57,7 @@ export interface DataContextState {
     addProduct: (product?: Product) => void;
     removeProduct: (product?: Product) => void;
     deleteProduct: (index: number) => void;
-    displayProduct: (product: Product, currency?: Currency) => string;
+    displayProduct: (product: Product, currency?: string) => string;
     clearAmount: () => void;
     clearTotal: () => void;
     products: MutableRefObject<Product[]>;
@@ -64,7 +70,7 @@ export interface DataContextState {
     isWaitingTransaction: (transaction?: Transaction) => boolean;
     isDeletedTransaction: (transaction?: Transaction) => boolean;
     transactionsFilename: string;
-    toCurrency: (element: { amount: number; currency: Currency } | number | Product | Transaction) => string;
+    toCurrency: (element: { amount: number; currency: string } | number | Product | Transaction) => string;
     isDbConnected: boolean;
 }
 

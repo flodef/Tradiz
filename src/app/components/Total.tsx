@@ -152,12 +152,12 @@ export const Total: FC = () => {
         if (!transactions.length) return '';
 
         const totalTransactions = transactions.length;
-        const currencies: { [key: string]: { amount: number; currency: Currency } } = {};
+        const currencies: { [key: string]: { amount: number; currency: string } } = {};
         transactions.forEach((transaction) => {
-            if (currencies[transaction.currency.symbol]) {
-                currencies[transaction.currency.symbol].amount += transaction.amount;
+            if (currencies[transaction.currency]) {
+                currencies[transaction.currency].amount += transaction.amount;
             } else {
-                currencies[transaction.currency.symbol] = {
+                currencies[transaction.currency] = {
                     amount: transaction.amount,
                     currency: transaction.currency,
                 };
