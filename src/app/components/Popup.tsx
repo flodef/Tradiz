@@ -25,11 +25,15 @@ export const Popup: FC = () => {
         isPopupOpen,
     } = usePopup();
 
-    const handleClick = useCallback(
-        (option: string, index: number) => {
-            if (!popupAction) return;
+    const close = useCallback(() => {
+        closePopup(() => {
+            popupAction?.(-1, '');
+        });
+    }, [closePopup, popupAction]);
 
-            popupAction(index, option);
+    const handleClick = useCallback(
+        (index: number, option: string) => {
+            popupAction?.(index, option);
             if (!popupStayOpen) closePopup();
         },
         [popupAction, closePopup, popupStayOpen]
@@ -38,7 +42,7 @@ export const Popup: FC = () => {
     return (
         <div className="absolute h-screen w-screen grid">
             <div
-                onClick={() => closePopup()}
+                onClick={close}
                 data-open={isPopupOpen}
                 className={'absolute inset-0 z-20 opacity-50 bg-gray-900 data-[open=false]:hidden'}
             ></div>
@@ -60,13 +64,7 @@ export const Popup: FC = () => {
                         <div className="text-2xl font-semibold py-3 pl-3 text-popup-dark dark:text-popup-light">
                             {popupTitle}
                         </div>
-                        <CloseButton
-                            onClose={() => {
-                                closePopup(() => {
-                                    handleClick('', -1);
-                                });
-                            }}
-                        />
+                        <CloseButton onClose={close} />
                     </div>
                 </div>
                 <div>
@@ -80,7 +78,7 @@ export const Popup: FC = () => {
                                     popupIsSpecial && popupIsSpecial(option.toString()) ? 'animate-pulse' : ''
                                 )}
                                 key={index}
-                                onClick={() => handleClick(option.toString(), index)}
+                                onClick={() => handleClick(index, option.toString())}
                                 onContextMenu={(e) => {
                                     e.preventDefault();
                                     if (popupSpecialAction) {
