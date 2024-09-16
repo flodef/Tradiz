@@ -390,7 +390,10 @@ export const Total: FC = () => {
         ]
     );
 
-    const clickClassName = isStateReady && !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark' : '';
+    const clickClassName = cls(
+        'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark active:dark:text-popup-light',
+        isStateReady && !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : ''
+    );
 
     const { width: screenWidth, height: screenHeight } = useWindowParam();
     const left = useMemo(() => (!isMobileSize() && screenWidth > 0 ? screenWidth / 2 : 0), [screenWidth]);
@@ -440,7 +443,7 @@ export const Total: FC = () => {
                           }))
                           .map(({ product, isSelectedProduct }, index) => (
                               <Item
-                                  className={cls('py-2', clickClassName, isSelectedProduct ? 'animate-pulse' : '')}
+                                  className={cls('py-2 ml-1', clickClassName, isSelectedProduct ? 'animate-pulse' : '')}
                                   key={index}
                                   label={product}
                                   onClick={() => selectProduct(index)}
@@ -456,7 +459,7 @@ export const Total: FC = () => {
                               transaction ? (
                                   <Item
                                       className={cls(
-                                          'py-2',
+                                          'py-2 ml-1',
                                           clickClassName,
                                           isWaitingTransaction ? 'animate-pulse' : ''
                                       )}

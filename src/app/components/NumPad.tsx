@@ -10,9 +10,9 @@ import { useWindowParam } from '../hooks/useWindowParam';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { WalletIcon } from '../images/WalletIcon';
-import { IS_LOCAL, WAITING_KEYWORD } from '../utils/constants';
+import { cls, IS_LOCAL, WAITING_KEYWORD } from '../utils/constants';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
-import { isMobileSize } from '../utils/mobile';
+import { isMobileDevice, isMobileSize } from '../utils/mobile';
 import { Digits } from '../utils/types';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
@@ -40,13 +40,14 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
 
     return (
         <div
-            className={
-                'w-20 h-20 relative flex justify-center m-3 items-center font-semibold text-3xl border-[3px] rounded-2xl ' +
-                'border-secondary-light dark:border-secondary-dark shadow-xl ' +
-                (isStateReady
+            className={cls(
+                'w-20 h-20 relative flex justify-center m-3 items-center font-semibold text-3xl border-[3px] rounded-2xl',
+                'border-secondary-light dark:border-secondary-dark shadow-xl',
+                isStateReady
                     ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark active:dark:text-popup-light'
-                    : '')
-            }
+                    : '',
+                !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : ''
+            )}
             onClick={onClick}
             onContextMenu={onClick}
         >
@@ -74,7 +75,14 @@ const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu, 
     );
 
     return (
-        <div className={className} onClick={onClick} onContextMenu={onClick}>
+        <div
+            className={cls(
+                className,
+                !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : ''
+            )}
+            onClick={onClick}
+            onContextMenu={onClick}
+        >
             {input}
         </div>
     );
@@ -96,7 +104,14 @@ const ImageButton: FC<ImageButtonProps> = ({ children, onClick, onContextMenu, c
     );
 
     return (
-        <div className={className} onClick={onClick} onContextMenu={handleContextMenu}>
+        <div
+            className={cls(
+                className,
+                !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : ''
+            )}
+            onClick={onClick}
+            onContextMenu={handleContextMenu}
+        >
             {children}
         </div>
     );

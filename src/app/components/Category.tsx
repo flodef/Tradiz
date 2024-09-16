@@ -10,6 +10,7 @@ import { cls, EMAIL, OTHER_KEYWORD } from '../utils/constants';
 import { getPublicKey } from '../utils/processData';
 import { sendEmail } from '../utils/sendEmail';
 import { useAddPopupClass } from './Popup';
+import { isMobileDevice } from '../utils/mobile';
 
 interface CategoryInputButton {
     input: string;
@@ -26,14 +27,13 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
         onInput(input, e.type);
     };
 
-    const width = length === 1 ? 'w-full' : length === 2 ? 'w-1/2' : 'w-1/3';
-
     return (
         <div
             className={cls(
+                { 1: 'w-full', 2: 'w-1/2', 3: 'w-1/3' }[length] ?? 'w-auto',
                 'relative flex justify-center py-3 items-center font-semibold text-2xl',
-                'active:bg-active-light active:dark:bg-active-dark active:text-popup-dark active:dark:text-popup-light',
-                width,
+                'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark active:dark:text-popup-light',
+                !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : '',
                 selectedProduct?.category === input
                     ? 'bg-active-light dark:bg-active-dark text-popup-dark dark:text-popup-light'
                     : ''

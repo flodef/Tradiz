@@ -1,6 +1,10 @@
 import { PublicKey, clusterApiUrl } from '@solana/web3.js';
 
-export const cls = (...classes: string[]) => classes.filter(Boolean).join(' ');
+export const cls = (...classes: (string | undefined)[]) =>
+    classes
+        .filter(Boolean)
+        .filter((c) => c?.trim())
+        .join(' ');
 
 // UI
 export const EMAIL = 'flo@fims.fi';
