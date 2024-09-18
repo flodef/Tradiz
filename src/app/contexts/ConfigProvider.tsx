@@ -22,7 +22,6 @@ import {
 } from '../utils/processData';
 
 export interface Parameters {
-    shopId: string;
     shopName: string;
     shopEmail: string;
     thanksMessage: string;

@@ -2,6 +2,7 @@ import { ChangeEvent, MutableRefObject, createContext, useContext } from 'react'
 import { Currency, Discount, Mercurial } from './useConfig';
 
 export enum SyncAction {
+    none,
     fullsync,
     daysync,
     export,
@@ -27,7 +28,6 @@ export type Product = DataElement & {
 };
 
 export type Transaction = {
-    shop: string;
     validator: string;
     method: string;
     amount: number;

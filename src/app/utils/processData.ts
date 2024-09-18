@@ -42,7 +42,6 @@ const dataNames: { [key: string]: DataName } = {
 };
 
 export const defaultParameters: Parameters = {
-    shopId: '',
     shopName: '',
     shopEmail: EMAIL,
     thanksMessage: '',
@@ -115,7 +114,6 @@ export async function loadData(shop: string, isOutOfLocalHost = true): Promise<C
     if (!user || user.role === Role.none) throw new UserNotFoundError(param.at(1));
 
     const parameters: Parameters = {
-        shopId: shop,
         shopName: param.at(0) ?? '',
         shopEmail: param.at(1) ?? EMAIL,
         thanksMessage: param.at(2) ?? 'Merci de votre visite !',
