@@ -4,6 +4,8 @@ import { initializeApp } from 'firebase/app';
 import {
     Firestore,
     collection,
+    deleteDoc,
+    deleteField,
     doc,
     getDocs,
     getFirestore,
@@ -14,7 +16,7 @@ import {
     where,
 } from 'firebase/firestore';
 import { ChangeEvent, FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Discount, Mercurial, useConfig } from '../hooks/useConfig';
+import { Currency, Discount, Mercurial, useConfig } from '../hooks/useConfig';
 import { DataContext, Product, SyncAction, SyncPeriod, Transaction, TransactionSet } from '../hooks/useData';
 import { useWindowParam } from '../hooks/useWindowParam';
 import {
@@ -31,6 +33,13 @@ enum DatabaseAction {
     add,
     update,
     delete,
+}
+
+enum ConvertAction {
+    none,
+    cloud,
+    local,
+    both,
 }
 
 export interface DataProviderProps {
@@ -52,6 +61,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const transactionId = useRef(0);
     const [firestore, setFirestore] = useState<Firestore>();
     const areTransactionLoaded = useRef(false);
+    const [shopId, setShopId] = useState('');
 
     const isDbConnected = useMemo(() => !!firestore && isOnline, [firestore, isOnline]);
 
@@ -60,14 +70,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, [parameters.mercurial]);
 
     useEffect(() => {
-        if (
-            !parameters.shopName ||
-            parameters.shopId !== window.location.pathname.split('/')[1] ||
-            areTransactionLoaded.current
-        )
-            return;
+        if (!parameters.shopName || areTransactionLoaded.current) return;
 
-        const filename = (parameters.shopId || TRANSACTIONS_KEYWORD) + '_' + GET_FORMATTED_DATE();
+        const shopId = window.location.pathname.split('/')[1];
+        setShopId(shopId);
+
+        const filename = (shopId || TRANSACTIONS_KEYWORD) + '_' + GET_FORMATTED_DATE();
 
         const transactions = JSON.parse(localStorage.getItem(filename) || '[]') as Transaction[];
         setTransactions(transactions);
@@ -83,7 +91,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             areTransactionLoaded.current = false;
             setTransactionsFilename('');
         }, timeUntilMidnight); // Automatically reload at midnight
-    }, [parameters.shopName, parameters.shopId]);
+    }, [parameters.shopName]);
 
     useEffect(() => {
         if (IS_DEV || isDemo) return;
@@ -164,7 +172,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!firestore) return;
 
             const info = id.split('_');
-            await setDoc(doc(firestore, 'Indexes', id), { shop: info[0], date: info[1] });
+            await setDoc(doc(firestore, 'Indexes', id), { shop: info[0], date: new Date(info[1]).getTime() });
         },
         [firestore]
     );
@@ -173,7 +181,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         const localTransactionSets: TransactionSet[] = [];
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key?.includes(parameters.shopId)) {
+            if (key?.includes(shopId)) {
                 const value = localStorage.getItem(key);
                 if (value) {
                     const transactions = JSON.parse(value) as Transaction[];
@@ -182,16 +190,16 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             }
         }
         return localTransactionSets.sort((a, b) => a.id.localeCompare(b.id));
-    }, [parameters.shopId]);
+    }, [shopId]);
 
     const setLocalStorageItem = useCallback(
-        (key: string, value: string) => {
+        (key: string, transactions: Transaction[]) => {
             try {
-                localStorage.setItem(key, value);
+                localStorage.setItem(key, JSON.stringify(transactions));
             } catch (error) {
                 const localTransactionSets = getLocalTransactions();
                 localStorage.removeItem(localTransactionSets[0].id);
-                setLocalStorageItem(key, value);
+                setLocalStorageItem(key, transactions);
             }
         },
         [getLocalTransactions]
@@ -221,7 +229,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     (transaction) => !isProcessingTransaction(transaction)
                 );
                 if (txToUpdate.length) {
-                    setLocalStorageItem(transactionSet.id, JSON.stringify(txToUpdate));
+                    setLocalStorageItem(transactionSet.id, txToUpdate);
                 }
                 txToUpdate
                     .filter((tx) => new Date(tx.createdDate).toLocaleDateString() === new Date().toLocaleDateString())
@@ -294,12 +302,66 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [firestore, storeTransaction, isProcessingTransaction, setLocalStorageItem, storeIndex, getLocalTransactions]
     );
 
+    const convertTransactionsData = useCallback(
+        (convertAction = ConvertAction.none) => {
+            // CONVERT CLOUD TRANSACTIONS
+            if (convertAction === ConvertAction.cloud || convertAction === ConvertAction.both) {
+                if (!firestore) return;
+                getDocs(collection(firestore, 'Indexes')).then((querySnapshot) => {
+                    querySnapshot.forEach(async (document) => {
+                        const colId = document.id;
+                        await storeIndex(colId);
+
+                        getDocs(collection(firestore, colId)).then((query) => {
+                            query.forEach(async (document) => {
+                                const id = document.id;
+                                await updateDoc(doc(firestore, colId, id), {
+                                    shop: deleteField(),
+                                });
+                            });
+                        });
+                    });
+                });
+            }
+
+            // CONVERT LOCAL TRANSACTIONS
+            if (convertAction === ConvertAction.local || convertAction === ConvertAction.both) {
+                const localTransactionSets = getLocalTransactions();
+                localTransactionSets.forEach((localTransactionSet) => {
+                    let id = localTransactionSet.id;
+                    const tx = localTransactionSet.transactions.map((transaction) => {
+                        return {
+                            validator: transaction.validator,
+                            method: transaction.method,
+                            amount: transaction.amount,
+                            createdDate: transaction.createdDate,
+                            modifiedDate: transaction.modifiedDate,
+                            currency:
+                                typeof transaction.currency === 'string'
+                                    ? transaction.currency
+                                    : (transaction.currency as Currency).label,
+                            products: transaction.products,
+                        };
+                    });
+                    if (id.includes('+')) {
+                        localStorage.removeItem(id);
+                        id = id.split('+')[1];
+                    }
+                    setLocalStorageItem(id, tx);
+                });
+            }
+
+            return convertAction === ConvertAction.cloud || convertAction === ConvertAction.both;
+        },
+        [firestore, storeIndex, getLocalTransactions, setLocalStorageItem]
+    );
+
     const syncTransactions = useCallback(
         (period: SyncPeriod) => {
-            if (!firestore) return;
+            if (!firestore || convertTransactionsData(ConvertAction.local)) return;
 
             const criteria = period === SyncPeriod.day ? 'date' : 'shop';
-            const param = period === SyncPeriod.day ? GET_FORMATTED_DATE() : parameters.shopId;
+            const param = period === SyncPeriod.day ? new Date().getTime() : shopId;
 
             const cloudTransactionSets: TransactionSet[] = [];
             getDocs(query(collection(firestore, 'Indexes'), where(criteria, '==', param))).then((querySnapshot) => {
@@ -322,7 +384,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 });
             });
         },
-        [firestore, fullSync, parameters.shopId]
+        [firestore, fullSync, shopId, convertTransactionsData]
     );
 
     const exportTransactions = useCallback(() => {
@@ -361,7 +423,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
                     // Store the data in the localStorage
                     data.forEach((item: { id: string; transactions: any[] }) => {
-                        setLocalStorageItem(item.id, JSON.stringify(item.transactions));
+                        setLocalStorageItem(item.id, item.transactions);
                     });
                 }
             };
@@ -397,17 +459,17 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const saveTransactions = useCallback(
-        (action: DatabaseAction, transaction: Transaction) => {
+        async (action: DatabaseAction, transaction: Transaction) => {
             if (!transaction) return;
 
-            transaction.modifiedDate = new Date().getTime();
+            transaction.modifiedDate = transaction.modifiedDate ? new Date().getTime() : transaction.createdDate;
             transaction.amount = transaction.amount.clean(
                 currencies.find(({ label }) => label === transaction.currency)?.maxDecimals
             );
             transaction.validator = parameters.user.name;
 
             if (transactions.length) {
-                setLocalStorageItem(transactionsFilename, JSON.stringify(transactions));
+                setLocalStorageItem(transactionsFilename, transactions);
             } else {
                 localStorage.removeItem(transactionsFilename);
             }
@@ -419,16 +481,16 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             switch (action) {
                 case DatabaseAction.add:
-                    setDoc(doc(firestore, transactionsFilename, index.toString()), transaction);
-                    storeIndex(transactionsFilename);
+                    await setDoc(doc(firestore, transactionsFilename, index.toString()), transaction);
+                    await storeIndex(transactionsFilename);
                     break;
                 case DatabaseAction.update:
-                    updateDoc(doc(firestore, transactionsFilename, index.toString()), {
+                    await updateDoc(doc(firestore, transactionsFilename, index.toString()), {
                         method: PROCESSING_KEYWORD,
                     });
                     break;
                 case DatabaseAction.delete:
-                    updateDoc(doc(firestore, transactionsFilename, index.toString()), {
+                    await updateDoc(doc(firestore, transactionsFilename, index.toString()), {
                         method: DELETED_KEYWORD,
                     });
                     break;
@@ -669,7 +731,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 typeof item === 'object'
                     ? item
                     : {
-                          shop: parameters.shopId,
                           validator: '',
                           method: item,
                           amount: getCurrentTotal(),
@@ -685,16 +746,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             clearTotal();
         },
-        [
-            clearTotal,
-            products,
-            saveTransactions,
-            getCurrentTotal,
-            currencies,
-            currencyIndex,
-            storeTransaction,
-            parameters.shopId,
-        ]
+        [clearTotal, products, saveTransactions, getCurrentTotal, currencies, currencyIndex, storeTransaction]
     );
 
     const displayTransaction = useCallback(
