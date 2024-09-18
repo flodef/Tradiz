@@ -111,7 +111,7 @@ export const usePay = () => {
                     break;
                 case 'Virement':
                     openPopup(
-                        'IBAN : ' + paymentMethods.find((item) => item.method === 'Virement')?.address ?? '',
+                        'IBAN : ' + paymentMethods.find((item) => item.method === 'Virement')?.address,
                         ['Valider paiement', 'Annuler paiement'],
                         (index) => {
                             if (index === 0) {
