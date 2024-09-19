@@ -111,36 +111,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             });
     }, [isDemo]);
 
-    useEffect(() => {
-        if (!firestore || !transactionsFilename) return;
-
-        const q = query(collection(firestore, transactionsFilename));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            querySnapshot.docChanges().forEach((change) => {
-                // change type can be 'added', 'modified', or 'deleted'
-                const data = change.doc.data();
-                console.log(change.type, data);
-
-                //TODO
-                // if (change.type === 'added') {
-                //     setTransactions((transactions) => [...transactions, data as Transaction]);
-                // } else if (change.type === 'modified') {
-                //     setTransactions((transactions) =>
-                //         transactions.map((transaction) =>
-                //             transaction.date === data.date ? { ...transaction, ...data } : transaction
-                //         )
-                //     );
-                // } else if (change.type === 'removed') {
-                //     setTransactions((transactions) =>
-                //         transactions.filter((transaction) => transaction.date !== data.date)
-                //     );
-                // }
-            });
-        });
-
-        return () => unsubscribe();
-    }, [firestore, transactionsFilename]);
-
     const isWaitingTransaction = useCallback((transaction?: Transaction) => {
         return Boolean(transaction && transaction.method === WAITING_KEYWORD);
     }, []);
@@ -150,22 +120,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const isDeletedTransaction = useCallback((transaction?: Transaction) => {
         return Boolean(transaction && transaction.method === DELETED_KEYWORD);
     }, []);
-
-    const storeTransaction = useCallback(
-        (transaction: Transaction) => {
-            const index = transactions.findIndex(({ createdDate }) => createdDate === transaction.createdDate);
-            if (index >= 0) {
-                transactions.splice(index, 1, transaction);
-            } else {
-                transactions.unshift(transaction);
-            }
-
-            setTransactions(
-                transactions.toSorted((a, b) => (isWaitingTransaction(a) && !isWaitingTransaction(b) ? -1 : 1))
-            ); // Put the waiting transaction at the beginning of the list
-        },
-        [isWaitingTransaction, transactions, setTransactions]
-    );
 
     const storeIndex = useCallback(
         async (id: string) => {
@@ -205,101 +159,20 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [getLocalTransactions]
     );
 
-    // Check if the "transaction set" in the cloud exists in local (check by "id").
-    // If not add it, if yes, check if every transaction in the cloud transaction set exist in local (check by "createdDate").
-    // If not, add the transaction, if yes, check which one has the biggest "modifiedDate".
-    // If it's the cloud one, update the local, if it's the local one, update the cloud.
-    // Then, check if the "transaction set" in local exists in the cloud, using the same method as above.
-    const fullSync = useCallback(
-        (cloudTransactionSets: TransactionSet[]) => {
-            if (!firestore) return;
+    const storeTransaction = useCallback(
+        (transaction: Transaction) => {
+            const index = transactions.findIndex(({ createdDate }) => createdDate === transaction.createdDate);
+            if (index >= 0) {
+                transactions.splice(index, 1, transaction);
+            } else {
+                transactions.unshift(transaction);
+            }
 
-            let localTransactionSets = getLocalTransactions();
-
-            console.log(
-                'syncTransactions',
-                'cloud',
-                cloudTransactionSets.sort((a, b) => a.id.localeCompare(b.id)),
-                'local',
-                localTransactionSets.sort((a, b) => a.id.localeCompare(b.id))
-            );
-
-            const updateLocalTransaction = (transactionSet: TransactionSet) => {
-                const txToUpdate = transactionSet.transactions.filter(
-                    (transaction) => !isProcessingTransaction(transaction)
-                );
-                if (txToUpdate.length) {
-                    setLocalStorageItem(transactionSet.id, txToUpdate);
-                }
-                txToUpdate
-                    .filter((tx) => new Date(tx.createdDate).toLocaleDateString() === new Date().toLocaleDateString())
-                    .forEach((tx) => storeTransaction(tx));
-            };
-            const updateCloudTransaction = async (id: string, transaction: Transaction) => {
-                await setDoc(doc(firestore, id, transaction.createdDate.toString()), transaction);
-            };
-
-            cloudTransactionSets.forEach((cloudTransactionSet) => {
-                const localTransactionSet = localTransactionSets.find((set) => set.id === cloudTransactionSet.id);
-                const updateTransactionSet: TransactionSet = {
-                    id: cloudTransactionSet.id,
-                    transactions: [],
-                };
-
-                if (!localTransactionSet) {
-                    console.log('Added set to local', cloudTransactionSet.id);
-                    updateLocalTransaction(cloudTransactionSet);
-                } else {
-                    cloudTransactionSet.transactions.forEach(async (cloudTransaction) => {
-                        const index = localTransactionSet.transactions.findIndex(
-                            (localTransaction) => localTransaction.createdDate === cloudTransaction.createdDate
-                        );
-
-                        if (index === -1) {
-                            console.log('Added transaction to local', cloudTransaction);
-                            updateTransactionSet.transactions.push(cloudTransaction);
-                        } else {
-                            const localTransaction = localTransactionSet.transactions[index];
-
-                            if (cloudTransaction.modifiedDate > localTransaction.modifiedDate) {
-                                console.log('Updated transaction in local', cloudTransaction);
-                                updateTransactionSet.transactions.splice(index, 1, cloudTransaction);
-                            } else if (cloudTransaction.modifiedDate < localTransaction.modifiedDate) {
-                                console.log('Updated transaction in cloud', localTransaction);
-                                await updateCloudTransaction(cloudTransactionSet.id, localTransaction);
-                            }
-                        }
-                    });
-                    updateLocalTransaction(updateTransactionSet);
-                }
-            });
-
-            localTransactionSets = getLocalTransactions(); // Update local transaction sets after cloud sync
-            localTransactionSets.forEach(async (localTransactionSet) => {
-                const cloudTransactionSet = cloudTransactionSets.find((set) => set.id === localTransactionSet.id);
-
-                if (!cloudTransactionSet) {
-                    console.log('Added set to cloud', localTransactionSet.id);
-                    await storeIndex(localTransactionSet.id);
-                    localTransactionSet.transactions.forEach(
-                        async (localTransaction) =>
-                            await updateCloudTransaction(localTransactionSet.id, localTransaction)
-                    );
-                } else {
-                    localTransactionSet.transactions.forEach(async (localTransaction) => {
-                        if (
-                            !cloudTransactionSet.transactions.some(
-                                (cloudTransaction) => cloudTransaction.createdDate === localTransaction.createdDate
-                            )
-                        ) {
-                            console.log('Added transaction to cloud', localTransaction);
-                            await updateCloudTransaction(localTransactionSet.id, localTransaction);
-                        }
-                    });
-                }
-            });
+            setTransactions(
+                transactions.toSorted((a, b) => (isWaitingTransaction(a) && !isWaitingTransaction(b) ? -1 : 1))
+            ); // Put the waiting transaction at the beginning of the list
         },
-        [firestore, storeTransaction, isProcessingTransaction, setLocalStorageItem, storeIndex, getLocalTransactions]
+        [isWaitingTransaction, transactions, setTransactions]
     );
 
     const convertTransactionsData = useCallback(
@@ -356,36 +229,187 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [firestore, storeIndex, getLocalTransactions, setLocalStorageItem]
     );
 
-    const syncTransactions = useCallback(
-        (period: SyncPeriod) => {
-            if (!firestore || convertTransactionsData(ConvertAction.local)) return;
+    // Check if the "transaction set" in the cloud exists in local (check by "id").
+    // If not add it, if yes, check if every transaction in the cloud transaction set exist in local (check by "createdDate").
+    // If not, add the transaction, if yes, check which one has the biggest "modifiedDate".
+    // If it's the cloud one, update the local, if it's the local one, update the cloud.
+    // Then, check if the "transaction set" in local exists in the cloud, using the same method as above.
+    const fullSync = useCallback(
+        (cloudTransactionSets: TransactionSet[], syncPeriod: SyncPeriod) => {
+            if (!firestore) return;
 
-            const criteria = period === SyncPeriod.day ? 'date' : 'shop';
-            const param = period === SyncPeriod.day ? new Date().getTime() : shopId;
+            let localTransactionSets = getLocalTransactions();
 
-            const cloudTransactionSets: TransactionSet[] = [];
-            getDocs(query(collection(firestore, 'Indexes'), where(criteria, '==', param))).then((querySnapshot) => {
-                let txToProcess = querySnapshot.size;
-                console.log('Loaded all tx:', txToProcess);
+            console.log(
+                'syncTransactions',
+                'cloud',
+                cloudTransactionSets.sort((a, b) => a.id.localeCompare(b.id)),
+                'local',
+                localTransactionSets.sort((a, b) => a.id.localeCompare(b.id))
+            );
 
-                querySnapshot.forEach((doc) => {
-                    const id = doc.id;
-                    getDocs(collection(firestore, id)).then((query) => {
-                        const transactions: Transaction[] = [];
-                        query.forEach((doc) => transactions.push(doc.data() as Transaction));
-                        cloudTransactionSets.push({ id, transactions });
+            const updateLocalTransaction = (transactionSet: TransactionSet) => {
+                const txToUpdate = transactionSet.transactions.filter(
+                    (transaction) => !isProcessingTransaction(transaction)
+                );
+                if (txToUpdate.length) {
+                    setLocalStorageItem(transactionSet.id, txToUpdate);
+                }
+                txToUpdate
+                    .filter((tx) => new Date(tx.createdDate).toLocaleDateString() === new Date().toLocaleDateString())
+                    .forEach((tx) => storeTransaction(tx));
+            };
+            const updateCloudTransaction = async (id: string, transaction: Transaction) => {
+                await setDoc(doc(firestore, id, transaction.createdDate.toString()), transaction);
+            };
 
-                        console.log('txToProcess', txToProcess);
+            cloudTransactionSets.forEach((cloudTransactionSet) => {
+                const localTransactionSet = localTransactionSets.find((set) => set.id === cloudTransactionSet.id);
+                const updateTransactionSet: TransactionSet = {
+                    id: cloudTransactionSet.id,
+                    transactions: [],
+                };
 
-                        if (!--txToProcess) {
-                            fullSync(cloudTransactionSets);
+                if (!localTransactionSet) {
+                    console.log('Added set to local', cloudTransactionSet.id);
+                    updateLocalTransaction(cloudTransactionSet);
+                } else {
+                    cloudTransactionSet.transactions.forEach(async (cloudTransaction) => {
+                        const index = localTransactionSet.transactions.findIndex(
+                            (localTransaction) => localTransaction.createdDate === cloudTransaction.createdDate
+                        );
+
+                        if (index === -1) {
+                            console.log('Added transaction to local', cloudTransaction);
+                            updateTransactionSet.transactions.push(cloudTransaction);
+                        } else if (localTransactionSet.id === transactionsFilename) {
+                            const localTransaction = localTransactionSet.transactions[index];
+
+                            if (cloudTransaction.modifiedDate > localTransaction.modifiedDate) {
+                                console.log('Updated transaction in local', cloudTransaction);
+                                updateTransactionSet.transactions.splice(index, 1, cloudTransaction);
+                            } else if (cloudTransaction.modifiedDate < localTransaction.modifiedDate) {
+                                console.log('Updated transaction in cloud', localTransaction);
+                                await updateCloudTransaction(cloudTransactionSet.id, localTransaction);
+                            }
                         }
                     });
+                    updateLocalTransaction(updateTransactionSet);
+                }
+            });
+
+            if (syncPeriod === SyncPeriod.full) {
+                localTransactionSets = getLocalTransactions(); // Update local transaction sets after cloud sync
+                localTransactionSets.forEach(async (localTransactionSet) => {
+                    const cloudTransactionSet = cloudTransactionSets.find((set) => set.id === localTransactionSet.id);
+
+                    if (!cloudTransactionSet) {
+                        console.log('Added set to cloud', localTransactionSet.id);
+                        await storeIndex(localTransactionSet.id);
+                        localTransactionSet.transactions.forEach(
+                            async (localTransaction) =>
+                                await updateCloudTransaction(localTransactionSet.id, localTransaction)
+                        );
+                    } else {
+                        localTransactionSet.transactions.forEach(async (localTransaction) => {
+                            if (
+                                !cloudTransactionSet.transactions.some(
+                                    (cloudTransaction) => cloudTransaction.createdDate === localTransaction.createdDate
+                                )
+                            ) {
+                                console.log('Added transaction to cloud', localTransaction);
+                                await updateCloudTransaction(localTransactionSet.id, localTransaction);
+                            }
+                        });
+                    }
+                });
+            }
+        },
+        [
+            firestore,
+            storeTransaction,
+            isProcessingTransaction,
+            setLocalStorageItem,
+            storeIndex,
+            getLocalTransactions,
+            transactionsFilename,
+        ]
+    );
+
+    const processSync = useCallback(
+        (ids: string | string[], syncPeriod: SyncPeriod) => {
+            if (!firestore) return;
+
+            const collectionIds = Array.isArray(ids) ? ids : [ids];
+            let txToProcess = collectionIds.length;
+            console.log('Loaded all collections:', txToProcess);
+
+            const cloudTransactionSets: TransactionSet[] = [];
+            collectionIds.forEach((id) => {
+                getDocs(collection(firestore, id)).then((query) => {
+                    const transactions = query.docs.map((doc) => doc.data() as Transaction);
+                    cloudTransactionSets.push({ id, transactions });
+
+                    console.log('Collections to process:', txToProcess);
+
+                    if (!--txToProcess) {
+                        fullSync(cloudTransactionSets, syncPeriod);
+                    }
                 });
             });
         },
-        [firestore, fullSync, shopId, convertTransactionsData]
+        [firestore, fullSync]
     );
+
+    const syncTransactions = useCallback(
+        (period: SyncPeriod) => {
+            if (!firestore || !transactionsFilename || convertTransactionsData(ConvertAction.local)) return;
+
+            if (period === SyncPeriod.day) {
+                processSync(transactionsFilename, period);
+            } else {
+                getDocs(query(collection(firestore, 'Indexes'), where('shop', '==', shopId))).then((querySnapshot) => {
+                    processSync(
+                        querySnapshot.docs.map((doc) => doc.id),
+                        period
+                    );
+                });
+            }
+        },
+        [convertTransactionsData, firestore, processSync, shopId, transactionsFilename]
+    );
+
+    useEffect(() => {
+        if (!firestore || !transactionsFilename) return;
+
+        syncTransactions(SyncPeriod.day); // Synchronize the daily transactions on the first load
+
+        const q = query(collection(firestore, transactionsFilename));
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            querySnapshot.docChanges().forEach((change) => {
+                // change type can be 'added', 'modified', or 'deleted'
+                const data = change.doc.data();
+                console.log(change.type, data);
+
+                //TODO
+                // if (change.type === 'added') {
+                //     setTransactions((transactions) => [...transactions, data as Transaction]);
+                // } else if (change.type === 'modified') {
+                //     setTransactions((transactions) =>
+                //         transactions.map((transaction) =>
+                //             transaction.date === data.date ? { ...transaction, ...data } : transaction
+                //         )
+                //     );
+                // } else if (change.type === 'removed') {
+                //     setTransactions((transactions) =>
+                //         transactions.filter((transaction) => transaction.date !== data.date)
+                //     );
+                // }
+            });
+        });
+
+        return () => unsubscribe();
+    }, [firestore, transactionsFilename, syncTransactions]);
 
     const exportTransactions = useCallback(() => {
         const localTransactionSets = getLocalTransactions();
@@ -481,8 +505,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             switch (action) {
                 case DatabaseAction.add:
-                    await setDoc(doc(firestore, transactionsFilename, index.toString()), transaction);
                     await storeIndex(transactionsFilename);
+                    await setDoc(doc(firestore, transactionsFilename, index.toString()), transaction);
                     break;
                 case DatabaseAction.update:
                     await updateDoc(doc(firestore, transactionsFilename, index.toString()), {
