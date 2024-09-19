@@ -135,7 +135,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         const localTransactionSets: TransactionSet[] = [];
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key?.includes(shopId)) {
+            if (key?.includes(shopId || TRANSACTIONS_KEYWORD)) {
                 const value = localStorage.getItem(key);
                 if (value) {
                     const transactions = JSON.parse(value) as Transaction[];
