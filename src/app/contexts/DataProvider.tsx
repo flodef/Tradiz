@@ -161,18 +161,23 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const storeTransaction = useCallback(
         (transaction: Transaction) => {
+            const isDeleted = isDeletedTransaction(transaction);
             const index = transactions.findIndex(({ createdDate }) => createdDate === transaction.createdDate);
-            if (index >= 0) {
-                transactions.splice(index, 1, transaction);
-            } else {
-                transactions.unshift(transaction);
+            if (!isDeleted) {
+                if (index >= 0) {
+                    transactions.splice(index, 1, transaction);
+                } else {
+                    transactions.unshift(transaction);
+                }
+            } else if (index >= 0) {
+                transactions.splice(index, 1);
             }
 
             setTransactions(
                 transactions.toSorted((a, b) => (isWaitingTransaction(a) && !isWaitingTransaction(b) ? -1 : 1))
             ); // Put the waiting transaction at the beginning of the list
         },
-        [isWaitingTransaction, transactions, setTransactions]
+        [isWaitingTransaction, transactions, setTransactions, isDeletedTransaction]
     );
 
     const convertTransactionsData = useCallback(
@@ -253,7 +258,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     (transaction) => !isProcessingTransaction(transaction)
                 );
                 if (txToUpdate.length) {
-                    setLocalStorageItem(transactionSet.id, txToUpdate);
+                    setLocalStorageItem(
+                        transactionSet.id,
+                        txToUpdate.filter((tx) => !isDeletedTransaction(tx))
+                    );
                 }
                 txToUpdate
                     .filter((tx) => new Date(tx.createdDate).toLocaleDateString() === new Date().toLocaleDateString())
@@ -265,15 +273,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             cloudTransactionSets.forEach((cloudTransactionSet) => {
                 const localTransactionSet = localTransactionSets.find((set) => set.id === cloudTransactionSet.id);
-                const updateTransactionSet: TransactionSet = {
-                    id: cloudTransactionSet.id,
-                    transactions: [],
-                };
 
                 if (!localTransactionSet) {
                     console.log('Added set to local', cloudTransactionSet.id);
                     updateLocalTransaction(cloudTransactionSet);
                 } else {
+                    const updateTransactionSet: TransactionSet = {
+                        id: localTransactionSet.id,
+                        transactions: [...localTransactionSet.transactions],
+                    };
                     cloudTransactionSet.transactions.forEach(async (cloudTransaction) => {
                         const index = localTransactionSet.transactions.findIndex(
                             (localTransaction) => localTransaction.createdDate === cloudTransaction.createdDate
@@ -329,6 +337,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             firestore,
             storeTransaction,
             isProcessingTransaction,
+            isDeletedTransaction,
             setLocalStorageItem,
             storeIndex,
             getLocalTransactions,
@@ -388,28 +397,44 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             querySnapshot.docChanges().forEach((change) => {
                 // change type can be 'added', 'modified', or 'deleted'
-                const data = change.doc.data();
-                console.log(change.type, data);
+                const tx = change.doc.data() as Transaction;
+                console.log(change.type, tx);
 
-                //TODO
-                // if (change.type === 'added') {
-                //     setTransactions((transactions) => [...transactions, data as Transaction]);
-                // } else if (change.type === 'modified') {
-                //     setTransactions((transactions) =>
-                //         transactions.map((transaction) =>
-                //             transaction.date === data.date ? { ...transaction, ...data } : transaction
-                //         )
-                //     );
-                // } else if (change.type === 'removed') {
-                //     setTransactions((transactions) =>
-                //         transactions.filter((transaction) => transaction.date !== data.date)
-                //     );
-                // }
+                const localTx = transactions.find((transaction) => transaction.createdDate === tx.createdDate);
+                const isDeleted = isDeletedTransaction(tx);
+
+                switch (change.type) {
+                    case 'added':
+                        if (isDeleted && localTx) {
+                            setTransactions((transactions) =>
+                                transactions.filter((transaction) => transaction.createdDate !== tx.createdDate)
+                            );
+                        } else if (!isDeleted && !localTx) {
+                            setTransactions((transactions) => [...transactions, tx as Transaction]);
+                        }
+                        break;
+                    case 'modified':
+                        if (localTx?.method === PROCESSING_KEYWORD) return;
+
+                        setTransactions((transactions) =>
+                            transactions.map((transaction) =>
+                                transaction.createdDate === tx.createdDate
+                                    ? { ...transaction, ...tx, method: WAITING_KEYWORD }
+                                    : transaction
+                            )
+                        );
+                        break;
+                    case 'removed':
+                        setTransactions((transactions) =>
+                            transactions.filter((transaction) => transaction.createdDate !== tx.createdDate)
+                        );
+                        break;
+                }
             });
         });
 
         return () => unsubscribe();
-    }, [firestore, transactionsFilename, syncTransactions]);
+    }, [firestore, transactionsFilename]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const exportTransactions = useCallback(() => {
         const localTransactionSets = getLocalTransactions();
