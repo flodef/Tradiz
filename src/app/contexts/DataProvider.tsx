@@ -416,12 +416,16 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 const txToUpdate = [...transactions];
                 if (!localTx) {
                     txToUpdate.push(tx as Transaction);
-                } else if (!isProcessingTransaction(localTx)) {
+                } else {
                     // TODO : check the transactions modifiedDate
                     txToUpdate.splice(
                         txToUpdate.findIndex((transaction) => transaction.createdDate === tx.createdDate),
                         1,
-                        { ...tx, method: isProcessingTransaction(tx) ? UPDATING_KEYWORD : tx.method }
+                        {
+                            ...tx,
+                            method:
+                                isProcessingTransaction(tx) && !transactionId.current ? UPDATING_KEYWORD : tx.method,
+                        }
                     );
                 }
 
