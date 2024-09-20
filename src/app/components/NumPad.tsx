@@ -1,6 +1,7 @@
 'use client';
 
 import { FC, MouseEventHandler, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { twMerge } from 'tailwind-merge';
 import { EmptyDiscount, Mercurial, useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
@@ -10,7 +11,7 @@ import { useWindowParam } from '../hooks/useWindowParam';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { WalletIcon } from '../images/WalletIcon';
-import { cls, IS_LOCAL, WAITING_KEYWORD } from '../utils/constants';
+import { IS_LOCAL, WAITING_KEYWORD } from '../utils/constants';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isMobileDevice, isMobileSize } from '../utils/mobile';
 import { Digits } from '../utils/types';
@@ -40,7 +41,7 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
 
     return (
         <div
-            className={cls(
+            className={twMerge(
                 'w-20 h-20 relative flex justify-center m-3 items-center font-semibold text-3xl border-[3px] rounded-2xl',
                 'border-secondary-light dark:border-secondary-dark shadow-xl',
                 isStateReady
@@ -76,7 +77,7 @@ const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu, 
 
     return (
         <div
-            className={cls(
+            className={twMerge(
                 className,
                 !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : ''
             )}
@@ -105,7 +106,7 @@ const ImageButton: FC<ImageButtonProps> = ({ children, onClick, onContextMenu, c
 
     return (
         <div
-            className={cls(
+            className={twMerge(
                 className,
                 !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : ''
             )}

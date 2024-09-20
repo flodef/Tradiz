@@ -1,9 +1,9 @@
 'use client';
 
 import { FC, useCallback } from 'react';
+import { twMerge } from 'tailwind-merge';
 import { usePopup } from '../hooks/usePopup';
-import { cls } from '../utils/constants';
-import { isMobileDevice, isMobileSize, useIsMobile } from '../utils/mobile';
+import { isMobileDevice, useIsMobile } from '../utils/mobile';
 import { CloseButton } from './CloseButton';
 
 export function useAddPopupClass(className: string): string {
@@ -51,7 +51,7 @@ export const Popup: FC = () => {
             <div
                 id="popup" // id is mandatory for the screenshot to work
                 data-open={isPopupOpen}
-                className={cls(
+                className={twMerge(
                     'absolute z-30 w-[90%] max-h-[90%] max-w-[400px] overflow-y-auto overflow-x-hidden justify-self-center',
                     'bg-popup-light dark:bg-popup-dark h-fit rounded-2xl self-center blur-none border-black border-[3px]',
                     'dark:border-secondary-active-dark data-[open=false]:hidden',
@@ -73,7 +73,7 @@ export const Popup: FC = () => {
                     {popupOptions.map((option, index) =>
                         option?.toString().trim() ? (
                             <div
-                                className={cls(
+                                className={twMerge(
                                     'py-2 w-full relative flex justify-around items-center',
                                     'font-semibold text-xl text-center cursor-pointer',
                                     !isMobileDevice()

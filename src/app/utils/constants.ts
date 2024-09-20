@@ -1,16 +1,11 @@
 import { PublicKey, clusterApiUrl } from '@solana/web3.js';
 
-export const cls = (...classes: (string | undefined)[]) =>
-    classes
-        .filter(Boolean)
-        .filter((c) => c?.trim())
-        .join(' ');
-
 // UI
 export const EMAIL = 'flo@fims.fi';
 export const OTHER_KEYWORD = 'Autres';
 export const TRANSACTIONS_KEYWORD = 'Transactions';
 export const WAITING_KEYWORD = 'EN ATTENTE';
+export const UPDATING_KEYWORD = 'EN MODIF';
 export const PROCESSING_KEYWORD = 'EN COURS';
 export const DELETED_KEYWORD = 'EFFACÉE';
 export const BACK_KEYWORD = 'RETOUR';
