@@ -4,7 +4,6 @@ import { initializeApp } from 'firebase/app';
 import {
     Firestore,
     collection,
-    deleteDoc,
     deleteField,
     doc,
     getDocs,
@@ -26,6 +25,7 @@ import {
     OTHER_KEYWORD,
     PROCESSING_KEYWORD,
     TRANSACTIONS_KEYWORD,
+    UPDATING_KEYWORD,
     WAITING_KEYWORD,
 } from '../utils/constants';
 
@@ -114,6 +114,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const isWaitingTransaction = useCallback((transaction?: Transaction) => {
         return Boolean(transaction && transaction.method === WAITING_KEYWORD);
     }, []);
+    const isUpdatingTransaction = useCallback((transaction?: Transaction) => {
+        return Boolean(transaction && transaction.method === UPDATING_KEYWORD);
+    }, []);
     const isProcessingTransaction = useCallback((transaction?: Transaction) => {
         return Boolean(transaction && transaction.method === PROCESSING_KEYWORD);
     }, []);
@@ -126,7 +129,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!firestore) return;
 
             const info = id.split('_');
-            await setDoc(doc(firestore, 'Indexes', id), { shop: info[0], date: new Date(info[1]).getTime() });
+            await setDoc(doc(firestore, 'Indexes', id), {
+                shop: !info[0].startsWith(TRANSACTIONS_KEYWORD) ? info[0] : '',
+                date: new Date(info[1]).getTime(),
+            });
         },
         [firestore]
     );
@@ -173,11 +179,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 transactions.splice(index, 1);
             }
 
-            setTransactions(
-                transactions.toSorted((a, b) => (isWaitingTransaction(a) && !isWaitingTransaction(b) ? -1 : 1))
-            ); // Put the waiting transaction at the beginning of the list
+            setTransactions([...transactions]);
         },
-        [isWaitingTransaction, transactions, setTransactions, isDeletedTransaction]
+        [transactions, setTransactions, isDeletedTransaction]
     );
 
     const convertTransactionsData = useCallback(
@@ -234,6 +238,33 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [firestore, storeIndex, getLocalTransactions, setLocalStorageItem]
     );
 
+    const updateLocalTransaction = useCallback(
+        (transactionSet: TransactionSet) => {
+            const txToUpdate = transactionSet.transactions.filter(
+                (transaction) => !isProcessingTransaction(transaction)
+            );
+            if (txToUpdate.length) {
+                const txToLocalStorage = txToUpdate.filter((tx) => !isDeletedTransaction(tx));
+                if (txToLocalStorage.length) {
+                    setLocalStorageItem(transactionSet.id, txToLocalStorage);
+                } else {
+                    localStorage.removeItem(transactionSet.id);
+                }
+            }
+            txToUpdate
+                .filter((tx) => new Date(tx.createdDate).toLocaleDateString() === new Date().toLocaleDateString())
+                .forEach((tx) => storeTransaction(tx));
+        },
+        [isProcessingTransaction, isDeletedTransaction, setLocalStorageItem, storeTransaction]
+    );
+    const updateCloudTransaction = useCallback(
+        async (id: string, transaction: Transaction) => {
+            if (!firestore) return;
+            await setDoc(doc(firestore, id, transaction.createdDate.toString()), transaction);
+        },
+        [firestore]
+    );
+
     // Check if the "transaction set" in the cloud exists in local (check by "id").
     // If not add it, if yes, check if every transaction in the cloud transaction set exist in local (check by "createdDate").
     // If not, add the transaction, if yes, check which one has the biggest "modifiedDate".
@@ -252,24 +283,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 'local',
                 localTransactionSets.sort((a, b) => a.id.localeCompare(b.id))
             );
-
-            const updateLocalTransaction = (transactionSet: TransactionSet) => {
-                const txToUpdate = transactionSet.transactions.filter(
-                    (transaction) => !isProcessingTransaction(transaction)
-                );
-                if (txToUpdate.length) {
-                    setLocalStorageItem(
-                        transactionSet.id,
-                        txToUpdate.filter((tx) => !isDeletedTransaction(tx))
-                    );
-                }
-                txToUpdate
-                    .filter((tx) => new Date(tx.createdDate).toLocaleDateString() === new Date().toLocaleDateString())
-                    .forEach((tx) => storeTransaction(tx));
-            };
-            const updateCloudTransaction = async (id: string, transaction: Transaction) => {
-                await setDoc(doc(firestore, id, transaction.createdDate.toString()), transaction);
-            };
 
             cloudTransactionSets.forEach((cloudTransactionSet) => {
                 const localTransactionSet = localTransactionSets.find((set) => set.id === cloudTransactionSet.id);
@@ -335,13 +348,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         },
         [
             firestore,
-            storeTransaction,
-            isProcessingTransaction,
-            isDeletedTransaction,
-            setLocalStorageItem,
             storeIndex,
             getLocalTransactions,
             transactionsFilename,
+            updateLocalTransaction,
+            updateCloudTransaction,
         ]
     );
 
@@ -357,7 +368,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             collectionIds.forEach((id) => {
                 getDocs(collection(firestore, id)).then((query) => {
                     const transactions = query.docs.map((doc) => doc.data() as Transaction);
-                    cloudTransactionSets.push({ id, transactions });
+                    if (transactions.length) cloudTransactionSets.push({ id, transactions });
 
                     console.log('Collections to process:', txToProcess);
 
@@ -401,35 +412,20 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 console.log(change.type, tx);
 
                 const localTx = transactions.find((transaction) => transaction.createdDate === tx.createdDate);
-                const isDeleted = isDeletedTransaction(tx);
 
-                switch (change.type) {
-                    case 'added':
-                        if (isDeleted && localTx) {
-                            setTransactions((transactions) =>
-                                transactions.filter((transaction) => transaction.createdDate !== tx.createdDate)
-                            );
-                        } else if (!isDeleted && !localTx) {
-                            setTransactions((transactions) => [...transactions, tx as Transaction]);
-                        }
-                        break;
-                    case 'modified':
-                        if (localTx?.method === PROCESSING_KEYWORD) return;
-
-                        setTransactions((transactions) =>
-                            transactions.map((transaction) =>
-                                transaction.createdDate === tx.createdDate
-                                    ? { ...transaction, ...tx, method: WAITING_KEYWORD }
-                                    : transaction
-                            )
-                        );
-                        break;
-                    case 'removed':
-                        setTransactions((transactions) =>
-                            transactions.filter((transaction) => transaction.createdDate !== tx.createdDate)
-                        );
-                        break;
+                const txToUpdate = [...transactions];
+                if (!localTx) {
+                    txToUpdate.push(tx as Transaction);
+                } else if (!isProcessingTransaction(localTx)) {
+                    // TODO : check the transactions modifiedDate
+                    txToUpdate.splice(
+                        txToUpdate.findIndex((transaction) => transaction.createdDate === tx.createdDate),
+                        1,
+                        { ...tx, method: isProcessingTransaction(tx) ? UPDATING_KEYWORD : tx.method }
+                    );
                 }
+
+                updateLocalTransaction({ id: transactionsFilename, transactions: txToUpdate });
             });
         });
 
@@ -759,9 +755,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const editTransaction = useCallback(
         (index: number) => {
-            if (!transactions.length) return;
+            const transaction = transactions.at(index);
+            if (!transaction?.amount) return;
 
-            const transaction = transactions[index];
             setCurrency(transaction.currency);
             transaction.products.forEach(addProduct);
             transaction.method = PROCESSING_KEYWORD;
@@ -784,7 +780,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                           method: item,
                           amount: getCurrentTotal(),
                           createdDate: transactionId.current || currentTime,
-                          modifiedDate: 0,
+                          modifiedDate: transactionId.current,
                           currency: currencies[currencyIndex].label,
                           products: products.current,
                       };
@@ -840,6 +836,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 deleteTransaction,
                 displayTransaction,
                 isWaitingTransaction,
+                isUpdatingTransaction,
                 isDeletedTransaction,
                 transactionsFilename,
                 toCurrency,
