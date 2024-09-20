@@ -8,7 +8,7 @@ import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
-import { BACK_KEYWORD } from '../utils/constants';
+import { BACK_KEYWORD, UPDATING_KEYWORD, WAITING_KEYWORD } from '../utils/constants';
 import { isMobileDevice, isMobileSize, useIsMobile } from '../utils/mobile';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
@@ -354,7 +354,8 @@ export const Total: FC = () => {
                     },
                     true
                 );
-            }
+            },
+            (option) => option.includes(WAITING_KEYWORD) || option.includes(UPDATING_KEYWORD)
         );
     }, [
         openPopup,
