@@ -19,10 +19,6 @@ class AppOfflineError extends Error {
     name = 'AppOfflineError';
     message = "L'application est hors ligne";
 }
-class MissingShopIdError extends Error {
-    name = 'MissingShopIdError';
-    message = "L'id du magasin est manquant dans la variable d'environnement SHOP_SPREADSHEET_ID";
-}
 export class UserNotFoundError extends Error {
     name = 'UserNotFoundError';
     message = 'Utilisateur non identifié';
@@ -90,10 +86,11 @@ export function getPublicKey() {
 const emptyShop = { id: undefined, fee: 0 };
 
 export async function loadData(shop: string, shouldUseLocalData = false): Promise<Config | undefined> {
+    // TODO: use fee
     const { id, fee } = shouldUseLocalData
         ? emptyShop // if the app is used locally, use the local data
         : typeof shop === 'string' // if shop is a string, it means that the app is used by a customer (custom path)
-          ? await fetch(`./api/spreadsheet?sheetName=index&id=${process.env.INDEX_SPREADSHEET_ID}`)
+          ? await fetch(`./api/spreadsheet?sheetName=index`)
                 .then(convertIndexData)
                 .then(
                     (data) =>
@@ -109,7 +106,6 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
           : { id: '', fee: 0 }; // if shop is not a string, it means that the app is used by a shop (root path)
 
     if (id !== undefined && !navigator.onLine) throw new AppOfflineError();
-    // TODO if (id === '' && !process.env.SHOP_SPREADSHEET_ID) throw new MissingShopIdError();
 
     const param = await fetchData(dataNames.parameters, id, false).then(convertParametersData);
     if (!param?.length) return;
