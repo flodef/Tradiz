@@ -1,13 +1,14 @@
 'use client';
 
 import { FC, MouseEventHandler, useCallback, useMemo, useState } from 'react';
-import { Currency, useConfig } from '../hooks/useConfig';
+import { twMerge } from 'tailwind-merge';
+import { useConfig } from '../hooks/useConfig';
 import { Transaction, useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
-import { BACK_KEYWORD, cls } from '../utils/constants';
+import { BACK_KEYWORD } from '../utils/constants';
 import { isMobileDevice, isMobileSize, useIsMobile } from '../utils/mobile';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
@@ -88,6 +89,7 @@ export const Total: FC = () => {
         toCurrency,
         displayTransaction,
         isWaitingTransaction,
+        isUpdatingTransaction,
         isDeletedTransaction,
         setSelectedProduct,
         setAmount,
@@ -127,7 +129,7 @@ export const Total: FC = () => {
 
     const modifyTransaction = useCallback(
         (index: number, fallback: (index: number) => void) => {
-            if (!isStateReady) return;
+            if (!isStateReady || isUpdatingTransaction(transactions.at(index))) return;
 
             handleContextMenu(
                 isWaitingTransaction(transactions.at(index)) ? 'Reprendre' : 'Modifier',
@@ -138,7 +140,15 @@ export const Total: FC = () => {
                 () => fallback(index)
             );
         },
-        [editTransaction, openPopup, transactions, isWaitingTransaction, closePopup, isStateReady]
+        [
+            editTransaction,
+            openPopup,
+            transactions,
+            isWaitingTransaction,
+            closePopup,
+            isStateReady,
+            isUpdatingTransaction,
+        ]
     );
 
     const isConfirmedTransaction = useCallback(
@@ -257,7 +267,7 @@ export const Total: FC = () => {
     const showBoughtProducts = useCallback(
         (transactionIndex: number, fallback: () => void) => {
             const transaction = transactions.at(transactionIndex);
-            if (!transaction || !transaction.amount || transactionIndex < 0 || !isStateReady) return;
+            if (isUpdatingTransaction(transaction) || !transaction?.amount || !isStateReady) return;
 
             openPopup(
                 toCurrency(transaction) + ' en ' + transaction.method,
@@ -291,7 +301,16 @@ export const Total: FC = () => {
                 }
             );
         },
-        [transactions, openPopup, displayProduct, toCurrency, modifyTransaction, isStateReady, deleteBoughtProduct]
+        [
+            transactions,
+            openPopup,
+            displayProduct,
+            toCurrency,
+            modifyTransaction,
+            isStateReady,
+            deleteBoughtProduct,
+            isUpdatingTransaction,
+        ]
     );
 
     const sortedTransactions = useMemo(() => {
@@ -390,7 +409,7 @@ export const Total: FC = () => {
         ]
     );
 
-    const clickClassName = cls(
+    const clickClassName = twMerge(
         'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark active:dark:text-popup-light',
         isStateReady && !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : ''
     );
@@ -407,7 +426,7 @@ export const Total: FC = () => {
             )}
         >
             <div
-                className={cls(
+                className={twMerge(
                     'md:w-1/2 w-full fixed text-5xl truncate text-center font-bold py-3',
                     'border-b-4 border-active-light dark:border-active-dark',
                     (canDisplayTotal && total) || (!canDisplayTotal && transactions.length) ? clickClassName : '',
@@ -443,7 +462,11 @@ export const Total: FC = () => {
                           }))
                           .map(({ product, isSelectedProduct }, index) => (
                               <Item
-                                  className={cls('py-2 ml-1', clickClassName, isSelectedProduct ? 'animate-pulse' : '')}
+                                  className={twMerge(
+                                      'py-2 ml-1',
+                                      clickClassName,
+                                      isSelectedProduct ? 'animate-pulse' : ''
+                                  )}
                                   key={index}
                                   label={product}
                                   onClick={() => selectProduct(index)}
@@ -454,14 +477,15 @@ export const Total: FC = () => {
                           .map((transaction) => ({
                               transaction: displayTransaction(transaction),
                               isWaitingTransaction: isWaitingTransaction(transaction),
+                              isUpdatingTransaction: isUpdatingTransaction(transaction),
                           }))
-                          .map(({ transaction, isWaitingTransaction }, index) =>
+                          .map(({ transaction, isWaitingTransaction, isUpdatingTransaction }, index) =>
                               transaction ? (
                                   <Item
-                                      className={cls(
+                                      className={twMerge(
                                           'py-2 ml-1',
-                                          clickClassName,
-                                          isWaitingTransaction ? 'animate-pulse' : ''
+                                          isWaitingTransaction || isUpdatingTransaction ? 'animate-pulse' : '',
+                                          isUpdatingTransaction ? 'cursor-not-allowed' : clickClassName
                                       )}
                                       key={index}
                                       label={transaction}
