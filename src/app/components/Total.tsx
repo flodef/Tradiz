@@ -106,7 +106,7 @@ export const Total: FC = () => {
 
     const selectProduct = useCallback(
         (index: number) => {
-            if (!isStateReady) return;
+            if (!isStateReady && index >= 0) return;
 
             const newSelectedProduct =
                 products.current.at(index) === selectedProduct ? undefined : products.current.at(index);
@@ -120,7 +120,7 @@ export const Total: FC = () => {
 
     const modifyProduct = useCallback(
         (index: number) => {
-            if (!isStateReady) return;
+            if (!isStateReady && index >= 0) return;
 
             handleContextMenu('Effacer', deleteProduct, index, openPopup, closePopup);
         },
@@ -129,10 +129,11 @@ export const Total: FC = () => {
 
     const modifyTransaction = useCallback(
         (index: number, fallback: (index: number) => void) => {
-            if (!isStateReady || isUpdatingTransaction(transactions.at(index))) return;
+            const transaction = index >= 0 ? transactions.at(index) : undefined;
+            if (!isStateReady || !transaction || isUpdatingTransaction(transaction)) return;
 
             handleContextMenu(
-                isWaitingTransaction(transactions.at(index)) ? 'Reprendre' : 'Modifier',
+                isWaitingTransaction(transaction) ? 'Reprendre' : 'Modifier',
                 editTransaction,
                 index,
                 openPopup,
@@ -266,7 +267,7 @@ export const Total: FC = () => {
 
     const showBoughtProducts = useCallback(
         (transactionIndex: number, fallback: () => void) => {
-            const transaction = transactions.at(transactionIndex);
+            const transaction = transactionIndex >= 0 ? transactions.at(transactionIndex) : undefined;
             if (isUpdatingTransaction(transaction) || !transaction?.amount || !isStateReady) return;
 
             openPopup(
