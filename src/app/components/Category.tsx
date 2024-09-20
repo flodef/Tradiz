@@ -1,16 +1,17 @@
 'use client';
 
 import { FC, MouseEventHandler, useEffect, useMemo, useState } from 'react';
+import { twMerge } from 'tailwind-merge';
 import { EmptyDiscount, InventoryItem, State, useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { useWindowParam } from '../hooks/useWindowParam';
 import Loading, { LoadingType } from '../loading';
-import { cls, EMAIL, OTHER_KEYWORD } from '../utils/constants';
+import { EMAIL, OTHER_KEYWORD } from '../utils/constants';
+import { isMobileDevice } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
 import { sendEmail } from '../utils/sendEmail';
 import { useAddPopupClass } from './Popup';
-import { isMobileDevice } from '../utils/mobile';
 
 interface CategoryInputButton {
     input: string;
@@ -29,7 +30,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
 
     return (
         <div
-            className={cls(
+            className={twMerge(
                 { 1: 'w-full', 2: 'w-1/2', 3: 'w-1/3' }[length] ?? 'w-auto',
                 'relative flex justify-center py-3 items-center font-semibold text-2xl',
                 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark active:dark:text-popup-light',
@@ -101,7 +102,7 @@ export const Category: FC = () => {
                     ['Rafraîchir la page'].concat(!hasSentEmail ? ['Contacter ' + EMAIL] : []),
                     (i) => {
                         if (i === 1) {
-                            sendEmail(EMAIL, 'Erreur fatale', 'Une erreur de chargement de données est survenue !');
+                            sendEmail(EMAIL, 'Erreur fatale', "L'erreur suivante est survenue :" + parameters.error);
                             setHasSentEmail(true);
                         } else {
                             closePopup();
@@ -119,6 +120,7 @@ export const Category: FC = () => {
         parameters.lastModified,
         setState,
         parameters.shopEmail,
+        parameters.error,
         hasSentEmail,
         isDemo,
         isLocalhost,

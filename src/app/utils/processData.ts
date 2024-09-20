@@ -1,28 +1,33 @@
 import { Keypair } from '@solana/web3.js';
 import { Config, Parameters } from '../contexts/ConfigProvider';
 import { Currency, InventoryItem, Mercurial, PaymentMethod, Role } from '../hooks/useConfig';
-import { EMAIL } from './constants';
+import { EMAIL, IS_DEV } from './constants';
 
 class MissingDataError extends Error {
     name = 'MissingDataError';
-    message = 'missing data';
+    message = 'Données manquantes';
 }
-
 class EmptyDataError extends Error {
     name = 'EmptyDataError';
-    message = 'empty data';
+    message = 'Données vides';
 }
-
 class WrongDataPatternError extends Error {
     name = 'WrongDataPatternError';
-    message = 'wrong data pattern';
+    message = 'Format de données incorrect';
 }
-
+class AppOfflineError extends Error {
+    name = 'AppOfflineError';
+    message = "L'application est hors ligne";
+}
+class MissingShopIdError extends Error {
+    name = 'MissingShopIdError';
+    message = "L'id du magasin est manquant dans la variable d'environnement SHOP_SPREADSHEET_ID";
+}
 export class UserNotFoundError extends Error {
     name = 'UserNotFoundError';
-    message = 'user not found';
+    message = 'Utilisateur non identifié';
     constructor(email: string | undefined) {
-        super(`user not found: ${email}`, { cause: email });
+        super(`Utilisateur non identifié: ${email}`, { cause: email });
     }
 }
 
@@ -84,26 +89,27 @@ export function getPublicKey() {
 
 const emptyShop = { id: undefined, fee: 0 };
 
-export async function loadData(shop: string, isOutOfLocalHost = true): Promise<Config | undefined> {
-    if (isOutOfLocalHost && !navigator.onLine) throw new Error('The web app is offline');
+export async function loadData(shop: string, shouldUseLocalData = false): Promise<Config | undefined> {
+    const { id, fee } = shouldUseLocalData
+        ? emptyShop // if the app is used locally, use the local data
+        : typeof shop === 'string' // if shop is a string, it means that the app is used by a customer (custom path)
+          ? await fetch(`./api/spreadsheet?sheetName=index&id=${process.env.INDEX_SPREADSHEET_ID}`)
+                .then(convertIndexData)
+                .then(
+                    (data) =>
+                        data
+                            .filter(({ shop: s }) => s === shop)
+                            .map(({ id, fee }) => ({ id, fee }))
+                            .at(0) ?? emptyShop
+                )
+                .catch((error) => {
+                    console.error(error);
+                    return emptyShop;
+                })
+          : { id: '', fee: 0 }; // if shop is not a string, it means that the app is used by a shop (root path)
 
-    const { id, fee } = isOutOfLocalHost
-        ? typeof shop === 'string' // if shop is a string, it means that the app is used by a customer (custom path)
-            ? await fetch(`./api/spreadsheet?sheetName=index`)
-                  .then(convertIndexData)
-                  .then(
-                      (data) =>
-                          data
-                              .filter(({ shop: s }) => s === shop)
-                              .map(({ id, fee }) => ({ id, fee }))
-                              .at(0) ?? emptyShop
-                  )
-                  .catch((error) => {
-                      console.error(error);
-                      return emptyShop;
-                  })
-            : { id: '', fee: 0 } // if shop is not a string, it means that the app is used by a shop (root path)
-        : emptyShop;
+    if (id !== undefined && !navigator.onLine) throw new AppOfflineError();
+    // TODO if (id === '' && !process.env.SHOP_SPREADSHEET_ID) throw new MissingShopIdError();
 
     const param = await fetchData(dataNames.parameters, id, false).then(convertParametersData);
     if (!param?.length) return;

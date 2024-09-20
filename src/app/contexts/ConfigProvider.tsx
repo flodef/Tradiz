@@ -12,6 +12,8 @@ import {
     State,
     User,
 } from '../hooks/useConfig';
+import { useWindowParam } from '../hooks/useWindowParam';
+import { IS_DEV } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
 import {
     UserNotFoundError,
@@ -28,6 +30,7 @@ export interface Parameters {
     mercurial: Mercurial;
     lastModified: string;
     user: User;
+    error?: string;
 }
 
 export interface Config {
@@ -45,6 +48,8 @@ export interface ConfigProviderProps {
 }
 
 export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
+    const { isDemo } = useWindowParam();
+
     const [state, setState] = useState(State.init);
     const [config, setConfig] = useLocalStorage<Config | undefined>('Config', undefined);
     const [parameters, setParameters] = useState<Parameters>(defaultParameters);
@@ -128,22 +133,21 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
 
             loadConfig(config);
 
-            if (!config || !process.env.NEXT_PUBLIC_IS_DEV) {
-                loadData(shop)
-                    .then(storeData)
-                    .catch((error) => {
-                        console.error(error);
+            loadData(shop, IS_DEV || isDemo)
+                .then(storeData)
+                .catch((error) => {
+                    console.error(error);
 
-                        if (error instanceof UserNotFoundError) {
-                            parameters.shopEmail = String(error.cause);
-                            setState(State.unidentified);
-                        } else {
-                            setState(State.error);
-                        }
-                    });
-            }
+                    parameters.error = error.message;
+                    if (error instanceof UserNotFoundError) {
+                        parameters.shopEmail = String(error.cause);
+                        setState(State.unidentified);
+                    } else {
+                        setState(State.error);
+                    }
+                });
         }
-    }, [state, config, storeData, loadConfig, shop, parameters]);
+    }, [state, config, storeData, loadConfig, shop, parameters, isDemo]);
 
     return (
         <ConfigContext.Provider
