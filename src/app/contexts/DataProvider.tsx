@@ -414,8 +414,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 const localTx = transactions.find((transaction) => transaction.createdDate === tx.createdDate);
 
                 const txToUpdate = [...transactions];
+                const updateTx = (txToUpdate: Transaction[]) =>
+                    updateLocalTransaction({ id: transactionsFilename, transactions: txToUpdate });
                 if (!localTx) {
                     txToUpdate.push(tx as Transaction);
+                    updateTx(txToUpdate);
                 } else {
                     // TODO : check the transactions modifiedDate
                     txToUpdate.splice(
@@ -427,9 +430,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                                 isProcessingTransaction(tx) && !transactionId.current ? UPDATING_KEYWORD : tx.method,
                         }
                     );
+                    updateTx(txToUpdate);
                 }
-
-                updateLocalTransaction({ id: transactionsFilename, transactions: txToUpdate });
             });
         });
 
@@ -800,12 +802,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const displayTransaction = useCallback(
         (transaction: Transaction) => {
-            return transaction.createdDate && transaction.method
+            return transaction.modifiedDate && transaction.method
                 ? toCurrency(transaction) +
                       (isWaitingTransaction(transaction) ? ' ' : ' en ') +
                       transaction.method +
                       ' à ' +
-                      new Date(transaction.createdDate).toTimeString().slice(0, 9)
+                      new Date(transaction.modifiedDate).toTimeString().slice(0, 9)
                 : '';
         },
         [toCurrency, isWaitingTransaction]

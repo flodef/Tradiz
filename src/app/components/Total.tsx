@@ -319,10 +319,10 @@ export const Total: FC = () => {
 
         const waitingTransactions = transactions
             .filter(isWaitingTransaction)
-            .sort((a, b) => b.createdDate - a.createdDate);
+            .sort((a, b) => b.modifiedDate - a.modifiedDate);
         const confirmedTransactions = transactions
             .filter(isConfirmedTransaction)
-            .sort((a, b) => b.createdDate - a.createdDate);
+            .sort((a, b) => b.modifiedDate - a.modifiedDate);
         const hasSeparation = waitingTransactions.length && confirmedTransactions.length;
         return waitingTransactions.concat(hasSeparation ? [{} as Transaction] : []).concat(confirmedTransactions);
     }, [transactions, isWaitingTransaction, isConfirmedTransaction]);
