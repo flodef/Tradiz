@@ -3,16 +3,18 @@ import { metadata } from '../layout';
 import Home from '../page';
 
 type Props = {
-    params: { shop: string };
+    params: Promise<{ shop: string }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+    const { shop } = await params;
     return {
-        title: metadata.title + ' - ' + params.shop.charAt(0).toUpperCase() + params.shop.slice(1),
+        title: metadata.title + ' - ' + shop.charAt(0).toUpperCase() + shop.slice(1),
         description: metadata.description,
     };
 }
 
 export default async function Page({ params }: Props) {
-    return Home(params.shop);
+    const { shop } = await params;
+    return Home(shop);
 }
