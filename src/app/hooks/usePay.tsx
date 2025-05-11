@@ -1,19 +1,53 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { QRCode } from '../components/QRCode';
-import { IS_LOCAL, WAITING_KEYWORD } from '../utils/constants';
+import { IS_LOCAL, PRINT_KEYWORD, WAITING_KEYWORD } from '../utils/constants';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
-import { useData } from './useData';
+import { Product, useData } from './useData';
 import { usePopup } from './usePopup';
+import { usePOSPrinter } from '../utils/posPrinter';
 
 export const usePay = () => {
     const { openPopup, closePopup } = usePopup();
-    const { updateTransaction, getCurrentTotal, toCurrency, total, amount, selectedProduct } = useData();
+    const { updateTransaction, getCurrentTotal, toCurrency, total, amount, selectedProduct, products } = useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
-    const { paymentMethods, currencies, currencyIndex } = useConfig();
+    const { paymentMethods, currencies, currencyIndex, parameters } = useConfig();
+    const printer = usePOSPrinter();
 
     const canPay = useMemo(() => Boolean(total && !amount && !selectedProduct), [total, amount, selectedProduct]);
     const canAddProduct = useMemo(() => Boolean(amount && selectedProduct), [amount, selectedProduct]);
+
+    /**
+     * Print the current transaction receipt with all products
+     */
+    const printReceipt = useCallback(() => {
+        // Get current products from the products ref
+        const currentProducts = products.current;
+        const currentTotal = getCurrentTotal();
+
+        // Format products for the receipt
+        const receiptItems = currentProducts.map((product) => ({
+            description: product.label,
+            qty: product.quantity,
+            price: product.amount,
+        }));
+
+        // Get currency symbol for the receipt
+        const currencySymbol = currencies[currencyIndex].symbol;
+
+        // Prepare receipt data
+        const receiptData = {
+            shopName: parameters.shopName,
+            shopEmail: parameters.shopEmail,
+            items: receiptItems,
+            total: currentTotal,
+            currency: currencySymbol,
+            thanksMessage: parameters.thanksMessage,
+        };
+
+        // Print the receipt
+        printer.printReceipt(receiptData);
+    }, [getCurrentTotal, products, printer, currencies, currencyIndex, parameters]);
 
     const openQRCode = useCallback(
         (onCancel: (onConfirm: () => void) => void, onConfirm: () => void) => {
@@ -120,13 +154,26 @@ export const usePay = () => {
                         }
                     );
                     break;
+                case PRINT_KEYWORD:
+                    printReceipt();
+                    closePopup();
+                    break;
                 default:
                     updateTransaction(option.includes(WAITING_KEYWORD) ? WAITING_KEYWORD : option);
                     closePopup();
                     break;
             }
         },
-        [openQRCode, cancelOrConfirmPaiement, generate, updateTransaction, closePopup, paymentMethods, openPopup]
+        [
+            openQRCode,
+            cancelOrConfirmPaiement,
+            generate,
+            updateTransaction,
+            closePopup,
+            paymentMethods,
+            openPopup,
+            printReceipt,
+        ]
     );
 
     const pay = useCallback(() => {
@@ -135,7 +182,7 @@ export const usePay = () => {
             const paymentMethodsLabels = paymentMethods
                 .filter((item) => item.currency === currencies[currencyIndex].symbol)
                 .map((item) => item.method)
-                .concat(['', 'METTRE ' + WAITING_KEYWORD]);
+                .concat(['', 'METTRE ' + WAITING_KEYWORD, PRINT_KEYWORD]);
             if (paymentMethodsLabels.length === 1) {
                 selectPayment(paymentMethodsLabels[0], pay);
             } else {
