@@ -329,86 +329,121 @@ N° SIRET
 
 /**
  * Print content using the browser's print functionality
- * This simpler implementation prints directly using window.print()
  */
 export const printContent = async (
     content: PrintContent | PrintContent[],
     config: PrinterConfig = DEFAULT_PRINTER_CONFIG
 ): Promise<void> => {
-    // Store original body content
-    const originalBody = document.body.innerHTML;
-    const originalBodyStyle = document.body.style.cssText;
+    // Create a hidden iframe for printing
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'fixed';
+    printFrame.style.right = '0';
+    printFrame.style.bottom = '0';
+    printFrame.style.width = '0';
+    printFrame.style.height = '0';
+    printFrame.style.border = '0';
+    document.body.appendChild(printFrame);
+    
+    const frameDoc = printFrame.contentWindow?.document;
+    if (!frameDoc) {
+        console.error('Could not access iframe document');
+        return;
+    }
     
     try {
-        // Create a container for the print content
-        const printElement = document.createElement('div');
-        printElement.style.width = `${config.width}mm`;
-        printElement.style.margin = '0 auto';
-        printElement.style.padding = '0';
-        printElement.style.backgroundColor = 'white';
-        printElement.style.color = 'black';
+        // Create the print content
+        frameDoc.write(`<!DOCTYPE html><html><head><title>Print</title>`); 
         
-        // Add content directly to the element
+        // Add styles
+        frameDoc.write(`<style>
+            @page { 
+                margin: 0; 
+                size: ${config.width}mm ${config.autoSize ? 'auto' : config.height + 'mm'}; 
+            }
+            body { 
+                margin: 0; 
+                padding: 0; 
+                font-family: monospace; 
+                background-color: #fff; 
+                color: #000; 
+            }
+            .receipt-content { 
+                width: ${config.width}mm; 
+                margin: 0 auto; 
+            }
+            pre { 
+                margin: 0; 
+                white-space: pre-wrap; 
+                font-size: 10px; 
+            }
+            img { 
+                max-width: 100%; 
+            }
+        </style></head><body>`); 
+        
+        frameDoc.write('<div class="receipt-content">'); 
+        
+        // Add all content to the document
         const contentArray = Array.isArray(content) ? content : [content];
         for (const item of contentArray) {
-            // Add each content item
             if (item.text) {
-                const pre = document.createElement('pre');
-                pre.style.margin = '0';
-                pre.style.fontFamily = 'monospace';
-                pre.style.whiteSpace = 'pre-wrap';
-                pre.style.fontSize = '10px';
-                pre.textContent = item.text;
-                printElement.appendChild(pre);
+                frameDoc.write(`<pre>${item.text}</pre>`);
             } else if (item.html) {
-                const div = document.createElement('div');
-                div.innerHTML = item.html;
-                printElement.appendChild(div);
+                frameDoc.write(item.html);
             } else if (item.image) {
-                const img = document.createElement('img');
-                img.src = item.image;
-                img.style.maxWidth = '100%';
-                printElement.appendChild(img);
+                frameDoc.write(`<img src="${item.image}" />`);
+            } else if (item.qrCode) {
+                // Could render QR code with a library if needed
+                frameDoc.write(`<div>QR Code: ${item.qrCode}</div>`);
+            } else if (item.barcode) {
+                // Could render barcode with a library if needed
+                frameDoc.write(`<div>Barcode: ${item.barcode}</div>`);
             }
-            // Add other content types as needed
         }
         
-        // Add a print-only stylesheet to the document
-        const style = document.createElement('style');
-        style.textContent = `
-            @page { margin: 0; size: ${config.width}mm ${config.autoSize ? 'auto' : config.height + 'mm'}; }
-            @media print {
-                body * { display: none; }
-                body #printable-content { display: block !important; }
-                #printable-content { width: ${config.width}mm !important; }
+        frameDoc.write('</div></body></html>');
+        frameDoc.close();
+        
+        // Wait for resources to load before printing
+        return new Promise<void>((resolve) => {
+            const frameWindow = printFrame.contentWindow;
+            if (!frameWindow) {
+                console.error('Could not access iframe window');
+                resolve();
+                return;
             }
-        `;
-        document.head.appendChild(style);
-        
-        // Replace body content with print content
-        printElement.id = 'printable-content';
-        document.body.innerHTML = '';
-        document.body.style.margin = '0';
-        document.body.style.padding = '0';
-        document.body.style.backgroundColor = 'white';
-        document.body.appendChild(printElement);
-        
-        // Print the document
-        window.print();
-        
-        // Remove the style element
-        if (style.parentNode) {
-            style.parentNode.removeChild(style);
-        }
-        
-        return Promise.resolve();
+            
+            frameWindow.onload = () => {
+                try {
+                    // Print after content is loaded
+                    frameWindow.focus();
+                    frameWindow.print();
+                    resolve();
+                } catch (error) {
+                    console.error('Error during printing:', error);
+                    resolve();
+                }
+            };
+            
+            // Fallback if onload doesn't trigger
+            setTimeout(() => {
+                try {
+                    frameWindow.focus();
+                    frameWindow.print();
+                    resolve();
+                } catch (error) {
+                    console.error('Error during printing fallback:', error);
+                    resolve();
+                }
+            }, 1000);
+        });
     } finally {
-        // Restore original content after printing
-        // Use a small timeout to ensure printing has completed
+        // Remove the iframe after a delay
         setTimeout(() => {
-            document.body.innerHTML = originalBody;
-            document.body.style.cssText = originalBodyStyle;
-        }, 500);
+            if (printFrame && printFrame.parentNode) {
+                printFrame.parentNode.removeChild(printFrame);
+            }
+        }, 2000);
     }
 };
 
