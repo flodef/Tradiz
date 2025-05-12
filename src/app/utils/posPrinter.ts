@@ -334,117 +334,100 @@ export const printContent = async (
     content: PrintContent | PrintContent[],
     config: PrinterConfig = DEFAULT_PRINTER_CONFIG
 ): Promise<void> => {
-    // Create a hidden iframe for printing
-    const printFrame = document.createElement('iframe');
-    printFrame.style.position = 'fixed';
-    printFrame.style.right = '0';
-    printFrame.style.bottom = '0';
-    printFrame.style.width = '0';
-    printFrame.style.height = '0';
-    printFrame.style.border = '0';
-    document.body.appendChild(printFrame);
-    
-    const frameDoc = printFrame.contentWindow?.document;
-    if (!frameDoc) {
-        console.error('Could not access iframe document');
-        return;
-    }
-    
-    try {
-        // Create the print content
-        frameDoc.write(`<!DOCTYPE html><html><head><title>Print</title>`); 
-        
-        // Add styles
-        frameDoc.write(`<style>
-            @page { 
-                margin: 0; 
-                size: ${config.width}mm ${config.autoSize ? 'auto' : config.height + 'mm'}; 
-            }
-            body { 
-                margin: 0; 
-                padding: 0; 
-                font-family: monospace; 
-                background-color: #fff; 
-                color: #000; 
-            }
-            .receipt-content { 
-                width: ${config.width}mm; 
-                margin: 0 auto; 
-            }
-            pre { 
-                margin: 0; 
-                white-space: pre-wrap; 
-                font-size: 10px; 
-            }
-            img { 
-                max-width: 100%; 
-            }
-        </style></head><body>`); 
-        
-        frameDoc.write('<div class="receipt-content">'); 
-        
-        // Add all content to the document
+    // Function to create text content
+    const createContent = () => {
+        let htmlContent = '';
         const contentArray = Array.isArray(content) ? content : [content];
+        
         for (const item of contentArray) {
             if (item.text) {
-                frameDoc.write(`<pre>${item.text}</pre>`);
+                htmlContent += `<pre style="margin:0;white-space:pre-wrap;font-family:monospace;font-size:10px">${item.text}</pre>`;
             } else if (item.html) {
-                frameDoc.write(item.html);
+                htmlContent += item.html;
             } else if (item.image) {
-                frameDoc.write(`<img src="${item.image}" />`);
+                htmlContent += `<img src="${item.image}" style="max-width:100%" />`;
             } else if (item.qrCode) {
-                // Could render QR code with a library if needed
-                frameDoc.write(`<div>QR Code: ${item.qrCode}</div>`);
+                htmlContent += `<div>QR Code: ${item.qrCode}</div>`;
             } else if (item.barcode) {
-                // Could render barcode with a library if needed
-                frameDoc.write(`<div>Barcode: ${item.barcode}</div>`);
+                htmlContent += `<div>Barcode: ${item.barcode}</div>`;
             }
         }
         
-        frameDoc.write('</div></body></html>');
-        frameDoc.close();
-        
-        // Wait for resources to load before printing
-        return new Promise<void>((resolve) => {
-            const frameWindow = printFrame.contentWindow;
-            if (!frameWindow) {
-                console.error('Could not access iframe window');
-                resolve();
-                return;
-            }
-            
-            frameWindow.onload = () => {
-                try {
-                    // Print after content is loaded
-                    frameWindow.focus();
-                    frameWindow.print();
-                    resolve();
-                } catch (error) {
-                    console.error('Error during printing:', error);
-                    resolve();
-                }
-            };
-            
-            // Fallback if onload doesn't trigger
-            setTimeout(() => {
-                try {
-                    frameWindow.focus();
-                    frameWindow.print();
-                    resolve();
-                } catch (error) {
-                    console.error('Error during printing fallback:', error);
-                    resolve();
-                }
-            }, 1000);
-        });
-    } finally {
-        // Remove the iframe after a delay
-        setTimeout(() => {
-            if (printFrame && printFrame.parentNode) {
-                printFrame.parentNode.removeChild(printFrame);
-            }
-        }, 2000);
+        return htmlContent;
+    };
+    
+    // Create popup window for printing
+    const printWindow = window.open('', '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no');
+    if (!printWindow) {
+        console.error('Could not open print window - popup might be blocked');
+        return;
     }
+    
+    // Generate content
+    const contentHtml = createContent();
+    
+    // Write to the new window
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Print Receipt</title>
+            <style>
+                @page {
+                    margin: 0;
+                    size: ${config.width}mm ${config.autoSize ? 'auto' : config.height + 'mm'};
+                }
+                body {
+                    margin: 0;
+                    padding: 0;
+                    font-family: monospace;
+                    background-color: white;
+                    color: black;
+                    display: flex;
+                    justify-content: center;
+                }
+                .receipt-container {
+                    width: ${config.width}mm;
+                    padding: 0;
+                    background-color: white;
+                    color: black;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="receipt-container">${contentHtml}</div>
+            <script>
+                // Ensure print dialog opens after content is loaded
+                window.onload = function() {
+                    setTimeout(function() {
+                        window.print();
+                        setTimeout(function() {
+                            window.close();
+                        }, 100);
+                    }, 200);
+                };
+            </script>
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    
+    return new Promise<void>((resolve) => {
+        // Check if window closes (after printing)
+        const checkClosed = setInterval(() => {
+            if (printWindow.closed) {
+                clearInterval(checkClosed);
+                resolve();
+            }
+        }, 500);
+        
+        // Backup resolve after a timeout
+        setTimeout(() => {
+            clearInterval(checkClosed);
+            resolve();
+        }, 10000);
+    });
 };
 
 /**
