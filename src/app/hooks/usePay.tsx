@@ -20,7 +20,7 @@ export const usePay = () => {
     /**
      * Print the current transaction receipt with all products
      */
-    const printReceipt = useCallback(() => {
+    const printReceipt = useCallback(async () => {
         // Get current products from the products ref
         const currentProducts = products.current;
         const currentTotal = getCurrentTotal();
@@ -46,7 +46,7 @@ export const usePay = () => {
         };
 
         // Print the receipt
-        printer.printReceipt(receiptData);
+        await printer.printReceipt(receiptData);
     }, [getCurrentTotal, products, printer, currencies, currencyIndex, parameters]);
 
     const openQRCode = useCallback(
@@ -155,8 +155,7 @@ export const usePay = () => {
                     );
                     break;
                 case PRINT_KEYWORD:
-                    printReceipt();
-                    closePopup();
+                    printReceipt().then(() => closePopup());
                     break;
                 default:
                     updateTransaction(option.includes(WAITING_KEYWORD) ? WAITING_KEYWORD : option);

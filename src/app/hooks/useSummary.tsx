@@ -552,7 +552,7 @@ export const useSummary = () => {
         [toCurrency, getTransactionsDetails, getTaxesByCategory, getTaxAmountByCategory, getFilteredTransactions]
     );
 
-    const printReceipt = useCallback(() => {
+    const printSummary = useCallback(async () => {
         const filteredTransactions = getFilteredTransactions();
         if (!filteredTransactions.length) return;
 
@@ -563,9 +563,7 @@ export const useSummary = () => {
         const totalAmount = data.payments.reduce((total, payment) => total + payment.amount, 0);
 
         // Format the summary based on the email formatting
-        const summary = data.summary
-            .map((item) => (item.trim() ? item : undefined))
-            .filter(Boolean) as string[];
+        const summary = data.summary.map((item) => (item.trim() ? item : undefined)).filter(Boolean) as string[];
 
         // Get period description
         const periodDesc =
@@ -587,7 +585,7 @@ export const useSummary = () => {
         };
 
         // Print the Ticket Z
-        printer.printTicketZ(ticketZData);
+        await printer.printTicketZ(ticketZData);
     }, [
         currencies,
         currencyIndex,
@@ -625,8 +623,7 @@ export const useSummary = () => {
                             }); // Set timeout to give time to the popup to display and the screenshot to be taken
                             break;
                         case 'Impression':
-                            printReceipt();
-                            closePopup();
+                            printSummary().then(() => closePopup());
                             break;
                         case 'Email':
                             processEmail('TicketZ ' + formattedDate);
@@ -665,7 +662,7 @@ export const useSummary = () => {
         openPopup,
         closePopup,
         showTransactionsSummary,
-        printReceipt,
+        printSummary,
         processEmail,
         downloadData,
         transactions,
