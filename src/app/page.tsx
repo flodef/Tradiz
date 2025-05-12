@@ -12,8 +12,9 @@ type HomeProps = {
 };
 
 export default async function Home({ params, searchParams }: HomeProps) {
-    // Await the searchParams if needed
-    const shop = typeof searchParams.shop === 'string' ? searchParams.shop : '';
+    // In Next.js 15, we need to await searchParams before accessing its properties
+    const awaitedParams = await searchParams;
+    const shop = typeof awaitedParams.shop === 'string' ? awaitedParams.shop : '';
 
     return (
         <main
