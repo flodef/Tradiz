@@ -3,6 +3,7 @@ import { utils, writeFile } from 'xlsx';
 import { DELETED_KEYWORD, GET_FORMATTED_DATE, WAITING_KEYWORD } from '../utils/constants';
 import { takeScreenshot } from '../utils/screenshot';
 import { sendEmail } from '../utils/sendEmail';
+import { usePOSPrinter } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { DataElement, SyncAction, Transaction, useData } from './useData';
 import { usePopup } from './usePopup';
@@ -16,6 +17,7 @@ export const useSummary = () => {
     const { currencies, currencyIndex, inventory, parameters } = useConfig();
     const { transactions, toCurrency, transactionsFilename, isDbConnected, processTransactions } = useData();
     const { openPopup, closePopup } = usePopup();
+    const printer = usePOSPrinter();
 
     const ImportOption = useMemo(
         () => (
@@ -550,6 +552,54 @@ export const useSummary = () => {
         [toCurrency, getTransactionsDetails, getTaxesByCategory, getTaxAmountByCategory, getFilteredTransactions]
     );
 
+    const printReceipt = useCallback(() => {
+        const filteredTransactions = getFilteredTransactions();
+        if (!filteredTransactions.length) return;
+
+        // Get transaction summary data
+        const data = getTransactionsData(filteredTransactions);
+
+        // Calculate total from payments
+        const totalAmount = data.payments.reduce((total, payment) => total + payment.amount, 0);
+
+        // Format the summary based on the email formatting
+        const summary = data.summary
+            .map((item) => (item.trim() ? item : undefined))
+            .filter(Boolean) as string[];
+
+        // Get period description
+        const periodDesc =
+            getTransactionDate().period === HistoricalPeriod.day
+                ? getTransactionDate().date.toLocaleDateString('fr-FR')
+                : 'Mois de ' +
+                  getTransactionDate().date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+
+        // Prepare Ticket Z data
+        const ticketZData = {
+            shopName: parameters.shopName,
+            shopEmail: parameters.shopEmail,
+            currency: currencies[currencyIndex].symbol,
+            period: periodDesc,
+            totalAmount: totalAmount,
+            transactionCount: filteredTransactions.length,
+            summary: summary,
+            thanksMessage: parameters.thanksMessage,
+        };
+
+        // Print the Ticket Z
+        printer.printTicketZ(ticketZData);
+    }, [
+        currencies,
+        currencyIndex,
+        getFilteredTransactions,
+        getTransactionDate,
+        getTransactionsData,
+        parameters.shopEmail,
+        parameters.shopName,
+        parameters.thanksMessage,
+        printer,
+    ]);
+
     const showTransactionsSummaryMenu = useCallback(() => {
         const hasTransactions = transactions.length || tempTransactions.current.length;
         const historicalTransactions = getHistoricalTransactions();
@@ -560,7 +610,7 @@ export const useSummary = () => {
             );
             openPopup(
                 'TicketZ ' + (hasTransactions ? formattedDate : ''),
-                (hasTransactions ? ["Capture d'écran", 'Email', 'Feuille de calcul'] : [])
+                (hasTransactions ? ["Capture d'écran", 'Impression', 'Email', 'Feuille de calcul'] : [])
                     .concat(isDbConnected ? ['Synchronisation'] : [])
                     .concat(historicalTransactions.length ? ['Histo jour', 'Histo mois'] : [])
                     .concat(hasTransactions ? 'Afficher' : []),
@@ -573,6 +623,10 @@ export const useSummary = () => {
                                     openPopup("Capture d'écran", ['La capture a bien été enregistrée'], () => {});
                                 });
                             }); // Set timeout to give time to the popup to display and the screenshot to be taken
+                            break;
+                        case 'Impression':
+                            printReceipt();
+                            closePopup();
                             break;
                         case 'Email':
                             processEmail('TicketZ ' + formattedDate);
@@ -611,6 +665,7 @@ export const useSummary = () => {
         openPopup,
         closePopup,
         showTransactionsSummary,
+        printReceipt,
         processEmail,
         downloadData,
         transactions,

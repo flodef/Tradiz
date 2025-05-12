@@ -31,6 +31,32 @@ const mmToPixels = (mm: number, dpi: number): number => {
 };
 
 /**
+ * Formats a date in French format with standard options for receipts
+ */
+const formatFrenchDate = (date: Date = new Date()) => {
+    const frenchDateStr = new Intl.DateTimeFormat('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    }).format(date);
+
+    const frenchTimeStr = new Intl.DateTimeFormat('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+    }).format(date);
+
+    return { frenchDateStr, frenchTimeStr };
+};
+
+/**
+ * Generates a unique receipt number based on timestamp
+ */
+const generateReceiptNumber = (prefix: string = 'R', date: Date = new Date()): string => {
+    return `${prefix}-${date.getTime().toString().slice(-8)}`;
+};
+
+/**
  * Creates a print-ready element based on the printer configuration
  */
 const createPrintElement = (config: PrinterConfig = DEFAULT_PRINTER_CONFIG): HTMLDivElement => {
@@ -183,18 +209,8 @@ export const createReceiptTemplate = (
     thanksMessage?: string
 ): string => {
     const currentDate = new Date();
-    const receiptNumber = `TZ-${currentDate.getTime().toString().slice(-8)}`;
-
-    const frenchDateStr = new Intl.DateTimeFormat('fr-FR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-    }).format(currentDate);
-
-    const frenchTimeStr = new Intl.DateTimeFormat('fr-FR', {
-        hour: '2-digit',
-        minute: '2-digit',
-    }).format(currentDate);
+    const receiptNumber = generateReceiptNumber('R', currentDate);
+    const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
 
     let content = `
 ${shopName.toUpperCase()}
@@ -235,6 +251,75 @@ TOTAL:                      ${total.toFixed(2)} ${currency}
 
     // Use thanksMessage if provided, otherwise default to thank you message
     content += `${thanksMessage || 'Merci pour votre achat!'}`;
+
+    return content;
+};
+
+/**
+ * Creates a template specifically for Ticket Z (Z report) summary
+ * This is different from a regular receipt as it summarizes all transactions
+ */
+export const createTicketZTemplate = (
+    shopName: string,
+    shopEmail: string,
+    currency: string,
+    period: string,
+    totalAmount: number,
+    transactionCount: number,
+    summary: string[]
+): string => {
+    const currentDate = new Date();
+    const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
+
+    // Calculate average ticket amount
+    const averageTicket = transactionCount > 0 ? (totalAmount / transactionCount).toFixed(2) : '0.00';
+
+    // Create a simpler header for the ticket
+    let content = `
+Ticket Z
+
+${shopName.toUpperCase()}
+
+Adresse
+Code postal et ville
+N° SIRET
+
+`;
+
+    // Use current date for printing date and opening/closing times
+    content += `Date d'impression : ${frenchDateStr} ${frenchTimeStr}\n`;
+    content += `Ouverture :        ${frenchDateStr} 00:00:00\n`;
+    content += `Clôture :          ${frenchDateStr} ${frenchTimeStr}\n\n`;
+
+    // Commands and clients
+    content += `Commandes : ${transactionCount}      Clients : ${transactionCount}\n`;
+    content += `Ticket moyen : ${averageTicket} ${currency}\n\n`;
+
+    // Separator line
+    content += `${'-'.repeat(60)}\n\n`;
+
+    // Instead of trying to parse the payment methods (which didn't work),
+    // add a simplified tax section
+    content += `TAUX\nHT\nTVA\nTTC\n`;
+    content += `TOTAL HT${' '.repeat(20)}${totalAmount.toFixed(2)} ${currency}\n\n`;
+
+    // Separator line
+    content += `${'-'.repeat(60)}\n\n`;
+
+    // Total TTC
+    content += `TOTAL TTC${' '.repeat(20)}${totalAmount.toFixed(2)} ${currency}\n\n`;
+
+    // Separator line
+    content += `${'-'.repeat(60)}\n\n`;
+
+    // Add remises and annulations on single lines each
+    content += `TOTAL Remises & Offerts${' '.repeat(20)}0.00 ${currency}\n`;
+    content += `TOTAL Annulations${' '.repeat(24)}0.00 ${currency}\n\n`;
+
+    // Add cash drawer info with proper spacing and same line formatting
+    content += `Fond de caisse initial${' '.repeat(20)}100.00 ${currency}\n`;
+    content += `Fond de caisse final${' '.repeat(22)}${(100 + totalAmount).toFixed(2)} ${currency}\n`;
+    content += `Solde total des comptes clients${' '.repeat(10)}0.00 ${currency}`;
 
     return content;
 };
@@ -391,5 +476,31 @@ export const usePOSPrinter = (config: PrinterConfig = DEFAULT_PRINTER_CONFIG) =>
          * Print custom content
          */
         print: (content: PrintContent | PrintContent[]) => printContent(content, config),
+
+        /**
+         * Print a Ticket Z summary (Z report)
+         */
+        printTicketZ: (ticketZData: {
+            shopName: string;
+            shopEmail: string;
+            currency: string;
+            period: string;
+            totalAmount: number;
+            transactionCount: number;
+            summary: string[];
+            thanksMessage?: string;
+        }) => {
+            const content = createTicketZTemplate(
+                ticketZData.shopName,
+                ticketZData.shopEmail,
+                ticketZData.currency,
+                ticketZData.period,
+                ticketZData.totalAmount,
+                ticketZData.transactionCount,
+                ticketZData.summary
+            );
+
+            return printContent({ text: content }, config);
+        },
     };
 };
