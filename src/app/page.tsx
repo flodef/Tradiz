@@ -1,7 +1,5 @@
-import { Category } from './components/Category';
-import { NumPad } from './components/NumPad';
+import { MainContent } from './components/MainContent';
 import { Popup } from './components/Popup';
-import { Total } from './components/Total';
 import { ConfigProvider } from './contexts/ConfigProvider';
 import { CryptoProvider } from './contexts/CryptoProvider';
 import { DataProvider } from './contexts/DataProvider';
@@ -26,11 +24,7 @@ export default async function Home({ params, searchParams }: HomeProps) {
                 <DataProvider>
                     <PopupProvider>
                         <CryptoProvider>
-                            <div className="z-10 flex flex-col justify-between">
-                                <Total />
-                                <NumPad />
-                                <Category />
-                            </div>
+                            <MainContent />
                             <Popup />
                         </CryptoProvider>
                     </PopupProvider>

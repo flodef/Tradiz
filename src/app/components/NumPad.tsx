@@ -138,7 +138,7 @@ export const NumPad: FC = () => {
         isDbConnected,
         addProduct: _addProduct,
     } = useData();
-    const { openPopup, openFullscreenPopup, closePopup, isPopupOpen } = usePopup();
+    const { openPopup, closePopup, isPopupOpen } = usePopup();
     const { pay, canPay, canAddProduct } = usePay();
     const { showTransactionsSummary, showTransactionsSummaryMenu, getHistoricalTransactions } = useSummary();
 
@@ -151,13 +151,6 @@ export const NumPad: FC = () => {
 
     // Get window parameters for layout calculations
     const { width, height } = useWindowParam();
-    
-    // Function to handle clicks anywhere on the component to request fullscreen
-    const handleComponentClick = useCallback(() => {
-        if (isStateReady && !isFullscreen() && !IS_LOCAL) {
-            requestFullscreen();
-        }
-    }, [isStateReady]);
 
     const onInput = useCallback(
         (key: Digits | string) => {
@@ -377,7 +370,6 @@ export const NumPad: FC = () => {
                             : 'top-32 block overflow-auto '
                         : 'flex flex-col justify-center items-center top-20 md:top-0')
             )}
-            onClick={handleComponentClick}
         >
             <div className="flex flex-col justify-center items-center w-full">
                 <div
