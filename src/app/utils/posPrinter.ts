@@ -329,105 +329,86 @@ N° SIRET
 
 /**
  * Print content using the browser's print functionality
+ * This simpler implementation prints directly using window.print()
  */
 export const printContent = async (
     content: PrintContent | PrintContent[],
     config: PrinterConfig = DEFAULT_PRINTER_CONFIG
 ): Promise<void> => {
-    // Create a container for the print content
-    const printContainer = document.createElement('div');
-    printContainer.style.position = 'fixed';
-    printContainer.style.left = '-9999px';
-    printContainer.style.top = '0';
-    document.body.appendChild(printContainer);
-
+    // Store original body content
+    const originalBody = document.body.innerHTML;
+    const originalBodyStyle = document.body.style.cssText;
+    
     try {
-        // Create the print element
-        const printElement = createPrintElement(config);
-        printContainer.appendChild(printElement);
-
-        // Add all content to the print element
+        // Create a container for the print content
+        const printElement = document.createElement('div');
+        printElement.style.width = `${config.width}mm`;
+        printElement.style.margin = '0 auto';
+        printElement.style.padding = '0';
+        printElement.style.backgroundColor = 'white';
+        printElement.style.color = 'black';
+        
+        // Add content directly to the element
         const contentArray = Array.isArray(content) ? content : [content];
         for (const item of contentArray) {
-            addContentToPrintElement(printElement, item, config);
+            // Add each content item
+            if (item.text) {
+                const pre = document.createElement('pre');
+                pre.style.margin = '0';
+                pre.style.fontFamily = 'monospace';
+                pre.style.whiteSpace = 'pre-wrap';
+                pre.style.fontSize = '10px';
+                pre.textContent = item.text;
+                printElement.appendChild(pre);
+            } else if (item.html) {
+                const div = document.createElement('div');
+                div.innerHTML = item.html;
+                printElement.appendChild(div);
+            } else if (item.image) {
+                const img = document.createElement('img');
+                img.src = item.image;
+                img.style.maxWidth = '100%';
+                printElement.appendChild(img);
+            }
+            // Add other content types as needed
         }
-
-        // Create a new window for printing instead of an iframe
-        const printWindow = window.open('', '_blank', 'width=800,height=600');
-        if (!printWindow) {
-            console.error('Unable to open print window. Popup may be blocked.');
-            return;
+        
+        // Add a print-only stylesheet to the document
+        const style = document.createElement('style');
+        style.textContent = `
+            @page { margin: 0; size: ${config.width}mm ${config.autoSize ? 'auto' : config.height + 'mm'}; }
+            @media print {
+                body * { display: none; }
+                body #printable-content { display: block !important; }
+                #printable-content { width: ${config.width}mm !important; }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Replace body content with print content
+        printElement.id = 'printable-content';
+        document.body.innerHTML = '';
+        document.body.style.margin = '0';
+        document.body.style.padding = '0';
+        document.body.style.backgroundColor = 'white';
+        document.body.appendChild(printElement);
+        
+        // Print the document
+        window.print();
+        
+        // Remove the style element
+        if (style.parentNode) {
+            style.parentNode.removeChild(style);
         }
-
-        // Convert the print element to an image
-        const canvas = await html2canvas(printElement);
-        const imageDataUrl = canvas.toDataURL('image/png');
-
-        // Write the HTML content to the new window
-        printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Print Receipt</title>
-            <style>
-              @page {
-                margin: 0;
-                size: ${config.width}mm ${config.autoSize ? 'auto' : config.height + 'mm'};
-              }
-              body {
-                margin: 0;
-                padding: 0;
-                text-align: center;
-                background-color: white;
-                color: black;
-              }
-              img {
-                width: 100%;
-                max-width: ${config.width}mm;
-                display: block;
-                margin: 0 auto;
-              }
-              @media print {
-                body { 
-                  color: black !important; 
-                  -webkit-print-color-adjust: exact;
-                  print-color-adjust: exact;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            <img src="${imageDataUrl}" />
-            <script>
-              // Print immediately when loaded
-              window.onload = function() {
-                setTimeout(function() {
-                  window.print();
-                  setTimeout(function() {
-                    window.close();
-                  }, 500);
-                }, 200);
-              };
-            </script>
-          </body>
-        </html>
-      `);
-        printWindow.document.close();
-
-        return new Promise<void>((resolve) => {
-            // Set up an event to handle when the window is closed
-            const checkWindowClosed = setInterval(() => {
-                if (printWindow.closed) {
-                    clearInterval(checkWindowClosed);
-                    resolve();
-                }
-            }, 500);
-        });
+        
+        return Promise.resolve();
     } finally {
-        // Clean up
-        if (printContainer.parentNode) {
-            printContainer.parentNode.removeChild(printContainer);
-        }
+        // Restore original content after printing
+        // Use a small timeout to ensure printing has completed
+        setTimeout(() => {
+            document.body.innerHTML = originalBody;
+            document.body.style.cssText = originalBodyStyle;
+        }, 500);
     }
 };
 
