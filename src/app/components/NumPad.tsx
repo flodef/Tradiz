@@ -149,21 +149,15 @@ export const NumPad: FC = () => {
 
     const [value, setValue] = useState('0');
 
-    // Check if the app is in fullscreen otherwise open a popup asking to click for setting it
+    // Get window parameters for layout calculations
     const { width, height } = useWindowParam();
-    useEffect(() => {
-        setTimeout(() => {
-            if (
-                isStateReady &&
-                !isPopupOpen &&
-                !isFullscreen() &&
-                (height < window.screen.availHeight || width < window.screen.availWidth) &&
-                !IS_LOCAL
-            ) {
-                openFullscreenPopup('Plein écran', ['Mettre en plein écran'], requestFullscreen);
-            }
-        }, 100);
-    }, [openFullscreenPopup, isPopupOpen, height, width, isStateReady, closePopup]);
+    
+    // Function to handle clicks anywhere on the component to request fullscreen
+    const handleComponentClick = useCallback(() => {
+        if (isStateReady && !isFullscreen() && !IS_LOCAL) {
+            requestFullscreen();
+        }
+    }, [isStateReady]);
 
     const onInput = useCallback(
         (key: Digits | string) => {
@@ -383,6 +377,7 @@ export const NumPad: FC = () => {
                             : 'top-32 block overflow-auto '
                         : 'flex flex-col justify-center items-center top-20 md:top-0')
             )}
+            onClick={handleComponentClick}
         >
             <div className="flex flex-col justify-center items-center w-full">
                 <div
