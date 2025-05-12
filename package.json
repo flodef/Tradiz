@@ -16,9 +16,10 @@
     "dependencies": {
         "@solana/pay": "latest",
         "@solana/spl-token": "latest",
-        "@solana/web3.js": "latest",
+        "@solana/web3.js": "1.95.8",
         "autoprefixer": "latest",
-        "bignumber.js": "latest",
+        "bignumber.js": "9.1.2",
+        "caniuse-lite": "latest",
         "eslint-plugin-jsx-a11y": "latest",
         "firebase": "latest",
         "html2canvas": "latest",
@@ -27,8 +28,8 @@
         "react": "latest",
         "react-dom": "latest",
         "tailwind-merge": "latest",
-        "tailwindcss": "latest",
-        "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.0/xlsx-0.20.0.tgz"
+        "tailwindcss": "^3.4.17",
+        "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
     },
     "devDependencies": {
         "@commitlint/cli": "latest",
@@ -37,7 +38,7 @@
         "@testing-library/react": "latest",
         "@testing-library/react-hooks": "latest",
         "@testing-library/user-event": "latest",
-        "@types/bs58": "latest",
+        "@types/bs58": "4.0.4",
         "@types/jest": "latest",
         "@types/node": "latest",
         "@types/react": "latest",
