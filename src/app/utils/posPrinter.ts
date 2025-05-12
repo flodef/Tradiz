@@ -329,98 +329,127 @@ N° SIRET
 
 /**
  * Print content using the browser's print functionality
- * This method uses a basic approach that should work across browsers
  */
 export const printContent = async (
     content: PrintContent | PrintContent[],
     config: PrinterConfig = DEFAULT_PRINTER_CONFIG
 ): Promise<void> => {
-    // Create a hidden print frame
-    const printFrame = document.createElement('iframe');
-    printFrame.style.position = 'fixed';
-    printFrame.style.top = '-1000px';
-    printFrame.style.width = `${config.width}mm`;
-    printFrame.style.height = '500px';
-    printFrame.style.border = 'none';
-    document.body.appendChild(printFrame);
-    
-    // Wait for iframe to be ready
-    await new Promise<void>(resolve => {
-        printFrame.onload = () => resolve();
-        setTimeout(resolve, 100); // Fallback
-    });
-    
-    const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
-    if (!frameDoc) {
-        console.error('Could not access frame document');
-        document.body.removeChild(printFrame);
-        return;
-    }
-    
-    // Build receipt content
-    frameDoc.open();
-    frameDoc.write(`
+    // Create a container for the print content
+    const printContainer = document.createElement('div');
+    printContainer.style.position = 'fixed';
+    printContainer.style.left = '-9999px';
+    printContainer.style.top = '0';
+    document.body.appendChild(printContainer);
+
+    try {
+        // Create the print element
+        const printElement = createPrintElement(config);
+        printContainer.appendChild(printElement);
+
+        // Add all content to the print element
+        const contentArray = Array.isArray(content) ? content : [content];
+        for (const item of contentArray) {
+            addContentToPrintElement(printElement, item, config);
+        }
+
+        // Create a new window for printing instead of an iframe
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
+        if (!printWindow) {
+            console.error('Unable to open print window. Popup may be blocked.');
+            return;
+        }
+
+        // Convert the print element to an image
+        const canvas = await html2canvas(printElement);
+        const imageDataUrl = canvas.toDataURL('image/png');
+
+        // Write the HTML content to the new window
+        printWindow.document.write(`
         <!DOCTYPE html>
         <html>
-        <head>
-            <title>Impression</title>
+          <head>
+            <title>Print Receipt</title>
             <style>
-                @page { margin: 0; size: ${config.width}mm ${config.autoSize ? 'auto' : `${config.height}mm`}; }
-                body { margin: 0; padding: 0; background: white; color: black; }
-                pre { margin: 0; white-space: pre-wrap; font-family: monospace; font-size: 10px; }
-                img { max-width: 100%; }
+              @page {
+                margin: 0;
+                size: ${config.width}mm ${config.autoSize ? 'auto' : config.height + 'mm'};
+              }
+              body {
+                margin: 0;
+                padding: 0;
+                text-align: center;
+                background-color: white;
+                color: black;
+              }
+              img {
+                width: 100%;
+                max-width: ${config.width}mm;
+                display: block;
+                margin: 0 auto;
+              }
+              @media print {
+                body { 
+                  color: black !important; 
+                  -webkit-print-color-adjust: exact;
+                  print-color-adjust: exact;
+                }
+              }
             </style>
-        </head>
-        <body>
-            <div style="width:${config.width}mm;margin:0 auto;">
-    `);
-    
-    // Add the content
-    const contentArray = Array.isArray(content) ? content : [content];
-    for (const item of contentArray) {
-        if (item.text) {
-            frameDoc.write(`<pre>${item.text}</pre>`);
-        } else if (item.html) {
-            frameDoc.write(item.html);
-        } else if (item.image) {
-            frameDoc.write(`<img src="${item.image}" />`);
-        } else if (item.qrCode || item.barcode) {
-            // Handle other types if needed
-            frameDoc.write(`<div>${item.qrCode || item.barcode}</div>`);
-        }
-    }
-    
-    frameDoc.write(`
-            </div>
-        </body>
+          </head>
+          <body>
+            <img src="${imageDataUrl}" />
+            <script>
+              // Add longer timeouts to ensure the print dialog appears
+              window.onload = function() {
+                // Wait longer before showing print dialog (1 second)
+                setTimeout(function() {
+                  // Focus the window before printing
+                  window.focus();
+                  // Print the document
+                  window.print();
+                  // Wait longer before closing (2 seconds)
+                  // This gives user time to interact with the print dialog
+                  setTimeout(function() {
+                    window.close();
+                  }, 2000);
+                }, 1000);
+              };
+            </script>
+          </body>
         </html>
-    `);
-    frameDoc.close();
-    
-    // Wait a bit for content to render
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    try {
-        // Use the iframe's print function
-        const frameWindow = printFrame.contentWindow;
-        if (frameWindow) {
-            frameWindow.focus();
-            frameWindow.print();
+      `);
+        printWindow.document.close();
+
+        return new Promise<void>((resolve) => {
+            // Set up an event to handle when the window is closed
+            const checkWindowClosed = setInterval(() => {
+                if (printWindow.closed) {
+                    clearInterval(checkWindowClosed);
+                    resolve();
+                }
+            }, 500);
+            
+            // Backup timeout to resolve the promise if the window
+            // doesn't close for some reason (15 seconds max wait time)
+            setTimeout(() => {
+                clearInterval(checkWindowClosed);
+                // Try to close the window if it's still open
+                try {
+                    if (printWindow && !printWindow.closed) {
+                        printWindow.close();
+                    }
+                } catch (e) {
+                    console.error('Error closing print window:', e);
+                }
+                resolve();
+            }, 15000);
+        });
+    } finally {
+        // Clean up
+        if (printContainer.parentNode) {
+            printContainer.parentNode.removeChild(printContainer);
         }
-    } catch (error) {
-        console.error('Error during printing:', error);
     }
-    
-    // Return a promise that resolves after a delay
-    // This gives time for the print dialog to appear
-    return new Promise<void>((resolve) => {
-        setTimeout(() => {
-            if (printFrame && printFrame.parentNode) {
-                printFrame.parentNode.removeChild(printFrame);
-            }
-            resolve();
-        }, 1000);
-    });
 };
 
 /**
