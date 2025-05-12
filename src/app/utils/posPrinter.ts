@@ -1,10 +1,11 @@
 import html2canvas from 'html2canvas';
-import { useContext } from 'react';
 
 interface PrinterConfig {
     width: number; // Width in mm
+    height?: number; // Height in mm (optional, for fixed-height receipts)
     dpi: number; // Dots per inch
     characterWidth: number; // Characters per line for text mode
+    autoSize?: boolean; // Whether to auto-size the height based on content
 }
 
 interface PrintContent {
@@ -18,8 +19,10 @@ interface PrintContent {
 
 export const DEFAULT_PRINTER_CONFIG: PrinterConfig = {
     width: 80, // 80mm printer width
+    height: 297, // A4 height as fallback
     dpi: 203, // Standard for most 80mm POS printers
     characterWidth: 42, // Standard for most 80mm POS printers at default font size
+    autoSize: true, // Auto-size height based on content
 };
 
 /**
@@ -349,59 +352,77 @@ export const printContent = async (
             addContentToPrintElement(printElement, item, config);
         }
 
-        // Convert the print element to an image to ensure consistent rendering
-        const canvas = await html2canvas(printElement);
-        const printFrame = document.createElement('iframe');
-        printFrame.style.position = 'fixed';
-        printFrame.style.right = '0';
-        printFrame.style.bottom = '0';
-        printFrame.style.width = '1px';
-        printFrame.style.height = '1px';
-        printFrame.style.opacity = '0';
-        document.body.appendChild(printFrame);
+        // Create a new window for printing instead of an iframe
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
+        if (!printWindow) {
+            console.error('Unable to open print window. Popup may be blocked.');
+            return;
+        }
 
-        const printDocument = printFrame.contentDocument || printFrame.contentWindow?.document;
-        if (printDocument) {
-            printDocument.write(`
+        // Convert the print element to an image
+        const canvas = await html2canvas(printElement);
+        const imageDataUrl = canvas.toDataURL('image/png');
+
+        // Write the HTML content to the new window
+        printWindow.document.write(`
+        <!DOCTYPE html>
         <html>
           <head>
             <title>Print Receipt</title>
             <style>
-              * { color: #000000 !important; }
+              @page {
+                margin: 0;
+                size: ${config.width}mm ${config.autoSize ? 'auto' : config.height + 'mm'};
+              }
+              body {
+                margin: 0;
+                padding: 0;
+                text-align: center;
+                background-color: white;
+                color: black;
+              }
+              img {
+                width: 100%;
+                max-width: ${config.width}mm;
+                display: block;
+                margin: 0 auto;
+              }
               @media print {
-                body { color: #000000 !important; }
-                img { filter: grayscale(100%); }
+                body { 
+                  color: black !important; 
+                  -webkit-print-color-adjust: exact;
+                  print-color-adjust: exact;
+                }
               }
             </style>
           </head>
-          <body style="margin:0;padding:0;text-align:center;color:#000000;">
-            <img src="${canvas.toDataURL('image/png')}" style="width:${mmToPixels(config.width, 96)}px" />
+          <body>
+            <img src="${imageDataUrl}" />
             <script>
+              // Print immediately when loaded
               window.onload = function() {
                 setTimeout(function() {
                   window.print();
                   setTimeout(function() {
-                    window.parent.postMessage('print-finished', '*');
-                  }, 1000);
-                }, 500);
+                    window.close();
+                  }, 500);
+                }, 200);
               };
             </script>
           </body>
         </html>
       `);
-            printDocument.close();
+        printWindow.document.close();
 
-            return new Promise<void>((resolve) => {
-                const messageHandler = () => {
-                    window.removeEventListener('message', messageHandler);
-                    if (printFrame.parentNode) {
-                        printFrame.parentNode.removeChild(printFrame);
-                    }
+        return new Promise<void>((resolve) => {
+            // Set up an event to handle when the window is closed
+            const checkWindowClosed = setInterval(() => {
+                if (printWindow.closed) {
+                    clearInterval(checkWindowClosed);
                     resolve();
-                };
-                window.addEventListener('message', messageHandler);
-            });
-        }
+                }
+            }, 500);
+        });
     } finally {
         // Clean up
         if (printContainer.parentNode) {
