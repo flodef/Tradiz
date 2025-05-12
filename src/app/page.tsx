@@ -8,7 +8,15 @@ import { DataProvider } from './contexts/DataProvider';
 import { PopupProvider } from './contexts/PopupProvider';
 import {} from './utils/extensions';
 
-export default function Home(shop: string) {
+type HomeProps = {
+    params: {};
+    searchParams: { [key: string]: string | string[] | undefined };
+};
+
+export default async function Home({ params, searchParams }: HomeProps) {
+    // Await the searchParams if needed
+    const shop = typeof searchParams.shop === 'string' ? searchParams.shop : '';
+
     return (
         <main
             className={'absolute inset-0 grid select-none overflow-y-auto md:overflow-y-hidden'}

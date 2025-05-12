@@ -16,5 +16,5 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function Page({ params }: Props) {
     const { shop } = await params;
-    return Home(shop);
+    return Home({ params: { shop }, searchParams: {} });
 }
