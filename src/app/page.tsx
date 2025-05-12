@@ -7,15 +7,12 @@ import { PopupProvider } from './contexts/PopupProvider';
 import {} from './utils/extensions';
 
 type HomeProps = {
-    params: {};
+    params: { shop: string };
     searchParams: { [key: string]: string | string[] | undefined };
 };
 
-export default async function Home({ params, searchParams }: HomeProps) {
-    // In Next.js 15, we need to await searchParams before accessing its properties
-    const awaitedParams = await searchParams;
-    const shop = typeof awaitedParams.shop === 'string' ? awaitedParams.shop : '';
-
+export default async function Home({ params }: HomeProps) {
+    const shop = await params.shop;
     return (
         <main
             className={'absolute inset-0 grid select-none overflow-y-auto md:overflow-y-hidden'}
