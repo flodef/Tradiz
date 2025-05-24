@@ -52,9 +52,9 @@ export interface InventoryItem {
 
 export interface Discount {
     value: number;
-    unity: string;
+    unit: string;
 }
-export const EmptyDiscount: Discount = { value: 0, unity: '' };
+export const EmptyDiscount: Discount = { value: 0, unit: '' };
 
 export interface Colors {
     light: string;

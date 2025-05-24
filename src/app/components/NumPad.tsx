@@ -304,8 +304,8 @@ export const NumPad: FC = () => {
             .filter((d) => d !== selectedProduct.discount)
             .sort((a, b) => a.value - b.value);
         openPopup(
-            `Remise (${selectedProduct.discount.value ? selectedProduct.discount.value + selectedProduct.discount.unity : 'Aucune'})`,
-            displayDiscounts.map((d) => (d.value ? d.value + d.unity : ['Aucune'])),
+            `Remise (${selectedProduct.discount.value ? selectedProduct.discount.value + selectedProduct.discount.unit : 'Aucune'})`,
+            displayDiscounts.map((d) => (d.value ? d.value + d.unit : ['Aucune'])),
             (index) => setDiscount(selectedProduct, index < 0 ? selectedProduct.discount : displayDiscounts[index])
         );
     }, [openPopup, selectedProduct, discounts, setDiscount]);

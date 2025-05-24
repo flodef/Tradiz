@@ -633,7 +633,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, [clearAmount, deleteTransaction]);
 
     const computeDiscount = useCallback((product: Product) => {
-        return product.discount.unity === '%'
+        return product.discount.unit === '%'
             ? product.amount * (1 - product.discount.value / 100)
             : product.amount - product.discount.value;
     }, []);
@@ -740,7 +740,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 product.quantity +
                 ' = ' +
                 toCurrency({ amount: product.total ?? 0, currency: currency }) +
-                (product.discount.value ? ' (-' + product.discount.value + product.discount.unity + ')' : '')
+                (product.discount.value ? ' (-' + product.discount.value + product.discount.unit + ')' : '')
             );
         },
         [toCurrency]
