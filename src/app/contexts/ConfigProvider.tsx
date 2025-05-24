@@ -28,6 +28,7 @@ export interface Parameters {
     shopEmail: string;
     thanksMessage: string;
     mercurial: Mercurial;
+    printerIPAddress: string;
     lastModified: string;
     user: User;
     error?: string;

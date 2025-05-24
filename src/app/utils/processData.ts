@@ -1,7 +1,7 @@
 import { Keypair } from '@solana/web3.js';
 import { Config, Parameters } from '../contexts/ConfigProvider';
 import { Currency, InventoryItem, Mercurial, PaymentMethod, Role } from '../hooks/useConfig';
-import { EMAIL, IS_DEV } from './constants';
+import { EMAIL } from './constants';
 
 class MissingDataError extends Error {
     name = 'MissingDataError';
@@ -47,6 +47,7 @@ export const defaultParameters: Parameters = {
     shopEmail: EMAIL,
     thanksMessage: '',
     mercurial: Mercurial.none,
+    printerIPAddress: '',
     lastModified: new Date().toLocaleString(),
     user: { name: '', role: Role.none },
 };
@@ -120,7 +121,8 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
         shopEmail: param.at(1) ?? EMAIL,
         thanksMessage: param.at(2) ?? 'Merci de votre visite !',
         mercurial: (param.at(3) ?? Mercurial.none) as Mercurial,
-        lastModified: param.at(4) ?? new Date('0').toLocaleString(),
+        printerIPAddress: param.at(4) ?? '',
+        lastModified: param.at(5) ?? new Date('0').toLocaleString(),
         user: user,
     };
 
@@ -246,10 +248,10 @@ async function convertParametersData(response: void | Response) {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-            checkData(data, 2, 2, 5, 5);
+            checkData(data, 1, 2, 6, 6);
 
             return data.values.map((item) => {
-                checkColumn(item, 2);
+                checkColumn(item, 1);
                 return item.at(1);
             });
         });
@@ -315,7 +317,7 @@ async function convertDiscountsData(response: void | Response) {
                 checkColumn(item, 2);
                 return {
                     value: Number(item.at(0)),
-                    unity: String(item.at(1)).trim(),
+                    unit: String(item.at(1)).trim(),
                 };
             });
         });
