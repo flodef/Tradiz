@@ -24,6 +24,7 @@
         "firebase": "latest",
         "html2canvas": "latest",
         "next": "latest",
+        "node-thermal-printer": "latest",
         "postcss": "latest",
         "react": "latest",
         "react-dom": "latest",

@@ -1,4 +1,5 @@
-import html2canvas from 'html2canvas';
+import { formatFrenchDate } from '@/app/utils/date';
+import { Product } from '../hooks/useData';
 
 interface PrinterConfig {
     width: number; // Width in mm
@@ -31,25 +32,6 @@ export const DEFAULT_PRINTER_CONFIG: PrinterConfig = {
 const mmToPixels = (mm: number, dpi: number): number => {
     // 1 inch = 25.4 mm, so pixels = (mm / 25.4) * dpi
     return Math.round((mm / 25.4) * dpi);
-};
-
-/**
- * Formats a date in French format with standard options for receipts
- */
-const formatFrenchDate = (date: Date = new Date()) => {
-    const frenchDateStr = new Intl.DateTimeFormat('fr-FR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-    }).format(date);
-
-    const frenchTimeStr = new Intl.DateTimeFormat('fr-FR', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-    }).format(date);
-
-    return { frenchDateStr, frenchTimeStr };
 };
 
 /**
@@ -199,66 +181,6 @@ const addContentToPrintElement = (
 };
 
 /**
- * Creates a receipt template with common elements
- */
-export const createReceiptTemplate = (
-    shopName: string,
-    shopEmail: string,
-    items: Array<{ description: string; qty: number; price: number }>,
-    total: number,
-    currency: string,
-    paymentMethod: string | undefined,
-    additionalInfo?: string,
-    thanksMessage?: string
-): string => {
-    const currentDate = new Date();
-    const receiptNumber = generateReceiptNumber('R', currentDate);
-    const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
-
-    let content = `
-${shopName.toUpperCase()}
-Email : ${shopEmail}
-Date : ${frenchDateStr} ${frenchTimeStr}
-N° de reçu : ${receiptNumber}
-
-----------------------------------------
-ARTICLE             QTÉ     PRIX
-----------------------------------------
-`;
-
-    for (const item of items) {
-        // Format each item line (simplified)
-        const description = item.description.padEnd(20).substring(0, 20);
-        const qty = item.qty.toString().padStart(4);
-        const price = item.price.toFixed(2).padStart(8);
-        content += `${description} ${qty} ${price} ${currency}\n`;
-    }
-
-    content += `
-----------------------------------------
-TOTAL:                      ${total.toFixed(2)} ${currency}
-----------------------------------------
-`;
-
-    // Only show payment method if it exists
-    if (paymentMethod) {
-        content += `Mode de paiement: ${paymentMethod}\n`;
-    }
-
-    content += `\n`;
-
-    // Only add additional info if it exists and doesn't contain 'Monnaie' or 'Vendeur'
-    if (additionalInfo) {
-        content += `${additionalInfo}\n\n`;
-    }
-
-    // Use thanksMessage if provided, otherwise default to thank you message
-    content += `${thanksMessage || 'Merci pour votre achat!'}`;
-
-    return content;
-};
-
-/**
  * Creates a template specifically for Ticket Z (Z report) summary
  * This is different from a regular receipt as it summarizes all transactions
  */
@@ -328,221 +250,65 @@ N° SIRET
 };
 
 /**
- * Print content using the browser's print functionality
- */
-export const printContent = async (
-    content: PrintContent | PrintContent[],
-    config: PrinterConfig = DEFAULT_PRINTER_CONFIG
-): Promise<void> => {
-    // Create a container for the print content
-    const printContainer = document.createElement('div');
-    printContainer.style.position = 'fixed';
-    printContainer.style.left = '-9999px';
-    printContainer.style.top = '0';
-    document.body.appendChild(printContainer);
-
-    try {
-        // Create the print element
-        const printElement = createPrintElement(config);
-        printContainer.appendChild(printElement);
-
-        // Add all content to the print element
-        const contentArray = Array.isArray(content) ? content : [content];
-        for (const item of contentArray) {
-            addContentToPrintElement(printElement, item, config);
-        }
-
-        // Create a new window for printing instead of an iframe
-        const printWindow = window.open('', '_blank', 'width=800,height=600');
-        if (!printWindow) {
-            console.error('Unable to open print window. Popup may be blocked.');
-            return;
-        }
-
-        // Convert the print element to an image
-        const canvas = await html2canvas(printElement);
-        const imageDataUrl = canvas.toDataURL('image/png');
-
-        // Write the HTML content to the new window
-        printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Print Receipt</title>
-            <style>
-              @page {
-                margin: 0;
-                size: ${config.width}mm ${config.autoSize ? 'auto' : config.height + 'mm'};
-              }
-              body {
-                margin: 0;
-                padding: 0;
-                text-align: center;
-                background-color: white;
-                color: black;
-              }
-              img {
-                width: 100%;
-                max-width: ${config.width}mm;
-                display: block;
-                margin: 0 auto;
-              }
-              @media print {
-                body { 
-                  color: black !important; 
-                  -webkit-print-color-adjust: exact;
-                  print-color-adjust: exact;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            <img src="${imageDataUrl}" />
-            <script>
-              // Add longer timeouts to ensure the print dialog appears
-              window.onload = function() {
-                // Wait longer before showing print dialog (1 second)
-                setTimeout(function() {
-                  // Focus the window before printing
-                  window.focus();
-                  // Print the document
-                  window.print();
-                  // Wait longer before closing (2 seconds)
-                  // This gives user time to interact with the print dialog
-                  setTimeout(function() {
-                    window.close();
-                  }, 2000);
-                }, 1000);
-              };
-            </script>
-          </body>
-        </html>
-      `);
-        printWindow.document.close();
-
-        return new Promise<void>((resolve) => {
-            // Set up an event to handle when the window is closed
-            const checkWindowClosed = setInterval(() => {
-                if (printWindow.closed) {
-                    clearInterval(checkWindowClosed);
-                    resolve();
-                }
-            }, 500);
-            
-            // Backup timeout to resolve the promise if the window
-            // doesn't close for some reason (15 seconds max wait time)
-            setTimeout(() => {
-                clearInterval(checkWindowClosed);
-                // Try to close the window if it's still open
-                try {
-                    if (printWindow && !printWindow.closed) {
-                        printWindow.close();
-                    }
-                } catch (e) {
-                    console.error('Error closing print window:', e);
-                }
-                resolve();
-            }, 15000);
-        });
-    } finally {
-        // Clean up
-        if (printContainer.parentNode) {
-            printContainer.parentNode.removeChild(printContainer);
-        }
-    }
-};
-
-/**
  * Creates a hook for using the POS printer
  */
 export const usePOSPrinter = (config: PrinterConfig = DEFAULT_PRINTER_CONFIG) => {
     return {
         /**
-         * Print raw text
-         */
-        printText: (text: string) => printContent({ text }, config),
-
-        /**
          * Print a receipt with standard formatting
          */
-        printReceipt: (receiptData: {
-            shopName?: string;
-            shopEmail: string;
-            items: Array<{ description: string; qty: number; price: number }>;
-            total: number;
-            currency: string;
-            paymentMethod?: string;
-            additionalInfo?: string;
-            thanksMessage?: string;
-            qrCode?: string;
-        }) => {
-            const shopName = receiptData.shopName || 'Tradiz Shop';
-
-            const content = createReceiptTemplate(
-                shopName,
-                receiptData.shopEmail,
-                receiptData.items,
-                receiptData.total,
-                receiptData.currency,
-                receiptData.paymentMethod,
-                receiptData.additionalInfo,
-                receiptData.thanksMessage
-            );
-
-            const printItems: PrintContent[] = [{ text: content }];
-
-            // Add QR code if provided
-            if (receiptData.qrCode) {
-                printItems.push({ qrCode: receiptData.qrCode });
+        printReceipt: async (
+            printerIPAddress: string,
+            receiptData: {
+                shopName: string;
+                shopEmail: string;
+                products: Product[];
+                total: number;
+                currency: string;
+                paymentMethod?: string;
+                thanksMessage?: string;
             }
-
-            return printContent(printItems, config);
+        ) => {
+            try {
+                const response = await fetch('/api/print/receipt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ printerIPAddress, receiptData }),
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('Failed to print ticket:', error);
+                return { error: 'Failed to print ticket' };
+            }
         },
-
-        /**
-         * Print an image
-         */
-        printImage: (imageUrl: string) => printContent({ image: imageUrl }, config),
-
-        /**
-         * Print QR code
-         */
-        printQRCode: (content: string) => printContent({ qrCode: content }, config),
-
-        /**
-         * Print barcode
-         */
-        printBarcode: (content: string) => printContent({ barcode: content }, config),
-
-        /**
-         * Print custom content
-         */
-        print: (content: PrintContent | PrintContent[]) => printContent(content, config),
 
         /**
          * Print a Ticket Z summary (Z report)
          */
-        printTicketZ: (ticketZData: {
-            shopName: string;
-            shopEmail: string;
-            currency: string;
-            period: string;
-            totalAmount: number;
-            transactionCount: number;
-            summary: string[];
-            thanksMessage?: string;
-        }) => {
-            const content = createTicketZTemplate(
-                ticketZData.shopName,
-                ticketZData.shopEmail,
-                ticketZData.currency,
-                ticketZData.period,
-                ticketZData.totalAmount,
-                ticketZData.transactionCount,
-                ticketZData.summary
-            );
-
-            return printContent({ text: content }, config);
+        printSummary: async (
+            printerIPAddress: string,
+            summaryData: {
+                shopName: string;
+                shopEmail: string;
+                currency: string;
+                period: string;
+                totalAmount: number;
+                transactionCount: number;
+                summary: string[];
+                thanksMessage?: string;
+            }
+        ) => {
+            try {
+                const response = await fetch('/api/print/summary', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ printerIPAddress, summaryData }),
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('Failed to print ticket:', error);
+                return { error: 'Failed to print ticket' };
+            }
         },
     };
 };

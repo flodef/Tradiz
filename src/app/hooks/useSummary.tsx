@@ -585,16 +585,14 @@ export const useSummary = () => {
         };
 
         // Print the Ticket Z
-        await printer.printTicketZ(ticketZData);
+        await printer.printSummary(parameters.printerIPAddress, ticketZData);
     }, [
         currencies,
         currencyIndex,
         getFilteredTransactions,
         getTransactionDate,
         getTransactionsData,
-        parameters.shopEmail,
-        parameters.shopName,
-        parameters.thanksMessage,
+        parameters,
         printer,
     ]);
 
@@ -608,7 +606,8 @@ export const useSummary = () => {
             );
             openPopup(
                 'TicketZ ' + (hasTransactions ? formattedDate : ''),
-                (hasTransactions ? ["Capture d'écran", 'Impression', 'Email', 'Feuille de calcul'] : [])
+                (hasTransactions ? ["Capture d'écran", 'Email', 'Feuille de calcul'] : [])
+                    .concat(hasTransactions && parameters.printerIPAddress ? ['Impression'] : [])
                     .concat(isDbConnected ? ['Synchronisation'] : [])
                     .concat(historicalTransactions.length ? ['Histo jour', 'Histo mois'] : [])
                     .concat(hasTransactions ? 'Afficher' : []),
@@ -670,6 +669,7 @@ export const useSummary = () => {
         showHistoricalTransactions,
         tempTransactions,
         getTransactionDate,
+        parameters,
         isDbConnected,
         showSyncMenu,
     ]);

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { QRCode } from '../components/QRCode';
 import { IS_LOCAL, PRINT_KEYWORD, WAITING_KEYWORD } from '../utils/constants';
+import { usePOSPrinter } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
-import { Product, useData } from './useData';
+import { useData } from './useData';
 import { usePopup } from './usePopup';
-import { usePOSPrinter } from '../utils/posPrinter';
 
 export const usePay = () => {
     const { openPopup, closePopup } = usePopup();
@@ -21,32 +21,18 @@ export const usePay = () => {
      * Print the current transaction receipt with all products
      */
     const printReceipt = useCallback(async () => {
-        // Get current products from the products ref
-        const currentProducts = products.current;
-        const currentTotal = getCurrentTotal();
-
-        // Format products for the receipt
-        const receiptItems = currentProducts.map((product) => ({
-            description: product.label,
-            qty: product.quantity,
-            price: product.amount,
-        }));
-
-        // Get currency symbol for the receipt
-        const currencySymbol = currencies[currencyIndex].symbol;
-
         // Prepare receipt data
         const receiptData = {
             shopName: parameters.shopName,
             shopEmail: parameters.shopEmail,
-            items: receiptItems,
-            total: currentTotal,
-            currency: currencySymbol,
+            products: products.current,
+            total: getCurrentTotal(),
+            currency: currencies[currencyIndex].symbol,
             thanksMessage: parameters.thanksMessage,
         };
 
         // Print the receipt
-        await printer.printReceipt(receiptData);
+        await printer.printReceipt(parameters.printerIPAddress, receiptData);
     }, [getCurrentTotal, products, printer, currencies, currencyIndex, parameters]);
 
     const openQRCode = useCallback(
@@ -181,7 +167,8 @@ export const usePay = () => {
             const paymentMethodsLabels = paymentMethods
                 .filter((item) => item.currency === currencies[currencyIndex].symbol)
                 .map((item) => item.method)
-                .concat(['', 'METTRE ' + WAITING_KEYWORD, PRINT_KEYWORD]);
+                .concat(['', 'METTRE ' + WAITING_KEYWORD])
+                .concat(parameters.printerIPAddress ? PRINT_KEYWORD : []);
             if (paymentMethodsLabels.length === 1) {
                 selectPayment(paymentMethodsLabels[0], pay);
             } else {
@@ -197,7 +184,16 @@ export const usePay = () => {
                 );
             }
         }
-    }, [selectPayment, openPopup, getCurrentTotal, paymentMethods, toCurrency, currencies, currencyIndex]);
+    }, [
+        selectPayment,
+        openPopup,
+        getCurrentTotal,
+        paymentMethods,
+        parameters.printerIPAddress,
+        toCurrency,
+        currencies,
+        currencyIndex,
+    ]);
 
     useEffect(() => {
         if (error?.message === 'Transaction timed out') {
