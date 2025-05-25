@@ -66,7 +66,7 @@ export async function POST(request: Request) {
             label = labelLength > 32 ? item.label.slice(0, 32 - labelLength) + label.slice(item.label.length) : label;
             printer.tableCustom([
                 { text: label, align: 'LEFT', cols: 32 },
-                { text: toCurrency(item.amount), align: 'CENTER', cols: 8 },
+                { text: toCurrency(item.amount), align: 'RIGHT', cols: 8 },
                 { text: toCurrency(item.total), align: 'RIGHT', cols: 8 },
             ]);
         });
