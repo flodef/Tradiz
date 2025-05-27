@@ -62,11 +62,11 @@ export const defaultCurrencies: Currency[] = [
 ];
 export const defaultPaymentMethods: PaymentMethod[] = [
     {
-        method: 'CB',
+        method: 'Carte Bancaire',
         currency: '€',
     },
     {
-        method: 'Espèces',
+        method: 'Espèce',
         currency: '€',
     },
     {
