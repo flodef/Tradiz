@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { QRCode } from '../components/QRCode';
 import { IS_LOCAL, PRINT_KEYWORD, WAITING_KEYWORD } from '../utils/constants';
-import { usePOSPrinter } from '../utils/posPrinter';
+import { printReceipt } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
 import { useData } from './useData';
@@ -12,7 +12,6 @@ export const usePay = () => {
     const { updateTransaction, getCurrentTotal, toCurrency, total, amount, selectedProduct, products } = useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
     const { paymentMethods, currencies, currencyIndex, parameters } = useConfig();
-    const printer = usePOSPrinter();
 
     const canPay = useMemo(() => Boolean(total && !amount && !selectedProduct), [total, amount, selectedProduct]);
     const canAddProduct = useMemo(() => Boolean(amount && selectedProduct), [amount, selectedProduct]);
@@ -20,7 +19,7 @@ export const usePay = () => {
     /**
      * Print the current transaction receipt with all products
      */
-    const printReceipt = useCallback(async () => {
+    const printTransactionReceipt = useCallback(async () => {
         // Prepare receipt data
         const receiptData = {
             shopName: parameters.shopName,
@@ -32,8 +31,8 @@ export const usePay = () => {
         };
 
         // Print the receipt
-        await printer.printReceipt(parameters.printerIPAddress, receiptData);
-    }, [getCurrentTotal, products, printer, currencies, currencyIndex, parameters]);
+        await printReceipt(parameters.printerIPAddress, receiptData);
+    }, [getCurrentTotal, products, currencies, currencyIndex, parameters]);
 
     const openQRCode = useCallback(
         (onCancel: (onConfirm: () => void) => void, onConfirm: () => void) => {
@@ -141,7 +140,7 @@ export const usePay = () => {
                     );
                     break;
                 case PRINT_KEYWORD:
-                    printReceipt().then(() => closePopup());
+                    printTransactionReceipt().then(() => closePopup());
                     break;
                 default:
                     updateTransaction(option.includes(WAITING_KEYWORD) ? WAITING_KEYWORD : option);
@@ -157,7 +156,7 @@ export const usePay = () => {
             closePopup,
             paymentMethods,
             openPopup,
-            printReceipt,
+            printTransactionReceipt,
         ]
     );
 

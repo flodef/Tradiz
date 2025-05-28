@@ -3,7 +3,7 @@ import { utils, writeFile } from 'xlsx';
 import { DELETED_KEYWORD, GET_FORMATTED_DATE, WAITING_KEYWORD } from '../utils/constants';
 import { takeScreenshot } from '../utils/screenshot';
 import { sendEmail } from '../utils/sendEmail';
-import { usePOSPrinter } from '../utils/posPrinter';
+import { printSummary } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { DataElement, SyncAction, Transaction, useData } from './useData';
 import { usePopup } from './usePopup';
@@ -17,7 +17,6 @@ export const useSummary = () => {
     const { currencies, currencyIndex, inventory, parameters } = useConfig();
     const { transactions, toCurrency, transactionsFilename, isDbConnected, processTransactions } = useData();
     const { openPopup, closePopup } = usePopup();
-    const printer = usePOSPrinter();
 
     const ImportOption = useMemo(
         () => (
@@ -552,18 +551,12 @@ export const useSummary = () => {
         [toCurrency, getTransactionsDetails, getTaxesByCategory, getTaxAmountByCategory, getFilteredTransactions]
     );
 
-    const printSummary = useCallback(async () => {
+    const printTransactionsSummary = useCallback(async () => {
         const filteredTransactions = getFilteredTransactions();
         if (!filteredTransactions.length) return;
 
         // Get transaction summary data
         const data = getTransactionsData(filteredTransactions);
-
-        // Calculate total from payments
-        const totalAmount = data.payments.reduce((total, payment) => total + payment.amount, 0);
-
-        // Format the summary based on the email formatting
-        const summary = data.summary.map((item) => (item.trim() ? item : undefined)).filter(Boolean) as string[];
 
         // Get period description
         const periodDesc =
@@ -578,23 +571,13 @@ export const useSummary = () => {
             shopEmail: parameters.shopEmail,
             currency: currencies[currencyIndex].symbol,
             period: periodDesc,
-            totalAmount: totalAmount,
-            transactionCount: filteredTransactions.length,
-            summary: summary,
-            thanksMessage: parameters.thanksMessage,
+            transactions: filteredTransactions,
+            summary: data.summary,
         };
 
-        // Print the Ticket Z
-        await printer.printSummary(parameters.printerIPAddress, ticketZData);
-    }, [
-        currencies,
-        currencyIndex,
-        getFilteredTransactions,
-        getTransactionDate,
-        getTransactionsData,
-        parameters,
-        printer,
-    ]);
+        // Print the Ticket Z using server action
+        await printSummary(parameters.printerIPAddress, ticketZData);
+    }, [currencies, currencyIndex, getFilteredTransactions, getTransactionDate, getTransactionsData, parameters]);
 
     const showTransactionsSummaryMenu = useCallback(() => {
         const hasTransactions = transactions.length || tempTransactions.current.length;
@@ -622,7 +605,7 @@ export const useSummary = () => {
                             }); // Set timeout to give time to the popup to display and the screenshot to be taken
                             break;
                         case 'Impression':
-                            printSummary().then(() => closePopup());
+                            printTransactionsSummary().then(() => closePopup());
                             break;
                         case 'Email':
                             processEmail('TicketZ ' + formattedDate);
@@ -661,7 +644,7 @@ export const useSummary = () => {
         openPopup,
         closePopup,
         showTransactionsSummary,
-        printSummary,
+        printTransactionsSummary,
         processEmail,
         downloadData,
         transactions,

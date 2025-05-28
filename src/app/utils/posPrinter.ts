@@ -1,314 +1,245 @@
-import { formatFrenchDate } from '@/app/utils/date';
-import { Product } from '../hooks/useData';
+'use server';
 
-interface PrinterConfig {
-    width: number; // Width in mm
-    height?: number; // Height in mm (optional, for fixed-height receipts)
-    dpi: number; // Dots per inch
-    characterWidth: number; // Characters per line for text mode
-    autoSize?: boolean; // Whether to auto-size the height based on content
+import { CharacterSet, PrinterTypes, ThermalPrinter } from 'node-thermal-printer';
+import { DataElement, Product, Transaction } from '../hooks/useData';
+import { formatFrenchDate, generateReceiptNumber } from './date';
+
+type ReceiptData = {
+    shopName: string;
+    shopEmail: string;
+    products: Product[];
+    total: number;
+    currency: string;
+    paymentMethod?: string;
+    thanksMessage?: string;
+};
+
+type SummaryData = {
+    shopName: string;
+    shopEmail: string;
+    currency: string;
+    period: string;
+    transactions: Transaction[];
+    summary: string[];
+};
+
+type PrintResponse = {
+    success?: boolean;
+    error?: string;
+};
+
+/**
+ * Creates a printer instance and checks connection
+ */
+const getPrinter = async (printerIPAddress: string) => {
+    const printer = new ThermalPrinter({
+        type: PrinterTypes.EPSON,
+        interface: 'tcp://' + printerIPAddress,
+        width: 48, // 48 characters per line
+        characterSet: CharacterSet.PC437_USA,
+        removeSpecialCharacters: false,
+        lineCharacter: '-',
+    });
+    const isConnected = await printer.isPrinterConnected();
+    return isConnected ? printer : null;
+};
+
+/**
+ * Formats an amount to a string with the specified currency
+ */
+const toCurrency = (amount: number, currency: string) => amount.toFixed(2) + (currency === '€' ? '$' : currency);
+
+/**
+ * Server action to print a receipt with standard formatting
+ */
+export async function printReceipt(printerIPAddress: string, receiptData: ReceiptData): Promise<PrintResponse> {
+    try {
+        const printer = await getPrinter(printerIPAddress);
+        if (!printer) return { error: 'Imprimante non connectée' };
+
+        const currentDate = new Date();
+        const receiptNumber = generateReceiptNumber('R', currentDate);
+        const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
+
+        // Print header
+        printer.alignCenter();
+        printer.bold(true);
+        printer.println(receiptData.shopName.toUpperCase());
+        printer.bold(false);
+        printer.println(`Email : ${receiptData.shopEmail}`);
+        printer.println(`Date : ${frenchDateStr} ${frenchTimeStr}`);
+        printer.println(`N° de reçu : ${receiptNumber}`);
+        printer.newLine();
+
+        // Print items header
+        printer.drawLine();
+        printer.alignLeft();
+        printer.tableCustom([
+            { text: 'ARTICLE', align: 'LEFT', cols: 32 },
+            { text: 'PRIX', align: 'CENTER', cols: 8 },
+            { text: 'TOTAL', align: 'RIGHT', cols: 8 },
+        ]);
+        printer.drawLine();
+
+        // Print each item
+        receiptData.products.forEach((item) => {
+            let label =
+                item.label +
+                (item.quantity !== 1 ? ` x${item.quantity}` : '') +
+                (item.discount.value > 0 ? ` (-${item.discount.value}${item.discount.unit})` : '');
+            const labelLength = label.length;
+            label = labelLength > 32 ? item.label.slice(0, 32 - labelLength) + label.slice(item.label.length) : label;
+            printer.tableCustom([
+                { text: label, align: 'LEFT', cols: 32 },
+                { text: toCurrency(item.amount || 0, receiptData.currency), align: 'CENTER', cols: 8 },
+                { text: toCurrency(item.total || 0, receiptData.currency), align: 'RIGHT', cols: 8 },
+            ]);
+        });
+
+        // Print total
+        printer.newLine();
+        printer.drawLine();
+        printer.bold(true);
+        printer.leftRight('TOTAL', toCurrency(receiptData.total, receiptData.currency));
+        printer.bold(false);
+        printer.drawLine();
+
+        // Print payment method if available
+        printer.alignCenter();
+        printer.println(
+            receiptData.paymentMethod ? `Mode de paiement: ${receiptData.paymentMethod}` : 'PAS ENCORE PAYÉ'
+        );
+        printer.newLine();
+
+        // Print thank you message
+        printer.alignCenter();
+        printer.println(
+            receiptData.paymentMethod
+                ? receiptData.thanksMessage || 'Merci pour votre achat !'
+                : 'Merci de passer par la caisse avant de partir !'
+        );
+        printer.cut();
+
+        // Execute print
+        await printer.execute();
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to print receipt:', error);
+        return { error: "Erreur lors de l'impression du reçu" };
+    }
 }
 
-interface PrintContent {
-    text?: string;
-    html?: string;
-    image?: string; // Base64 encoded image
-    qrCode?: string; // Content to encode as QR
-    barcode?: string; // Content to encode as barcode
-    style?: React.CSSProperties;
-}
-
-export const DEFAULT_PRINTER_CONFIG: PrinterConfig = {
-    width: 80, // 80mm printer width
-    height: 297, // A4 height as fallback
-    dpi: 203, // Standard for most 80mm POS printers
-    characterWidth: 42, // Standard for most 80mm POS printers at default font size
-    autoSize: true, // Auto-size height based on content
-};
-
 /**
- * Converts millimeters to pixels based on the specified DPI
+ * Server action to print a Ticket Z summary (Z report)
  */
-const mmToPixels = (mm: number, dpi: number): number => {
-    // 1 inch = 25.4 mm, so pixels = (mm / 25.4) * dpi
-    return Math.round((mm / 25.4) * dpi);
-};
+export async function printSummary(printerIPAddress: string, summaryData: SummaryData): Promise<PrintResponse> {
+    try {
+        const printer = await getPrinter(printerIPAddress);
+        if (!printer) return { error: 'Imprimante non connectée' };
 
-/**
- * Generates a unique receipt number based on timestamp
- */
-const generateReceiptNumber = (prefix: string = 'R', date: Date = new Date()): string => {
-    return `${prefix}-${date.getTime().toString().slice(-8)}`;
-};
+        const currentDate = new Date();
+        const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
 
-/**
- * Creates a print-ready element based on the printer configuration
- */
-const createPrintElement = (config: PrinterConfig = DEFAULT_PRINTER_CONFIG): HTMLDivElement => {
-    const widthInPixels = mmToPixels(config.width, config.dpi);
+        // Calculate average ticket amount
+        const transactionCount = summaryData.transactions.length;
+        const totalAmount = summaryData.transactions.reduce((total, transaction) => total + transaction.amount, 0);
+        const averageTicket = transactionCount > 0 ? totalAmount / transactionCount : 0;
+        const shopName = summaryData.shopName;
 
-    const printElement = document.createElement('div');
-    printElement.style.width = `${widthInPixels}px`;
-    printElement.style.fontFamily = 'monospace';
-    printElement.style.fontSize = '12px';
-    printElement.style.lineHeight = '1.2';
-    printElement.style.whiteSpace = 'pre-wrap';
-    printElement.style.boxSizing = 'border-box';
-    printElement.style.padding = '5px';
-    printElement.style.color = '#000'; // Explicitly set text color to black
+        // Create a simpler header for the ticket
+        printer.alignCenter();
+        printer.setTextDoubleHeight();
+        printer.bold(true);
+        printer.invert(true);
+        printer.println('                    Ticket Z                    ');
+        printer.invert(false);
+        printer.newLine();
+        printer.println(shopName.toUpperCase());
+        printer.bold(false);
+        printer.setTextNormal();
+        printer.newLine();
+        printer.println('Adresse');
+        printer.println('Code postal et ville');
+        printer.println('N° SIRET');
+        printer.newLine();
 
-    return printElement;
-};
+        // Find first and last transaction dates
+        let firstTransactionDate = currentDate;
+        let lastTransactionDate = currentDate;
 
-/**
- * Generate a QR code as an SVG element (simplified implementation)
- * In production, use a dedicated library for QR code generation
- */
-const generateQRCode = (content: string, size: number = 200): HTMLElement => {
-    const qrDiv = document.createElement('div');
-    qrDiv.style.width = `${size}px`;
-    qrDiv.style.height = `${size}px`;
-    qrDiv.style.margin = '0 auto 10px auto';
-    qrDiv.style.textAlign = 'center';
-    qrDiv.innerHTML = `
-    <div style="font-weight: bold; margin-bottom: 5px;">Scan QR Code:</div>
-    <img src="https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(content)}" 
-        width="${size}" height="${size}" alt="QR Code" />
-  `;
-    return qrDiv;
-};
+        if (summaryData.transactions.length > 0) {
+            // Sort transactions by creation date
+            const sortedTransactions = [...summaryData.transactions].sort((a, b) => a.createdDate - b.createdDate);
 
-/**
- * Generate a barcode (simplified implementation)
- * In production, use a dedicated library for barcode generation
- */
-const generateBarcode = (content: string, width: number = 200, height: number = 80): HTMLElement => {
-    const barcodeDiv = document.createElement('div');
-    barcodeDiv.style.width = `${width}px`;
-    barcodeDiv.style.height = `${height}px`;
-    barcodeDiv.style.margin = '0 auto 10px auto';
-    barcodeDiv.style.textAlign = 'center';
-    barcodeDiv.innerHTML = `
-    <div style="font-weight: bold; margin-bottom: 5px;">Barcode:</div>
-    <img src="https://barcodeapi.org/api/code128/${encodeURIComponent(content)}" 
-        width="${width}" height="${height}" alt="Barcode" />
-  `;
-    return barcodeDiv;
-};
-
-/**
- * Format text for a receipt with proper line wrapping based on character width
- */
-const formatReceiptText = (text: string, charWidth: number): string => {
-    const lines = text.split('\n');
-    const formattedLines = lines.map((line) => {
-        if (line.length <= charWidth) return line;
-
-        // Basic word wrapping
-        const words = line.split(' ');
-        let currentLine = '';
-        let result = '';
-
-        for (const word of words) {
-            if ((currentLine + word).length <= charWidth) {
-                currentLine += currentLine ? ' ' + word : word;
-            } else {
-                result += currentLine + '\n';
-                currentLine = word;
-            }
+            // Get first and last transaction dates
+            firstTransactionDate = new Date(sortedTransactions[0].createdDate);
+            lastTransactionDate = new Date(sortedTransactions[sortedTransactions.length - 1].createdDate);
         }
 
-        if (currentLine) result += currentLine;
-        return result;
-    });
+        // Format the transaction dates
+        const { frenchDateStr: firstDateStr, frenchTimeStr: firstTimeStr } = formatFrenchDate(firstTransactionDate);
+        const { frenchDateStr: lastDateStr, frenchTimeStr: lastTimeStr } = formatFrenchDate(lastTransactionDate);
 
-    return formattedLines.join('\n');
-};
+        // Print the header information
+        printer.alignLeft();
+        printer.leftRight(`Date d'impression :`, `${frenchDateStr} ${frenchTimeStr}`);
+        printer.leftRight(`Ouverture :`, `${firstDateStr} ${firstTimeStr}`);
+        printer.leftRight(`Clôture :`, `${lastDateStr} ${lastTimeStr}`);
+        printer.newLine();
 
-/**
- * Add content to the print element
- */
-const addContentToPrintElement = (
-    printElement: HTMLDivElement,
-    content: PrintContent,
-    config: PrinterConfig = DEFAULT_PRINTER_CONFIG
-): void => {
-    // Apply custom styles if provided
-    if (content.style) {
-        Object.assign(printElement.style, content.style);
+        // Commands and clients
+        printer.leftRight(`Commandes : ${transactionCount}`, `Clients : ${transactionCount}`);
+        printer.println(`Ticket moyen : ${toCurrency(averageTicket, summaryData.currency)}`);
+        printer.newLine();
+
+        // Separator line
+        printer.drawLine();
+        printer.newLine();
+
+        for (const line of summaryData.summary) {
+            if (line === '') {
+                printer.newLine();
+                printer.drawLine();
+                printer.newLine();
+            } else if (line.includes('==>')) {
+                printer.leftRight(
+                    line.split('==>')[0].trim(),
+                    toCurrency(
+                        Number(line.split('==>')[1].replace(summaryData.currency, '').trim()),
+                        summaryData.currency
+                    )
+                );
+            } else if (line.includes('\n'))
+                printer.table(
+                    line
+                        .split('\n')
+                        .map((s) =>
+                            s.includes(summaryData.currency)
+                                ? toCurrency(Number(s.replace(summaryData.currency, '').trim()), summaryData.currency)
+                                : s.trim()
+                        )
+                );
+            else printer.println(line);
+        }
+        printer.newLine();
+
+        // Separator line
+        printer.drawLine();
+        printer.newLine();
+
+        // Total TTC
+        printer.setTextDoubleHeight();
+        printer.bold(true);
+        printer.leftRight('TOTAL TTC', toCurrency(totalAmount, summaryData.currency));
+        printer.bold(false);
+        printer.setTextNormal();
+        printer.cut();
+
+        // Execute print
+        await printer.execute();
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to print summary:', error);
+        return { error: "Erreur lors de l'impression du ticket Z" };
     }
-
-    // Add text content with proper formatting
-    if (content.text) {
-        const formattedText = formatReceiptText(content.text, config.characterWidth);
-        const textDiv = document.createElement('div');
-        textDiv.style.whiteSpace = 'pre-wrap';
-        textDiv.textContent = formattedText;
-        printElement.appendChild(textDiv);
-    }
-
-    // Add HTML content
-    if (content.html) {
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = content.html;
-        printElement.appendChild(tempDiv);
-    }
-
-    // Add image
-    if (content.image) {
-        const img = document.createElement('img');
-        img.src = content.image;
-        img.style.maxWidth = '100%';
-        img.style.display = 'block';
-        img.style.margin = '10px auto';
-        printElement.appendChild(img);
-    }
-
-    // Add QR code
-    if (content.qrCode) {
-        const qrSize = Math.min(mmToPixels(50, config.dpi), mmToPixels(config.width - 10, config.dpi));
-        const qrElement = generateQRCode(content.qrCode, qrSize);
-        printElement.appendChild(qrElement);
-    }
-
-    // Add barcode
-    if (content.barcode) {
-        const barcodeWidth = mmToPixels(config.width - 10, config.dpi);
-        const barcodeHeight = mmToPixels(15, config.dpi);
-        const barcodeElement = generateBarcode(content.barcode, barcodeWidth, barcodeHeight);
-        printElement.appendChild(barcodeElement);
-    }
-};
-
-/**
- * Creates a template specifically for Ticket Z (Z report) summary
- * This is different from a regular receipt as it summarizes all transactions
- */
-export const createTicketZTemplate = (
-    shopName: string,
-    shopEmail: string,
-    currency: string,
-    period: string,
-    totalAmount: number,
-    transactionCount: number,
-    summary: string[]
-): string => {
-    const currentDate = new Date();
-    const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
-
-    // Calculate average ticket amount
-    const averageTicket = transactionCount > 0 ? (totalAmount / transactionCount).toFixed(2) : '0.00';
-
-    // Create a simpler header for the ticket
-    let content = `
-Ticket Z
-
-${shopName.toUpperCase()}
-
-Adresse
-Code postal et ville
-N° SIRET
-
-`;
-
-    // Use current date for printing date and opening/closing times
-    content += `Date d'impression : ${frenchDateStr} ${frenchTimeStr}\n`;
-    content += `Ouverture :        ${frenchDateStr} 00:00:00\n`;
-    content += `Clôture :          ${frenchDateStr} ${frenchTimeStr}\n\n`;
-
-    // Commands and clients
-    content += `Commandes : ${transactionCount}      Clients : ${transactionCount}\n`;
-    content += `Ticket moyen : ${averageTicket} ${currency}\n\n`;
-
-    // Separator line
-    content += `${'-'.repeat(60)}\n\n`;
-
-    // Instead of trying to parse the payment methods (which didn't work),
-    // add a simplified tax section
-    content += `TAUX\nHT\nTVA\nTTC\n`;
-    content += `TOTAL HT${' '.repeat(20)}${totalAmount.toFixed(2)} ${currency}\n\n`;
-
-    // Separator line
-    content += `${'-'.repeat(60)}\n\n`;
-
-    // Total TTC
-    content += `TOTAL TTC${' '.repeat(20)}${totalAmount.toFixed(2)} ${currency}\n\n`;
-
-    // Separator line
-    content += `${'-'.repeat(60)}\n\n`;
-
-    // Add remises and annulations on single lines each
-    content += `TOTAL Remises & Offerts${' '.repeat(20)}0.00 ${currency}\n`;
-    content += `TOTAL Annulations${' '.repeat(24)}0.00 ${currency}\n\n`;
-
-    // Add cash drawer info with proper spacing and same line formatting
-    content += `Fond de caisse initial${' '.repeat(20)}100.00 ${currency}\n`;
-    content += `Fond de caisse final${' '.repeat(22)}${(100 + totalAmount).toFixed(2)} ${currency}\n`;
-    content += `Solde total des comptes clients${' '.repeat(10)}0.00 ${currency}`;
-
-    return content;
-};
-
-/**
- * Creates a hook for using the POS printer
- */
-export const usePOSPrinter = (config: PrinterConfig = DEFAULT_PRINTER_CONFIG) => {
-    return {
-        /**
-         * Print a receipt with standard formatting
-         */
-        printReceipt: async (
-            printerIPAddress: string,
-            receiptData: {
-                shopName: string;
-                shopEmail: string;
-                products: Product[];
-                total: number;
-                currency: string;
-                paymentMethod?: string;
-                thanksMessage?: string;
-            }
-        ) => {
-            try {
-                const response = await fetch('/api/print/receipt', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ printerIPAddress, receiptData }),
-                });
-                return await response.json();
-            } catch (error) {
-                console.error('Failed to print ticket:', error);
-                return { error: 'Failed to print ticket' };
-            }
-        },
-
-        /**
-         * Print a Ticket Z summary (Z report)
-         */
-        printSummary: async (
-            printerIPAddress: string,
-            summaryData: {
-                shopName: string;
-                shopEmail: string;
-                currency: string;
-                period: string;
-                totalAmount: number;
-                transactionCount: number;
-                summary: string[];
-                thanksMessage?: string;
-            }
-        ) => {
-            try {
-                const response = await fetch('/api/print/summary', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ printerIPAddress, summaryData }),
-                });
-                return await response.json();
-            } catch (error) {
-                console.error('Failed to print ticket:', error);
-                return { error: 'Failed to print ticket' };
-            }
-        },
-    };
-};
+}
