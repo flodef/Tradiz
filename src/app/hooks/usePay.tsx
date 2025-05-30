@@ -22,8 +22,7 @@ export const usePay = () => {
     const printTransactionReceipt = useCallback(async () => {
         // Prepare receipt data
         const receiptData = {
-            shopName: parameters.shopName,
-            shopEmail: parameters.shopEmail,
+            shop: parameters.shop,
             products: products.current,
             total: getCurrentTotal(),
             currency: currencies[currencyIndex].symbol,

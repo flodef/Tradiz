@@ -1,13 +1,13 @@
 'use server';
 
 import { CharacterSet, PrinterTypes, ThermalPrinter } from 'node-thermal-printer';
-import { DataElement, Product, Transaction } from '../hooks/useData';
-import { formatFrenchDate, generateReceiptNumber } from './date';
 import { networkInterfaces } from 'os';
+import { Shop } from '../contexts/ConfigProvider';
+import { Product, Transaction } from '../hooks/useData';
+import { formatFrenchDate, generateReceiptNumber } from './date';
 
 type ReceiptData = {
-    shopName: string;
-    shopEmail: string;
+    shop: Shop;
     products: Product[];
     total: number;
     currency: string;
@@ -16,8 +16,7 @@ type ReceiptData = {
 };
 
 type SummaryData = {
-    shopName: string;
-    shopEmail: string;
+    shop: Shop;
     currency: string;
     period: string;
     transactions: Transaction[];
@@ -84,6 +83,21 @@ function isSameSubnet(ip1: string, ip2: string, subnetMask = '255.255.255.0') {
     return network1.every((octet, i) => octet === network2[i]);
 }
 
+function printShopInfo(printer: ThermalPrinter, shop: Shop) {
+    printer.alignCenter();
+    printer.setTextDoubleHeight();
+    printer.bold(true);
+    printer.println(shop.name.toUpperCase());
+    printer.bold(false);
+    printer.setTextNormal();
+    printer.newLine();
+    if (shop.address) printer.println(shop.address);
+    if (shop.zipCode && shop.city) printer.println(shop.zipCode + ' ' + shop.city);
+    if (shop.id) printer.println(shop.id);
+    if (shop.email) printer.println(shop.email);
+    printer.newLine();
+}
+
 /**
  * Formats an amount to a string with the specified currency
  */
@@ -106,11 +120,7 @@ export async function printReceipt(printerIPAddress: string, receiptData: Receip
         const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
 
         // Print header
-        printer.alignCenter();
-        printer.bold(true);
-        printer.println(receiptData.shopName.toUpperCase());
-        printer.bold(false);
-        printer.println(`Email : ${receiptData.shopEmail}`);
+        printShopInfo(printer, receiptData.shop);
         printer.println(`Date : ${frenchDateStr} ${frenchTimeStr}`);
         printer.println(`N° de reçu : ${receiptNumber}`);
         printer.newLine();
@@ -192,7 +202,7 @@ export async function printSummary(printerIPAddress: string, summaryData: Summar
         const transactionCount = summaryData.transactions.length;
         const totalAmount = summaryData.transactions.reduce((total, transaction) => total + transaction.amount, 0);
         const averageTicket = transactionCount > 0 ? totalAmount / transactionCount : 0;
-        const shopName = summaryData.shopName;
+        const shopName = summaryData.shop.name;
 
         // Create a simpler header for the ticket
         printer.alignCenter();
@@ -202,14 +212,7 @@ export async function printSummary(printerIPAddress: string, summaryData: Summar
         printer.println('                    Ticket Z                    ');
         printer.invert(false);
         printer.newLine();
-        printer.println(shopName.toUpperCase());
-        printer.bold(false);
-        printer.setTextNormal();
-        printer.newLine();
-        printer.println('Adresse');
-        printer.println('Code postal et ville');
-        printer.println('N° SIRET');
-        printer.newLine();
+        printShopInfo(printer, summaryData.shop);
 
         // Find first and last transaction dates
         let firstTransactionDate = currentDate;

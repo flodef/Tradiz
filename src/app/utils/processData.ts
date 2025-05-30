@@ -43,8 +43,7 @@ const dataNames: { [key: string]: DataName } = {
 };
 
 export const defaultParameters: Parameters = {
-    shopName: '',
-    shopEmail: EMAIL,
+    shop: { name: '', email: EMAIL, address: '', zipCode: '', city: '', id: '' },
     thanksMessage: '',
     mercurial: Mercurial.none,
     printerIPAddress: '',
@@ -117,12 +116,18 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
     if (!user || user.role === Role.none) throw new UserNotFoundError(param.at(1));
 
     const parameters: Parameters = {
-        shopName: param.at(0) ?? '',
-        shopEmail: param.at(1) ?? EMAIL,
-        thanksMessage: param.at(2) ?? 'Merci de votre visite !',
-        mercurial: (param.at(3) ?? Mercurial.none) as Mercurial,
-        printerIPAddress: param.at(4) ?? '',
-        lastModified: param.at(5) ?? new Date('0').toLocaleString(),
+        shop: {
+            name: param.at(0) ?? '',
+            address: param.at(1) ?? '',
+            zipCode: param.at(2) ?? '',
+            city: param.at(3) ?? '',
+            id: param.at(4) ?? '',
+            email: param.at(5) ?? EMAIL,
+        },
+        thanksMessage: param.at(6) ?? 'Merci de votre visite !',
+        mercurial: (param.at(7) ?? Mercurial.none) as Mercurial,
+        printerIPAddress: param.at(8) ?? '',
+        lastModified: param.at(9) ?? new Date('0').toLocaleString(),
         user: user,
     };
 
@@ -248,7 +253,7 @@ async function convertParametersData(response: void | Response) {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-            checkData(data, 1, 2, 6, 6);
+            checkData(data, 1, 2, 10, 10);
 
             return data.values.map((item) => {
                 checkColumn(item, 1);

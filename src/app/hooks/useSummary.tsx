@@ -477,10 +477,10 @@ export const useSummary = () => {
                 ' :\n\n' +
                 summary;
 
-            sendEmail(parameters.shopEmail, subject, message);
+            sendEmail(parameters.shop.email, subject, message);
             console.log(subject);
         },
-        [getTransactionsData, parameters.shopEmail, getTransactionDate, getFilteredTransactions, toCurrency]
+        [getTransactionsData, parameters.shop.email, getTransactionDate, getFilteredTransactions, toCurrency]
     );
 
     const downloadData = useCallback(
@@ -567,8 +567,7 @@ export const useSummary = () => {
 
         // Prepare Ticket Z data
         const ticketZData = {
-            shopName: parameters.shopName,
-            shopEmail: parameters.shopEmail,
+            shop: parameters.shop,
             currency: currencies[currencyIndex].symbol,
             period: periodDesc,
             transactions: filteredTransactions,

@@ -70,7 +70,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
                     amount,
                     splToken,
                     reference,
-                    label: parameters.shopName,
+                    label: parameters.shop.name,
                     message: parameters.thanksMessage,
                     memo,
                 });
@@ -85,7 +85,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
             default:
                 return '';
         }
-    }, [parameters.shopName, memo, parameters.thanksMessage, recipient, splToken, reference, amount, crypto]);
+    }, [parameters.shop.name, memo, parameters.thanksMessage, recipient, splToken, reference, amount, crypto]);
 
     const init = useCallback(() => {
         setPaymentStatus(PaymentStatus.New);

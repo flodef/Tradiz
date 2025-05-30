@@ -70,7 +70,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, [parameters.mercurial]);
 
     useEffect(() => {
-        if (!parameters.shopName || areTransactionLoaded.current) return;
+        if (!parameters.shop.name || areTransactionLoaded.current) return;
 
         const shopId = window.location.pathname.split('/')[1];
         setShopId(shopId);
@@ -91,7 +91,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             areTransactionLoaded.current = false;
             setTransactionsFilename('');
         }, timeUntilMidnight); // Automatically reload at midnight
-    }, [parameters.shopName]);
+    }, [parameters.shop.name]);
 
     useEffect(() => {
         if (IS_DEV || isDemo) return;

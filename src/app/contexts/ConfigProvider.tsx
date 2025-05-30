@@ -23,9 +23,17 @@ import {
     loadData,
 } from '../utils/processData';
 
+export interface Shop {
+    name: string;
+    address: string;
+    zipCode: string;
+    city: string;
+    id: string;
+    email: string;
+}
+
 export interface Parameters {
-    shopName: string;
-    shopEmail: string;
+    shop: Shop;
     thanksMessage: string;
     mercurial: Mercurial;
     printerIPAddress: string;
@@ -141,7 +149,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
 
                     parameters.error = error.message;
                     if (error instanceof UserNotFoundError) {
-                        parameters.shopEmail = String(error.cause);
+                        parameters.shop.email = String(error.cause);
                         setState(State.unidentified);
                     } else {
                         setState(State.error);

@@ -75,11 +75,11 @@ export const Category: FC = () => {
             case State.unidentified:
                 openFullscreenPopup(
                     'Utilisateur non identifié',
-                    ['Rafraîchir la page'].concat(!hasSentEmail ? ['Contacter ' + parameters.shopEmail] : []),
+                    ['Rafraîchir la page'].concat(!hasSentEmail ? ['Contacter ' + parameters.shop.email] : []),
                     (i) => {
                         if (i === 1) {
                             sendEmail(
-                                parameters.shopEmail,
+                                parameters.shop.email,
                                 "Demande d'accès utilisateur",
                                 `Bonjour, je souhaite accéder à l'application de caisse avec les informations suivantes : 
                             \n- Clé : ${getPublicKey()} 
@@ -119,7 +119,7 @@ export const Category: FC = () => {
         closePopup,
         parameters.lastModified,
         setState,
-        parameters.shopEmail,
+        parameters.shop.email,
         parameters.error,
         hasSentEmail,
         isDemo,
