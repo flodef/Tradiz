@@ -27,6 +27,7 @@ export const usePay = () => {
             total: getCurrentTotal(),
             currency: currencies[currencyIndex].symbol,
             thanksMessage: parameters.thanksMessage,
+            userName: parameters.user.name,
         };
 
         // Print the receipt

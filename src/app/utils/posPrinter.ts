@@ -13,6 +13,7 @@ type ReceiptData = {
     currency: string;
     paymentMethod?: string;
     thanksMessage?: string;
+    userName: string;
 };
 
 type SummaryData = {
@@ -123,6 +124,7 @@ export async function printReceipt(printerIPAddress: string, receiptData: Receip
         printShopInfo(printer, receiptData.shop);
         printer.println(`Date : ${frenchDateStr} ${frenchTimeStr}`);
         printer.println(`N° de reçu : ${receiptNumber}`);
+        if (receiptData.userName) printer.println(`Vendeur•se : ${receiptData.userName}`);
         printer.newLine();
 
         // Print items header
