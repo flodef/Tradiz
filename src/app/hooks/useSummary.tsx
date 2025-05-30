@@ -553,7 +553,7 @@ export const useSummary = () => {
 
     const printTransactionsSummary = useCallback(async () => {
         const filteredTransactions = getFilteredTransactions();
-        if (!filteredTransactions.length) return;
+        if (!filteredTransactions.length) return { error: 'Aucune transaction' };
 
         // Get transaction summary data
         const data = getTransactionsData(filteredTransactions);
@@ -576,7 +576,7 @@ export const useSummary = () => {
         };
 
         // Print the Ticket Z using server action
-        await printSummary(parameters.printerIPAddress, ticketZData);
+        return await printSummary(parameters.printerIPAddress, ticketZData);
     }, [currencies, currencyIndex, getFilteredTransactions, getTransactionDate, getTransactionsData, parameters]);
 
     const showTransactionsSummaryMenu = useCallback(() => {
@@ -605,7 +605,10 @@ export const useSummary = () => {
                             }); // Set timeout to give time to the popup to display and the screenshot to be taken
                             break;
                         case 'Impression':
-                            printTransactionsSummary().then(() => closePopup());
+                            printTransactionsSummary().then((response) => {
+                                if (response.success) closePopup();
+                                else openPopup('Erreur', [response.error]);
+                            });
                             break;
                         case 'Email':
                             processEmail('TicketZ ' + formattedDate);

@@ -31,7 +31,7 @@ export const usePay = () => {
         };
 
         // Print the receipt
-        await printReceipt(parameters.printerIPAddress, receiptData);
+        return await printReceipt(parameters.printerIPAddress, receiptData);
     }, [getCurrentTotal, products, currencies, currencyIndex, parameters]);
 
     const openQRCode = useCallback(
@@ -140,7 +140,10 @@ export const usePay = () => {
                     );
                     break;
                 case PRINT_KEYWORD:
-                    printTransactionReceipt().then(() => closePopup());
+                    printTransactionReceipt().then((response) => {
+                        if (response.success) closePopup();
+                        else openPopup('Erreur', [response.error]);
+                    });
                     break;
                 default:
                     updateTransaction(option.includes(WAITING_KEYWORD) ? WAITING_KEYWORD : option);
