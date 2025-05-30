@@ -3,6 +3,7 @@
 import { CharacterSet, PrinterTypes, ThermalPrinter } from 'node-thermal-printer';
 import { DataElement, Product, Transaction } from '../hooks/useData';
 import { formatFrenchDate, generateReceiptNumber } from './date';
+import { networkInterfaces } from 'os';
 
 type ReceiptData = {
     shopName: string;
@@ -45,6 +46,45 @@ const getPrinter = async (printerIPAddress: string) => {
 };
 
 /**
+ * Helper function to get local IP
+ */
+function getLocalIp() {
+    const interfaces = networkInterfaces();
+
+    let localIp = null;
+    for (const name of Object.keys(interfaces)) {
+        if (interfaces[name])
+            for (const iface of interfaces[name]) {
+                // Filter for IPv4 and non-internal (not 127.0.0.1)
+                if (iface.family === 'IPv4' && !iface.internal) {
+                    localIp = iface.address;
+                    break;
+                }
+            }
+        if (localIp) break;
+    }
+
+    return localIp;
+}
+
+/**
+ * Helper function to check if two IPs are on the same subnet
+ */
+function isSameSubnet(ip1: string, ip2: string, subnetMask = '255.255.255.0') {
+    // Convert IPs to arrays of octets
+    const ip1Octets = ip1.split('.').map(Number);
+    const ip2Octets = ip2.split('.').map(Number);
+    const maskOctets = subnetMask.split('.').map(Number);
+
+    // Calculate network address for each IP using bitwise AND
+    const network1 = ip1Octets.map((octet, i) => octet & maskOctets[i]);
+    const network2 = ip2Octets.map((octet, i) => octet & maskOctets[i]);
+
+    // Compare network addresses
+    return network1.every((octet, i) => octet === network2[i]);
+}
+
+/**
  * Formats an amount to a string with the specified currency
  */
 const toCurrency = (amount: number, currency: string) => amount.toFixed(2) + (currency === '€' ? '$' : currency);
@@ -54,6 +94,10 @@ const toCurrency = (amount: number, currency: string) => amount.toFixed(2) + (cu
  */
 export async function printReceipt(printerIPAddress: string, receiptData: ReceiptData): Promise<PrintResponse> {
     try {
+        const myIp = getLocalIp();
+        if (!myIp) return { error: 'Appareil non connecté au réseau' };
+        if (!isSameSubnet(myIp, printerIPAddress)) return { error: "L'imprimante n'est pas sur le même réseau" };
+
         const printer = await getPrinter(printerIPAddress);
         if (!printer) return { error: 'Imprimante non connectée' };
 
@@ -134,6 +178,10 @@ export async function printReceipt(printerIPAddress: string, receiptData: Receip
  */
 export async function printSummary(printerIPAddress: string, summaryData: SummaryData): Promise<PrintResponse> {
     try {
+        const myIp = getLocalIp();
+        if (!myIp) return { error: 'Appareil non connecté au réseau' };
+        if (!isSameSubnet(myIp, printerIPAddress)) return { error: "L'imprimante n'est pas sur le même réseau" };
+
         const printer = await getPrinter(printerIPAddress);
         if (!printer) return { error: 'Imprimante non connectée' };
 
