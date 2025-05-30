@@ -84,6 +84,8 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const loadConfig = useCallback((data: Config | undefined) => {
         if (!data) return;
 
+        localStorage.removeItem('Config');
+
         setParameters(data.parameters);
         setCurrencies(data.currencies);
         setPaymentMethods(data.paymentMethods);
