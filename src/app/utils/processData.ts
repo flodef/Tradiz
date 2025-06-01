@@ -335,7 +335,7 @@ async function convertDiscountsData(response: void | Response) {
 async function convertColorsData(response: void | Response) {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
-        return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
+        return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
             checkData(data, 3, 3, 8, 8);
 
             return data.values.removeHeader().map((item) => {
