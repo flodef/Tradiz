@@ -180,14 +180,14 @@ export const Total: FC = () => {
                     },
                     {
                         label: 'Non',
-                        action: () => {},
+                        action: () => closePopup(),
                     },
                 ],
                 index,
                 openPopup
             );
         },
-        [deleteProduct, openPopup, isStateReady]
+        [deleteProduct, openPopup, closePopup, isStateReady]
     );
 
     const modifyTransaction = useCallback(
