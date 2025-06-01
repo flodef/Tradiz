@@ -23,36 +23,22 @@ interface ItemProps {
     onContextMenu: () => void;
 }
 
+interface Option {
+    label: string;
+    action: (index: number) => void;
+}
+
 function handleContextMenu(
-    question: string,
-    action: (index: number) => void,
+    title: string,
+    options: Option[],
     index: number,
-    openPopup: (
-        title: string,
-        options: string[],
-        callback: (index: number, option: string) => void,
-        stayOpen: boolean
-    ) => void,
-    closePopup: () => void,
-    fallback: (index: number) => void = closePopup
+    openPopup: (title: string, options: string[], callback: (index: number, option: string) => void) => void
 ) {
     if (index >= 0) {
         openPopup(
-            question + ' ?',
-            ['Oui', 'Non'],
-            (i) => {
-                switch (i) {
-                    case 0:
-                        action(index);
-                        closePopup();
-                        break;
-
-                    case 1:
-                        fallback(index);
-                        break;
-                }
-            },
-            true
+            title,
+            options.map(({ label }) => label),
+            (i) => i >= 0 && options[i].action(index)
         );
     }
 }
@@ -97,7 +83,7 @@ export const Total: FC = () => {
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
-    const { pay } = usePay();
+    const { pay, printTransaction } = usePay();
     const { isStateReady } = useConfig();
 
     const [needRefresh, setNeedRefresh] = useState(false);
@@ -122,7 +108,21 @@ export const Total: FC = () => {
         (index: number) => {
             if (!isStateReady && index >= 0) return;
 
-            handleContextMenu('Effacer', deleteProduct, index, openPopup, closePopup);
+            handleContextMenu(
+                'Effacer ?',
+                [
+                    {
+                        label: 'Oui',
+                        action: (index) => deleteProduct(index),
+                    },
+                    {
+                        label: 'Non',
+                        action: () => closePopup(),
+                    },
+                ],
+                index,
+                openPopup
+            );
         },
         [deleteProduct, openPopup, closePopup, isStateReady]
     );
@@ -132,13 +132,36 @@ export const Total: FC = () => {
             const transaction = index >= 0 ? transactions.at(index) : undefined;
             if (!isStateReady || !transaction || isUpdatingTransaction(transaction)) return;
 
+            const isWaiting = isWaitingTransaction(transaction);
             handleContextMenu(
-                isWaitingTransaction(transaction) ? 'Reprendre' : 'Modifier',
-                editTransaction,
+                'Transaction',
+                [
+                    {
+                        label: isWaiting ? 'Payer' : 'Modifier Paiement',
+                        action: (index) => {
+                            editTransaction(index); // set the transaction as current
+                            setTimeout(pay, 100);
+                        },
+                    },
+                    {
+                        label: isWaiting ? 'Reprendre' : 'Modifier Produits',
+                        action: (index) => editTransaction(index),
+                    },
+                    {
+                        label: 'Imprimer',
+                        action: () => setTimeout(() => printTransaction(transaction), 100),
+                    },
+                    {
+                        label: 'Effacer',
+                        action: (index) => deleteTransaction(index),
+                    },
+                    {
+                        label: 'Annuler',
+                        action: () => fallback(index),
+                    },
+                ],
                 index,
-                openPopup,
-                closePopup,
-                () => fallback(index)
+                openPopup
             );
         },
         [
@@ -146,9 +169,11 @@ export const Total: FC = () => {
             openPopup,
             transactions,
             isWaitingTransaction,
-            closePopup,
             isStateReady,
             isUpdatingTransaction,
+            deleteTransaction,
+            pay,
+            printTransaction,
         ]
     );
 
