@@ -32,13 +32,19 @@ function handleContextMenu(
     title: string,
     options: Option[],
     index: number,
-    openPopup: (title: string, options: string[], callback: (index: number, option: string) => void) => void
+    openPopup: (
+        title: string,
+        options: string[],
+        callback: (index: number, option: string) => void,
+        isCloseable: boolean
+    ) => void
 ) {
     if (index >= 0) {
         openPopup(
             title,
             options.map(({ label }) => label),
-            (i) => i >= 0 && options[i].action(index)
+            (i) => i >= 0 && options[i].action(index),
+            true
         );
     }
 }
@@ -90,6 +96,58 @@ export const Total: FC = () => {
 
     const label = useIsMobile() ? totalLabel : payLabel;
 
+    const getTransactionMenu = useCallback(
+        (transaction: Transaction | undefined, fallback: (index: number) => void) => {
+            if (!transaction || !isStateReady || isUpdatingTransaction(transaction)) return;
+
+            const isWaiting = isWaitingTransaction(transaction);
+            return {
+                title: 'Transaction',
+                options: [
+                    {
+                        label: isWaiting ? 'Payer' : 'Modifier Paiement',
+                        action: (index: number) => {
+                            editTransaction(index); // set the transaction as current
+                            setTimeout(pay, 100);
+                        },
+                    },
+                    {
+                        label: isWaiting ? 'Reprendre' : 'Modifier Produits',
+                        action: (index: number) => {
+                            editTransaction(index);
+                            closePopup();
+                        },
+                    },
+                    {
+                        label: 'Imprimer',
+                        action: () => setTimeout(() => printTransaction(transaction), 100),
+                    },
+                    {
+                        label: 'Effacer',
+                        action: (index: number) => {
+                            deleteTransaction(index);
+                            closePopup();
+                        },
+                    },
+                    {
+                        label: 'Annuler',
+                        action: (index: number) => fallback(index),
+                    },
+                ],
+            };
+        },
+        [
+            editTransaction,
+            isStateReady,
+            isUpdatingTransaction,
+            isWaitingTransaction,
+            deleteTransaction,
+            pay,
+            printTransaction,
+            closePopup,
+        ]
+    );
+
     const selectProduct = useCallback(
         (index: number) => {
             if (!isStateReady && index >= 0) return;
@@ -117,64 +175,25 @@ export const Total: FC = () => {
                     },
                     {
                         label: 'Non',
-                        action: () => closePopup(),
+                        action: () => {},
                     },
                 ],
                 index,
                 openPopup
             );
         },
-        [deleteProduct, openPopup, closePopup, isStateReady]
+        [deleteProduct, openPopup, isStateReady]
     );
 
     const modifyTransaction = useCallback(
         (index: number, fallback: (index: number) => void) => {
             const transaction = index >= 0 ? transactions.at(index) : undefined;
-            if (!isStateReady || !transaction || isUpdatingTransaction(transaction)) return;
+            const transactionMenu = getTransactionMenu(transaction, fallback);
+            if (!transactionMenu) return;
 
-            const isWaiting = isWaitingTransaction(transaction);
-            handleContextMenu(
-                'Transaction',
-                [
-                    {
-                        label: isWaiting ? 'Payer' : 'Modifier Paiement',
-                        action: (index) => {
-                            editTransaction(index); // set the transaction as current
-                            setTimeout(pay, 100);
-                        },
-                    },
-                    {
-                        label: isWaiting ? 'Reprendre' : 'Modifier Produits',
-                        action: (index) => editTransaction(index),
-                    },
-                    {
-                        label: 'Imprimer',
-                        action: () => setTimeout(() => printTransaction(transaction), 100),
-                    },
-                    {
-                        label: 'Effacer',
-                        action: (index) => deleteTransaction(index),
-                    },
-                    {
-                        label: 'Annuler',
-                        action: () => fallback(index),
-                    },
-                ],
-                index,
-                openPopup
-            );
+            handleContextMenu(transactionMenu.title, transactionMenu.options, index, openPopup);
         },
-        [
-            editTransaction,
-            openPopup,
-            transactions,
-            isWaitingTransaction,
-            isStateReady,
-            isUpdatingTransaction,
-            deleteTransaction,
-            pay,
-            printTransaction,
-        ]
+        [getTransactionMenu, openPopup, transactions]
     );
 
     const isConfirmedTransaction = useCallback(
@@ -366,18 +385,17 @@ export const Total: FC = () => {
             (i) => showBoughtProducts(getTransactionIndex(i), showTransactions),
             true,
             (index) => {
+                const transactionMenu = getTransactionMenu(sortedTransactions.at(index), () => showTransactions());
+                if (!transactionMenu) return;
+
                 openPopup(
-                    isWaitingTransaction(sortedTransactions.at(index)) ? 'Reprendre ?' : 'Modifier ?',
-                    ['Oui', 'Non'],
+                    transactionMenu.title,
+                    transactionMenu.options.map(({ label }) => label),
                     (i) => {
-                        if (i === 0) {
-                            editTransaction(getTransactionIndex(index));
-                            closePopup();
-                        } else {
-                            showTransactions();
+                        if (i >= 0) {
+                            transactionMenu.options[i].action(index);
                         }
-                    },
-                    true
+                    }
                 );
             },
             (option) => option.includes(WAITING_KEYWORD) || option.includes(UPDATING_KEYWORD)
@@ -388,11 +406,9 @@ export const Total: FC = () => {
         displayTransaction,
         showBoughtProducts,
         displayTransactionsTitle,
-        isWaitingTransaction,
-        editTransaction,
-        closePopup,
         getTransactionIndex,
         sortedTransactions,
+        getTransactionMenu,
     ]);
 
     const canDisplayTotal = useMemo(() => {
