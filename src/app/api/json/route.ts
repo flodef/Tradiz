@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import colors from '../data/colors.json';
 import currencies from '../data/currencies.json';
 import discounts from '../data/discounts.json';
 import parameters from '../data/parameters.json';
@@ -10,6 +11,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const fileName = searchParams.get('fileName');
     switch (fileName) {
+        case 'colors':
+            return NextResponse.json(colors);
         case 'currencies':
             return NextResponse.json(currencies);
         case 'discounts':
@@ -23,6 +26,7 @@ export async function GET(request: Request) {
         case 'users':
             return NextResponse.json(users);
         default:
+            console.error(`JSON file name not found: ${fileName}. Add it to json API route.`);
             return NextResponse.json({});
     }
 }
