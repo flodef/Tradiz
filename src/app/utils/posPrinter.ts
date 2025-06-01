@@ -65,18 +65,18 @@ const getPrinter = async (printerIPAddress: string) => {
  */
 function getLocalIp() {
     const interfaces = networkInterfaces();
-
     let localIp = null;
+
     for (const name of Object.keys(interfaces)) {
-        if (interfaces[name])
+        if (interfaces[name]) {
             for (const iface of interfaces[name]) {
-                // Filter for IPv4 and non-internal (not 127.0.0.1)
-                if (iface.family === 'IPv4' && !iface.internal) {
+                if (iface.family === 'IPv4' && !iface.internal && iface.address.startsWith('192.168.')) {
                     localIp = iface.address;
                     break;
                 }
             }
-        if (localIp) break;
+            if (localIp) break;
+        }
     }
 
     return localIp;
