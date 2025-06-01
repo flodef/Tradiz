@@ -38,6 +38,7 @@ const dataNames: { [key: string]: DataName } = {
     currencies: { json: 'currencies', sheet: '_Monnaies' },
     discounts: { json: 'discounts', sheet: 'Remises' },
     colors: { json: 'colors', sheet: 'Couleurs' },
+    printers: { json: 'printers', sheet: 'Imprimantes' },
     products: { json: 'products', sheet: '_Produits' },
     users: { json: 'users', sheet: 'Utilisateurs' },
 };
@@ -46,7 +47,6 @@ export const defaultParameters: Parameters = {
     shop: { name: '', email: EMAIL, address: '', zipCode: '', city: '', id: '' },
     thanksMessage: '',
     mercurial: Mercurial.none,
-    printerIPAddress: '',
     lastModified: new Date().toLocaleString(),
     user: { name: '', role: Role.none },
 };
@@ -126,8 +126,7 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
         },
         thanksMessage: param.at(6) ?? 'Merci de votre visite !',
         mercurial: (param.at(7) ?? Mercurial.none) as Mercurial,
-        printerIPAddress: param.at(8) ?? '',
-        lastModified: param.at(9) ?? new Date('0').toLocaleString(),
+        lastModified: param.at(8) ?? new Date('0').toLocaleString(),
         user: user,
     };
 
@@ -135,6 +134,7 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
     const allCurrencies = await fetchData(dataNames.currencies, id).then(convertCurrenciesData);
     const discounts = await fetchData(dataNames.discounts, id).then(convertDiscountsData);
     const colors = await fetchData(dataNames.colors, id).then(convertColorsData);
+    const printers = await fetchData(dataNames.printers, id).then(convertPrintersData);
 
     const data = await fetchData(dataNames.products, id).then(convertProductsData);
     if (!data?.products?.length || !data?.currencies?.length) return;
@@ -174,6 +174,7 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
         inventory,
         discounts,
         colors,
+        printers,
     };
 }
 
@@ -253,7 +254,7 @@ async function convertParametersData(response: void | Response) {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-            checkData(data, 1, 2, 10, 10);
+            checkData(data, 1, 2, 9, 9);
 
             return data.values.map((item) => {
                 checkColumn(item, 1);
@@ -343,6 +344,26 @@ async function convertColorsData(response: void | Response) {
                 return {
                     light: String(item.at(1)).trim(),
                     dark: String(item.at(2)).trim(),
+                };
+            });
+        });
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
+}
+
+async function convertPrintersData(response: void | Response) {
+    try {
+        if (typeof response === 'undefined') throw new EmptyDataError();
+        return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
+            checkData(data, 2, 2);
+
+            return data.values.removeHeader().map((item) => {
+                checkColumn(item, 2);
+                return {
+                    name: String(item.at(0)).trim(),
+                    address: String(item.at(1)).trim(),
                 };
             });
         });

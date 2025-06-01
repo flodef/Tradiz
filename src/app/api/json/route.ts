@@ -4,6 +4,7 @@ import currencies from '../data/currencies.json';
 import discounts from '../data/discounts.json';
 import parameters from '../data/parameters.json';
 import paymentMethods from '../data/paymentMethods.json';
+import printers from '../data/printers.json';
 import products from '../data/products.json';
 import users from '../data/users.json';
 
@@ -21,6 +22,8 @@ export async function GET(request: Request) {
             return NextResponse.json(parameters);
         case 'paymentMethods':
             return NextResponse.json(paymentMethods);
+        case 'printers':
+            return NextResponse.json(printers);
         case 'products':
             return NextResponse.json(products);
         case 'users':
