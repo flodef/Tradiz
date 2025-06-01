@@ -32,16 +32,14 @@ type PrintResponse = {
 const initPrinter = async (printerAddresses: string[]) => {
     const myIp = getLocalIp();
     if (!myIp) return { error: 'Appareil non connecté au réseau' };
+    return { printer: await getPrinter('10.10.100.254'), error: `${myIp.join('|')}` };
 
-    console.log('myIp', myIp);
-    console.log('printerAddresses', printerAddresses);
+    // const connectedPrinter = printerAddresses.find((address) => isSameSubnet(myIp, address));
+    // if (!connectedPrinter) return { error: `Aucune imprimante connectée au même sous-réseau que ${myIp}` };
 
-    const connectedPrinter = printerAddresses.find((address) => isSameSubnet(myIp, address));
-    if (!connectedPrinter) return { error: `Aucune imprimante connectée au même sous-réseau que ${myIp}` };
-
-    const printer = await getPrinter(connectedPrinter);
-    if (!printer) return { error: 'Imprimante non connectée' };
-    return { printer };
+    // const printer = await getPrinter(connectedPrinter);
+    // if (!printer) return { error: 'Imprimante non connectée' };
+    // return { printer };
 };
 
 /**
@@ -65,25 +63,28 @@ const getPrinter = async (printerIPAddress: string) => {
  */
 function getLocalIp() {
     const interfaces = networkInterfaces();
-    let localIp = null;
+    // let localIp = null;
 
-    for (const name of Object.keys(interfaces)) {
-        if (interfaces[name]) {
-            for (const iface of interfaces[name]) {
-                if (
-                    iface.family === 'IPv4' &&
-                    !iface.internal &&
-                    (iface.address.startsWith('192.168.') || iface.address.startsWith('10.10.'))
-                ) {
-                    localIp = iface.address;
-                    break;
-                }
-            }
-            if (localIp) break;
-        }
-    }
+    // for (const name of Object.keys(interfaces)) {
+    //     if (interfaces[name]) {
+    //         for (const iface of interfaces[name]) {
+    //             if (
+    //                 iface.family === 'IPv4' &&
+    //                 !iface.internal &&
+    //                 (iface.address.startsWith('192.168.') || iface.address.startsWith('10.10.'))
+    //             ) {
+    //                 localIp = iface.address;
+    //                 break;
+    //             }
+    //         }
+    //         if (localIp) break;
+    //     }
+    // }
+    // return localIp;
 
-    return localIp;
+    const test: string[] = [];
+    interfaces.array?.forEach((element) => test.push(element.address));
+    return test;
 }
 
 /**
