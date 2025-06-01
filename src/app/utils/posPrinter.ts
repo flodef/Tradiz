@@ -114,7 +114,8 @@ export async function printReceipt(printerIPAddress: string, receiptData: Receip
     try {
         const myIp = getLocalIp();
         if (!myIp) return { error: 'Appareil non connecté au réseau' };
-        if (!isSameSubnet(myIp, printerIPAddress)) return { error: "L'imprimante n'est pas sur le même réseau" };
+        if (!isSameSubnet(myIp, printerIPAddress))
+            return { error: `L'imprimante n'est pas sur le même sous-réseau : ${myIp}` };
 
         const printer = await getPrinter(printerIPAddress);
         if (!printer) return { error: 'Imprimante non connectée' };
@@ -199,7 +200,8 @@ export async function printSummary(printerIPAddress: string, summaryData: Summar
     try {
         const myIp = getLocalIp();
         if (!myIp) return { error: 'Appareil non connecté au réseau' };
-        if (!isSameSubnet(myIp, printerIPAddress)) return { error: "L'imprimante n'est pas sur le même réseau" };
+        if (!isSameSubnet(myIp, printerIPAddress))
+            return { error: `L'imprimante n'est pas sur le même sous-réseau : ${myIp}` };
 
         const printer = await getPrinter(printerIPAddress);
         if (!printer) return { error: 'Imprimante non connectée' };
