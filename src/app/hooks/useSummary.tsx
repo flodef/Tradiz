@@ -568,7 +568,6 @@ export const useSummary = () => {
         // Prepare Ticket Z data
         const ticketZData = {
             shop: parameters.shop,
-            currency: currencies[currencyIndex].symbol,
             period: periodDesc,
             transactions: filteredTransactions,
             summary: data.summary,
@@ -576,7 +575,7 @@ export const useSummary = () => {
 
         // Print the Ticket Z using server action
         return await printSummary(parameters.printerIPAddress, ticketZData);
-    }, [currencies, currencyIndex, getFilteredTransactions, getTransactionDate, getTransactionsData, parameters]);
+    }, [getFilteredTransactions, getTransactionDate, getTransactionsData, parameters]);
 
     const showTransactionsSummaryMenu = useCallback(() => {
         const hasTransactions = transactions.length || tempTransactions.current.length;
@@ -605,9 +604,9 @@ export const useSummary = () => {
                             break;
                         case 'Impression':
                             printTransactionsSummary().then((response) => {
-                                if (response.success) closePopup();
-                                else openPopup('Erreur', [response.error]);
+                                if (!response.success) openPopup('Erreur', [response.error || "Impossible d'imprimer"]);
                             });
+                            closePopup();
                             break;
                         case 'Email':
                             processEmail('TicketZ ' + formattedDate);

@@ -1,38 +1,49 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { QRCode } from '../components/QRCode';
-import { IS_LOCAL, PRINT_KEYWORD, WAITING_KEYWORD } from '../utils/constants';
+import { IS_LOCAL, PRINT_KEYWORD, PROCESSING_KEYWORD, WAITING_KEYWORD } from '../utils/constants';
 import { printReceipt } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
-import { useData } from './useData';
+import { Transaction, useData } from './useData';
 import { usePopup } from './usePopup';
 
 export const usePay = () => {
     const { openPopup, closePopup } = usePopup();
-    const { updateTransaction, getCurrentTotal, toCurrency, total, amount, selectedProduct, products } = useData();
+    const { updateTransaction, getCurrentTotal, toCurrency, total, amount, selectedProduct, transactions } = useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
     const { paymentMethods, currencies, currencyIndex, parameters } = useConfig();
 
     const canPay = useMemo(() => Boolean(total && !amount && !selectedProduct), [total, amount, selectedProduct]);
     const canAddProduct = useMemo(() => Boolean(amount && selectedProduct), [amount, selectedProduct]);
 
-    /**
-     * Print the current transaction receipt with all products
-     */
-    const printTransactionReceipt = useCallback(async () => {
-        // Prepare receipt data
-        const receiptData = {
-            shop: parameters.shop,
-            products: products.current,
-            total: getCurrentTotal(),
-            currency: currencies[currencyIndex].symbol,
-            thanksMessage: parameters.thanksMessage,
-            userName: parameters.user.name,
-        };
+    const printTransactionReceipt = useCallback(
+        async (transaction?: Transaction) => {
+            // Prepare receipt data
+            const currentTransaction = transaction || transactions.find((item) => item.method === PROCESSING_KEYWORD);
+            if (!currentTransaction) return { error: 'Aucune transaction à imprimer' };
 
-        // Print the receipt
-        return await printReceipt(parameters.printerIPAddress, receiptData);
-    }, [getCurrentTotal, products, currencies, currencyIndex, parameters]);
+            const receiptData = {
+                shop: parameters.shop,
+                transaction: currentTransaction,
+                thanksMessage: parameters.thanksMessage,
+                userName: parameters.user.name,
+            };
+
+            // Print the receipt
+            return await printReceipt(parameters.printerIPAddress, receiptData);
+        },
+        [parameters, transactions]
+    );
+
+    const printTransaction = useCallback(
+        (transaction?: Transaction) => {
+            printTransactionReceipt(transaction).then((response) => {
+                if (!response.success) openPopup('Erreur', [response.error || "Impossible d'imprimer"]);
+            });
+            closePopup();
+        },
+        [closePopup, openPopup, printTransactionReceipt]
+    );
 
     const openQRCode = useCallback(
         (onCancel: (onConfirm: () => void) => void, onConfirm: () => void) => {
@@ -133,17 +144,13 @@ export const usePay = () => {
                         'IBAN : ' + paymentMethods.find((item) => item.method === 'Virement')?.address,
                         ['Valider paiement', 'Annuler paiement'],
                         (index) => {
-                            if (index === 0) {
-                                updateTransaction(option);
-                            }
+                            if (index === 0) updateTransaction(option);
                         }
                     );
                     break;
                 case PRINT_KEYWORD:
-                    printTransactionReceipt().then((response) => {
-                        if (response.success) closePopup();
-                        else openPopup('Erreur', [response.error]);
-                    });
+                    printTransaction();
+                    updateTransaction(WAITING_KEYWORD);
                     break;
                 default:
                     updateTransaction(option.includes(WAITING_KEYWORD) ? WAITING_KEYWORD : option);
@@ -159,7 +166,7 @@ export const usePay = () => {
             closePopup,
             paymentMethods,
             openPopup,
-            printTransactionReceipt,
+            printTransaction,
         ]
     );
 
@@ -203,5 +210,5 @@ export const usePay = () => {
         }
     }, [error, cancelOrConfirmPaiement, pay]);
 
-    return { pay, canPay, canAddProduct };
+    return { pay, canPay, canAddProduct, printTransaction };
 };

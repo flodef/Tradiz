@@ -3,22 +3,19 @@
 import { CharacterSet, PrinterTypes, ThermalPrinter } from 'node-thermal-printer';
 import { networkInterfaces } from 'os';
 import { Shop } from '../contexts/ConfigProvider';
-import { Product, Transaction } from '../hooks/useData';
+import { Transaction } from '../hooks/useData';
 import { formatFrenchDate, generateReceiptNumber } from './date';
+import { PROCESSING_KEYWORD, WAITING_KEYWORD } from './constants';
 
 type ReceiptData = {
     shop: Shop;
-    products: Product[];
-    total: number;
-    currency: string;
-    paymentMethod?: string;
+    transaction: Transaction;
     thanksMessage?: string;
     userName: string;
 };
 
 type SummaryData = {
     shop: Shop;
-    currency: string;
     period: string;
     transactions: Transaction[];
     summary: string[];
@@ -102,7 +99,13 @@ function printShopInfo(printer: ThermalPrinter, shop: Shop) {
 /**
  * Formats an amount to a string with the specified currency
  */
-const toCurrency = (amount: number, currency: string) => amount.toFixed(2) + (currency === '€' ? '$' : currency);
+const toCurrency = (amount: number | string, currency: string) =>
+    Number(
+        amount
+            .toString()
+            .replace(/[^0-9., ]/g, '')
+            .trim()
+    ).toFixed(2) + (currency.includes('€') ? '$' : currency);
 
 /**
  * Server action to print a receipt with standard formatting
@@ -120,11 +123,17 @@ export async function printReceipt(printerIPAddress: string, receiptData: Receip
         const receiptNumber = generateReceiptNumber('R', currentDate);
         const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
 
+        const paymentMethod =
+            receiptData.transaction.method !== WAITING_KEYWORD && receiptData.transaction.method !== PROCESSING_KEYWORD
+                ? receiptData.transaction.method
+                : undefined;
+        const currency = receiptData.transaction.currency;
+
         // Print header
         printShopInfo(printer, receiptData.shop);
         printer.println(`Date : ${frenchDateStr} ${frenchTimeStr}`);
         printer.println(`N° de reçu : ${receiptNumber}`);
-        if (receiptData.userName) printer.println(`Vendeur•se : ${receiptData.userName}`);
+        if (receiptData.transaction.validator) printer.println(`Vendeur•se : ${receiptData.transaction.validator}`);
         printer.newLine();
 
         // Print items header
@@ -138,7 +147,7 @@ export async function printReceipt(printerIPAddress: string, receiptData: Receip
         printer.drawLine();
 
         // Print each item
-        receiptData.products.forEach((item) => {
+        receiptData.transaction.products.forEach((item) => {
             let label =
                 item.label +
                 (item.quantity !== 1 ? ` x${item.quantity}` : '') +
@@ -147,8 +156,8 @@ export async function printReceipt(printerIPAddress: string, receiptData: Receip
             label = labelLength > 32 ? item.label.slice(0, 32 - labelLength) + label.slice(item.label.length) : label;
             printer.tableCustom([
                 { text: label, align: 'LEFT', cols: 32 },
-                { text: toCurrency(item.amount || 0, receiptData.currency), align: 'CENTER', cols: 8 },
-                { text: toCurrency(item.total || 0, receiptData.currency), align: 'RIGHT', cols: 8 },
+                { text: toCurrency(item.amount || 0, currency), align: 'CENTER', cols: 8 },
+                { text: toCurrency(item.total || 0, currency), align: 'RIGHT', cols: 8 },
             ]);
         });
 
@@ -156,21 +165,19 @@ export async function printReceipt(printerIPAddress: string, receiptData: Receip
         printer.newLine();
         printer.drawLine();
         printer.bold(true);
-        printer.leftRight('TOTAL', toCurrency(receiptData.total, receiptData.currency));
+        printer.leftRight('TOTAL', toCurrency(receiptData.transaction.amount, currency));
         printer.bold(false);
         printer.drawLine();
 
         // Print payment method if available
         printer.alignCenter();
-        printer.println(
-            receiptData.paymentMethod ? `Mode de paiement: ${receiptData.paymentMethod}` : 'PAS ENCORE PAYÉ'
-        );
+        printer.println(paymentMethod ? `Mode de paiement: ${paymentMethod}` : 'PAS ENCORE PAYÉ');
         printer.newLine();
 
         // Print thank you message
         printer.alignCenter();
         printer.println(
-            receiptData.paymentMethod
+            paymentMethod
                 ? receiptData.thanksMessage || 'Merci pour votre achat !'
                 : 'Merci de passer par la caisse avant de partir !'
         );
@@ -204,7 +211,7 @@ export async function printSummary(printerIPAddress: string, summaryData: Summar
         const transactionCount = summaryData.transactions.length;
         const totalAmount = summaryData.transactions.reduce((total, transaction) => total + transaction.amount, 0);
         const averageTicket = transactionCount > 0 ? totalAmount / transactionCount : 0;
-        const shopName = summaryData.shop.name;
+        const currency = transactionCount > 0 ? summaryData.transactions[0].currency : '€';
 
         // Create a simpler header for the ticket
         printer.alignCenter();
@@ -242,7 +249,7 @@ export async function printSummary(printerIPAddress: string, summaryData: Summar
 
         // Commands and clients
         printer.leftRight(`Commandes : ${transactionCount}`, `Clients : ${transactionCount}`);
-        printer.println(`Ticket moyen : ${toCurrency(averageTicket, summaryData.currency)}`);
+        printer.println(`Ticket moyen : ${toCurrency(averageTicket, currency)}`);
         printer.newLine();
 
         // Separator line
@@ -255,22 +262,12 @@ export async function printSummary(printerIPAddress: string, summaryData: Summar
                 printer.drawLine();
                 printer.newLine();
             } else if (line.includes('==>')) {
-                printer.leftRight(
-                    line.split('==>')[0].trim(),
-                    toCurrency(
-                        Number(line.split('==>')[1].replace(summaryData.currency, '').trim()),
-                        summaryData.currency
-                    )
-                );
+                printer.leftRight(line.split('==>')[0].trim(), toCurrency(line.split('==>')[1], currency));
             } else if (line.includes('\n'))
                 printer.table(
                     line
                         .split('\n')
-                        .map((s) =>
-                            s.includes(summaryData.currency)
-                                ? toCurrency(Number(s.replace(summaryData.currency, '').trim()), summaryData.currency)
-                                : s.trim()
-                        )
+                        .map((s) => (s.includes('.') || s.includes(',') ? toCurrency(s, currency) : s.trim()))
                 );
             else printer.println(line);
         }
@@ -283,7 +280,7 @@ export async function printSummary(printerIPAddress: string, summaryData: Summar
         // Total TTC
         printer.setTextDoubleHeight();
         printer.bold(true);
-        printer.leftRight('TOTAL TTC', toCurrency(totalAmount, summaryData.currency));
+        printer.leftRight('TOTAL TTC', toCurrency(totalAmount, currency));
         printer.bold(false);
         printer.setTextNormal();
         printer.cut();
