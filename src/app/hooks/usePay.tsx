@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { QRCode } from '../components/QRCode';
-import { IS_LOCAL, PRINT_KEYWORD, PROCESSING_KEYWORD, WAITING_KEYWORD } from '../utils/constants';
+import { IS_LOCAL, PRINT_KEYWORD, PROCESSING_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
 import { printReceipt } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
@@ -11,16 +11,20 @@ export const usePay = () => {
     const { openPopup, closePopup } = usePopup();
     const { updateTransaction, getCurrentTotal, toCurrency, total, amount, selectedProduct, transactions } = useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
-    const { paymentMethods, currencies, currencyIndex, parameters } = useConfig();
+    const { paymentMethods, currencies, currencyIndex, parameters, getPrintersNames, getPrinterAddresses } =
+        useConfig();
 
     const canPay = useMemo(() => Boolean(total && !amount && !selectedProduct), [total, amount, selectedProduct]);
     const canAddProduct = useMemo(() => Boolean(amount && selectedProduct), [amount, selectedProduct]);
 
     const printTransactionReceipt = useCallback(
-        async (transaction?: Transaction) => {
+        async (printerName?: string, transaction?: Transaction) => {
             // Prepare receipt data
             const currentTransaction = transaction || transactions.find((item) => item.method === PROCESSING_KEYWORD);
             if (!currentTransaction) return { error: 'Aucune transaction à imprimer' };
+
+            const printerAddresses = getPrinterAddresses(printerName);
+            if (!printerAddresses.length) return { error: 'Imprimante non trouvée' };
 
             const receiptData = {
                 shop: parameters.shop,
@@ -30,14 +34,14 @@ export const usePay = () => {
             };
 
             // Print the receipt
-            return await printReceipt(parameters.printerIPAddress, receiptData);
+            return await printReceipt(printerAddresses, receiptData);
         },
-        [parameters, transactions]
+        [parameters, transactions, getPrinterAddresses]
     );
 
     const printTransaction = useCallback(
-        (transaction?: Transaction) => {
-            printTransactionReceipt(transaction).then((response) => {
+        (printerName?: string, transaction?: Transaction) => {
+            printTransactionReceipt(printerName, transaction).then((response) => {
                 if (!response.success) openPopup('Erreur', [response.error || "Impossible d'imprimer"]);
             });
             closePopup();
@@ -133,10 +137,10 @@ export const usePay = () => {
 
     const selectPayment = useCallback(
         (option: string, fallback: () => void) => {
-            switch (option) {
+            switch (option.split(SEPARATOR)[0]) {
                 case Crypto.Solana:
                 case Crypto.June:
-                    generate(option);
+                    generate(option as Crypto);
                     openQRCode(cancelOrConfirmPaiement, fallback);
                     break;
                 case 'Virement':
@@ -149,7 +153,7 @@ export const usePay = () => {
                     );
                     break;
                 case PRINT_KEYWORD:
-                    printTransaction();
+                    printTransaction(option);
                     updateTransaction(WAITING_KEYWORD);
                     break;
                 default:
@@ -177,7 +181,7 @@ export const usePay = () => {
                 .filter((item) => item.currency === currencies[currencyIndex].symbol)
                 .map((item) => item.method)
                 .concat(['', 'METTRE ' + WAITING_KEYWORD])
-                .concat(parameters.printerIPAddress ? PRINT_KEYWORD : []);
+                .concat(getPrintersNames());
             if (paymentMethodsLabels.length === 1) {
                 selectPayment(paymentMethodsLabels[0], pay);
             } else {
@@ -198,7 +202,7 @@ export const usePay = () => {
         openPopup,
         getCurrentTotal,
         paymentMethods,
-        parameters.printerIPAddress,
+        getPrintersNames,
         toCurrency,
         currencies,
         currencyIndex,

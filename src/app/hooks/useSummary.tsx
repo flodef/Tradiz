@@ -1,6 +1,6 @@
 import { ReactNode, useCallback, useMemo, useRef } from 'react';
 import { utils, writeFile } from 'xlsx';
-import { DELETED_KEYWORD, GET_FORMATTED_DATE, WAITING_KEYWORD } from '../utils/constants';
+import { DELETED_KEYWORD, GET_FORMATTED_DATE, PRINT_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
 import { takeScreenshot } from '../utils/screenshot';
 import { sendEmail } from '../utils/sendEmail';
 import { printSummary } from '../utils/posPrinter';
@@ -14,7 +14,7 @@ enum HistoricalPeriod {
 }
 
 export const useSummary = () => {
-    const { currencies, currencyIndex, inventory, parameters } = useConfig();
+    const { currencies, currencyIndex, inventory, parameters, getPrintersNames, getPrinterAddresses } = useConfig();
     const { transactions, toCurrency, transactionsFilename, isDbConnected, processTransactions } = useData();
     const { openPopup, closePopup } = usePopup();
 
@@ -551,31 +551,37 @@ export const useSummary = () => {
         [toCurrency, getTransactionsDetails, getTaxesByCategory, getTaxAmountByCategory, getFilteredTransactions]
     );
 
-    const printTransactionsSummary = useCallback(async () => {
-        const filteredTransactions = getFilteredTransactions();
-        if (!filteredTransactions.length) return { error: 'Aucune transaction' };
+    const printTransactionsSummary = useCallback(
+        async (printerName?: string) => {
+            const filteredTransactions = getFilteredTransactions();
+            if (!filteredTransactions.length) return { error: 'Aucune transaction' };
 
-        // Get transaction summary data
-        const data = getTransactionsData(filteredTransactions);
+            const printerAddresses = getPrinterAddresses(printerName);
+            if (!printerAddresses.length) return { error: 'Imprimante non trouvée' };
 
-        // Get period description
-        const periodDesc =
-            getTransactionDate().period === HistoricalPeriod.day
-                ? getTransactionDate().date.toLocaleDateString('fr-FR')
-                : 'Mois de ' +
-                  getTransactionDate().date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+            // Get transaction summary data
+            const data = getTransactionsData(filteredTransactions);
 
-        // Prepare Ticket Z data
-        const ticketZData = {
-            shop: parameters.shop,
-            period: periodDesc,
-            transactions: filteredTransactions,
-            summary: data.summary,
-        };
+            // Get period description
+            const periodDesc =
+                getTransactionDate().period === HistoricalPeriod.day
+                    ? getTransactionDate().date.toLocaleDateString('fr-FR')
+                    : 'Mois de ' +
+                      getTransactionDate().date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
 
-        // Print the Ticket Z using server action
-        return await printSummary(parameters.printerIPAddress, ticketZData);
-    }, [getFilteredTransactions, getTransactionDate, getTransactionsData, parameters]);
+            // Prepare Ticket Z data
+            const ticketZData = {
+                shop: parameters.shop,
+                period: periodDesc,
+                transactions: filteredTransactions,
+                summary: data.summary,
+            };
+
+            // Print the Ticket Z using server action
+            return await printSummary(printerAddresses, ticketZData);
+        },
+        [getFilteredTransactions, getTransactionDate, getTransactionsData, parameters, getPrinterAddresses]
+    );
 
     const showTransactionsSummaryMenu = useCallback(() => {
         const hasTransactions = transactions.length || tempTransactions.current.length;
@@ -588,12 +594,12 @@ export const useSummary = () => {
             openPopup(
                 'TicketZ ' + (hasTransactions ? formattedDate : ''),
                 (hasTransactions ? ["Capture d'écran", 'Email', 'Feuille de calcul'] : [])
-                    .concat(hasTransactions && parameters.printerIPAddress ? ['Impression'] : [])
+                    .concat(hasTransactions ? getPrintersNames() : [])
                     .concat(isDbConnected ? ['Synchronisation'] : [])
                     .concat(historicalTransactions.length ? ['Histo jour', 'Histo mois'] : [])
                     .concat(hasTransactions ? 'Afficher' : []),
                 (_, option) => {
-                    switch (option) {
+                    switch (option.split(SEPARATOR)[0]) {
                         case "Capture d'écran":
                             showTransactionsSummary(() => {});
                             setTimeout(() => {
@@ -602,8 +608,8 @@ export const useSummary = () => {
                                 });
                             }); // Set timeout to give time to the popup to display and the screenshot to be taken
                             break;
-                        case 'Impression':
-                            printTransactionsSummary().then((response) => {
+                        case PRINT_KEYWORD:
+                            printTransactionsSummary(option).then((response) => {
                                 if (!response.success) openPopup('Erreur', [response.error || "Impossible d'imprimer"]);
                             });
                             closePopup();
@@ -653,9 +659,9 @@ export const useSummary = () => {
         showHistoricalTransactions,
         tempTransactions,
         getTransactionDate,
-        parameters,
         isDbConnected,
         showSyncMenu,
+        getPrintersNames,
     ]);
 
     return {

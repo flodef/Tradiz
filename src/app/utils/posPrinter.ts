@@ -29,13 +29,17 @@ type PrintResponse = {
 /**
  * Checks if the printer is on the same subnet as the device
  */
-const initPrinter = async (printerIPAddress: string) => {
+const initPrinter = async (printerAddresses: string[]) => {
     const myIp = getLocalIp();
     if (!myIp) return { error: 'Appareil non connecté au réseau' };
-    if (!isSameSubnet(myIp, printerIPAddress))
-        return { error: `L'imprimante n'est pas sur le même sous-réseau : ${myIp}` };
 
-    const printer = await getPrinter(printerIPAddress);
+    console.log('myIp', myIp);
+    console.log('printerAddresses', printerAddresses);
+
+    const connectedPrinter = printerAddresses.find((address) => isSameSubnet(myIp, address));
+    if (!connectedPrinter) return { error: `Aucune imprimante connectée au même sous-réseau que ${myIp}` };
+
+    const printer = await getPrinter(connectedPrinter);
     if (!printer) return { error: 'Imprimante non connectée' };
     return { printer };
 };
@@ -124,9 +128,9 @@ const toCurrency = (amount: number | string, currency: string) =>
 /**
  * Server action to print a receipt with standard formatting
  */
-export async function printReceipt(printerIPAddress: string, receiptData: ReceiptData): Promise<PrintResponse> {
+export async function printReceipt(printerAddresses: string[], receiptData: ReceiptData): Promise<PrintResponse> {
     try {
-        const { printer, error } = await initPrinter(printerIPAddress);
+        const { printer, error } = await initPrinter(printerAddresses);
         if (!printer || error) return { error };
 
         const currentDate = new Date();
@@ -205,9 +209,9 @@ export async function printReceipt(printerIPAddress: string, receiptData: Receip
 /**
  * Server action to print a Ticket Z summary (Z report)
  */
-export async function printSummary(printerIPAddress: string, summaryData: SummaryData): Promise<PrintResponse> {
+export async function printSummary(printerAddresses: string[], summaryData: SummaryData): Promise<PrintResponse> {
     try {
-        const { printer, error } = await initPrinter(printerIPAddress);
+        const { printer, error } = await initPrinter(printerAddresses);
         if (!printer || error) return { error };
 
         const currentDate = new Date();

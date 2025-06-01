@@ -90,7 +90,7 @@ export const Total: FC = () => {
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
     const { pay, printTransaction } = usePay();
-    const { isStateReady } = useConfig();
+    const { isStateReady, getPrintersNames } = useConfig();
 
     const [needRefresh, setNeedRefresh] = useState(false);
 
@@ -118,22 +118,26 @@ export const Total: FC = () => {
                             closePopup();
                         },
                     },
-                    {
-                        label: 'Imprimer',
-                        action: () => setTimeout(() => printTransaction(transaction), 100),
-                    },
-                    {
-                        label: 'Effacer',
-                        action: (index: number) => {
-                            deleteTransaction(index);
-                            closePopup();
+                ]
+                    .concat(
+                        getPrintersNames().map((printerName) => ({
+                            label: printerName,
+                            action: () => printTransaction(printerName, transaction),
+                        }))
+                    )
+                    .concat([
+                        {
+                            label: 'Effacer',
+                            action: (index: number) => {
+                                deleteTransaction(index);
+                                closePopup();
+                            },
                         },
-                    },
-                    {
-                        label: 'Annuler',
-                        action: (index: number) => fallback(index),
-                    },
-                ],
+                        {
+                            label: 'Annuler',
+                            action: (index: number) => fallback(index),
+                        },
+                    ]),
             };
         },
         [
@@ -145,6 +149,7 @@ export const Total: FC = () => {
             pay,
             printTransaction,
             closePopup,
+            getPrintersNames,
         ]
     );
 

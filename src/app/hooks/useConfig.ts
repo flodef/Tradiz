@@ -61,6 +61,11 @@ export interface Colors {
     dark: string;
 }
 
+export interface Printer {
+    name: string;
+    address: string;
+}
+
 export interface ConfigContextState {
     state: State;
     setState: (value: State) => void;
@@ -73,6 +78,8 @@ export interface ConfigContextState {
     inventory: InventoryItem[];
     discounts: Discount[];
     colors: Colors[];
+    getPrintersNames: () => string[];
+    getPrinterAddresses: (name?: string) => string[];
 }
 
 export const ConfigContext = createContext<ConfigContextState>({} as ConfigContextState);

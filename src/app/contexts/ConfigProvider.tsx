@@ -9,11 +9,12 @@ import {
     InventoryItem,
     Mercurial,
     PaymentMethod,
+    Printer,
     State,
     User,
 } from '../hooks/useConfig';
 import { useWindowParam } from '../hooks/useWindowParam';
-import { IS_DEV } from '../utils/constants';
+import { IS_DEV, LOCAL_PRINTER_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
 import {
     UserNotFoundError,
@@ -36,7 +37,6 @@ export interface Parameters {
     shop: Shop;
     thanksMessage: string;
     mercurial: Mercurial;
-    printerIPAddress: string;
     lastModified: string;
     user: User;
     error?: string;
@@ -49,6 +49,7 @@ export interface Config {
     inventory: InventoryItem[];
     discounts: Discount[];
     colors: Colors[];
+    printers: Printer[];
 }
 
 export interface ConfigProviderProps {
@@ -68,6 +69,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
     const [discounts, setDiscounts] = useState<Discount[]>([]);
     const [colors, setColors] = useState<Colors[]>([]);
+    const [printers, setPrinters] = useState<Printer[]>([]);
 
     const isStateReady = useMemo(() => state === State.preloaded || state === State.loaded, [state]);
 
@@ -81,6 +83,32 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
         [currencies]
     );
 
+    const getPrintersNames = useCallback(() => {
+        const printersNames = printers.filter(({ name }) => name !== LOCAL_PRINTER_KEYWORD);
+        if (!printersNames.length) return [];
+
+        return printersNames.length === 1
+            ? [PRINT_KEYWORD]
+            : printersNames.map(({ name }) => PRINT_KEYWORD + SEPARATOR + name);
+    }, [printers]);
+    const getPrinterAddresses = useCallback(
+        (name?: string) => {
+            const printerName = name?.split(SEPARATOR)[1];
+            const printer = (
+                printerName
+                    ? [
+                          printers.find(({ name: n }) => n === printerName),
+                          printers.find(({ name: n }) => n === LOCAL_PRINTER_KEYWORD),
+                      ]
+                    : printers
+            ).filter(Boolean) as Printer[]; // If no printer name is provided, return all printers
+            if (!printer.length) return [];
+
+            return printer.map(({ address }) => address);
+        },
+        [printers]
+    );
+
     const loadConfig = useCallback((data: Config | undefined) => {
         if (!data) return;
 
@@ -92,6 +120,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
         setInventory(data.inventory);
         setDiscounts(data.discounts);
         setColors(data.colors);
+        setPrinters(data.printers);
 
         setState(State.preloaded);
     }, []);
@@ -174,6 +203,8 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
                 inventory,
                 discounts,
                 colors,
+                getPrintersNames,
+                getPrinterAddresses,
             }}
         >
             {children}
