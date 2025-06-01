@@ -782,7 +782,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 typeof item === 'object'
                     ? item
                     : {
-                          validator: '',
+                          validator: parameters.user.name,
                           method: item,
                           amount: getCurrentTotal(),
                           createdDate: transactionId.current || currentTime,
@@ -797,7 +797,16 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             clearTotal();
         },
-        [clearTotal, products, saveTransactions, getCurrentTotal, currencies, currencyIndex, storeTransaction]
+        [
+            clearTotal,
+            products,
+            saveTransactions,
+            getCurrentTotal,
+            currencies,
+            currencyIndex,
+            storeTransaction,
+            parameters,
+        ]
     );
 
     const displayTransaction = useCallback(
