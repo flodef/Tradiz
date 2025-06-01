@@ -83,7 +83,9 @@ function getLocalIp() {
     // return localIp;
 
     const test: string[] = [];
-    interfaces.array?.forEach((element) => test.push(element.address));
+    for (const name of Object.keys(interfaces))
+        if (interfaces[name]) for (const iface of interfaces[name]) test.push(iface.address);
+
     return test;
 }
 
