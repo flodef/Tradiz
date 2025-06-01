@@ -22,7 +22,7 @@ export const GET_FORMATTED_DATE = (date = new Date(), precision = 3) =>
 
 // Solana
 export const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
-export const IS_DEV = process.env.NEXT_PUBLIC_IS_DEV === 'true';
+export const IS_DEV = process.env.NEXT_PUBLIC_IS_DEV?.toLowerCase() === 'true';
 export const SPL_TOKEN = new PublicKey(
     IS_DEV ? 'J99D2TvHcev22FF8rNfdUXQx31qzuoVdXRpRiPzJCH6c' : 'Pnsjp9dbenPeFZWqqPHDygzkCZ4Gr37G8mgdRK2KjQp'
 );
