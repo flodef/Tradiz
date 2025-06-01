@@ -27,6 +27,20 @@ type PrintResponse = {
 };
 
 /**
+ * Checks if the printer is on the same subnet as the device
+ */
+const initPrinter = async (printerIPAddress: string) => {
+    const myIp = getLocalIp();
+    if (!myIp) return { error: 'Appareil non connecté au réseau' };
+    if (!isSameSubnet(myIp, printerIPAddress))
+        return { error: `L'imprimante n'est pas sur le même sous-réseau : ${myIp}` };
+
+    const printer = await getPrinter(printerIPAddress);
+    if (!printer) return { error: 'Imprimante non connectée' };
+    return { printer };
+};
+
+/**
  * Creates a printer instance and checks connection
  */
 const getPrinter = async (printerIPAddress: string) => {
@@ -112,13 +126,8 @@ const toCurrency = (amount: number | string, currency: string) =>
  */
 export async function printReceipt(printerIPAddress: string, receiptData: ReceiptData): Promise<PrintResponse> {
     try {
-        const myIp = getLocalIp();
-        if (!myIp) return { error: 'Appareil non connecté au réseau' };
-        if (!isSameSubnet(myIp, printerIPAddress))
-            return { error: `L'imprimante n'est pas sur le même sous-réseau : ${myIp}` };
-
-        const printer = await getPrinter(printerIPAddress);
-        if (!printer) return { error: 'Imprimante non connectée' };
+        const { printer, error } = await initPrinter(printerIPAddress);
+        if (!printer || error) return { error };
 
         const currentDate = new Date();
         const receiptNumber = generateReceiptNumber('R', currentDate);
@@ -198,13 +207,8 @@ export async function printReceipt(printerIPAddress: string, receiptData: Receip
  */
 export async function printSummary(printerIPAddress: string, summaryData: SummaryData): Promise<PrintResponse> {
     try {
-        const myIp = getLocalIp();
-        if (!myIp) return { error: 'Appareil non connecté au réseau' };
-        if (!isSameSubnet(myIp, printerIPAddress))
-            return { error: `L'imprimante n'est pas sur le même sous-réseau : ${myIp}` };
-
-        const printer = await getPrinter(printerIPAddress);
-        if (!printer) return { error: 'Imprimante non connectée' };
+        const { printer, error } = await initPrinter(printerIPAddress);
+        if (!printer || error) return { error };
 
         const currentDate = new Date();
         const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
