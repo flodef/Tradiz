@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { DELETED_KEYWORD, PRINT_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
-import { getFormattedDate } from '../utils/date';
+import { formatFrenchDate, getFormattedDate } from '../utils/date';
 import { printSummary } from '../utils/posPrinter';
 import { takeScreenshot } from '../utils/screenshot';
 import { sendEmail } from '../utils/sendEmail';
@@ -379,14 +379,17 @@ export const useSummary = () => {
             const detail = transactions
                 .filter(({ method }) => method === element.category)
                 .map(({ products, amount, modifiedDate }) => {
+                    const { frenchDateStr, frenchTimeStr } = formatFrenchDate(new Date(modifiedDate));
                     return (
                         products.length +
                         ' produit' +
                         (products.length > 1 ? 's' : '') +
                         ' ==> ' +
                         toCurrency(amount) +
+                        ' le ' +
+                        frenchDateStr +
                         ' à ' +
-                        new Date(modifiedDate).toTimeString().slice(0, 9)
+                        frenchTimeStr
                     );
                 });
 
@@ -595,8 +598,8 @@ export const useSummary = () => {
                 'TicketZ ' + (hasTransactions ? formattedDate : ''),
                 (hasTransactions ? ["Capture d'écran", 'Email', 'Feuille de calcul'] : [])
                     .concat(hasTransactions ? getPrintersNames() : [])
-                    .concat(isDbConnected && !hasTransactions ? ['Synchronisation'] : [])
-                    .concat(isDbConnected && hasTransactions && isDailyPeriod ? ['Resynchroniser'] : [])
+                    .concat(isDbConnected && hasTransactions && isDailyPeriod ? ['Resynchroniser jour'] : [])
+                    .concat(isDbConnected ? ['Menu Synchronisation'] : [])
                     .concat(historicalTransactions.length ? ['Histo jour', 'Histo mois'] : [])
                     .concat(hasTransactions ? 'Afficher' : []),
                 (_, option) => {
@@ -623,10 +626,10 @@ export const useSummary = () => {
                             downloadData('TicketZ ' + formattedDate);
                             closePopup();
                             break;
-                        case 'Synchronisation':
+                        case 'Menu Synchronisation':
                             showSyncMenu();
                             break;
-                        case 'Resynchroniser':
+                        case 'Resynchroniser jour':
                             processTransactions(SyncAction.resync, transactionDate);
                             break;
                         case 'Histo jour':
