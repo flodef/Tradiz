@@ -1,9 +1,10 @@
-import { ReactNode, useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { utils, writeFile } from 'xlsx';
-import { DELETED_KEYWORD, GET_FORMATTED_DATE, PRINT_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
+import { DELETED_KEYWORD, PRINT_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
+import { getFormattedDate } from '../utils/date';
+import { printSummary } from '../utils/posPrinter';
 import { takeScreenshot } from '../utils/screenshot';
 import { sendEmail } from '../utils/sendEmail';
-import { printSummary } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { DataElement, SyncAction, Transaction, useData } from './useData';
 import { usePopup } from './usePopup';
@@ -29,7 +30,7 @@ export const useSummary = () => {
                         accept=".json"
                         multiple={false}
                         onChange={(event) => {
-                            processTransactions(SyncAction.import, event);
+                            processTransactions(SyncAction.import, undefined, event);
                             closePopup();
                         }}
                     />
@@ -239,13 +240,13 @@ export const useSummary = () => {
         if (isDbConnected) {
             openPopup(
                 'Synchronisation',
-                ['Synchroniser (complet)', 'Synchroniser (jour)', ImportOption].concat(
+                ['Synchronisation complète', "Synchronisation d'aujourd'hui", ImportOption].concat(
                     getHistoricalTransactions().length ? ['Exporter'] : []
                 ),
                 (_, option) => {
                     const action = {
-                        'Synchroniser (complet)': SyncAction.fullsync,
-                        'Synchroniser (jour)': SyncAction.daysync,
+                        'Synchronisation complète': SyncAction.fullsync,
+                        "Synchronisation d'aujourd'hui": SyncAction.daysync,
                         Exporter: SyncAction.export,
                     }[option];
                     if (action) {
@@ -587,15 +588,14 @@ export const useSummary = () => {
         const hasTransactions = transactions.length || tempTransactions.current.length;
         const historicalTransactions = getHistoricalTransactions();
         if (hasTransactions || isDbConnected) {
-            const formattedDate = GET_FORMATTED_DATE(
-                getTransactionDate().date,
-                getTransactionDate().period === HistoricalPeriod.day ? 3 : 2
-            );
+            const isDailyPeriod = getTransactionDate().period === HistoricalPeriod.day;
+            const transactionDate = getTransactionDate().date;
+            const formattedDate = getFormattedDate(transactionDate, isDailyPeriod ? 3 : 2);
             openPopup(
                 'TicketZ ' + (hasTransactions ? formattedDate : ''),
                 (hasTransactions ? ["Capture d'écran", 'Email', 'Feuille de calcul'] : [])
                     .concat(hasTransactions ? getPrintersNames() : [])
-                    .concat(isDbConnected ? ['Synchronisation'] : [])
+                    .concat(isDbConnected && isDailyPeriod ? ['Resynchroniser'] : [])
                     .concat(historicalTransactions.length ? ['Histo jour', 'Histo mois'] : [])
                     .concat(hasTransactions ? 'Afficher' : []),
                 (_, option) => {
@@ -622,8 +622,8 @@ export const useSummary = () => {
                             downloadData('TicketZ ' + formattedDate);
                             closePopup();
                             break;
-                        case 'Synchronisation':
-                            showSyncMenu();
+                        case 'Resynchroniser':
+                            processTransactions(SyncAction.resync, transactionDate);
                             break;
                         case 'Histo jour':
                         case 'Histo mois':
@@ -660,7 +660,7 @@ export const useSummary = () => {
         tempTransactions,
         getTransactionDate,
         isDbConnected,
-        showSyncMenu,
+        processTransactions,
         getPrintersNames,
     ]);
 

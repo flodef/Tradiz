@@ -20,7 +20,6 @@ import { DataContext, Product, SyncAction, SyncPeriod, Transaction, TransactionS
 import { useWindowParam } from '../hooks/useWindowParam';
 import {
     DELETED_KEYWORD,
-    GET_FORMATTED_DATE,
     IS_DEV,
     OTHER_KEYWORD,
     PROCESSING_KEYWORD,
@@ -28,6 +27,7 @@ import {
     UPDATING_KEYWORD,
     WAITING_KEYWORD,
 } from '../utils/constants';
+import { getFormattedDate, getTransactionFileName } from '../utils/date';
 
 enum DatabaseAction {
     add,
@@ -75,7 +75,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         const shopId = window.location.pathname.split('/')[1];
         setShopId(shopId);
 
-        const filename = (shopId || TRANSACTIONS_KEYWORD) + '_' + GET_FORMATTED_DATE();
+        const filename = getTransactionFileName(shopId);
 
         const transactions = JSON.parse(localStorage.getItem(filename) || '[]') as Transaction[];
         setTransactions(transactions);
@@ -382,11 +382,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const syncTransactions = useCallback(
-        (period: SyncPeriod) => {
-            if (!firestore || !transactionsFilename || convertTransactionsData(ConvertAction.local)) return;
+        (period: SyncPeriod, filename = transactionsFilename) => {
+            if (!firestore || !filename || convertTransactionsData(ConvertAction.local)) return;
 
             if (period === SyncPeriod.day) {
-                processSync(transactionsFilename, period);
+                processSync(filename, period);
             } else {
                 getDocs(query(collection(firestore, 'Indexes'), where('shop', '==', shopId))).then((querySnapshot) => {
                     processSync(
@@ -449,7 +449,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         // Create a link element to trigger the download
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'Sauvegarde_' + GET_FORMATTED_DATE() + '.json';
+        link.download = 'Sauvegarde_' + getFormattedDate() + '.json';
 
         // Append the link element to the document and trigger the download
         document.body.appendChild(link);
@@ -488,15 +488,20 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const processTransactions = useCallback(
-        (syncAction: SyncAction, event?: ChangeEvent<HTMLInputElement>) => {
+        (syncAction: SyncAction, date?: Date, event?: ChangeEvent<HTMLInputElement>) => {
             if (!firestore) return;
 
+            const filename = date ? getTransactionFileName(shopId, date) : transactionsFilename;
             switch (syncAction) {
                 case SyncAction.fullsync:
                     syncTransactions(SyncPeriod.full);
                     break;
                 case SyncAction.daysync:
-                    syncTransactions(SyncPeriod.day);
+                    syncTransactions(SyncPeriod.day, filename);
+                    break;
+                case SyncAction.resync:
+                    localStorage.removeItem(filename);
+                    syncTransactions(SyncPeriod.day, filename);
                     break;
                 case SyncAction.export:
                     exportTransactions();
@@ -506,7 +511,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     break;
             }
         },
-        [firestore, syncTransactions, exportTransactions, importTransactions]
+        [firestore, syncTransactions, exportTransactions, importTransactions, shopId, transactionsFilename]
     );
 
     const saveTransactions = useCallback(
