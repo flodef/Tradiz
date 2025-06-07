@@ -1,3 +1,27 @@
+import { TRANSACTIONS_KEYWORD } from './constants';
+
+/**
+ * Generate a transaction file name with shop ID and date
+ * @param shopId The shop ID to use for the file name (defaults to TRANSACTIONS_KEYWORD)
+ * @param date The date to use for the file name (defaults to current date)
+ * @returns The generated file name
+ */
+export const getTransactionFileName = (shopId: string, date?: Date) =>
+    (shopId || TRANSACTIONS_KEYWORD) + '_' + getFormattedDate(date);
+
+/**
+ * Format a date in French format
+ * @param date The date to format (defaults to current date)
+ * @param precision The precision of the date (defaults to 3)
+ * @returns The formatted date string
+ */
+export const getFormattedDate = (date = new Date(), precision = 3) =>
+    !isNaN(date.getTime())
+        ? date.getFullYear() +
+          (precision > 1 ? '-' + ('0' + (date.getMonth() + 1)).slice(-2) : '') +
+          (precision > 2 ? '-' + ('0' + date.getDate()).slice(-2) : '')
+        : '';
+
 /**
  * Format a date in French format
  * @param date The date to format (defaults to current date)

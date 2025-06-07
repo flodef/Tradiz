@@ -15,12 +15,6 @@ export const SEPARATOR = ' : ';
 export const CATEGORY_SEPARATOR = '>';
 export const TRANSACTION_TIME_OUT = 60; // Time out in seconds
 export const IS_LOCAL = !process.env.NEXT_PUBLIC_VERCEL_ENV;
-export const GET_FORMATTED_DATE = (date = new Date(), precision = 3) =>
-    !isNaN(date.getTime())
-        ? date.getFullYear() +
-          (precision > 1 ? '-' + ('0' + (date.getMonth() + 1)).slice(-2) : '') +
-          (precision > 2 ? '-' + ('0' + date.getDate()).slice(-2) : '')
-        : '';
 
 // Solana
 export const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
