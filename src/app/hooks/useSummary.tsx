@@ -595,7 +595,8 @@ export const useSummary = () => {
                 'TicketZ ' + (hasTransactions ? formattedDate : ''),
                 (hasTransactions ? ["Capture d'écran", 'Email', 'Feuille de calcul'] : [])
                     .concat(hasTransactions ? getPrintersNames() : [])
-                    .concat(isDbConnected && isDailyPeriod ? ['Resynchroniser'] : [])
+                    .concat(isDbConnected && !hasTransactions ? ['Synchronisation'] : [])
+                    .concat(isDbConnected && hasTransactions && isDailyPeriod ? ['Resynchroniser'] : [])
                     .concat(historicalTransactions.length ? ['Histo jour', 'Histo mois'] : [])
                     .concat(hasTransactions ? 'Afficher' : []),
                 (_, option) => {
@@ -621,6 +622,9 @@ export const useSummary = () => {
                         case 'Feuille de calcul':
                             downloadData('TicketZ ' + formattedDate);
                             closePopup();
+                            break;
+                        case 'Synchronisation':
+                            showSyncMenu();
                             break;
                         case 'Resynchroniser':
                             processTransactions(SyncAction.resync, transactionDate);
@@ -660,6 +664,7 @@ export const useSummary = () => {
         tempTransactions,
         getTransactionDate,
         isDbConnected,
+        showSyncMenu,
         processTransactions,
         getPrintersNames,
     ]);
