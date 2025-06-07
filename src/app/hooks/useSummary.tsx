@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { utils, writeFile } from 'xlsx';
+import { sendSummaryEmail } from '../actions/email';
 import { DELETED_KEYWORD, PRINT_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
 import { formatFrenchDate, getFormattedDate } from '../utils/date';
 import { printSummary } from '../utils/posPrinter';
 import { takeScreenshot } from '../utils/screenshot';
-import { sendEmail } from '../utils/sendEmail';
 import { useConfig } from './useConfig';
 import { DataElement, SyncAction, Transaction, useData } from './useData';
 import { usePopup } from './usePopup';
@@ -461,31 +461,23 @@ export const useSummary = () => {
         ]
     );
 
-    const processEmail = useCallback(
-        (subject: string) => {
-            const filteredTransactions = getFilteredTransactions();
-            if (!filteredTransactions.length) return;
+    const processEmail = useCallback(async () => {
+        const filteredTransactions = getFilteredTransactions();
+        if (!filteredTransactions.length) return;
 
-            const data = getTransactionsData(filteredTransactions);
-            const summary = data.summary
-                .map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
-                .join('\n');
-            const message =
-                'Bonjour,\n\nCi-joint le Ticket Z du ' +
-                (getTransactionDate().period === HistoricalPeriod.day
-                    ? getTransactionDate().date.toLocaleDateString()
-                    : 'mois de ' +
-                      getTransactionDate().date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })) +
-                " d'un montant de " +
-                toCurrency(data.payments.reduce((total, payment) => total + payment.amount, 0)) +
-                ' :\n\n' +
-                summary;
+        const data = getTransactionsData(filteredTransactions);
+        const summary = data.summary
+            .map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
+            .join('\n');
+        const period =
+            getTransactionDate().period === HistoricalPeriod.day
+                ? getTransactionDate().date.toLocaleDateString()
+                : 'mois de ' +
+                  getTransactionDate().date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+        const amount = toCurrency(data.payments.reduce((total, payment) => total + payment.amount, 0));
 
-            sendEmail(parameters.shop.email, subject, message);
-            console.log(subject);
-        },
-        [getTransactionsData, parameters.shop.email, getTransactionDate, getFilteredTransactions, toCurrency]
-    );
+        return await sendSummaryEmail(parameters.shop.email, period, amount, summary);
+    }, [getTransactionsData, parameters.shop.email, getTransactionDate, getFilteredTransactions, toCurrency]);
 
     const downloadData = useCallback(
         (fileName: string) => {
@@ -619,7 +611,10 @@ export const useSummary = () => {
                             closePopup();
                             break;
                         case 'Email':
-                            processEmail('TicketZ ' + formattedDate);
+                            processEmail().then((success) => {
+                                if (success) openPopup('Email', ['Email envoyé']);
+                                else openPopup('Erreur', ["Impossible d'envoyer l'email"]);
+                            });
                             closePopup();
                             break;
                         case 'Feuille de calcul':

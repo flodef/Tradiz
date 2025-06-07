@@ -2,7 +2,8 @@
 
 import { FC, MouseEventHandler, useEffect, useMemo, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
-import { EmptyDiscount, InventoryItem, State, useConfig } from '../hooks/useConfig';
+import { sendFatalErrorEmail, sendUserAccessRequest } from '../actions/email';
+import { EmptyDiscount, InventoryItem, Role, State, useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { useWindowParam } from '../hooks/useWindowParam';
@@ -10,7 +11,6 @@ import Loading, { LoadingType } from '../loading';
 import { EMAIL, OTHER_KEYWORD } from '../utils/constants';
 import { isMobileDevice } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
-import { sendEmail } from '../utils/sendEmail';
 import { useAddPopupClass } from './Popup';
 
 interface CategoryInputButton {
@@ -75,19 +75,18 @@ export const Category: FC = () => {
             case State.unidentified:
                 openFullscreenPopup(
                     'Utilisateur non identifié',
-                    ['Rafraîchir la page'].concat(!hasSentEmail ? ['Contacter ' + parameters.shop.email] : []),
+                    ['Rafraîchir la page'].concat(
+                        !hasSentEmail
+                            ? Object.values(Role)
+                                  .filter((role) => role !== Role.none)
+                                  .map((role) => `Demande d'accès ${role}`)
+                            : []
+                    ),
                     (i) => {
-                        if (i === 1) {
-                            sendEmail(
-                                parameters.shop.email,
-                                "Demande d'accès utilisateur",
-                                `Bonjour, je souhaite accéder à l'application de caisse avec les informations suivantes : 
-                            \n- Clé : ${getPublicKey()} 
-                            \n- Nom : (Indiquez votre nom)
-                            \n- Rôle : [Caisse / Service / Cuisine] (Gardez celui qui convient)
-                            \n\nMerci de me donner les droits d'accès.`
+                        if (i >= 1) {
+                            sendUserAccessRequest(parameters.shop.email, Object.values(Role)[i], getPublicKey()).then(
+                                setHasSentEmail
                             );
-                            setHasSentEmail(true);
                         } else {
                             closePopup();
                             setState(State.init);
@@ -102,8 +101,7 @@ export const Category: FC = () => {
                     ['Rafraîchir la page'].concat(!hasSentEmail ? ['Contacter ' + EMAIL] : []),
                     (i) => {
                         if (i === 1) {
-                            sendEmail(EMAIL, 'Erreur fatale', "L'erreur suivante est survenue :" + parameters.error);
-                            setHasSentEmail(true);
+                            sendFatalErrorEmail(parameters.error || 'Erreur inconnue').then(setHasSentEmail);
                         } else {
                             closePopup();
                             setState(State.init);
