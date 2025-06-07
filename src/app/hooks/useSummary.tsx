@@ -631,6 +631,7 @@ export const useSummary = () => {
                             break;
                         case 'Resynchroniser jour':
                             processTransactions(SyncAction.resync, transactionDate);
+                            showTransactionsSummary(showTransactionsSummaryMenu, showTransactionsSummaryMenu);
                             break;
                         case 'Histo jour':
                         case 'Histo mois':
