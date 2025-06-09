@@ -58,21 +58,30 @@ export const useSummary = () => {
         );
     }, [currencies, currencyIndex, transactions]);
 
-    const getTransactionDate = useCallback(
-        () =>
-            tempTransactions.current.length
+    const getTransactionsDate = useCallback(
+        (transactions: Transaction[]) =>
+            transactions.length
                 ? {
-                      date: new Date(tempTransactions.current[0].createdDate),
+                      date: new Date(transactions[0].createdDate),
                       period:
-                          Math.abs(
-                              tempTransactions.current[0].createdDate -
-                                  tempTransactions.current[tempTransactions.current.length - 1].createdDate
-                          ) < 86400000
+                          Math.abs(transactions[0].createdDate - transactions[transactions.length - 1].createdDate) <
+                          86400000
                               ? HistoricalPeriod.day
                               : HistoricalPeriod.month,
                   }
                 : { date: new Date(), period: HistoricalPeriod.day },
         []
+    );
+
+    const getPeriodDescription = useCallback(
+        (transactions: Transaction[]) => {
+            const transactionsDate = getTransactionsDate(transactions);
+
+            return transactionsDate.period === HistoricalPeriod.day
+                ? transactionsDate.date.toLocaleDateString('fr-FR')
+                : 'Mois de ' + transactionsDate.date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+        },
+        [getTransactionsDate]
     );
 
     const getTaxesByCategory = useCallback(() => {
@@ -198,16 +207,13 @@ export const useSummary = () => {
                             toCurrency(amount)
                     )
                     .concat([''])
-                    .concat([' TAUX \n HT \n TVA \n TTC '])
+                    .concat(['TAUX'.padEnd(8) + '\n HT \n TVA \n TTC '])
                     .concat(
                         taxAmount
                             .map((t) => {
                                 return t
-                                    ? 'T' +
-                                          (isNaN(t.index) ? '' : t.index) +
-                                          ' ' +
-                                          t.rate +
-                                          '%\n' +
+                                    ? ('T' + (isNaN(t.index) ? '' : t.index) + ' ' + t.rate + '%').padEnd(8) +
+                                          '\n' +
                                           toCurrency(t.ht) +
                                           '\n' +
                                           toCurrency(t.tva) +
@@ -216,7 +222,8 @@ export const useSummary = () => {
                                     : '';
                             })
                             .concat([
-                                'TOTAL\n' +
+                                'TOTAL'.padEnd(8) +
+                                    '\n' +
                                     toCurrency(totalTaxes.ht) +
                                     '\n' +
                                     toCurrency(totalTaxes.tva) +
@@ -469,15 +476,11 @@ export const useSummary = () => {
         const summary = data.summary
             .map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
             .join('\n');
-        const period =
-            getTransactionDate().period === HistoricalPeriod.day
-                ? getTransactionDate().date.toLocaleDateString()
-                : 'mois de ' +
-                  getTransactionDate().date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+        const period = getPeriodDescription(filteredTransactions);
         const amount = toCurrency(data.payments.reduce((total, payment) => total + payment.amount, 0));
 
         return await sendSummaryEmail(parameters.shop.email, period, amount, summary);
-    }, [getTransactionsData, parameters.shop.email, getTransactionDate, getFilteredTransactions, toCurrency]);
+    }, [getTransactionsData, parameters.shop.email, getPeriodDescription, getFilteredTransactions, toCurrency]);
 
     const downloadData = useCallback(
         (fileName: string) => {
@@ -559,11 +562,7 @@ export const useSummary = () => {
             const data = getTransactionsData(filteredTransactions);
 
             // Get period description
-            const periodDesc =
-                getTransactionDate().period === HistoricalPeriod.day
-                    ? getTransactionDate().date.toLocaleDateString('fr-FR')
-                    : 'Mois de ' +
-                      getTransactionDate().date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+            const periodDesc = getPeriodDescription(filteredTransactions);
 
             // Prepare Ticket Z data
             const ticketZData = {
@@ -576,16 +575,16 @@ export const useSummary = () => {
             // Print the Ticket Z using server action
             return await printSummary(printerAddresses, ticketZData);
         },
-        [getFilteredTransactions, getTransactionDate, getTransactionsData, parameters, getPrinterAddresses]
+        [getFilteredTransactions, getPeriodDescription, getTransactionsData, parameters, getPrinterAddresses]
     );
 
     const showTransactionsSummaryMenu = useCallback(() => {
         const hasTransactions = transactions.length || tempTransactions.current.length;
         const historicalTransactions = getHistoricalTransactions();
         if (hasTransactions || isDbConnected) {
-            const isDailyPeriod = getTransactionDate().period === HistoricalPeriod.day;
-            const transactionDate = getTransactionDate().date;
-            const formattedDate = getFormattedDate(transactionDate, isDailyPeriod ? 3 : 2);
+            const transactionsDate = getTransactionsDate(getFilteredTransactions());
+            const isDailyPeriod = transactionsDate.period === HistoricalPeriod.day;
+            const formattedDate = getFormattedDate(transactionsDate.date, isDailyPeriod ? 3 : 2);
             openPopup(
                 'TicketZ ' + (hasTransactions ? formattedDate : ''),
                 (hasTransactions ? ["Capture d'écran", 'Email', 'Feuille de calcul'] : [])
@@ -625,7 +624,7 @@ export const useSummary = () => {
                             showSyncMenu();
                             break;
                         case 'Resynchroniser jour':
-                            processTransactions(SyncAction.resync, transactionDate);
+                            processTransactions(SyncAction.resync, transactionsDate.date);
                             showTransactionsSummary(showTransactionsSummaryMenu, showTransactionsSummaryMenu);
                             break;
                         case 'Histo jour':
@@ -659,9 +658,10 @@ export const useSummary = () => {
         downloadData,
         transactions,
         getHistoricalTransactions,
+        getFilteredTransactions,
         showHistoricalTransactions,
         tempTransactions,
-        getTransactionDate,
+        getTransactionsDate,
         isDbConnected,
         showSyncMenu,
         processTransactions,

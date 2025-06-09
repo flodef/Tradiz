@@ -41,8 +41,7 @@ export async function sendUserAccessRequest(email: string, role: string, publicK
         to: email,
         subject: "Demande d'accès utilisateur",
         html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Demande d'accès utilisateur</h2>
+        <div style="font-family: Arial, sans-serif; max-width: 600px;">
           <p>Bonjour,</p>
           <p>Nous avons reçu une demande d'accès utilisateur pour votre application.</p>
           <p>Pour autoriser l'accès, veuillez ajouter la clé suivante :</p>
@@ -72,11 +71,10 @@ export async function sendSummaryEmail(
         to: email,
         subject: `Ticket Z du ${period}`,
         html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Ticket Z du ${period}</h2>
+        <div style="font-family: Arial, sans-serif; max-width: 600px;">
           <p>Bonjour,</p>
           <p>Ci-joint le Ticket Z du ${period} d'un montant de ${amount} :</p>
-          <p>${message}</p>
+          <p style="white-space: pre-wrap; text-align: center;">${message.replace(/\n/g, '<br />')}</p>
           <p>Merci,<br>L'équipe Tradiz</p>
         </div>
       `,
@@ -93,8 +91,7 @@ export async function sendFatalErrorEmail(error: string): Promise<boolean> {
         to: EMAIL,
         subject: 'Erreur fatale',
         html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Erreur fatale</h2>
+        <div style="font-family: Arial, sans-serif; max-width: 600px;">
           <p>L'erreur suivante est survenue :</p>
           <p>${error}</p>
           <p>Merci,<br>L'équipe Tradiz</p>
