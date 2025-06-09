@@ -1,11 +1,12 @@
 'use server';
 
-import { CharacterSet, PrinterTypes, ThermalPrinter } from 'node-thermal-printer';
+import { ThermalPrinter, PrinterTypes, CharacterSet } from 'node-thermal-printer';
 import { networkInterfaces } from 'os';
 import { Shop } from '../contexts/ConfigProvider';
 import { Transaction } from '../hooks/useData';
 import { formatFrenchDate, generateReceiptNumber } from './date';
-import { PROCESSING_KEYWORD, WAITING_KEYWORD } from './constants';
+import { PROCESSING_KEYWORD, WAITING_KEYWORD, IS_DEV } from './constants';
+import { createMockPrinter } from './mockPrinter';
 
 type ReceiptData = {
     shop: Shop;
@@ -30,6 +31,10 @@ type PrintResponse = {
  * Checks if the printer is on the same subnet as the device
  */
 const initPrinter = async (printerAddresses: string[]) => {
+    // If in DEV mode, return a mock printer that prints to the console
+    if (IS_DEV) return { printer: await createMockPrinter() };
+
+    // Normal printer initialization for production
     const myIp = getLocalIp();
     const connectedPrinter = myIp
         ? printerAddresses.find((address) => isSameSubnet(myIp, address))
