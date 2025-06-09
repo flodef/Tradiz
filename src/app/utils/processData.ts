@@ -1,7 +1,7 @@
-import { Keypair } from '@solana/web3.js';
 import { Config, Parameters } from '../contexts/ConfigProvider';
 import { Currency, InventoryItem, Mercurial, PaymentMethod, Role } from '../hooks/useConfig';
 import { EMAIL } from './constants';
+import { generateSimpleId } from './id';
 
 class MissingDataError extends Error {
     name = 'MissingDataError';
@@ -77,7 +77,7 @@ export const defaultPaymentMethods: PaymentMethod[] = [
 export function getPublicKey() {
     let publicKey = localStorage.getItem('PublicKey');
     if (!publicKey) {
-        publicKey = Keypair.generate().publicKey.toString();
+        publicKey = generateSimpleId();
         localStorage.setItem('PublicKey', publicKey);
     }
     return publicKey;
