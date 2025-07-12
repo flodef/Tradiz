@@ -610,11 +610,11 @@ export const useSummary = () => {
                             closePopup();
                             break;
                         case 'Email':
+                            openPopup('Email', ['Envoi en cours...']);
                             processEmail().then((success) => {
-                                if (success) openPopup('Email', ['Email envoyé']);
+                                if (success) openPopup('Email', ['Email envoyé à ' + parameters.shop.email]);
                                 else openPopup('Erreur', ["Impossible d'envoyer l'email"]);
                             });
-                            closePopup();
                             break;
                         case 'Feuille de calcul':
                             downloadData('TicketZ ' + formattedDate);
@@ -666,6 +666,7 @@ export const useSummary = () => {
         showSyncMenu,
         processTransactions,
         getPrintersNames,
+        parameters,
     ]);
 
     return {
