@@ -4,7 +4,6 @@ import { sendSummaryEmail } from '../actions/email';
 import { DELETED_KEYWORD, PRINT_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
 import { formatFrenchDate, getFormattedDate } from '../utils/date';
 import { printSummary } from '../utils/posPrinter';
-import { takeScreenshot } from '../utils/screenshot';
 import { useConfig } from './useConfig';
 import { DataElement, SyncAction, Transaction, useData } from './useData';
 import { usePopup } from './usePopup';
@@ -587,7 +586,7 @@ export const useSummary = () => {
             const formattedDate = getFormattedDate(transactionsDate.date, isDailyPeriod ? 3 : 2);
             openPopup(
                 'TicketZ ' + (hasTransactions ? formattedDate : ''),
-                (hasTransactions ? ["Capture d'écran", 'Email', 'Feuille de calcul'] : [])
+                (hasTransactions ? ['Email', 'Feuille de calcul'] : [])
                     .concat(hasTransactions ? getPrintersNames() : [])
                     .concat(isDbConnected && hasTransactions && isDailyPeriod ? ['Resynchroniser jour'] : [])
                     .concat(isDbConnected ? ['Menu Synchronisation'] : [])
@@ -595,14 +594,6 @@ export const useSummary = () => {
                     .concat(hasTransactions ? 'Afficher' : []),
                 (_, option) => {
                     switch (option.split(SEPARATOR)[0]) {
-                        case "Capture d'écran":
-                            showTransactionsSummary(() => {});
-                            setTimeout(() => {
-                                takeScreenshot('popup', 'TicketZ ' + formattedDate + '.png').then(() => {
-                                    openPopup("Capture d'écran", ['La capture a bien été enregistrée'], () => {});
-                                });
-                            }); // Set timeout to give time to the popup to display and the screenshot to be taken
-                            break;
                         case PRINT_KEYWORD:
                             printTransactionsSummary(option).then((response) => {
                                 if (!response.success) openPopup('Erreur', [response.error || "Impossible d'imprimer"]);

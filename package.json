@@ -23,7 +23,6 @@
         "caniuse-lite": "latest",
         "eslint-plugin-jsx-a11y": "latest",
         "firebase": "latest",
-        "html2canvas": "latest",
         "next": "latest",
         "node-thermal-printer": "latest",
         "nodemailer": "latest",
