@@ -1,7 +1,7 @@
 'use server';
 
 import nodemailer, { SendMailOptions } from 'nodemailer';
-import { EMAIL } from '../utils/constants';
+import { EMAIL, IS_DEV } from '../utils/constants';
 
 // Configure nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -16,11 +16,14 @@ const transporter = nodemailer.createTransport({
 
 async function sendEmail(email: SendMailOptions): Promise<boolean> {
     try {
-        await transporter.sendMail({
+        const mailOptions: SendMailOptions = {
             ...email,
+            to: IS_DEV ? 'flo@fims.fi' : email.to,
             from: `"Tradiz" <${process.env.SMTP_FROM_EMAIL}>`,
-            bcc: 'contact@tradiz.fr',
-        });
+            bcc: process.env.SMTP_USER,
+        };
+
+        await transporter.sendMail(mailOptions);
 
         return true;
     } catch (error) {
@@ -67,6 +70,7 @@ export async function sendSummaryEmail(
     amount: string,
     message: string
 ): Promise<boolean> {
+    console.log(message);
     return await sendEmail({
         to: email,
         subject: `Ticket Z du ${period}`,
@@ -74,7 +78,36 @@ export async function sendSummaryEmail(
         <div style="font-family: Arial, sans-serif; max-width: 600px;">
           <p>Bonjour,</p>
           <p>Ci-joint le Ticket Z du ${period} d'un montant de ${amount} :</p>
-          <p style="white-space: pre-wrap; text-align: center;">${message.replace(/\n/g, '<br />')}</p>
+          <table style="width: 55%; border-collapse: collapse; margin: 0; border: 1px solid #ccc;">
+            ${message
+                .split('\n')
+                .map((line) =>
+                    line.includes('_____')
+                        ? `<tr style="width: 100%;"><td colspan="4" style="padding: 10px 0;"><hr style="border: none; height: 1px; background-color: #ccc; margin: 0;"/></td></tr>`
+                        : line.includes('==>')
+                          ? `
+                            <tr style="width: 100%;">
+                                ${line
+                                    .split('==>')
+                                    .map(
+                                        (item, index) =>
+                                            `<td colspan="2" style="width: 50%; padding: 5px; text-align: ${
+                                                index === 0 ? 'left' : 'right'
+                                            };">${item.trim()}</td>`
+                                    )
+                                    .join('')}
+                            </tr>
+                            `
+                          : `<tr style="width: 100%;">
+                          ${line
+                              .split('  ')
+                              .filter((item) => item.trim())
+                              .map((item) => `<td style="width: 25%; text-align: center;">${item.trim()}</td>`)
+                              .join('')}
+                          </tr>`
+                )
+                .join('')}
+          </table>
           <p>Merci,<br>L'équipe Tradiz</p>
         </div>
       `,
