@@ -25,7 +25,7 @@ export const createMockPrinter = async () => {
 
     // Helper function to format and add a line of text according to current formatting
     const addFormattedLine = (text: string) => {
-        let formattedText = text;
+        let formattedText = text.trim();
 
         // Apply styling indicators for better visibility
         if (isBold) formattedText = `** ${formattedText} **`;
