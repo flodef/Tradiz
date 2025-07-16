@@ -30,19 +30,19 @@ type PrintResponse = {
 /**
  * Checks if the printer is on the same subnet as the device
  */
-const initPrinter = async (printerAddresses: string[]) => {
+const initPrinter = async (printerIPAddresses: string[]) => {
     // If in DEV mode, return a mock printer that prints to the console
     if (IS_DEV) return { printer: await createMockPrinter() };
 
     // Normal printer initialization for production
     const myIp = getLocalIp();
-    const connectedPrinter = myIp
-        ? printerAddresses.find((address) => isSameSubnet(myIp, address))
-        : printerAddresses.findLast(Boolean);
-    if (!connectedPrinter) return { error: `Aucune imprimante connectée au même sous-réseau que ${myIp}` };
+    const connectedPrinterIPAddress = myIp
+        ? printerIPAddresses.find((address) => isSameSubnet(myIp, address))
+        : printerIPAddresses.findLast(Boolean);
+    if (!connectedPrinterIPAddress) return { error: `Aucune imprimante connectée au même sous-réseau que ${myIp}` };
 
-    const printer = await getPrinter(connectedPrinter);
-    if (!printer) return { error: 'Imprimante non connectée' };
+    const printer = await getPrinter(connectedPrinterIPAddress);
+    if (!printer) return { error: 'Imprimante non connectée sur ' + connectedPrinterIPAddress };
     return { printer };
 };
 
