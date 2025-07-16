@@ -41,10 +41,11 @@ export const usePay = () => {
 
     const printTransaction = useCallback(
         (printerName?: string, transaction?: Transaction) => {
+            openPopup('Imprimer', ['Impression en cours ...']);
             printTransactionReceipt(printerName, transaction).then((response) => {
                 if (!response.success) openPopup('Erreur', [response.error || "Impossible d'imprimer"]);
+                else closePopup();
             });
-            closePopup();
         },
         [closePopup, openPopup, printTransactionReceipt]
     );

@@ -595,10 +595,11 @@ export const useSummary = () => {
                 (_, option) => {
                     switch (option.split(SEPARATOR)[0]) {
                         case PRINT_KEYWORD:
+                            openPopup('Imprimer', ['Impression en cours...']);
                             printTransactionsSummary(option).then((response) => {
                                 if (!response.success) openPopup('Erreur', [response.error || "Impossible d'imprimer"]);
+                                else closePopup();
                             });
-                            closePopup();
                             break;
                         case 'Email':
                             openPopup('Email', ['Envoi en cours...']);
