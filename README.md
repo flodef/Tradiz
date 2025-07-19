@@ -281,6 +281,74 @@ Une fois la commande lancée, il faut suivre les instructions.
 
 Alternativement, vous pouvez utiliser l'interface graphique de Vercel afin de lier votre compte Github et déployer le projet automatiquement à chaque commit.
 
+### Tradiz avec impression thermique
+
+Cette application peut s'exécuter sur une tablette Android à l'aide de Termux pour imprimer sur une imprimante thermique Wi-Fi de manière locale.
+
+#### Prérequis
+
+-   Tablette Android avec Termux installé (téléchargez depuis F-Droid : https://f-droid.org/fr/packages/com.termux/).
+-   Imprimante thermique Wi-Fi sur le même réseau que la tablette.
+-   Adresse IP de l'imprimante (par exemple, `192.168.1.100`) et port (par exemple, `9100`) à remplir directement dans les paramètres de l'application.
+
+#### Instructions de configuration
+
+1. Ouvrez Termux sur votre tablette Android.
+2. Téléchargez le script de configuration, rendez le exécutable et exécutez-le :
+    ```bash
+    curl -O https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/setup-termux.sh
+    chmod +x setup-termux.sh
+    bash setup-termux.sh
+    ```
+3. Téléchargez le script de lancement de l'application, rendez le exécutable et exécutez-le :
+    ```bash
+    curl -O https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/run-app.sh
+    chmod +x run-app.sh
+    bash run-app.sh
+    ```
+4. L'application s'ouvrira dans votre navigateur à l'adresse http://localhost:3000. Utilisez l'application pour imprimer des commandes en cours, des reçus, le rapport des ventes / commandes de la journée, du mois et de l'année, directement sur l'imprimante thermique
+
+#### Arrêter l'application
+
+Pour arrêter l'application, il faut utiliser la commande suivante :
+
+```bash
+killall bun
+```
+
+#### Alternative
+
+Une alternative est de configurer votre box / routeur pour qu'elle redirige les requêtes vers l'application.
+
+##### Configuration du port forwarding
+
+Pour configurer un port forwarding sur le port de l'imprimante (9100 par défaut) :
+
+-   accéder à l'interface de votre box / routeur (généralement http://192.168.1.1 ou http://192.168.0.1)
+-   dans le menu de configuration, trouver la section **Port Forwarding**
+-   ajouter un nouveau port forwarding avec les paramètres suivants :
+    -   Port Externe / External Port: 9100 (ou un autre port si vous préférez ; par exemple, 9101 pour éviter les conflits)
+    -   IP Interne / Internal IP: 192.168.1.55 (l'adresse IP de votre imprimante)
+    -   Port Interne / Internal Port: 9100 (le port par défaut de l'imprimante)
+    -   Protocole / Protocol: TCP
+-   sauvegarder les modifications
+
+NB : assurez-vous que la tablette et l'imprimante sont sur le même réseau Wi-Fi, que l'imprimante est connectée à Internet et qu'elle ait une adresse IP fixe.
+
+##### Mettre en place un Dynamic DNS (si nécessaire):
+
+Si votre fournisseur d'accès Internet attribue des adresses IP publiques dynamiques, utilisez un service de Dynamic DNS (par exemple, No-IP, DynDNS) :
+
+-   Inscrivez-vous et créez un nom d'hôte (par exemple, yourdomain.dyndns.org).
+-   Configurez votre routeur ou un appareil sur votre réseau pour mettre à jour le service DNS avec votre adresse IP publique actuelle.
+-   Vérifiez que le nom d'hôte résout votre adresse IP publique (par exemple, 1.2.3.4).
+
+Si vous avez une adresse IP publique statique, sautez cette étape et utilisez 1.2.3.4 directement.
+
+Une fois le port forwarding et le Dynamic DNS configurés, vous devez mettre à jour l'adresse IP de l'imprimante dans les paramètres de l'application.
+
+Vous pouvez dorénavant imprimer directement depuis l'application.
+
 ## En savoir plus sur Next.js
 
 Pour en savoir plus sur Next.js, vous pouvez consulter les ressources suivantes :
