@@ -52,7 +52,7 @@ const initPrinter = async (printerIPAddresses: string[]) => {
 const getPrinter = async (printerIPAddress: string) => {
     const printer = new ThermalPrinter({
         type: PrinterTypes.EPSON,
-        interface: 'tcp://' + printerIPAddress,
+        interface: 'tcp://' + printerIPAddress + ':9100',
         width: 48, // 48 characters per line
         characterSet: CharacterSet.PC437_USA,
         removeSpecialCharacters: false,
