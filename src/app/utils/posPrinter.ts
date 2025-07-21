@@ -57,6 +57,9 @@ const getPrinter = async (printerIPAddress: string) => {
         characterSet: CharacterSet.PC437_USA,
         removeSpecialCharacters: false,
         lineCharacter: '-',
+        options: {
+            timeout: 15000,
+        },
     });
     const isConnected = await printer.isPrinterConnected();
     return isConnected ? printer : null;
