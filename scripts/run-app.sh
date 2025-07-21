@@ -21,7 +21,7 @@ cd "$APP_DIR"
 
 # Installer les dépendances
 echo "Installation des dépendances..."
-bun install
+npm install
 
 # Vérifier la connectivité de l'imprimante
 # echo "Test de la connectivité de l'imprimante à tcp://$PRINTER_IP:$PRINTER_PORT..."
@@ -64,11 +64,11 @@ bun install
 
 # Construire l'application Next.js
 echo "Construction de l'application Next.js..."
-bun run build
+npm run build
 
 # Démarrer le serveur Next.js
 echo "Démarrage du serveur Next.js sur http://localhost:$PORT..."
-bun .next/standalone/server.js &
+npm run .next/standalone/server.js &
 
 # Attendre quelques secondes pour que le serveur démarre
 sleep 5

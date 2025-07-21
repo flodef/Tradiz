@@ -6,30 +6,16 @@
 set -e
 
 # Accorder les permissions de stockage à Termux
-echo "Accord des permissions de stockage à Termux..."
-termux-setup-storage
+#echo "Accord des permissions de stockage à Termux..."
+#termux-setup-storage
 
 # Mettre à jour et mettre à niveau les paquets Termux
 echo "Mise à jour des paquets Termux..."
 pkg update && pkg upgrade -y
 
-# Installer curl
-echo "Installation de curl..."
-pkg install curl -y
-
-# Installer Bun
-echo "Installation de Bun..."
-curl -fsSL https://bun.sh/install | bash
-
-# Ajouter Bun au PATH
-echo "Ajout de Bun au PATH..."
-export PATH=$PATH:$HOME/.bun/bin
-echo 'export PATH=$PATH:$HOME/.bun/bin' >> ~/.bashrc
-source ~/.bashrc
-
-# Vérifier l'installation de Bun
-echo "Vérification de l'installation de Bun..."
-bun --version
+# Installer nodejs
+echo "Installation de nodejs..."
+pkg install nodejs
 
 # Installer git
 echo "Installation de git..."

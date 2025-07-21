@@ -294,19 +294,25 @@ Cette application peut s'exécuter sur une tablette Android à l'aide de Termux 
 #### Instructions de configuration
 
 1. Ouvrez Termux sur votre tablette Android.
-2. Téléchargez le script de configuration, rendez le exécutable et exécutez-le :
+2. Donnez les permissions de stockage à Termux :
+    ```bash
+    termux-setup-storage
+    ```
+3. Allez dans le dossier de stockage :
+    ```bash
+    cd ~/storage/downloads
+    ```
+4. Téléchargez le script de configuration et exécutez-le :
     ```bash
     curl -O https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/setup-termux.sh
-    chmod +x setup-termux.sh
     bash setup-termux.sh
     ```
-3. Téléchargez le script de lancement de l'application, rendez le exécutable et exécutez-le :
+5. Téléchargez le script de lancement de l'application et exécutez-le :
     ```bash
     curl -O https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/run-app.sh
-    chmod +x run-app.sh
     bash run-app.sh
     ```
-4. L'application s'ouvrira dans votre navigateur à l'adresse http://localhost:3000. Utilisez l'application pour imprimer des commandes en cours, des reçus, le rapport des ventes / commandes de la journée, du mois et de l'année, directement sur l'imprimante thermique
+6. L'application s'ouvrira dans votre navigateur à l'adresse http://localhost:3000. Utilisez l'application pour imprimer des commandes en cours, des reçus, le rapport des ventes / commandes de la journée, du mois et de l'année, directement sur l'imprimante thermique
 
 #### Arrêter l'application
 
