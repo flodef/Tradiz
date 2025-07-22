@@ -14,6 +14,7 @@ PORT=3000 # Port pour le serveur Next.js
 
 # Cloner le dépôt
 echo "Clonage du dépôt depuis $REPO_URL..."
+rm -rf "$APP_DIR"
 git clone "$REPO_URL" "$APP_DIR"
 
 # Naviguer vers le répertoire de l'application
