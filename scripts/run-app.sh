@@ -16,5 +16,7 @@ sleep 5
 echo "Ouverture de l'application dans le navigateur..."
 termux-open-url "http://localhost:$PORT/$USERNAME"
 
+# Afficher un message de confirmation
+clear
 echo "L'application est en cours d'exécution !"
 echo "Pour arrêter le serveur, exécutez : pkill -f node"

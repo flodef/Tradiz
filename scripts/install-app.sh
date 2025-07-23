@@ -38,6 +38,7 @@ if [ ! -f .env.local ]; then
     echo "Fichier .env.local copié depuis ~/storage/downloads"
   else
     if [ ! -d ~/storage ]; then
+      clear
       echo "Le dossier de stockage n'existe pas."
       echo "Voulez-vous remplir le fichier de paramétrage manuellement ? (o/n)"
       read -r response

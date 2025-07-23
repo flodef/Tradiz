@@ -21,14 +21,6 @@ pkg install git -y
 echo "Installation de nano..."
 pkg install nano -y
 
-# Demander le nom d'utilisateur
-echo "Veuillez entrer votre nom d'utilisateur Tradiz :"
-read -r USERNAME
-
-# Stocker le nom d'utilisateur dans un fichier de configuration
-echo "USERNAME=$USERNAME" > ~/.tradiz_config
-
-
 # Télécharger termux-widget.sh
 curl -s -L https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/termux-widget.sh -o termux-widget.sh
 chmod +x termux-widget.sh
@@ -40,6 +32,14 @@ chmod +x run-app.sh
 # Télécharger install-app.sh
 curl -s -L https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/install-app.sh -o install-app.sh
 chmod +x install-app.sh
+
+# Demander le nom d'utilisateur
+clear
+echo "Veuillez entrer votre nom d'utilisateur Tradiz :"
+read -r USERNAME
+
+# Stocker le nom d'utilisateur dans un fichier de configuration
+echo "USERNAME=$USERNAME" > ~/.tradiz_config
 
 # Exécuter install-app.sh
 bash install-app.sh
