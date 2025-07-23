@@ -37,7 +37,7 @@ npm run build
 
 # Démarrer le serveur Next.js
 echo "Démarrage du serveur Next.js sur http://localhost:$PORT..."
-npm run .next/standalone/server.js &
+npm run start
 
 # Attendre quelques secondes pour que le serveur démarre
 sleep 5
