@@ -18,8 +18,8 @@ echo "Installation de git..."
 pkg install git -y
 
 # Installer python
-echo "Installation de python..."
-pkg install python -y
+#echo "Installation de python..."
+#pkg install python -y
 
 # Installer nano
 echo "Installation de nano..."
