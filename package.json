@@ -1,8 +1,8 @@
 {
-    "name": "fims_pos",
-    "version": "1.0.0",
+    "name": "tradiz",
+    "version": "1.2.3",
     "private": true,
-    "license": "Apache-2.0",
+    "license": "MIT",
     "scripts": {
         "clean": "shx rm -rf .next",
         "dev": "next dev",
