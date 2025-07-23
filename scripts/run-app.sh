@@ -2,6 +2,7 @@
 
 # Source le fichier ~/.bashrc pour charger les variables d'environnement
 source ~/.bashrc
+export PATH=$PATH:/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/libexec/termux:$HOME/Tradiz/node_modules/.bin
 
 # Script pour exécuter l'application Next.js avec support d'impression
 # Variables de configuration
@@ -24,7 +25,7 @@ cd "$APP_DIR"
 
 # Démarrer le serveur Next.js
 echo "Démarrage du serveur Next.js sur http://localhost:$PORT..."
-npm run start &
+npx --no-install next start &
 
 # Attendre quelques secondes pour que le serveur démarre
 sleep 5
