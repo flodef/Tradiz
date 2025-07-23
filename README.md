@@ -308,8 +308,12 @@ Cette application peut s'exécuter sur une tablette Android à l'aide de Termux 
 5. Pensez à remplir le fichier .env.local à la racine du projet avec vos propres paramètres.
    Si vous avez déjà un fichier .env.local à disposition, vous pouvez le télécharger depuis votre ordinateur via un gestionnaire de fichiers / réseau social, puis le copier dans le dossier de stockage de Termux :
     ```bash
-     termux-setup-storage
-     cp ~/storage/downloads/.env.local ~/Tradiz/.env.local
+      termux-setup-storage
+      cp ~/storage/downloads/.env.local ~/Tradiz/.env.local
+    ```
+6. Ensuite, relancez le script de lancement de l'application :
+    ```bash
+        bash run-app.sh
     ```
 
 #### Arrêter l'application
