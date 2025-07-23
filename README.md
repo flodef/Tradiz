@@ -294,26 +294,23 @@ Cette application peut s'exécuter sur une tablette Android à l'aide de Termux 
 #### Instructions de configuration
 
 1. Ouvrez Termux sur votre tablette Android.
-2. Donnez les permissions de stockage à Termux :
-    ```bash
-    termux-setup-storage
-    ```
-3. Allez dans le dossier de stockage :
-    ```bash
-    cd ~/storage/downloads
-    ```
-4. Téléchargez le script de configuration et exécutez-le :
+2. Téléchargez le script de configuration et exécutez-le :
     ```bash
     curl -O https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/setup-termux.sh
     bash setup-termux.sh
     ```
-5. Téléchargez le script de lancement de l'application et exécutez-le :
+3. Téléchargez le script de lancement de l'application et exécutez-le :
     ```bash
     curl -O https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/run-app.sh
     bash run-app.sh
     ```
-6. L'application s'ouvrira dans votre navigateur à l'adresse http://localhost:3000. Utilisez l'application pour imprimer des commandes en cours, des reçus, le rapport des ventes / commandes de la journée, du mois et de l'année, directement sur l'imprimante thermique
-7. Pensez à remplir le fichier .env.local à la racine du projet avec vos propres paramètres.
+4. L'application s'ouvrira dans votre navigateur à l'adresse http://localhost:3000. Utilisez l'application pour imprimer des commandes en cours, des reçus, le rapport des ventes / commandes de la journée, du mois et de l'année, directement sur l'imprimante thermique
+5. Pensez à remplir le fichier .env.local à la racine du projet avec vos propres paramètres.
+   Si vous avez déjà un fichier .env.local à disposition, vous pouvez le télécharger depuis votre ordinateur via un gestionnaire de fichiers / réseau social, puis le copier dans le dossier de stockage de Termux :
+    ```bash
+     termux-setup-storage
+     cp ~/storage/downloads/.env.local .env.local
+    ```
 
 #### Arrêter l'application
 
