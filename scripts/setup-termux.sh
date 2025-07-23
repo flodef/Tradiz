@@ -15,7 +15,7 @@ pkg update && pkg upgrade -y
 
 # Installer nodejs
 echo "Installation de nodejs..."
-pkg install nodejs
+pkg install nodejs-lts
 
 # Installer git
 echo "Installation de git..."
