@@ -17,6 +17,10 @@ pkg install nodejs-lts -y
 echo "Installation de git..."
 pkg install git -y
 
+# Installer python
+echo "Installation de python..."
+pkg install python -y
+
 # Installer nano
 echo "Installation de nano..."
 pkg install nano -y
