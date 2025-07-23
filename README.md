@@ -334,8 +334,10 @@ Cette application peut s'exécuter sur une tablette Android à l'aide de Termux 
 
 -   sur votre tablette Android, appuyez longuement sur l'écran d'accueil et sélectionnez “Widgets.”
 -   Trouvez Termux:Widget et ajoutez-le.
--   Sélectionnez ~/.shortcuts/run-app.sh ou ~/.shortcuts/install-app.sh dans la liste des widgets.
--   Cela crée un icône qui exécute run-app.sh (lance l'application) ou install-app.sh (met à jour l'application) lorsqu'elle est pressée.
+-   Sélectionnez run-app.sh (lance l'application) ou install-app.sh (met à jour l'application) dans la liste des widgets.
+-   Cela crée un icône qui exécute le script lorsqu'elle est pressée.
+
+5. Pour android 10 et supérieurs, il faut ajouter l'autorisation de s'afficher au-dessus des autres applications. Pour ce faire, il faut aller dans Paramètres > Applications > Termux:Widget > Autorisations > S'afficher au-dessus des autres applications.
 
 #### Alternative
 
