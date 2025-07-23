@@ -1,26 +1,14 @@
 #!/bin/bash
 
-# Script pour configurer Termux et exécuter l'application Next.js avec support d'impression
+# Script pour cloner, construire et exécuter l'application Next.js avec support d'impression
 
 # Arrêter en cas d'erreur
 set -e
 
 # Variables de configuration
-REPO_URL="https://github.com/flodef/Tradiz.git"
-APP_DIR="$HOME/Tradiz"
-PORT=3000
-
-# Mettre à jour et mettre à niveau les paquets Termux
-echo "Mise à jour des paquets Termux..."
-pkg update && pkg upgrade -y
-
-# Installer nodejs
-echo "Installation de nodejs..."
-pkg install nodejs -y
-
-# Installer git
-echo "Installation de git..."
-pkg install git -y
+REPO_URL="https://github.com/flodef/Tradiz.git" # Remplacez par l'URL de votre dépôt
+APP_DIR="$HOME/Tradiz" # Remplacez par le nom de votre dépôt
+PORT=3000 # Port pour le serveur Next.js
 
 # Cloner ou mettre à jour le dépôt
 if [ -d "$APP_DIR" ]; then
@@ -46,7 +34,7 @@ npm run build
 
 # Démarrer le serveur Next.js
 echo "Démarrage du serveur Next.js sur http://localhost:$PORT..."
-npm run start &
+npm run .next/standalone/server.js &
 
 # Attendre quelques secondes pour que le serveur démarre
 sleep 5
