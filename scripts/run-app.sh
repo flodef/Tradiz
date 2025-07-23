@@ -1,9 +1,23 @@
 #!/bin/bash
 
 # Script pour exécuter l'application Next.js avec support d'impression
+# Variables de configuration
+APP_DIR="$HOME/Tradiz"
+PORT=3000
 
 # Arrêter le serveur Next.js en cours
 pkill -f node
+
+# Charger le nom d'utilisateur depuis le fichier de configuration
+if [ -f ~/.tradiz_config ]; then
+  source ~/.tradiz_config
+else
+  echo "Erreur : Fichier de configuration ~/.tradiz_config introuvable. Exécutez setup-termux.sh d'abord."
+  exit 1
+fi
+
+# Naviguer vers le répertoire de l'application
+cd "$APP_DIR"
 
 # Démarrer le serveur Next.js
 echo "Démarrage du serveur Next.js sur http://localhost:$PORT..."

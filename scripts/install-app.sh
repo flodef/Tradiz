@@ -1,6 +1,9 @@
 #!/bin/bash
 
 # Script pour cloner, construire et exécuter l'application Next.js avec support d'impression
+# Variables de configuration
+REPO_URL="https://github.com/flodef/Tradiz.git"
+APP_DIR="$HOME/Tradiz"
 
 # Arrêter en cas d'erreur
 set -e
@@ -9,14 +12,9 @@ set -e
 if [ -f ~/.tradiz_config ]; then
   source ~/.tradiz_config
 else
-  echo "Erreur : Fichier de configuration ~/.tradiz_config introuvable. Exécutez setup.sh d'abord."
+  echo "Erreur : Fichier de configuration ~/.tradiz_config introuvable. Exécutez setup-termux.sh d'abord."
   exit 1
 fi
-
-# Variables de configuration
-REPO_URL="https://github.com/flodef/Tradiz.git"
-APP_DIR="$HOME/Tradiz"
-PORT=3000
 
 # Cloner ou mettre à jour le dépôt
 if [ -d "$APP_DIR" ]; then

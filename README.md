@@ -314,7 +314,7 @@ Cette application peut s'exécuter sur une tablette Android à l'aide de Termux 
     ```
 6. Pour redémarrer l'application, il faut utiliser la commande suivante :
     ```bash
-    bash run-app.sh
+    bash ~/run-app.sh
     ```
 
 #### Installer une icône pour lancer / mettre à jour l'application
