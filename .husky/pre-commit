@@ -1,2 +1,1 @@
-#bun jest
-bun run build
+if git diff --cached --name-only | grep -E '\.(ts(x)?|js(x)?)$'; then bun run build; fi
