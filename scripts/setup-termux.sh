@@ -5,6 +5,9 @@
 # Arrêter en cas d'erreur
 set -e
 
+# Ajouter le chemin de Termux au PATH
+echo "export PATH=$PATH:/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/libexec/termux" > ~/.bashrc
+
 # Mettre à jour et mettre à niveau les paquets Termux
 echo "Mise à jour des paquets Termux..."
 pkg update && pkg upgrade -y
