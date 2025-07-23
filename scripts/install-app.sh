@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Source le fichier ~/.bashrc pour charger les variables d'environnement
+source ~/.bashrc
+export PATH=$PATH:$HOME/.node/bin:/data/data/com.termux/files/usr/bin
+
 # Script pour cloner, construire et exécuter l'application Next.js avec support d'impression
 # Variables de configuration
 REPO_URL="https://github.com/flodef/Tradiz.git"
