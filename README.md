@@ -310,7 +310,7 @@ Cette application peut s'exécuter sur une tablette Android à l'aide de Termux 
 4. Après une longue installation (seulement la première fois), l'application s'ouvrira dans votre navigateur à l'adresse http://localhost:3000/username. Utilisez l'application pour imprimer des commandes en cours, des reçus, le rapport des ventes / commandes de la journée, du mois et de l'année, directement sur l'imprimante thermique
 5. Pour arrêter l'application, il faut utiliser la commande suivante :
     ```bash
-    pkill -f node
+    pkill -f npm
     ```
 6. Pour redémarrer l'application, il faut utiliser la commande suivante :
     ```bash

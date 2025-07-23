@@ -6,7 +6,7 @@ APP_DIR="$HOME/Tradiz"
 PORT=3000
 
 # Arrêter le serveur Next.js en cours
-pkill -f node
+pkill -f npm
 
 # Charger le nom d'utilisateur depuis le fichier de configuration
 if [ -f ~/.tradiz_config ]; then
@@ -33,4 +33,4 @@ termux-open-url "http://localhost:$PORT/$USERNAME"
 # Afficher un message de confirmation
 clear
 echo "L'application est en cours d'exécution !"
-echo "Pour arrêter le serveur, exécutez : pkill -f node"
+echo "Pour arrêter le serveur, exécutez : pkill -f npm"
