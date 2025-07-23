@@ -5,6 +5,14 @@
 # Arrêter en cas d'erreur
 set -e
 
+# Charger le nom d'utilisateur depuis le fichier de configuration
+if [ -f ~/.tradiz_config ]; then
+  source ~/.tradiz_config
+else
+  echo "Erreur : Fichier de configuration ~/.tradiz_config introuvable. Exécutez setup.sh d'abord."
+  exit 1
+fi
+
 # Variables de configuration
 REPO_URL="https://github.com/flodef/Tradiz.git"
 APP_DIR="$HOME/Tradiz"
@@ -65,7 +73,7 @@ sleep 5
 
 # Ouvrir l'application dans le navigateur par défaut
 echo "Ouverture de l'application dans le navigateur..."
-termux-open-url "http://localhost:$PORT"
+termux-open-url "http://localhost:$PORT/$USERNAME"
 
 echo "L'application est en cours d'exécution ! Utilisez l'application dans le navigateur pour imprimer."
 echo "Pour arrêter le serveur, exécutez : pkill -f node"

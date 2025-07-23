@@ -307,20 +307,29 @@ Cette application peut s'exécuter sur une tablette Android à l'aide de Termux 
     curl -O https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/setup-termux.sh
     bash setup-termux.sh
     ```
-4. Téléchargez le script de lancement de l'application et exécutez-le :
+4. Après une longue installation (seulement la première fois), l'application s'ouvrira dans votre navigateur à l'adresse http://localhost:3000/username. Utilisez l'application pour imprimer des commandes en cours, des reçus, le rapport des ventes / commandes de la journée, du mois et de l'année, directement sur l'imprimante thermique
+5. Pour arrêter l'application, il faut utiliser la commande suivante :
     ```bash
-    curl -O https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/run-app.sh
+    pkill -f node
+    ```
+6. Pour redémarrer l'application, il faut utiliser la commande suivante :
+    ```bash
     bash run-app.sh
     ```
-5. L'application s'ouvrira dans votre navigateur à l'adresse http://localhost:3000. Utilisez l'application pour imprimer des commandes en cours, des reçus, le rapport des ventes / commandes de la journée, du mois et de l'année, directement sur l'imprimante thermique
 
-#### Arrêter l'application
+#### Installer une icône pour lancer l'application
 
-Pour arrêter l'application, il faut utiliser la commande suivante :
+1. Téléchargez l'application Termux:Widget depuis F-Droid : https://f-droid.org/fr/packages/com.termux.widget/.
+2. Créez un widget dans Termux:Widget.
+   mkdir -p ~/.termux/tasker
+   mv ~/termux-widget.sh ~/.termux/tasker/termux-widget.sh
+   chmod +x ~/.termux/tasker/termux-widget.sh
+3. Ajoutez Termux:Widget à l'écran d'accueil :
 
-```bash
-killall bun
-```
+-   sur votre tablette Android, appuyez longuement sur l'écran d'accueil et sélectionnez “Widgets.”
+-   Trouvez Termux:Widget et ajoutez-le.
+-   Sélectionnez ~/.termux/tasker/termux-widget.sh dans la liste des widgets.
+-   Cela crée un icône qui exécute termux-widget.sh lorsqu'elle est pressée.
 
 #### Alternative
 
