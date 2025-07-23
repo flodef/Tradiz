@@ -36,10 +36,9 @@ const initPrinter = async (printerIPAddresses: string[]) => {
 
     // Normal printer initialization for production
     const myIp = getLocalIp();
-    const connectedPrinterIPAddress = myIp
-        ? printerIPAddresses.find((address) => isSameSubnet(myIp, address)) || printerIPAddresses.at(0)
-        : printerIPAddresses.at(0);
-    if (!connectedPrinterIPAddress) return { error: 'Aucune imprimante connectée' };
+    if (!myIp) return { error: "Vous n'êtes pas sur un réseau local" };
+    const connectedPrinterIPAddress = printerIPAddresses.find((address) => isSameSubnet(myIp, address));
+    if (!connectedPrinterIPAddress) return { error: 'Aucune imprimante connectée sur le même réseau que ' + myIp };
 
     const printer = await getPrinter(connectedPrinterIPAddress);
     if (!printer) return { error: 'Imprimante non connectée sur ' + connectedPrinterIPAddress };
