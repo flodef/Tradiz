@@ -24,6 +24,9 @@ fi
 # Naviguer vers le répertoire de l'application
 cd "$APP_DIR"
 
+# Copier le fichier .env.local.example si le fichier .env.local n'existe pas
+[ ! -f .env.local ] && cp .env.local.example .env.local
+
 # Installer les dépendances
 echo "Installation des dépendances..."
 npm install

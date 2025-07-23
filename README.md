@@ -313,6 +313,7 @@ Cette application peut s'exécuter sur une tablette Android à l'aide de Termux 
     bash run-app.sh
     ```
 6. L'application s'ouvrira dans votre navigateur à l'adresse http://localhost:3000. Utilisez l'application pour imprimer des commandes en cours, des reçus, le rapport des ventes / commandes de la journée, du mois et de l'année, directement sur l'imprimante thermique
+7. Pensez à remplir le fichier .env.local à la racine du projet avec vos propres paramètres.
 
 #### Arrêter l'application
 
