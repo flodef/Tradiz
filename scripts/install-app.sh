@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/data/data/com.termux/files/usr/bin/bash
 
 # Source le fichier ~/.bashrc pour charger les variables d'environnement
 source ~/.bashrc
