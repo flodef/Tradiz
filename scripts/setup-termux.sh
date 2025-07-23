@@ -29,11 +29,17 @@ read -r USERNAME
 echo "USERNAME=$USERNAME" > ~/.tradiz_config
 
 
-#!/bin/bash
+# Télécharger termux-widget.sh
 curl -s -L https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/termux-widget.sh -o termux-widget.sh
 chmod +x termux-widget.sh
 
-# Télécharger et exécuter run-app.sh
+# Télécharger run-app.sh
 curl -s -L https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/run-app.sh -o run-app.sh
 chmod +x run-app.sh
-bash run-app.sh
+
+# Télécharger install-app.sh
+curl -s -L https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/install-app.sh -o install-app.sh
+chmod +x install-app.sh
+
+# Exécuter install-app.sh
+bash install-app.sh

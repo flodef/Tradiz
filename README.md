@@ -317,19 +317,29 @@ Cette application peut s'exécuter sur une tablette Android à l'aide de Termux 
     bash run-app.sh
     ```
 
-#### Installer une icône pour lancer l'application
+#### Installer une icône pour lancer / mettre à jour l'application
 
 1. Téléchargez l'application Termux:Widget depuis F-Droid : https://f-droid.org/fr/packages/com.termux.widget/.
-2. Créez un widget dans Termux:Widget.
-   mkdir -p ~/.termux/tasker
-   mv ~/termux-widget.sh ~/.termux/tasker/termux-widget.sh
-   chmod +x ~/.termux/tasker/termux-widget.sh
+2. Créer un dossier tasker dans ~/.termux/.
+    ```bash
+    mkdir -p ~/.termux/tasker
+    ```
+    3. Créer un widget dans Termux:Widget pour lancer l'application.
+    ```bash
+    mv ~/run-app.sh ~/.termux/tasker/run-app.sh
+    chmod +x ~/.termux/tasker/run-app.sh
+    ```
+    4. Créez un widget dans Termux:Widget pour mettre à jour l'application.
+    ```bash
+    mv ~/install-app.sh ~/.termux/tasker/install-app.sh
+    chmod +x ~/.termux/tasker/install-app.sh
+    ```
 3. Ajoutez Termux:Widget à l'écran d'accueil :
 
 -   sur votre tablette Android, appuyez longuement sur l'écran d'accueil et sélectionnez “Widgets.”
 -   Trouvez Termux:Widget et ajoutez-le.
--   Sélectionnez ~/.termux/tasker/termux-widget.sh dans la liste des widgets.
--   Cela crée un icône qui exécute termux-widget.sh lorsqu'elle est pressée.
+-   Sélectionnez ~/.termux/tasker/run-app.sh ou ~/.termux/tasker/install-app.sh dans la liste des widgets.
+-   Cela crée un icône qui exécute run-app.sh ou install-app.sh lorsqu'elle est pressée.
 
 #### Alternative
 
