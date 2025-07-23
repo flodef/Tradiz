@@ -309,7 +309,7 @@ Cette application peut s'exécuter sur une tablette Android à l'aide de Termux 
    Si vous avez déjà un fichier .env.local à disposition, vous pouvez le télécharger depuis votre ordinateur via un gestionnaire de fichiers / réseau social, puis le copier dans le dossier de stockage de Termux :
     ```bash
      termux-setup-storage
-     cp ~/storage/downloads/.env.local .env.local
+     cp ~/storage/downloads/.env.local ~/Tradiz/.env.local
     ```
 
 #### Arrêter l'application
