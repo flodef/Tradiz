@@ -8,8 +8,8 @@ set -e
 # Variables de configuration
 REPO_URL="https://github.com/flodef/Tradiz.git" # Remplacez par l'URL de votre dépôt
 APP_DIR="$HOME/Tradiz" # Remplacez par le nom de votre dépôt
-PRINTER_IP="192.168.1.100" # Remplacez par l'adresse IP de votre imprimante
-PRINTER_PORT="9100" # Par défaut pour la plupart des imprimantes thermiques
+#PRINTER_IP="192.168.1.100" # Remplacez par l'adresse IP de votre imprimante
+#PRINTER_PORT="9100" # Par défaut pour la plupart des imprimantes thermiques
 PORT=3000 # Port pour le serveur Next.js
 
 # Cloner le dépôt
