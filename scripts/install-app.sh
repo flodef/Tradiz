@@ -66,4 +66,4 @@ npm run build
 
 # Exécuter run-app.sh
 echo "Démarrage de l'application..."
-bash run-app.sh
+bash ~/run-app.sh

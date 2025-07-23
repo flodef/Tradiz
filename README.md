@@ -326,12 +326,12 @@ Cette application peut s'exécuter sur une tablette Android à l'aide de Termux 
     ```
     3. Créer un widget dans Termux:Widget pour lancer l'application.
     ```bash
-    mv ~/run-app.sh ~/.termux/tasker/run-app.sh
+    cp ~/run-app.sh ~/.termux/tasker/run-app.sh
     chmod +x ~/.termux/tasker/run-app.sh
     ```
     4. Créez un widget dans Termux:Widget pour mettre à jour l'application.
     ```bash
-    mv ~/install-app.sh ~/.termux/tasker/install-app.sh
+    cp ~/install-app.sh ~/.termux/tasker/install-app.sh
     chmod +x ~/.termux/tasker/install-app.sh
     ```
 3. Ajoutez Termux:Widget à l'écran d'accueil :
