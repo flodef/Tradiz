@@ -317,31 +317,22 @@ Cette application peut s'exécuter sur une tablette Android à l'aide de Termux 
     bash ~/run-app.sh
     ```
 
-#### Installer une icône pour lancer / mettre à jour l'application
+#### Installer une raccourci pour lancer l'application
 
 1. Téléchargez l'application Termux:Widget depuis F-Droid : https://f-droid.org/fr/packages/com.termux.widget/.
-2. Créer un widget dans Termux:Widget pour lancer l'application.
-    ```bash
-    cp ~/run-app.sh ~/.shortcuts/run-app.sh
-    chmod +x ~/.shortcuts/run-app.sh
-    ```
-3. Créez un widget dans Termux:Widget pour mettre à jour l'application.
-    ```bash
-    cp ~/install-app.sh ~/.shortcuts/install-app.sh
-    chmod +x ~/.shortcuts/install-app.sh
-    ```
-4. Ajoutez Termux:Widget à l'écran d'accueil :
+2. Ajoutez un raccourci à l'écran d'accueil :
 
 -   sur votre tablette Android, appuyez longuement sur l'écran d'accueil et sélectionnez “Widgets.”
 -   Trouvez Termux:Widget et ajoutez-le.
--   Sélectionnez run-app.sh (lance l'application) ou install-app.sh (met à jour l'application) dans la liste des widgets.
+-   Sélectionnez tradiz.sh (lance l'application) dans la liste des widgets.
 -   Cela crée un icône qui exécute le script lorsqu'elle est pressée.
 
-5. Pour android 10 et supérieurs, il faut ajouter l'autorisation de s'afficher au-dessus des autres applications. Pour ce faire, il faut aller dans Paramètres > Applications > Termux:Widget > Autorisations > S'afficher au-dessus des autres applications.
+3. Pour android 10 et supérieurs, il faut ajouter l'autorisation de s'afficher au-dessus des autres applications. Pour ce faire, il faut aller dans Paramètres > Applications > Termux:Widget > Autorisations > S'afficher au-dessus des autres applications.
 
 #### Alternative
 
 Une alternative est de configurer votre box / routeur pour qu'elle redirige les requêtes vers l'application.
+ATTENTION : cette alternative n'est possible que si votre fournisseur d'accès Internet vous fournit une adresse IP publique. C'est le cas avec les box filaires branchées sur le réseau câblé, mais cela ne fonctionne pas avec un routeur branché sur un opérateur mobile / modem 4G.
 
 ##### Configuration du port forwarding
 
