@@ -20,5 +20,5 @@ termux-open-url "http://localhost:$PORT/$USERNAME"
 # Afficher un message de confirmation
 clear
 echo "L'application est en cours d'exécution !"
-echo "- Pour relancer le serveur, tappez : bash ~/run-app.sh (puis appuyez sur Entrée)"
+echo "- Pour relancer le serveur, tappez : bash run-app.sh (puis appuyez sur Entrée)"
 echo "- Pour quitter l'application, tappez : exit (puis appuyez sur Entrée)"

@@ -50,4 +50,4 @@ read -r USERNAME
 echo "USERNAME=$USERNAME" > ~/.tradiz_config
 
 # Exécuter install-app.sh
-bash ~/install-app.sh
+bash $HOME/install-app.sh

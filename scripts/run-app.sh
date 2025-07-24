@@ -11,7 +11,7 @@ set -e
 if [ -f ~/.tradiz_config ]; then
   source ~/.tradiz_config
 else
-  bash setup-termux.sh
+  bash $HOME/setup-termux.sh
   exit 1
 fi
 
@@ -30,4 +30,4 @@ sleep 5
 
 # Exécuter tradiz.sh
 echo "Lancement de l'application..."
-bash ~/tradiz.sh
+bash $HOME/tradiz.sh

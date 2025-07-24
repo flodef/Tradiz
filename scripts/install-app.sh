@@ -12,7 +12,7 @@ set -e
 if [ -f ~/.tradiz_config ]; then
   source ~/.tradiz_config
 else
-  bash setup-termux.sh
+  bash $HOME/setup-termux.sh
   exit 1
 fi
 
@@ -65,4 +65,4 @@ npm run build
 
 # Exécuter run-app.sh
 echo "Démarrage de l'application..."
-bash ~/run-app.sh
+bash $HOME/run-app.sh
