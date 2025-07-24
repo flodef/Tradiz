@@ -41,13 +41,23 @@ chmod +x ~/tradiz.sh
 mkdir -p ~/.shortcuts
 cp ~/tradiz.sh ~/.shortcuts/tradiz.sh
 
-# Demander le nom d'utilisateur
+# Gérer le nom d'utilisateur
 clear
-echo "Veuillez entrer votre nom d'utilisateur Tradiz :"
-read -r USERNAME
-
-# Stocker le nom d'utilisateur dans un fichier de configuration
-echo "USERNAME=$USERNAME" > ~/.tradiz_config
+if [ -f ~/.tradiz_config ]; then
+  source ~/.tradiz_config
+  echo "Nom d'utilisateur actuel : $USERNAME"
+  echo "Voulez-vous changer le nom d'utilisateur ? (o/n)"
+  read -r response
+  if [ "$response" = "o" ]; then
+    echo "Veuillez entrer votre nouveau nom d'utilisateur Tradiz :"
+    read -r USERNAME
+    echo "USERNAME=$USERNAME" > ~/.tradiz_config
+  fi
+else
+  echo "Veuillez entrer votre nom d'utilisateur Tradiz :"
+  read -r USERNAME
+  echo "USERNAME=$USERNAME" > ~/.tradiz_config
+fi
 
 # Exécuter install-app.sh
 bash $HOME/install-app.sh
