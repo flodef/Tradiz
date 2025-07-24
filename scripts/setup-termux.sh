@@ -60,5 +60,4 @@ else
 fi
 
 # Exécuter install-app.sh
-cd $HOME
-bash install-app.sh
+bash ~/install-app.sh

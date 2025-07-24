@@ -1,23 +1,26 @@
 #!/bin/bash
 
+echo "debug 0"
+
 # Script pour cloner, construire et exécuter l'application Next.js avec support d'impression
 # Variables de configuration
 REPO_URL="https://github.com/flodef/Tradiz.git"
 APP_DIR="$HOME/Tradiz"
-
+echo "debug 1"
 # Arrêter en cas d'erreur
 set -e
-
+echo "debug 2"
 # Charger le nom d'utilisateur depuis le fichier de configuration
 if [ -f ~/.tradiz_config ]; then
   source ~/.tradiz_config
+echo "debug 3"
 else
-  cd $HOME
-  bash setup-termux.sh
+  bash ~/setup-termux.sh
   wait
+echo "debug 4"
   exit 1
 fi
-
+echo "debug 5"
 # Cloner ou mettre à jour le dépôt
 if [ -d "$APP_DIR" ]; then
   echo "Mise à jour du dépôt dans $APP_DIR..."
@@ -28,10 +31,10 @@ else
   echo "Clonage du dépôt depuis $REPO_URL..."
   git clone "$REPO_URL" "$APP_DIR"
 fi
-
+echo "debug 6"
 # Naviguer vers le répertoire de l'application
 cd "$APP_DIR"
-
+echo "debug 7"
 # Gérer le fichier .env.local
 if [ ! -f .env.local ]; then
   if mv ~/storage/downloads/.env.local .env.local 2>/dev/null; then
@@ -56,16 +59,15 @@ if [ ! -f .env.local ]; then
     exit 1
   fi
 fi
-
+echo "debug 8"
 # Installer les dépendances
 echo "Installation des dépendances..."
 npm install
-
+echo "debug 9"
 # Construire l'application Next.js
 echo "Construction de l'application Next.js..."
 npm run build
-
+echo "debug 10"
 # Exécuter run-app.sh
 echo "Démarrage de l'application..."
-cd $HOME
-bash run-app.sh
+bash ~/run-app.sh
