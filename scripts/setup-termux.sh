@@ -60,4 +60,4 @@ else
 fi
 
 # Exécuter install-app.sh
-bash $HOME/install-app.sh
+bash install-app.sh

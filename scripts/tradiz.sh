@@ -10,6 +10,7 @@ if [ -f ~/.tradiz_config ]; then
   source ~/.tradiz_config
 else
   bash setup-termux.sh
+  wait
   exit 1
 fi
 
