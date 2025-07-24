@@ -9,6 +9,13 @@ set -e
 
 cd $HOME
 
+# Vérifier si un script npm est en cours d'exécution
+if ! pgrep -f "node.*next" > /dev/null; then
+  echo "L'application n'est pas en cours d'exécution. Veuillez démarrer avec la commande : bash run-app.sh (puis appuyez sur Entrée)"
+  wait
+  exit 1
+fi
+
 # Charger le nom d'utilisateur depuis le fichier de configuration
 if [ -f ~/.tradiz_config ]; then
   source ~/.tradiz_config
