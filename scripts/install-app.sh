@@ -1,7 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
-
-# Source le fichier ~/.bashrc pour charger les variables d'environnement
-source ~/.bashrc
+#!/bin/bash
 
 # Script pour cloner, construire et exécuter l'application Next.js avec support d'impression
 # Variables de configuration
@@ -15,7 +12,7 @@ set -e
 if [ -f ~/.tradiz_config ]; then
   source ~/.tradiz_config
 else
-  echo "Erreur : Fichier de configuration ~/.tradiz_config introuvable. Exécutez setup-termux.sh d'abord."
+  bash setup-termux.sh
   exit 1
 fi
 
