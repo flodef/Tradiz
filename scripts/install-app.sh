@@ -45,12 +45,12 @@ if [ ! -f .env.local ]; then
       echo "Le dossier de stockage n'existe pas."
       echo "Voulez-vous remplir le fichier de paramétrage manuellement ? (o/n)"
       read -r response
-      if [ "$response" = "n" ]; then
-        echo "Vous pouvez télécharger votre propre fichier en utilisant termux-setup-storage."
-      else
+      if [ "$response" = "o" ]; then
         echo "Vous pouvez créer le fichier manuellement dans Tradiz/.env.local en utilisant un éditeur de fichiers."
         cp .env.local.example .env.local
         nano .env.local
+      else
+        echo "Vous pouvez télécharger votre propre fichier en utilisant termux-setup-storage."
       fi
     else
       echo "Le fichier n'a pas été trouvé. Le fichier doit être nommé .env.local et se trouver dans le dossier Téléchargements."
