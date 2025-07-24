@@ -38,6 +38,7 @@ curl -s -L https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/tradiz.s
 chmod +x ~/tradiz.sh
 
 # Créer un raccourci pour utiliser les widgets
+mkdir -p ~/.shortcuts
 cp ~/tradiz.sh ~/.shortcuts/tradiz.sh
 
 # Demander le nom d'utilisateur
