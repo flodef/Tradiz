@@ -10,8 +10,9 @@ set -e
 cd $HOME
 
 # Vérifier si un script npm est en cours d'exécution
-if ! pgrep -f "node.*next" > /dev/null; then
-  echo "L'application n'est pas en cours d'exécution. Veuillez démarrer avec la commande : bash run-app.sh (puis appuyez sur Entrée)"
+if ! pgrep -f npm > /dev/null; then
+  echo "L'application n'est pas en cours d'exécution." 
+  echo "Pour démarrer l'application, tappez : ./run-app.sh (puis appuyez sur Entrée)"
   wait
   exit 1
 fi
@@ -31,5 +32,7 @@ termux-open-url "http://localhost:$PORT/$USERNAME"
 # Afficher un message de confirmation
 clear
 echo "L'application est en cours d'exécution !"
-echo "- Pour relancer le serveur, tappez : bash run-app.sh (puis appuyez sur Entrée)"
-echo "- Pour quitter l'application, tappez : exit (puis appuyez sur Entrée)"
+echo "- Pour arrêter l'application, tappez : pkill -f npm (puis appuyez sur Entrée)"
+echo "- Pour relancer l'application, tappez : ./run-app.sh (puis appuyez sur Entrée)"
+echo "- Pour quitter le terminal, tappez : exit (puis appuyez sur Entrée)"
+wait
