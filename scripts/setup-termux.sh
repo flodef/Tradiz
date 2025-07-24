@@ -25,17 +25,20 @@ pkg install git -y
 echo "Installation de nano..."
 pkg install nano -y
 
-# Télécharger termux-widget.sh
-curl -s -L https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/termux-widget.sh -o termux-widget.sh
-chmod +x termux-widget.sh
+# Télécharger install-app.sh
+curl -s -L https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/install-app.sh -o ~/install-app.sh
+chmod +x ~/install-app.sh
 
 # Télécharger run-app.sh
-curl -s -L https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/run-app.sh -o run-app.sh
-chmod +x run-app.sh
+curl -s -L https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/run-app.sh -o ~/run-app.sh
+chmod +x ~/run-app.sh
 
-# Télécharger install-app.sh
-curl -s -L https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/install-app.sh -o install-app.sh
-chmod +x install-app.sh
+# Télécharger tradiz.sh
+curl -s -L https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/tradiz.sh -o ~/tradiz.sh
+chmod +x ~/tradiz.sh
+
+# Créer un raccourci pour utiliser les widgets
+cp ~/tradiz.sh ~/.shortcuts/tradiz.sh
 
 # Demander le nom d'utilisateur
 clear
