@@ -2,6 +2,9 @@
 
 import nodemailer, { SendMailOptions } from 'nodemailer';
 import { EMAIL, IS_DEV } from '../utils/constants';
+import { Shop } from '../contexts/ConfigProvider';
+import { Transaction } from '../hooks/useData';
+import { SummaryData } from '../hooks/useSummary';
 
 // Configure nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -60,24 +63,33 @@ export async function sendUserAccessRequest(email: string, role: string, publicK
  * Send an email to the admin to notify a summary
  * @param email The email of the admin
  * @param period The period of the summary
- * @param amount The amount of the summary
+ * @param transactions The transactions of the summary
  * @param message The message of the email
  * @returns A promise that resolves to a boolean indicating whether the email was sent successfully
  */
-export async function sendSummaryEmail(
-    email: string,
-    period: string,
-    amount: string,
-    message: string
-): Promise<boolean> {
-    console.log(message);
+export async function sendSummaryEmail(summaryData: SummaryData): Promise<boolean> {
+    const totalAmount = summaryData.transactions.reduce((total, transaction) => total + transaction.amount, 0);
+    const transactionCount = summaryData.transactions.length;
+    const productCount = summaryData.transactions.reduce(
+        (total, transaction) => total + transaction.products.reduce((total, product) => total + product.quantity, 0),
+        0
+    );
+    const averageTicket = transactionCount > 0 ? totalAmount / transactionCount : 0;
+
+    const message = summaryData.summary
+        .map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
+        .join('\n');
+
     return await sendEmail({
-        to: email,
-        subject: `Ticket Z du ${period}`,
+        to: summaryData.shop.email,
+        subject: `Ticket Z du ${summaryData.period}`,
         html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px;">
           <p>Bonjour,</p>
-          <p>Ci-joint le Ticket Z du ${period} d'un montant de ${amount} :</p>
+          <p>Ci-joint le Ticket Z du ${summaryData.period} d'un montant de ${summaryData.amount} :</p>
+          <p>Nombre de ventes : ${transactionCount}</p>
+          <p>Nombre de produits : ${productCount}</p>
+          <p>Ticket moyen : ${averageTicket}</p>
           <table style="width: 55%; border-collapse: collapse; margin: 0; border: 1px solid #ccc;">
             ${message
                 .split('\n')

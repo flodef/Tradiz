@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { QRCode } from '../components/QRCode';
+import { Shop } from '../contexts/ConfigProvider';
 import { IS_LOCAL, PRINT_KEYWORD, PROCESSING_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
 import { printReceipt } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
 import { Transaction, useData } from './useData';
 import { usePopup } from './usePopup';
+
+export type ReceiptData = {
+    shop: Shop;
+    transaction: Transaction;
+    thanksMessage?: string;
+    userName: string;
+};
 
 export const usePay = () => {
     const { openPopup, closePopup } = usePopup();
@@ -26,15 +34,13 @@ export const usePay = () => {
             const printerAddresses = getPrinterAddresses(printerName);
             if (!printerAddresses.length) return { error: 'Imprimante non trouvée' };
 
-            const receiptData = {
+            // Print the receipt
+            return await printReceipt(printerAddresses, {
                 shop: parameters.shop,
                 transaction: currentTransaction,
                 thanksMessage: parameters.thanksMessage,
                 userName: parameters.user.name,
-            };
-
-            // Print the receipt
-            return await printReceipt(printerAddresses, receiptData);
+            });
         },
         [parameters, transactions, getPrinterAddresses]
     );

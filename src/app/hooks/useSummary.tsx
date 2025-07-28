@@ -1,12 +1,21 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { sendSummaryEmail } from '../actions/email';
+import { Shop } from '../contexts/ConfigProvider';
 import { DELETED_KEYWORD, PRINT_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
 import { formatFrenchDate, getFormattedDate } from '../utils/date';
 import { printSummary } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { DataElement, SyncAction, Transaction, useData } from './useData';
 import { usePopup } from './usePopup';
+
+export type SummaryData = {
+    shop: Shop;
+    period: string;
+    amount: string;
+    transactions: Transaction[];
+    summary: string[];
+};
 
 enum HistoricalPeriod {
     day,
@@ -471,15 +480,18 @@ export const useSummary = () => {
         const filteredTransactions = getFilteredTransactions();
         if (!filteredTransactions.length) return;
 
-        const data = getTransactionsData(filteredTransactions);
-        const summary = data.summary
-            .map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
-            .join('\n');
+        const { summary, payments } = getTransactionsData(filteredTransactions);
         const period = getPeriodDescription(filteredTransactions);
-        const amount = toCurrency(data.payments.reduce((total, payment) => total + payment.amount, 0));
+        const amount = toCurrency(payments.reduce((total, payment) => total + payment.amount, 0));
 
-        return await sendSummaryEmail(parameters.shop.email, period, amount, summary);
-    }, [getTransactionsData, parameters.shop.email, getPeriodDescription, getFilteredTransactions, toCurrency]);
+        return await sendSummaryEmail({
+            shop: parameters.shop,
+            period,
+            amount,
+            transactions: filteredTransactions,
+            summary,
+        });
+    }, [parameters.shop, getTransactionsData, getPeriodDescription, getFilteredTransactions, toCurrency]);
 
     const downloadData = useCallback(
         (fileName: string) => {
@@ -558,21 +570,19 @@ export const useSummary = () => {
             if (!printerAddresses.length) return { error: 'Imprimante non trouvée' };
 
             // Get transaction summary data
-            const data = getTransactionsData(filteredTransactions);
+            const { summary } = getTransactionsData(filteredTransactions);
 
             // Get period description
-            const periodDesc = getPeriodDescription(filteredTransactions);
-
-            // Prepare Ticket Z data
-            const ticketZData = {
-                shop: parameters.shop,
-                period: periodDesc,
-                transactions: filteredTransactions,
-                summary: data.summary,
-            };
+            const period = getPeriodDescription(filteredTransactions);
 
             // Print the Ticket Z using server action
-            return await printSummary(printerAddresses, ticketZData);
+            return await printSummary(printerAddresses, {
+                shop: parameters.shop,
+                period,
+                amount: '',
+                transactions: filteredTransactions,
+                summary,
+            });
         },
         [getFilteredTransactions, getPeriodDescription, getTransactionsData, parameters, getPrinterAddresses]
     );

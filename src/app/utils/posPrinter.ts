@@ -1,26 +1,13 @@
 'use server';
 
-import { ThermalPrinter, PrinterTypes, CharacterSet } from 'node-thermal-printer';
+import { CharacterSet, PrinterTypes, ThermalPrinter } from 'node-thermal-printer';
 import { networkInterfaces } from 'os';
 import { Shop } from '../contexts/ConfigProvider';
-import { Transaction } from '../hooks/useData';
+import { ReceiptData } from '../hooks/usePay';
+import { SummaryData } from '../hooks/useSummary';
+import { IS_DEV, PROCESSING_KEYWORD, WAITING_KEYWORD } from './constants';
 import { formatFrenchDate, generateReceiptNumber } from './date';
-import { PROCESSING_KEYWORD, WAITING_KEYWORD, IS_DEV } from './constants';
 import { createMockPrinter } from './mockPrinter';
-
-type ReceiptData = {
-    shop: Shop;
-    transaction: Transaction;
-    thanksMessage?: string;
-    userName: string;
-};
-
-type SummaryData = {
-    shop: Shop;
-    period: string;
-    transactions: Transaction[];
-    summary: string[];
-};
 
 type PrintResponse = {
     success?: boolean;
@@ -222,8 +209,13 @@ export async function printSummary(printerAddresses: string[], summaryData: Summ
         const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
 
         // Calculate average ticket amount
-        const transactionCount = summaryData.transactions.length;
         const totalAmount = summaryData.transactions.reduce((total, transaction) => total + transaction.amount, 0);
+        const transactionCount = summaryData.transactions.length;
+        const productCount = summaryData.transactions.reduce(
+            (total, transaction) =>
+                total + transaction.products.reduce((total, product) => total + product.quantity, 0),
+            0
+        );
         const averageTicket = transactionCount > 0 ? totalAmount / transactionCount : 0;
         const currency = transactionCount > 0 ? summaryData.transactions[0].currency : '€';
 
@@ -262,7 +254,7 @@ export async function printSummary(printerAddresses: string[], summaryData: Summ
         printer.newLine();
 
         // Commands and clients
-        printer.leftRight(`Commandes : ${transactionCount}`, `Clients : ${transactionCount}`);
+        printer.leftRight(`Produits : ${productCount}`, `Ventes : ${transactionCount}`);
         printer.println(`Ticket moyen : ${toCurrency(averageTicket, currency)}`);
         printer.newLine();
 
