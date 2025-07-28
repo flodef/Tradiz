@@ -6,9 +6,9 @@ Il est constitué d'une application web facilement accessible en ligne depuis un
 
 Il est également possible de l'utiliser hors-ligne, en chargeant l'application puis en laissant l'onglet du navigateur ouvert.
 
-L'application mobile est disponible en production à l'adresse suivante : [pos.fims.fi](https://pos.fims.fi)
+L'application mobile est disponible en production à l'adresse suivante : [pos.tradiz.fr](https://pos.tradiz.fr)
 
-Elle est également disponible en développent à l'adresse suivante : [pos-dev.fims.fi](https://pos-dev.fims.fi)
+Elle est également disponible en démonstration à l'adresse suivante : [demo.tradiz.fr](https://demo.tradiz.fr)
 
 # S'approprier le projet
 
