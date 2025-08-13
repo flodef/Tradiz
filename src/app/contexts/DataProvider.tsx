@@ -42,6 +42,15 @@ enum ConvertAction {
     both,
 }
 
+export const isWaitingTransaction = (transaction?: Transaction) =>
+    Boolean(transaction && transaction.method === WAITING_KEYWORD);
+export const isUpdatingTransaction = (transaction?: Transaction) =>
+    Boolean(transaction && transaction.method === UPDATING_KEYWORD);
+export const isProcessingTransaction = (transaction?: Transaction) =>
+    Boolean(transaction && transaction.method === PROCESSING_KEYWORD);
+export const isDeletedTransaction = (transaction?: Transaction) =>
+    Boolean(transaction && transaction.method === DELETED_KEYWORD);
+
 export interface DataProviderProps {
     children: ReactNode;
 }
@@ -111,19 +120,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             });
     }, [isDemo]);
 
-    const isWaitingTransaction = useCallback((transaction?: Transaction) => {
-        return Boolean(transaction && transaction.method === WAITING_KEYWORD);
-    }, []);
-    const isUpdatingTransaction = useCallback((transaction?: Transaction) => {
-        return Boolean(transaction && transaction.method === UPDATING_KEYWORD);
-    }, []);
-    const isProcessingTransaction = useCallback((transaction?: Transaction) => {
-        return Boolean(transaction && transaction.method === PROCESSING_KEYWORD);
-    }, []);
-    const isDeletedTransaction = useCallback((transaction?: Transaction) => {
-        return Boolean(transaction && transaction.method === DELETED_KEYWORD);
-    }, []);
-
     const storeIndex = useCallback(
         async (id: string) => {
             if (!firestore) return;
@@ -181,7 +177,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             setTransactions([...transactions]);
         },
-        [transactions, setTransactions, isDeletedTransaction]
+        [transactions, setTransactions]
     );
 
     const convertTransactionsData = useCallback(
@@ -255,7 +251,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 .filter((tx) => new Date(tx.createdDate).toLocaleDateString() === new Date().toLocaleDateString())
                 .forEach((tx) => storeTransaction(tx));
         },
-        [isProcessingTransaction, isDeletedTransaction, setLocalStorageItem, storeTransaction]
+        [setLocalStorageItem, storeTransaction]
     );
     const updateCloudTransaction = useCallback(
         async (id: string, transaction: Transaction) => {
@@ -762,7 +758,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             transactionId.current = processingTransaction.createdDate;
             processingTransaction.products.forEach(addProduct);
         }
-    }, [transactions, parameters.user, addProduct, isProcessingTransaction]);
+    }, [transactions, parameters.user, addProduct]);
 
     const editTransaction = useCallback(
         (index: number) => {
@@ -824,7 +820,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                       new Date(transaction.modifiedDate).toTimeString().slice(0, 9)
                 : '';
         },
-        [toCurrency, isWaitingTransaction]
+        [toCurrency]
     );
 
     return (
