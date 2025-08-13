@@ -156,7 +156,7 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
             let label =
                 item.label +
                 (item.quantity !== 1 ? ` x${item.quantity}` : '') +
-                (item.discount.value > 0 ? ` (-${item.discount.value}${item.discount.unit})` : '');
+                (item.discount.amount > 0 ? ` (-${item.discount.amount}${item.discount.unit})` : '');
             const labelLength = label.length;
             label = labelLength > 32 ? item.label.slice(0, 32 - labelLength) + label.slice(item.label.length) : label;
             printer.tableCustom([

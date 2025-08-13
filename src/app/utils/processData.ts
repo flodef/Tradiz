@@ -1,5 +1,5 @@
 import { Config, Parameters } from '../contexts/ConfigProvider';
-import { Currency, InventoryItem, Mercurial, PaymentMethod, Role } from '../hooks/useConfig';
+import { Color, Currency, Discount, InventoryItem, Mercurial, PaymentMethod, Printer, Role } from '../hooks/useConfig';
 import { EMAIL } from './constants';
 import { generateSimpleId } from './id';
 
@@ -56,21 +56,24 @@ export const defaultCurrencies: Currency[] = [
         label: 'Euro',
         maxValue: 999.99,
         symbol: '€',
-        maxDecimals: 2,
+        decimals: 2,
     },
 ];
 export const defaultPaymentMethods: PaymentMethod[] = [
     {
-        method: 'Carte Bancaire',
+        type: 'Carte Bancaire',
         currency: '€',
+        availability: true,
     },
     {
-        method: 'Espèce',
+        type: 'Espèce',
         currency: '€',
+        availability: true,
     },
     {
-        method: 'Chèque',
+        type: 'Chèque',
         currency: '€',
+        availability: true,
     },
 ];
 
@@ -267,7 +270,7 @@ async function convertParametersData(response: void | Response) {
     }
 }
 
-async function convertPaymentMethodsData(response: void | Response) {
+async function convertPaymentMethodsData(response: void | Response): Promise<PaymentMethod[]> {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: (string | boolean)[][]; error: { message: string } }) => {
@@ -279,9 +282,10 @@ async function convertPaymentMethodsData(response: void | Response) {
                 .map((item) => {
                     checkColumn(item, 4);
                     return {
-                        method: normalizedString(item.at(0)),
-                        address: String(item.at(1)).trim(),
+                        type: normalizedString(item.at(0)),
+                        id: String(item.at(1)).trim(),
                         currency: String(item.at(2)).trim(),
+                        availability: true,
                     };
                 });
         });
@@ -291,7 +295,7 @@ async function convertPaymentMethodsData(response: void | Response) {
     }
 }
 
-async function convertCurrenciesData(response: void | Response) {
+async function convertCurrenciesData(response: void | Response): Promise<Currency[]> {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
@@ -303,7 +307,7 @@ async function convertCurrenciesData(response: void | Response) {
                     label: normalizedString(item.at(0)),
                     maxValue: Number(item.at(1)),
                     symbol: String(item.at(2)).trim(),
-                    maxDecimals: Number(item.at(3)),
+                    decimals: Number(item.at(3)),
                 };
             });
         });
@@ -313,7 +317,7 @@ async function convertCurrenciesData(response: void | Response) {
     }
 }
 
-async function convertDiscountsData(response: void | Response) {
+async function convertDiscountsData(response: void | Response): Promise<Discount[]> {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
@@ -322,7 +326,7 @@ async function convertDiscountsData(response: void | Response) {
             return data.values.removeHeader().map((item) => {
                 checkColumn(item, 2);
                 return {
-                    value: Number(item.at(0)),
+                    amount: Number(item.at(0)),
                     unit: String(item.at(1)).trim(),
                 };
             });
@@ -333,7 +337,7 @@ async function convertDiscountsData(response: void | Response) {
     }
 }
 
-async function convertColorsData(response: void | Response) {
+async function convertColorsData(response: void | Response): Promise<Color[]> {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
@@ -342,6 +346,7 @@ async function convertColorsData(response: void | Response) {
             return data.values.removeHeader().map((item) => {
                 checkColumn(item, 3);
                 return {
+                    label: String(item.at(0)).trim(),
                     light: String(item.at(1)).trim(),
                     dark: String(item.at(2)).trim(),
                 };
@@ -353,7 +358,7 @@ async function convertColorsData(response: void | Response) {
     }
 }
 
-async function convertPrintersData(response: void | Response) {
+async function convertPrintersData(response: void | Response): Promise<Printer[]> {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
@@ -362,8 +367,8 @@ async function convertPrintersData(response: void | Response) {
             return data.values.removeHeader().map((item) => {
                 checkColumn(item, 2);
                 return {
-                    name: String(item.at(0)).trim(),
-                    address: String(item.at(1)).trim(),
+                    label: String(item.at(0)).trim(),
+                    ipAddress: String(item.at(1)).trim(),
                 };
             });
         });

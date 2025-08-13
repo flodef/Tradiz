@@ -1,4 +1,4 @@
-import { ChangeEvent, MutableRefObject, createContext, useContext } from 'react';
+import { ChangeEvent, createContext, MutableRefObject, useContext } from 'react';
 import { Discount, Mercurial } from './useConfig';
 
 export enum SyncAction {

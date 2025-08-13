@@ -12,13 +12,12 @@ type HomeProps = {
 };
 
 export default async function Home({ params }: HomeProps) {
-    const shop = await params.shop;
     return (
         <main
             className={'absolute inset-0 grid select-none overflow-y-auto md:overflow-y-hidden'}
             style={{ background: 'inherit' }}
         >
-            <ConfigProvider shop={shop}>
+            <ConfigProvider shop={params.shop}>
                 <DataProvider>
                     <PopupProvider>
                         <CryptoProvider>

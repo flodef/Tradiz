@@ -2,7 +2,7 @@
 
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    Colors,
+    Color,
     ConfigContext,
     Currency,
     Discount,
@@ -48,7 +48,7 @@ export interface Config {
     paymentMethods: PaymentMethod[];
     inventory: InventoryItem[];
     discounts: Discount[];
-    colors: Colors[];
+    colors: Color[];
     printers: Printer[];
 }
 
@@ -68,7 +68,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(defaultPaymentMethods);
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
     const [discounts, setDiscounts] = useState<Discount[]>([]);
-    const [colors, setColors] = useState<Colors[]>([]);
+    const [colors, setColors] = useState<Color[]>([]);
     const [printers, setPrinters] = useState<Printer[]>([]);
 
     const isStateReady = useMemo(() => state === State.preloaded || state === State.loaded, [state]);
@@ -84,12 +84,12 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     );
 
     const getPrintersNames = useCallback(() => {
-        const printersNames = printers.filter(({ name }) => name !== LOCAL_PRINTER_KEYWORD);
+        const printersNames = printers.filter(({ label: name }) => name !== LOCAL_PRINTER_KEYWORD);
         if (!printersNames.length) return [];
 
         return printersNames.length === 1
             ? [PRINT_KEYWORD]
-            : printersNames.map(({ name }) => PRINT_KEYWORD + SEPARATOR + name);
+            : printersNames.map(({ label: name }) => PRINT_KEYWORD + SEPARATOR + name);
     }, [printers]);
     const getPrinterAddresses = useCallback(
         (name?: string) => {
@@ -97,14 +97,14 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
             const printer = (
                 printerName
                     ? [
-                          printers.find(({ name: n }) => n === printerName),
-                          printers.find(({ name: n }) => n === LOCAL_PRINTER_KEYWORD),
+                          printers.find(({ label: n }) => n === printerName),
+                          printers.find(({ label: n }) => n === LOCAL_PRINTER_KEYWORD),
                       ]
                     : printers
             ).filter(Boolean) as Printer[]; // If no printer name is provided, return all printers
             if (!printer.length) return [];
 
-            return printer.map(({ address }) => address);
+            return printer.map(({ ipAddress: address }) => address);
         },
         [printers]
     );

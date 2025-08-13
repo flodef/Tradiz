@@ -11,6 +11,11 @@ export enum State {
     loaded,
 }
 
+export interface Category {
+    label: string;
+    vat: number;
+}
+
 export enum Role {
     none = 'Aucun',
     cashier = 'Caisse',
@@ -35,13 +40,21 @@ export interface Currency {
     label: string;
     maxValue: number;
     symbol: string;
-    maxDecimals: number;
+    decimals: number;
 }
 
 export interface PaymentMethod {
-    method: string;
-    address?: string;
+    type: string;
+    id?: string;
     currency: string;
+    availability: boolean;
+}
+
+export interface Product {
+    name: string;
+    category: string;
+    availability: boolean;
+    currencies: string[];
 }
 
 export interface InventoryItem {
@@ -51,19 +64,20 @@ export interface InventoryItem {
 }
 
 export interface Discount {
-    value: number;
+    amount: number;
     unit: string;
 }
-export const EmptyDiscount: Discount = { value: 0, unit: '' };
+export const EmptyDiscount: Discount = { amount: 0, unit: '' };
 
-export interface Colors {
+export interface Color {
+    label: string;
     light: string;
     dark: string;
 }
 
 export interface Printer {
-    name: string;
-    address: string;
+    label: string;
+    ipAddress: string;
 }
 
 export interface ConfigContextState {
@@ -77,7 +91,7 @@ export interface ConfigContextState {
     paymentMethods: PaymentMethod[];
     inventory: InventoryItem[];
     discounts: Discount[];
-    colors: Colors[];
+    colors: Color[];
     getPrintersNames: () => string[];
     getPrinterAddresses: (name?: string) => string[];
 }

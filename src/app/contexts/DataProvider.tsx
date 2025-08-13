@@ -520,7 +520,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             transaction.modifiedDate = transaction.modifiedDate ? new Date().getTime() : transaction.createdDate;
             transaction.amount = transaction.amount.clean(
-                currencies.find(({ label }) => label === transaction.currency)?.maxDecimals
+                currencies.find(({ label }) => label === transaction.currency)?.decimals
             );
             transaction.validator = parameters.user.name;
 
@@ -578,7 +578,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const amount = element.hasOwnProperty('amount')
                 ? (element as { amount: number }).amount
                 : (element as number);
-            return amount.toCurrency(currency.maxDecimals, currency.symbol);
+            return amount.toCurrency(currency.decimals, currency.symbol);
         },
         [currencies, currencyIndex]
     );
@@ -639,8 +639,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const computeDiscount = useCallback((product: Product) => {
         return product.discount.unit === '%'
-            ? product.amount * (1 - product.discount.value / 100)
-            : product.amount - product.discount.value;
+            ? product.amount * (1 - product.discount.amount / 100)
+            : product.amount - product.discount.amount;
     }, []);
 
     const setDiscount = useCallback(
@@ -745,7 +745,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 product.quantity +
                 ' = ' +
                 toCurrency({ amount: product.total ?? 0, currency: currency }) +
-                (product.discount.value ? ' (-' + product.discount.value + product.discount.unit + ')' : '')
+                (product.discount.amount ? ' (-' + product.discount.amount + product.discount.unit + ')' : '')
             );
         },
         [toCurrency]

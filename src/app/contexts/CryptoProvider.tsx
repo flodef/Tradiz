@@ -28,11 +28,9 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
     const recipient = useMemo(() => {
         switch (crypto) {
             case Crypto.Solana:
-                return new PublicKey(paymentMethods.find((item) => item.method === Crypto.Solana)?.address ?? 0);
+                return new PublicKey(paymentMethods.find((item) => item.type === Crypto.Solana)?.id ?? 0);
             case Crypto.June:
-                return new PublicKey(
-                    paymentMethods.find((item) => item.method === Crypto.June)?.address?.split(':')[0] ?? 0
-                );
+                return new PublicKey(paymentMethods.find((item) => item.type === Crypto.June)?.id?.split(':')[0] ?? 0);
             default:
                 return new PublicKey(0);
         }
@@ -49,7 +47,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
     const refPaymentStatus = useRef(paymentStatus);
 
     useEffect(() => {
-        BigNumber.config({ DECIMAL_PLACES: currencies[currencyIndex].maxDecimals ?? 0 });
+        BigNumber.config({ DECIMAL_PLACES: currencies[currencyIndex].decimals ?? 0 });
     }, [currencies, currencyIndex]);
 
     useEffect(() => {
@@ -125,7 +123,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
         const interval = setInterval(async () => {
             try {
                 if (crypto === Crypto.Solana && reference) {
-                    const signature = await findReference(connection.current, reference);
+                    const signature = await findReference(connection.current as any, reference);
 
                     if (!changed) {
                         watchDog.current = 0;

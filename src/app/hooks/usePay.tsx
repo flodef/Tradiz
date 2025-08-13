@@ -152,7 +152,7 @@ export const usePay = () => {
                     break;
                 case 'Virement':
                     openPopup(
-                        'IBAN : ' + paymentMethods.find((item) => item.method === 'Virement')?.address,
+                        'IBAN : ' + paymentMethods.find((item) => item.type === 'Virement')?.id,
                         ['Valider paiement', 'Annuler paiement'],
                         (index) => {
                             if (index === 0) updateTransaction(option);
@@ -186,7 +186,7 @@ export const usePay = () => {
         if (total && paymentMethods.length) {
             const paymentMethodsLabels = paymentMethods
                 .filter((item) => item.currency === currencies[currencyIndex].symbol)
-                .map((item) => item.method)
+                .map((item) => item.type)
                 .concat(['', 'METTRE ' + WAITING_KEYWORD])
                 .concat(getPrintersNames());
             if (paymentMethodsLabels.length === 1) {

@@ -35,7 +35,7 @@ export const Amount: FC<AmountProps> = ({ className, value, showZero, decimals, 
 
     return amount !== NON_BREAKING_SPACE ? (
         <span className={className} onClick={handleClick} onContextMenu={handleClick}>
-            {decimals || currency.maxDecimals ? parseFloat(amount).toFixed(decimals ?? currency.maxDecimals) : amount}
+            {decimals || currency.decimals ? parseFloat(amount).toFixed(decimals ?? currency.decimals) : amount}
             <span className="text-xl">{currency.symbol}</span>
         </span>
     ) : null;

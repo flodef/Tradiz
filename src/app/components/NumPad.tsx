@@ -143,7 +143,7 @@ export const NumPad: FC = () => {
     const { showTransactionsSummary, showTransactionsSummaryMenu, getHistoricalTransactions } = useSummary();
 
     const maxValue = useMemo(() => currencies[currencyIndex].maxValue, [currencies, currencyIndex]);
-    const maxDecimals = useMemo(() => currencies[currencyIndex].maxDecimals, [currencies, currencyIndex]);
+    const maxDecimals = useMemo(() => currencies[currencyIndex].decimals, [currencies, currencyIndex]);
     const max = useMemo(() => maxValue * Math.pow(10, maxDecimals), [maxValue, maxDecimals]);
     const regExp = useMemo(() => new RegExp('^\\d*([.,]\\d{0,' + maxDecimals + '})?$'), [maxDecimals]);
 
@@ -265,7 +265,7 @@ export const NumPad: FC = () => {
 
                     setCurrency(option);
                     const index = currencies.findIndex(({ label }) => label === option);
-                    const maxDecimals = currencies[index].maxDecimals;
+                    const maxDecimals = currencies[index].decimals;
                     const amount = selectedProduct?.amount ?? 0;
                     setValue((amount * Math.pow(10, maxDecimals)).toString());
                     setQuantity(0);
@@ -299,13 +299,13 @@ export const NumPad: FC = () => {
     const discount = useCallback(() => {
         if (!discounts.length || !selectedProduct) return;
         const displayDiscounts = (
-            discounts.some((discount) => discount.value === 0) ? discounts : [EmptyDiscount].concat(discounts)
+            discounts.some((discount) => discount.amount === 0) ? discounts : [EmptyDiscount].concat(discounts)
         )
             .filter((d) => d !== selectedProduct.discount)
-            .sort((a, b) => a.value - b.value);
+            .sort((a, b) => a.amount - b.amount);
         openPopup(
-            `Remise (${selectedProduct.discount.value ? selectedProduct.discount.value + selectedProduct.discount.unit : 'Aucune'})`,
-            displayDiscounts.map((d) => (d.value ? d.value + d.unit : ['Aucune'])),
+            `Remise (${selectedProduct.discount.amount ? selectedProduct.discount.amount + selectedProduct.discount.unit : 'Aucune'})`,
+            displayDiscounts.map((d) => (d.amount ? d.amount + d.unit : ['Aucune'])),
             (index) => setDiscount(selectedProduct, index < 0 ? selectedProduct.discount : displayDiscounts[index])
         );
     }, [openPopup, selectedProduct, discounts, setDiscount]);
