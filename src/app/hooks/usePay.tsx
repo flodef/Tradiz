@@ -7,6 +7,7 @@ import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
 import { Transaction, useData } from './useData';
 import { usePopup } from './usePopup';
+import { isWaitingTransaction } from '../contexts/DataProvider';
 
 export type ReceiptData = {
     shop: Shop;
@@ -28,7 +29,8 @@ export const usePay = () => {
     const printTransactionReceipt = useCallback(
         async (printerName?: string, transaction?: Transaction) => {
             // Prepare receipt data
-            const currentTransaction = transaction || transactions.find((item) => item.method === PROCESSING_KEYWORD);
+            const currentTransaction =
+                transaction || transactions.sort((a, b) => b.modifiedDate - a.modifiedDate).find(isWaitingTransaction);
             if (!currentTransaction) return { error: 'Aucune transaction à imprimer' };
 
             const printerAddresses = getPrinterAddresses(printerName);
@@ -160,8 +162,8 @@ export const usePay = () => {
                     );
                     break;
                 case PRINT_KEYWORD:
-                    printTransaction(option);
                     updateTransaction(WAITING_KEYWORD);
+                    printTransaction(option);
                     break;
                 default:
                     updateTransaction(option.includes(WAITING_KEYWORD) ? WAITING_KEYWORD : option);
