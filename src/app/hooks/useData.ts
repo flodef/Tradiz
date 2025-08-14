@@ -1,4 +1,4 @@
-import { ChangeEvent, createContext, MutableRefObject, useContext } from 'react';
+import { ChangeEvent, createContext, RefObject, useContext } from 'react';
 import { Discount, Mercurial } from './useConfig';
 
 export enum SyncAction {
@@ -62,7 +62,7 @@ export interface DataContextState {
     displayProduct: (product: Product, currency?: string) => string;
     clearAmount: () => void;
     clearTotal: () => void;
-    products: MutableRefObject<Product[]>;
+    products: RefObject<Product[]>;
     transactions: Transaction[];
     processTransactions: (syncAction: SyncAction, date?: Date, event?: ChangeEvent<HTMLInputElement>) => void;
     updateTransaction: (item: string | Transaction) => void;

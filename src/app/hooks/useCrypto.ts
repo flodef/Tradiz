@@ -1,4 +1,4 @@
-import { MutableRefObject, createContext, useContext } from 'react';
+import { RefObject, createContext, useContext } from 'react';
 
 export enum Crypto {
     Solana = 'Solana',
@@ -17,7 +17,7 @@ export enum PaymentStatus {
 export interface CryptoContextState {
     crypto: Crypto;
     paymentStatus: PaymentStatus;
-    refPaymentStatus: MutableRefObject<PaymentStatus>;
+    refPaymentStatus: RefObject<PaymentStatus>;
     url: string | URL;
     init: () => void;
     generate: (crypto: Crypto) => void;
