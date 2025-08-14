@@ -69,9 +69,6 @@ export interface DataContextState {
     editTransaction: (index: number) => void;
     deleteTransaction: (index: number) => void;
     displayTransaction: (transaction: Transaction) => string;
-    isWaitingTransaction: (transaction?: Transaction) => boolean;
-    isUpdatingTransaction: (transaction?: Transaction) => boolean;
-    isDeletedTransaction: (transaction?: Transaction) => boolean;
     transactionsFilename: string;
     toCurrency: (element: { amount: number; currency: string } | number | Product | Transaction) => string;
     isDbConnected: boolean;

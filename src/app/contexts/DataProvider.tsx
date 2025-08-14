@@ -50,6 +50,8 @@ export const isProcessingTransaction = (transaction?: Transaction) =>
     Boolean(transaction && transaction.method === PROCESSING_KEYWORD);
 export const isDeletedTransaction = (transaction?: Transaction) =>
     Boolean(transaction && transaction.method === DELETED_KEYWORD);
+export const isConfirmedTransaction = (transaction?: Transaction) =>
+    Boolean(transaction && !isWaitingTransaction(transaction) && !isDeletedTransaction(transaction));
 
 export interface DataProviderProps {
     children: ReactNode;
@@ -166,14 +168,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const isDeleted = isDeletedTransaction(transaction);
             const index = transactions.findIndex(({ createdDate }) => createdDate === transaction.createdDate);
             if (!isDeleted) {
-                if (index >= 0) {
-                    transactions.splice(index, 1, transaction);
-                } else {
-                    transactions.unshift(transaction);
-                }
-            } else if (index >= 0) {
-                transactions.splice(index, 1);
-            }
+                if (index >= 0) transactions.splice(index, 1, transaction);
+                else transactions.unshift(transaction);
+            } else if (index >= 0) transactions.splice(index, 1);
 
             setTransactions([...transactions]);
         },
@@ -558,11 +555,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             index = index ?? transactions.findIndex(({ createdDate }) => createdDate === transactionId.current);
 
             if (index >= 0) {
-                const transaction = transactions.splice(index, 1)[0];
+                const transaction = transactions[index];
+                transaction.method = DELETED_KEYWORD;
+                storeTransaction(transaction);
                 saveTransactions(DatabaseAction.delete, transaction);
             }
         },
-        [transactions, saveTransactions]
+        [transactions, saveTransactions, storeTransaction]
     );
 
     const toCurrency = useCallback(
@@ -793,7 +792,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                       };
 
             storeTransaction(transaction);
-
             saveTransactions(DatabaseAction.add, transaction);
 
             clearTotal();
@@ -851,9 +849,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 editTransaction,
                 deleteTransaction,
                 displayTransaction,
-                isWaitingTransaction,
-                isUpdatingTransaction,
-                isDeletedTransaction,
                 transactionsFilename,
                 toCurrency,
                 isDbConnected,

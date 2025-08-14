@@ -2,6 +2,7 @@
 
 import { FC, MouseEventHandler, useCallback, useMemo, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
+import { isConfirmedTransaction, isUpdatingTransaction, isWaitingTransaction } from '../contexts/DataProvider';
 import { useConfig } from '../hooks/useConfig';
 import { Transaction, useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
@@ -80,9 +81,6 @@ export const Total: FC = () => {
         deleteTransaction,
         toCurrency,
         displayTransaction,
-        isWaitingTransaction,
-        isUpdatingTransaction,
-        isDeletedTransaction,
         setSelectedProduct,
         setAmount,
         setQuantity,
@@ -140,17 +138,7 @@ export const Total: FC = () => {
                     ]),
             };
         },
-        [
-            editTransaction,
-            isStateReady,
-            isUpdatingTransaction,
-            isWaitingTransaction,
-            deleteTransaction,
-            pay,
-            printTransaction,
-            closePopup,
-            getPrintersNames,
-        ]
+        [editTransaction, isStateReady, deleteTransaction, pay, printTransaction, closePopup, getPrintersNames]
     );
 
     const selectProduct = useCallback(
@@ -199,13 +187,6 @@ export const Total: FC = () => {
             handleContextMenu(transactionMenu.title, transactionMenu.options, index, openPopup);
         },
         [getTransactionMenu, openPopup, transactions]
-    );
-
-    const isConfirmedTransaction = useCallback(
-        (transaction?: Transaction) => {
-            return transaction && !isWaitingTransaction(transaction) && !isDeletedTransaction(transaction);
-        },
-        [isWaitingTransaction, isDeletedTransaction]
     );
 
     const displayTransactionsTitle = useCallback(() => {
@@ -351,16 +332,7 @@ export const Total: FC = () => {
                 }
             );
         },
-        [
-            transactions,
-            openPopup,
-            displayProduct,
-            toCurrency,
-            modifyTransaction,
-            isStateReady,
-            deleteBoughtProduct,
-            isUpdatingTransaction,
-        ]
+        [transactions, openPopup, displayProduct, toCurrency, modifyTransaction, isStateReady, deleteBoughtProduct]
     );
 
     const sortedTransactions = useMemo(() => {
@@ -374,7 +346,8 @@ export const Total: FC = () => {
             .sort((a, b) => b.modifiedDate - a.modifiedDate);
         const hasSeparation = waitingTransactions.length && confirmedTransactions.length;
         return waitingTransactions.concat(hasSeparation ? [{} as Transaction] : []).concat(confirmedTransactions);
-    }, [transactions, isWaitingTransaction, isConfirmedTransaction]);
+    }, [transactions]);
+
     const getTransactionIndex = useCallback(
         (index: number) =>
             transactions.findIndex((transaction) => transaction.createdDate === sortedTransactions[index]?.createdDate),
