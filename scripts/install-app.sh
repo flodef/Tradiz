@@ -34,7 +34,7 @@ cd "$APP_DIR"
 
 # Gérer le fichier .env.local
 if [ ! -f .env.local ]; then
-  if mv ~/storage/downloads/.env.local .env.local 2>/dev/null; then
+  if mv ~/storage/downloads/_.env.local .env.local 2>/dev/null; then
     echo "Fichier .env.local copié depuis ~/storage/downloads"
   else
     if [ ! -d ~/storage ]; then
@@ -50,7 +50,7 @@ if [ ! -f .env.local ]; then
         echo "Vous pouvez télécharger votre propre fichier en utilisant termux-setup-storage."
       fi
     else
-      echo "Le fichier n'a pas été trouvé. Le fichier doit être nommé .env.local et se trouver dans le dossier Téléchargements."
+      echo "Le fichier n'a pas été trouvé. Le fichier doit être nommé _.env.local et se trouver dans le dossier Téléchargements."
     fi
     echo "Le fichier .env.local est requis pour continuer. Veuillez créer ou copier le fichier et réexécuter le script."
     exit 1
