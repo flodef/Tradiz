@@ -287,9 +287,9 @@ Cette application peut s'exécuter sur une tablette Android à l'aide de Termux 
 
 #### Prérequis
 
--   Tablette Android avec Termux installé (téléchargez depuis F-Droid : https://f-droid.org/fr/packages/com.termux/).
+-   Tablette Android avec Termux installé : [téléchargez depuis F-Droid](https://f-droid.org/fr/packages/com.termux/).
 -   Imprimante thermique Wi-Fi sur le même réseau que la tablette.
--   Adresse IP de l'imprimante (par exemple, `192.168.1.100`) et port (par exemple, `9100`) à remplir directement dans les paramètres de l'application.
+-   Adresse IP de l'imprimante (par exemple, `192.168.1.100`) à remplir directement dans les paramètres de l'application.
 
 #### Instructions de configuration
 
@@ -300,9 +300,9 @@ Cette application peut s'exécuter sur une tablette Android à l'aide de Termux 
     ```
     Vérifier bien que le fichier .env.local est bien téléchargé au bon endroit :
     ```bash
-    ls ~/storage/downloads/.env.local
+    ls ~/storage/downloads/_.env.local
     ```
-3. Téléchargez le script de configuration et exécutez-le :
+3. Téléchargez le script de configuration et exécutez-le (vous aurez à confirmer lors de la demande de copie de nouveau fichier) :
     ```bash
     curl -O https://raw.githubusercontent.com/flodef/Tradiz/main/scripts/setup-termux.sh
     bash setup-termux.sh
@@ -319,7 +319,7 @@ Cette application peut s'exécuter sur une tablette Android à l'aide de Termux 
 
 #### Installer une raccourci pour lancer l'application
 
-1. Téléchargez l'application Termux:Widget depuis F-Droid : https://f-droid.org/fr/packages/com.termux.widget/.
+1. Téléchargez [l'application Termux:Widget depuis F-Droid](https://f-droid.org/fr/packages/com.termux.widget/).
 2. Ajoutez un raccourci à l'écran d'accueil :
 
 -   sur votre tablette Android, appuyez longuement sur l'écran d'accueil et sélectionnez “Widgets.”
