@@ -316,6 +316,10 @@ Cette application peut s'exécuter sur une tablette Android à l'aide de Termux 
     ```bash
     bash ~/run-app.sh
     ```
+7. Pour mettre à jour l'application, il faut utiliser la commande suivante :
+    ```bash
+    bash ~/install-app.sh
+    ```
 
 #### Installer une raccourci pour lancer l'application
 
