@@ -2,7 +2,7 @@
 
 import { FC } from 'react';
 import { useConfig } from '../hooks/useConfig';
-import { IS_LOCAL } from '../utils/constants';
+import { IS_DEV } from '../utils/constants';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { Category } from './Category';
 import { NumPad } from './NumPad';
@@ -13,7 +13,7 @@ export const MainContent: FC = () => {
 
     // Function to handle clicks anywhere on the component to request fullscreen
     const handleClick = () => {
-        if (isStateReady && !isFullscreen() && !IS_LOCAL) requestFullscreen();
+        if (isStateReady && !isFullscreen() && !IS_DEV) requestFullscreen();
     };
 
     return (

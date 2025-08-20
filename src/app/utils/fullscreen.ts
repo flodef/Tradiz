@@ -1,5 +1,3 @@
-import { IS_LOCAL } from './constants';
-
 declare global {
     interface Document {
         readonly webkitCurrentFullScreenElement?: Element | null;
