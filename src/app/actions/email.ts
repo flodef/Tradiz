@@ -1,10 +1,8 @@
 'use server';
 
 import nodemailer, { SendMailOptions } from 'nodemailer';
-import { EMAIL, IS_DEV } from '../utils/constants';
-import { Shop } from '../contexts/ConfigProvider';
-import { Transaction } from '../hooks/useData';
 import { SummaryData } from '../hooks/useSummary';
+import { EMAIL, IS_DEV } from '../utils/constants';
 
 // Configure nodemailer transporter
 const transporter = nodemailer.createTransport({
