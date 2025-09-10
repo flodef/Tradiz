@@ -113,7 +113,7 @@ export const Total: FC = () => {
                 // Replace the transaction in the array with the reversed one
                 transactions.splice(index, 1, reversedTransaction);
             }
-            
+
             // Now call editTransaction normally
             editTransaction(index);
         },
@@ -374,10 +374,10 @@ export const Total: FC = () => {
 
         const waitingTransactions = transactions
             .filter(isWaitingTransaction)
-            .sort((a, b) => b.modifiedDate - a.modifiedDate);
+            .sort((a, b) => b.createdDate - a.createdDate);
         const confirmedTransactions = transactions
             .filter(isConfirmedTransaction)
-            .sort((a, b) => b.modifiedDate - a.modifiedDate);
+            .sort((a, b) => b.createdDate - a.createdDate);
         const hasSeparation = waitingTransactions.length && confirmedTransactions.length;
         return waitingTransactions.concat(hasSeparation ? [{} as Transaction] : []).concat(confirmedTransactions);
     }, [transactions]);
@@ -504,66 +504,67 @@ export const Total: FC = () => {
 
             <div
                 className={
-                    'md:w-1/2 fixed top-[76px] left-0 w-1/2 h-screen text-center text-2xl ' +
-                    'font-bold overflow-y-auto hidden md:block'
+                    'md:w-1/2 fixed top-[76px] left-0 w-1/2 text-center text-2xl ' +
+                    'font-bold hidden md:flex md:flex-col'
                 }
                 style={{ left: left, height: height }}
             >
-                {canDisplayTotal
-                    ? products.current
-                          .map((product) => ({
-                              product: displayProduct(product),
-                              isSelectedProduct: product === selectedProduct,
-                          }))
-                          .map(({ product, isSelectedProduct }, index) => (
-                              <Item
-                                  className={twMerge(
-                                      'py-2 ml-1',
-                                      clickClassName,
-                                      isSelectedProduct ? 'animate-pulse' : ''
-                                  )}
-                                  key={index}
-                                  label={product}
-                                  onClick={() => selectProduct(index)}
-                                  onContextMenu={() => modifyProduct(index)}
-                              />
-                          ))
-                    : sortedTransactions
-                          .map((transaction) => ({
-                              transaction: displayTransaction(transaction),
-                              isWaitingTransaction: isWaitingTransaction(transaction),
-                              isUpdatingTransaction: isUpdatingTransaction(transaction),
-                          }))
-                          .map(({ transaction, isWaitingTransaction, isUpdatingTransaction }, index) =>
-                              transaction ? (
+                <div className="flex-1 overflow-y-auto">
+                    {canDisplayTotal
+                        ? products.current
+                              .map((product) => ({
+                                  product: displayProduct(product),
+                                  isSelectedProduct: product === selectedProduct,
+                              }))
+                              .map(({ product, isSelectedProduct }, index) => (
                                   <Item
                                       className={twMerge(
                                           'py-2 ml-1',
-                                          isWaitingTransaction || isUpdatingTransaction ? 'animate-pulse' : '',
-                                          isUpdatingTransaction ? 'cursor-not-allowed' : clickClassName
+                                          clickClassName,
+                                          isSelectedProduct ? 'animate-pulse' : ''
                                       )}
                                       key={index}
-                                      label={transaction}
-                                      onClick={() => showBoughtProducts(getTransactionIndex(index), () => closePopup())}
-                                      onContextMenu={() =>
-                                          modifyTransaction(getTransactionIndex(index), () => closePopup())
-                                      }
+                                      label={product}
+                                      onClick={() => selectProduct(index)}
+                                      onContextMenu={() => modifyProduct(index)}
                                   />
-                              ) : (
-                                  <div
-                                      key={index}
-                                      className="border-b-2 border-secondary-active-light dark:border-secondary-active-dark"
-                                  />
-                              )
-                          )
-                          .concat(
-                              <div
-                                  key="total"
-                                  className="pt-1 border-t-4 border-secondary-active-light dark:border-secondary-active-dark"
-                              >
-                                  {displayTransactionsTitle()}
-                              </div>
-                          )}
+                              ))
+                        : sortedTransactions
+                              .map((transaction) => ({
+                                  transaction: displayTransaction(transaction),
+                                  isWaitingTransaction: isWaitingTransaction(transaction),
+                                  isUpdatingTransaction: isUpdatingTransaction(transaction),
+                              }))
+                              .map(({ transaction, isWaitingTransaction, isUpdatingTransaction }, index) =>
+                                  transaction ? (
+                                      <Item
+                                          className={twMerge(
+                                              'py-2 ml-1',
+                                              isWaitingTransaction || isUpdatingTransaction ? 'animate-pulse' : '',
+                                              isUpdatingTransaction ? 'cursor-not-allowed' : clickClassName
+                                          )}
+                                          key={index}
+                                          label={transaction}
+                                          onClick={() =>
+                                              showBoughtProducts(getTransactionIndex(index), () => closePopup())
+                                          }
+                                          onContextMenu={() =>
+                                              modifyTransaction(getTransactionIndex(index), () => closePopup())
+                                          }
+                                      />
+                                  ) : (
+                                      <div
+                                          key={index}
+                                          className="border-b-2 border-secondary-active-light dark:border-secondary-active-dark"
+                                      />
+                                  )
+                              )}
+                </div>
+                {!canDisplayTotal && (
+                    <div className="flex-shrink-0 pt-1 border-t-4 border-secondary-active-light dark:border-secondary-active-dark bg-primary-light dark:bg-primary-dark">
+                        {displayTransactionsTitle()}
+                    </div>
+                )}
             </div>
         </div>
     );

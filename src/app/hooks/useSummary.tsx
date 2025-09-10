@@ -393,6 +393,7 @@ export const useSummary = () => {
         (element: DataElement, transactions: Transaction[], fallback?: () => void) => {
             const detail = transactions
                 .filter(({ method }) => method === element.category)
+                .sort((a, b) => b.createdDate - a.createdDate)
                 .map(({ products, amount, modifiedDate }) => {
                     const { frenchDateStr, frenchTimeStr } = formatFrenchDate(new Date(modifiedDate));
                     return (
