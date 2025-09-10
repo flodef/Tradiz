@@ -808,6 +808,21 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         ]
     );
 
+    const reverseTransaction = useCallback((transaction: Transaction): Transaction => {
+        const reversedProducts = transaction.products.map(product => {
+            const reversedProduct = { ...product };
+            // Use computeQuantity with negative quantity to properly calculate reversed values
+            computeQuantity(reversedProduct, -product.quantity);
+            return reversedProduct;
+        });
+        
+        return {
+            ...transaction,
+            amount: -transaction.amount,
+            products: reversedProducts,
+        };
+    }, [computeQuantity]);
+
     const displayTransaction = useCallback(
         (transaction: Transaction) => {
             return transaction.modifiedDate && transaction.method
@@ -849,6 +864,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 editTransaction,
                 deleteTransaction,
                 displayTransaction,
+                reverseTransaction,
                 transactionsFilename,
                 toCurrency,
                 isDbConnected,

@@ -18,7 +18,7 @@ export type ReceiptData = {
 
 export const usePay = () => {
     const { openPopup, closePopup } = usePopup();
-    const { updateTransaction, getCurrentTotal, toCurrency, total, amount, selectedProduct, transactions, products } =
+    const { updateTransaction, getCurrentTotal, toCurrency, total, amount, selectedProduct, transactions, products, reverseTransaction } =
         useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
     const { paymentMethods, currencies, currencyIndex, parameters, getPrintersNames, getPrinterAddresses } =
@@ -167,25 +167,25 @@ export const usePay = () => {
                     printTransaction(option);
                     break;
                 case REFUND_KEYWORD:
-                    // Create refund transaction with negative prices
-                    const currentTime = new Date().getTime();
-                    const refundProducts = products.current.map((product: Product) => ({
-                        ...product,
-                        amount: -product.amount,
-                        total: -(product.total ?? product.amount * product.quantity),
-                    }));
-
-                    const refundTransaction: Transaction = {
+                    // Use reverseTransaction to properly reverse quantities using computeQuantity
+                    const currentTransaction: Transaction = {
                         validator: parameters.user.name,
                         method: option,
-                        amount: -getCurrentTotal(),
-                        createdDate: currentTime,
+                        amount: getCurrentTotal(),
+                        createdDate: new Date().getTime(),
                         modifiedDate: 0,
                         currency: currencies[currencyIndex].label,
-                        products: refundProducts,
+                        products: products.current,
                     };
-
-                    updateTransaction(refundTransaction);
+                    
+                    const reversedTransaction = reverseTransaction(currentTransaction);
+                    // Replace current products with reversed ones
+                    products.current.length = 0;
+                    reversedTransaction.products.forEach(product => {
+                        products.current.push(product);
+                    });
+                    
+                    updateTransaction(option);
                     closePopup();
                     break;
                 default:
@@ -203,11 +203,12 @@ export const usePay = () => {
             paymentMethods,
             openPopup,
             printTransaction,
+            products,
             currencies,
             currencyIndex,
             getCurrentTotal,
             parameters.user.name,
-            products,
+            reverseTransaction,
         ]
     );
 

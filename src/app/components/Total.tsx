@@ -9,7 +9,13 @@ import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
-import { BACK_KEYWORD, UPDATING_KEYWORD, WAITING_KEYWORD } from '../utils/constants';
+import {
+    BACK_KEYWORD,
+    PROCESSING_KEYWORD,
+    REFUND_KEYWORD,
+    UPDATING_KEYWORD,
+    WAITING_KEYWORD,
+} from '../utils/constants';
 import { isMobileDevice, isMobileSize, useIsMobile } from '../utils/mobile';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
@@ -71,19 +77,20 @@ export const Total: FC = () => {
         total,
         getCurrentTotal,
         amount,
-        products,
         selectedProduct,
-        deleteProduct,
-        displayProduct,
         transactions,
         editTransaction,
-        updateTransaction,
         deleteTransaction,
-        toCurrency,
         displayTransaction,
+        reverseTransaction,
+        toCurrency,
+        products,
         setSelectedProduct,
         setAmount,
         setQuantity,
+        deleteProduct,
+        displayProduct,
+        updateTransaction,
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
@@ -93,6 +100,25 @@ export const Total: FC = () => {
     const [needRefresh, setNeedRefresh] = useState(false);
 
     const label = useIsMobile() ? totalLabel : payLabel;
+
+    // Helper function to edit transaction, reversing refund transactions first
+    const editTransactionWithReversal = useCallback(
+        (index: number) => {
+            const transaction = transactions.at(index);
+            if (!transaction) return;
+
+            // If it's a refund transaction, reverse it first
+            if (transaction.method === REFUND_KEYWORD) {
+                const reversedTransaction = reverseTransaction(transaction);
+                // Replace the transaction in the array with the reversed one
+                transactions.splice(index, 1, reversedTransaction);
+            }
+            
+            // Now call editTransaction normally
+            editTransaction(index);
+        },
+        [transactions, reverseTransaction, editTransaction]
+    );
 
     const getTransactionMenu = useCallback(
         (transaction: Transaction | undefined, fallback: (index: number) => void) => {
@@ -105,14 +131,14 @@ export const Total: FC = () => {
                     {
                         label: isWaiting ? 'Payer' : 'Modifier Paiement',
                         action: (index: number) => {
-                            editTransaction(index); // set the transaction as current
+                            editTransactionWithReversal(index); // set the transaction as current
                             setTimeout(pay, 100);
                         },
                     },
                     {
                         label: isWaiting ? 'Reprendre' : 'Modifier Produits',
                         action: (index: number) => {
-                            editTransaction(index);
+                            editTransactionWithReversal(index);
                             closePopup();
                         },
                     },
@@ -138,7 +164,15 @@ export const Total: FC = () => {
                     ]),
             };
         },
-        [editTransaction, isStateReady, deleteTransaction, pay, printTransaction, closePopup, getPrintersNames]
+        [
+            editTransactionWithReversal,
+            isStateReady,
+            deleteTransaction,
+            pay,
+            printTransaction,
+            closePopup,
+            getPrintersNames,
+        ]
     );
 
     const selectProduct = useCallback(
