@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { QRCode } from '../components/QRCode';
 import { Shop } from '../contexts/ConfigProvider';
-import { IS_LOCAL, PRINT_KEYWORD, PROCESSING_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
+import { isWaitingTransaction } from '../contexts/DataProvider';
+import { IS_LOCAL, PRINT_KEYWORD, REFUND_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
 import { printReceipt } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
-import { Transaction, useData } from './useData';
+import { Product, Transaction, useData } from './useData';
 import { usePopup } from './usePopup';
-import { isWaitingTransaction } from '../contexts/DataProvider';
 
 export type ReceiptData = {
     shop: Shop;
@@ -18,7 +18,8 @@ export type ReceiptData = {
 
 export const usePay = () => {
     const { openPopup, closePopup } = usePopup();
-    const { updateTransaction, getCurrentTotal, toCurrency, total, amount, selectedProduct, transactions } = useData();
+    const { updateTransaction, getCurrentTotal, toCurrency, total, amount, selectedProduct, transactions, products } =
+        useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
     const { paymentMethods, currencies, currencyIndex, parameters, getPrintersNames, getPrinterAddresses } =
         useConfig();
@@ -165,6 +166,28 @@ export const usePay = () => {
                     updateTransaction(WAITING_KEYWORD);
                     printTransaction(option);
                     break;
+                case REFUND_KEYWORD:
+                    // Create refund transaction with negative prices
+                    const currentTime = new Date().getTime();
+                    const refundProducts = products.current.map((product: Product) => ({
+                        ...product,
+                        amount: -product.amount,
+                        total: -(product.total ?? product.amount * product.quantity),
+                    }));
+
+                    const refundTransaction: Transaction = {
+                        validator: parameters.user.name,
+                        method: option,
+                        amount: -getCurrentTotal(),
+                        createdDate: currentTime,
+                        modifiedDate: 0,
+                        currency: currencies[currencyIndex].label,
+                        products: refundProducts,
+                    };
+
+                    updateTransaction(refundTransaction);
+                    closePopup();
+                    break;
                 default:
                     updateTransaction(option.includes(WAITING_KEYWORD) ? WAITING_KEYWORD : option);
                     closePopup();
@@ -180,6 +203,11 @@ export const usePay = () => {
             paymentMethods,
             openPopup,
             printTransaction,
+            currencies,
+            currencyIndex,
+            getCurrentTotal,
+            parameters.user.name,
+            products,
         ]
     );
 
@@ -190,6 +218,7 @@ export const usePay = () => {
                 .filter((item) => item.currency === currencies[currencyIndex].symbol)
                 .map((item) => item.type)
                 .concat(['', 'METTRE ' + WAITING_KEYWORD])
+                .concat(REFUND_KEYWORD)
                 .concat(getPrintersNames());
             if (paymentMethodsLabels.length === 1) {
                 selectPayment(paymentMethodsLabels[0], pay);

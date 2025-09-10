@@ -5,6 +5,7 @@ export const EMAIL = 'flo@fims.fi';
 export const OTHER_KEYWORD = 'Autres';
 export const TRANSACTIONS_KEYWORD = 'Transactions';
 export const WAITING_KEYWORD = 'EN ATTENTE';
+export const REFUND_KEYWORD = 'REMBOURSEMENT';
 export const PRINT_KEYWORD = 'Impression';
 export const LOCAL_PRINTER_KEYWORD = 'Local';
 export const UPDATING_KEYWORD = 'EN MODIF';
