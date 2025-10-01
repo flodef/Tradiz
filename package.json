@@ -5,9 +5,9 @@
     "license": "MIT",
     "scripts": {
         "clean": "shx rm -rf .next",
-        "dev": "next dev",
+        "dev": "next dev -p 4000",
         "build": "next build",
-        "start": "next start",
+        "start": "next start -p 4000",
         "lint": "next lint",
         "test": "jest",
         "nuke": "shx rm -rf node_modules package-lock.json || true",
@@ -23,6 +23,7 @@
         "caniuse-lite": "latest",
         "eslint-plugin-jsx-a11y": "latest",
         "firebase": "latest",
+        "mysql2": "latest",
         "next": "latest",
         "node-thermal-printer": "latest",
         "nodemailer": "latest",
@@ -34,8 +35,8 @@
         "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
     },
     "devDependencies": {
-        "@commitlint/cli": "latest",
-        "@commitlint/config-conventional": "latest",
+        "@commitlint/cli": "^20.1.0",
+        "@commitlint/config-conventional": "^20.0.0",
         "@types/bs58": "4.0.4",
         "@types/jest": "latest",
         "@types/node": "latest",

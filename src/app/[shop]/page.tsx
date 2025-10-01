@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { metadata } from '../layout';
 import Home from '../page';
+import { SearchParams } from 'next/dist/server/request/search-params';
 
 type Props = {
     params: Promise<{ shop: string }>;

@@ -94,6 +94,7 @@ export interface ConfigContextState {
     colors: Color[];
     getPrintersNames: () => string[];
     getPrinterAddresses: (name?: string) => string[];
+    orderId: string | undefined;
 }
 
 export const ConfigContext = createContext<ConfigContextState>({} as ConfigContextState);

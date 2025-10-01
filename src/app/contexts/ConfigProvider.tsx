@@ -13,6 +13,7 @@ import {
     State,
     User,
 } from '../hooks/useConfig';
+import { Product, useData } from '../hooks/useData';
 import { useWindowParam } from '../hooks/useWindowParam';
 import { IS_DEV, LOCAL_PRINTER_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
@@ -55,9 +56,11 @@ export interface Config {
 export interface ConfigProviderProps {
     children: ReactNode;
     shop: string;
+    orderId?: string;
 }
 
-export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
+export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop, orderId }) => {
+    const { addProduct } = useData();
     const { isDemo } = useWindowParam();
 
     const [state, setState] = useState(State.init);
@@ -169,6 +172,11 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
 
     useEffect(() => {
         if (state === State.init) {
+            console.log('orderId', orderId);
+            fetch(`/api/mariadb/getOrderItems?orderId=${orderId}`)
+                .then((response) => response.json())
+                .then((items: Product[]) => items.forEach(addProduct));
+
             setState(State.loading);
 
             loadConfig(config);
@@ -187,7 +195,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
                     }
                 });
         }
-    }, [state, config, storeData, loadConfig, shop, parameters, isDemo]);
+    }, [state, config, storeData, loadConfig, shop, parameters, isDemo, addProduct, orderId]);
 
     return (
         <ConfigContext.Provider
@@ -205,6 +213,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
                 colors,
                 getPrintersNames,
                 getPrinterAddresses,
+                orderId,
             }}
         >
             {children}

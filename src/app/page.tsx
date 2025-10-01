@@ -7,7 +7,7 @@ import { PopupProvider } from './contexts/PopupProvider';
 import {} from './utils/extensions';
 
 type HomeProps = {
-    params: { shop: string };
+    params: { shop: string; orderId?: string };
     searchParams: { [key: string]: string | string[] | undefined };
 };
 
@@ -17,7 +17,7 @@ export default async function Home({ params }: HomeProps) {
             className={'absolute inset-0 grid select-none overflow-y-auto md:overflow-y-hidden'}
             style={{ background: 'inherit' }}
         >
-            <ConfigProvider shop={params.shop}>
+            <ConfigProvider shop={params.shop} orderId={params.orderId}>
                 <DataProvider>
                     <PopupProvider>
                         <CryptoProvider>

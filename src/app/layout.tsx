@@ -1,6 +1,7 @@
 import { Inter } from 'next/font/google';
 import { twMerge } from 'tailwind-merge';
 import './globals.css';
+import { ReactNode } from 'react';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -9,7 +10,7 @@ export const metadata = {
     description: 'Caisse enregistreuse merveilleuse',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
     return (
         <html lang="fr">
             <body
