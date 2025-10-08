@@ -136,7 +136,7 @@ La clé est affichée dans un popup où vous pouvez la copier.
 
 Pour simplement créer l'application, il est préférable d'utiliser le processus automatisé de [Vercel](https://vercel.com) :
 
-[![Créer avec Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/flodef/FiMs-POS&project-name=FiMs-POS&repository-name=FiMs-POS)
+[![Créer avec Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/flodef/Tradiz&project-name=Tradiz&repository-name=Tradiz)
 
 Une fois sur Vercel, créer un répertoire git en cliquant sur **Create**.
 
@@ -186,21 +186,24 @@ Et voilà 🥳🥳🥳
 Cloner le code source du projet en ouvrant un terminal de commande puis en utilisant la commande suivante :
 
 ```bash
-git clone https://github.com/flodef/FiMs-POS.git
+git clone https://github.com/flodef/Tradiz.git
 ```
 
-Alternativement, il est possible de télécharger le code source en cliquant sur le bouton **Code** puis **Download ZIP** depuis la page du projet sur Github : https://github.com/flodef/FiMs-POS
+Alternativement, il est possible de télécharger le code source en cliquant sur le bouton **Code** puis **Download ZIP** depuis la page du projet sur Github : https://github.com/flodef/Tradiz
 
 ### Installer les dépendances
 
 Une fois le projet cloné, il faut installer les dépendances en utilisant la commande suivante :
 
 ```bash
+bun install
+# or
 npm install
 # or
 yarn install
 # or
 pnpm install
+# or
 ```
 
 ### Lancer le projet en local
@@ -208,6 +211,8 @@ pnpm install
 Pour lancer le projet en local, il faut utiliser la commande suivante :
 
 ```bash
+bun dev
+# or
 npm run dev
 # or
 yarn dev
