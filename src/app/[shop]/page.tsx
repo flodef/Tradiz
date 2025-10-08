@@ -5,6 +5,7 @@ import { SearchParams } from 'next/dist/server/request/search-params';
 
 type Props = {
     params: Promise<{ shop: string }>;
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -15,7 +16,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
 }
 
-export default async function Page({ params }: Props) {
+export default async function Page({ params, searchParams }: Props) {
     const { shop } = await params;
-    return Home({ params: { shop }, searchParams: {} });
+    const { orderId } = await searchParams;
+    return Home({ params: { shop }, searchParams: { orderId } });
 }
