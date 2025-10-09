@@ -7,19 +7,20 @@ import { PopupProvider } from './contexts/PopupProvider';
 import {} from './utils/extensions';
 
 type HomeProps = {
-    params: { shop: string };
-    searchParams: { [key: string]: string | string[] | undefined };
+    params: Promise<{ shop: string }>;
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
 export default async function Home({ params, searchParams }: HomeProps) {
-    const orderId = typeof searchParams.orderId === 'string' ? searchParams.orderId : undefined;
+    const { shop } = await params;
+    const { orderId } = await searchParams;
 
     return (
         <main
             className="absolute inset-0 grid select-none overflow-y-auto md:overflow-y-hidden"
             style={{ background: 'inherit' }}
         >
-            <ConfigProvider shop={params.shop} orderId={orderId}>
+            <ConfigProvider shop={shop} orderId={orderId as string}>
                 <DataProvider>
                     <PopupProvider>
                         <CryptoProvider>
