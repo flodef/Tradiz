@@ -1,4 +1,3 @@
-import { Product } from '@/app/hooks/useData';
 import mysql from 'mysql2/promise';
 import { NextResponse } from 'next/server';
 
@@ -21,21 +20,18 @@ export async function GET(request: Request) {
 
         // SQL query with parameterized query for security
         const query = `
-            SELECT f.nom AS label, f.prix AS amount, a.quantite as quantity, b.nom_categorie AS category
-            FROM rel_panier_formule a
-            JOIN rel_pf_ef b ON b.id_pf = a.id
-            JOIN element_formule c ON c.id = b.id_ef
-            JOIN rel_ef_formule d ON d.id_element_formule = c.id
-            JOIN article e ON e.id = b.id_article
-            JOIN formule f ON f.id = a.formule_id
-            WHERE a.panier_id = ?
+            SELECT a.nom as label, a.prix as amount, a.taux_tva as rate, b.nom as category, a.options as options
+            FROM article a
+            JOIN categorie b on b.id = a.categorie
         `;
 
-        const [rows] = await connection.execute(query, [orderId]);
+        const [rows] = await connection.execute(query);
+
+        console.log(rows);
 
         await connection.end();
 
-        return NextResponse.json(rows as Product[], { status: 200 });
+        return NextResponse.json(rows, { status: 200 });
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching data' }, { status: 500 });
