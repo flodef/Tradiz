@@ -1,5 +1,15 @@
 import { Config, Parameters } from '../contexts/ConfigProvider';
-import { Color, Currency, Discount, InventoryItem, Mercurial, PaymentMethod, Printer, Role } from '../hooks/useConfig';
+import {
+    Color,
+    Currency,
+    Discount,
+    InventoryItem,
+    Mercurial,
+    PaymentMethod,
+    Printer,
+    Role,
+    User,
+} from '../hooks/useConfig';
 import { EMAIL } from './constants';
 import { generateSimpleId } from './id';
 
@@ -25,6 +35,16 @@ export class UserNotFoundError extends Error {
     constructor(email: string | undefined) {
         super(`Utilisateur non identifié: ${email}`, { cause: email });
     }
+}
+
+export interface ProductData {
+    products: {
+        rate: number;
+        category: string;
+        label: string;
+        prices: number[];
+    }[];
+    currencies: string[];
 }
 
 interface DataName {
@@ -139,7 +159,9 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
     const colors = await fetchData(dataNames.colors, id).then(convertColorsData);
     const printers = await fetchData(dataNames.printers, id).then(convertPrintersData);
 
-    const data = await fetchData(dataNames.products, id).then(convertProductsData);
+    const data = !process.env.NEXT_PUBLIC_USE_SQLDB
+        ? await fetchData(dataNames.products, id).then(convertProductsData)
+        : await fetch(`/api/mariadb/getAllArticles`).then(convertProductsData);
     if (!data?.products?.length || !data?.currencies?.length) return;
 
     const currencies = data.currencies.map((item) => {
@@ -230,7 +252,7 @@ async function convertIndexData(response: void | Response) {
     }
 }
 
-async function convertUsersData(response: void | Response) {
+async function convertUsersData(response: void | Response): Promise<User[]> {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
@@ -253,7 +275,7 @@ async function convertUsersData(response: void | Response) {
     }
 }
 
-async function convertParametersData(response: void | Response) {
+async function convertParametersData(response: void | Response): Promise<(string | undefined)[]> {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
@@ -378,7 +400,7 @@ async function convertPrintersData(response: void | Response): Promise<Printer[]
     }
 }
 
-async function convertProductsData(response: void | Response) {
+async function convertProductsData(response: void | Response): Promise<ProductData | undefined> {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
@@ -398,7 +420,7 @@ async function convertProductsData(response: void | Response) {
                             prices: item.filter((_, i) => i >= 4).map((price) => Number(price) ?? 0),
                         };
                     }),
-                currencies: data.values[0].filter((_, i) => i >= 4),
+                currencies: data.values[0].filter((_, i) => i >= 4).map((currency) => String(currency).trim()),
             };
         });
     } catch (error) {

@@ -13,7 +13,7 @@ import {
     State,
     User,
 } from '../hooks/useConfig';
-import { Product, useData } from '../hooks/useData';
+import { useData } from '../hooks/useData';
 import { useWindowParam } from '../hooks/useWindowParam';
 import { IS_DEV, LOCAL_PRINTER_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
@@ -172,11 +172,6 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop, orderI
 
     useEffect(() => {
         if (state === State.init) {
-            console.log('orderId', orderId);
-            fetch(`/api/mariadb/getOrderItems?orderId=${orderId}`)
-                .then((response) => response.json())
-                .then((items: Product[]) => items.forEach(addProduct));
-
             setState(State.loading);
 
             loadConfig(config);
