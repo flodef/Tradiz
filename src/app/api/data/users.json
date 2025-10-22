@@ -1,3 +1,8 @@
 {
-    "values": [["Clé", "Nom", "Rôle"]]
+    "values": [
+        ["Clé", "Nom", "Rôle"],
+        ["1234567890", "Toto", "Cashier"],
+        ["1234567891", "Titi", "Service"],
+        ["1234567892", "Tata", "Kitchen"]
+    ]
 }
