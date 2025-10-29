@@ -6,9 +6,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get('orderId');
 
-    if (!orderId) {
-        return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
-    }
+    if (!orderId) return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
 
     try {
         // Connection configuration for MariaDB

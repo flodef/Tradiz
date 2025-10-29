@@ -54,6 +54,7 @@ export const Category: FC = () => {
     const { isLocalhost, isDemo } = useWindowParam();
 
     const [hasSentEmail, setHasSentEmail] = useState(false);
+    const [orderId, setOrderId] = useState('');
 
     useEffect(() => {
         switch (state) {
@@ -123,6 +124,26 @@ export const Category: FC = () => {
         isDemo,
         isLocalhost,
     ]);
+
+    useEffect(() => {
+        const handler = (e: MessageEvent) => {
+            if (e.origin !== 'yankee-grill.digi-carte.fr') return;
+            if (e.data?.type === 'ORDER_ID') setOrderId(e.data.orderId);
+        };
+
+        window.addEventListener('message', handler);
+        return () => window.removeEventListener('message', handler);
+    }, []);
+
+    useEffect(() => {
+        if (!orderId) return;
+
+        console.log('orderId', orderId);
+
+        fetch(`/api/mariadb/getOrderItems?orderId=${orderId}`)
+            .then((res) => res.json())
+            .then((data) => data.forEach(addProduct));
+    }, [addProduct, orderId]);
 
     const addSpecificProduct = (item: InventoryItem, option: string) => {
         const price = item.products.find(({ label }) => label === option)?.prices[currencyIndex];
