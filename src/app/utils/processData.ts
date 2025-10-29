@@ -106,12 +106,10 @@ export function getPublicKey() {
     return publicKey;
 }
 
-const emptyShop = { id: undefined, fee: 0 };
-
 export async function loadData(shop: string, shouldUseLocalData = false): Promise<Config | undefined> {
     // TODO: use fee
-    const { id, fee } = shouldUseLocalData
-        ? emptyShop // if the app is used locally, use the local data
+    const id = shouldUseLocalData
+        ? undefined // if the app is used locally, use the local data
         : typeof shop === 'string' // if shop is a string, it means that the app is used by a customer (custom path)
           ? await fetch(`./api/spreadsheet?sheetName=index`)
                 .then(convertIndexData)
@@ -119,14 +117,14 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
                     (data) =>
                         data
                             .filter(({ shop: s }) => s === shop)
-                            .map(({ id, fee }) => ({ id, fee }))
-                            .at(0) ?? emptyShop
+                            .map(({ id }) => id)
+                            .at(0) ?? undefined
                 )
                 .catch((error) => {
                     console.error(error);
-                    return emptyShop;
+                    return undefined;
                 })
-          : { id: '', fee: 0 }; // if shop is not a string, it means that the app is used by a shop (root path)
+          : ''; // if shop is not a string, it means that the app is used by a shop (root path)
 
     if (id !== undefined && !navigator.onLine) throw new AppOfflineError();
 
