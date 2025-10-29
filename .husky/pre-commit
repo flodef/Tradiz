@@ -1,1 +1,1 @@
-if git diff --cached --name-only | grep -E '\.(ts(x)?|js(x)?)$'; then bun run build; fi
+if git diff --cached --name-only | grep -E '\.(ts(x)?|js(x)?)$'; then bun run build; else bun lint; fi
