@@ -1,4 +1,4 @@
-import { ProductData } from '@/app/utils/processData';
+import {} from '@/app/utils/extensions';
 import mysql from 'mysql2/promise';
 import { NextResponse } from 'next/server';
 
@@ -19,23 +19,19 @@ export async function GET(request: Request) {
             JOIN categorie b on b.id = a.categorie
         `;
 
-        console.log(query);
-
         const [rows] = await connection.execute(query);
 
-        console.log(rows);
-
-        const data: ProductData = {
-            products: (rows as any[]).map((row) => ({
-                rate: Number(row.rate) * 100,
-                category: String(row.category ?? ''),
-                label: String(row.label ?? ''),
-                prices: [Number(row.amount) ?? 0],
-            })),
-            currencies: ['€'],
-        };
-
-        console.log(data);
+        const data: { values: (number | string | boolean)[][] } = { values: [] };
+        data.values.push(['Taux', 'Catégorie', 'Nom', 'Indisponible', 'Euro (€)']);
+        data.values.push(
+            ...(rows as any[]).map((row): (number | string | boolean)[] => [
+                Number(row.rate) / 100,
+                String(row.category ?? ''),
+                String(row.label ?? ''),
+                false,
+                Number(Number(row.amount).toFixed(2)) ?? 0,
+            ])
+        );
 
         await connection.end();
 

@@ -37,7 +37,7 @@ export class UserNotFoundError extends Error {
     }
 }
 
-export interface ProductData {
+interface ProductData {
     products: {
         rate: number;
         category: string;
@@ -159,9 +159,10 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
     const colors = await fetchData(dataNames.colors, id).then(convertColorsData);
     const printers = await fetchData(dataNames.printers, id).then(convertPrintersData);
 
-    const data = !process.env.NEXT_PUBLIC_USE_SQLDB
-        ? await fetchData(dataNames.products, id).then(convertProductsData)
-        : await fetch(`/api/mariadb/getAllArticles`).then(convertProductsData);
+    const data = await (
+        !process.env.NEXT_PUBLIC_USE_SQLDB ? fetchData(dataNames.products, id) : fetch(`/api/mariadb/getAllArticles`)
+    ).then(convertProductsData);
+
     if (!data?.products?.length || !data?.currencies?.length) return;
 
     const currencies = data.currencies.map((item) => {
@@ -208,9 +209,7 @@ async function fetchData(dataName: DataName, id: string | undefined, isRaw = tru
         id !== undefined
             ? `./api/spreadsheet?sheetName=${dataName.sheet}&id=${id}&isRaw=${isRaw.toString()}`
             : `./api/json?fileName=${dataName.json}`
-    ).catch((error) => {
-        console.error(error);
-    });
+    ).catch((error) => console.error(error));
 }
 
 function checkData(data: any, minCol: number, maxCol = minCol, minRow = 1, maxRow = 100000) {
@@ -429,7 +428,4 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
     }
 }
 
-function normalizedString(value: any) {
-    const label = String(value).trim();
-    return label.charAt(0).toUpperCase() + label.slice(1);
-}
+const normalizedString = (value: any) => String(value).toFirstUpperCase();
