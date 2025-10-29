@@ -4,7 +4,6 @@ import Home from '../page';
 
 type Props = {
     params: Promise<{ shop: string }>;
-    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -15,6 +14,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
 }
 
-export default async function Page({ params, searchParams }: Props) {
-    return Home({ params, searchParams });
+export default async function Page({ params }: Props) {
+    return Home({ params });
 }

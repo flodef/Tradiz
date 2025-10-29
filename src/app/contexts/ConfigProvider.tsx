@@ -56,10 +56,9 @@ export interface Config {
 export interface ConfigProviderProps {
     children: ReactNode;
     shop: string;
-    orderId?: string;
 }
 
-export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop, orderId }) => {
+export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const { addProduct } = useData();
     const { isDemo } = useWindowParam();
 
@@ -171,26 +170,26 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop, orderI
     }, [colors]);
 
     useEffect(() => {
-        if (state === State.init) {
-            setState(State.loading);
+        if (state !== State.init) return;
 
-            loadConfig(config);
+        setState(State.loading);
 
-            loadData(shop, IS_DEV || isDemo)
-                .then(storeData)
-                .catch((error) => {
-                    console.error(error);
+        loadConfig(config);
 
-                    parameters.error = error.message;
-                    if (error instanceof UserNotFoundError) {
-                        parameters.shop.email = String(error.cause);
-                        setState(State.unidentified);
-                    } else {
-                        setState(State.error);
-                    }
-                });
-        }
-    }, [state, config, storeData, loadConfig, shop, parameters, isDemo, addProduct, orderId]);
+        loadData(shop, IS_DEV || isDemo)
+            .then(storeData)
+            .catch((error) => {
+                console.error(error);
+
+                parameters.error = error.message;
+                if (error instanceof UserNotFoundError) {
+                    parameters.shop.email = String(error.cause);
+                    setState(State.unidentified);
+                } else {
+                    setState(State.error);
+                }
+            });
+    }, [state, config, storeData, loadConfig, shop, parameters, isDemo]);
 
     return (
         <ConfigContext.Provider
@@ -208,7 +207,6 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop, orderI
                 colors,
                 getPrintersNames,
                 getPrinterAddresses,
-                orderId,
             }}
         >
             {children}

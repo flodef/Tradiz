@@ -8,19 +8,17 @@ import {} from './utils/extensions';
 
 type HomeProps = {
     params: Promise<{ shop: string }>;
-    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
-export default async function Home({ params, searchParams }: HomeProps) {
+export default async function Home({ params }: HomeProps) {
     const { shop } = await params;
-    const { orderId } = await searchParams;
 
     return (
         <main
             className="absolute inset-0 grid select-none overflow-y-auto md:overflow-y-hidden"
             style={{ background: 'inherit' }}
         >
-            <ConfigProvider shop={shop} orderId={orderId as string}>
+            <ConfigProvider shop={shop}>
                 <DataProvider>
                     <PopupProvider>
                         <CryptoProvider>
