@@ -3,10 +3,11 @@ import { QRCode } from '../components/QRCode';
 import { Shop } from '../contexts/ConfigProvider';
 import { isWaitingTransaction } from '../contexts/DataProvider';
 import { IS_LOCAL, PRINT_KEYWORD, REFUND_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
+import { Transaction } from '../utils/interfaces';
 import { printReceipt } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
-import { Product, Transaction, useData } from './useData';
+import { useData } from './useData';
 import { usePopup } from './usePopup';
 
 export type ReceiptData = {
@@ -18,8 +19,17 @@ export type ReceiptData = {
 
 export const usePay = () => {
     const { openPopup, closePopup } = usePopup();
-    const { updateTransaction, getCurrentTotal, toCurrency, total, amount, selectedProduct, transactions, products, reverseTransaction } =
-        useData();
+    const {
+        updateTransaction,
+        getCurrentTotal,
+        toCurrency,
+        total,
+        amount,
+        selectedProduct,
+        transactions,
+        products,
+        reverseTransaction,
+    } = useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
     const { paymentMethods, currencies, currencyIndex, parameters, getPrintersNames, getPrinterAddresses } =
         useConfig();
@@ -177,14 +187,14 @@ export const usePay = () => {
                         currency: currencies[currencyIndex].label,
                         products: products.current,
                     };
-                    
+
                     const reversedTransaction = reverseTransaction(currentTransaction);
                     // Replace current products with reversed ones
                     products.current.length = 0;
-                    reversedTransaction.products.forEach(product => {
+                    reversedTransaction.products.forEach((product) => {
                         products.current.push(product);
                     });
-                    
+
                     updateTransaction(option);
                     closePopup();
                     break;

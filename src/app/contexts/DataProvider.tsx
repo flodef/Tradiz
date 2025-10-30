@@ -15,8 +15,8 @@ import {
     where,
 } from 'firebase/firestore';
 import { ChangeEvent, FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Currency, Discount, Mercurial, useConfig } from '../hooks/useConfig';
-import { DataContext, Product, SyncAction, SyncPeriod, Transaction, TransactionSet } from '../hooks/useData';
+import { useConfig } from '../hooks/useConfig';
+import { DataContext } from '../hooks/useData';
 import { useWindowParam } from '../hooks/useWindowParam';
 import {
     DELETED_KEYWORD,
@@ -28,6 +28,16 @@ import {
     WAITING_KEYWORD,
 } from '../utils/constants';
 import { getFormattedDate, getTransactionFileName } from '../utils/date';
+import {
+    Currency,
+    Discount,
+    Mercurial,
+    Product,
+    SyncAction,
+    SyncPeriod,
+    Transaction,
+    TransactionSet,
+} from '../utils/interfaces';
 
 enum DatabaseAction {
     add,
@@ -808,20 +818,23 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         ]
     );
 
-    const reverseTransaction = useCallback((transaction: Transaction): Transaction => {
-        const reversedProducts = transaction.products.map(product => {
-            const reversedProduct = { ...product };
-            // Use computeQuantity with negative quantity to properly calculate reversed values
-            computeQuantity(reversedProduct, -product.quantity);
-            return reversedProduct;
-        });
-        
-        return {
-            ...transaction,
-            amount: -transaction.amount,
-            products: reversedProducts,
-        };
-    }, [computeQuantity]);
+    const reverseTransaction = useCallback(
+        (transaction: Transaction): Transaction => {
+            const reversedProducts = transaction.products.map((product) => {
+                const reversedProduct = { ...product };
+                // Use computeQuantity with negative quantity to properly calculate reversed values
+                computeQuantity(reversedProduct, -product.quantity);
+                return reversedProduct;
+            });
+
+            return {
+                ...transaction,
+                amount: -transaction.amount,
+                products: reversedProducts,
+            };
+        },
+        [computeQuantity]
+    );
 
     const displayTransaction = useCallback(
         (transaction: Transaction) => {

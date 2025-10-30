@@ -1,4 +1,4 @@
-import { Product } from '@/app/hooks/useData';
+import { Product } from '@/app/utils/interfaces';
 import mysql from 'mysql2/promise';
 import { NextResponse } from 'next/server';
 

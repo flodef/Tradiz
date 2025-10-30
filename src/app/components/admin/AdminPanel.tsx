@@ -2,7 +2,7 @@
 
 import { Config, updateConfigTheme } from '@/app/actions/config';
 import { Parameters } from '@/app/contexts/ConfigProvider';
-import { Category, Color, Currency, Discount, PaymentMethod, Printer, Product, User } from '@/app/hooks/useConfig';
+import { Category, Color, Currency, Discount, PaymentMethod, Printer, User } from '@/app/utils/interfaces';
 import { useState } from 'react';
 import CategoriesConfig from './sections/CategoriesConfig';
 import ColorsConfig from './sections/ColorsConfig';
@@ -10,7 +10,7 @@ import CurrenciesConfig from './sections/CurrenciesConfig';
 import DiscountsConfig from './sections/DiscountsConfig';
 import PaymentsConfig from './sections/PaymentsConfig';
 import PrintersConfig from './sections/PrintersConfig';
-import ProductsConfig from './sections/ProductsConfig';
+import ProductsConfig, { AdminProduct } from './sections/ProductsConfig';
 import SettingsConfig from './sections/SettingsConfig';
 import UsersConfig from './sections/UsersConfig';
 
@@ -68,9 +68,9 @@ export default function AdminPanel({ initialConfig, shopName }: AdminPanelProps)
             <h1 className="text-3xl font-bold mb-6 text-center">Panneau d'administration pour {shopName}</h1>
             <div className="space-y-6">
                 <ProductsConfig
-                    config={config.Products as Product[]}
-                    onChange={(data: Product[]) => handleChange('Products', data)}
-                    onSave={(data: Product[]) => handleSave('Products', data)}
+                    config={config.Products as AdminProduct[]}
+                    onChange={(data: AdminProduct[]) => handleChange('Products', data)}
+                    onSave={(data: AdminProduct[]) => handleSave('Products', data)}
                     categories={categories}
                     currencies={currencies}
                 />

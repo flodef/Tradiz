@@ -1,7 +1,7 @@
-import { Printer } from '@/app/hooks/useConfig';
+import { Printer } from '@/app/utils/interfaces';
+import { useEffect, useState } from 'react';
 import SectionCard from '../SectionCard';
 import PrinterItem from '../items/PrinterItem';
-import { useState, useEffect } from 'react';
 
 export default function PrintersConfig({
     config,

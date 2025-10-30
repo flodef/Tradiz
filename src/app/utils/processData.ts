@@ -9,7 +9,7 @@ import {
     Printer,
     Role,
     User,
-} from '../hooks/useConfig';
+} from '../utils/interfaces';
 import { EMAIL } from './constants';
 import { generateSimpleId } from './id';
 

@@ -1,7 +1,7 @@
-import { PaymentMethod } from '@/app/hooks/useConfig';
+import { PaymentMethod } from '@/app/utils/interfaces';
+import { useEffect, useState } from 'react';
 import SectionCard from '../SectionCard';
 import PaymentItem from '../items/PaymentItem';
-import { useState, useEffect } from 'react';
 
 export default function PaymentsConfig({
     config,

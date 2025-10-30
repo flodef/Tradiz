@@ -1,4 +1,4 @@
-import { Discount } from '@/app/hooks/useConfig';
+import { Discount } from '@/app/utils/interfaces';
 import SectionCard from '../SectionCard';
 import DiscountItem from '../items/DiscountItem';
 import { useState, useEffect } from 'react';

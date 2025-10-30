@@ -1,7 +1,7 @@
-import { Color } from '@/app/hooks/useConfig';
+import { Color } from '@/app/utils/interfaces';
+import { useEffect, useState } from 'react';
 import SectionCard from '../SectionCard';
 import ColorItem from '../items/ColorItem';
-import { useState, useEffect } from 'react';
 
 export default function ColorsConfig({
     config,

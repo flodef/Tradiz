@@ -4,21 +4,16 @@ import { FC, MouseEventHandler, useCallback, useMemo, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { isConfirmedTransaction, isUpdatingTransaction, isWaitingTransaction } from '../contexts/DataProvider';
 import { useConfig } from '../hooks/useConfig';
-import { Transaction, useData } from '../hooks/useData';
+import { useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
-import {
-    BACK_KEYWORD,
-    PROCESSING_KEYWORD,
-    REFUND_KEYWORD,
-    UPDATING_KEYWORD,
-    WAITING_KEYWORD,
-} from '../utils/constants';
+import { BACK_KEYWORD, REFUND_KEYWORD, UPDATING_KEYWORD, WAITING_KEYWORD } from '../utils/constants';
 import { isMobileDevice, isMobileSize, useIsMobile } from '../utils/mobile';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
+import { Transaction } from '../utils/interfaces';
 
 const payLabel = 'PAYER';
 const totalLabel = 'TOTAL';

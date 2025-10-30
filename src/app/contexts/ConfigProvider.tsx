@@ -1,9 +1,7 @@
 'use client';
 
-import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Color,
-    ConfigContext,
     Currency,
     Discount,
     InventoryItem,
@@ -12,7 +10,9 @@ import {
     Printer,
     State,
     User,
-} from '../hooks/useConfig';
+} from '@/app/utils/interfaces';
+import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { ConfigContext } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { useWindowParam } from '../hooks/useWindowParam';
 import { IS_DEV, LOCAL_PRINTER_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';

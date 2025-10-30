@@ -1,6 +1,6 @@
-import ValidatedInput from '../ValidatedInput';
+import { Color } from '@/app/utils/interfaces';
 import ColorPicker from '../ColorPicker';
-import { Color } from '@/app/hooks/useConfig';
+import ValidatedInput from '../ValidatedInput';
 
 interface ColorItemProps {
     color: Color;

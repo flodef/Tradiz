@@ -6,8 +6,9 @@ import { DELETED_KEYWORD, PRINT_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../u
 import { formatFrenchDate, getFormattedDate } from '../utils/date';
 import { printSummary } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
-import { DataElement, SyncAction, Transaction, useData } from './useData';
+import { useData } from './useData';
 import { usePopup } from './usePopup';
+import { DataElement, SyncAction, Transaction } from '../utils/interfaces';
 
 export type SummaryData = {
     shop: Shop;

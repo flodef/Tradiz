@@ -2,7 +2,7 @@
 
 import { FC, MouseEventHandler, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
-import { EmptyDiscount, Mercurial, useConfig } from '../hooks/useConfig';
+import { useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
@@ -12,6 +12,7 @@ import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { WalletIcon } from '../images/WalletIcon';
 import { WAITING_KEYWORD } from '../utils/constants';
+import { EmptyDiscount, Mercurial } from '../utils/interfaces';
 import { isMobileDevice, isMobileSize } from '../utils/mobile';
 import { Digits } from '../utils/types';
 import { Amount } from './Amount';

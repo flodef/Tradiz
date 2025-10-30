@@ -1,7 +1,7 @@
-import { Currency } from '@/app/hooks/useConfig';
+import { Currency } from '@/app/utils/interfaces';
+import { useEffect, useState } from 'react';
 import SectionCard from '../SectionCard';
 import CurrencyItem from '../items/CurrencyItem';
-import { useState, useEffect } from 'react';
 
 export default function CurrenciesConfig({
     config,

@@ -1,7 +1,7 @@
-import { Role, User } from '@/app/hooks/useConfig';
+import { Role, User } from '@/app/utils/interfaces';
+import { useEffect, useState } from 'react';
 import SectionCard from '../SectionCard';
 import UserItem from '../items/UserItem';
-import { useState, useEffect } from 'react';
 
 export default function UsersConfig({
     config,

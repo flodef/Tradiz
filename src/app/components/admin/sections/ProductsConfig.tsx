@@ -1,7 +1,13 @@
-import { Product } from '@/app/hooks/useConfig';
+import { useEffect, useState } from 'react';
 import SectionCard from '../SectionCard';
 import ProductItem from '../items/ProductItem';
-import { useState, useEffect } from 'react';
+
+export interface AdminProduct {
+    name: string;
+    category: string;
+    availability: boolean;
+    currencies: string[];
+}
 
 export default function ProductsConfig({
     config,
@@ -10,9 +16,9 @@ export default function ProductsConfig({
     categories,
     currencies,
 }: {
-    config: Product[];
-    onChange: (data: Product[]) => void;
-    onSave: (data: Product[]) => void;
+    config: AdminProduct[];
+    onChange: (data: AdminProduct[]) => void;
+    onSave: (data: AdminProduct[]) => void;
     categories: { label: string; value: string }[];
     currencies: { label: string; value: string }[];
 }) {
@@ -22,7 +28,7 @@ export default function ProductsConfig({
         setProducts(config || []);
     }, [config]);
 
-    const handleProductChange = (index: number, updatedProduct: Product) => {
+    const handleProductChange = (index: number, updatedProduct: AdminProduct) => {
         const newProducts = [...products];
         newProducts[index] = updatedProduct;
         setProducts(newProducts);
@@ -30,7 +36,7 @@ export default function ProductsConfig({
     };
 
     const handleAddProduct = () => {
-        const newProduct: Product = {
+        const newProduct: AdminProduct = {
             name: '',
             category: '',
             availability: false,

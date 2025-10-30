@@ -1,7 +1,7 @@
-import { Category } from '@/app/hooks/useConfig';
+import { Category } from '@/app/utils/interfaces';
+import { useEffect, useState } from 'react';
 import SectionCard from '../SectionCard';
 import CategoryItem from '../items/CategoryItem';
-import { useState, useEffect } from 'react';
 
 export default function CategoriesConfig({
     config,

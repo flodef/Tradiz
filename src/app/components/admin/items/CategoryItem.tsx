@@ -1,5 +1,5 @@
 import ValidatedInput from '../ValidatedInput';
-import { Category } from '@/app/hooks/useConfig';
+import { Category } from '@/app/utils/interfaces';
 
 interface CategoryItemProps {
     category: Category;

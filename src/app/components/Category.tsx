@@ -3,7 +3,7 @@
 import { FC, MouseEventHandler, useEffect, useMemo, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { sendFatalErrorEmail, sendUserAccessRequest } from '../actions/email';
-import { EmptyDiscount, InventoryItem, Role, State, useConfig } from '../hooks/useConfig';
+import { useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { useWindowParam } from '../hooks/useWindowParam';
@@ -12,6 +12,7 @@ import { EMAIL, OTHER_KEYWORD } from '../utils/constants';
 import { isMobileDevice } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
 import { useAddPopupClass } from './Popup';
+import { EmptyDiscount, InventoryItem, Role, State } from '../utils/interfaces';
 
 interface CategoryInputButton {
     input: string;
@@ -127,7 +128,7 @@ export const Category: FC = () => {
 
     useEffect(() => {
         const handler = (e: MessageEvent) => {
-            if (e.origin !== 'yankee-grill.digi-carte.fr') return;
+            if (e.origin !== 'https://yankee-grill.digi-carte.fr') return;
             if (e.data?.type === 'ORDER_ID') setOrderId(e.data.orderId);
         };
 

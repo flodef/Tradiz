@@ -1,5 +1,5 @@
 import ValidatedInput from '../ValidatedInput';
-import { Currency } from '@/app/hooks/useConfig';
+import { Currency } from '@/app/utils/interfaces';
 
 interface CurrencyItemProps {
     currency: Currency;

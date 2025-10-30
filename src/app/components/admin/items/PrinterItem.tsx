@@ -1,5 +1,5 @@
 import ValidatedInput from '../ValidatedInput';
-import { Printer } from '@/app/hooks/useConfig';
+import { Printer } from '@/app/utils/interfaces';
 
 interface PrinterItemProps {
     printer: Printer;

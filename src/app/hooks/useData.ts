@@ -1,47 +1,5 @@
 import { ChangeEvent, createContext, RefObject, useContext } from 'react';
-import { Discount, Mercurial } from './useConfig';
-
-export enum SyncAction {
-    none,
-    fullsync,
-    daysync,
-    resync,
-    export,
-    import,
-}
-
-export enum SyncPeriod {
-    day,
-    full,
-}
-
-export type DataElement = {
-    category: string;
-    quantity: number;
-    amount: number;
-};
-
-export type Product = DataElement & {
-    label: string;
-    total?: number;
-    discount: Discount;
-    mercurial?: Mercurial;
-};
-
-export type Transaction = {
-    validator: string;
-    method: string;
-    amount: number;
-    createdDate: number;
-    modifiedDate: number;
-    currency: string;
-    products: Product[];
-};
-
-export type TransactionSet = {
-    id: string;
-    transactions: Transaction[];
-};
+import { Discount, Mercurial, Product, SyncAction, Transaction } from '../utils/interfaces';
 
 export interface DataContextState {
     total: number;
