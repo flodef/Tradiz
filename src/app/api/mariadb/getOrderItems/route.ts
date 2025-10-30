@@ -1,5 +1,6 @@
 import mysql from 'mysql2/promise';
 import { NextResponse } from 'next/server';
+import { Product, EmptyDiscount } from '@/app/utils/interfaces';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -27,11 +28,18 @@ export async function GET(request: Request) {
 
         const [rows] = await connection.execute(query, [orderId]);
 
-        console.log(rows);
-
         await connection.end();
 
-        return NextResponse.json(rows, { status: 200 });
+        // Transform rows into Product array
+        const products: Product[] = (rows as any[]).map((row) => ({
+            label: String(row.label),
+            category: String(row.category),
+            quantity: Number(row.quantity),
+            amount: Number(Number(row.amount).toFixed(2)),
+            discount: EmptyDiscount,
+        }));
+
+        return NextResponse.json(products, { status: 200 });
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching data' }, { status: 500 });

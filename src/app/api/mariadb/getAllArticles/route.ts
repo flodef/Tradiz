@@ -2,7 +2,7 @@ import {} from '@/app/utils/extensions';
 import mysql from 'mysql2/promise';
 import { NextResponse } from 'next/server';
 
-export async function GET(request: Request) {
+export async function GET() {
     try {
         // Connection configuration for MariaDB
         const connection = await mysql.createConnection({
@@ -21,19 +21,19 @@ export async function GET(request: Request) {
 
         const [rows] = await connection.execute(query);
 
+        await connection.end();
+
         const data: { values: (number | string | boolean)[][] } = { values: [] };
         data.values.push(['Taux', 'Catégorie', 'Nom', 'Indisponible', 'Euro (€)']);
         data.values.push(
             ...(rows as any[]).map((row): (number | string | boolean)[] => [
                 Number(row.rate) / 100,
-                String(row.category ?? ''),
-                String(row.label ?? ''),
+                String(row.category),
+                String(row.label),
                 false,
-                Number(Number(row.amount).toFixed(2)) ?? 0,
+                Number(Number(row.amount).toFixed(2)),
             ])
         );
-
-        await connection.end();
 
         return NextResponse.json(data, { status: 200 });
     } catch (error) {
