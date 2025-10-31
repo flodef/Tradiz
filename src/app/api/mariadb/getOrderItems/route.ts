@@ -17,8 +17,8 @@ export async function GET(request: Request) {
             database: process.env.DB_NAME,
         });
 
-        // SQL query with parameterized query for security
-        const query = `
+        // Query 1: Get articles
+        const queryArticles = `
             SELECT a.nom AS label, a.prix as amount, b.quantite as quantity, c.nom AS category
             FROM article a
             JOIN rel_panier_article b ON b.article_id = a.id
@@ -26,12 +26,26 @@ export async function GET(request: Request) {
             WHERE b.panier_id = ?
         `;
 
-        const [rows] = await connection.execute(query, [orderId]);
+        // Query 2: Get formules
+        const queryFormules = `
+            SELECT f.nom AS label, f.prix AS amount, a.quantite as quantity, 'Formule' AS category
+            FROM rel_panier_formule a
+            JOIN formule f ON f.id = a.formule_id
+            WHERE a.panier_id = ?
+        `;
+
+        // Execute both queries
+        const [articlesRows] = await connection.execute(queryArticles, [orderId]);
+        const [formulesRows] = await connection.execute(queryFormules, [orderId]);
 
         await connection.end();
 
-        // Transform rows into Product array
-        const products: Product[] = (rows as any[]).map((row) => ({
+        console.log('articlesRows', articlesRows);
+        console.log('formulesRows', formulesRows);
+
+        // Combine and transform all rows into Product array
+        const allRows = [...(articlesRows as any[]), ...(formulesRows as any[])];
+        const products: Product[] = allRows.map((row) => ({
             label: String(row.label),
             category: String(row.category),
             quantity: Number(row.quantity),
