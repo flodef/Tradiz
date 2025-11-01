@@ -40,9 +40,6 @@ export async function GET(request: Request) {
 
         await connection.end();
 
-        console.log('articlesRows', articlesRows);
-        console.log('formulesRows', formulesRows);
-
         // Combine and transform all rows into Product array
         const allRows = [...(articlesRows as any[]), ...(formulesRows as any[])];
         const products: Product[] = allRows.map((row) => ({
