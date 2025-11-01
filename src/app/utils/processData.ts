@@ -50,17 +50,18 @@ interface ProductData {
 interface DataName {
     json: string;
     sheet: string;
+    sql: string;
 }
 
 const dataNames: { [key: string]: DataName } = {
-    parameters: { json: 'parameters', sheet: 'Paramètres' },
-    paymentMethods: { json: 'paymentMethods', sheet: 'Paiements' },
-    currencies: { json: 'currencies', sheet: '_Monnaies' },
-    discounts: { json: 'discounts', sheet: 'Remises' },
-    colors: { json: 'colors', sheet: 'Couleurs' },
-    printers: { json: 'printers', sheet: 'Imprimantes' },
-    products: { json: 'products', sheet: '_Produits' },
-    users: { json: 'users', sheet: 'Utilisateurs' },
+    parameters: { json: 'parameters', sheet: 'Paramètres', sql: 'getParameters' },
+    paymentMethods: { json: 'paymentMethods', sheet: 'Paiements', sql: 'getPaymentMethods' },
+    currencies: { json: 'currencies', sheet: '_Monnaies', sql: 'getCurrencies' },
+    discounts: { json: 'discounts', sheet: 'Remises', sql: 'getDiscounts' },
+    colors: { json: 'colors', sheet: 'Couleurs', sql: 'getColors' },
+    printers: { json: 'printers', sheet: 'Imprimantes', sql: 'getPrinters' },
+    products: { json: 'products', sheet: '_Produits', sql: 'getAllArticles' },
+    users: { json: 'users', sheet: 'Utilisateurs', sql: 'getUsers' },
 };
 
 export const defaultParameters: Parameters = {
@@ -157,9 +158,7 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
     const colors = await fetchData(dataNames.colors, id).then(convertColorsData);
     const printers = await fetchData(dataNames.printers, id).then(convertPrintersData);
 
-    const data = await (
-        !process.env.NEXT_PUBLIC_USE_SQLDB ? fetchData(dataNames.products, id) : fetch(`/api/mariadb/getAllArticles`)
-    ).then(convertProductsData);
+    const data = await fetchData(dataNames.products, id).then(convertProductsData);
 
     if (!data?.products?.length || !data?.currencies?.length) return;
 
@@ -203,11 +202,13 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
 }
 
 async function fetchData(dataName: DataName, id: string | undefined, isRaw = true) {
-    return await fetch(
-        id !== undefined
-            ? `./api/spreadsheet?sheetName=${dataName.sheet}&id=${id}&isRaw=${isRaw.toString()}`
-            : `./api/json?fileName=${dataName.json}`
-    ).catch((error) => console.error(error));
+    const url = process.env.NEXT_PUBLIC_USE_SQLDB
+        ? `/api/sql/${dataName.sql}`
+        : id !== undefined
+          ? `./api/spreadsheet?sheetName=${dataName.sheet}&id=${id}&isRaw=${isRaw.toString()}`
+          : `./api/json?fileName=${dataName.json}`;
+
+    return await fetch(url).catch((error) => console.error(error));
 }
 
 function checkData(data: any, minCol: number, maxCol = minCol, minRow = 1, maxRow = 100000) {
@@ -239,7 +240,6 @@ async function convertIndexData(response: void | Response) {
                 return {
                     shop: String(item.at(0)).trim(),
                     id: String(item.at(1)).trim(),
-                    fee: Number(item.at(2)),
                 };
             });
         });
