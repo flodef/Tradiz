@@ -1,10 +1,6 @@
 {
     "values": [
         ["Intitulé (Symbole)", "Valeur maximale", "Symbole", "Décimales"],
-        ["Euro (€)", 999.99, "€", 2],
-        ["June (Ğ1)", 999, "Ğ1", 0],
-        ["Mercuriale Faible (Ğ1)", 999, "Ğ1", 0],
-        ["Mercuriale Forte (Ğ1)", 999, "Ğ1", 0],
-        ["PAF (€)", 999, "€", 0]
+        ["Euro (€)", 999.99, "€", 2]
     ]
 }
