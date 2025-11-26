@@ -1,6 +1,6 @@
+import { DELETED_KEYWORD, POS, PROCESSING_KEYWORD } from '@/app/utils/constants';
 import mysql from 'mysql2/promise';
 import { NextResponse } from 'next/server';
-import { DELETED_KEYWORD, PROCESSING_KEYWORD } from '@/app/utils/constants';
 
 export async function POST(request: Request) {
     try {
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
             host: process.env.DB_HOST,
             user: process.env.DB_USER,
             password: process.env.DB_PASSWORD,
-            database: process.env.DB_NAME,
+            database: process.env.DB_NAME + '_' + POS,
         });
 
         await connection.beginTransaction();
