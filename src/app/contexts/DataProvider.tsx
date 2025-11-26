@@ -599,6 +599,23 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     }
 
                     console.log('SQL DB transaction saved successfully');
+
+                    // Notify WebSocket server that the order is complete
+                    if (orderId) {
+                        try {
+                            await fetch('http://localhost:8082/complete_order', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ order_id: orderId }),
+                            });
+                            console.log('Order completion notification sent to WebSocket server');
+                        } catch (wsError) {
+                            console.error('Failed to notify WebSocket server:', wsError);
+                            // Don't throw - this is not critical to the transaction
+                        }
+                    }
                 } catch (error) {
                     console.error('Error handling SQL DB transaction:', error);
                     throw error;
