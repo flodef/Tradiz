@@ -50,7 +50,8 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
 
 export const Category: FC = () => {
     const { inventory, state, setState, currencyIndex, parameters } = useConfig();
-    const { addProduct, amount, setSelectedProduct, clearAmount, selectedProduct, orderId, setOrderId } = useData();
+    const { addProduct, amount, setSelectedProduct, clearAmount, clearTotal, selectedProduct, orderId, setOrderId } =
+        useData();
     const { openPopup, openFullscreenPopup, closePopup } = usePopup();
     const { isLocalhost, isDemo } = useWindowParam();
 
@@ -131,6 +132,7 @@ export const Category: FC = () => {
             if (e.data?.type === 'ORDER_ID') {
                 const orderIdFromMessage = e.data.orderId;
                 setOrderId(orderIdFromMessage);
+                clearTotal(); // Clear existing products before adding new ones
                 fetch(`/api/sql/getOrderItems?orderId=${orderIdFromMessage}`)
                     .then((res) => res.json())
                     .then((data) => data.forEach(addProduct));
@@ -139,7 +141,7 @@ export const Category: FC = () => {
 
         window.addEventListener('message', handler);
         return () => window.removeEventListener('message', handler);
-    }, [setOrderId, addProduct]);
+    }, [setOrderId, addProduct, clearTotal]);
 
     const addSpecificProduct = (item: InventoryItem, option: string) => {
         const price = item.products.find(({ label }) => label === option)?.prices[currencyIndex];
