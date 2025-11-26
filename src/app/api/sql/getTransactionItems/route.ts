@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     if (!orderId) return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
 
     try {
-        // Connection configuration for MariaDB
+        // Connection configuration for SQL DB
         const connection = await mysql.createConnection({
             host: process.env.DB_HOST,
             user: process.env.DB_USER,

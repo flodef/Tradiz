@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
     try {
-        // Connection configuration for MariaDB
+        // Connection configuration for SQL DB
         const connection = await mysql.createConnection({
             host: process.env.DB_HOST,
             user: process.env.DB_USER,
