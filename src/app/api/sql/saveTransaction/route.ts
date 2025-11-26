@@ -90,13 +90,12 @@ async function handleAddTransaction(connection: mysql.Connection, transaction: a
     if (transaction.products && transaction.products.length > 0) {
         for (const product of transaction.products) {
             const insertArticleQuery = `
-                INSERT INTO facturation_article (facturation_id, article_id, label, category, amount, quantity, discount_amount, discount_unit, total)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO facturation_article (facturation_id, label, category, amount, quantity, discount_amount, discount_unit, total)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
             await connection.execute(insertArticleQuery, [
                 facturationId,
-                product.article_id,
                 product.label,
                 product.category,
                 product.amount,

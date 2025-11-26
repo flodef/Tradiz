@@ -31,6 +31,8 @@ export interface DataContextState {
     transactionsFilename: string;
     toCurrency: (element: { amount: number; currency: string } | number | Product | Transaction) => string;
     isDbConnected: boolean;
+    orderId: string;
+    setOrderId: (orderId: string) => void;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);

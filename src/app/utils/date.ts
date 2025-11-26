@@ -54,3 +54,13 @@ export const generateReceiptNumber = (prefix: string, date: Date = new Date()): 
     const random = Math.floor(Math.random() * 1000);
     return `${prefix}${timestamp.toString().slice(-8)}${random}`;
 };
+
+/**
+ * Convert a Date or timestamp to MariaDB/MySQL datetime format (YYYY-MM-DD HH:MM:SS)
+ * @param dateOrTimestamp The date object or timestamp in milliseconds
+ * @returns A formatted datetime string compatible with MariaDB/MySQL
+ */
+export const toSQLDateTime = (dateOrTimestamp: Date | number): string => {
+    const date = typeof dateOrTimestamp === 'number' ? new Date(dateOrTimestamp) : dateOrTimestamp;
+    return date.toISOString().slice(0, 19).replace('T', ' ');
+};

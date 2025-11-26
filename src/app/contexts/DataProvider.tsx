@@ -27,7 +27,7 @@ import {
     UPDATING_KEYWORD,
     WAITING_KEYWORD,
 } from '../utils/constants';
-import { getFormattedDate, getTransactionFileName } from '../utils/date';
+import { getFormattedDate, getTransactionFileName, toSQLDateTime } from '../utils/date';
 import {
     Currency,
     Discount,
@@ -83,6 +83,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [firestore, setFirestore] = useState<Firestore>();
     const areTransactionLoaded = useRef(false);
     const [shopId, setShopId] = useState('');
+    const [orderId, setOrderId] = useState('');
 
     const isDbConnected = useMemo(() => !!firestore && isOnline, [firestore, isOnline]);
 
@@ -562,16 +563,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         action: DatabaseAction[action],
                         transaction: {
                             id: index,
-                            panier_id: transaction.createdDate,
+                            panier_id: orderId || String(transaction.createdDate),
                             user_id: transaction.validator,
                             payment_method_id: transaction.method,
                             amount: transaction.amount,
                             currency: transaction.currency,
                             note: '',
-                            created_at: new Date(transaction.createdDate).toISOString(),
-                            updated_at: new Date(transaction.modifiedDate || transaction.createdDate).toISOString(),
+                            created_at: toSQLDateTime(transaction.createdDate),
+                            updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
                             products: transaction.products.map((product) => ({
-                                article_id: `${product.category}_${product.label}`,
                                 label: product.label,
                                 category: product.category,
                                 amount: product.amount,
@@ -605,7 +605,16 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }
             }
         },
-        [transactionsFilename, transactions, parameters.user, firestore, setLocalStorageItem, currencies, storeIndex]
+        [
+            transactionsFilename,
+            transactions,
+            parameters.user,
+            firestore,
+            setLocalStorageItem,
+            currencies,
+            storeIndex,
+            orderId,
+        ]
     );
 
     const deleteTransaction = useCallback(
@@ -931,6 +940,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 transactionsFilename,
                 toCurrency,
                 isDbConnected,
+                orderId,
+                setOrderId,
             }}
         >
             {children}
