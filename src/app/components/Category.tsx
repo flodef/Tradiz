@@ -141,7 +141,7 @@ export const Category: FC = () => {
 
         window.addEventListener('message', handler);
         return () => window.removeEventListener('message', handler);
-    }, [setOrderId, addProduct, clearTotal]);
+    }, []);
 
     const addSpecificProduct = (item: InventoryItem, option: string) => {
         const price = item.products.find(({ label }) => label === option)?.prices[currencyIndex];
