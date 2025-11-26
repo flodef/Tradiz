@@ -536,23 +536,73 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const index = transaction.createdDate;
             transactionId.current = action === DatabaseAction.update ? index : 0;
 
-            if (!firestore) return;
+            if (firestore) {
+                switch (action) {
+                    case DatabaseAction.add:
+                        await storeIndex(transactionsFilename);
+                        await setDoc(doc(firestore, transactionsFilename, index.toString()), transaction);
+                        break;
+                    case DatabaseAction.update:
+                        await updateDoc(doc(firestore, transactionsFilename, index.toString()), {
+                            method: PROCESSING_KEYWORD,
+                        });
+                        break;
+                    case DatabaseAction.delete:
+                        await updateDoc(doc(firestore, transactionsFilename, index.toString()), {
+                            method: DELETED_KEYWORD,
+                        });
+                        break;
+                }
+            }
 
-            switch (action) {
-                case DatabaseAction.add:
-                    await storeIndex(transactionsFilename);
-                    await setDoc(doc(firestore, transactionsFilename, index.toString()), transaction);
-                    break;
-                case DatabaseAction.update:
-                    await updateDoc(doc(firestore, transactionsFilename, index.toString()), {
-                        method: PROCESSING_KEYWORD,
+            if (process.env.NEXT_PUBLIC_USE_SQLDB) {
+                try {
+                    // Prepare the transaction data for SQL DB
+                    const sqlTransactionData = {
+                        action: DatabaseAction[action],
+                        transaction: {
+                            id: index,
+                            panier_id: transaction.createdDate,
+                            user_id: transaction.validator,
+                            payment_method_id: transaction.method,
+                            amount: transaction.amount,
+                            currency: transaction.currency,
+                            note: '',
+                            created_at: new Date(transaction.createdDate).toISOString(),
+                            updated_at: new Date(transaction.modifiedDate || transaction.createdDate).toISOString(),
+                            products: transaction.products.map((product) => ({
+                                article_id: `${product.category}_${product.label}`,
+                                label: product.label,
+                                category: product.category,
+                                amount: product.amount,
+                                quantity: product.quantity,
+                                discount_amount: product.discount.amount,
+                                discount_unit: product.discount.unit,
+                                total: product.total || 0,
+                            })),
+                        },
+                    };
+
+                    // Call the SQL API endpoint to handle the transaction
+                    const response = await fetch('/api/sql/saveTransaction', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(sqlTransactionData),
                     });
-                    break;
-                case DatabaseAction.delete:
-                    await updateDoc(doc(firestore, transactionsFilename, index.toString()), {
-                        method: DELETED_KEYWORD,
-                    });
-                    break;
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        console.error('SQL DB transaction error:', error);
+                        throw new Error(error.error || 'Failed to save transaction to SQL DB');
+                    }
+
+                    console.log('SQL DB transaction saved successfully');
+                } catch (error) {
+                    console.error('Error handling SQL DB transaction:', error);
+                    throw error;
+                }
             }
         },
         [transactionsFilename, transactions, parameters.user, firestore, setLocalStorageItem, currencies, storeIndex]
