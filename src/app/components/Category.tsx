@@ -139,12 +139,10 @@ export const Category: FC = () => {
     useEffect(() => {
         if (!orderId) return;
 
-        console.log('orderId', orderId);
-
-        fetch(`/api/mariadb/getOrderItems?orderId=${orderId}`)
+        fetch(`/api/sql/getOrderItems?orderId=${orderId}`)
             .then((res) => res.json())
             .then((data) => data.forEach(addProduct));
-    }, [addProduct, orderId]);
+    }, [orderId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const addSpecificProduct = (item: InventoryItem, option: string) => {
         const price = item.products.find(({ label }) => label === option)?.prices[currencyIndex];
