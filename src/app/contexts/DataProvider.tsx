@@ -563,7 +563,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         action: DatabaseAction[action],
                         transaction: {
                             id: index,
-                            panier_id: orderId || String(transaction.createdDate),
+                            panier_id: orderId || String(transaction.createdDate).slice(0, 10),
                             user_id: transaction.validator,
                             payment_method_id: transaction.method,
                             amount: transaction.amount,
@@ -603,7 +603,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     // Notify WebSocket server that the order is complete
                     if (orderId) {
                         try {
-                            await fetch('http://localhost:8082/complete_order', {
+                            await fetch('/api/complete-order', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
