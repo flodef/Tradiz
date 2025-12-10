@@ -12,7 +12,7 @@ export async function GET() {
         });
 
         const query = `
-            SELECT id, name, role, created_at
+            SELECT key, name, role
             FROM users
         `;
 
@@ -20,9 +20,9 @@ export async function GET() {
         await connection.end();
 
         const data: { values: (string | number)[][] } = { values: [] };
-        data.values.push(['ID', 'Nom', 'Rôle']);
+        data.values.push(['Clé', 'Nom', 'Rôle']);
         data.values.push(
-            ...(rows as any[]).map((row): (string | number)[] => [String(row.id), String(row.name), String(row.role)])
+            ...(rows as any[]).map((row): (string | number)[] => [String(row.key), String(row.name), String(row.role)])
         );
 
         return NextResponse.json(data, { status: 200 });
