@@ -7,7 +7,7 @@
         "clean": "shx rm -rf .next",
         "dev": "next dev",
         "build": "next build",
-        "start": "next start",
+        "start": "next start -p 3001",
         "lint": "eslint .",
         "test": "jest",
         "nuke": "shx rm -rf node_modules package-lock.json || true",
