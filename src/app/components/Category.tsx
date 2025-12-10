@@ -130,9 +130,12 @@ export const Category: FC = () => {
         const handler = (e: MessageEvent) => {
             if (e.origin !== 'https://yankee-grill.digi-carte.fr') return;
             if (e.data?.type === 'ORDER_ID') {
-                const orderIdFromMessage = e.data.orderId;
-                setOrderId(orderIdFromMessage);
                 clearTotal(); // Clear existing products before adding new ones
+
+                const orderIdFromMessage = e.data.orderId;
+                if (!orderIdFromMessage) return;
+
+                setOrderId(orderIdFromMessage);
                 fetch(`/api/sql/getOrderItems?orderId=${orderIdFromMessage}`)
                     .then((res) => res.json())
                     .then((data) => data.forEach(addProduct));
