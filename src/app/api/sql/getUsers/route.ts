@@ -12,7 +12,7 @@ export async function GET() {
         });
 
         const query = `
-            SELECT key, name, role
+            SELECT \`key\`, name, role
             FROM users
         `;
 
