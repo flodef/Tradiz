@@ -8,7 +8,7 @@ export const CloseButton: FC<CloseButtonProps> = ({ onClose }) => {
     return (
         <div
             className={
-                'box-content rounded-full border-none self-center hover:no-underline hover:opacity-75 focus:opacity-100 focus:shadow-none focus:outline-none p-3 ' +
+                'box-content rounded-full border-none self-center hover:no-underline hover:opacity-75 focus:opacity-100 focus:shadow-none focus:outline-hidden p-3 ' +
                 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark text-popup-dark dark:text-popup-light'
             }
             onClick={onClose}

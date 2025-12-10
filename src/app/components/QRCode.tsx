@@ -14,9 +14,9 @@ const LoadingCircle: FC<LoadingCircleProps> = ({ size }) => {
         <div style={{ width: size, height: size + 72 }}>
             <div
                 className={
-                    'absolute border-transparent rounded-full border-[10px] my-4 mb-11 ' +
+                    'absolute border-transparent rounded-full border-10 my-4 mb-11 ' +
                     "before:content-[''] before:absolute before:top-[-10px] before:left-[-10px] before:w-[inherit] before:h-[inherit] " +
-                    'before:border-transparent before:border-t-ok before:border-r-ok before:rounded-full before:border-[10px] ' +
+                    'before:border-transparent before:border-t-ok before:border-r-ok before:rounded-full before:border-10 ' +
                     'before:animate-spin '
                 }
                 style={{ width: size, height: size }}
@@ -40,8 +40,8 @@ const Checkmark: FC<CheckmarkProps> = ({ size, isOK = true }) => {
                 className={
                     'my-4 rounded-[50%] block stroke-2 stroke-white ' +
                     (isOK
-                        ? 'shadow-[inset_0px_0px_0px_rgba(132,204,22,1)] animate-fillGreen'
-                        : 'shadow-[inset_0px_0px_0px_rgba(239,68,68,1)] animate-fillRed')
+                        ? 'shadow-[inset_0px_0px_0px_rgba(132,204,22,1)] animate-fill-green'
+                        : 'shadow-[inset_0px_0px_0px_rgba(239,68,68,1)] animate-fill-red')
                 }
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 52 52"
@@ -50,7 +50,7 @@ const Checkmark: FC<CheckmarkProps> = ({ size, isOK = true }) => {
                 height={size}
             >
                 <circle
-                    className={`stroke-2 fill-none animate-strokeCircle ${isOK ? 'stroke-ok' : 'stroke-error'}`}
+                    className={`stroke-2 fill-none animate-stroke-circle ${isOK ? 'stroke-ok' : 'stroke-error'}`}
                     cx="26"
                     cy="26"
                     r="25"
@@ -61,7 +61,7 @@ const Checkmark: FC<CheckmarkProps> = ({ size, isOK = true }) => {
                 />
 
                 <path
-                    className="origin-[50%_50%] animate-strokeCheck"
+                    className="origin-[50%_50%] animate-stroke-check"
                     fill="none"
                     d={isOK ? 'M14.1 27.2l7.1 7.2 16.7-16.8' : 'M16 16 36 36 M36 16 16 36'}
                     strokeDasharray={size - 8}

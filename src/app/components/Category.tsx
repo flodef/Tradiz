@@ -34,7 +34,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
             className={twMerge(
                 { 1: 'w-full', 2: 'w-1/2', 3: 'w-1/3' }[length] ?? 'w-auto',
                 'relative flex justify-center py-3 items-center font-semibold text-2xl',
-                'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark active:dark:text-popup-light',
+                'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light',
                 !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : '',
                 selectedProduct?.category === input
                     ? 'bg-active-light dark:bg-active-dark text-popup-dark dark:text-popup-light'

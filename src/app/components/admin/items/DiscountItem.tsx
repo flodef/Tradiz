@@ -40,7 +40,7 @@ export default function DiscountItem({
                     <select
                         value={discount.Unity}
                         onChange={(e) => onChange({ ...discount, Unity: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                        className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
                     >
                         {units.map(unit => (
                             <option key={unit} value={unit}>{unit}</option>

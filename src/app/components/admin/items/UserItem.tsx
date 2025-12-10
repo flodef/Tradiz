@@ -45,7 +45,7 @@ export default function UserItem({
                     <select
                         value={user.Role}
                         onChange={(e) => onChange({ ...user, Role: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                        className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
                     >
                         {roles.map(role => (
                             <option key={role} value={role}>{role}</option>

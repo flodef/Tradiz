@@ -45,7 +45,7 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
                 'w-20 h-20 relative flex justify-center m-3 items-center font-semibold text-3xl border-[3px] rounded-2xl',
                 'border-secondary-light dark:border-secondary-dark shadow-xl',
                 isStateReady
-                    ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark active:dark:text-popup-light'
+                    ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light'
                     : '',
                 !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : ''
             )}
@@ -337,7 +337,7 @@ export const NumPad: FC = () => {
 
     const color = isStateReady
         ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark ' +
-          'text-secondary-light dark:text-secondary-dark active:text-popup-dark active:dark:text-popup-light '
+          'text-secondary-light dark:text-secondary-dark active:text-popup-dark dark:active:text-popup-light '
         : '';
     const s = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl ';
     const sx = s + (canPay || canAddProduct ? color : 'invisible');

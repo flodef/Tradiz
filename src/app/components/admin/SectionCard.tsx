@@ -13,7 +13,7 @@ export default function SectionCard({ title, children, onSave }: SectionCardProp
                 <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">{title}</h2>
                 <button
                     onClick={onSave}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
                 >
                     Enregistrer
                 </button>

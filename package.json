@@ -17,8 +17,8 @@
         "@solana/pay": "latest",
         "@solana/spl-token": "latest",
         "@solana/web3.js": "1.95.8",
+        "@tailwindcss/postcss": "latest",
         "@types/nodemailer": "latest",
-        "autoprefixer": "latest",
         "bignumber.js": "9.1.2",
         "caniuse-lite": "latest",
         "eslint-plugin-jsx-a11y": "latest",
@@ -31,7 +31,7 @@
         "react": "latest",
         "react-dom": "latest",
         "tailwind-merge": "latest",
-        "tailwindcss": "^3.4.18",
+        "tailwindcss": "latest",
         "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
     },
     "devDependencies": {

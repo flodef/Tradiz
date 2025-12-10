@@ -86,7 +86,7 @@ export default function SearchableSelect({
                     <input
                         type="text"
                         placeholder="Rechercher..."
-                        className="w-full px-3 py-2 border-b border-gray-300 dark:border-gray-600 focus:outline-none bg-white dark:bg-gray-700 dark:text-gray-200"
+                        className="w-full px-3 py-2 border-b border-gray-300 dark:border-gray-600 focus:outline-hidden bg-white dark:bg-gray-700 dark:text-gray-200"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />

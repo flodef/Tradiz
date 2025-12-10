@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
 :root {
     --writing-light-color: rgb(217, 119, 6);
@@ -18,4 +16,270 @@
     --active-dark-color: rgb(132, 204, 22);
     --secondary-dark-color: rgb(253, 186, 116);
     --secondary-active-dark-color: rgb(249, 115, 22);
+}
+
+@theme {
+    --color-writing-light: var(--writing-light-color);
+    --color-main-from-light: var(--main-from-light-color);
+    --color-main-to-light: var(--main-to-light-color);
+    --color-popup-light: var(--popup-light-color);
+    --color-active-light: var(--active-light-color);
+    --color-secondary-light: var(--secondary-light-color);
+    --color-secondary-active-light: var(--secondary-active-light-color);
+    --color-writing-dark: var(--writing-dark-color);
+    --color-main-from-dark: var(--main-from-dark-color);
+    --color-main-to-dark: var(--main-to-dark-color);
+    --color-popup-dark: var(--popup-dark-color);
+    --color-active-dark: var(--active-dark-color);
+    --color-secondary-dark: var(--secondary-dark-color);
+    --color-secondary-active-dark: var(--secondary-active-dark-color);
+    --color-ok: #22c55e;
+    --color-error: #ef4444;
+
+    --background-image-gradient-radial: radial-gradient(var(--tw-gradient-stops));
+    --background-image-gradient-conic: conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops));
+
+    --animate-blink: blink 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    --animate-display: display 0.3s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+    --animate-hide: display 0.3s cubic-bezier(0.4, 0, 0.6, 1) reverse forwards;
+    --animate-stroke-circle: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+    --animate-stroke-circle-slow: stroke 3s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+    --animate-stroke-check: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+    --animate-fill-green: fillGreen 0.4s ease-in-out 0.4s forwards, scale 0.3s ease-in-out 0.9s both;
+    --animate-fill-red: fillRed 0.4s ease-in-out 0.4s forwards, scale 0.3s ease-in-out 0.9s both;
+    --animate-swing: swing 1.3s ease-in-out infinite alternate;
+    --animate-swinghair: swinghair 1.3s ease-in-out infinite alternate;
+    --animate-flip: flip 1000ms 1.6s ease-in-out forwards;
+    --animate-cross1a: cross1 300ms 1s ease-in-out forwards;
+    --animate-cross2a: cross2 400ms 1.2s ease-in-out forwards;
+    --animate-cross1b: cross1 400ms 1.1s ease-in-out forwards;
+    --animate-cross2b: cross2 500ms 1.3s ease-in-out forwards;
+    --animate-flip-reverse: flipReverse 300ms;
+    --animate-cross1Reverse: cross1Reverse 300ms;
+    --animate-cross2Reverse: cross2Reverse 300ms;
+    --animate-spin: spin 2s linear infinite;
+    --animate-move: move 500ms linear 0ms infinite;
+    --animate-grow: grow 500ms linear 0ms infinite;
+    --animate-grow-reverse: grow 500ms linear 0ms infinite reverse;
+    --animate-worm1: worm1 2s linear infinite;
+    --animate-worm2: worm2 2s linear infinite;
+    --animate-blur: blurText 0.3s ease-in-out forwards;
+    --animate-unblur: blurText 0.3s ease-in-out forwards reverse;
+    --animate-loading0: blurText 1.5s 0s infinite linear alternate;
+    --animate-loading1: blurText 1.5s 0.2s infinite linear alternate;
+    --animate-loading2: blurText 1.5s 0.4s infinite linear alternate;
+    --animate-loading3: blurText 1.5s 0.6s infinite linear alternate;
+    --animate-loading4: blurText 1.5s 0.8s infinite linear alternate;
+    --animate-loading5: blurText 1.5s 1s infinite linear alternate;
+    --animate-loading6: blurText 1.5s 1.2s infinite linear alternate;
+    --animate-loading7: blurText 1.5s 1.4s infinite linear alternate;
+    --animate-loading8: blurText 1.5s 1.6s infinite linear alternate;
+    --animate-loading9: blurText 1.5s 1.8s infinite linear alternate;
+
+    @keyframes blink {
+        0%,
+        100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0;
+        }
+    }
+    @keyframes display {
+        0% {
+            opacity: 0;
+        }
+        100% {
+            opacity: 1;
+        }
+    }
+    @keyframes stroke {
+        100% {
+            stroke-dashoffset: 0;
+        }
+    }
+    @keyframes scale {
+        0%,
+        100% {
+            transform: none;
+        }
+        50% {
+            transform: scale3d(1.1, 1.1, 1);
+        }
+    }
+    @keyframes fillGreen {
+        100% {
+            box-shadow: inset 0px 0px 0px 180px #84cc16;
+        }
+    }
+    @keyframes fillRed {
+        100% {
+            box-shadow: inset 0px 0px 0px 180px #ef4444;
+        }
+    }
+    @keyframes swing {
+        0% {
+            transform: rotate(10deg);
+        }
+        100% {
+            transform: rotate(-10deg);
+        }
+    }
+    @keyframes swinghair {
+        0% {
+            transform: rotate(6deg);
+        }
+        100% {
+            transform: rotate(-6deg);
+        }
+    }
+    @keyframes cross1 {
+        0% {
+            transform: rotate(45deg) scaleX(0) scaleY(0.7);
+            box-shadow: 0 1vmin 5vmin rgba(0, 0, 0, 0);
+        }
+        100% {
+            transform: rotate(45deg) scaleX(1) scaleY(1);
+            box-shadow: 0 1vmin 5vmin rgba(0, 0, 0, 0.5);
+        }
+    }
+    @keyframes cross2 {
+        0% {
+            transform: rotate(-45deg) scaleX(0) scaleY(0.7);
+            box-shadow: 0 1vmin 5vmin rgba(0, 0, 0, 0);
+        }
+        100% {
+            transform: rotate(-45deg) scaleX(1) scaleY(1);
+            box-shadow: 0 1vmin 5vmin rgba(0, 0, 0, 0.5);
+        }
+    }
+    @keyframes cross1Reverse {
+        100% {
+            transform: rotate(45deg) scaleX(0) scaleY(0.7);
+            box-shadow: 0 1vmin 5vmin rgba(0, 0, 0, 0);
+            opacity: 0;
+        }
+        0% {
+            transform: rotate(45deg) scaleX(1) scaleY(1);
+            box-shadow: 0 1vmin 5vmin rgba(0, 0, 0, 0.5);
+            opacity: 1;
+        }
+    }
+    @keyframes cross2Reverse {
+        100% {
+            transform: rotate(-45deg) scaleX(0) scaleY(0.7);
+            box-shadow: 0 1vmin 5vmin rgba(0, 0, 0, 0);
+            opacity: 0;
+        }
+        0% {
+            transform: rotate(-45deg) scaleX(1) scaleY(1);
+            box-shadow: 0 1vmin 5vmin rgba(0, 0, 0, 0.5);
+            opacity: 1;
+        }
+    }
+    @keyframes flip {
+        0% {
+            transform: rotate(-90deg) rotateY(0deg) translateX(0);
+        }
+        60% {
+            transform: rotate(-90deg) rotateY(200deg) translateX(3vmin);
+        }
+        80% {
+            transform: rotate(-90deg) rotateY(170deg) translateX(3vmin);
+        }
+        100% {
+            transform: rotate(-90deg) rotateY(180deg) translateX(3vmin);
+        }
+    }
+    @keyframes flipReverse {
+        100% {
+            transform: rotate(-90deg) rotateY(0deg) translateX(0);
+        }
+        40% {
+            transform: rotate(-90deg) rotateY(200deg) translateX(3vmin);
+        }
+        20% {
+            transform: rotate(-90deg) rotateY(170deg) translateX(3vmin);
+        }
+        0% {
+            transform: rotate(-90deg) rotateY(180deg) translateX(3vmin);
+        }
+    }
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+    @keyframes blurText {
+        0% {
+            filter: blur(0px);
+        }
+        100% {
+            filter: blur(4px);
+        }
+    }
+    @keyframes move {
+        0% {
+            transform: translateX(0px);
+        }
+        100% {
+            transform: translateX(45px);
+        }
+    }
+    @keyframes grow {
+        0% {
+            transform: scale(0, 0);
+            opacity: 0;
+        }
+        100% {
+            transform: scale(1, 1);
+            opacity: 1;
+        }
+    }
+    @keyframes worm1 {
+        0% {
+            stroke-dashoffset: 0;
+        }
+        50% {
+            stroke-dashoffset: -358;
+        }
+        50.01% {
+            stroke-dashoffset: 358;
+        }
+        100% {
+            stroke-dashoffset: 0;
+        }
+    }
+    @keyframes worm2 {
+        0% {
+            stroke-dashoffset: 358;
+        }
+        50% {
+            stroke-dashoffset: 0;
+        }
+        100% {
+            stroke-dashoffset: -358;
+        }
+    }
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+        border-color: var(--color-gray-200, currentcolor);
+    }
 }

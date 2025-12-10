@@ -33,7 +33,7 @@ export default function PaymentItem({
                     <select
                         value={payment.Type}
                         onChange={(e) => onChange({ ...payment, Type: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                        className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
                     >
                         {paymentTypes.map(type => (
                             <option key={type} value={type}>{type}</option>

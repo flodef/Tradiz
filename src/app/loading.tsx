@@ -60,7 +60,7 @@ export const LoadingDot: FC<LoadingDotProps> = ({ fullscreen = true }) => {
                 <span className={circleClassName + 'absolute top-0 left-0 mr-8 animate-grow'}></span>
                 <span className={circleClassName + 'mr-[30px] animate-move'}></span>
                 <span className={circleClassName + 'mr-[30px] animate-move'}></span>
-                <span className={circleClassName + 'absolute top-0 right-0 mr-0 animate-growReverse'}></span>
+                <span className={circleClassName + 'absolute top-0 right-0 mr-0 animate-grow-reverse'}></span>
             </div>
         </div>
     );

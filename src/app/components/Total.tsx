@@ -460,7 +460,7 @@ export const Total: FC = () => {
     );
 
     const clickClassName = twMerge(
-        'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark active:dark:text-popup-light',
+        'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light',
         isStateReady && !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : ''
     );
 
@@ -556,7 +556,7 @@ export const Total: FC = () => {
                               )}
                 </div>
                 {!canDisplayTotal && (
-                    <div className="flex-shrink-0 pt-1 border-t-4 border-secondary-active-light dark:border-secondary-active-dark bg-primary-light dark:bg-primary-dark">
+                    <div className="shrink-0 pt-1 border-t-4 border-secondary-active-light dark:border-secondary-active-dark bg-primary-light dark:bg-primary-dark">
                         {displayTransactionsTitle()}
                     </div>
                 )}

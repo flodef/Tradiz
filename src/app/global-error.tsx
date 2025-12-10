@@ -23,8 +23,8 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
         'group-hover:before:animate-cross1Reverse group-hover:after:animate-cross2Reverse';
     const barClassName =
         " absolute block content-[''] w-[140%] h-[10vmin] " +
-        'bg-secondary-active-light bg-gradient-to-t from-secondary-active-light to-secondary-light ' +
-        'dark:bg-secondary-active-dark dark:bg-gradient-to-t dark:from-secondary-active-dark dark:to-secondary-dark ' +
+        'bg-secondary-active-light bg-linear-to-t from-secondary-active-light to-secondary-light ' +
+        'dark:bg-secondary-active-dark dark:bg-linear-to-t dark:from-secondary-active-dark dark:to-secondary-dark ' +
         'left-[-20%] top-[45%] shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)]';
     const crossClassName =
         barClassName.replaceAll(' ', ' before:').trim() + ' ' + barClassName.replaceAll(' ', ' after:').trim();
@@ -50,7 +50,7 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
                     <h1
                         className={
                             'text-white text-[50vmin] text-center relative mb-[5vmin] mt-[-10vmin] cursor-pointer group-hover:scale-110 ' +
-                            "group-hover:before:animate-flipReverse before:content-['('] before:absolute before:-rotate-90 " +
+                            "group-hover:before:animate-flip-reverse before:content-['('] before:absolute before:-rotate-90 " +
                             'before:right-[25vmin] before:bottom-[-30vmin] before:block before:text-[115%] before:animate-flip ' +
                             'transition-transform duration-300'
                         }
@@ -66,12 +66,12 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
                                 'after:-rotate-45 after:scale-x-0 after:scale-y-75 after:animate-cross2a ' +
                                 'group-hover:before:animate-cross1Reverse group-hover:after:animate-cross2Reverse' +
                                 "before:absolute before:block before:content-[''] before:w-[140%] before:h-[10vmin] " +
-                                'before:bg-secondary-active-light before:bg-gradient-to-t before:from-secondary-active-light before:to-secondary-light ' +
-                                'before:dark:bg-secondary-active-dark before:dark:bg-gradient-to-t before:dark:from-secondary-active-dark before:dark:to-secondary-dark ' +
+                                'before:bg-secondary-active-light before:bg-linear-to-t before:from-secondary-active-light before:to-secondary-light ' +
+                                'dark:before:bg-secondary-active-dark dark:before:bg-linear-to-t dark:before:from-secondary-active-dark dark:before:to-secondary-dark ' +
                                 'before:left-[-20%] before:top-[45%] before:shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)] ' +
                                 "after:absolute after:block after:content-[''] after:w-[140%] after:h-[10vmin] " +
-                                'after:bg-secondary-active-light after:bg-gradient-to-t after:from-secondary-active-light after:to-secondary-light ' +
-                                'after:dark:bg-secondary-active-dark after:dark:bg-gradient-to-t after:dark:from-secondary-active-dark after:dark:to-secondary-dark ' +
+                                'after:bg-secondary-active-light after:bg-linear-to-t after:from-secondary-active-light after:to-secondary-light ' +
+                                'dark:after:bg-secondary-active-dark dark:after:bg-linear-to-t dark:after:from-secondary-active-dark dark:after:to-secondary-dark ' +
                                 'after:left-[-20%] after:top-[45%] after:shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)]'
                             }
                         >
@@ -83,12 +83,12 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
                                 'after:-rotate-45 after:scale-x-0 after:scale-y-75 after:animate-cross2b ' +
                                 'group-hover:before:animate-cross1Reverse group-hover:after:animate-cross2Reverse' +
                                 "before:absolute before:block before:content-[''] before:w-[140%] before:h-[10vmin] " +
-                                'before:bg-secondary-active-light before:bg-gradient-to-t before:from-secondary-active-light before:to-secondary-light ' +
-                                'before:dark:bg-secondary-active-dark before:dark:bg-gradient-to-t before:dark:from-secondary-active-dark before:dark:to-secondary-dark ' +
+                                'before:bg-secondary-active-light before:bg-linear-to-t before:from-secondary-active-light before:to-secondary-light ' +
+                                'dark:before:bg-secondary-active-dark dark:before:bg-linear-to-t dark:before:from-secondary-active-dark dark:before:to-secondary-dark ' +
                                 'before:left-[-20%] before:top-[45%] before:shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)] ' +
                                 "after:absolute after:block after:content-[''] after:w-[140%] after:h-[10vmin] " +
-                                'after:bg-secondary-active-light after:bg-gradient-to-t after:from-secondary-active-light after:to-secondary-light ' +
-                                'after:dark:bg-secondary-active-dark after:dark:bg-gradient-to-t after:dark:from-secondary-active-dark after:dark:to-secondary-dark ' +
+                                'after:bg-secondary-active-light after:bg-linear-to-t after:from-secondary-active-light after:to-secondary-light ' +
+                                'dark:after:bg-secondary-active-dark dark:after:bg-linear-to-t dark:after:from-secondary-active-dark dark:after:to-secondary-dark ' +
                                 'after:left-[-20%] after:top-[45%] after:shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)]'
                             }
                         >

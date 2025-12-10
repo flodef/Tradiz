@@ -9,7 +9,7 @@ import { CloseButton } from './CloseButton';
 export function useAddPopupClass(className: string): string {
     const { isPopupOpen } = usePopup();
 
-    return className + (isPopupOpen ? ' blur-sm pointer-events-none md:blur-none md:pointer-events-auto ' : '');
+    return className + (isPopupOpen ? ' blur-xs pointer-events-none md:blur-none md:pointer-events-auto ' : '');
 }
 
 export const Popup: FC = () => {
@@ -56,7 +56,7 @@ export const Popup: FC = () => {
                     'bg-popup-light dark:bg-popup-dark h-fit rounded-2xl self-center blur-none border-black border-[3px]',
                     'dark:border-secondary-active-dark data-[open=false]:hidden',
                     !isMobile && !popupIsFullscreen
-                        ? 'md:border-[0px] md:w-1/2 md:max-w-[50%] md:max-h-full md:left-1/2 md:bottom-0 md:rounded-none ' +
+                        ? 'md:border-0 md:w-1/2 md:max-w-[50%] md:max-h-full md:left-1/2 md:bottom-0 md:rounded-none ' +
                               'md:border-l-4 md:border-secondary-active-light'
                         : ''
                 )}
@@ -77,7 +77,7 @@ export const Popup: FC = () => {
                                     'py-2 w-full relative flex justify-around items-center',
                                     'font-semibold text-xl text-center cursor-pointer',
                                     !isMobileDevice()
-                                        ? 'hover:bg-active-light dark:hover:bg-active-dark active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark active:dark:text-popup-light'
+                                        ? 'hover:bg-active-light dark:hover:bg-active-dark active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light'
                                         : '',
                                     popupIsSpecial && popupIsSpecial(option.toString()) ? 'animate-pulse' : ''
                                 )}
