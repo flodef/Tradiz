@@ -12,6 +12,7 @@ import {
 } from '../utils/interfaces';
 import { EMAIL } from './constants';
 import { generateSimpleId } from './id';
+import './extensions';
 
 class MissingDataError extends Error {
     name = 'MissingDataError';

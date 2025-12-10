@@ -24,7 +24,7 @@
         "eslint-plugin-jsx-a11y": "latest",
         "firebase": "latest",
         "mysql2": "latest",
-        "next": "^15.5.6",
+        "next": "latest",
         "node-thermal-printer": "latest",
         "nodemailer": "latest",
         "postcss": "latest",
