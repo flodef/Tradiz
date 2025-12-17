@@ -165,7 +165,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         (key: string, transactions: Transaction[]) => {
             try {
                 localStorage.setItem(key, JSON.stringify(transactions));
-            } catch (error) {
+            } catch {
                 const localTransactionSets = getLocalTransactions();
                 localStorage.removeItem(localTransactionSets[0].id);
                 setLocalStorageItem(key, transactions);
@@ -477,7 +477,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     const data = JSON.parse(jsonData);
 
                     // Store the data in the localStorage
-                    data.forEach((item: { id: string; transactions: any[] }) => {
+                    data.forEach((item: { id: string; transactions: Transaction[] }) => {
                         setLocalStorageItem(item.id, item.transactions);
                     });
                 }
