@@ -91,6 +91,24 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         setCurrentMercurial(parameters.mercurial);
     }, [parameters.mercurial]);
 
+    const loadTransactionsFromSQL = useCallback(async (date?: Date) => {
+        try {
+            const dateStr = (date || new Date()).toISOString().split('T')[0];
+            const response = await fetch(`/api/sql/getTransactions?date=${dateStr}&period=day`);
+            if (!response.ok) {
+                const error = await response.json();
+                console.error('SQL DB read error:', error);
+                return null;
+            }
+            const data = await response.json();
+            console.log('SQL DB transactions loaded successfully:', data.transactions?.length || 0);
+            return data.transactions as Transaction[];
+        } catch (error) {
+            console.error('Error loading transactions from SQL DB:', error);
+            return null;
+        }
+    }, []);
+
     useEffect(() => {
         if (!parameters.shop.name || areTransactionLoaded.current) return;
 
@@ -99,10 +117,29 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
         const filename = getTransactionFileName(shopId);
 
-        const transactions = JSON.parse(localStorage.getItem(filename) || '[]') as Transaction[];
-        setTransactions(transactions);
-        areTransactionLoaded.current = true;
-        setTransactionsFilename(filename);
+        const loadTransactions = async () => {
+            let loadedTransactions: Transaction[] = [];
+
+            // Try to load from SQL DB first if enabled
+            if (process.env.NEXT_PUBLIC_USE_SQLDB) {
+                const sqlTransactions = await loadTransactionsFromSQL();
+                if (sqlTransactions) {
+                    loadedTransactions = sqlTransactions;
+                    console.log('Loaded transactions from SQL DB');
+                }
+            }
+
+            // Fallback to localStorage if SQL DB is not enabled or failed
+            if (!loadedTransactions.length) {
+                loadedTransactions = JSON.parse(localStorage.getItem(filename) || '[]') as Transaction[];
+            }
+
+            setTransactions(loadedTransactions);
+            areTransactionLoaded.current = true;
+            setTransactionsFilename(filename);
+        };
+
+        loadTransactions();
 
         const now = new Date();
         const midnight = new Date();
@@ -113,7 +150,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             areTransactionLoaded.current = false;
             setTransactionsFilename('');
         }, timeUntilMidnight); // Automatically reload at midnight
-    }, [parameters.shop.name]);
+    }, [parameters.shop.name, loadTransactionsFromSQL]);
 
     useEffect(() => {
         if (IS_DEV || isDemo) return;
@@ -360,8 +397,45 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         ]
     );
 
+    const processSyncFromSQL = useCallback(
+        async (syncPeriod: SyncPeriod) => {
+            try {
+                // For SQL DB, we load all transactions and let fullSync handle them
+                const response = await fetch(
+                    `/api/sql/getTransactions?period=${syncPeriod === SyncPeriod.day ? 'day' : 'full'}&date=${new Date().toISOString().split('T')[0]}`
+                );
+                if (!response.ok) {
+                    console.error('SQL DB sync error:', await response.json());
+                    return;
+                }
+                const data = await response.json();
+                const sqlTransactions = data.transactions as Transaction[];
+
+                if (sqlTransactions.length) {
+                    const cloudTransactionSets: TransactionSet[] = [
+                        {
+                            id: transactionsFilename,
+                            transactions: sqlTransactions,
+                        },
+                    ];
+                    fullSync(cloudTransactionSets, syncPeriod);
+                }
+                console.log('SQL DB sync completed:', sqlTransactions.length, 'transactions');
+            } catch (error) {
+                console.error('Error syncing from SQL DB:', error);
+            }
+        },
+        [fullSync, transactionsFilename]
+    );
+
     const processSync = useCallback(
         (ids: string | string[], syncPeriod: SyncPeriod) => {
+            // Use SQL DB if enabled
+            if (process.env.NEXT_PUBLIC_USE_SQLDB) {
+                processSyncFromSQL(syncPeriod);
+                return;
+            }
+
             if (!firestore) return;
 
             const collectionIds = Array.isArray(ids) ? ids : [ids];
@@ -382,11 +456,18 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 });
             });
         },
-        [firestore, fullSync]
+        [firestore, fullSync, processSyncFromSQL]
     );
 
     const syncTransactions = useCallback(
         (period: SyncPeriod, filename = transactionsFilename) => {
+            // For SQL DB, directly use processSync which handles SQL logic
+            if (process.env.NEXT_PUBLIC_USE_SQLDB) {
+                if (!filename || convertTransactionsData(ConvertAction.local)) return;
+                processSync(filename, period);
+                return;
+            }
+
             if (!firestore || !filename || convertTransactionsData(ConvertAction.local)) return;
 
             if (period === SyncPeriod.day) {
@@ -404,6 +485,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     useEffect(() => {
+        // For SQL DB mode, only sync transactions without Firebase real-time listener
+        if (process.env.NEXT_PUBLIC_USE_SQLDB) {
+            if (!transactionsFilename) return;
+            syncTransactions(SyncPeriod.day);
+            return;
+        }
+
         if (!firestore || !transactionsFilename) return;
 
         syncTransactions(SyncPeriod.day); // Synchronize the daily transactions on the first load
@@ -493,7 +581,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const processTransactions = useCallback(
         (syncAction: SyncAction, date?: Date, event?: ChangeEvent<HTMLInputElement>) => {
-            if (!firestore) return;
+            // Allow processing with SQL DB or Firebase
+            if (!firestore && !process.env.NEXT_PUBLIC_USE_SQLDB) return;
 
             const filename = date ? getTransactionFileName(shopId, date) : transactionsFilename;
             switch (syncAction) {
