@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { QRCode } from '../components/QRCode';
 import { Shop } from '../contexts/ConfigProvider';
-import { isWaitingTransaction } from '../contexts/DataProvider';
+import { isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
 import { IS_LOCAL, PRINT_KEYWORD, REFUND_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
 import { Transaction } from '../utils/interfaces';
 import { printReceipt } from '../utils/posPrinter';

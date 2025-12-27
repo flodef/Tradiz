@@ -25,19 +25,11 @@ import {
     PROCESSING_KEYWORD,
     TRANSACTIONS_KEYWORD,
     UPDATING_KEYWORD,
-    WAITING_KEYWORD,
 } from '../utils/constants';
 import { getFormattedDate, getTransactionFileName, toSQLDateTime } from '../utils/date';
-import {
-    Currency,
-    Discount,
-    Mercurial,
-    Product,
-    SyncAction,
-    SyncPeriod,
-    Transaction,
-    TransactionSet,
-} from '../utils/interfaces';
+import { Currency, Discount, Product, SyncAction, SyncPeriod, Transaction, TransactionSet } from '../utils/interfaces';
+import { isDeletedTransaction, isProcessingTransaction, isWaitingTransaction } from './dataProvider/transactionHelpers';
+import { useMercurial } from './dataProvider/useMercurial';
 
 enum DatabaseAction {
     add,
@@ -51,17 +43,6 @@ enum ConvertAction {
     local,
     both,
 }
-
-export const isWaitingTransaction = (transaction?: Transaction) =>
-    Boolean(transaction && transaction.method === WAITING_KEYWORD);
-export const isUpdatingTransaction = (transaction?: Transaction) =>
-    Boolean(transaction && transaction.method === UPDATING_KEYWORD);
-export const isProcessingTransaction = (transaction?: Transaction) =>
-    Boolean(transaction && transaction.method === PROCESSING_KEYWORD);
-export const isDeletedTransaction = (transaction?: Transaction) =>
-    Boolean(transaction && transaction.method === DELETED_KEYWORD);
-export const isConfirmedTransaction = (transaction?: Transaction) =>
-    Boolean(transaction && !isWaitingTransaction(transaction) && !isDeletedTransaction(transaction));
 
 export interface DataProviderProps {
     children: ReactNode;
@@ -753,37 +734,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [currencies, currencyIndex]
     );
 
-    const toMercurial = useCallback(
-        (quantity: number, mercurial = currentMercurial) => {
-            switch (mercurial) {
-                case Mercurial.exponential:
-                    return Math.pow(2, quantity - 1);
-                case Mercurial.soft:
-                    return quantity <= 2
-                        ? quantity
-                        : Array(quantity - 1)
-                              .fill(1)
-                              .map((_, i) => i + 1)
-                              .reduce((a, b) => a + b);
-                case Mercurial.zelet:
-                    return quantity <= 2 ? quantity : Math.pow(quantity, 2);
-                default:
-                    return quantity;
-            }
-        },
-        [currentMercurial]
-    );
-
-    const fromMercurial = useCallback(
-        (quantity: number, maxValue: number, mercurial = currentMercurial) => {
-            quantity = Math.floor(quantity);
-            while (toMercurial(quantity, mercurial) > maxValue) {
-                quantity--;
-            }
-            return quantity;
-        },
-        [toMercurial, currentMercurial]
-    );
+    const { toMercurial, fromMercurial } = useMercurial(currentMercurial);
 
     const getCurrentTotal = useCallback(() => {
         return products.current ? products.current.reduce((t, { total }) => t + (total ?? 0), 0) : 0;

@@ -2,7 +2,11 @@
 
 import { FC, MouseEventHandler, useCallback, useMemo, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
-import { isConfirmedTransaction, isUpdatingTransaction, isWaitingTransaction } from '../contexts/DataProvider';
+import {
+    isConfirmedTransaction,
+    isUpdatingTransaction,
+    isWaitingTransaction,
+} from '../contexts/dataProvider/transactionHelpers';
 import { useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
