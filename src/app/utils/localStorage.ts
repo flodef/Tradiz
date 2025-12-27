@@ -5,7 +5,7 @@ export function useLocalStorage<T>(key: string, defaultState: T): [T, Dispatch<S
         try {
             const value = localStorage.getItem(key);
             if (value) return JSON.parse(value) as T;
-        } catch (error: any) {
+        } catch (error) {
             if (typeof window !== 'undefined') {
                 console.error(error);
             }
@@ -32,7 +32,7 @@ export function useLocalStorage<T>(key: string, defaultState: T): [T, Dispatch<S
             } else {
                 localStorage.setItem(key, JSON.stringify(value));
             }
-        } catch (error: any) {
+        } catch (error) {
             if (typeof window !== 'undefined') {
                 console.error(error);
             }
