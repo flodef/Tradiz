@@ -155,7 +155,7 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
         receiptData.transaction.products.forEach((item) => {
             let label =
                 item.label +
-                (item.quantity !== 1 ? ` x${item.quantity}` : '') +
+                ` x${item.quantity}` +
                 (item.discount.amount > 0 ? ` (-${item.discount.amount}${item.discount.unit})` : '');
             const labelLength = label.length;
             label = labelLength > 32 ? item.label.slice(0, 32 - labelLength) + label.slice(item.label.length) : label;
