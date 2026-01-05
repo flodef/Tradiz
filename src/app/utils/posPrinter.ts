@@ -114,7 +114,7 @@ const toCurrency = (amount: number | string, currency: string) =>
             .toString()
             .replace(/[^0-9., ]/g, '')
             .trim()
-    ).toFixed(2) + (currency.includes('€') ? '$' : currency);
+    ).toFixed(2) + currency;
 
 /**
  * Server action to print a receipt with standard formatting
