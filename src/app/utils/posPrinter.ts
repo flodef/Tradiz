@@ -40,7 +40,7 @@ const getPrinter = async (printerIPAddress: string) => {
         type: PrinterTypes.EPSON,
         interface: 'tcp://' + printerIPAddress + ':9100',
         width: 48, // 48 characters per line
-        characterSet: CharacterSet.PC437_USA,
+        characterSet: CharacterSet.ISO8859_15_LATIN9,
         removeSpecialCharacters: false,
         lineCharacter: '-',
     });
