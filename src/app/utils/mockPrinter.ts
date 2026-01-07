@@ -5,7 +5,7 @@ import { ThermalPrinter, PrinterTypes, CharacterSet } from 'node-thermal-printer
 // Create a mock printer for DEV environment that generates plain text output
 export const createMockPrinter = async () => {
     const MAX_WIDTH = 48; // Characters per line
-    let textBuffer: string[] = [];
+    const textBuffer: string[] = [];
     let currentAlign = 'left';
     let isBold = false;
     let isDoubleHeight = false;
@@ -43,7 +43,7 @@ export const createMockPrinter = async () => {
     return {
         printerTypes: PrinterTypes.EPSON,
         width: MAX_WIDTH,
-        characterSet: CharacterSet.PC437_USA,
+        characterSet: CharacterSet.ISO8859_15_LATIN9,
         removeSpecialCharacters: false,
         lineCharacter: '-',
         options: {},
@@ -54,7 +54,11 @@ export const createMockPrinter = async () => {
         interface: '',
         // Mock basic printer methods with text equivalents
         println: (text: string) => {
-            addFormattedLine(text);
+            if (text.trim()) {
+                addFormattedLine(text);
+            } else {
+                textBuffer.push('');
+            }
             return Promise.resolve();
         },
         print: (text: string) => {
