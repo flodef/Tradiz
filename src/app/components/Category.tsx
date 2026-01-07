@@ -50,8 +50,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
 
 export const Category: FC = () => {
     const { inventory, state, setState, currencyIndex, parameters } = useConfig();
-    const { addProduct, amount, setSelectedProduct, clearAmount, clearTotal, selectedProduct, orderId, setOrderId } =
-        useData();
+    const { addProduct, amount, setSelectedProduct, clearAmount, clearTotal, selectedProduct, setOrderId } = useData();
     const { openPopup, openFullscreenPopup, closePopup } = usePopup();
     const { isLocalhost, isDemo } = useWindowParam();
 
@@ -144,7 +143,7 @@ export const Category: FC = () => {
 
         window.addEventListener('message', handler);
         return () => window.removeEventListener('message', handler);
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const addSpecificProduct = (item: InventoryItem, option: string) => {
         const price = item.products.find(({ label }) => label === option)?.prices[currencyIndex];

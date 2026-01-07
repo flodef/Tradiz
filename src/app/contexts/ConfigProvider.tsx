@@ -13,7 +13,6 @@ import {
 } from '@/app/utils/interfaces';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigContext } from '../hooks/useConfig';
-import { useData } from '../hooks/useData';
 import { useWindowParam } from '../hooks/useWindowParam';
 import { IS_DEV, LOCAL_PRINTER_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
@@ -59,7 +58,6 @@ export interface ConfigProviderProps {
 }
 
 export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
-    const { addProduct } = useData();
     const { isDemo } = useWindowParam();
 
     const [state, setState] = useState(State.init);
