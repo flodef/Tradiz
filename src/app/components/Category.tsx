@@ -128,7 +128,7 @@ export const Category: FC = () => {
 
     useEffect(() => {
         const handler = (e: MessageEvent) => {
-            if (e.origin !== 'https://yankee-grill.digi-carte.fr') return;
+            if (e.origin !== process.env.NEXT_PUBLIC_WEB_URL) return;
             if (e.data?.type === 'ORDER_ID') {
                 clearTotal(); // Clear existing products before adding new ones
 
