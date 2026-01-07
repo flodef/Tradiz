@@ -114,7 +114,9 @@ const toCurrency = (amount: number | string, currency: string) =>
             .toString()
             .replace(/[^0-9., ]/g, '')
             .trim()
-    ).toFixed(2) + currency;
+    ).toFixed(2) +
+    ' ' +
+    currency;
 
 /**
  * Server action to print a receipt with standard formatting
@@ -132,7 +134,7 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
             receiptData.transaction.method !== WAITING_KEYWORD && receiptData.transaction.method !== PROCESSING_KEYWORD
                 ? receiptData.transaction.method
                 : undefined;
-        const currency = receiptData.transaction.currency;
+        const currency = receiptData.transaction.currency.match(/\((.+)\)/)?.[1] || receiptData.transaction.currency;
 
         // Print header
         printShopInfo(printer, receiptData.shop);
