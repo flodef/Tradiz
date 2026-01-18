@@ -66,7 +66,7 @@ const dataNames: { [key: string]: DataName } = {
 };
 
 export const defaultParameters: Parameters = {
-    shop: { name: '', email: EMAIL, address: '', zipCode: '', city: '', id: '' },
+    shop: { name: '', email: EMAIL, address: '', zipCode: '', city: '', id: '', idType: '' },
     thanksMessage: '',
     mercurial: Mercurial.none,
     lastModified: new Date().toLocaleString(),
@@ -131,25 +131,26 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
     if (id !== undefined && !navigator.onLine) throw new AppOfflineError();
 
     const param = await fetchData(dataNames.parameters, id, false).then(convertParametersData);
-    if (!param?.length) return;
+    if (!param?.values?.length) return;
 
     const users = await fetchData(dataNames.users, id, false).then(convertUsersData);
     const publicKey = users?.length ? getPublicKey() : undefined;
     const user = users?.length ? users.filter(({ key }) => key === publicKey).at(0) : { name: '', role: Role.cashier };
-    if (!user || user.role === Role.none) throw new UserNotFoundError(param.at(1));
+    if (!user || user.role === Role.none) throw new UserNotFoundError(param.values.at(1));
 
     const parameters: Parameters = {
         shop: {
-            name: param.at(0) ?? '',
-            address: param.at(1) ?? '',
-            zipCode: param.at(2) ?? '',
-            city: param.at(3) ?? '',
-            id: param.at(4) ?? '',
-            email: param.at(5) ?? EMAIL,
+            name: param.values.at(0) ?? '',
+            address: param.values.at(1) ?? '',
+            zipCode: param.values.at(2) ?? '',
+            city: param.values.at(3) ?? '',
+            id: param.values.at(4) ?? '',
+            idType: param.keys.at(4)?.toUpperCase() ?? '',
+            email: param.values.at(5) ?? EMAIL,
         },
-        thanksMessage: param.at(6) ?? 'Merci de votre visite !',
-        mercurial: (param.at(7) ?? Mercurial.none) as Mercurial,
-        lastModified: param.at(8) ?? new Date('0').toLocaleString(),
+        thanksMessage: param.values.at(6) ?? 'Merci de votre visite !',
+        mercurial: (param.values.at(7) ?? Mercurial.none) as Mercurial,
+        lastModified: param.values.at(8) ?? new Date('0').toLocaleString(),
         user: user,
     };
 
@@ -273,20 +274,26 @@ async function convertUsersData(response: void | Response): Promise<User[]> {
     }
 }
 
-async function convertParametersData(response: void | Response): Promise<(string | undefined)[]> {
+async function convertParametersData(response: void | Response): Promise<{ keys: (string | undefined)[], values: (string | undefined)[] }> {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
             checkData(data, 1, 2, 9, 9);
 
-            return data.values.map((item) => {
-                checkColumn(item, 1);
-                return item.at(1);
-            });
+            return {
+                keys: data.values.map((item) => {
+                    checkColumn(item, 1);
+                    return item.at(0);
+                }),
+                values: data.values.map((item) => {
+                    checkColumn(item, 1);
+                    return item.at(1);
+                })
+            };
         });
     } catch (error) {
         console.error(error);
-        return [];
+        return { keys: [], values: [] };
     }
 }
 

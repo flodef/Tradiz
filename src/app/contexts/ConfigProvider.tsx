@@ -30,6 +30,7 @@ export interface Shop {
     zipCode: string;
     city: string;
     id: string;
+    idType: string;
     email: string;
 }
 
