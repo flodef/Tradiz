@@ -10,12 +10,14 @@ import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
 import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
+import { CalculatorIcon } from '../images/CalculatorIcon';
 import { WalletIcon } from '../images/WalletIcon';
 import { WAITING_KEYWORD } from '../utils/constants';
 import { EmptyDiscount, Mercurial } from '../utils/interfaces';
 import { isMobileDevice, isMobileSize } from '../utils/mobile';
 import { Digits } from '../utils/types';
 import { Amount } from './Amount';
+import { Calculator } from './Calculator';
 import { useAddPopupClass } from './Popup';
 
 interface NumPadButtonProps {
@@ -320,6 +322,24 @@ export const NumPad: FC = () => {
         });
     }, [setCurrentMercurial, openPopup, quantity, multiply]);
 
+    const openCalculator = useCallback(() => {
+        openPopup(
+            'Calculatrice',
+            [
+                <Calculator
+                    key="calculator"
+                    onUseResult={(value) => {
+                        setValue((value * Math.pow(10, maxDecimals)).toString());
+                        setAmount(value);
+                        closePopup();
+                    }}
+                />,
+            ],
+            () => {},
+            true
+        );
+    }, [openPopup, closePopup, setValue, setAmount, maxDecimals]);
+
     useEffect(() => {
         setAmount(parseInt(value) / Math.pow(10, maxDecimals));
     }, [value, setAmount, maxDecimals]);
@@ -401,6 +421,9 @@ export const NumPad: FC = () => {
                             onInput={multiply}
                             onContextMenu={discount ?? mercuriale}
                         />
+                        <ImageButton className={f + color} onClick={openCalculator} onContextMenu={openCalculator}>
+                            <CalculatorIcon width={42} height={42} />
+                        </ImageButton>
                         <FunctionButton
                             className={f3}
                             input="z"
