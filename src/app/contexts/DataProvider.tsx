@@ -23,11 +23,13 @@ import {
     IS_DEV,
     OTHER_KEYWORD,
     PROCESSING_KEYWORD,
+    REFUND_KEYWORD,
     TRANSACTIONS_KEYWORD,
     UPDATING_KEYWORD,
+    WAITING_KEYWORD,
 } from '../utils/constants';
 import { getFormattedDate, getTransactionFileName, toSQLDateTime } from '../utils/date';
-import { Currency, Discount, Product, SyncAction, SyncPeriod, Transaction, TransactionSet } from '../utils/interfaces';
+import { Currency, Discount, OrderData, OrderItem, Product, SyncAction, SyncPeriod, Transaction, TransactionSet } from '../utils/interfaces';
 import { isDeletedTransaction, isProcessingTransaction, isWaitingTransaction } from './dataProvider/transactionHelpers';
 import { useMercurial } from './dataProvider/useMercurial';
 
@@ -65,6 +67,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const areTransactionLoaded = useRef(false);
     const [shopId, setShopId] = useState('');
     const [orderId, setOrderId] = useState('');
+    const [orderData, setOrderData] = useState<OrderData | null>(null);
+    const [selectedOrderItems, setSelectedOrderItems] = useState<OrderItem[]>([]);
+    const [partialPaymentAmount, setPartialPaymentAmount] = useState(0);
+    const [showPartialPaymentSelector, setShowPartialPaymentSelector] = useState(false);
 
     const isDbConnected = useMemo(() => !!firestore && isOnline, [firestore, isOnline]);
 
@@ -671,7 +677,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     console.log('SQL DB transaction saved successfully');
 
                     // Notify WebSocket server that the order is complete
-                    if (orderId) {
+                    // Only send notification for actual payments (not for EN ATTENTE or REMBOURSEMENT)
+                    const isActualPayment = 
+                        transaction.method !== WAITING_KEYWORD && 
+                        transaction.method !== REFUND_KEYWORD &&
+                        transaction.method !== DELETED_KEYWORD &&
+                        transaction.method !== PROCESSING_KEYWORD &&
+                        transaction.method !== UPDATING_KEYWORD;
+                    
+                    if (orderId && isActualPayment) {
                         try {
                             await fetch('/api/complete-order', {
                                 method: 'POST',
@@ -999,6 +1013,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 isDbConnected,
                 orderId,
                 setOrderId,
+                orderData,
+                setOrderData,
+                selectedOrderItems,
+                setSelectedOrderItems,
+                partialPaymentAmount,
+                setPartialPaymentAmount,
+                showPartialPaymentSelector,
+                setShowPartialPaymentSelector,
             }}
         >
             {children}

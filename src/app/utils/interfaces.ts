@@ -111,3 +111,43 @@ export type TransactionSet = {
     id: string;
     transactions: Transaction[];
 };
+
+// Order item types for partial payment
+export interface OrderArticle {
+    id: string;
+    type: 'article';
+    label: string;
+    quantity: number;
+    price: number;
+    category: string;
+    options?: string;
+    paid_at?: string | null;
+    kitchen_view: number;
+}
+
+export interface OrderFormule {
+    id: string;
+    type: 'formule';
+    label: string;
+    quantity: number;
+    price: number;
+    note?: string;
+    paid_at?: string | null;
+    elements: {
+        category: string;
+        choice: string;
+        options?: string;
+    }[];
+}
+
+export type OrderItem = OrderArticle | OrderFormule;
+
+export interface OrderData {
+    panier_id: number;
+    short_num_order: string;
+    service_type: 'emporter' | 'sur_place';
+    items: OrderItem[];
+    total_amount: number;
+    paid_amount: number;
+    remaining_amount: number;
+}
