@@ -100,7 +100,7 @@ function printShopInfo(printer: ThermalPrinter, shop: Shop) {
     printer.newLine();
     if (shop.address) printer.println(shop.address);
     if (shop.zipCode && shop.city) printer.println(shop.zipCode + ' ' + shop.city);
-    if (shop.id) printer.println(shop.id);
+    if (shop.id) printer.println((shop.idType ? shop.idType + ': ' : '') + shop.id);
     if (shop.email) printer.println(shop.email);
     printer.newLine();
 }
@@ -147,22 +147,31 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
         printer.drawLine();
         printer.alignLeft();
         printer.tableCustom([
-            { text: 'ARTICLE', align: 'LEFT', cols: 32 },
-            { text: 'PRIX', align: 'CENTER', cols: 8 },
+            { text: 'ARTICLE', align: 'LEFT', cols: 20 },
+            { text: 'QTE', align: 'CENTER', cols: 4 },
+            { text: 'P.U. HT', align: 'CENTER', cols: 8 },
+            { text: 'P.U. TTC', align: 'CENTER', cols: 8 },
             { text: 'TOTAL', align: 'RIGHT', cols: 8 },
         ]);
         printer.drawLine();
 
         // Print each item
         receiptData.transaction.products.forEach((item) => {
-            let label =
-                item.label +
-                ` x${item.quantity}` +
-                (item.discount.amount > 0 ? ` (-${item.discount.amount}${item.discount.unit})` : '');
+            const itemCategory = receiptData.inventory?.find(inv => inv.category === item.category);
+            const vatRate = itemCategory?.rate ?? 0.20; // Default to 20% if not found
+            const priceHT = (item.amount || 0) / (1 + vatRate);
+            
+            let label = item.label;
+            if (item.discount.amount > 0) {
+                label += ` (-${item.discount.amount}${item.discount.unit})`;
+            }
             const labelLength = label.length;
-            label = labelLength > 32 ? item.label.slice(0, 32 - labelLength) + label.slice(item.label.length) : label;
+            label = labelLength > 20 ? label.slice(0, 17) + '...' : label;
+            
             printer.tableCustom([
-                { text: label, align: 'LEFT', cols: 32 },
+                { text: label, align: 'LEFT', cols: 20 },
+                { text: `x${item.quantity}`, align: 'CENTER', cols: 4 },
+                { text: toCurrency(priceHT, currency), align: 'CENTER', cols: 8 },
                 { text: toCurrency(item.amount || 0, currency), align: 'CENTER', cols: 8 },
                 { text: toCurrency(item.total || 0, currency), align: 'RIGHT', cols: 8 },
             ]);
@@ -179,6 +188,12 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
         // Print payment method if available
         printer.alignCenter();
         printer.println(paymentMethod ? `Mode de paiement: ${paymentMethod}` : 'PAS ENCORE PAYÉ');
+        printer.newLine();
+
+        // Print legal mention
+        printer.alignCenter();
+        printer.println('Logiciel de caisse conforme');
+        printer.println('à l\'article 286 I-3 bis du CGI');
         printer.newLine();
 
         // Print thank you message

@@ -3,7 +3,7 @@ import { QRCode } from '../components/QRCode';
 import { Shop } from '../contexts/ConfigProvider';
 import { isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
 import { IS_LOCAL, PRINT_KEYWORD, REFUND_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
-import { Transaction } from '../utils/interfaces';
+import { InventoryItem, Transaction } from '../utils/interfaces';
 import { printReceipt } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
@@ -15,6 +15,7 @@ export type ReceiptData = {
     transaction: Transaction;
     thanksMessage?: string;
     userName: string;
+    inventory?: InventoryItem[];
 };
 
 export const usePay = () => {
@@ -41,7 +42,7 @@ export const usePay = () => {
         setShowPartialPaymentSelector,
     } = useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
-    const { paymentMethods, currencies, currencyIndex, parameters, getPrintersNames, getPrinterAddresses } =
+    const { paymentMethods, currencies, currencyIndex, parameters, getPrintersNames, getPrinterAddresses, inventory } =
         useConfig();
 
     const canPay = useMemo(() => {
@@ -67,9 +68,10 @@ export const usePay = () => {
                 transaction: currentTransaction,
                 thanksMessage: parameters.thanksMessage,
                 userName: parameters.user.name,
+                inventory: inventory,
             });
         },
-        [parameters, transactions, getPrinterAddresses]
+        [parameters, transactions, getPrinterAddresses, inventory]
     );
 
     const printTransaction = useCallback(
@@ -366,8 +368,11 @@ export const usePay = () => {
                     .filter((item) => item.currency === currencies[currencyIndex].symbol)
                     .map((item) => item.type);
                 
+                // Add printer options for printing before payment
+                const printerOptions = getPrintersNames();
+                
                 // Add separator and additional options
-                const allOptions = paymentMethodsLabels.concat(['']);
+                const allOptions = paymentMethodsLabels.concat(printerOptions).concat(['']);
                 
                 // Add PARTIAL PAYMENT option only if orderId is set AND order has at least 2 items
                 if (orderId && orderData && orderData.items.length >= 2) {
@@ -389,6 +394,15 @@ export const usePay = () => {
                             if (option === 'PAIEMENT PARTIEL') {
                                 setShowPartialPaymentSelector(true);
                                 closePopup();
+                                return;
+                            }
+
+                            // Handle printer options
+                            const printerOptions = getPrintersNames();
+                            if (printerOptions.includes(option)) {
+                                printTransaction(option);
+                                // Don't close the popup, allow user to pay after printing
+                                setTimeout(() => pay(), 100);
                                 return;
                             }
 

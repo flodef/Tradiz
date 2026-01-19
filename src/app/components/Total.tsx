@@ -255,21 +255,27 @@ export const Total: FC = () => {
     const showProducts = useCallback(() => {
         if (!products.current.length) return;
 
+        const printerOptions = getPrintersNames();
+        
         openPopup(
             products.current.length + ' produits : ' + toCurrency(getCurrentTotal()),
-            products.current.map((product) => displayProduct(product)).concat(['', payLabel]),
+            products.current.map((product) => displayProduct(product)).concat(printerOptions).concat(['', payLabel]),
             (index, option) => {
                 if (option === payLabel) {
                     pay();
+                } else if (printerOptions.includes(option)) {
+                    // Handle print option - create a temporary transaction to print
+                    printTransaction(option);
                 } else if (index >= 0) {
                     closePopup(() => selectProduct(index));
                 }
             },
             true,
             (index) => {
-                if (index > products.current.length) {
+                const totalOptions = products.current.length + printerOptions.length + 1; // +1 for empty line
+                if (index >= totalOptions) {
                     pay();
-                } else {
+                } else if (index < products.current.length) {
                     openPopup(
                         'Effacer ?',
                         ['Oui', 'Non'],
@@ -302,6 +308,8 @@ export const Total: FC = () => {
         toCurrency,
         selectProduct,
         selectedProduct,
+        getPrintersNames,
+        printTransaction,
     ]);
 
     const deleteBoughtProduct = useCallback(
