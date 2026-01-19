@@ -55,8 +55,26 @@ export const usePay = () => {
     const printTransactionReceipt = useCallback(
         async (printerName?: string, transaction?: Transaction) => {
             // Prepare receipt data
-            const currentTransaction =
-                transaction || transactions.sort((a, b) => b.modifiedDate - a.modifiedDate).find(isWaitingTransaction);
+            let currentTransaction = transaction;
+            
+            if (!currentTransaction) {
+                // Try to find existing waiting transaction
+                currentTransaction = transactions.sort((a, b) => b.modifiedDate - a.modifiedDate).find(isWaitingTransaction);
+            }
+            
+            // If no transaction exists, create a temporary one from current products
+            if (!currentTransaction && products.current.length > 0) {
+                currentTransaction = {
+                    validator: parameters.user.name,
+                    method: WAITING_KEYWORD,
+                    amount: getCurrentTotal(),
+                    createdDate: new Date().getTime(),
+                    modifiedDate: new Date().getTime(),
+                    currency: currencies[currencyIndex].label,
+                    products: products.current,
+                };
+            }
+            
             if (!currentTransaction) return { error: 'Aucune transaction à imprimer' };
 
             const printerAddresses = getPrinterAddresses(printerName);
@@ -71,7 +89,7 @@ export const usePay = () => {
                 inventory: inventory,
             });
         },
-        [parameters, transactions, getPrinterAddresses, inventory]
+        [parameters, transactions, getPrinterAddresses, inventory, products, getCurrentTotal, currencies, currencyIndex]
     );
 
     const printTransaction = useCallback(
@@ -400,9 +418,11 @@ export const usePay = () => {
                             // Handle printer options
                             const printerOptions = getPrintersNames();
                             if (printerOptions.includes(option)) {
+                                // Print the receipt
                                 printTransaction(option);
-                                // Don't close the popup, allow user to pay after printing
-                                setTimeout(() => pay(), 100);
+                                // Put transaction in waiting status and close popup
+                                updateTransaction(WAITING_KEYWORD);
+                                closePopup();
                                 return;
                             }
 
@@ -421,6 +441,8 @@ export const usePay = () => {
         getCurrentTotal,
         paymentMethods,
         getPrintersNames,
+        printTransaction,
+        updateTransaction,
         toCurrency,
         currencies,
         currencyIndex,
