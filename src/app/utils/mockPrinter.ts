@@ -43,7 +43,7 @@ export const createMockPrinter = async () => {
     return {
         printerTypes: PrinterTypes.EPSON,
         width: MAX_WIDTH,
-        characterSet: CharacterSet.ISO8859_15_LATIN9,
+        characterSet: CharacterSet.PC858_EURO,
         removeSpecialCharacters: false,
         lineCharacter: '-',
         options: {},

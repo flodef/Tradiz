@@ -40,7 +40,7 @@ const getPrinter = async (printerIPAddress: string) => {
         type: PrinterTypes.EPSON,
         interface: 'tcp://' + printerIPAddress + ':9100',
         width: 48, // 48 characters per line
-        characterSet: CharacterSet.ISO8859_15_LATIN9,
+        characterSet: CharacterSet.PC858_EURO,
         removeSpecialCharacters: false,
         lineCharacter: '-',
     });
@@ -114,9 +114,7 @@ const toCurrency = (amount: number | string, currency: string) =>
             .toString()
             .replace(/[^0-9., ]/g, '')
             .trim()
-    ).toFixed(2) +
-    ' ' +
-    currency;
+    ).toFixed(2) + currency;
 
 /**
  * Server action to print a receipt with standard formatting
