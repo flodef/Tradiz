@@ -323,14 +323,21 @@ export const NumPad: FC = () => {
     }, [setCurrentMercurial, openPopup, quantity, multiply]);
 
     const openCalculator = useCallback(() => {
+        const currentValue = selectedProduct?.total ?? amount;
         openPopup(
             'Calculatrice',
             [
                 <Calculator
-                    key="calculator"
-                    onUseResult={(value) => {
-                        setValue((value * Math.pow(10, maxDecimals)).toString());
-                        setAmount(value);
+                    key={`calculator-${currentValue}-${Math.random()}`}
+                    initialValue={currentValue}
+                    onUseResult={(result) => {
+                        if (selectedProduct) {
+                            selectedProduct.amount = result;
+                            computeQuantity(selectedProduct, selectedProduct.quantity);
+                        } else {
+                            setValue((result * Math.pow(10, maxDecimals)).toString());
+                            setAmount(result);
+                        }
                         closePopup();
                     }}
                 />,
@@ -338,7 +345,7 @@ export const NumPad: FC = () => {
             () => {},
             true
         );
-    }, [openPopup, closePopup, setValue, setAmount, maxDecimals]);
+    }, [openPopup, closePopup, setValue, setAmount, maxDecimals, amount, selectedProduct, computeQuantity]);
 
     useEffect(() => {
         setAmount(parseInt(value) / Math.pow(10, maxDecimals));

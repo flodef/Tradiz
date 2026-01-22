@@ -1,11 +1,12 @@
 'use client';
 
-import { FC, MouseEventHandler, useCallback, useState } from 'react';
+import { FC, MouseEventHandler, useCallback, useEffect, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { isMobileDevice } from '../utils/mobile';
 
 interface CalculatorProps {
     onUseResult?: (value: number) => void;
+    initialValue?: number;
 }
 
 type CalcButton = {
@@ -15,11 +16,19 @@ type CalcButton = {
     colspan?: number;
 };
 
-export const Calculator: FC<CalculatorProps> = ({ onUseResult }) => {
-    const [display, setDisplay] = useState('0');
+export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 }) => {
+    const [display, setDisplay] = useState(initialValue.toString());
     const [previousValue, setPreviousValue] = useState<number | null>(null);
     const [operation, setOperation] = useState<string | null>(null);
     const [resetOnNextInput, setResetOnNextInput] = useState(false);
+
+    // Update display when initialValue changes
+    useEffect(() => {
+        setDisplay(initialValue.toString());
+        setPreviousValue(null);
+        setOperation(null);
+        setResetOnNextInput(false);
+    }, [initialValue]);
 
     const handleNumber = useCallback(
         (num: string) => {
@@ -119,6 +128,7 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult }) => {
 
     const handleUseResult = useCallback(() => {
         const value = parseFloat(display);
+        console.log('Use result clicked, display:', display, 'parsed:', value);
         if (!isNaN(value) && onUseResult) {
             onUseResult(value);
         }
