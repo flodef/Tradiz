@@ -16,6 +16,8 @@ export type ReceiptData = {
     thanksMessage?: string;
     userName: string;
     inventory?: InventoryItem[];
+    orderNumber?: string;
+    serviceType?: 'emporter' | 'sur_place';
 };
 
 export const usePay = () => {
@@ -87,9 +89,11 @@ export const usePay = () => {
                 thanksMessage: parameters.thanksMessage,
                 userName: parameters.user.name,
                 inventory: inventory,
+                orderNumber: orderData?.short_num_order,
+                serviceType: orderData?.service_type,
             });
         },
-        [parameters, transactions, getPrinterAddresses, inventory, products, getCurrentTotal, currencies, currencyIndex]
+        [parameters, transactions, getPrinterAddresses, inventory, products, getCurrentTotal, currencies, currencyIndex, orderData]
     );
 
     const printTransaction = useCallback(

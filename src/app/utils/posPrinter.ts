@@ -140,6 +140,11 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
         printShopInfo(printer, receiptData.shop);
         printer.println(`Date : ${frenchDateStr} ${frenchTimeStr}`);
         printer.println(`N° de reçu : ${receiptNumber}`);
+        if (receiptData.orderNumber) printer.println(`N° de commande : ${receiptData.orderNumber}`);
+        if (receiptData.serviceType) {
+            const serviceLabel = receiptData.serviceType === 'sur_place' ? 'Sur place' : 'À emporter';
+            printer.println(`Service : ${serviceLabel}`);
+        }
         if (receiptData.transaction.validator) printer.println(`Vendeur•se : ${receiptData.transaction.validator}`);
         printer.newLine();
 
@@ -147,42 +152,88 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
         printer.drawLine();
         printer.alignLeft();
         printer.tableCustom([
-            { text: 'ARTICLE', align: 'LEFT', cols: 20 },
             { text: 'QTE', align: 'CENTER', cols: 4 },
-            { text: 'P.U. HT', align: 'CENTER', cols: 8 },
-            { text: 'P.U. TTC', align: 'CENTER', cols: 8 },
-            { text: 'TOTAL', align: 'RIGHT', cols: 8 },
+            { text: 'DESIGNATION', align: 'LEFT', cols: 24 },
+            { text: 'P.U.', align: 'CENTER', cols: 10 },
+            { text: 'TOTAL', align: 'RIGHT', cols: 10 },
         ]);
         printer.drawLine();
 
         // Print each item
         receiptData.transaction.products.forEach((item) => {
-            const itemCategory = receiptData.inventory?.find(inv => inv.category === item.category);
-            const vatRate = itemCategory?.rate ?? 0.20; // Default to 20% if not found
-            const priceHT = (item.amount || 0) / (1 + vatRate);
-            
             let label = item.label;
             if (item.discount.amount > 0) {
                 label += ` (-${item.discount.amount}${item.discount.unit})`;
             }
             const labelLength = label.length;
-            label = labelLength > 20 ? label.slice(0, 17) + '...' : label;
+            label = labelLength > 24 ? label.slice(0, 21) + '...' : label;
             
             printer.tableCustom([
-                { text: label, align: 'LEFT', cols: 20 },
                 { text: `x${item.quantity}`, align: 'CENTER', cols: 4 },
-                { text: toCurrency(priceHT, currency), align: 'CENTER', cols: 8 },
-                { text: toCurrency(item.amount || 0, currency), align: 'CENTER', cols: 8 },
-                { text: toCurrency(item.total || 0, currency), align: 'RIGHT', cols: 8 },
+                { text: label, align: 'LEFT', cols: 24 },
+                { text: toCurrency(item.amount || 0, currency), align: 'CENTER', cols: 10 },
+                { text: toCurrency(item.total || 0, currency), align: 'RIGHT', cols: 10 },
             ]);
+        });
+
+        // Calculate totals by VAT rate
+        const vatTotals = new Map<number, { ht: number; tva: number; ttc: number }>();
+        let totalHT = 0;
+        let totalTTC = 0;
+
+        receiptData.transaction.products.forEach((item) => {
+            const itemCategory = receiptData.inventory?.find(inv => inv.category === item.category);
+            let vatRate = itemCategory?.rate ?? 20; // Default to 20% if not found
+            
+            // Normalize rate to decimal (if stored as 10 or 20, convert to 0.10 or 0.20)
+            if (vatRate > 1) {
+                vatRate = vatRate / 100;
+            }
+            
+            const itemTotalTTC = item.total || 0;
+            const itemTotalHT = itemTotalTTC / (1 + vatRate);
+            const itemTVA = itemTotalTTC - itemTotalHT;
+
+            totalHT += itemTotalHT;
+            totalTTC += itemTotalTTC;
+
+            if (!vatTotals.has(vatRate)) {
+                vatTotals.set(vatRate, { ht: 0, tva: 0, ttc: 0 });
+            }
+            const current = vatTotals.get(vatRate)!;
+            current.ht += itemTotalHT;
+            current.tva += itemTVA;
+            current.ttc += itemTotalTTC;
         });
 
         // Print total
         printer.newLine();
         printer.drawLine();
+        
+        // Print totals HT by VAT rate
+        printer.alignLeft();
+        vatTotals.forEach((values, rate) => {
+            const ratePercent = (rate * 100).toFixed(0);
+            printer.leftRight(`Total HT ${ratePercent}%`, toCurrency(values.ht, currency));
+        });
+        
+        // Print VAT by rate (without extra newlines)
+        vatTotals.forEach((values, rate) => {
+            const ratePercent = (rate * 100).toFixed(0);
+            printer.leftRight(`TVA ${ratePercent}%`, toCurrency(values.tva, currency));
+        });
+        
+        // Print total HT
+        printer.leftRight('TOTAL HT', toCurrency(totalHT, currency));
+        
+        printer.drawLine();
+        
+        // Print total TTC (larger and bold, isolated)
+        printer.setTextDoubleHeight();
         printer.bold(true);
-        printer.leftRight('TOTAL', toCurrency(receiptData.transaction.amount, currency));
+        printer.leftRight('TOTAL TTC', toCurrency(totalTTC, currency));
         printer.bold(false);
+        printer.setTextNormal();
         printer.drawLine();
 
         // Print payment method if available
