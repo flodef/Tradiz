@@ -238,7 +238,7 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
 
         // Print payment method if available
         printer.alignCenter();
-        printer.println(paymentMethod ? `Mode de paiement: ${paymentMethod}` : 'PAS ENCORE PAYÉ');
+        printer.println(paymentMethod ? `Mode de paiement: ${paymentMethod}` : 'À RÉGLER');
         printer.newLine();
 
         // Print legal mention
