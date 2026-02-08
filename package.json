@@ -22,7 +22,6 @@
         "bignumber.js": "9.1.2",
         "caniuse-lite": "latest",
         "eslint-plugin-jsx-a11y": "latest",
-        "firebase": "latest",
         "mysql2": "latest",
         "next": "latest",
         "node-thermal-printer": "latest",

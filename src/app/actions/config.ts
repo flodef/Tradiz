@@ -1,26 +1,13 @@
 'use server';
 
-import { db } from '@/utils/firebase';
-import {
-    collection,
-    getDocs,
-    doc,
-    setDoc,
-    DocumentData,
-} from 'firebase/firestore';
-
 export interface Config {
-    [key: string]: DocumentData;
+    [key: string]: any;
 }
 
 export async function getShopConfig(shopName: string): Promise<Config> {
-    const configCollection = collection(db, `Config_${shopName}`);
-    const snapshot = await getDocs(configCollection);
-    const config: Config = {};
-    snapshot.forEach((doc) => {
-        config[doc.id] = doc.data();
-    });
-    return config;
+    // Firebase removed - config now comes from SQL DB via API endpoints
+    console.log('getShopConfig called for', shopName, '- Firebase removed, returning empty config');
+    return {};
 }
 
 export async function updateConfigTheme(
@@ -28,6 +15,6 @@ export async function updateConfigTheme(
     theme: string,
     data: any
 ) {
-    const configDoc = doc(db, `Config_${shopName}`, theme);
-    await setDoc(configDoc, data, { merge: true });
+    // Firebase removed - theme config should be updated via SQL DB API
+    console.log('updateConfigTheme called for', shopName, theme, '- Firebase removed, no action taken');
 }

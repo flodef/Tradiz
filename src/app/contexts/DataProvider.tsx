@@ -1,26 +1,11 @@
 'use client';
 
-import { initializeApp } from 'firebase/app';
-import {
-    Firestore,
-    collection,
-    deleteField,
-    doc,
-    getDocs,
-    getFirestore,
-    onSnapshot,
-    query,
-    setDoc,
-    updateDoc,
-    where,
-} from 'firebase/firestore';
 import { ChangeEvent, FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConfig } from '../hooks/useConfig';
 import { DataContext } from '../hooks/useData';
 import { useWindowParam } from '../hooks/useWindowParam';
 import {
     DELETED_KEYWORD,
-    IS_DEV,
     OTHER_KEYWORD,
     PROCESSING_KEYWORD,
     REFUND_KEYWORD,
@@ -37,13 +22,6 @@ enum DatabaseAction {
     add,
     update,
     delete,
-}
-
-enum ConvertAction {
-    none,
-    cloud,
-    local,
-    both,
 }
 
 export interface DataProviderProps {
@@ -63,7 +41,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const products = useRef<Product[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const transactionId = useRef(0);
-    const [firestore, setFirestore] = useState<Firestore>();
     const areTransactionLoaded = useRef(false);
     const [shopId, setShopId] = useState('');
     const [orderId, setOrderId] = useState('');
@@ -72,7 +49,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [partialPaymentAmount, setPartialPaymentAmount] = useState(0);
     const [showPartialPaymentSelector, setShowPartialPaymentSelector] = useState(false);
 
-    const isDbConnected = useMemo(() => !!firestore && isOnline, [firestore, isOnline]);
+    const isDbConnected = useMemo(() => isOnline, [isOnline]);
 
     useEffect(() => {
         setCurrentMercurial(parameters.mercurial);
@@ -139,37 +116,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         }, timeUntilMidnight); // Automatically reload at midnight
     }, [parameters.shop.name, loadTransactionsFromSQL]);
 
-    useEffect(() => {
-        if (IS_DEV || isDemo) return;
-
-        fetch(`./api/firebase`)
-            .catch((error) => {
-                console.error(error);
-            })
-            .then((response) => {
-                if (typeof response === 'undefined') return;
-                response.json().then((options) => {
-                    if (!options) return;
-                    const firebaseApp = initializeApp(options);
-                    const firebaseFirestore = getFirestore(firebaseApp);
-                    setFirestore(firebaseFirestore);
-                });
-            });
-    }, [isDemo]);
-
-    const storeIndex = useCallback(
-        async (id: string) => {
-            if (!firestore) return;
-
-            const info = id.split('_');
-            await setDoc(doc(firestore, 'Indexes', id), {
-                shop: !info[0].startsWith(TRANSACTIONS_KEYWORD) ? info[0] : '',
-                date: new Date(info[1]).getTime(),
-            });
-        },
-        [firestore]
-    );
-
     const getLocalTransactions = useCallback(() => {
         const localTransactionSets: TransactionSet[] = [];
         for (let i = 0; i < localStorage.length; i++) {
@@ -212,60 +158,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [transactions, setTransactions]
     );
 
-    const convertTransactionsData = useCallback(
-        (convertAction = ConvertAction.none) => {
-            // CONVERT CLOUD TRANSACTIONS
-            if (convertAction === ConvertAction.cloud || convertAction === ConvertAction.both) {
-                if (!firestore) return;
-                getDocs(collection(firestore, 'Indexes')).then((querySnapshot) => {
-                    querySnapshot.forEach(async (document) => {
-                        const colId = document.id;
-                        await storeIndex(colId);
-
-                        getDocs(collection(firestore, colId)).then((query) => {
-                            query.forEach(async (document) => {
-                                const id = document.id;
-                                await updateDoc(doc(firestore, colId, id), {
-                                    shop: deleteField(),
-                                });
-                            });
-                        });
-                    });
-                });
-            }
-
-            // CONVERT LOCAL TRANSACTIONS
-            if (convertAction === ConvertAction.local || convertAction === ConvertAction.both) {
-                const localTransactionSets = getLocalTransactions();
-                localTransactionSets.forEach((localTransactionSet) => {
-                    let id = localTransactionSet.id;
-                    const tx = localTransactionSet.transactions.map((transaction) => {
-                        return {
-                            validator: transaction.validator,
-                            method: transaction.method,
-                            amount: transaction.amount,
-                            createdDate: transaction.createdDate,
-                            modifiedDate: transaction.modifiedDate,
-                            currency:
-                                typeof transaction.currency === 'string'
-                                    ? transaction.currency
-                                    : (transaction.currency as Currency).label,
-                            products: transaction.products,
-                        };
-                    });
-                    if (id.includes('+')) {
-                        localStorage.removeItem(id);
-                        id = id.split('+')[1];
-                    }
-                    setLocalStorageItem(id, tx);
-                });
-            }
-
-            return convertAction === ConvertAction.cloud || convertAction === ConvertAction.both;
-        },
-        [firestore, storeIndex, getLocalTransactions, setLocalStorageItem]
-    );
-
     const updateLocalTransaction = useCallback(
         (transactionSet: TransactionSet) => {
             const txToUpdate = transactionSet.transactions.filter(
@@ -285,109 +177,63 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         },
         [setLocalStorageItem, storeTransaction]
     );
-    const updateCloudTransaction = useCallback(
-        async (id: string, transaction: Transaction) => {
-            if (!firestore) return;
-            await setDoc(doc(firestore, id, transaction.createdDate.toString()), transaction);
-        },
-        [firestore]
-    );
 
-    // Check if the "transaction set" in the cloud exists in local (check by "id").
-    // If not add it, if yes, check if every transaction in the cloud transaction set exist in local (check by "createdDate").
-    // If not, add the transaction, if yes, check which one has the biggest "modifiedDate".
-    // If it's the cloud one, update the local, if it's the local one, update the cloud.
-    // Then, check if the "transaction set" in local exists in the cloud, using the same method as above.
+    // Synchronize transactions from SQL DB to localStorage
     const fullSync = useCallback(
-        (cloudTransactionSets: TransactionSet[], syncPeriod: SyncPeriod) => {
-            if (!firestore) return;
-
+        (sqlTransactionSets: TransactionSet[], syncPeriod: SyncPeriod) => {
             let localTransactionSets = getLocalTransactions();
 
             console.log(
                 'syncTransactions',
-                'cloud',
-                cloudTransactionSets.sort((a, b) => a.id.localeCompare(b.id)),
+                'sql',
+                sqlTransactionSets.sort((a, b) => a.id.localeCompare(b.id)),
                 'local',
                 localTransactionSets.sort((a, b) => a.id.localeCompare(b.id))
             );
 
-            cloudTransactionSets.forEach((cloudTransactionSet) => {
-                const localTransactionSet = localTransactionSets.find((set) => set.id === cloudTransactionSet.id);
+            sqlTransactionSets.forEach((sqlTransactionSet) => {
+                const localTransactionSet = localTransactionSets.find((set) => set.id === sqlTransactionSet.id);
 
                 if (!localTransactionSet) {
-                    console.log('Added set to local', cloudTransactionSet.id);
-                    updateLocalTransaction(cloudTransactionSet);
+                    console.log('Added set to local', sqlTransactionSet.id);
+                    updateLocalTransaction(sqlTransactionSet);
                 } else {
                     const updateTransactionSet: TransactionSet = {
                         id: localTransactionSet.id,
                         transactions: [...localTransactionSet.transactions],
                     };
-                    cloudTransactionSet.transactions.forEach(async (cloudTransaction) => {
+                    sqlTransactionSet.transactions.forEach((sqlTransaction) => {
                         const index = localTransactionSet.transactions.findIndex(
-                            (localTransaction) => localTransaction.createdDate === cloudTransaction.createdDate
+                            (localTransaction) => localTransaction.createdDate === sqlTransaction.createdDate
                         );
 
                         if (index === -1) {
-                            console.log('Added transaction to local', cloudTransaction);
-                            updateTransactionSet.transactions.push(cloudTransaction);
+                            console.log('Added transaction to local', sqlTransaction);
+                            updateTransactionSet.transactions.push(sqlTransaction);
                         } else if (localTransactionSet.id === transactionsFilename) {
                             const localTransaction = localTransactionSet.transactions[index];
 
-                            if (cloudTransaction.modifiedDate > localTransaction.modifiedDate) {
-                                console.log('Updated transaction in local', cloudTransaction);
-                                updateTransactionSet.transactions.splice(index, 1, cloudTransaction);
-                            } else if (cloudTransaction.modifiedDate < localTransaction.modifiedDate) {
-                                console.log('Updated transaction in cloud', localTransaction);
-                                await updateCloudTransaction(cloudTransactionSet.id, localTransaction);
+                            // SQL DB is the source of truth, always use SQL data
+                            if (sqlTransaction.modifiedDate > localTransaction.modifiedDate) {
+                                console.log('Updated transaction in local', sqlTransaction);
+                                updateTransactionSet.transactions.splice(index, 1, sqlTransaction);
                             }
                         }
                     });
                     updateLocalTransaction(updateTransactionSet);
                 }
             });
-
-            if (syncPeriod === SyncPeriod.full) {
-                localTransactionSets = getLocalTransactions(); // Update local transaction sets after cloud sync
-                localTransactionSets.forEach(async (localTransactionSet) => {
-                    const cloudTransactionSet = cloudTransactionSets.find((set) => set.id === localTransactionSet.id);
-
-                    if (!cloudTransactionSet) {
-                        console.log('Added set to cloud', localTransactionSet.id);
-                        await storeIndex(localTransactionSet.id);
-                        localTransactionSet.transactions.forEach(
-                            async (localTransaction) =>
-                                await updateCloudTransaction(localTransactionSet.id, localTransaction)
-                        );
-                    } else {
-                        localTransactionSet.transactions.forEach(async (localTransaction) => {
-                            if (
-                                !cloudTransactionSet.transactions.some(
-                                    (cloudTransaction) => cloudTransaction.createdDate === localTransaction.createdDate
-                                )
-                            ) {
-                                console.log('Added transaction to cloud', localTransaction);
-                                await updateCloudTransaction(localTransactionSet.id, localTransaction);
-                            }
-                        });
-                    }
-                });
-            }
         },
         [
-            firestore,
-            storeIndex,
             getLocalTransactions,
             transactionsFilename,
             updateLocalTransaction,
-            updateCloudTransaction,
         ]
     );
 
-    const processSyncFromSQL = useCallback(
+    const processSync = useCallback(
         async (syncPeriod: SyncPeriod) => {
             try {
-                // For SQL DB, we load all transactions and let fullSync handle them
                 const response = await fetch(
                     `/api/sql/getTransactions?period=${syncPeriod === SyncPeriod.day ? 'day' : 'full'}&date=${new Date().toISOString().split('T')[0]}`
                 );
@@ -399,13 +245,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 const sqlTransactions = data.transactions as Transaction[];
 
                 if (sqlTransactions.length) {
-                    const cloudTransactionSets: TransactionSet[] = [
+                    const sqlTransactionSets: TransactionSet[] = [
                         {
                             id: transactionsFilename,
                             transactions: sqlTransactions,
                         },
                     ];
-                    fullSync(cloudTransactionSets, syncPeriod);
+                    fullSync(sqlTransactionSets, syncPeriod);
                 }
                 console.log('SQL DB sync completed:', sqlTransactions.length, 'transactions');
             } catch (error) {
@@ -415,107 +261,18 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [fullSync, transactionsFilename]
     );
 
-    const processSync = useCallback(
-        (ids: string | string[], syncPeriod: SyncPeriod) => {
-            // Use SQL DB if enabled
-            if (process.env.NEXT_PUBLIC_USE_SQLDB) {
-                processSyncFromSQL(syncPeriod);
-                return;
-            }
-
-            if (!firestore) return;
-
-            const collectionIds = Array.isArray(ids) ? ids : [ids];
-            let txToProcess = collectionIds.length;
-            console.log('Loaded all collections:', txToProcess);
-
-            const cloudTransactionSets: TransactionSet[] = [];
-            collectionIds.forEach((id) => {
-                getDocs(collection(firestore, id)).then((query) => {
-                    const transactions = query.docs.map((doc) => doc.data() as Transaction);
-                    if (transactions.length) cloudTransactionSets.push({ id, transactions });
-
-                    console.log('Collections to process:', txToProcess);
-
-                    if (!--txToProcess) {
-                        fullSync(cloudTransactionSets, syncPeriod);
-                    }
-                });
-            });
-        },
-        [firestore, fullSync, processSyncFromSQL]
-    );
-
     const syncTransactions = useCallback(
         (period: SyncPeriod, filename = transactionsFilename) => {
-            // For SQL DB, directly use processSync which handles SQL logic
-            if (process.env.NEXT_PUBLIC_USE_SQLDB) {
-                if (!filename || convertTransactionsData(ConvertAction.local)) return;
-                processSync(filename, period);
-                return;
-            }
-
-            if (!firestore || !filename || convertTransactionsData(ConvertAction.local)) return;
-
-            if (period === SyncPeriod.day) {
-                processSync(filename, period);
-            } else {
-                getDocs(query(collection(firestore, 'Indexes'), where('shop', '==', shopId))).then((querySnapshot) => {
-                    processSync(
-                        querySnapshot.docs.map((doc) => doc.id),
-                        period
-                    );
-                });
-            }
+            if (!filename) return;
+            processSync(period);
         },
-        [convertTransactionsData, firestore, processSync, shopId, transactionsFilename]
+        [processSync, transactionsFilename]
     );
 
     useEffect(() => {
-        // For SQL DB mode, only sync transactions without Firebase real-time listener
-        if (process.env.NEXT_PUBLIC_USE_SQLDB) {
-            if (!transactionsFilename) return;
-            syncTransactions(SyncPeriod.day);
-            return;
-        }
-
-        if (!firestore || !transactionsFilename) return;
-
-        syncTransactions(SyncPeriod.day); // Synchronize the daily transactions on the first load
-
-        const q = query(collection(firestore, transactionsFilename));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            querySnapshot.docChanges().forEach((change) => {
-                // change type can be 'added', 'modified', or 'deleted'
-                const tx = change.doc.data() as Transaction;
-                console.log(change.type, tx);
-
-                const localTx = transactions.find((transaction) => transaction.createdDate === tx.createdDate);
-
-                const txToUpdate = [...transactions];
-                const updateTx = (txToUpdate: Transaction[]) =>
-                    updateLocalTransaction({ id: transactionsFilename, transactions: txToUpdate });
-                if (!localTx) {
-                    txToUpdate.push(tx as Transaction);
-                    updateTx(txToUpdate);
-                } else {
-                    // TODO : check the transactions modifiedDate
-                    txToUpdate.splice(
-                        txToUpdate.findIndex((transaction) => transaction.createdDate === tx.createdDate),
-                        1,
-                        {
-                            ...tx,
-                            method:
-                                isProcessingTransaction(tx) && !transactionId.current ? UPDATING_KEYWORD : tx.method,
-                        }
-                    );
-                    updateTx(txToUpdate);
-                }
-            });
-        });
-
-        return () => unsubscribe();
-    }, [firestore, transactionsFilename]); // eslint-disable-line react-hooks/exhaustive-deps
+        if (!transactionsFilename) return;
+        syncTransactions(SyncPeriod.day); // Synchronize the daily transactions from SQL DB
+    }, [transactionsFilename]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const exportTransactions = useCallback(() => {
         const localTransactionSets = getLocalTransactions();
@@ -568,9 +325,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const processTransactions = useCallback(
         (syncAction: SyncAction, date?: Date, event?: ChangeEvent<HTMLInputElement>) => {
-            // Allow processing with SQL DB or Firebase
-            if (!firestore && !process.env.NEXT_PUBLIC_USE_SQLDB) return;
-
             const filename = date ? getTransactionFileName(shopId, date) : transactionsFilename;
             switch (syncAction) {
                 case SyncAction.fullsync:
@@ -591,7 +345,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     break;
             }
         },
-        [firestore, syncTransactions, exportTransactions, importTransactions, shopId, transactionsFilename]
+        [syncTransactions, exportTransactions, importTransactions, shopId, transactionsFilename]
     );
 
     const saveTransactions = useCallback(
@@ -613,107 +367,85 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const index = transaction.createdDate;
             transactionId.current = action === DatabaseAction.update ? index : 0;
 
-            if (firestore) {
-                switch (action) {
-                    case DatabaseAction.add:
-                        await storeIndex(transactionsFilename);
-                        await setDoc(doc(firestore, transactionsFilename, index.toString()), transaction);
-                        break;
-                    case DatabaseAction.update:
-                        await updateDoc(doc(firestore, transactionsFilename, index.toString()), {
-                            method: PROCESSING_KEYWORD,
-                        });
-                        break;
-                    case DatabaseAction.delete:
-                        await updateDoc(doc(firestore, transactionsFilename, index.toString()), {
-                            method: DELETED_KEYWORD,
-                        });
-                        break;
+            // Save to SQL DB
+            try {
+                // Prepare the transaction data for SQL DB
+                const sqlTransactionData = {
+                    action: DatabaseAction[action],
+                    transaction: {
+                        id: index,
+                        panier_id: orderId || String(transaction.createdDate).slice(0, 10),
+                        user_id: transaction.validator,
+                        payment_method_id: transaction.method,
+                        amount: transaction.amount,
+                        currency: transaction.currency,
+                        note: '',
+                        created_at: toSQLDateTime(transaction.createdDate),
+                        updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
+                        products: transaction.products.map((product) => ({
+                            label: product.label,
+                            category: product.category,
+                            amount: product.amount,
+                            quantity: product.quantity,
+                            discount_amount: product.discount.amount,
+                            discount_unit: product.discount.unit,
+                            total: product.total || 0,
+                        })),
+                    },
+                };
+
+                // Call the SQL API endpoint to handle the transaction
+                const response = await fetch('/api/sql/saveTransaction', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(sqlTransactionData),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    console.error('SQL DB transaction error:', error);
+                    throw new Error(error.error || 'Failed to save transaction to SQL DB');
                 }
-            }
 
-            if (process.env.NEXT_PUBLIC_USE_SQLDB) {
-                try {
-                    // Prepare the transaction data for SQL DB
-                    const sqlTransactionData = {
-                        action: DatabaseAction[action],
-                        transaction: {
-                            id: index,
-                            panier_id: orderId || String(transaction.createdDate).slice(0, 10),
-                            user_id: transaction.validator,
-                            payment_method_id: transaction.method,
-                            amount: transaction.amount,
-                            currency: transaction.currency,
-                            note: '',
-                            created_at: toSQLDateTime(transaction.createdDate),
-                            updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
-                            products: transaction.products.map((product) => ({
-                                label: product.label,
-                                category: product.category,
-                                amount: product.amount,
-                                quantity: product.quantity,
-                                discount_amount: product.discount.amount,
-                                discount_unit: product.discount.unit,
-                                total: product.total || 0,
-                            })),
-                        },
-                    };
+                console.log('SQL DB transaction saved successfully');
 
-                    // Call the SQL API endpoint to handle the transaction
-                    const response = await fetch('/api/sql/saveTransaction', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(sqlTransactionData),
-                    });
-
-                    if (!response.ok) {
-                        const error = await response.json();
-                        console.error('SQL DB transaction error:', error);
-                        throw new Error(error.error || 'Failed to save transaction to SQL DB');
+                // Notify WebSocket server that the order is complete
+                // Only send notification for actual payments (not for EN ATTENTE or REMBOURSEMENT)
+                const isActualPayment = 
+                    transaction.method !== WAITING_KEYWORD && 
+                    transaction.method !== REFUND_KEYWORD &&
+                    transaction.method !== DELETED_KEYWORD &&
+                    transaction.method !== PROCESSING_KEYWORD &&
+                    transaction.method !== UPDATING_KEYWORD;
+                
+                if (orderId && isActualPayment) {
+                    try {
+                        await fetch('/api/complete-order', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ order_id: orderId }),
+                        });
+                        console.log('Order completion notification sent to WebSocket server');
+                    } catch (wsError) {
+                        console.error('Failed to notify WebSocket server:', wsError);
+                        // Don't throw - this is not critical to the transaction
                     }
-
-                    console.log('SQL DB transaction saved successfully');
-
-                    // Notify WebSocket server that the order is complete
-                    // Only send notification for actual payments (not for EN ATTENTE or REMBOURSEMENT)
-                    const isActualPayment = 
-                        transaction.method !== WAITING_KEYWORD && 
-                        transaction.method !== REFUND_KEYWORD &&
-                        transaction.method !== DELETED_KEYWORD &&
-                        transaction.method !== PROCESSING_KEYWORD &&
-                        transaction.method !== UPDATING_KEYWORD;
-                    
-                    if (orderId && isActualPayment) {
-                        try {
-                            await fetch('/api/complete-order', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({ order_id: orderId }),
-                            });
-                            console.log('Order completion notification sent to WebSocket server');
-                        } catch (wsError) {
-                            console.error('Failed to notify WebSocket server:', wsError);
-                            // Don't throw - this is not critical to the transaction
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error handling SQL DB transaction:', error);
-                    throw error;
                 }
+            } catch (error) {
+                console.error('Error handling SQL DB transaction:', error);
+                throw error;
             }
         },
         [
             transactionsFilename,
             transactions,
             parameters.user,
-            firestore,
             setLocalStorageItem,
             currencies,
-            storeIndex,
             orderId,
         ]
     );

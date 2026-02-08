@@ -92,24 +92,27 @@ export const defaultPaymentMethods: PaymentMethod[] = [
 ];
 
 export async function loadData(shop: string, shouldUseLocalData = false): Promise<Config | undefined> {
-    // TODO: use fee
-    const id = shouldUseLocalData
-        ? undefined // if the app is used locally, use the local data
-        : typeof shop === 'string' // if shop is a string, it means that the app is used by a customer (custom path)
-          ? await fetch(`./api/spreadsheet?sheetName=index`)
-                .then(convertIndexData)
-                .then(
-                    (data) =>
-                        data
-                            .filter(({ shop: s }) => s === shop)
-                            .map(({ id }) => id)
-                            .at(0) ?? undefined
-                )
-                .catch((error) => {
-                    console.error(error);
-                    return undefined;
-                })
-          : ''; // if shop is not a string, it means that the app is used by a shop (root path)
+    // With SQL DB, we no longer need the spreadsheet index mapping
+    // All data comes directly from the database
+    const id = process.env.NEXT_PUBLIC_USE_SQLDB 
+        ? undefined 
+        : shouldUseLocalData
+          ? undefined // if the app is used locally, use the local data
+          : typeof shop === 'string' // if shop is a string, it means that the app is used by a customer (custom path)
+            ? await fetch(`./api/spreadsheet?sheetName=index`)
+                  .then(convertIndexData)
+                  .then(
+                      (data) =>
+                          data
+                              .filter(({ shop: s }) => s === shop)
+                              .map(({ id }) => id)
+                              .at(0) ?? undefined
+                  )
+                  .catch((error) => {
+                      console.error(error);
+                      return undefined;
+                  })
+            : ''; // if shop is not a string, it means that the app is used by a shop (root path)
 
     if (id !== undefined && !navigator.onLine) throw new AppOfflineError();
 
@@ -191,7 +194,17 @@ async function fetchData(dataName: DataName, id: string | undefined, isRaw = tru
           ? `./api/spreadsheet?sheetName=${dataName.sheet}&id=${id}&isRaw=${isRaw.toString()}`
           : `./api/json?fileName=${dataName.json}`;
 
-    return await fetch(url).catch((error) => console.error(error));
+    const response = await fetch(url).catch(() => undefined);
+    if (!response) return undefined;
+    
+    const data = await response.json();
+    
+    // Return a mock Response object with the parsed data
+    return {
+        ok: response.ok,
+        status: response.status,
+        json: async () => data
+    } as Response;
 }
 
 function checkData(data: any, minCol: number, maxCol = minCol, minRow = 1, maxRow = 100000) {
