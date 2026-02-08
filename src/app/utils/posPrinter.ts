@@ -40,7 +40,7 @@ const getPrinter = async (printerIPAddress: string) => {
         type: PrinterTypes.EPSON,
         interface: 'tcp://' + printerIPAddress + ':9100',
         width: 48, // 48 characters per line
-        characterSet: CharacterSet.ISO8859_15_LATIN9,
+        characterSet: CharacterSet.PC858_EURO,
         removeSpecialCharacters: false,
         lineCharacter: '-',
     });
@@ -115,7 +115,6 @@ const toCurrency = (amount: number | string, currency: string) =>
             .replace(/[^0-9., ]/g, '')
             .trim()
     ).toFixed(2) +
-    ' ' +
     currency;
 
 /**
@@ -152,10 +151,13 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
         printer.drawLine();
         printer.alignLeft();
         printer.tableCustom([
-            { text: 'QTE', align: 'CENTER', cols: 4 },
-            { text: 'DESIGNATION', align: 'LEFT', cols: 24 },
-            { text: 'P.U.', align: 'CENTER', cols: 10 },
-            { text: 'TOTAL', align: 'RIGHT', cols: 10 },
+            { text: 'QTE', align: 'LEFT', cols: 4 },
+            { text: '', align: 'LEFT', cols: 1 },
+            { text: 'DESIGNATION', align: 'LEFT', cols: 26 },
+            { text: '', align: 'LEFT', cols: 1 },
+            { text: 'P.U.', align: 'LEFT', cols: 7 },
+            { text: '', align: 'LEFT', cols: 1 },
+            { text: 'TOTAL', align: 'LEFT', cols: 8 },
         ]);
         printer.drawLine();
 
@@ -166,13 +168,16 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
                 label += ` (-${item.discount.amount}${item.discount.unit})`;
             }
             const labelLength = label.length;
-            label = labelLength > 24 ? label.slice(0, 21) + '...' : label;
+            label = labelLength > 26 ? label.slice(0, 23) + '...' : label;
             
             printer.tableCustom([
-                { text: `x${item.quantity}`, align: 'CENTER', cols: 4 },
-                { text: label, align: 'LEFT', cols: 24 },
-                { text: toCurrency(item.amount || 0, currency), align: 'CENTER', cols: 10 },
-                { text: toCurrency(item.total || 0, currency), align: 'RIGHT', cols: 10 },
+                { text: `x${item.quantity}`, align: 'LEFT', cols: 4 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: label, align: 'LEFT', cols: 26 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: toCurrency(item.amount || 0, currency), align: 'LEFT', cols: 7 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: toCurrency(item.total || 0, currency), align: 'LEFT', cols: 8 },
             ]);
         });
 
