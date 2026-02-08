@@ -11,7 +11,6 @@ import {
     User,
 } from '../utils/interfaces';
 import { EMAIL } from './constants';
-import { generateSimpleId } from './id';
 import './extensions';
 
 class MissingDataError extends Error {
@@ -29,13 +28,6 @@ class WrongDataPatternError extends Error {
 class AppOfflineError extends Error {
     name = 'AppOfflineError';
     message = "L'application est hors ligne";
-}
-export class UserNotFoundError extends Error {
-    name = 'UserNotFoundError';
-    message = 'Utilisateur non identifié';
-    constructor(email: string | undefined) {
-        super(`Utilisateur non identifié: ${email}`, { cause: email });
-    }
 }
 
 interface ProductData {
@@ -70,7 +62,7 @@ export const defaultParameters: Parameters = {
     thanksMessage: '',
     mercurial: Mercurial.none,
     lastModified: new Date().toLocaleString(),
-    user: { name: '', role: Role.none },
+    user: { name: 'Comptoir', role: Role.cashier },
 };
 
 export const defaultCurrencies: Currency[] = [
@@ -99,15 +91,6 @@ export const defaultPaymentMethods: PaymentMethod[] = [
     },
 ];
 
-export function getPublicKey() {
-    let publicKey = localStorage.getItem('PublicKey');
-    if (!publicKey) {
-        publicKey = generateSimpleId();
-        localStorage.setItem('PublicKey', publicKey);
-    }
-    return publicKey;
-}
-
 export async function loadData(shop: string, shouldUseLocalData = false): Promise<Config | undefined> {
     // TODO: use fee
     const id = shouldUseLocalData
@@ -133,10 +116,8 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
     const param = await fetchData(dataNames.parameters, id, false).then(convertParametersData);
     if (!param?.values?.length) return;
 
-    const users = await fetchData(dataNames.users, id, false).then(convertUsersData);
-    const publicKey = users?.length ? getPublicKey() : undefined;
-    const user = users?.length ? users.filter(({ key }) => key === publicKey).at(0) : { name: '', role: Role.cashier };
-    if (!user || user.role === Role.none) throw new UserNotFoundError(param.values.at(1));
+    // Use default user "Comptoir" for all transactions
+    const user = { name: 'Comptoir', role: Role.cashier };
 
     const parameters: Parameters = {
         shop: {

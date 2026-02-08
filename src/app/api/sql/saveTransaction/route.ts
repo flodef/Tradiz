@@ -55,9 +55,6 @@ export async function POST(request: Request) {
 }
 
 async function handleAddTransaction(connection: mysql.Connection, transaction: any) {
-    // First, ensure the user exists in the users table
-    const userId = await ensureUserExists(connection, transaction.user_id);
-
     // Ensure the payment method exists in the payment_methods table
     const paymentMethodId = await ensurePaymentMethodExists(
         connection,
@@ -65,15 +62,14 @@ async function handleAddTransaction(connection: mysql.Connection, transaction: a
         transaction.currency
     );
 
-    // Insert into facturation table
+    // Insert into facturation table with user_id = NULL (default user "Comptoir" will be returned on read)
     const insertFacturationQuery = `
         INSERT INTO facturation (panier_id, user_id, payment_method_id, amount, currency, note, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, NULL, ?, ?, ?, ?, ?, ?)
     `;
 
     await connection.execute(insertFacturationQuery, [
         transaction.panier_id,
-        userId,
         paymentMethodId,
         transaction.amount,
         transaction.currency,
@@ -134,28 +130,6 @@ async function handleDeleteTransaction(connection: mysql.Connection, transaction
     const paymentMethodId = await ensurePaymentMethodExists(connection, DELETED_KEYWORD, transaction.currency);
 
     await connection.execute(updateQuery, [paymentMethodId, transaction.updated_at, transaction.panier_id]);
-}
-
-async function ensureUserExists(connection: mysql.Connection, userName: string): Promise<string> {
-    // Check if user exists
-    const [rows] = await connection.execute('SELECT id FROM users WHERE name = ?', [userName]);
-
-    if ((rows as any[]).length > 0) {
-        return (rows as any)[0].id;
-    }
-
-    // User doesn't exist, create with default role 'Cashier'
-    const insertUserQuery = `
-        INSERT INTO users (id, name, role, created_at)
-        VALUES (?, ?, 'Cashier', NOW())
-    `;
-
-    // Generate a simple ID for the user (you might want to use a better ID generation strategy)
-    const userId = userName.toLowerCase().replace(/\s+/g, '_');
-
-    await connection.execute(insertUserQuery, [userId, userName]);
-
-    return userId;
 }
 
 async function ensurePaymentMethodExists(

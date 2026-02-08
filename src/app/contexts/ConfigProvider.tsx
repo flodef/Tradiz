@@ -17,7 +17,6 @@ import { useWindowParam } from '../hooks/useWindowParam';
 import { IS_DEV, LOCAL_PRINTER_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
 import {
-    UserNotFoundError,
     defaultCurrencies,
     defaultParameters,
     defaultPaymentMethods,
@@ -179,14 +178,8 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
             .then(storeData)
             .catch((error) => {
                 console.error(error);
-
                 parameters.error = error.message;
-                if (error instanceof UserNotFoundError) {
-                    parameters.shop.email = String(error.cause);
-                    setState(State.unidentified);
-                } else {
-                    setState(State.error);
-                }
+                setState(State.error);
             });
     }, [state, config, storeData, loadConfig, shop, parameters, isDemo]);
 

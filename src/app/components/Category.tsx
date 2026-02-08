@@ -2,7 +2,7 @@
 
 import { FC, MouseEventHandler, useEffect, useMemo, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
-import { sendFatalErrorEmail, sendUserAccessRequest } from '../actions/email';
+import { sendFatalErrorEmail } from '../actions/email';
 import { useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
@@ -10,7 +10,6 @@ import { useWindowParam } from '../hooks/useWindowParam';
 import Loading, { LoadingType } from '../loading';
 import { EMAIL, OTHER_KEYWORD } from '../utils/constants';
 import { isMobileDevice } from '../utils/mobile';
-import { getPublicKey } from '../utils/processData';
 import { useAddPopupClass } from './Popup';
 import { EmptyDiscount, InventoryItem, Role, State } from '../utils/interfaces';
 
@@ -71,29 +70,6 @@ export const Category: FC = () => {
                     (index) => {
                         setState(index === 1 ? State.init : State.loaded);
                     }
-                );
-                break;
-            case State.unidentified:
-                openFullscreenPopup(
-                    'Utilisateur non identifié',
-                    ['Rafraîchir la page'].concat(
-                        !hasSentEmail
-                            ? Object.values(Role)
-                                  .filter((role) => role !== Role.none)
-                                  .map((role) => `Demande d'accès ${role}`)
-                            : []
-                    ),
-                    (i) => {
-                        if (i >= 1) {
-                            sendUserAccessRequest(parameters.shop.email, Object.values(Role)[i], getPublicKey()).then(
-                                setHasSentEmail
-                            );
-                        } else {
-                            closePopup();
-                            setState(State.init);
-                        }
-                    },
-                    true
                 );
                 break;
             case State.fatal:

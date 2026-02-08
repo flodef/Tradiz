@@ -31,7 +31,7 @@ export async function GET(request: Request) {
             SELECT 
                 f.id,
                 f.panier_id,
-                u.name as validator,
+                COALESCE(u.name, 'Comptoir') as validator,
                 pm.label as method,
                 f.amount,
                 f.currency,
