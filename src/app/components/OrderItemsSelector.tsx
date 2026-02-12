@@ -13,14 +13,14 @@ interface OrderItemsSelectorProps {
 // Helper function to format options JSON
 const formatOptions = (optionsStr?: string): string => {
     if (!optionsStr) return '';
-    
+
     try {
         const options = JSON.parse(optionsStr);
         if (Array.isArray(options)) {
-            return options.map(opt => `${opt.type}: ${opt.valeur}`).join(', ');
+            return options.map((opt) => `${opt.type}: ${opt.valeur}`).join(', ');
         }
         return optionsStr;
-    } catch (e) {
+    } catch {
         return optionsStr;
     }
 };
@@ -98,7 +98,6 @@ export const OrderItemsSelector: FC<OrderItemsSelectorProps> = ({ orderId, onSel
                 const selectedItems = orderData.items.filter((item) => newSet.has(item.id));
                 const total = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
                 onSelectionChange(selectedItems, total);
-
                 return newSet;
             });
         },
@@ -170,8 +169,8 @@ export const OrderItemsSelector: FC<OrderItemsSelectorProps> = ({ orderId, onSel
                                 isPaid
                                     ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700 opacity-60 cursor-not-allowed'
                                     : isSelected
-                                    ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/40'
-                                    : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700'
+                                      ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/40'
+                                      : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700'
                             )}
                         >
                             <div className="flex items-start justify-between">
@@ -184,13 +183,23 @@ export const OrderItemsSelector: FC<OrderItemsSelectorProps> = ({ orderId, onSel
                                                 isPaid
                                                     ? 'bg-green-500 border-green-500'
                                                     : isSelected
-                                                    ? 'bg-blue-500 border-blue-500'
-                                                    : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-500'
+                                                      ? 'bg-blue-500 border-blue-500'
+                                                      : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-500'
                                             )}
                                         >
                                             {(isSelected || isPaid) && (
-                                                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                <svg
+                                                    className="w-4 h-4 text-white"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                    stroke="currentColor"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={3}
+                                                        d="M5 13l4 4L19 7"
+                                                    />
                                                 </svg>
                                             )}
                                         </div>
@@ -217,7 +226,11 @@ export const OrderItemsSelector: FC<OrderItemsSelectorProps> = ({ orderId, onSel
                                             {item.elements.map((el, idx) => (
                                                 <div key={idx}>
                                                     • {el.category}: <span className="font-medium">{el.choice}</span>
-                                                    {el.options && <span className="text-xs ml-2">({formatOptions(el.options)})</span>}
+                                                    {el.options && (
+                                                        <span className="text-xs ml-2">
+                                                            ({formatOptions(el.options)})
+                                                        </span>
+                                                    )}
                                                 </div>
                                             ))}
                                             {item.note && <div className="italic mt-1">Note: {item.note}</div>}
@@ -226,7 +239,9 @@ export const OrderItemsSelector: FC<OrderItemsSelectorProps> = ({ orderId, onSel
 
                                     {/* Article options */}
                                     {item.type === 'article' && item.options && (
-                                        <div className="mt-1 ml-8 text-sm text-gray-600 dark:text-gray-400">{formatOptions(item.options)}</div>
+                                        <div className="mt-1 ml-8 text-sm text-gray-600 dark:text-gray-400">
+                                            {formatOptions(item.options)}
+                                        </div>
                                     )}
 
                                     {/* Paid status */}

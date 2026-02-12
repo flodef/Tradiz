@@ -14,7 +14,16 @@ import {
     WAITING_KEYWORD,
 } from '../utils/constants';
 import { getFormattedDate, getTransactionFileName, toSQLDateTime } from '../utils/date';
-import { Currency, Discount, OrderData, OrderItem, Product, SyncAction, SyncPeriod, Transaction, TransactionSet } from '../utils/interfaces';
+import {
+    Discount,
+    OrderData,
+    OrderItem,
+    Product,
+    SyncAction,
+    SyncPeriod,
+    Transaction,
+    TransactionSet,
+} from '../utils/interfaces';
 import { isDeletedTransaction, isProcessingTransaction, isWaitingTransaction } from './dataProvider/transactionHelpers';
 import { useMercurial } from './dataProvider/useMercurial';
 
@@ -30,7 +39,7 @@ export interface DataProviderProps {
 
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const { currencies, currencyIndex, setCurrency, parameters } = useConfig();
-    const { isDemo, isOnline } = useWindowParam();
+    const { isOnline } = useWindowParam();
 
     const [transactionsFilename, setTransactionsFilename] = useState('');
     const [total, setTotal] = useState(0);
@@ -65,7 +74,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 return null;
             }
             const data = await response.json();
-            console.log('SQL DB transactions loaded successfully:', data.transactions?.length || 0);
             return data.transactions as Transaction[];
         } catch (error) {
             console.error('Error loading transactions from SQL DB:', error);
@@ -89,7 +97,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 const sqlTransactions = await loadTransactionsFromSQL();
                 if (sqlTransactions) {
                     loadedTransactions = sqlTransactions;
-                    console.log('Loaded transactions from SQL DB');
                 }
             }
 
@@ -180,22 +187,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     // Synchronize transactions from SQL DB to localStorage
     const fullSync = useCallback(
-        (sqlTransactionSets: TransactionSet[], syncPeriod: SyncPeriod) => {
-            let localTransactionSets = getLocalTransactions();
-
-            console.log(
-                'syncTransactions',
-                'sql',
-                sqlTransactionSets.sort((a, b) => a.id.localeCompare(b.id)),
-                'local',
-                localTransactionSets.sort((a, b) => a.id.localeCompare(b.id))
-            );
+        (sqlTransactionSets: TransactionSet[], _syncPeriod: SyncPeriod) => {
+            const localTransactionSets = getLocalTransactions();
 
             sqlTransactionSets.forEach((sqlTransactionSet) => {
                 const localTransactionSet = localTransactionSets.find((set) => set.id === sqlTransactionSet.id);
 
                 if (!localTransactionSet) {
-                    console.log('Added set to local', sqlTransactionSet.id);
                     updateLocalTransaction(sqlTransactionSet);
                 } else {
                     const updateTransactionSet: TransactionSet = {
@@ -208,14 +206,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         );
 
                         if (index === -1) {
-                            console.log('Added transaction to local', sqlTransaction);
                             updateTransactionSet.transactions.push(sqlTransaction);
                         } else if (localTransactionSet.id === transactionsFilename) {
                             const localTransaction = localTransactionSet.transactions[index];
 
                             // SQL DB is the source of truth, always use SQL data
                             if (sqlTransaction.modifiedDate > localTransaction.modifiedDate) {
-                                console.log('Updated transaction in local', sqlTransaction);
                                 updateTransactionSet.transactions.splice(index, 1, sqlTransaction);
                             }
                         }
@@ -224,11 +220,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }
             });
         },
-        [
-            getLocalTransactions,
-            transactionsFilename,
-            updateLocalTransaction,
-        ]
+        [getLocalTransactions, transactionsFilename, updateLocalTransaction]
     );
 
     const processSync = useCallback(
@@ -253,7 +245,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     ];
                     fullSync(sqlTransactionSets, syncPeriod);
                 }
-                console.log('SQL DB sync completed:', sqlTransactions.length, 'transactions');
             } catch (error) {
                 console.error('Error syncing from SQL DB:', error);
             }
@@ -409,17 +400,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     throw new Error(error.error || 'Failed to save transaction to SQL DB');
                 }
 
-                console.log('SQL DB transaction saved successfully');
-
                 // Notify WebSocket server that the order is complete
                 // Only send notification for actual payments (not for EN ATTENTE or REMBOURSEMENT)
-                const isActualPayment = 
-                    transaction.method !== WAITING_KEYWORD && 
+                const isActualPayment =
+                    transaction.method !== WAITING_KEYWORD &&
                     transaction.method !== REFUND_KEYWORD &&
                     transaction.method !== DELETED_KEYWORD &&
                     transaction.method !== PROCESSING_KEYWORD &&
                     transaction.method !== UPDATING_KEYWORD;
-                
+
                 if (orderId && isActualPayment) {
                     try {
                         await fetch('/api/complete-order', {
@@ -429,7 +418,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             },
                             body: JSON.stringify({ order_id: orderId }),
                         });
-                        console.log('Order completion notification sent to WebSocket server');
                     } catch (wsError) {
                         console.error('Failed to notify WebSocket server:', wsError);
                         // Don't throw - this is not critical to the transaction
@@ -440,14 +428,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 throw error;
             }
         },
-        [
-            transactionsFilename,
-            transactions,
-            parameters.user,
-            setLocalStorageItem,
-            currencies,
-            orderId,
-        ]
+        [transactionsFilename, transactions, parameters.user, setLocalStorageItem, currencies, orderId]
     );
 
     const deleteTransaction = useCallback(
