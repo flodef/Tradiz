@@ -18,6 +18,7 @@ import { isMobileDevice, isMobileSize, useIsMobile } from '../utils/mobile';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
 import { Transaction } from '../utils/interfaces';
+import { OrderItemsSelector } from './OrderItemsSelector';
 
 const payLabel = 'PAYER';
 const totalLabel = 'TOTAL';
@@ -90,6 +91,12 @@ export const Total: FC = () => {
         deleteProduct,
         displayProduct,
         updateTransaction,
+        orderId,
+        setOrderId,
+        setSelectedOrderItems,
+        setPartialPaymentAmount,
+        showPartialPaymentSelector,
+        setShowPartialPaymentSelector,
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
@@ -248,21 +255,27 @@ export const Total: FC = () => {
     const showProducts = useCallback(() => {
         if (!products.current.length) return;
 
+        const printerOptions = getPrintersNames();
+        
         openPopup(
             products.current.length + ' produits : ' + toCurrency(getCurrentTotal()),
-            products.current.map((product) => displayProduct(product)).concat(['', payLabel]),
+            products.current.map((product) => displayProduct(product)).concat(printerOptions).concat(['', payLabel]),
             (index, option) => {
                 if (option === payLabel) {
                     pay();
+                } else if (printerOptions.includes(option)) {
+                    // Handle print option - create a temporary transaction to print
+                    printTransaction(option);
                 } else if (index >= 0) {
                     closePopup(() => selectProduct(index));
                 }
             },
             true,
             (index) => {
-                if (index > products.current.length) {
+                const totalOptions = products.current.length + printerOptions.length + 1; // +1 for empty line
+                if (index >= totalOptions) {
                     pay();
-                } else {
+                } else if (index < products.current.length) {
                     openPopup(
                         'Effacer ?',
                         ['Oui', 'Non'],
@@ -295,6 +308,8 @@ export const Total: FC = () => {
         toCurrency,
         selectProduct,
         selectedProduct,
+        getPrintersNames,
+        printTransaction,
     ]);
 
     const deleteBoughtProduct = useCallback(
@@ -472,19 +487,65 @@ export const Total: FC = () => {
     const left = useMemo(() => (!isMobileSize() && screenWidth > 0 ? screenWidth / 2 : 0), [screenWidth]);
     const height = useMemo(() => (!isMobileSize() && screenHeight > 0 ? screenHeight - 76 : 0), [screenHeight]);
 
+    // Handler for order items selection change
+    const handleOrderItemsChange = useCallback(
+        (selectedItems: any[], totalAmount: number) => {
+            setSelectedOrderItems(selectedItems);
+            setPartialPaymentAmount(totalAmount);
+        },
+        [setSelectedOrderItems, setPartialPaymentAmount]
+    );
+
+    // Call all hooks BEFORE any conditional return
+    const popupClass = useAddPopupClass(
+        'inset-x-0 h-[75px] md:absolute md:left-1/2 md:h-full md:border-l-4 overflow-hidden ' +
+            'md:border-secondary-active-light md:dark:border-secondary-active-dark '
+    );
+    const popupClassNormal = useAddPopupClass(
+        'inset-x-0 h-[75px] md:absolute md:left-1/2 md:h-full md:border-l-4 overflow-y-auto ' +
+            'md:border-secondary-active-light md:dark:border-secondary-active-dark '
+    );
+    const isMobile = useIsMobile();
+
+    // If showPartialPaymentSelector is true, show the OrderItemsSelector instead of normal view
+    if (showPartialPaymentSelector && orderId) {
+        return (
+            <div className={popupClass}>
+                <div
+                    className="md:w-1/2 w-full fixed py-3 px-3 border-b-4 border-active-light dark:border-active-dark bg-blue-100 dark:bg-blue-900"
+                >
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => {
+                                setShowPartialPaymentSelector(false);
+                                setSelectedOrderItems([]);
+                                setPartialPaymentAmount(0);
+                            }}
+                            className="flex-shrink-0 text-xs md:text-sm px-2 md:px-3 py-1 md:py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                        >
+                            ← Retour
+                        </button>
+                        <span className="text-base md:text-lg font-bold truncate">Paiement Partiel</span>
+                    </div>
+                </div>
+                <div
+                    className="md:w-1/2 fixed top-[65px] md:top-[73px] left-0 w-full overflow-hidden"
+                    style={{ left: left, height: height - 19 }}
+                >
+                    <OrderItemsSelector orderId={orderId} onSelectionChange={handleOrderItemsChange} />
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div
-            className={useAddPopupClass(
-                'inset-x-0 h-[75px] md:absolute md:left-1/2 md:h-full md:border-l-4 overflow-y-auto ' +
-                    'md:border-secondary-active-light md:dark:border-secondary-active-dark '
-            )}
-        >
+        <div className={popupClassNormal}>
             <div
                 className={twMerge(
                     'md:w-1/2 w-full fixed text-5xl truncate text-center font-bold py-3',
                     'border-b-4 border-active-light dark:border-active-dark',
                     (canDisplayTotal && total) || (!canDisplayTotal && transactions.length) ? clickClassName : '',
-                    useIsMobile() ? 'md:hidden' : 'hidden md:block'
+                    isMobile ? 'md:hidden' : 'hidden md:block'
                 )}
                 onClick={handleClick}
                 onContextMenu={handleClick}

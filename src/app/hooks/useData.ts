@@ -1,5 +1,5 @@
 import { ChangeEvent, createContext, RefObject, useContext } from 'react';
-import { Discount, Mercurial, Product, SyncAction, Transaction } from '../utils/interfaces';
+import { Discount, Mercurial, OrderData, OrderItem, Product, SyncAction, Transaction } from '../utils/interfaces';
 
 export interface DataContextState {
     total: number;
@@ -33,6 +33,14 @@ export interface DataContextState {
     isDbConnected: boolean;
     orderId: string;
     setOrderId: (orderId: string) => void;
+    orderData: OrderData | null;
+    setOrderData: (data: OrderData | null) => void;
+    selectedOrderItems: OrderItem[];
+    setSelectedOrderItems: (items: OrderItem[]) => void;
+    partialPaymentAmount: number;
+    setPartialPaymentAmount: (amount: number) => void;
+    showPartialPaymentSelector: boolean;
+    setShowPartialPaymentSelector: (show: boolean) => void;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);
