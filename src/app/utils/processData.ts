@@ -12,6 +12,7 @@ import {
 } from '../utils/interfaces';
 import { EMAIL } from './constants';
 import './extensions';
+import { generateSimpleId } from './id';
 
 class MissingDataError extends Error {
     name = 'MissingDataError';
@@ -91,11 +92,20 @@ export const defaultPaymentMethods: PaymentMethod[] = [
     },
 ];
 
+function getPublicKey() {
+    let publicKey = localStorage.getItem('PublicKey');
+    if (!publicKey) {
+        publicKey = generateSimpleId();
+        localStorage.setItem('PublicKey', publicKey);
+    }
+    return publicKey;
+}
+
 export async function loadData(shop: string, shouldUseLocalData = false): Promise<Config | undefined> {
     // With SQL DB, we no longer need the spreadsheet index mapping
     // All data comes directly from the database
-    const id = process.env.NEXT_PUBLIC_USE_SQLDB 
-        ? undefined 
+    const id = process.env.NEXT_PUBLIC_USE_SQLDB
+        ? undefined
         : shouldUseLocalData
           ? undefined // if the app is used locally, use the local data
           : typeof shop === 'string' // if shop is a string, it means that the app is used by a customer (custom path)
@@ -119,8 +129,9 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
     const param = await fetchData(dataNames.parameters, id, false).then(convertParametersData);
     if (!param?.values?.length) return;
 
-    // Use default user "Comptoir" for all transactions
-    const user = { name: 'Comptoir', role: Role.cashier };
+    const users = await fetchData(dataNames.users, id, false).then(convertUsersData);
+    const publicKey = users?.length ? getPublicKey() : undefined;
+    const user = users.filter(({ key }) => key === publicKey).at(0) ?? { name: 'Comptoir', role: Role.cashier };
 
     const parameters: Parameters = {
         shop: {
@@ -194,17 +205,7 @@ async function fetchData(dataName: DataName, id: string | undefined, isRaw = tru
           ? `./api/spreadsheet?sheetName=${dataName.sheet}&id=${id}&isRaw=${isRaw.toString()}`
           : `./api/json?fileName=${dataName.json}`;
 
-    const response = await fetch(url).catch(() => undefined);
-    if (!response) return undefined;
-    
-    const data = await response.json();
-    
-    // Return a mock Response object with the parsed data
-    return {
-        ok: response.ok,
-        status: response.status,
-        json: async () => data
-    } as Response;
+    return await fetch(url).catch(() => undefined);
 }
 
 function checkData(data: any, minCol: number, maxCol = minCol, minRow = 1, maxRow = 100000) {
@@ -268,7 +269,9 @@ async function convertUsersData(response: void | Response): Promise<User[]> {
     }
 }
 
-async function convertParametersData(response: void | Response): Promise<{ keys: (string | undefined)[], values: (string | undefined)[] }> {
+async function convertParametersData(
+    response: void | Response
+): Promise<{ keys: (string | undefined)[]; values: (string | undefined)[] }> {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
@@ -282,7 +285,7 @@ async function convertParametersData(response: void | Response): Promise<{ keys:
                 values: data.values.map((item) => {
                     checkColumn(item, 1);
                     return item.at(1);
-                })
+                }),
             };
         });
     } catch (error) {
@@ -299,7 +302,7 @@ async function convertPaymentMethodsData(response: void | Response): Promise<Pay
 
             return data.values
                 .removeHeader()
-                .filter((item) => !Boolean(item.at(3)))
+                .filter((item) => !item.at(3))
                 .map((item) => {
                     checkColumn(item, 4);
                     return {
@@ -409,14 +412,14 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
                 products: data.values
                     .removeHeader()
                     .removeEmpty(1, 2)
-                    .filter((item) => !Boolean(item.at(3)))
+                    .filter((item) => !item.at(3))
                     .map((item) => {
                         checkColumn(item, 4);
                         return {
-                            rate: (Number(item.at(0)) ?? 0) * 100,
+                            rate: Number(item.at(0)) * 100,
                             category: normalizedString(item.at(1)),
                             label: normalizedString(item.at(2)),
-                            prices: item.filter((_, i) => i >= 4).map((price) => Number(price) ?? 0),
+                            prices: item.filter((_, i) => i >= 4).map((price) => Number(price)),
                         };
                     }),
                 currencies: data.values[0].filter((_, i) => i >= 4).map((currency) => String(currency).trim()),
