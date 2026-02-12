@@ -1,7 +1,7 @@
-import { DELETED_KEYWORD, POS } from '@/app/utils/constants';
+import { DELETED_KEYWORD } from '@/app/utils/constants';
 import { Transaction } from '@/app/utils/interfaces';
-import mysql from 'mysql2/promise';
 import { NextResponse } from 'next/server';
+import { getPosDb } from '../db';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -9,13 +9,7 @@ export async function GET(request: Request) {
     const period = searchParams.get('period'); // 'day' or 'full'
 
     try {
-        // Connection configuration for SQL DB
-        const connection = await mysql.createConnection({
-            host: process.env.DB_HOST,
-            user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD,
-            database: process.env.DB_NAME + '_' + POS,
-        });
+        const connection = await getPosDb();
 
         let whereClause = '1=1';
         const params: string[] = [];

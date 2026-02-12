@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
 import { OrderArticle, OrderData, OrderFormule, OrderItem } from '@/app/utils/interfaces';
-
-// Database connection configuration
-const dbConfig = {
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'DC',
-};
+import { getMainDb } from '../db';
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -20,7 +12,7 @@ export async function GET(request: NextRequest) {
 
     let connection;
     try {
-        connection = await mysql.createConnection(dbConfig);
+        connection = await getMainDb();
 
         // Get panier info
         const [panierRows] = await connection.execute(
