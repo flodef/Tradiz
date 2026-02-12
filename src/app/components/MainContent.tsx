@@ -14,6 +14,10 @@ export const MainContent: FC = () => {
     const { setOrderId, setOrderData, clearTotal } = useData();
 
     // Listen for ORDER_ID messages from parent (kitchen iframe)
+    // FIXME: Both Category.tsx and MainContent.tsx had their own window.addEventListener('message') for ORDER_ID. Two separate listeners meant:
+    // - Race condition — both fire on the same event, with no guaranteed order
+    // - Double clearTotal() call
+    // - Double setOrderId() call
     useEffect(() => {
         const handleMessage = async (event: MessageEvent) => {
             // Security: verify origin if needed
@@ -22,10 +26,10 @@ export const MainContent: FC = () => {
             if (event.data && event.data.type === 'ORDER_ID') {
                 console.log('Received ORDER_ID:', event.data.orderId);
                 const orderId = event.data.orderId;
-                
+
                 // Clear any existing transaction
                 clearTotal();
-                
+
                 // Load order data to check if partial payment should be available
                 try {
                     const response = await fetch(`/api/sql/getOrderItemsForPayment?orderId=${orderId}`);
@@ -36,7 +40,7 @@ export const MainContent: FC = () => {
                 } catch (error) {
                     console.error('Failed to load order data:', error);
                 }
-                
+
                 // Set the order ID to trigger partial payment mode
                 setOrderId(orderId);
             }

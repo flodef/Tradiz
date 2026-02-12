@@ -95,9 +95,11 @@ export const OrderItemsSelector: FC<OrderItemsSelectorProps> = ({ orderId, onSel
                 }
 
                 // Notify parent of change
+                // FIXME: There was a useEffect watching selectedItemIds that also called onSelectionChange, so every toggle triggered the callback twice — once from inside the state updater and once from the effect
                 const selectedItems = orderData.items.filter((item) => newSet.has(item.id));
                 const total = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
                 onSelectionChange(selectedItems, total);
+
                 return newSet;
             });
         },
