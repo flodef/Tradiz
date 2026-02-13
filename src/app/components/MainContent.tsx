@@ -11,21 +11,21 @@ import { Total } from './Total';
 
 export const MainContent: FC = () => {
     const { isStateReady } = useConfig();
-    const { setOrderId, setOrderData, clearTotal } = useData();
+    const { setOrderId, setOrderData, addProduct, clearTotal } = useData();
 
     // Listen for ORDER_ID messages from parent (kitchen iframe)
     useEffect(() => {
         const handleMessage = async (event: MessageEvent) => {
-            // Security: verify origin if needed
-            // if (event.origin !== window.location.origin) return;
+            if (event.origin !== process.env.NEXT_PUBLIC_WEB_URL) return;
 
             if (event.data && event.data.type === 'ORDER_ID') {
                 const orderId = event.data.orderId;
+                if (!orderId) return;
 
                 // Clear any existing transaction
                 clearTotal();
 
-                // Load order data to check if partial payment should be available
+                // Load order data for partial payment
                 try {
                     const response = await fetch(`/api/sql/getOrderItemsForPayment?orderId=${orderId}`);
                     if (response.ok) {
@@ -36,7 +36,18 @@ export const MainContent: FC = () => {
                     console.error('Failed to load order data:', error);
                 }
 
-                // Set the order ID to trigger partial payment mode
+                // Load order items as products
+                try {
+                    const res = await fetch(`/api/sql/getOrderItems?orderId=${orderId}`);
+                    if (res.ok) {
+                        const products = await res.json();
+                        products.forEach(addProduct);
+                    }
+                } catch (error) {
+                    console.error('Failed to load order items:', error);
+                }
+
+                // Set the order ID (after data is loaded to avoid race conditions)
                 setOrderId(orderId);
             }
         };
@@ -46,7 +57,7 @@ export const MainContent: FC = () => {
         return () => {
             window.removeEventListener('message', handleMessage);
         };
-    }, [setOrderId, setOrderData, clearTotal]);
+    }, [setOrderId, setOrderData, addProduct, clearTotal]);
 
     // Function to handle clicks anywhere on the component to request fullscreen
     const handleClick = () => {

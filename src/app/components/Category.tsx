@@ -50,7 +50,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
 
 export const Category: FC = () => {
     const { inventory, state, setState, currencyIndex, parameters } = useConfig();
-    const { addProduct, amount, setSelectedProduct, clearAmount, clearTotal, selectedProduct, setOrderId } = useData();
+    const { addProduct, amount, setSelectedProduct, clearAmount, selectedProduct } = useData();
     const { openPopup, openFullscreenPopup, closePopup } = usePopup();
     const { isLocalhost, isDemo } = useWindowParam();
 
@@ -124,26 +124,6 @@ export const Category: FC = () => {
         isDemo,
         isLocalhost,
     ]);
-
-    useEffect(() => {
-        const handler = (e: MessageEvent) => {
-            if (e.origin !== process.env.NEXT_PUBLIC_WEB_URL) return;
-            if (e.data?.type === 'ORDER_ID') {
-                clearTotal(); // Clear existing products before adding new ones
-
-                const orderIdFromMessage = e.data.orderId;
-                if (!orderIdFromMessage) return;
-
-                setOrderId(orderIdFromMessage);
-                fetch(`/api/sql/getOrderItems?orderId=${orderIdFromMessage}`)
-                    .then((res) => res.json())
-                    .then((data) => data.forEach(addProduct));
-            }
-        };
-
-        window.addEventListener('message', handler);
-        return () => window.removeEventListener('message', handler);
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const addSpecificProduct = (item: InventoryItem, option: string) => {
         const price = item.products.find(({ label }) => label === option)?.prices[currencyIndex];
