@@ -274,7 +274,9 @@ async function convertUsersData(response: void | Response): Promise<User[]> {
     }
 }
 
-async function convertParametersData(response: void | Response): Promise<{ keys: (string | undefined)[], values: (string | undefined)[] }> {
+async function convertParametersData(
+    response: void | Response
+): Promise<{ keys: (string | undefined)[]; values: (string | undefined)[] }> {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
@@ -288,7 +290,7 @@ async function convertParametersData(response: void | Response): Promise<{ keys:
                 values: data.values.map((item) => {
                     checkColumn(item, 1);
                     return item.at(1);
-                })
+                }),
             };
         });
     } catch (error) {
@@ -305,7 +307,7 @@ async function convertPaymentMethodsData(response: void | Response): Promise<Pay
 
             return data.values
                 .removeHeader()
-                .filter((item) => !Boolean(item.at(3)))
+                .filter((item) => !item.at(3))
                 .map((item) => {
                     checkColumn(item, 4);
                     return {
@@ -415,14 +417,14 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
                 products: data.values
                     .removeHeader()
                     .removeEmpty(1, 2)
-                    .filter((item) => !Boolean(item.at(3)))
+                    .filter((item) => !item.at(3))
                     .map((item) => {
                         checkColumn(item, 4);
                         return {
-                            rate: (Number(item.at(0)) ?? 0) * 100,
+                            rate: Number(item.at(0)) * 100,
                             category: normalizedString(item.at(1)),
                             label: normalizedString(item.at(2)),
-                            prices: item.filter((_, i) => i >= 4).map((price) => Number(price) ?? 0),
+                            prices: item.filter((_, i) => i >= 4).map((price) => Number(price)),
                         };
                     }),
                 currencies: data.values[0].filter((_, i) => i >= 4).map((currency) => String(currency).trim()),
