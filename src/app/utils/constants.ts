@@ -13,6 +13,7 @@ export const PROCESSING_KEYWORD = 'EN COURS';
 export const DELETED_KEYWORD = 'EFFACÉE';
 export const BACK_KEYWORD = 'RETOUR';
 export const POS = 'POS';
+export const DEFAULT_USER = 'Comptoir';
 export const SEPARATOR = ' : ';
 export const CATEGORY_SEPARATOR = '>';
 export const TRANSACTION_TIME_OUT = 60; // Time out in seconds

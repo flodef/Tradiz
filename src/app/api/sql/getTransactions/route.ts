@@ -1,4 +1,4 @@
-import { DELETED_KEYWORD } from '@/app/utils/constants';
+import { DEFAULT_USER, DELETED_KEYWORD } from '@/app/utils/constants';
 import { Transaction } from '@/app/utils/interfaces';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
             SELECT 
                 f.id,
                 f.panier_id,
-                u.name as validator,
+                COALESCE(u.name, ${DEFAULT_USER}) as validator,
                 pm.label as method,
                 f.amount,
                 f.currency,

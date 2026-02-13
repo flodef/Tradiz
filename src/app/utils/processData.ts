@@ -10,7 +10,7 @@ import {
     Role,
     User,
 } from '../utils/interfaces';
-import { EMAIL } from './constants';
+import { DEFAULT_USER, EMAIL } from './constants';
 import './extensions';
 import { generateSimpleId } from './id';
 
@@ -135,7 +135,9 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
 
     const users = await fetchData(dataNames.users, id, false).then(convertUsersData);
     const publicKey = users?.length ? getPublicKey() : undefined;
-    const user = users?.length ? users.filter(({ key }) => key === publicKey).at(0) : { name: '', role: Role.cashier };
+    const user = users?.length
+        ? users.filter(({ key }) => key === publicKey).at(0)
+        : { name: DEFAULT_USER, role: Role.cashier };
     if (!user || user.role === Role.none) throw new UserNotFoundError(param.values.at(1));
 
     const parameters: Parameters = {

@@ -161,9 +161,7 @@ async function ensureUserExists(connection: Connection, userName: string): Promi
     const [rows] = await connection.execute('SELECT id FROM users WHERE name = ?', [userName]);
 
     const userRows = rows as IdRow[];
-    if (userRows.length > 0) {
-        return String(userRows[0].id);
-    }
+    if (userRows.length > 0) return String(userRows[0].id);
 
     // User doesn't exist, create with default role 'Cashier'
     const insertUserQuery = `
