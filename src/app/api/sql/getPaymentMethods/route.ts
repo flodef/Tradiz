@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
+interface PaymentMethodRow {
+    label: string;
+    address: string;
+    currency: string;
+    hidden: number;
+}
+
 export async function GET() {
     try {
         const connection = await getPosDb();
@@ -16,7 +23,7 @@ export async function GET() {
         const data: { values: (string | number | boolean)[][] } = { values: [] };
         data.values.push(['Type', 'ID', 'Monnaie', 'Masqué']);
         data.values.push(
-            ...(rows as any[]).map((row): (string | number | boolean)[] => [
+            ...(rows as PaymentMethodRow[]).map((row): (string | number | boolean)[] => [
                 String(row.label),
                 String(row.address),
                 String(row.currency),

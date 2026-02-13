@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
+interface PrinterRow {
+    name: string;
+    ip_address: string;
+}
+
 export async function GET() {
     try {
         const connection = await getPosDb();
@@ -15,7 +20,7 @@ export async function GET() {
 
         const data: { values: string[][] } = { values: [] };
         data.values.push(['Nom', 'Adresse IP']);
-        data.values.push(...(rows as any[]).map((row): string[] => [String(row.name), String(row.ip_address)]));
+        data.values.push(...(rows as PrinterRow[]).map((row): string[] => [String(row.name), String(row.ip_address)]));
 
         return NextResponse.json(data, { status: 200 });
     } catch (error) {

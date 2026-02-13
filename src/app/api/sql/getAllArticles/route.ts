@@ -2,6 +2,14 @@ import {} from '@/app/utils/extensions';
 import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
 
+interface ArticleRow {
+    label: string;
+    amount: string;
+    rate: string;
+    category: string;
+    options: string;
+}
+
 export async function GET() {
     try {
         const connection = await getMainDb();
@@ -26,7 +34,7 @@ export async function GET() {
         await connection.end();
 
         // Combine all rows
-        const allRows = [...(articlesRows as any[]), ...(formulesRows as any[])];
+        const allRows = [...(articlesRows as ArticleRow[]), ...(formulesRows as ArticleRow[])];
 
         const data: { values: (number | string | boolean)[][] } = { values: [] };
         data.values.push(['Taux', 'Catégorie', 'Nom', 'Indisponible', 'Euro (€)']);

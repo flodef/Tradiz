@@ -1,6 +1,23 @@
 import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
 
+interface ThemeRow {
+    text_light: string;
+    text_dark: string;
+    gradient_start_light: string;
+    gradient_start_dark: string;
+    gradient_end_light: string;
+    gradient_end_dark: string;
+    popup_light: string;
+    popup_dark: string;
+    activated_light: string;
+    activated_dark: string;
+    secondary_light: string;
+    secondary_dark: string;
+    secondary_activated_light: string;
+    secondary_activated_dark: string;
+}
+
 export async function GET() {
     try {
         const connection = await getMainDb();
@@ -30,7 +47,7 @@ export async function GET() {
         const [rows] = await connection.execute(query);
         await connection.end();
 
-        const allRows = rows as any[];
+        const allRows = rows as ThemeRow[];
 
         const data: { values: string[][] } = { values: [] };
         data.values.push(['Couleur', 'Clair', 'Sombre']);

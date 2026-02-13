@@ -2,6 +2,32 @@ import { DELETED_KEYWORD, PROCESSING_KEYWORD } from '@/app/utils/constants';
 import { NextResponse } from 'next/server';
 import { Connection, getPosDb } from '../db';
 
+interface TransactionProduct {
+    label: string;
+    category: string;
+    amount: number;
+    quantity: number;
+    discount_amount?: number;
+    discount_unit?: string;
+    total: number;
+}
+
+interface TransactionData {
+    panier_id: string;
+    user_id: string;
+    payment_method_id: string;
+    amount: number;
+    currency: string;
+    note?: string;
+    created_at: string;
+    updated_at: string;
+    products?: TransactionProduct[];
+}
+
+interface IdRow {
+    id: number | string;
+}
+
 export async function POST(request: Request) {
     try {
         const body = await request.json();
@@ -48,7 +74,7 @@ export async function POST(request: Request) {
     }
 }
 
-async function handleAddTransaction(connection: Connection, transaction: any) {
+async function handleAddTransaction(connection: Connection, transaction: TransactionData) {
     // First, ensure the user exists in the users table
     const userId = await ensureUserExists(connection, transaction.user_id);
 
@@ -78,7 +104,7 @@ async function handleAddTransaction(connection: Connection, transaction: any) {
 
     // Get the inserted facturation ID
     const [rows] = await connection.execute('SELECT LAST_INSERT_ID() as id');
-    const facturationId = (rows as any)[0].id;
+    const facturationId = (rows as IdRow[])[0].id;
 
     // Insert products into facturation_article table
     if (transaction.products && transaction.products.length > 0) {
@@ -102,7 +128,7 @@ async function handleAddTransaction(connection: Connection, transaction: any) {
     }
 }
 
-async function handleUpdateTransaction(connection: Connection, transaction: any) {
+async function handleUpdateTransaction(connection: Connection, transaction: TransactionData) {
     // Update the facturation record to mark it as processing
     const updateQuery = `
         UPDATE facturation
@@ -116,7 +142,7 @@ async function handleUpdateTransaction(connection: Connection, transaction: any)
     await connection.execute(updateQuery, [paymentMethodId, transaction.updated_at, transaction.panier_id]);
 }
 
-async function handleDeleteTransaction(connection: Connection, transaction: any) {
+async function handleDeleteTransaction(connection: Connection, transaction: TransactionData) {
     // Update the facturation record to mark it as deleted
     const updateQuery = `
         UPDATE facturation
@@ -134,8 +160,9 @@ async function ensureUserExists(connection: Connection, userName: string): Promi
     // Check if user exists
     const [rows] = await connection.execute('SELECT id FROM users WHERE name = ?', [userName]);
 
-    if ((rows as any[]).length > 0) {
-        return (rows as any)[0].id;
+    const userRows = rows as IdRow[];
+    if (userRows.length > 0) {
+        return String(userRows[0].id);
     }
 
     // User doesn't exist, create with default role 'Cashier'
@@ -160,8 +187,9 @@ async function ensurePaymentMethodExists(
     // Check if payment method exists
     const [rows] = await connection.execute('SELECT id FROM payment_methods WHERE label = ?', [methodLabel]);
 
-    if ((rows as any[]).length > 0) {
-        return (rows as any)[0].id;
+    const methodRows = rows as IdRow[];
+    if (methodRows.length > 0) {
+        return Number(methodRows[0].id);
     }
 
     // Payment method doesn't exist, create it
@@ -174,5 +202,5 @@ async function ensurePaymentMethodExists(
 
     // Get the inserted ID
     const [newRows] = await connection.execute('SELECT LAST_INSERT_ID() as id');
-    return (newRows as any)[0].id;
+    return Number((newRows as IdRow[])[0].id);
 }

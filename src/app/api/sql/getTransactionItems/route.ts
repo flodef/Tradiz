@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server';
 import { Product, EmptyDiscount } from '@/app/utils/interfaces';
 import { getMainDb } from '../db';
 
+interface OrderItemRow {
+    label: string;
+    amount: string;
+    quantity: number;
+    category: string;
+}
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get('orderId');
@@ -35,7 +42,7 @@ export async function GET(request: Request) {
         await connection.end();
 
         // Combine and transform all rows into Product array
-        const allRows = [...(articlesRows as any[]), ...(formulesRows as any[])];
+        const allRows = [...(articlesRows as OrderItemRow[]), ...(formulesRows as OrderItemRow[])];
         const products: Product[] = allRows.map((row) => ({
             label: String(row.label),
             category: String(row.category),

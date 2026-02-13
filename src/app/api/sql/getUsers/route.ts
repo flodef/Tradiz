@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
+interface UserRow {
+    key: string;
+    name: string;
+    role: string;
+}
+
 export async function GET() {
     try {
         const connection = await getPosDb();
@@ -16,7 +22,11 @@ export async function GET() {
         const data: { values: (string | number)[][] } = { values: [] };
         data.values.push(['Clé', 'Nom', 'Rôle']);
         data.values.push(
-            ...(rows as any[]).map((row): (string | number)[] => [String(row.key), String(row.name), String(row.role)])
+            ...(rows as UserRow[]).map((row): (string | number)[] => [
+                String(row.key),
+                String(row.name),
+                String(row.role),
+            ])
         );
 
         return NextResponse.json(data, { status: 200 });
