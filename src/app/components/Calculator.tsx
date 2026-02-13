@@ -16,6 +16,37 @@ type CalcButton = {
     colspan?: number;
 };
 
+const CalcButton: FC<{ button: CalcButton; onClick: () => void }> = ({ button, onClick }) => {
+    const handleClick = useCallback<MouseEventHandler>(
+        (e) => {
+            e.preventDefault();
+            onClick();
+        },
+        [onClick]
+    );
+
+    return (
+        <div
+            className={twMerge(
+                'h-14 relative flex justify-center items-center font-semibold text-2xl',
+                'border-[2px] rounded-xl',
+                'border-secondary-light dark:border-secondary-dark shadow-md',
+                'active:bg-secondary-active-light dark:active:bg-secondary-active-dark',
+                'active:text-popup-dark dark:active:text-popup-light',
+                !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : '',
+                button.className || '',
+                button.colspan === 2 ? 'col-span-2' : ''
+            )}
+            onClick={handleClick}
+            onContextMenu={handleClick}
+        >
+            {button.label}
+        </div>
+    );
+};
+
+const roundResult = (value: number): number => parseFloat(value.toFixed(10));
+
 export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 }) => {
     const [display, setDisplay] = useState(initialValue.toString());
     const [previousValue, setPreviousValue] = useState<number | null>(null);
@@ -54,7 +85,7 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
     const handleOperation = useCallback(
         (op: string) => {
             const current = parseFloat(display);
-            
+
             if (previousValue !== null && operation && !resetOnNextInput) {
                 // Calculate previous operation first
                 let result = previousValue;
@@ -72,12 +103,13 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
                         result = current !== 0 ? previousValue / current : previousValue;
                         break;
                 }
+                result = roundResult(result);
                 setDisplay(result.toString());
                 setPreviousValue(result);
             } else {
                 setPreviousValue(current);
             }
-            
+
             setOperation(op);
             setResetOnNextInput(true);
         },
@@ -105,6 +137,7 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
                 break;
         }
 
+        result = roundResult(result);
         setDisplay(result.toString());
         setPreviousValue(null);
         setOperation(null);
@@ -128,40 +161,10 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
 
     const handleUseResult = useCallback(() => {
         const value = parseFloat(display);
-        console.log('Use result clicked, display:', display, 'parsed:', value);
         if (!isNaN(value) && onUseResult) {
             onUseResult(value);
         }
     }, [display, onUseResult]);
-
-    const CalcButton: FC<{ button: CalcButton; onClick: () => void }> = ({ button, onClick }) => {
-        const handleClick = useCallback<MouseEventHandler>(
-            (e) => {
-                e.preventDefault();
-                onClick();
-            },
-            [onClick]
-        );
-
-        return (
-            <div
-                className={twMerge(
-                    'h-14 relative flex justify-center items-center font-semibold text-2xl',
-                    'border-[2px] rounded-xl',
-                    'border-secondary-light dark:border-secondary-dark shadow-md',
-                    'active:bg-secondary-active-light dark:active:bg-secondary-active-dark',
-                    'active:text-popup-dark dark:active:text-popup-light',
-                    !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : '',
-                    button.className || '',
-                    button.colspan === 2 ? 'col-span-2' : ''
-                )}
-                onClick={handleClick}
-                onContextMenu={handleClick}
-            >
-                {button.label}
-            </div>
-        );
-    };
 
     const buttons: CalcButton[][] = [
         [
@@ -224,7 +227,7 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
     );
 
     return (
-        <div 
+        <div
             className="w-full max-w-md mx-auto p-4"
             onClick={(e) => e.stopPropagation()}
             onContextMenu={(e) => e.stopPropagation()}

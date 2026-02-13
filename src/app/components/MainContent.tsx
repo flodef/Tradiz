@@ -20,12 +20,11 @@ export const MainContent: FC = () => {
             // if (event.origin !== window.location.origin) return;
 
             if (event.data && event.data.type === 'ORDER_ID') {
-                console.log('Received ORDER_ID:', event.data.orderId);
                 const orderId = event.data.orderId;
-                
+
                 // Clear any existing transaction
                 clearTotal();
-                
+
                 // Load order data to check if partial payment should be available
                 try {
                     const response = await fetch(`/api/sql/getOrderItemsForPayment?orderId=${orderId}`);
@@ -36,7 +35,7 @@ export const MainContent: FC = () => {
                 } catch (error) {
                     console.error('Failed to load order data:', error);
                 }
-                
+
                 // Set the order ID to trigger partial payment mode
                 setOrderId(orderId);
             }

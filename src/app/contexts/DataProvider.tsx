@@ -29,7 +29,17 @@ import {
     WAITING_KEYWORD,
 } from '../utils/constants';
 import { getFormattedDate, getTransactionFileName, toSQLDateTime } from '../utils/date';
-import { Currency, Discount, OrderData, OrderItem, Product, SyncAction, SyncPeriod, Transaction, TransactionSet } from '../utils/interfaces';
+import {
+    Currency,
+    Discount,
+    OrderData,
+    OrderItem,
+    Product,
+    SyncAction,
+    SyncPeriod,
+    Transaction,
+    TransactionSet,
+} from '../utils/interfaces';
 import { isDeletedTransaction, isProcessingTransaction, isWaitingTransaction } from './dataProvider/transactionHelpers';
 import { useMercurial } from './dataProvider/useMercurial';
 
@@ -674,17 +684,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         throw new Error(error.error || 'Failed to save transaction to SQL DB');
                     }
 
-                    console.log('SQL DB transaction saved successfully');
-
                     // Notify WebSocket server that the order is complete
                     // Only send notification for actual payments (not for EN ATTENTE or REMBOURSEMENT)
-                    const isActualPayment = 
-                        transaction.method !== WAITING_KEYWORD && 
+                    const isActualPayment =
+                        transaction.method !== WAITING_KEYWORD &&
                         transaction.method !== REFUND_KEYWORD &&
                         transaction.method !== DELETED_KEYWORD &&
                         transaction.method !== PROCESSING_KEYWORD &&
                         transaction.method !== UPDATING_KEYWORD;
-                    
+
                     if (orderId && isActualPayment) {
                         try {
                             await fetch('/api/complete-order', {
@@ -694,7 +702,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                                 },
                                 body: JSON.stringify({ order_id: orderId }),
                             });
-                            console.log('Order completion notification sent to WebSocket server');
                         } catch (wsError) {
                             console.error('Failed to notify WebSocket server:', wsError);
                             // Don't throw - this is not critical to the transaction
