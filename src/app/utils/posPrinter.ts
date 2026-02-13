@@ -187,12 +187,10 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
 
         receiptData.transaction.products.forEach((item) => {
             const itemCategory = receiptData.inventory?.find((inv) => inv.category === item.category);
-            let vatRate = itemCategory?.rate ?? 20; // Default to 20% if not found
+            const rawRate = itemCategory?.rate ?? 20; // Default to 20% if not found
 
-            // Normalize rate to decimal (if stored as 10 or 20, convert to 0.10 or 0.20)
-            if (vatRate > 1) {
-                vatRate = vatRate / 100;
-            }
+            // Normalize rate to decimal: values >= 1 are treated as percentages (e.g. 5.5 → 0.055, 20 → 0.20)
+            const vatRate = rawRate >= 1 ? rawRate / 100 : rawRate;
 
             const itemTotalTTC = item.total || 0;
             const itemTotalHT = itemTotalTTC / (1 + vatRate);
