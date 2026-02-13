@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
+import { Connection, getMainDb } from '../db';
 
-// Database connection configuration
-const dbConfig = {
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'DC',
-};
+interface CountRow {
+    unpaid_count: number;
+}
 
 interface PaymentItem {
     id: string;
@@ -15,7 +11,7 @@ interface PaymentItem {
 }
 
 export async function POST(request: NextRequest) {
-    let connection;
+    let connection: Connection | undefined;
     try {
         const body = await request.json();
         const { orderId, paidItems, paymentMethod } = body as {
@@ -28,7 +24,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid request data' }, { status: 400 });
         }
 
-        connection = await mysql.createConnection(dbConfig);
+        connection = await getMainDb();
         await connection.beginTransaction();
 
         const now = new Date();
@@ -61,8 +57,8 @@ export async function POST(request: NextRequest) {
             [orderId]
         );
 
-        const articlesUnpaid = (articleCheck as Record<string, number>[])[0].unpaid_count;
-        const formulesUnpaid = (formuleCheck as Record<string, number>[])[0].unpaid_count;
+        const articlesUnpaid = (articleCheck as CountRow[])[0].unpaid_count;
+        const formulesUnpaid = (formuleCheck as CountRow[])[0].unpaid_count;
         const allPaid = articlesUnpaid === 0 && formulesUnpaid === 0;
 
         // If all items are paid, transition to kitchen_view = 1
@@ -91,7 +87,6 @@ export async function POST(request: NextRequest) {
         }
 
         await connection.commit();
-        await connection.end();
 
         return NextResponse.json({
             success: true,
@@ -100,10 +95,9 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         console.error('Error saving partial payment:', error);
-        if (connection) {
-            await connection.rollback();
-            await connection.end();
-        }
+        if (connection) await connection.rollback();
         return NextResponse.json({ error: 'Database error', details: String(error) }, { status: 500 });
+    } finally {
+        if (connection) await connection.end();
     }
 }

@@ -1,15 +1,9 @@
-import { POS } from '@/app/utils/constants';
-import mysql from 'mysql2/promise';
 import { NextResponse } from 'next/server';
+import { getPosDb } from '../db';
 
 export async function GET() {
     try {
-        const connection = await mysql.createConnection({
-            host: process.env.DB_HOST,
-            user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD,
-            database: process.env.DB_NAME + '_' + POS,
-        });
+        const connection = await getPosDb();
 
         const query = `
             SELECT \`key\`, name, role

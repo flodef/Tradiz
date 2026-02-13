@@ -1,14 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
-import { OrderArticle, OrderData, OrderFormule, OrderItem } from '@/app/utils/interfaces';
+import { Connection, getMainDb } from '../db';
+import { OrderData, OrderItem } from '@/app/utils/interfaces';
 
-// Database connection configuration
-const dbConfig = {
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'DC',
-};
+interface PanierRow {
+    id: number;
+    short_num_order: string;
+    service_type: 'emporter' | 'sur_place';
+}
+
+interface ArticleRow {
+    id: string;
+    article_id: number;
+    label: string;
+    quantity: number;
+    price: string;
+    category: string;
+    options?: string;
+    paid_at?: string | null;
+    kitchen_view: number;
+}
+
+interface FormuleRow {
+    id: number;
+    label: string;
+    quantity: number;
+    price: string;
+    note?: string;
+    paid_at?: string | null;
+}
+
+interface FormuleElementRow {
+    category: string;
+    choice: string;
+    options?: string;
+}
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -18,9 +43,9 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
     }
 
-    let connection;
+    let connection: Connection | undefined;
     try {
-        connection = await mysql.createConnection(dbConfig);
+        connection = await getMainDb();
 
         // Get panier info
         const [panierRows] = await connection.execute(
@@ -32,7 +57,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        const panier = panierRows[0] as any;
+        const panier = (panierRows as PanierRow[])[0];
         const items: OrderItem[] = [];
 
         // Get articles (non-formule items)
@@ -54,20 +79,18 @@ export async function GET(request: NextRequest) {
             [orderId]
         );
 
-        if (Array.isArray(articleRows)) {
-            for (const row of articleRows as any[]) {
-                items.push({
-                    id: row.id,
-                    type: 'article',
-                    label: row.label,
-                    quantity: row.quantity,
-                    price: parseFloat(row.price),
-                    category: row.category,
-                    options: row.options,
-                    paid_at: row.paid_at,
-                    kitchen_view: row.kitchen_view,
-                });
-            }
+        for (const row of articleRows as ArticleRow[]) {
+            items.push({
+                id: row.id,
+                type: 'article',
+                label: row.label,
+                quantity: row.quantity,
+                price: parseFloat(row.price),
+                category: row.category,
+                options: row.options,
+                paid_at: row.paid_at,
+                kitchen_view: row.kitchen_view,
+            });
         }
 
         // Get formules
@@ -86,40 +109,36 @@ export async function GET(request: NextRequest) {
             [orderId]
         );
 
-        if (Array.isArray(formuleRows)) {
-            for (const formule of formuleRows as any[]) {
-                // Get elements of this formule
-                const [elementRows] = await connection.execute(
-                    `SELECT 
-                        rpf_ef.nom_categorie as category,
-                        a.nom as choice,
-                        rpf_ef.options
-                    FROM rel_pf_ef rpf_ef
-                    JOIN article a ON a.id = rpf_ef.id_article
-                    WHERE rpf_ef.id_pf = ?
-                    ORDER BY rpf_ef.id`,
-                    [formule.id]
-                );
+        for (const formule of formuleRows as FormuleRow[]) {
+            // Get elements of this formule
+            const [elementRows] = await connection.execute(
+                `SELECT 
+                    rpf_ef.nom_categorie as category,
+                    a.nom as choice,
+                    rpf_ef.options
+                FROM rel_pf_ef rpf_ef
+                JOIN article a ON a.id = rpf_ef.id_article
+                WHERE rpf_ef.id_pf = ?
+                ORDER BY rpf_ef.id`,
+                [formule.id]
+            );
 
-                const elements = Array.isArray(elementRows)
-                    ? (elementRows as any[]).map((el) => ({
-                          category: el.category,
-                          choice: el.choice,
-                          options: el.options,
-                      }))
-                    : [];
+            const elements = (elementRows as FormuleElementRow[]).map((el) => ({
+                category: el.category,
+                choice: el.choice,
+                options: el.options,
+            }));
 
-                items.push({
-                    id: formule.id.toString(),
-                    type: 'formule',
-                    label: formule.label,
-                    quantity: formule.quantity,
-                    price: parseFloat(formule.price),
-                    note: formule.note,
-                    paid_at: formule.paid_at,
-                    elements,
-                });
-            }
+            items.push({
+                id: formule.id.toString(),
+                type: 'formule',
+                label: formule.label,
+                quantity: formule.quantity,
+                price: parseFloat(formule.price),
+                note: formule.note,
+                paid_at: formule.paid_at,
+                elements,
+            });
         }
 
         // Calculate totals
@@ -139,12 +158,11 @@ export async function GET(request: NextRequest) {
             remaining_amount,
         };
 
-        await connection.end();
-
         return NextResponse.json(orderData);
     } catch (error) {
         console.error('Error fetching order items:', error);
-        if (connection) await connection.end();
         return NextResponse.json({ error: 'Database error', details: String(error) }, { status: 500 });
+    } finally {
+        if (connection) await connection.end();
     }
 }

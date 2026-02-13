@@ -1,6 +1,6 @@
-import mysql from 'mysql2/promise';
 import { NextResponse } from 'next/server';
 import { Product, EmptyDiscount } from '@/app/utils/interfaces';
+import { getMainDb } from '../db';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -9,13 +9,7 @@ export async function GET(request: Request) {
     if (!orderId) return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
 
     try {
-        // Connection configuration for SQL DB
-        const connection = await mysql.createConnection({
-            host: process.env.DB_HOST,
-            user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD,
-            database: process.env.DB_NAME,
-        });
+        const connection = await getMainDb();
 
         // Query 1: Get articles
         const queryArticles = `

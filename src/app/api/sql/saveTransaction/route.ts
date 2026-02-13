@@ -1,6 +1,6 @@
-import { DELETED_KEYWORD, POS, PROCESSING_KEYWORD } from '@/app/utils/constants';
-import mysql from 'mysql2/promise';
+import { DELETED_KEYWORD, PROCESSING_KEYWORD } from '@/app/utils/constants';
 import { NextResponse } from 'next/server';
+import { Connection, getPosDb } from '../db';
 
 export async function POST(request: Request) {
     try {
@@ -11,13 +11,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Action and transaction data are required' }, { status: 400 });
         }
 
-        // Connection configuration for SQL DB
-        const connection = await mysql.createConnection({
-            host: process.env.DB_HOST,
-            user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD,
-            database: process.env.DB_NAME + '_' + POS,
-        });
+        const connection = await getPosDb();
 
         await connection.beginTransaction();
 
@@ -54,7 +48,7 @@ export async function POST(request: Request) {
     }
 }
 
-async function handleAddTransaction(connection: mysql.Connection, transaction: any) {
+async function handleAddTransaction(connection: Connection, transaction: any) {
     // First, ensure the user exists in the users table
     const userId = await ensureUserExists(connection, transaction.user_id);
 
@@ -108,7 +102,7 @@ async function handleAddTransaction(connection: mysql.Connection, transaction: a
     }
 }
 
-async function handleUpdateTransaction(connection: mysql.Connection, transaction: any) {
+async function handleUpdateTransaction(connection: Connection, transaction: any) {
     // Update the facturation record to mark it as processing
     const updateQuery = `
         UPDATE facturation
@@ -122,7 +116,7 @@ async function handleUpdateTransaction(connection: mysql.Connection, transaction
     await connection.execute(updateQuery, [paymentMethodId, transaction.updated_at, transaction.panier_id]);
 }
 
-async function handleDeleteTransaction(connection: mysql.Connection, transaction: any) {
+async function handleDeleteTransaction(connection: Connection, transaction: any) {
     // Update the facturation record to mark it as deleted
     const updateQuery = `
         UPDATE facturation
@@ -136,7 +130,7 @@ async function handleDeleteTransaction(connection: mysql.Connection, transaction
     await connection.execute(updateQuery, [paymentMethodId, transaction.updated_at, transaction.panier_id]);
 }
 
-async function ensureUserExists(connection: mysql.Connection, userName: string): Promise<string> {
+async function ensureUserExists(connection: Connection, userName: string): Promise<string> {
     // Check if user exists
     const [rows] = await connection.execute('SELECT id FROM users WHERE name = ?', [userName]);
 
@@ -159,7 +153,7 @@ async function ensureUserExists(connection: mysql.Connection, userName: string):
 }
 
 async function ensurePaymentMethodExists(
-    connection: mysql.Connection,
+    connection: Connection,
     methodLabel: string,
     currency: string
 ): Promise<number> {
