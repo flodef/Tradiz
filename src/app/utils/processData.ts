@@ -11,8 +11,8 @@ import {
     User,
 } from '../utils/interfaces';
 import { EMAIL } from './constants';
-import { generateSimpleId } from './id';
 import './extensions';
+import { generateSimpleId } from './id';
 
 class MissingDataError extends Error {
     name = 'MissingDataError';
@@ -213,7 +213,13 @@ async function fetchData(dataName: DataName, id: string | undefined, isRaw = tru
     return await fetch(url).catch((error) => console.error(error));
 }
 
-function checkData(data: any, minCol: number, maxCol = minCol, minRow = 1, maxRow = 100000) {
+function checkData(
+    data: { values?: unknown[][]; error?: { message: string } },
+    minCol: number,
+    maxCol = minCol,
+    minRow = 1,
+    maxRow = 100000
+) {
     if (!data) throw new Error('data not fetched');
     if (data.error?.message) throw new Error(data.error.message);
     if (!data.values?.length) throw new MissingDataError();
@@ -227,7 +233,7 @@ function checkData(data: any, minCol: number, maxCol = minCol, minRow = 1, maxRo
         throw new WrongDataPatternError();
 }
 
-function checkColumn(item: any[], minCol: number) {
+function checkColumn(item: unknown[], minCol: number) {
     if (item.length < minCol) throw new WrongDataPatternError();
 }
 
@@ -436,4 +442,4 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
     }
 }
 
-const normalizedString = (value: any) => String(value).toFirstUpperCase();
+const normalizedString = (value: unknown) => String(value).toFirstUpperCase();
