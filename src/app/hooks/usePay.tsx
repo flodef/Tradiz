@@ -51,19 +51,21 @@ export const usePay = () => {
         // Can pay if we have a normal transaction OR partial payment selected
         return Boolean((total && !amount && !selectedProduct) || (orderId && partialPaymentAmount > 0));
     }, [total, amount, selectedProduct, orderId, partialPaymentAmount]);
-    
+
     const canAddProduct = useMemo(() => Boolean(amount && selectedProduct), [amount, selectedProduct]);
 
     const printTransactionReceipt = useCallback(
         async (printerName?: string, transaction?: Transaction) => {
             // Prepare receipt data
             let currentTransaction = transaction;
-            
+
             if (!currentTransaction) {
                 // Try to find existing waiting transaction
-                currentTransaction = transactions.sort((a, b) => b.modifiedDate - a.modifiedDate).find(isWaitingTransaction);
+                currentTransaction = transactions
+                    .sort((a, b) => b.modifiedDate - a.modifiedDate)
+                    .find(isWaitingTransaction);
             }
-            
+
             // If no transaction exists, create a temporary one from current products
             if (!currentTransaction && products.current.length > 0) {
                 currentTransaction = {
@@ -76,7 +78,7 @@ export const usePay = () => {
                     products: products.current,
                 };
             }
-            
+
             if (!currentTransaction) return { error: 'Aucune transaction à imprimer' };
 
             const printerAddresses = getPrinterAddresses(printerName);
@@ -93,7 +95,17 @@ export const usePay = () => {
                 serviceType: orderData?.service_type,
             });
         },
-        [parameters, transactions, getPrinterAddresses, inventory, products, getCurrentTotal, currencies, currencyIndex, orderData]
+        [
+            parameters,
+            transactions,
+            getPrinterAddresses,
+            inventory,
+            products,
+            getCurrentTotal,
+            currencies,
+            currencyIndex,
+            orderData,
+        ]
     );
 
     const printTransaction = useCallback(
@@ -275,9 +287,9 @@ export const usePay = () => {
             openPopup('Paiement partiel', ['Traitement du paiement...']);
 
             try {
-                const paidItems = selectedOrderItems.map(item => ({
+                const paidItems = selectedOrderItems.map((item) => ({
                     id: item.id,
-                    type: item.type
+                    type: item.type,
                 }));
 
                 const response = await fetch('/api/sql/savePartialPayment', {
@@ -310,32 +322,28 @@ export const usePay = () => {
                     setSelectedOrderItems([]);
                     setPartialPaymentAmount(0);
                     setShowPartialPaymentSelector(false);
-                    
+
                     closePopup();
-                    
+
                     // Show success message
-                    openPopup(
-                        'Paiement réussi',
-                        [result.message, 'Fermer la caisse'],
-                        (index) => {
-                            if (index < 0) {
-                                // User clicked close button - just close popup without closing caisse
-                                return;
-                            }
-                            
-                            // Reset partial payment state
-                            setOrderId('');
-                            setOrderData(null);
-                            setSelectedOrderItems([]);
-                            setPartialPaymentAmount(0);
-                            closePopup();
-                            
-                            // Send message to parent to close the iframe
-                            if (window.parent) {
-                                window.parent.postMessage({ type: 'CLOSE_CAISSE' }, '*');
-                            }
+                    openPopup('Paiement réussi', [result.message, 'Fermer la caisse'], (index) => {
+                        if (index < 0) {
+                            // User clicked close button - just close popup without closing caisse
+                            return;
                         }
-                    );
+
+                        // Reset partial payment state
+                        setOrderId('');
+                        setOrderData(null);
+                        setSelectedOrderItems([]);
+                        setPartialPaymentAmount(0);
+                        closePopup();
+
+                        // Send message to parent to close the iframe
+                        if (window.parent && process.env.NEXT_PUBLIC_WEB_URL) {
+                            window.parent.postMessage({ type: 'CLOSE_CAISSE' }, process.env.NEXT_PUBLIC_WEB_URL);
+                        }
+                    });
                 } else {
                     openPopup('Erreur', ['Échec du paiement : ' + (result.error || 'Erreur inconnue')]);
                 }
@@ -344,7 +352,17 @@ export const usePay = () => {
                 openPopup('Erreur', ['Erreur lors du traitement du paiement']);
             }
         },
-        [orderId, selectedOrderItems, openPopup, closePopup, setOrderId, setOrderData, setSelectedOrderItems, setPartialPaymentAmount, setShowPartialPaymentSelector]
+        [
+            orderId,
+            selectedOrderItems,
+            openPopup,
+            closePopup,
+            setOrderId,
+            setOrderData,
+            setSelectedOrderItems,
+            setPartialPaymentAmount,
+            setShowPartialPaymentSelector,
+        ]
     );
 
     const pay = useCallback(() => {
@@ -356,7 +374,7 @@ export const usePay = () => {
                 const paymentMethodsLabels = paymentMethods
                     .filter((item) => item.currency === currencies[currencyIndex].symbol)
                     .map((item) => item.type);
-                
+
                 if (paymentMethodsLabels.length === 1) {
                     selectPaymentForPartial(paymentMethodsLabels[0]);
                 } else {
@@ -389,20 +407,20 @@ export const usePay = () => {
                 const paymentMethodsLabels = paymentMethods
                     .filter((item) => item.currency === currencies[currencyIndex].symbol)
                     .map((item) => item.type);
-                
+
                 // Add printer options for printing before payment
                 const printerOptions = getPrintersNames();
-                
+
                 // Add separator and additional options
                 const allOptions = paymentMethodsLabels.concat(printerOptions).concat(['']);
-                
+
                 // Add PARTIAL PAYMENT option only if orderId is set AND order has at least 2 items
                 if (orderId && orderData && orderData.items.length >= 2) {
                     allOptions.push('PAIEMENT PARTIEL');
                 }
-                
+
                 allOptions.push('METTRE ' + WAITING_KEYWORD, REFUND_KEYWORD);
-                
+
                 if (paymentMethodsLabels.length === 1) {
                     selectPayment(paymentMethodsLabels[0], pay);
                 } else {
