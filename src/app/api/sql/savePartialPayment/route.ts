@@ -34,18 +34,20 @@ export async function POST(request: NextRequest) {
         const now = new Date();
         const formattedDate = now.toISOString().slice(0, 19).replace('T', ' ');
 
-        // Update paid_at for each item
+        // Update paid_at and payment method for each item
         for (const item of paidItems) {
             if (item.type === 'article') {
-                await connection.execute(
-                    `UPDATE rel_panier_article SET paid_at = ? WHERE id = ?`,
-                    [formattedDate, item.id]
-                );
+                await connection.execute(`UPDATE rel_panier_article SET paid_at = ?, payment_method = ? WHERE id = ?`, [
+                    formattedDate,
+                    paymentMethod,
+                    item.id,
+                ]);
             } else if (item.type === 'formule') {
-                await connection.execute(
-                    `UPDATE rel_panier_formule SET paid_at = ? WHERE id = ?`,
-                    [formattedDate, item.id]
-                );
+                await connection.execute(`UPDATE rel_panier_formule SET paid_at = ?, payment_method = ? WHERE id = ?`, [
+                    formattedDate,
+                    paymentMethod,
+                    item.id,
+                ]);
             }
         }
 
@@ -59,8 +61,8 @@ export async function POST(request: NextRequest) {
             [orderId]
         );
 
-        const articlesUnpaid = (articleCheck as any[])[0].unpaid_count;
-        const formulesUnpaid = (formuleCheck as any[])[0].unpaid_count;
+        const articlesUnpaid = (articleCheck as Record<string, number>[])[0].unpaid_count;
+        const formulesUnpaid = (formuleCheck as Record<string, number>[])[0].unpaid_count;
         const allPaid = articlesUnpaid === 0 && formulesUnpaid === 0;
 
         // If all items are paid, transition to kitchen_view = 1
@@ -82,10 +84,10 @@ export async function POST(request: NextRequest) {
             );
 
             // Update panier to mark as paid and set preparation_started_at
-            await connection.execute(
-                `UPDATE panier SET paid = 1, preparation_started_at = ? WHERE id = ?`,
-                [formattedDate, orderId]
-            );
+            await connection.execute(`UPDATE panier SET paid = 1, preparation_started_at = ? WHERE id = ?`, [
+                formattedDate,
+                orderId,
+            ]);
         }
 
         await connection.commit();
