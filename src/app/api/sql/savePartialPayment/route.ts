@@ -26,35 +26,33 @@ export async function POST(request: NextRequest) {
         const now = new Date();
         const formattedDate = now.toISOString().slice(0, 19).replace('T', ' ');
 
-        // Update paid_at and payment method for each item
+        // Update paid_at for each item
         for (const item of paidItems) {
             if (item.type === 'article') {
-                await connection.execute(`UPDATE rel_panier_article SET paid_at = ?, payment_method = ? WHERE id = ?`, [
+                await connection.execute(`UPDATE rel_panier_article SET paid_at = ? WHERE id = ?`, [
                     formattedDate,
-                    paymentMethod,
                     item.id,
                 ]);
             } else if (item.type === 'formule') {
-                await connection.execute(`UPDATE rel_panier_formule SET paid_at = ?, payment_method = ? WHERE id = ?`, [
+                await connection.execute(`UPDATE rel_panier_formule SET paid_at = ? WHERE id = ?`, [
                     formattedDate,
-                    paymentMethod,
                     item.id,
                 ]);
             }
         }
 
         // Check if all items are now paid
-        const [articleCheck] = await connection.execute(
+        const [articleCheckRows] = await connection.execute(
             `SELECT COUNT(*) as unpaid_count FROM rel_panier_article WHERE panier_id = ? AND paid_at IS NULL`,
             [orderId]
         );
-        const [formuleCheck] = await connection.execute(
+        const [formuleCheckRows] = await connection.execute(
             `SELECT COUNT(*) as unpaid_count FROM rel_panier_formule WHERE panier_id = ? AND paid_at IS NULL`,
             [orderId]
         );
 
-        const articlesUnpaid = (articleCheck as Record<string, number>[])[0].unpaid_count;
-        const formulesUnpaid = (formuleCheck as Record<string, number>[])[0].unpaid_count;
+        const articlesUnpaid = (articleCheckRows as any[])[0]?.unpaid_count || 0;
+        const formulesUnpaid = (formuleCheckRows as any[])[0]?.unpaid_count || 0;
         const allPaid = articlesUnpaid === 0 && formulesUnpaid === 0;
 
         // If all items are paid, transition to kitchen_view = 1
