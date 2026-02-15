@@ -133,7 +133,7 @@ export const OrderItemsSelector: FC<OrderItemsSelectorProps> = ({ orderId, onSel
     return (
         <div className="flex flex-col h-full max-h-[70vh] overflow-hidden">
             {/* Header */}
-            <div className="bg-gray-100 dark:bg-gray-800 p-4 border-b border-gray-300 dark:border-gray-600">
+            <div className="bg-gray-100 dark:bg-gray-800 p-4 border-b border-gray-300 dark:border-gray-600 border-l-4 border-l-secondary-active-light dark:border-l-secondary-active-dark">
                 <h2 className="text-2xl font-bold">Commande #{orderData.short_num_order}</h2>
                 <div className="mt-2 space-y-1 text-sm">
                     <div className="flex justify-between">
@@ -272,7 +272,7 @@ export const OrderItemsSelector: FC<OrderItemsSelectorProps> = ({ orderId, onSel
             </div>
 
             {/* Footer - Selected total */}
-            <div className="bg-gray-100 dark:bg-gray-800 p-4 border-t border-gray-300 dark:border-gray-600">
+            <div className="bg-gray-100 dark:bg-gray-800 p-4 border-t border-gray-300 dark:border-gray-600 border-l-4 border-l-secondary-active-light dark:border-l-secondary-active-dark">
                 <div className="flex justify-between items-center text-xl font-bold mb-3">
                     <span>Montant sélectionné:</span>
                     <span className={twMerge('text-2xl', selectedTotal > 0 ? 'text-blue-600 dark:text-blue-400' : '')}>

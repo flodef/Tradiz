@@ -542,7 +542,7 @@ export const Total: FC = () => {
         <div className={popupClassNormal}>
             <div
                 className={twMerge(
-                    'md:w-1/2 w-full fixed text-5xl truncate text-center font-bold py-3',
+                    'md:w-1/2 w-full fixed text-5xl truncate text-left pl-6 font-bold py-3',
                     'border-b-4 border-active-light dark:border-active-dark',
                     (canDisplayTotal && total) || (!canDisplayTotal && transactions.length) ? clickClassName : '',
                     isMobile ? 'md:hidden' : 'hidden md:block'

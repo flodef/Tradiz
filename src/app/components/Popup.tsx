@@ -33,8 +33,13 @@ export const Popup: FC = () => {
 
     const handleClick = useCallback(
         (index: number, option: string) => {
-            popupAction?.(index, option);
-            if (!popupStayOpen) closePopup();
+            if (!popupStayOpen) {
+                closePopup(() => {
+                    popupAction?.(index, option);
+                });
+            } else {
+                popupAction?.(index, option);
+            }
         },
         [popupAction, closePopup, popupStayOpen]
     );

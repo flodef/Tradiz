@@ -3,8 +3,8 @@
 import { FC, useEffect } from 'react';
 import { useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
-import { IS_DEV } from '../utils/constants';
-import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
+// import { IS_DEV } from '../utils/constants';  // Not needed anymore
+// import { isFullscreen, requestFullscreen } from '../utils/fullscreen';  // REMOVED: auto-fullscreen disabled
 import { Category } from './Category';
 import { NumPad } from './NumPad';
 import { Total } from './Total';
@@ -53,13 +53,14 @@ export const MainContent: FC = () => {
         };
     }, [setOrderId, setOrderData, clearTotal]);
 
-    // Function to handle clicks anywhere on the component to request fullscreen
-    const handleClick = () => {
-        if (isStateReady && !isFullscreen() && !IS_DEV) requestFullscreen();
-    };
+    // DÉSACTIVÉ : Auto-fullscreen cassait l'affichage dans l'iframe de la kitchen view
+    // Le bouton X de fermeture disparaissait car l'iframe passait en fullscreen
+    // const handleClick = () => {
+    //     if (isStateReady && !isFullscreen() && !IS_DEV) requestFullscreen();
+    // };
 
     return (
-        <div className="z-10 flex flex-col justify-between" onClick={handleClick}>
+        <div className="z-10 flex flex-col justify-between">{/* onClick={handleClick} REMOVED */}
             <Total />
             <NumPad />
             <Category />

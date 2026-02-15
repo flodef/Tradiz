@@ -306,6 +306,12 @@ export const usePay = () => {
                         console.error('Failed to reload order data:', err);
                     }
 
+                    // Notify parent window (kitchen view) to refresh orders
+                    // Use REFRESH_ORDERS instead of PAYMENT_COMPLETE to avoid closing the cashier
+                    if (window.parent && window.parent !== window) {
+                        window.parent.postMessage({ type: 'REFRESH_ORDERS' }, '*');
+                    }
+
                     // Reset selection after successful payment
                     setSelectedOrderItems([]);
                     setPartialPaymentAmount(0);
@@ -317,23 +323,22 @@ export const usePay = () => {
                     openPopup(
                         'Paiement réussi',
                         [result.message, 'Fermer la caisse'],
-                        (index) => {
-                            if (index < 0) {
-                                // User clicked close button - just close popup without closing caisse
-                                return;
-                            }
-                            
-                            // Reset partial payment state
-                            setOrderId('');
-                            setOrderData(null);
+                        (index, option) => {
+                            // Reset selection state always
                             setSelectedOrderItems([]);
                             setPartialPaymentAmount(0);
-                            closePopup();
+                            setShowPartialPaymentSelector(false);
                             
-                            // Send message to parent to close the iframe
-                            if (window.parent) {
-                                window.parent.postMessage({ type: 'CLOSE_CAISSE' }, '*');
+                            // Only reset orderId/orderData and close iframe when "Fermer la caisse" is clicked
+                            if (index >= 0 && option === 'Fermer la caisse') {
+                                setOrderId('');
+                                setOrderData(null);
+                                
+                                if (window.parent && window.parent !== window) {
+                                    window.parent.postMessage({ type: 'CLOSE_CAISSE' }, '*');
+                                }
                             }
+                            // If X is clicked (index < 0), keep orderId/orderData to prevent full payment
                         }
                     );
                 } else {
