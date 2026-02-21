@@ -21,10 +21,12 @@ export async function GET(request: Request) {
         }
 
         // Query to get transactions with their products
+        const mainDb = process.env.DB_NAME || 'DC';
         const query = `
             SELECT 
                 f.id,
                 f.panier_id,
+                p.short_num_order,
                 COALESCE(u.name, 'Comptoir') as validator,
                 pm.label as method,
                 f.amount,
@@ -35,6 +37,7 @@ export async function GET(request: Request) {
             FROM facturation f
             LEFT JOIN users u ON u.id = f.user_id
             LEFT JOIN payment_methods pm ON pm.id = f.payment_method_id
+            LEFT JOIN \`${mainDb}\`.panier p ON p.id = f.panier_id
             WHERE ${whereClause}
             ORDER BY f.created_at DESC
         `;
@@ -75,6 +78,7 @@ export async function GET(request: Request) {
                 createdDate: Number(row.createdDate),
                 modifiedDate: Number(row.modifiedDate) || Number(row.createdDate),
                 products,
+                ...(row.short_num_order ? { shortNumOrder: String(row.short_num_order) } : {}),
             });
         }
 

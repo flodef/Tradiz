@@ -11,7 +11,7 @@ import { Total } from './Total';
 
 export const MainContent: FC = () => {
     const { isStateReady } = useConfig();
-    const { setOrderId, setOrderData, clearTotal } = useData();
+    const { setOrderId, setOrderData, clearTotal, shortNumOrder, orderId } = useData();
 
     // Listen for ORDER_ID messages from parent (kitchen iframe)
     // FIXME: Both Category.tsx and MainContent.tsx had their own window.addEventListener('message') for ORDER_ID. Two separate listeners meant:
@@ -61,6 +61,11 @@ export const MainContent: FC = () => {
 
     return (
         <div className="z-10 flex flex-col justify-between">{/* onClick={handleClick} REMOVED */}
+            {orderId && shortNumOrder && (
+                <span className="fixed top-3 left-4 hidden md:block text-2xl font-bold opacity-75 select-none pointer-events-none z-50">
+                    Commande #{shortNumOrder}
+                </span>
+            )}
             <Total />
             <NumPad />
             <Category />

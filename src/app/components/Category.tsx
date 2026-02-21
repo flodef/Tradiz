@@ -49,7 +49,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
 
 export const Category: FC = () => {
     const { inventory, state, setState, currencyIndex, parameters } = useConfig();
-    const { addProduct, amount, setSelectedProduct, clearAmount, clearTotal, selectedProduct, setOrderId } = useData();
+    const { addProduct, amount, setSelectedProduct, clearAmount, clearTotal, selectedProduct, setOrderId, setShortNumOrder } = useData();
     const { openPopup, openFullscreenPopup, closePopup } = usePopup();
     const { isLocalhost, isDemo } = useWindowParam();
 
@@ -113,7 +113,10 @@ export const Category: FC = () => {
                 setOrderId(orderIdFromMessage);
                 fetch(`/api/sql/getOrderItems?orderId=${orderIdFromMessage}`)
                     .then((res) => res.json())
-                    .then((data) => data.forEach(addProduct));
+                    .then((data) => {
+                        if (data.shortNumOrder) setShortNumOrder(data.shortNumOrder);
+                        (data.products || []).forEach(addProduct);
+                    });
             }
         };
 

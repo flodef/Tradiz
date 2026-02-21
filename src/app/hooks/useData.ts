@@ -33,6 +33,8 @@ export interface DataContextState {
     isDbConnected: boolean;
     orderId: string;
     setOrderId: (orderId: string) => void;
+    shortNumOrder: string;
+    setShortNumOrder: (shortNumOrder: string) => void;
     orderData: OrderData | null;
     setOrderData: (data: OrderData | null) => void;
     selectedOrderItems: OrderItem[];

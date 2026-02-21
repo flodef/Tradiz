@@ -65,9 +65,10 @@ const Item: FC<ItemProps> = ({ label, onClick = () => {}, onContextMenu, classNa
         [onContextMenu]
     );
 
+    const lines = label.split('\n');
     return (
-        <div className={className} onClick={onClick} onContextMenu={handleContextMenu}>
-            {label}
+        <div className={twMerge('text-left pl-3', className)} onClick={onClick} onContextMenu={handleContextMenu}>
+            {lines.map((line, i) => <div key={i}>{line}</div>)}
         </div>
     );
 };
@@ -349,6 +350,7 @@ export const Total: FC = () => {
             if (isUpdatingTransaction(transaction) || !transaction?.amount || !isStateReady) return;
 
             openPopup(
+                (transaction.shortNumOrder ? `[#${transaction.shortNumOrder}] ` : '') +
                 toCurrency(transaction) + ' en ' + transaction.method,
                 transaction.products
                     .map((product) => displayProduct(product, transaction.currency))
