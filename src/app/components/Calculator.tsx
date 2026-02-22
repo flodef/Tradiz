@@ -48,14 +48,14 @@ const CalcButton: FC<{ button: CalcButton; onClick: () => void }> = ({ button, o
 const roundResult = (value: number): number => parseFloat(value.toFixed(10));
 
 export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 }) => {
-    const [display, setDisplay] = useState(initialValue.toString());
+    const [display, setDisplay] = useState(initialValue.toShortFixed());
     const [previousValue, setPreviousValue] = useState<number | null>(null);
     const [operation, setOperation] = useState<string | null>(null);
     const [resetOnNextInput, setResetOnNextInput] = useState(false);
 
     // Update display when initialValue changes
     useEffect(() => {
-        setDisplay(initialValue.toString());
+        setDisplay(initialValue.toShortFixed());
         setPreviousValue(null);
         setOperation(null);
         setResetOnNextInput(false);
@@ -104,7 +104,7 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
                         break;
                 }
                 result = roundResult(result);
-                setDisplay(result.toString());
+                setDisplay(result.toShortFixed());
                 setPreviousValue(result);
             } else {
                 setPreviousValue(current);
@@ -138,7 +138,7 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
         }
 
         result = roundResult(result);
-        setDisplay(result.toString());
+        setDisplay(result.toShortFixed());
         setPreviousValue(null);
         setOperation(null);
         setResetOnNextInput(true);

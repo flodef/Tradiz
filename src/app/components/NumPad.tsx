@@ -335,7 +335,7 @@ export const NumPad: FC = () => {
                             selectedProduct.amount = result;
                             computeQuantity(selectedProduct, selectedProduct.quantity);
                         } else {
-                            setValue((result * Math.pow(10, maxDecimals)).toString());
+                            setValue((result * Math.pow(10, maxDecimals)).toShortFixed(0));
                             setAmount(result);
                         }
                         closePopup();
