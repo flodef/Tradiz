@@ -14,7 +14,7 @@ import { CalculatorIcon } from '../images/CalculatorIcon';
 import { WalletIcon } from '../images/WalletIcon';
 import { WAITING_KEYWORD } from '../utils/constants';
 import { EmptyDiscount, Mercurial } from '../utils/interfaces';
-import { isMobileDevice, isMobileSize } from '../utils/mobile';
+import { isMobileSize, useIsMobileDevice } from '../utils/mobile';
 import { Digits } from '../utils/types';
 import { Amount } from './Amount';
 import { Calculator } from './Calculator';
@@ -29,6 +29,7 @@ interface NumPadButtonProps {
 
 const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
     const { isStateReady } = useConfig();
+    const isMobileDevice = useIsMobileDevice();
 
     const onClick = useCallback<MouseEventHandler>(
         (e) => {
@@ -49,7 +50,7 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
                 isStateReady
                     ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light'
                     : '',
-                !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : ''
+                !isMobileDevice ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : ''
             )}
             onClick={onClick}
             onContextMenu={onClick}
@@ -61,6 +62,7 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
 
 const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu, className }) => {
     const { isStateReady } = useConfig();
+    const isMobileDevice = useIsMobileDevice();
 
     const onClick = useCallback<MouseEventHandler>(
         (e) => {
@@ -81,7 +83,7 @@ const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu, 
         <div
             className={twMerge(
                 className,
-                !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : ''
+                !isMobileDevice ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : ''
             )}
             onClick={onClick}
             onContextMenu={onClick}
@@ -98,6 +100,7 @@ interface ImageButtonProps {
     className?: string;
 }
 const ImageButton: FC<ImageButtonProps> = ({ children, onClick, onContextMenu, className }) => {
+    const isMobileDevice = useIsMobileDevice();
     const handleContextMenu = useCallback<MouseEventHandler>(
         (e) => {
             e.preventDefault();
@@ -110,7 +113,7 @@ const ImageButton: FC<ImageButtonProps> = ({ children, onClick, onContextMenu, c
         <div
             className={twMerge(
                 className,
-                !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : ''
+                !isMobileDevice ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : ''
             )}
             onClick={onClick}
             onContextMenu={handleContextMenu}

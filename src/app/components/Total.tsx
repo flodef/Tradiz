@@ -14,7 +14,7 @@ import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
 import { BACK_KEYWORD, REFUND_KEYWORD, UPDATING_KEYWORD, WAITING_KEYWORD } from '../utils/constants';
-import { isMobileDevice, isMobileSize, useIsMobile } from '../utils/mobile';
+import { isMobileSize, useIsMobile, useIsMobileDevice } from '../utils/mobile';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
 import { Transaction } from '../utils/interfaces';
@@ -73,6 +73,7 @@ const Item: FC<ItemProps> = ({ label, onClick = () => {}, onContextMenu, classNa
 };
 
 export const Total: FC = () => {
+    const isMobileDevice = useIsMobileDevice();
     const {
         total,
         getCurrentTotal,
@@ -256,10 +257,13 @@ export const Total: FC = () => {
         if (!products.current.length) return;
 
         const printerOptions = getPrintersNames();
-        
+
         openPopup(
             products.current.length + ' produits : ' + toCurrency(getCurrentTotal()),
-            products.current.map((product) => displayProduct(product)).concat(printerOptions).concat(['', payLabel]),
+            products.current
+                .map((product) => displayProduct(product))
+                .concat(printerOptions)
+                .concat(['', payLabel]),
             (index, option) => {
                 if (option === payLabel) {
                     pay();
@@ -480,7 +484,7 @@ export const Total: FC = () => {
 
     const clickClassName = twMerge(
         'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light',
-        isStateReady && !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : ''
+        isStateReady && !isMobileDevice ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : ''
     );
 
     const { width: screenWidth, height: screenHeight } = useWindowParam();
@@ -511,9 +515,7 @@ export const Total: FC = () => {
     if (showPartialPaymentSelector && orderId) {
         return (
             <div className={popupClass}>
-                <div
-                    className="md:w-1/2 w-full fixed py-3 px-3 border-b-4 border-active-light dark:border-active-dark bg-blue-100 dark:bg-blue-900"
-                >
+                <div className="md:w-1/2 w-full fixed py-3 px-3 border-b-4 border-active-light dark:border-active-dark bg-blue-100 dark:bg-blue-900">
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => {

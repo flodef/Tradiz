@@ -2,7 +2,7 @@
 
 import { FC, MouseEventHandler, useCallback, useEffect, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
-import { isMobileDevice } from '../utils/mobile';
+import { useIsMobileDevice } from '../utils/mobile';
 
 interface CalculatorProps {
     onUseResult?: (value: number) => void;
@@ -17,6 +17,7 @@ type CalcButton = {
 };
 
 const CalcButton: FC<{ button: CalcButton; onClick: () => void }> = ({ button, onClick }) => {
+    const isMobileDevice = useIsMobileDevice();
     const handleClick = useCallback<MouseEventHandler>(
         (e) => {
             e.preventDefault();
@@ -29,11 +30,11 @@ const CalcButton: FC<{ button: CalcButton; onClick: () => void }> = ({ button, o
         <div
             className={twMerge(
                 'h-14 relative flex justify-center items-center font-semibold text-2xl',
-                'border-[2px] rounded-xl',
+                'border-2 rounded-xl',
                 'border-secondary-light dark:border-secondary-dark shadow-md',
                 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark',
                 'active:text-popup-dark dark:active:text-popup-light',
-                !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : '',
+                !isMobileDevice ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : '',
                 button.className || '',
                 button.colspan === 2 ? 'col-span-2' : ''
             )}
@@ -48,6 +49,7 @@ const CalcButton: FC<{ button: CalcButton; onClick: () => void }> = ({ button, o
 const roundResult = (value: number): number => parseFloat(value.toFixed(10));
 
 export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 }) => {
+    const isMobileDevice = useIsMobileDevice();
     const [display, setDisplay] = useState(initialValue.toShortFixed());
     const [previousValue, setPreviousValue] = useState<number | null>(null);
     const [operation, setOperation] = useState<string | null>(null);
@@ -266,7 +268,7 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
                         'bg-green-500 dark:bg-green-600',
                         'text-white',
                         'active:bg-green-600 dark:active:bg-green-700',
-                        !isMobileDevice() ? 'hover:bg-green-600 dark:hover:bg-green-700 cursor-pointer' : ''
+                        !isMobileDevice ? 'hover:bg-green-600 dark:hover:bg-green-700 cursor-pointer' : ''
                     )}
                 >
                     Utiliser le résultat

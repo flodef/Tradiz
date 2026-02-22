@@ -9,7 +9,7 @@ import { usePopup } from '../hooks/usePopup';
 import { useWindowParam } from '../hooks/useWindowParam';
 import Loading, { LoadingType } from '../loading';
 import { EMAIL, OTHER_KEYWORD } from '../utils/constants';
-import { isMobileDevice } from '../utils/mobile';
+import { useIsMobileDevice } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
 import { useAddPopupClass } from './Popup';
 import { EmptyDiscount, InventoryItem, Role, State } from '../utils/interfaces';
@@ -22,6 +22,7 @@ interface CategoryInputButton {
 
 const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => {
     const { selectedProduct } = useData();
+    const isMobileDevice = useIsMobileDevice();
 
     const onClick: MouseEventHandler = (e) => {
         e.preventDefault();
@@ -35,7 +36,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
                 { 1: 'w-full', 2: 'w-1/2', 3: 'w-1/3' }[length] ?? 'w-auto',
                 'relative flex justify-center py-3 items-center font-semibold text-2xl',
                 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light',
-                !isMobileDevice() ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : '',
+                !isMobileDevice ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : '',
                 selectedProduct?.category === input
                     ? 'bg-active-light dark:bg-active-dark text-popup-dark dark:text-popup-light'
                     : ''
@@ -182,9 +183,9 @@ export const Category: FC = () => {
 
     const categories = useMemo(() => inventory.map(({ category }) => category), [inventory]);
 
-    const row1Slice = categories.length <= 2 ? 1 : categories.length >= 3 && categories.length <= 4 ? 2 : 3;
-    const row2Slice =
-        categories.length >= 2 && categories.length <= 3 ? 1 : categories.length >= 4 && categories.length <= 5 ? 2 : 3;
+    const { length } = categories;
+    const row1Slice = length <= 2 ? 1 : length >= 3 && length <= 4 ? 2 : 3;
+    const row2Slice = length >= 2 && length <= 3 ? 1 : length >= 4 && length <= 5 ? 2 : 3;
 
     const rowClassName = 'flex justify-evenly divide-x divide-active-light dark:divide-active-dark';
 

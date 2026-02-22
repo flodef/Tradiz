@@ -3,7 +3,7 @@
 import { FC, useCallback } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { usePopup } from '../hooks/usePopup';
-import { isMobileDevice, useIsMobile } from '../utils/mobile';
+import { useIsMobile, useIsMobileDevice } from '../utils/mobile';
 import { CloseButton } from './CloseButton';
 
 export function useAddPopupClass(className: string): string {
@@ -24,6 +24,7 @@ export const Popup: FC = () => {
         closePopup,
         isPopupOpen,
     } = usePopup();
+    const isMobileDevice = useIsMobileDevice();
 
     const close = useCallback(() => {
         closePopup(() => {
@@ -76,7 +77,7 @@ export const Popup: FC = () => {
                                 className={twMerge(
                                     'py-2 w-full relative flex justify-around items-center',
                                     'font-semibold text-xl text-center cursor-pointer',
-                                    !isMobileDevice()
+                                    !isMobileDevice
                                         ? 'hover:bg-active-light dark:hover:bg-active-dark active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light'
                                         : '',
                                     popupIsSpecial && popupIsSpecial(option.toString()) ? 'animate-pulse' : ''
