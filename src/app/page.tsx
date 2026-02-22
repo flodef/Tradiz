@@ -1,4 +1,5 @@
 import { MainContent } from './components/MainContent';
+import { OfflineBanner } from './components/OfflineBanner';
 import { Popup } from './components/Popup';
 import { ConfigProvider } from './contexts/ConfigProvider';
 import { CryptoProvider } from './contexts/CryptoProvider';
@@ -18,6 +19,7 @@ export default async function Home({ params }: HomeProps) {
             className="absolute inset-0 grid select-none overflow-y-auto md:overflow-y-hidden"
             style={{ background: 'inherit' }}
         >
+            <OfflineBanner />
             <ConfigProvider shop={shop}>
                 <DataProvider>
                     <PopupProvider>
