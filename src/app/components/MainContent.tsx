@@ -27,8 +27,11 @@ export const MainContent: FC = () => {
                 console.log('Received ORDER_ID:', event.data.orderId);
                 const orderId = event.data.orderId;
 
-                // Clear any existing transaction
+                // Always clear any existing transaction on caisse open
                 clearTotal();
+
+                // No order context — stop here (don't call API with undefined orderId)
+                if (!orderId || orderId === 'undefined') return;
 
                 // Load order data to check if partial payment should be available
                 try {

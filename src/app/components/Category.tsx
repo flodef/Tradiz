@@ -1,6 +1,6 @@
 'use client';
 
-import { FC, MouseEventHandler, useEffect, useMemo, useState } from 'react';
+import { FC, MouseEventHandler, useEffect, useMemo, useRef, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { sendFatalErrorEmail } from '../actions/email';
 import { useConfig } from '../hooks/useConfig';
@@ -11,7 +11,11 @@ import Loading, { LoadingType } from '../loading';
 import { EMAIL, OTHER_KEYWORD } from '../utils/constants';
 import { isMobileDevice } from '../utils/mobile';
 import { useAddPopupClass } from './Popup';
-import { EmptyDiscount, InventoryItem, Role, State } from '../utils/interfaces';
+import { Catalog, CatalogFormula, EmptyDiscount, InventoryItem, Role, State } from '../utils/interfaces';
+
+// Local types for option selection helpers
+type OptionDef = { type: string; options: { valeur: string; prix: number | string }[] };
+type OptionSel = { type: string; valeur: string; prix: number };
 
 interface CategoryInputButton {
     input: string;
@@ -42,7 +46,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
             onClick={onClick}
             onContextMenu={onClick}
         >
-            <div className="truncate text-clip text-center">{input}</div>
+            <div className="line-clamp-2 leading-tight text-center break-words px-1">{input}</div>
         </div>
     );
 };
@@ -54,6 +58,133 @@ export const Category: FC = () => {
     const { isLocalhost, isDemo } = useWindowParam();
 
     const [hasSentEmail, setHasSentEmail] = useState(false);
+
+    // ── Catalog: lazy-loaded on first interaction, cached for the session ──
+    const catalogRef = useRef<Catalog | null>(null);
+    const catalogLoadingRef = useRef<Promise<Catalog> | null>(null);
+    const loadCatalog = (): Promise<Catalog> => {
+        if (catalogRef.current) return Promise.resolve(catalogRef.current);
+        if (!catalogLoadingRef.current) {
+            catalogLoadingRef.current = fetch('/api/sql/getCatalog')
+                .then((r) => r.json())
+                .then((data: Catalog) => {
+                    catalogRef.current = data;
+                    return data;
+                });
+        }
+        return catalogLoadingRef.current;
+    };
+
+    // ── Option-selection chain: one popup per option type ──
+    const selectOptionsChain = (
+        optionTypes: OptionDef[],
+        selected: OptionSel[],
+        idx: number,
+        onDone: (selected: OptionSel[]) => void
+    ) => {
+        if (idx >= optionTypes.length) { onDone(selected); return; }
+        const ot = optionTypes[idx];
+        const choices = ot.options.map((o) => {
+            const p = parseFloat(String(o.prix)) || 0;
+            return p > 0 ? `${o.valeur} (+${p.toFixed(2)}€)` : o.valeur;
+        });
+        choices.push('Passer');
+        openPopup(
+            ot.type,
+            choices,
+            (i) => {
+                if (i < 0) return; // X button → abort chain
+                const next = [...selected];
+                if (i < ot.options.length) { // not "Passer"
+                    const opt = ot.options[i];
+                    const prix = parseFloat(String(opt.prix)) || 0;
+                    next.push({ type: ot.type, valeur: opt.valeur, prix });
+                }
+                selectOptionsChain(optionTypes, next, idx + 1, onDone);
+            }
+        );
+    };
+
+    // ── Formula wizard: one popup per element slot ──
+    const selectFormulaElements = (
+        formula: CatalogFormula,
+        elemIdx: number,
+        elements: OptionSel[],
+        extraAmount: number,
+        onDone: (elements: OptionSel[], extra: number) => void
+    ) => {
+        if (elemIdx >= formula.elements.length) { onDone(elements, extraAmount); return; }
+        const elem = formula.elements[elemIdx];
+        openPopup(
+            `${elem.nom} (${elemIdx + 1}/${formula.elements.length})`,
+            elem.articles.map((a) => a.nom),
+            (i) => {
+                if (i < 0) return; // X button → abort
+                const art = elem.articles[i];
+                const afterOptions = (optSel: OptionSel[]) => {
+                    const extra = optSel.reduce((s, o) => s + o.prix, 0);
+                    const optStr = optSel.length > 0
+                        ? ` [${optSel.map((o) => o.prix > 0 ? `${o.valeur} (+${o.prix.toFixed(2)}€)` : o.valeur).join(', ')}]`
+                        : '';
+                    selectFormulaElements(
+                        formula, elemIdx + 1,
+                        [...elements, { type: 'element', valeur: `${art.nom}${optStr}`, prix: 0 }],
+                        extraAmount + extra,
+                        onDone
+                    );
+                };
+                if (art.options) {
+                    try {
+                        const ots: OptionDef[] = JSON.parse(art.options);
+                        if (ots.length > 0) { selectOptionsChain(ots, [], 0, afterOptions); return; }
+                    } catch { /* ignore */ }
+                }
+                afterOptions([]);
+            }
+        );
+    };
+
+    // ── Unified handler: look up catalog then trigger wizard or direct add ──
+    const handleProductSelection = (item: InventoryItem, label: string) => {
+        const price = item.products.find((p) => p.label === label)?.prices[currencyIndex];
+        const isNewPrice = amount && amount !== selectedProduct?.amount;
+        const baseAmount = isNewPrice ? amount : price || 0;
+
+        const doAdd = (extra = 0, options?: OptionSel[]) =>
+            addProduct({
+                category: item.category,
+                label,
+                quantity: 1,
+                discount: EmptyDiscount,
+                amount: baseAmount + extra,
+                ...(options && options.length > 0 ? { options: JSON.stringify(options) } : {}),
+            });
+
+        loadCatalog()
+            .then((catalog) => {
+                // Formula?
+                const formula = catalog.formulas.find((f) => f.nom === label);
+                if (formula && formula.elements.length > 0) {
+                    selectFormulaElements(formula, 0, [], 0, (elements, extra) => doAdd(extra, elements));
+                    return;
+                }
+                // Article with options?
+                const article = catalog.articles.find((a) => a.nom === label);
+                if (article?.options) {
+                    try {
+                        const ots: OptionDef[] = JSON.parse(article.options);
+                        if (ots.length > 0) {
+                            selectOptionsChain(ots, [], 0, (selected) =>
+                                doAdd(selected.reduce((s, o) => s + o.prix, 0), selected)
+                            );
+                            return;
+                        }
+                    } catch { /* ignore */ }
+                }
+                doAdd();
+            })
+            .catch(() => doAdd()); // catalog unavailable → add without options
+    };
 
     useEffect(() => {
         switch (state) {
@@ -124,18 +255,6 @@ export const Category: FC = () => {
         return () => window.removeEventListener('message', handler);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const addSpecificProduct = (item: InventoryItem, option: string) => {
-        const price = item.products.find(({ label }) => label === option)?.prices[currencyIndex];
-        const isNewPrice = amount && amount !== selectedProduct?.amount;
-        addProduct({
-            category: item.category,
-            label: option,
-            quantity: 1,
-            discount: EmptyDiscount,
-            amount: isNewPrice ? amount : price || 0,
-        });
-    };
-
     const onInput = (input: string, eventType: string) => {
         const item =
             inventory.find(({ category }) => category === input) ??
@@ -150,40 +269,51 @@ export const Category: FC = () => {
                 discount: EmptyDiscount,
                 amount: amount,
             });
-        } else if (item.products.length === 1) {
-            addSpecificProduct(item, item.products[0].label);
-        } else {
-            setSelectedProduct({
-                category: item.category,
-                label: OTHER_KEYWORD,
-                quantity: 0,
-                discount: EmptyDiscount,
-                amount: 0,
-            });
-            openPopup(
-                item.category,
-                item.products
-                    .map(({ label }) => label)
-                    .sort((a, b) => a.localeCompare(b))
-                    .concat('', OTHER_KEYWORD),
-                (index, option) => {
-                    if (index < 0) {
-                        setSelectedProduct(undefined);
-                        clearAmount();
-                        return;
-                    }
-
-                    addSpecificProduct(item, option);
-                }
-            );
+            return;
         }
+
+        if (item.products.length === 1) {
+            handleProductSelection(item, item.products[0].label);
+            return;
+        }
+
+        setSelectedProduct({
+            category: item.category,
+            label: OTHER_KEYWORD,
+            quantity: 0,
+            discount: EmptyDiscount,
+            amount: 0,
+        });
+        openPopup(
+            item.category,
+            item.products
+                .map(({ label }) => label)
+                .sort((a, b) => a.localeCompare(b))
+                .concat('', OTHER_KEYWORD),
+            (index, option) => {
+                if (index < 0) {
+                    setSelectedProduct(undefined);
+                    clearAmount();
+                    return;
+                }
+                handleProductSelection(item, option);
+            }
+        );
     };
 
     const categories = useMemo(() => inventory.map(({ category }) => category), [inventory]);
 
-    const row1Slice = categories.length <= 2 ? 1 : categories.length >= 3 && categories.length <= 4 ? 2 : 3;
-    const row2Slice =
-        categories.length >= 2 && categories.length <= 3 ? 1 : categories.length >= 4 && categories.length <= 5 ? 2 : 3;
+    // 2 columns per row, up to 8 slots (last slot becomes OTHER if categories > 8)
+    const COLS = 2;
+    const MAX_SLOTS = 8;
+    const slots = categories.length <= MAX_SLOTS
+        ? categories
+        : [...categories.slice(0, MAX_SLOTS - 1), OTHER_KEYWORD];
+    const rows = Array.from({ length: Math.ceil(slots.length / COLS) }, (_, i) =>
+        slots.slice(i * COLS, i * COLS + COLS)
+    );
+    // Approximate row height for the loading placeholder
+    const gridHeight = rows.length * 57;
 
     const rowClassName = 'flex justify-evenly divide-x divide-active-light dark:divide-active-dark';
 
@@ -194,26 +324,24 @@ export const Category: FC = () => {
             )}
         >
             {(state === State.init || state === State.loading || state === State.error) && (
-                <div className="h-[113px] flex items-center justify-center">{Loading(LoadingType.Dot, false)}</div>
+                <div className="flex items-center justify-center" style={{ height: gridHeight }}>
+                    {Loading(LoadingType.Dot, false)}
+                </div>
             )}
             {(state === State.preloaded || state === State.loaded) && (
                 <div className="divide-y divide-active-light dark:divide-active-dark">
-                    <div className={rowClassName}>
-                        {categories.slice(0, row1Slice).map((category, index) => (
-                            <CategoryButton key={index} input={category} onInput={onInput} length={row1Slice} />
-                        ))}
-                    </div>
-
-                    <div className={rowClassName}>
-                        {categories.slice(row1Slice, 6).map((category, index) => (
-                            <CategoryButton
-                                key={index}
-                                input={category === categories[5] && categories.length > 6 ? OTHER_KEYWORD : category}
-                                onInput={onInput}
-                                length={row2Slice}
-                            />
-                        ))}
-                    </div>
+                    {rows.map((row, rowIdx) => (
+                        <div key={rowIdx} className={rowClassName}>
+                            {row.map((category, colIdx) => (
+                                <CategoryButton
+                                    key={colIdx}
+                                    input={category}
+                                    onInput={onInput}
+                                    length={row.length}
+                                />
+                            ))}
+                        </div>
+                    ))}
                 </div>
             )}
         </div>
