@@ -79,8 +79,10 @@ export const Popup: FC = () => {
                         option?.toString().trim() ? (
                             <div
                                 className={twMerge(
-                                    'py-2 w-full relative flex justify-around items-center',
-                                    'font-semibold text-xl text-center cursor-pointer',
+                                    'py-2 w-full relative flex font-semibold text-xl cursor-pointer',
+                                    typeof option === 'string' && option.includes('\n')
+                                        ? 'flex-col items-start text-left pl-3'
+                                        : 'justify-around items-center text-center',
                                     !isMobileDevice()
                                         ? 'hover:bg-active-light dark:hover:bg-active-dark active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light'
                                         : '',

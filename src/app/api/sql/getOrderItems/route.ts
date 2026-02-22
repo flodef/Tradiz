@@ -4,10 +4,11 @@ import { getMainDb } from '../db';
 
 // Helper: compute extra price from selected options against option definitions
 const computeOptionsExtra = (selectedOptionsRaw: string | null, allOptionsRaw: string | null): { extra: number; desc: string[] } => {
-    if (!selectedOptionsRaw || !allOptionsRaw) return { extra: 0, desc: [] };
+    if (!selectedOptionsRaw) return { extra: 0, desc: [] };
     try {
         const sel: { type: string; valeur: string }[] = JSON.parse(selectedOptionsRaw);
-        const def: { type: string; options: { valeur: string; prix: number | string }[] }[] = JSON.parse(allOptionsRaw);
+        const def: { type: string; options: { valeur: string; prix: number | string }[] }[] =
+            allOptionsRaw ? JSON.parse(allOptionsRaw) : [];
         let extra = 0;
         const desc: string[] = [];
         for (const s of sel) {
@@ -85,10 +86,11 @@ export async function GET(request: Request) {
             let baseAmount = Number(Number(row.amount).toFixed(2));
             let selectedOptions: { type: string; valeur: string; prix: number }[] | undefined;
 
-            if (row.selected_options && row.all_options) {
+            if (row.selected_options) {
                 try {
                     const optionsSel: { type: string; valeur: string }[] = JSON.parse(row.selected_options);
-                    const optionsDef: { type: string; options: { valeur: string; prix: number | string }[] }[] = JSON.parse(row.all_options);
+                    const optionsDef: { type: string; options: { valeur: string; prix: number | string }[] }[] =
+                        row.all_options ? JSON.parse(row.all_options) : [];
                     selectedOptions = optionsSel.map((sel) => {
                         let prix = 0;
                         const defType = optionsDef.find((d) => d.type === sel.type);
