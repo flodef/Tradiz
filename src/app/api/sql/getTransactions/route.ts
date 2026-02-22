@@ -3,6 +3,28 @@ import { Transaction } from '@/app/utils/interfaces';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
+interface TransactionRow {
+    id: number;
+    panier_id: string;
+    validator: string;
+    method: string;
+    amount: number;
+    currency: string;
+    note: string;
+    createdDate: number;
+    modifiedDate: number;
+}
+
+interface ProductRow {
+    label: string;
+    category: string;
+    amount: number;
+    quantity: number;
+    discount_amount: number;
+    discount_unit: string;
+    total: number;
+}
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date'); // Format: YYYY-MM-DD
@@ -44,7 +66,7 @@ export async function GET(request: Request) {
         // Get products for each transaction
         const transactions: Transaction[] = [];
 
-        for (const row of rows as Record<string, unknown>[]) {
+        for (const row of rows as TransactionRow[]) {
             // Skip deleted transactions
             if (row.method === DELETED_KEYWORD) continue;
 
@@ -55,23 +77,23 @@ export async function GET(request: Request) {
                 [row.id]
             );
 
-            const products = (productRows as Record<string, unknown>[]).map((p) => ({
-                label: String(p.label || ''),
-                category: String(p.category || ''),
+            const products = (productRows as ProductRow[]).map((p) => ({
+                label: p.label || '',
+                category: p.category || '',
                 amount: Number(p.amount),
                 quantity: Number(p.quantity),
                 discount: {
                     amount: Number(p.discount_amount) || 0,
-                    unit: String(p.discount_unit || '%'),
+                    unit: p.discount_unit || '%',
                 },
                 total: Number(p.total),
             }));
 
             transactions.push({
-                validator: String(row.validator || ''),
-                method: String(row.method || ''),
+                validator: row.validator || '',
+                method: row.method || '',
                 amount: Number(row.amount),
-                currency: String(row.currency || ''),
+                currency: row.currency || '',
                 createdDate: Number(row.createdDate),
                 modifiedDate: Number(row.modifiedDate) || Number(row.createdDate),
                 products,
