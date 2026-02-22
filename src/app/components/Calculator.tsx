@@ -48,6 +48,21 @@ const CalcButton: FC<{ button: CalcButton; onClick: () => void }> = ({ button, o
 
 const roundResult = (value: number): number => parseFloat(value.toFixed(10));
 
+const applyOperation = (op: string, left: number, right: number): number => {
+    switch (op) {
+        case '+':
+            return left + right;
+        case '-':
+            return left - right;
+        case '×':
+            return left * right;
+        case '÷':
+            return right !== 0 ? left / right : left;
+        default:
+            return right;
+    }
+};
+
 export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 }) => {
     const isMobileDevice = useIsMobileDevice();
     const [display, setDisplay] = useState(initialValue.toShortFixed());
@@ -91,20 +106,7 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
             if (previousValue !== null && operation && !resetOnNextInput) {
                 // Calculate previous operation first
                 let result = previousValue;
-                switch (operation) {
-                    case '+':
-                        result = previousValue + current;
-                        break;
-                    case '-':
-                        result = previousValue - current;
-                        break;
-                    case '×':
-                        result = previousValue * current;
-                        break;
-                    case '÷':
-                        result = current !== 0 ? previousValue / current : previousValue;
-                        break;
-                }
+                result = applyOperation(operation, previousValue, current);
                 result = roundResult(result);
                 setDisplay(result.toShortFixed());
                 setPreviousValue(result);
@@ -124,20 +126,7 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
         const current = parseFloat(display);
         let result = previousValue;
 
-        switch (operation) {
-            case '+':
-                result = previousValue + current;
-                break;
-            case '-':
-                result = previousValue - current;
-                break;
-            case '×':
-                result = previousValue * current;
-                break;
-            case '÷':
-                result = current !== 0 ? previousValue / current : previousValue;
-                break;
-        }
+        result = applyOperation(operation, previousValue, current);
 
         result = roundResult(result);
         setDisplay(result.toShortFixed());
@@ -162,11 +151,14 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
     }, [resetOnNextInput, handleClear]);
 
     const handleUseResult = useCallback(() => {
-        const value = parseFloat(display);
+        let value = parseFloat(display);
+        if (previousValue !== null && operation !== null) {
+            value = roundResult(applyOperation(operation, previousValue, value));
+        }
         if (!isNaN(value) && onUseResult) {
             onUseResult(value);
         }
-    }, [display, onUseResult]);
+    }, [display, previousValue, operation, onUseResult]);
 
     const buttons: CalcButton[][] = [
         [
