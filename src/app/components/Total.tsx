@@ -523,7 +523,7 @@ export const Total: FC = () => {
                                 setSelectedOrderItems([]);
                                 setPartialPaymentAmount(0);
                             }}
-                            className="flex-shrink-0 text-xs md:text-sm px-2 md:px-3 py-1 md:py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                            className="shrink-0 text-xs md:text-sm px-2 md:px-3 py-1 md:py-2 bg-red-500 text-white rounded hover:bg-red-600"
                         >
                             ← Retour
                         </button>
