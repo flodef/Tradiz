@@ -39,6 +39,7 @@ export interface Parameters {
     thanksMessage: string;
     mercurial: Mercurial;
     lastModified: string;
+    closingHour: number;
     user: User;
     error?: string;
 }

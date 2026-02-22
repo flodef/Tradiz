@@ -70,6 +70,7 @@ export const defaultParameters: Parameters = {
     thanksMessage: '',
     mercurial: Mercurial.none,
     lastModified: new Date().toLocaleString(),
+    closingHour: 0,
     user: { name: '', role: Role.none },
 };
 
@@ -153,6 +154,7 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
         thanksMessage: param.values.at(6) ?? 'Merci de votre visite !',
         mercurial: (param.values.at(7) ?? Mercurial.none) as Mercurial,
         lastModified: param.values.at(8) ?? new Date('0').toLocaleString(),
+        closingHour: Math.max(0, Math.min(23, Number(param.values.at(9)) || 0)),
         user: user,
     };
 
@@ -288,7 +290,7 @@ async function convertParametersData(
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-            checkData(data, 1, 2, 9, 9);
+            checkData(data, 1, 2, 9, 10);
 
             return {
                 keys: data.values.map((item) => {
