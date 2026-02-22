@@ -106,6 +106,49 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         }
     }, []);
 
+    const getLocalTransactions = useCallback(() => {
+        const localTransactionSets: TransactionSet[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key?.includes(shopId || TRANSACTIONS_KEYWORD)) {
+                const value = localStorage.getItem(key);
+                if (value) {
+                    const transactions = JSON.parse(value) as Transaction[];
+                    localTransactionSets.push({ id: key, transactions });
+                }
+            }
+        }
+        return localTransactionSets.sort((a, b) => a.id.localeCompare(b.id));
+    }, [shopId]);
+
+    const setLocalStorageItem = useCallback(
+        (key: string, transactions: Transaction[]) => {
+            try {
+                localStorage.setItem(key, JSON.stringify(transactions));
+            } catch {
+                const localTransactionSets = getLocalTransactions();
+                localStorage.removeItem(localTransactionSets[0].id);
+                setLocalStorageItem(key, transactions);
+            }
+        },
+        [getLocalTransactions]
+    );
+
+    const mergeTransactionArrays = useCallback((local: Transaction[], remote: Transaction[]): Transaction[] => {
+        const merged = [...local];
+        for (const remoteTx of remote) {
+            const localIndex = merged.findIndex((tx) => tx.createdDate === remoteTx.createdDate);
+            if (localIndex === -1) {
+                // Remote-only transaction → add it
+                merged.push(remoteTx);
+            } else if (remoteTx.modifiedDate > merged[localIndex].modifiedDate) {
+                // Both exist → keep the latest
+                merged[localIndex] = remoteTx;
+            }
+        }
+        return merged;
+    }, []);
+
     useEffect(() => {
         if (!parameters.shop.name || areTransactionLoaded.current) return;
 
@@ -115,39 +158,87 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         const filename = getTransactionFileName(shopId);
 
         const loadTransactions = async () => {
-            let loadedTransactions: Transaction[] = [];
+            // Always load from localStorage first to avoid data loss
+            const localTransactions = JSON.parse(localStorage.getItem(filename) || '[]') as Transaction[];
 
-            // Try to load from SQL DB first if enabled
+            // If SQL DB is enabled, merge SQL data into local (latest modifiedDate wins)
             if (process.env.NEXT_PUBLIC_USE_SQLDB) {
                 const sqlTransactions = await loadTransactionsFromSQL();
-                if (sqlTransactions) {
-                    loadedTransactions = sqlTransactions;
-                    console.log('Loaded transactions from SQL DB');
+                if (sqlTransactions?.length) {
+                    const merged = mergeTransactionArrays(localTransactions, sqlTransactions);
+                    const mergedNonDeleted = merged.filter((tx) => !isDeletedTransaction(tx));
+                    setLocalStorageItem(filename, mergedNonDeleted);
+                    setTransactions(merged);
+                    areTransactionLoaded.current = true;
+                    setTransactionsFilename(filename);
+                    console.log(
+                        'Merged transactions: local=',
+                        localTransactions.length,
+                        'sql=',
+                        sqlTransactions.length,
+                        'result=',
+                        merged.length
+                    );
+                    return;
                 }
             }
 
-            // Fallback to localStorage if SQL DB is not enabled or failed
-            if (!loadedTransactions.length) {
-                loadedTransactions = JSON.parse(localStorage.getItem(filename) || '[]') as Transaction[];
-            }
-
-            setTransactions(loadedTransactions);
+            setTransactions(localTransactions);
             areTransactionLoaded.current = true;
             setTransactionsFilename(filename);
         };
 
         loadTransactions();
+    }, [parameters.shop.name, loadTransactionsFromSQL, mergeTransactionArrays, setLocalStorageItem]);
 
+    // Compute next reset timestamp based on closingHour
+    const getNextResetTime = useCallback(() => {
         const now = new Date();
-        const midnight = new Date();
-        midnight.setDate(now.getDate() + 1);
-        midnight.setHours(0, 0, 0, 0);
-        const timeUntilMidnight = midnight.getTime() - now.getTime();
-        setTimeout(() => {
-            areTransactionLoaded.current = false;
-            setTransactionsFilename('');
-        }, timeUntilMidnight); // Automatically reload at midnight
-    }, [parameters.shop.name, loadTransactionsFromSQL]);
+        const reset = new Date();
+        reset.setHours(parameters.closingHour, 0, 0, 0);
+        // If we're already past today's closing hour, schedule for tomorrow
+        if (now >= reset) reset.setDate(reset.getDate() + 1);
+        return reset.getTime();
+    }, [parameters.closingHour]);
+
+    const performDayReset = useCallback(() => {
+        if (!areTransactionLoaded.current) return; // Already resetting
+        areTransactionLoaded.current = false;
+        setTransactionsFilename('');
+        nextResetTime.current = getNextResetTime();
+    }, [getNextResetTime]);
+
+    const nextResetTime = useRef(0);
+
+    // Day reset: setTimeout (primary) + setInterval + visibilitychange (backups)
+    useEffect(() => {
+        if (!parameters.shop.name) return;
+
+        nextResetTime.current = getNextResetTime();
+
+        // Primary: setTimeout to the next reset time
+        const msUntilReset = nextResetTime.current - Date.now();
+        const timeout = setTimeout(performDayReset, msUntilReset);
+
+        // Backup: check every 60s if we've passed the reset time
+        const interval = setInterval(() => {
+            if (Date.now() >= nextResetTime.current) performDayReset();
+        }, 60_000);
+
+        // Backup: check on tab focus (handles device sleep / backgrounded tabs)
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && Date.now() >= nextResetTime.current) {
+                performDayReset();
+            }
+        };
+        document.addEventListener('visibilitychange', onVisibilityChange);
+
+        return () => {
+            clearTimeout(timeout);
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+        };
+    }, [parameters.shop.name, getNextResetTime, performDayReset]);
 
     useEffect(() => {
         if (IS_DEV || isDemo) return;
@@ -178,34 +269,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             });
         },
         [firestore]
-    );
-
-    const getLocalTransactions = useCallback(() => {
-        const localTransactionSets: TransactionSet[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key?.includes(shopId || TRANSACTIONS_KEYWORD)) {
-                const value = localStorage.getItem(key);
-                if (value) {
-                    const transactions = JSON.parse(value) as Transaction[];
-                    localTransactionSets.push({ id: key, transactions });
-                }
-            }
-        }
-        return localTransactionSets.sort((a, b) => a.id.localeCompare(b.id));
-    }, [shopId]);
-
-    const setLocalStorageItem = useCallback(
-        (key: string, transactions: Transaction[]) => {
-            try {
-                localStorage.setItem(key, JSON.stringify(transactions));
-            } catch {
-                const localTransactionSets = getLocalTransactions();
-                localStorage.removeItem(localTransactionSets[0].id);
-                setLocalStorageItem(key, transactions);
-            }
-        },
-        [getLocalTransactions]
     );
 
     const storeTransaction = useCallback(
@@ -309,9 +372,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // If it's the cloud one, update the local, if it's the local one, update the cloud.
     // Then, check if the "transaction set" in local exists in the cloud, using the same method as above.
     const fullSync = useCallback(
-        (cloudTransactionSets: TransactionSet[], syncPeriod: SyncPeriod) => {
-            if (!firestore) return;
-
+        async (cloudTransactionSets: TransactionSet[], syncPeriod: SyncPeriod) => {
             let localTransactionSets = getLocalTransactions();
 
             console.log(
@@ -322,7 +383,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 localTransactionSets.sort((a, b) => a.id.localeCompare(b.id))
             );
 
-            cloudTransactionSets.forEach((cloudTransactionSet) => {
+            // Merge cloud → local
+            for (const cloudTransactionSet of cloudTransactionSets) {
                 const localTransactionSet = localTransactionSets.find((set) => set.id === cloudTransactionSet.id);
 
                 if (!localTransactionSet) {
@@ -333,7 +395,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         id: localTransactionSet.id,
                         transactions: [...localTransactionSet.transactions],
                     };
-                    cloudTransactionSet.transactions.forEach(async (cloudTransaction) => {
+                    for (const cloudTransaction of cloudTransactionSet.transactions) {
                         const index = localTransactionSet.transactions.findIndex(
                             (localTransaction) => localTransaction.createdDate === cloudTransaction.createdDate
                         );
@@ -347,30 +409,30 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             if (cloudTransaction.modifiedDate > localTransaction.modifiedDate) {
                                 console.log('Updated transaction in local', cloudTransaction);
                                 updateTransactionSet.transactions.splice(index, 1, cloudTransaction);
-                            } else if (cloudTransaction.modifiedDate < localTransaction.modifiedDate) {
+                            } else if (firestore && cloudTransaction.modifiedDate < localTransaction.modifiedDate) {
                                 console.log('Updated transaction in cloud', localTransaction);
                                 await updateCloudTransaction(cloudTransactionSet.id, localTransaction);
                             }
                         }
-                    });
+                    }
                     updateLocalTransaction(updateTransactionSet);
                 }
-            });
+            }
 
-            if (syncPeriod === SyncPeriod.full) {
+            // Merge local → cloud (full sync only, requires Firebase)
+            if (syncPeriod === SyncPeriod.full && firestore) {
                 localTransactionSets = getLocalTransactions(); // Update local transaction sets after cloud sync
-                localTransactionSets.forEach(async (localTransactionSet) => {
+                for (const localTransactionSet of localTransactionSets) {
                     const cloudTransactionSet = cloudTransactionSets.find((set) => set.id === localTransactionSet.id);
 
                     if (!cloudTransactionSet) {
                         console.log('Added set to cloud', localTransactionSet.id);
                         await storeIndex(localTransactionSet.id);
-                        localTransactionSet.transactions.forEach(
-                            async (localTransaction) =>
-                                await updateCloudTransaction(localTransactionSet.id, localTransaction)
-                        );
+                        for (const localTransaction of localTransactionSet.transactions) {
+                            await updateCloudTransaction(localTransactionSet.id, localTransaction);
+                        }
                     } else {
-                        localTransactionSet.transactions.forEach(async (localTransaction) => {
+                        for (const localTransaction of localTransactionSet.transactions) {
                             if (
                                 !cloudTransactionSet.transactions.some(
                                     (cloudTransaction) => cloudTransaction.createdDate === localTransaction.createdDate
@@ -379,9 +441,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                                 console.log('Added transaction to cloud', localTransaction);
                                 await updateCloudTransaction(localTransactionSet.id, localTransaction);
                             }
-                        });
+                        }
                     }
-                });
+                }
             }
         },
         [
