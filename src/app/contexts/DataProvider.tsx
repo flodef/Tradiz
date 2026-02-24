@@ -61,6 +61,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [selectedOrderItems, setSelectedOrderItems] = useState<OrderItem[]>([]);
     const [partialPaymentAmount, setPartialPaymentAmount] = useState(0);
     const [showPartialPaymentSelector, setShowPartialPaymentSelector] = useState(false);
+    const [counterServiceType, setCounterServiceTypeState] = useState<'sur_place' | 'emporter'>('sur_place');
+    const counterServiceTypeRef = useRef<'sur_place' | 'emporter'>('sur_place');
+    const setCounterServiceType = useCallback((type: 'sur_place' | 'emporter') => {
+        counterServiceTypeRef.current = type;
+        setCounterServiceTypeState(type);
+    }, []);
 
     const isDbConnected = useMemo(() => isOnline, [isOnline]);
 
@@ -430,26 +436,37 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         // Don't throw - this is not critical to the transaction
                     }
                 } else if (!orderId && isActualPayment && transaction.products.length > 0) {
-                    // Manual counter order — no panier in DB, send product list directly to kitchen.
-                    // NOTE: use transaction.products (captured before clearTotal empties products.current)
+                    // Commande comptoir (restaurateur saisit directement les articles) :
+                    // Création d'un panier en BDD avec short_num_order + broadcast cuisine.
+                    // NOTE: utiliser transaction.products (capturé avant que clearTotal vide products.current)
                     try {
-                        const orderLabel = String(transaction.createdDate).slice(-4);
-                        await fetch('/api/direct-kitchen-print', {
+                        const counterResponse = await fetch('/api/counter-order', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                order_label: orderLabel,
                                 products: transaction.products.map((p) => ({
                                     label: p.label,
                                     category: p.category,
                                     quantity: p.quantity,
                                     options: p.options ?? null,
                                 })),
+                                service_type: counterServiceTypeRef.current,
                             }),
                         });
+                        if (counterResponse.ok) {
+                            const counterData = await counterResponse.json();
+                            if (counterData.short_num_order) {
+                                setShortNumOrder(counterData.short_num_order);
+                                // Mettre à jour l'objet transaction déjà stocké avec le numéro de commande
+                                transaction.shortNumOrder = counterData.short_num_order;
+                                storeTransaction(transaction);
+                            }
+                        } else {
+                            console.error('counter-order upstream error:', await counterResponse.text());
+                        }
                     } catch (kitchenError) {
-                        console.error('Failed to send direct kitchen ticket:', kitchenError);
-                        // Non-critical — transaction already saved
+                        console.error('Failed to send counter order:', kitchenError);
+                        // Non-critique — la transaction est déjà sauvegardée
                     }
                 }
             } catch (error) {
@@ -457,7 +474,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 throw error;
             }
         },
-        [transactionsFilename, transactions, parameters.user, setLocalStorageItem, currencies, orderId]
+        [transactionsFilename, transactions, parameters.user, setLocalStorageItem, currencies, orderId, setShortNumOrder, storeTransaction]
     );
 
     const deleteTransaction = useCallback(
@@ -798,6 +815,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 setPartialPaymentAmount,
                 showPartialPaymentSelector,
                 setShowPartialPaymentSelector,
+                counterServiceType,
+                setCounterServiceType,
             }}
         >
             {children}

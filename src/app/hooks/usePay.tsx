@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { QRCode } from '../components/QRCode';
 import { Shop } from '../contexts/ConfigProvider';
 import { isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
@@ -42,10 +42,14 @@ export const usePay = () => {
         setPartialPaymentAmount,
         showPartialPaymentSelector,
         setShowPartialPaymentSelector,
+        setCounterServiceType,
     } = useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
-    const { paymentMethods, currencies, currencyIndex, parameters, getPrintersNames, getPrinterAddresses, inventory } =
+    const { paymentMethods, currencies, currencyIndex, parameters, getPrintersNames, getPrinterAddresses, inventory, isFastFood } =
         useConfig();
+
+    // Ref local pour éviter de redemander le type de service lors de l'appel récursif à pay()
+    const serviceTypeSelectedRef = useRef(false);
 
     const canPay = useMemo(() => {
         // Can pay if we have a normal transaction OR partial payment selected
@@ -382,6 +386,25 @@ export const usePay = () => {
             }
         } else {
             // Normal payment mode
+
+            // Fast-food + commande comptoir : demander le type de service avant le paiement
+            if (isFastFood && !orderId && !serviceTypeSelectedRef.current) {
+                openPopup(
+                    'Type de service',
+                    ['Sur place', 'À emporter'],
+                    (index) => {
+                        if (index < 0) return; // annulé
+                        setCounterServiceType(index === 0 ? 'sur_place' : 'emporter');
+                        serviceTypeSelectedRef.current = true;
+                        closePopup(() => pay());
+                    },
+                    true
+                );
+                return;
+            }
+            // Remettre à zéro pour la prochaine commande
+            serviceTypeSelectedRef.current = false;
+
             const total = getCurrentTotal();
             if (total && paymentMethods.length) {
                 // Check if this order has already been partially paid
@@ -461,6 +484,8 @@ export const usePay = () => {
         showPartialPaymentSelector,
         setShowPartialPaymentSelector,
         partialPaymentAmount,
+        isFastFood,
+        setCounterServiceType,
     ]);
 
     useEffect(() => {

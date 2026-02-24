@@ -6,6 +6,7 @@ export interface ConfigContextState {
     state: State;
     setState: (value: State) => void;
     isStateReady: boolean;
+    isFastFood: boolean;
     parameters: Parameters;
     currencyIndex: number;
     setCurrency: (label: string) => void;
