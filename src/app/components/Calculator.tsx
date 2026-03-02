@@ -46,8 +46,6 @@ const CalcButton: FC<{ button: CalcButton; onClick: () => void }> = ({ button, o
     );
 };
 
-const roundResult = (value: number): number => parseFloat(value.toFixed(10));
-
 const applyOperation = (op: string, left: number, right: number): number => {
     switch (op) {
         case '+':
@@ -104,10 +102,7 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
             const current = parseFloat(display);
 
             if (previousValue !== null && operation && !resetOnNextInput) {
-                // Calculate previous operation first
-                let result = previousValue;
-                result = applyOperation(operation, previousValue, current);
-                result = roundResult(result);
+                const result = applyOperation(operation, previousValue, current);
                 setDisplay(result.toShortFixed());
                 setPreviousValue(result);
             } else {
@@ -124,11 +119,7 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
         if (previousValue === null || operation === null) return;
 
         const current = parseFloat(display);
-        let result = previousValue;
-
-        result = applyOperation(operation, previousValue, current);
-
-        result = roundResult(result);
+        const result = applyOperation(operation, previousValue, current);
         setDisplay(result.toShortFixed());
         setPreviousValue(null);
         setOperation(null);
@@ -152,12 +143,10 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
 
     const handleUseResult = useCallback(() => {
         let value = parseFloat(display);
-        if (previousValue !== null && operation !== null) {
-            value = roundResult(applyOperation(operation, previousValue, value));
-        }
-        if (!isNaN(value) && onUseResult) {
-            onUseResult(value);
-        }
+        if (previousValue !== null && operation !== null)
+            value = applyOperation(operation, previousValue, value).clean();
+
+        if (!isNaN(value) && onUseResult) onUseResult(value);
     }, [display, previousValue, operation, onUseResult]);
 
     const buttons: CalcButton[][] = [
