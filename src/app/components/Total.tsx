@@ -17,7 +17,7 @@ import { BACK_KEYWORD, REFUND_KEYWORD, UPDATING_KEYWORD, WAITING_KEYWORD } from 
 import { isMobileSize, useIsMobile, useIsMobileDevice } from '../utils/mobile';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
-import { Transaction } from '../utils/interfaces';
+import { OrderItem, Transaction } from '../utils/interfaces';
 import { OrderItemsSelector } from './OrderItemsSelector';
 
 const payLabel = 'PAYER';
@@ -93,7 +93,6 @@ export const Total: FC = () => {
         displayProduct,
         updateTransaction,
         orderId,
-        setOrderId,
         setSelectedOrderItems,
         setPartialPaymentAmount,
         showPartialPaymentSelector,
@@ -493,7 +492,7 @@ export const Total: FC = () => {
 
     // Handler for order items selection change
     const handleOrderItemsChange = useCallback(
-        (selectedItems: any[], totalAmount: number) => {
+        (selectedItems: OrderItem[], totalAmount: number) => {
             setSelectedOrderItems(selectedItems);
             setPartialPaymentAmount(totalAmount);
         },

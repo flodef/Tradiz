@@ -1,13 +1,7 @@
 'use server';
 
 import { db } from '@/utils/firebase';
-import {
-    collection,
-    getDocs,
-    doc,
-    setDoc,
-    DocumentData,
-} from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, DocumentData } from 'firebase/firestore';
 
 export interface Config {
     [key: string]: DocumentData;
@@ -23,11 +17,7 @@ export async function getShopConfig(shopName: string): Promise<Config> {
     return config;
 }
 
-export async function updateConfigTheme(
-    shopName: string,
-    theme: string,
-    data: any
-) {
+export async function updateConfigTheme(shopName: string, theme: string, data: any) {
     const configDoc = doc(db, `Config_${shopName}`, theme);
     await setDoc(configDoc, data, { merge: true });
 }
