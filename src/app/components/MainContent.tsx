@@ -22,8 +22,11 @@ export const MainContent: FC = () => {
                 const orderId = event.data.orderId;
                 if (!orderId) return;
 
-                // Clear any existing transaction
+                // Always clear any existing transaction on caisse open
                 clearTotal();
+
+                // No order context — stop here (don't call API with undefined orderId)
+                if (!orderId || orderId === 'undefined') return;
 
                 // Load order data for partial payment
                 try {

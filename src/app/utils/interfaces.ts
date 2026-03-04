@@ -153,3 +153,32 @@ export interface OrderData {
     paid_amount: number;
     remaining_amount: number;
 }
+
+// ── Catalog: article & formula definitions used for option/element selection ──
+
+export interface CatalogArticle {
+    id: number;
+    nom: string;
+    prix: number;
+    categorie: string;
+    /** JSON: [{type, options:[{valeur, prix}]}] */
+    options: string | null;
+}
+
+export interface CatalogFormulaElement {
+    id: string;
+    nom: string;
+    articles: Omit<CatalogArticle, 'categorie'>[];
+}
+
+export interface CatalogFormula {
+    id: string;
+    nom: string;
+    prix: number;
+    elements: CatalogFormulaElement[];
+}
+
+export interface Catalog {
+    articles: CatalogArticle[];
+    formulas: CatalogFormula[];
+}

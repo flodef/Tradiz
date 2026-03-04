@@ -76,6 +76,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const transactionId = useRef(0);
     const [firestore, setFirestore] = useState<Firestore>();
     const areTransactionLoaded = useRef(false);
+    // Set to true by clearTotal to prevent the product-restore effect from re-adding
+    // stale items from PROCESSING transactions when transactions load asynchronously.
+    const clearRequestedRef = useRef(false);
     const [shopId, setShopId] = useState('');
     const [orderId, setOrderId] = useState('');
     const [shortNumOrder, setShortNumOrder] = useState('');
@@ -806,6 +809,28 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             console.error('Failed to notify WebSocket server:', wsError);
                             // Don't throw - this is not critical to the transaction
                         }
+                    } else if (!orderId && isActualPayment && transaction.products.length > 0) {
+                        // Manual counter order — no panier in DB, send product list directly to kitchen.
+                        // NOTE: use transaction.products (captured before clearTotal empties products.current)
+                        try {
+                            const orderLabel = String(transaction.createdDate).slice(-4);
+                            await fetch('/api/direct-kitchen-print', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    order_label: orderLabel,
+                                    products: transaction.products.map((p) => ({
+                                        label: p.label,
+                                        category: p.category,
+                                        quantity: p.quantity,
+                                        options: p.options ?? null,
+                                    })),
+                                }),
+                            });
+                        } catch (kitchenError) {
+                            console.error('Failed to send direct kitchen ticket:', kitchenError);
+                            // Non-critical — transaction already saved
+                        }
                     }
                 } catch (error) {
                     console.error('Error handling SQL DB transaction:', error);
@@ -875,6 +900,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const clearTotal = useCallback(() => {
         products.current = [];
+        clearRequestedRef.current = true;
         deleteTransaction();
         clearAmount();
         setShortNumOrder('');
@@ -1019,6 +1045,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     useEffect(() => {
+        // If clearTotal was recently called, don't restore a stale PROCESSING transaction.
+        // Keep blocking until the processing transaction is actually gone from state.
+        if (clearRequestedRef.current) {
+            const processingStillExists = transactions.some(
+                (t) => isProcessingTransaction(t) && t.validator === parameters.user.name
+            );
+            if (!processingStillExists) clearRequestedRef.current = false;
+            return;
+        }
         const processingTransaction = !products.current.length
             ? transactions.find(
                   (transaction) =>
