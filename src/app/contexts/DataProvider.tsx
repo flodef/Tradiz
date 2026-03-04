@@ -40,6 +40,7 @@ import {
     Transaction,
     TransactionSet,
 } from '../utils/interfaces';
+import { mergeTransactionArrays } from './dataProvider/syncUtils';
 import { isProcessingTransaction, isWaitingTransaction } from './dataProvider/transactionHelpers';
 import { useMercurial } from './dataProvider/useMercurial';
 
@@ -134,21 +135,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [getLocalTransactions]
     );
 
-    const mergeTransactionArrays = useCallback((local: Transaction[], remote: Transaction[]): Transaction[] => {
-        const merged = [...local];
-        for (const remoteTx of remote) {
-            const localIndex = merged.findIndex((tx) => tx.createdDate === remoteTx.createdDate);
-            if (localIndex === -1) {
-                // Remote-only transaction → add it
-                merged.push(remoteTx);
-            } else if (remoteTx.modifiedDate > merged[localIndex].modifiedDate) {
-                // Both exist → keep the latest
-                merged[localIndex] = remoteTx;
-            }
-        }
-        return merged;
-    }, []);
-
     useEffect(() => {
         if (!parameters.shop.name || areTransactionLoaded.current) return;
 
@@ -188,7 +174,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         };
 
         loadTransactions();
-    }, [parameters.shop.name, loadTransactionsFromSQL, mergeTransactionArrays, setLocalStorageItem]);
+    }, [parameters.shop.name, loadTransactionsFromSQL, setLocalStorageItem]);
 
     // Compute next reset timestamp based on closingHour
     const getNextResetTime = useCallback(() => {
