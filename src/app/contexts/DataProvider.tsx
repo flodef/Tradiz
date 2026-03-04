@@ -86,6 +86,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [selectedOrderItems, setSelectedOrderItems] = useState<OrderItem[]>([]);
     const [partialPaymentAmount, setPartialPaymentAmount] = useState(0);
     const [showPartialPaymentSelector, setShowPartialPaymentSelector] = useState(false);
+    const [counterServiceType, setCounterServiceTypeState] = useState<'sur_place' | 'emporter'>('sur_place');
+    const counterServiceTypeRef = useRef<'sur_place' | 'emporter'>('sur_place');
+    const setCounterServiceType = useCallback((type: 'sur_place' | 'emporter') => {
+        counterServiceTypeRef.current = type;
+        setCounterServiceTypeState(type);
+    }, []);
 
     const isDbConnected = useMemo(() => !!firestore && isOnline, [firestore, isOnline]);
 
@@ -810,25 +816,35 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             // Don't throw - this is not critical to the transaction
                         }
                     } else if (!orderId && isActualPayment && transaction.products.length > 0) {
-                        // Manual counter order — no panier in DB, send product list directly to kitchen.
+                        // Counter order: create panier in DB with short_num_order + broadcast to kitchen
                         // NOTE: use transaction.products (captured before clearTotal empties products.current)
                         try {
-                            const orderLabel = String(transaction.createdDate).slice(-4);
-                            await fetch('/api/direct-kitchen-print', {
+                            const counterResponse = await fetch('/api/counter-order', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    order_label: orderLabel,
                                     products: transaction.products.map((p) => ({
                                         label: p.label,
                                         category: p.category,
                                         quantity: p.quantity,
                                         options: p.options ?? null,
                                     })),
+                                    service_type: counterServiceTypeRef.current,
                                 }),
                             });
+                            if (counterResponse.ok) {
+                                const counterData = await counterResponse.json();
+                                if (counterData.short_num_order) {
+                                    setShortNumOrder(counterData.short_num_order);
+                                    // Update the already-stored transaction with the order number
+                                    transaction.shortNumOrder = counterData.short_num_order;
+                                    storeTransaction(transaction);
+                                }
+                            } else {
+                                console.error('counter-order upstream error:', await counterResponse.text());
+                            }
                         } catch (kitchenError) {
-                            console.error('Failed to send direct kitchen ticket:', kitchenError);
+                            console.error('Failed to send counter order:', kitchenError);
                             // Non-critical — transaction already saved
                         }
                     }
@@ -847,6 +863,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             currencies,
             storeIndex,
             orderId,
+            setShortNumOrder,
+            storeTransaction,
         ]
     );
 
@@ -1193,6 +1211,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 setPartialPaymentAmount,
                 showPartialPaymentSelector,
                 setShowPartialPaymentSelector,
+                counterServiceType,
+                setCounterServiceType,
             }}
         >
             {children}

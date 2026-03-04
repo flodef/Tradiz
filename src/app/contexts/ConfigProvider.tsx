@@ -63,6 +63,14 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const { isDemo } = useWindowParam();
 
     const [state, setState] = useState(State.init);
+    const [isFastFood, setIsFastFood] = useState(false);
+
+    useEffect(() => {
+        fetch('/api/sql/getEtabConfig')
+            .then((r) => r.json())
+            .then((data) => setIsFastFood(data.mode_fonctionnement === 'fastfood'))
+            .catch(() => setIsFastFood(false));
+    }, []);
     const [config, setConfig] = useLocalStorage<Config | undefined>('Config', undefined);
     const [parameters, setParameters] = useState<Parameters>(defaultParameters);
     const [currencyIndex, setCurrencyIndex] = useState(0);
@@ -197,6 +205,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
                 state,
                 setState,
                 isStateReady,
+                isFastFood,
                 parameters,
                 currencyIndex,
                 setCurrency,

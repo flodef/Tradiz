@@ -43,6 +43,8 @@ export interface DataContextState {
     setPartialPaymentAmount: (amount: number) => void;
     showPartialPaymentSelector: boolean;
     setShowPartialPaymentSelector: (show: boolean) => void;
+    counterServiceType: 'sur_place' | 'emporter';
+    setCounterServiceType: (type: 'sur_place' | 'emporter') => void;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);
