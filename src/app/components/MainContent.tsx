@@ -3,8 +3,8 @@
 import { FC, useEffect } from 'react';
 import { useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
-// import { IS_DEV } from '../utils/constants';  // Not needed anymore
-// import { isFullscreen, requestFullscreen } from '../utils/fullscreen';  // REMOVED: auto-fullscreen disabled
+import { IS_DEV } from '../utils/constants'; // Not needed anymore
+import { isFullscreen, requestFullscreen } from '../utils/fullscreen'; // REMOVED: auto-fullscreen disabled
 import { Category } from './Category';
 import { NumPad } from './NumPad';
 import { Total } from './Total';
@@ -62,15 +62,12 @@ export const MainContent: FC = () => {
         };
     }, [setOrderId, setOrderData, addProduct, clearTotal]);
 
-    // DÉSACTIVÉ : Auto-fullscreen cassait l'affichage dans l'iframe de la kitchen view
-    // Le bouton X de fermeture disparaissait car l'iframe passait en fullscreen
-    // const handleClick = () => {
-    //     if (isStateReady && !isFullscreen() && !IS_DEV) requestFullscreen();
-    // };
+    const handleClick = () => {
+        if (isStateReady && !isFullscreen() && !IS_DEV) requestFullscreen();
+    };
 
     return (
-        <div className="z-10 flex flex-col justify-between">
-            {/* onClick={handleClick} REMOVED */}
+        <div className="z-10 flex flex-col justify-between" onClick={handleClick}>
             {orderId && shortNumOrder && (
                 <span className="fixed top-3 left-4 hidden md:block text-2xl font-bold opacity-75 select-none pointer-events-none z-50">
                     Commande #{shortNumOrder}
