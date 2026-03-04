@@ -38,7 +38,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
         <div
             className={twMerge(
                 { 1: 'w-full', 2: 'w-1/2', 3: 'w-1/3' }[length] ?? 'w-auto',
-                'relative flex justify-center py-3 items-center font-semibold text-2xl',
+                'relative flex justify-center h-10 items-center font-semibold text-lg',
                 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light',
                 !isMobileDevice ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : '',
                 selectedProduct?.category === input
@@ -48,7 +48,9 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
             onClick={onClick}
             onContextMenu={onClick}
         >
-            <div className="line-clamp-2 leading-tight text-center break-words px-1">{input}</div>
+            <div className="line-clamp-2 leading-tight text-center hyphens-auto px-1" lang="fr">
+                {input}
+            </div>
         </div>
     );
 };
@@ -352,15 +354,15 @@ export const Category: FC = () => {
 
     const categories = useMemo(() => inventory.map(({ category }) => category), [inventory]);
 
-    // 2 columns per row, up to 8 slots (last slot becomes OTHER if categories > 8)
+    // 2 columns per row, all categories shown (scroll if > 3 rows)
     const COLS = 2;
-    const MAX_SLOTS = 8;
-    const slots = categories.length <= MAX_SLOTS ? categories : [...categories.slice(0, MAX_SLOTS - 1), OTHER_KEYWORD];
-    const rows = Array.from({ length: Math.ceil(slots.length / COLS) }, (_, i) =>
-        slots.slice(i * COLS, i * COLS + COLS)
+    const rows = Array.from({ length: Math.ceil(categories.length / COLS) }, (_, i) =>
+        categories.slice(i * COLS, i * COLS + COLS)
     );
-    // Approximate row height for the loading placeholder
-    const gridHeight = rows.length * 57;
+    // Row height = h-10 (40px) + 1px divider
+    const ROW_HEIGHT = 41;
+    const MAX_VISIBLE_ROWS = 3;
+    const gridHeight = Math.min(rows.length, MAX_VISIBLE_ROWS) * ROW_HEIGHT;
 
     const rowClassName = 'flex justify-evenly divide-x divide-active-light dark:divide-active-dark';
 
@@ -376,7 +378,13 @@ export const Category: FC = () => {
                 </div>
             )}
             {(state === State.preloaded || state === State.loaded) && (
-                <div className="divide-y divide-active-light dark:divide-active-dark">
+                <div
+                    className="divide-y divide-active-light dark:divide-active-dark"
+                    style={{
+                        maxHeight: MAX_VISIBLE_ROWS * ROW_HEIGHT,
+                        overflowY: rows.length > MAX_VISIBLE_ROWS ? 'auto' : 'hidden',
+                    }}
+                >
                     {rows.map((row, rowIdx) => (
                         <div key={rowIdx} className={rowClassName}>
                             {row.map((category, colIdx) => (

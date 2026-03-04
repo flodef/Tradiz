@@ -46,7 +46,7 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
     return (
         <div
             className={twMerge(
-                'w-20 h-20 relative flex justify-center m-3 items-center font-semibold text-3xl border-[3px] rounded-2xl',
+                'w-[72px] h-[72px] sm:w-20 sm:h-20 relative flex justify-center m-2.5 sm:m-3 items-center font-semibold text-2xl sm:text-3xl border-[3px] rounded-2xl',
                 'border-secondary-light dark:border-secondary-dark shadow-xl',
                 isStateReady
                     ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light'
@@ -371,7 +371,8 @@ export const NumPad: FC = () => {
         ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark ' +
           'text-secondary-light dark:text-secondary-dark active:text-popup-dark dark:active:text-popup-light '
         : '';
-    const s = 'w-20 h-20 rounded-2xl flex justify-center m-3 items-center text-6xl ';
+    const s =
+        'w-[72px] h-[72px] sm:w-20 sm:h-20 rounded-2xl flex justify-center m-2.5 sm:m-3 items-center text-5xl sm:text-6xl ';
     const sx = s + (canPay || canAddProduct ? color : 'invisible');
 
     const f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
@@ -400,7 +401,7 @@ export const NumPad: FC = () => {
     return (
         <div
             className={useAddPopupClass(
-                'inset-0 min-w-[375px] w-full self-center absolute bottom-[116px] ' +
+                'inset-0 min-w-[375px] w-full self-center absolute bottom-[126px] ' +
                     'md:top-0 md:w-1/2 md:justify-center md:max-w-[50%] ' +
                     (shouldUseOverflow
                         ? isPopupOpen
