@@ -54,7 +54,11 @@ Number.prototype.toShortCurrency = function (maxDecimals = 0, symbol = '€') {
 };
 
 Number.prototype.toCurrency = function (maxDecimals = 2, symbol = '€', symbolPosition: SymbolPosition = 'after') {
-    return `${symbolPosition === 'before' ? symbol : ''}${this.toFixed(maxDecimals)}${symbolPosition === 'after' ? symbol : ''}`;
+    return `${symbolPosition === 'before' ? symbol : ''}${Number(
+        this.toString()
+            .replace(/[^0-9., ]/g, '')
+            .trim()
+    ).toFixed(maxDecimals)}${symbolPosition === 'after' ? symbol : ''}`;
 };
 
 Number.prototype.toRatio = function (maxDecimals = 2) {
