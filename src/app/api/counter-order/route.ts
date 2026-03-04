@@ -9,7 +9,8 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const response = await fetch('http://localhost:8082/counter_order', {
+        const baseUrl = process.env.GSWS_BACKEND_URL || 'http://localhost:8082';
+        const response = await fetch(`${baseUrl}/counter_order`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
