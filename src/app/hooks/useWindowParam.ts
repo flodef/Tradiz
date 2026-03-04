@@ -41,8 +41,16 @@ export function useWindowParam() {
         // Add event listener
         window.addEventListener('resize', handleResize);
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', handleColorScheme);
-        window.addEventListener('online', () => setIsOnline(true), false);
-        window.addEventListener('offline', () => setIsOnline(false), false);
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (!navigator.onLine) {
+                e.preventDefault();
+            }
+        };
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        window.addEventListener('beforeunload', handleBeforeUnload);
 
         // Call handler right away so state gets updated with initial window size
         handleResize();
@@ -57,8 +65,9 @@ export function useWindowParam() {
         return () => {
             window.removeEventListener('resize', handleResize);
             window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', handleColorScheme);
-            window.removeEventListener('online', () => setIsOnline(true));
-            window.removeEventListener('offline', () => setIsOnline(false));
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
         };
     }, []); // Empty array ensures that effect is only run on mount
     return {
