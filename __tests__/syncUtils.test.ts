@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { Transaction } from '@/app/utils/interfaces';
-import { DELETED_KEYWORD, PROCESSING_KEYWORD, WAITING_KEYWORD } from '@/app/utils/constants';
+import { Transaction } from '../src/app/utils/interfaces';
+import { DELETED_KEYWORD, PROCESSING_KEYWORD, WAITING_KEYWORD } from '../src/app/utils/constants';
 import {
     mergeTransactionArrays,
     storeTransactionInArray,
@@ -8,8 +8,8 @@ import {
     reconcileLocalWithSQL,
     filterProcessingTransactions,
     simulateDeviceSync,
-} from '@/app/contexts/dataProvider/syncUtils';
-import { isDeletedTransaction, isProcessingTransaction } from '@/app/contexts/dataProvider/transactionHelpers';
+} from '../src/app/contexts/dataProvider/syncUtils';
+import { isDeletedTransaction, isProcessingTransaction } from '../src/app/contexts/dataProvider/transactionHelpers';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -62,8 +62,8 @@ describe('mergeTransactionArrays', () => {
         const remote = [makeTx({ createdDate: 2 })];
         const merged = mergeTransactionArrays(local, remote);
         expect(merged).toHaveLength(2);
-        expect(merged.map((t) => t.createdDate)).toContain(1);
-        expect(merged.map((t) => t.createdDate)).toContain(2);
+        expect(merged.map((t: Transaction) => t.createdDate)).toContain(1);
+        expect(merged.map((t: Transaction) => t.createdDate)).toContain(2);
     });
 
     it('keeps local when local is newer', () => {
@@ -139,8 +139,8 @@ describe('storeTransactionInArray', () => {
         const result = storeTransactionInArray(existing, deleted);
         // Both transactions still present — deleted is flagged, not removed
         expect(result).toHaveLength(2);
-        expect(result.find((t) => t.createdDate === 1)?.method).toBe(DELETED_KEYWORD);
-        expect(result.find((t) => t.createdDate === 2)?.method).toBe('CB');
+        expect(result.find((t: Transaction) => t.createdDate === 1)?.method).toBe(DELETED_KEYWORD);
+        expect(result.find((t: Transaction) => t.createdDate === 2)?.method).toBe('CB');
     });
 });
 
@@ -226,7 +226,7 @@ describe('filterProcessingTransactions', () => {
         ];
         const result = filterProcessingTransactions(txs);
         expect(result).toHaveLength(2);
-        expect(result.map((t) => t.createdDate)).toEqual([1, 3]);
+        expect(result.map((t: Transaction) => t.createdDate)).toEqual([1, 3]);
     });
 });
 
@@ -269,7 +269,7 @@ describe('Multi-device sync scenarios', () => {
             const { updatedLocal } = simulateDeviceSync(deviceALocal, sqlAfterDelete);
 
             // After sync, Device A's local should be updated to DELETED
-            const tx = updatedLocal.find((t) => t.createdDate === txCreatedDate);
+            const tx = updatedLocal.find((t: Transaction) => t.createdDate === txCreatedDate);
             expect(tx).toBeDefined();
             expect(tx!.method).toBe(DELETED_KEYWORD);
         });
@@ -409,12 +409,12 @@ describe('Multi-device sync scenarios', () => {
             const sqlFinal = [deletedTx1, deletedTx2];
 
             const finalA = simulateDeviceSync(deviceALocal, sqlFinal);
-            expect(finalA.updatedLocal.filter((t) => t.method === DELETED_KEYWORD)).toHaveLength(2);
+            expect(finalA.updatedLocal.filter((t: Transaction) => t.method === DELETED_KEYWORD)).toHaveLength(2);
             expect(finalA.toSyncToSQL).toHaveLength(0);
             expect(finalA.toAddToSQL).toHaveLength(0);
 
             const finalB = simulateDeviceSync(deviceBLocal, sqlFinal);
-            expect(finalB.updatedLocal.filter((t) => t.method === DELETED_KEYWORD)).toHaveLength(2);
+            expect(finalB.updatedLocal.filter((t: Transaction) => t.method === DELETED_KEYWORD)).toHaveLength(2);
             expect(finalB.toSyncToSQL).toHaveLength(0);
             expect(finalB.toAddToSQL).toHaveLength(0);
         });
@@ -438,13 +438,13 @@ describe('Multi-device sync scenarios', () => {
             const resultA = simulateDeviceSync(deviceALocal, sqlState);
 
             // tx1: local newer → sync
-            expect(resultA.toSyncToSQL.find((t) => t.createdDate === 7000)?.amount).toBe(99);
+            expect(resultA.toSyncToSQL.find((t: Transaction) => t.createdDate === 7000)?.amount).toBe(99);
             // tx2: local newer (deleted) → sync
-            expect(resultA.toSyncToSQL.find((t) => t.createdDate === 7001)?.method).toBe(DELETED_KEYWORD);
+            expect(resultA.toSyncToSQL.find((t: Transaction) => t.createdDate === 7001)?.method).toBe(DELETED_KEYWORD);
             // tx3: same → nothing
-            expect(resultA.toSyncToSQL.find((t) => t.createdDate === 7002)).toBeUndefined();
+            expect(resultA.toSyncToSQL.find((t: Transaction) => t.createdDate === 7002)).toBeUndefined();
             // tx4: local-only → add
-            expect(resultA.toAddToSQL.find((t) => t.createdDate === 7003)?.amount).toBe(40);
+            expect(resultA.toAddToSQL.find((t: Transaction) => t.createdDate === 7003)?.amount).toBe(40);
         });
     });
 
@@ -458,7 +458,7 @@ describe('Multi-device sync scenarios', () => {
 
             const { updatedLocal } = simulateDeviceSync(local, sql);
             expect(updatedLocal).toHaveLength(2);
-            expect(updatedLocal.find((t) => t.createdDate === 8000)?.method).toBe(WAITING_KEYWORD);
+            expect(updatedLocal.find((t: Transaction) => t.createdDate === 8000)?.method).toBe(WAITING_KEYWORD);
         });
     });
 });
