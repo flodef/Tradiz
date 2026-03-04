@@ -9,7 +9,7 @@
         "build": "next build",
         "start": "next start -p 3001",
         "lint": "eslint .",
-        "test": "jest",
+        "test": "vitest run",
         "nuke": "shx rm -rf node_modules package-lock.json || true",
         "prepare": "husky"
     },
@@ -39,6 +39,8 @@
         "@commitlint/config-conventional": "latest",
         "@eslint/eslintrc": "latest",
         "@eslint/js": "latest",
+        "@testing-library/jest-dom": "^6.9.1",
+        "@testing-library/react": "^16.3.2",
         "@types/bs58": "4.0.4",
         "@types/jest": "latest",
         "@types/node": "latest",
@@ -58,7 +60,8 @@
         "jest-environment-jsdom": "latest",
         "shx": "latest",
         "typescript": "latest",
-        "typescript-eslint": "latest"
+        "typescript-eslint": "latest",
+        "vitest": "^4.0.18"
     },
     "trustedDependencies": [
         "@firebase/util",
