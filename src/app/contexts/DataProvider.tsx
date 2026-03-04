@@ -78,6 +78,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const areTransactionLoaded = useRef(false);
     const [shopId, setShopId] = useState('');
     const [orderId, setOrderId] = useState('');
+    const [shortNumOrder, setShortNumOrder] = useState('');
     const [orderData, setOrderData] = useState<OrderData | null>(null);
     const [selectedOrderItems, setSelectedOrderItems] = useState<OrderItem[]>([]);
     const [partialPaymentAmount, setPartialPaymentAmount] = useState(0);
@@ -391,6 +392,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             } else if (firestore && cloudTransaction.modifiedDate < localTransaction.modifiedDate) {
                                 console.log('Updated transaction in cloud', localTransaction);
                                 await updateCloudTransaction(cloudTransactionSet.id, localTransaction);
+                            } else if (cloudTransaction.shortNumOrder && !localTransaction.shortNumOrder) {
+                                // Always propagate shortNumOrder from cloud even if no other changes
+                                updateTransactionSet.transactions.splice(index, 1, {
+                                    ...localTransaction,
+                                    shortNumOrder: cloudTransaction.shortNumOrder,
+                                });
                             }
                         }
                     }
@@ -870,6 +877,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         products.current = [];
         deleteTransaction();
         clearAmount();
+        setShortNumOrder('');
+        setOrderId('');
     }, [clearAmount, deleteTransaction]);
 
     const computeDiscount = useCallback((product: Product) => {
@@ -915,8 +924,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!product.label && !product.category) return;
 
             const p = products.current.find(
-                ({ label, category, amount }) =>
-                    label === product.label && category === product.category && amount === product.amount
+                ({ label, category, amount, options }) =>
+                    label === product.label &&
+                    category === product.category &&
+                    amount === product.amount &&
+                    options === product.options
             );
             if (p) {
                 computeQuantity(p, newQuantity + p.quantity);
@@ -972,16 +984,36 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const displayProduct = useCallback(
         (product: Product, currency?: string) => {
-            return (
-                (product.label && product.label !== OTHER_KEYWORD ? product.label : product.category) +
-                ' : ' +
-                toCurrency({ amount: product.amount, currency: currency }) +
-                ' x ' +
-                product.quantity +
-                ' = ' +
-                toCurrency({ amount: product.total ?? 0, currency: currency }) +
-                (product.discount.amount ? ' (-' + product.discount.amount + product.discount.unit + ')' : '')
-            );
+            const name = product.label && product.label !== OTHER_KEYWORD ? product.label : product.category;
+            const priceUnit = toCurrency({ amount: product.amount, currency });
+            const discountSuffix = product.discount.amount
+                ? ' (-' + product.discount.amount + product.discount.unit + ')'
+                : '';
+            const priceSuffix =
+                product.quantity === 1
+                    ? ` : ${priceUnit}${discountSuffix}`
+                    : ` : ${priceUnit} x ${product.quantity} = ${toCurrency({ amount: product.total ?? 0, currency })}${discountSuffix}`;
+
+            if (product.options) {
+                try {
+                    const parsed: { type: string; valeur: string; prix: number }[] = JSON.parse(product.options);
+                    // Formula product: elements stored with type === 'element'
+                    if (parsed.length > 0 && parsed[0].type === 'element') {
+                        const elementLines = parsed.map((o) => `  · ${o.valeur}`).join('\n');
+                        return `${name}${priceSuffix}\n${elementLines}`;
+                    }
+                    // Regular product with paid/free options
+                    const parts = parsed.map((o) =>
+                        o.prix > 0 ? `${o.valeur} (+${toCurrency({ amount: o.prix, currency })})` : o.valeur
+                    );
+                    if (parts.length > 0) {
+                        return `${name} [${parts.join(', ')}]${priceSuffix}`;
+                    }
+                } catch {
+                    // ignore
+                }
+            }
+            return `${name}${priceSuffix}`;
         },
         [toCurrency]
     );
@@ -1029,6 +1061,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                           modifiedDate: transactionId.current,
                           currency: currencies[currencyIndex].label,
                           products: products.current,
+                          ...(shortNumOrder ? { shortNumOrder } : {}),
                       };
 
             storeTransaction(transaction);
@@ -1045,6 +1078,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             currencyIndex,
             storeTransaction,
             parameters,
+            shortNumOrder,
         ]
     );
 
@@ -1068,13 +1102,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const displayTransaction = useCallback(
         (transaction: Transaction) => {
-            return transaction.modifiedDate && transaction.method
-                ? toCurrency(transaction) +
-                      (isWaitingTransaction(transaction) ? ' ' : ' en ') +
-                      transaction.method +
-                      ' à ' +
-                      new Date(transaction.modifiedDate).toTimeString().slice(0, 9)
-                : '';
+            if (!transaction.modifiedDate || !transaction.method) return '';
+            return (
+                toCurrency(transaction) +
+                (isWaitingTransaction(transaction) ? ' ' : ' en ') +
+                transaction.method +
+                ' à ' +
+                new Date(transaction.modifiedDate).toTimeString().slice(0, 9)
+            );
         },
         [toCurrency]
     );
@@ -1113,6 +1148,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 isDbConnected,
                 orderId,
                 setOrderId,
+                shortNumOrder,
+                setShortNumOrder,
                 orderData,
                 setOrderData,
                 selectedOrderItems,

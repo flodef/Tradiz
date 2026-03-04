@@ -95,6 +95,7 @@ export type Product = DataElement & {
     total?: number;
     discount: Discount;
     mercurial?: Mercurial;
+    options?: string;
 };
 
 export type Transaction = {
@@ -105,6 +106,7 @@ export type Transaction = {
     modifiedDate: number;
     currency: string;
     products: Product[];
+    shortNumOrder?: string;
 };
 
 export type TransactionSet = {
