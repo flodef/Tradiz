@@ -69,7 +69,9 @@ const Item: FC<ItemProps> = ({ label, onClick = () => {}, onContextMenu, classNa
     const lines = label.split('\n');
     return (
         <div className={twMerge('text-left pl-3', className)} onClick={onClick} onContextMenu={handleContextMenu}>
-            {lines.map((line, i) => <div key={i}>{line}</div>)}
+            {lines.map((line, i) => (
+                <div key={i}>{line}</div>
+            ))}
         </div>
     );
 };
@@ -356,7 +358,9 @@ export const Total: FC = () => {
 
             openPopup(
                 (transaction.shortNumOrder ? `[#${transaction.shortNumOrder}] ` : '') +
-                toCurrency(transaction) + ' en ' + transaction.method,
+                    toCurrency(transaction) +
+                    ' en ' +
+                    transaction.method,
                 transaction.products
                     .map((product) => displayProduct(product, transaction.currency))
                     .concat(isMobileSize() ? ['', BACK_KEYWORD] : []),
@@ -547,7 +551,7 @@ export const Total: FC = () => {
         <div className={popupClassNormal}>
             <div
                 className={twMerge(
-                    'md:w-1/2 w-full fixed text-5xl truncate text-left pl-6 font-bold py-3',
+                    'md:w-1/2 w-full fixed text-5xl truncate text-center font-bold py-3',
                     'border-b-4 border-active-light dark:border-active-dark',
                     (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length)
                         ? clickClassName
