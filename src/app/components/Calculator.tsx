@@ -1,7 +1,8 @@
 'use client';
 
-import { FC, MouseEventHandler, useCallback, useEffect, useState } from 'react';
+import { FC, MouseEventHandler, ReactNode, useCallback, useEffect, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
+import { BackspaceIcon } from '../images/BackspaceIcon';
 import { useIsMobileDevice } from '../utils/mobile';
 
 interface CalculatorProps {
@@ -11,7 +12,7 @@ interface CalculatorProps {
 }
 
 type CalcButton = {
-    label: string;
+    label: ReactNode;
     value: string;
     className?: string;
     colspan?: number;
@@ -177,7 +178,7 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0,
         ],
         [
             { label: 'C', value: 'clear', className: 'bg-red-500/20 dark:bg-red-500/30' },
-            { label: '←', value: 'backspace' },
+            { label: <BackspaceIcon width={28} height={28} />, value: 'backspace' },
             { label: '=', value: 'equals', colspan: 2, className: 'bg-green-500/20 dark:bg-green-500/30' },
         ],
     ];
@@ -195,16 +196,22 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0,
                     handleDecimal();
                     break;
                 case 'add':
+                    handleOperation('+');
+                    break;
                 case 'subtract':
+                    handleOperation('-');
+                    break;
                 case 'multiply':
+                    handleOperation('×');
+                    break;
                 case 'divide':
-                    handleOperation(button.label);
+                    handleOperation('÷');
                     break;
                 case 'equals':
                     handleEquals();
                     break;
                 default:
-                    handleNumber(button.label);
+                    handleNumber(button.value);
             }
         },
         [handleClear, handleBackspace, handleDecimal, handleOperation, handleEquals, handleNumber]
