@@ -4,6 +4,7 @@ import { FC, MouseEventHandler, useCallback, useMemo, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 import {
     isConfirmedTransaction,
+    isDeletedTransaction,
     isUpdatingTransaction,
     isWaitingTransaction,
 } from '../contexts/dataProvider/transactionHelpers';
@@ -104,6 +105,7 @@ export const Total: FC = () => {
     const { isStateReady, getPrintersNames } = useConfig();
 
     const [needRefresh, setNeedRefresh] = useState(false);
+    const visibleTransactions = useMemo(() => transactions.filter((tx) => !isDeletedTransaction(tx)), [transactions]);
 
     const label = useIsMobile() ? totalLabel : payLabel;
 
@@ -230,11 +232,11 @@ export const Total: FC = () => {
     );
 
     const displayTransactionsTitle = useCallback(() => {
-        if (!transactions.length) return '';
+        if (!visibleTransactions.length) return '';
 
-        const totalTransactions = transactions.length;
+        const totalTransactions = visibleTransactions.length;
         const currencies: { [key: string]: { amount: number; currency: string } } = {};
-        transactions.forEach((transaction) => {
+        visibleTransactions.forEach((transaction) => {
             if (currencies[transaction.currency]) {
                 currencies[transaction.currency].amount += transaction.amount;
             } else {
@@ -250,7 +252,7 @@ export const Total: FC = () => {
                 return `${toCurrency(element)}`;
             })
             .join(' + ')}`;
-    }, [toCurrency, transactions]);
+    }, [toCurrency, visibleTransactions]);
 
     const showProducts = useCallback(() => {
         if (!products.current.length) return;
@@ -323,7 +325,7 @@ export const Total: FC = () => {
             backToProducts: () => void,
             backToTransactions: () => void
         ) => {
-            if (!transactions.length) return;
+            if (!visibleTransactions.length) return;
 
             transaction.products.splice(productIndex, 1);
             transaction.amount = transaction.products.reduce(
@@ -332,7 +334,7 @@ export const Total: FC = () => {
             );
             if (!transaction.amount) {
                 deleteTransaction(transactionIndex);
-                if (transactions.length) {
+                if (visibleTransactions.length) {
                     backToTransactions();
                 } else {
                     closePopup();
@@ -343,7 +345,7 @@ export const Total: FC = () => {
                 backToProducts();
             }
         },
-        [transactions, closePopup, updateTransaction, deleteTransaction]
+        [visibleTransactions, closePopup, updateTransaction, deleteTransaction]
     );
 
     const showBoughtProducts = useCallback(
@@ -406,7 +408,7 @@ export const Total: FC = () => {
     );
 
     const showTransactions = useCallback(() => {
-        if (!transactions.length) return;
+        if (!visibleTransactions.length) return;
 
         openPopup(
             displayTransactionsTitle(),
@@ -431,7 +433,7 @@ export const Total: FC = () => {
         );
     }, [
         openPopup,
-        transactions,
+        visibleTransactions,
         displayTransaction,
         showBoughtProducts,
         displayTransactionsTitle,
@@ -442,8 +444,8 @@ export const Total: FC = () => {
 
     const canDisplayTotal = useMemo(() => {
         setNeedRefresh(false);
-        return Boolean(needRefresh || total || amount || selectedProduct || !transactions.length);
-    }, [total, amount, selectedProduct, transactions, needRefresh]);
+        return Boolean(needRefresh || total || amount || selectedProduct || !visibleTransactions.length);
+    }, [total, amount, selectedProduct, visibleTransactions, needRefresh]);
 
     const handleClick = useCallback<MouseEventHandler>(
         (e) => {
@@ -457,7 +459,7 @@ export const Total: FC = () => {
                 } else {
                     pay();
                 }
-            } else if (transactions.length) {
+            } else if (visibleTransactions.length) {
                 if (isMobileSize()) {
                     showTransactions();
                 } else {
@@ -473,7 +475,7 @@ export const Total: FC = () => {
             showProducts,
             showTransactions,
             canDisplayTotal,
-            transactions,
+            visibleTransactions,
             pay,
             showTransactionsSummary,
             showTransactionsSummaryMenu,
@@ -545,7 +547,9 @@ export const Total: FC = () => {
                 className={twMerge(
                     'md:w-1/2 w-full fixed text-5xl truncate text-center font-bold py-3',
                     'border-b-4 border-active-light dark:border-active-dark',
-                    (canDisplayTotal && total) || (!canDisplayTotal && transactions.length) ? clickClassName : '',
+                    (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length)
+                        ? clickClassName
+                        : '',
                     isMobile ? 'md:hidden' : 'hidden md:block'
                 )}
                 onClick={handleClick}
@@ -557,8 +561,8 @@ export const Total: FC = () => {
                     </div>
                 ) : (
                     <span>
-                        {'Ticket : ' + transactions.length}
-                        <span className="text-xl">{`vente${(transactions.length ?? 0) > 1 ? 's' : ''}`}</span>
+                        {'Ticket : ' + visibleTransactions.length}
+                        <span className="text-xl">{`vente${(visibleTransactions.length ?? 0) > 1 ? 's' : ''}`}</span>
                     </span>
                 )}
             </div>

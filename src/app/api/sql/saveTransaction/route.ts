@@ -52,6 +52,9 @@ export async function POST(request: Request) {
                 case 'delete':
                     await handleDeleteTransaction(connection, transaction);
                     break;
+                case 'sync':
+                    await handleSyncTransaction(connection, transaction);
+                    break;
                 default:
                     throw new Error(`Unknown action: ${action}`);
             }
@@ -154,6 +157,68 @@ async function handleDeleteTransaction(connection: Connection, transaction: Tran
     const paymentMethodId = await ensurePaymentMethodExists(connection, DELETED_KEYWORD, transaction.currency);
 
     await connection.execute(updateQuery, [paymentMethodId, transaction.updated_at, transaction.panier_id]);
+}
+
+async function handleSyncTransaction(connection: Connection, transaction: TransactionData) {
+    // Find existing facturation by created_at
+    const [existing] = await connection.execute('SELECT id FROM facturation WHERE created_at = ?', [
+        transaction.created_at,
+    ]);
+    const existingRows = existing as IdRow[];
+
+    if (existingRows.length === 0) {
+        // No existing row — do a full add
+        await handleAddTransaction(connection, transaction);
+        return;
+    }
+
+    const facturationId = existingRows[0].id;
+
+    // Ensure user and payment method exist
+    const userId = await ensureUserExists(connection, transaction.user_id);
+    const paymentMethodId = await ensurePaymentMethodExists(
+        connection,
+        transaction.payment_method_id,
+        transaction.currency
+    );
+
+    // Update the facturation row
+    await connection.execute(
+        `UPDATE facturation
+         SET user_id = ?, payment_method_id = ?, amount = ?, currency = ?, note = ?, updated_at = ?
+         WHERE id = ?`,
+        [
+            userId,
+            paymentMethodId,
+            transaction.amount,
+            transaction.currency,
+            transaction.note || '',
+            transaction.updated_at,
+            facturationId,
+        ]
+    );
+
+    // Delete old articles and re-insert
+    await connection.execute('DELETE FROM facturation_article WHERE facturation_id = ?', [facturationId]);
+
+    if (transaction.products && transaction.products.length > 0) {
+        for (const product of transaction.products) {
+            await connection.execute(
+                `INSERT INTO facturation_article (facturation_id, label, category, amount, quantity, discount_amount, discount_unit, total)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    facturationId,
+                    product.label,
+                    product.category,
+                    product.amount,
+                    product.quantity,
+                    product.discount_amount || 0,
+                    product.discount_unit || '',
+                    product.total,
+                ]
+            );
+        }
+    }
 }
 
 async function ensureUserExists(connection: Connection, userName: string): Promise<string> {

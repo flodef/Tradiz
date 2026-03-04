@@ -12,6 +12,7 @@ import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { CalculatorIcon } from '../images/CalculatorIcon';
 import { WalletIcon } from '../images/WalletIcon';
+import { isDeletedTransaction } from '../contexts/dataProvider/transactionHelpers';
 import { WAITING_KEYWORD } from '../utils/constants';
 import { EmptyDiscount, Mercurial } from '../utils/interfaces';
 import { isMobileSize, useIsMobileDevice } from '../utils/mobile';
@@ -381,7 +382,13 @@ export const NumPad: FC = () => {
                 ? 'bg-secondary-active-light dark:bg-secondary-active-dark text-popup-dark dark:text-popup-light '
                 : color
             : 'invisible');
-    const f3 = f + (transactions.length || getHistoricalTransactions().length || isDbConnected ? color : 'invisible');
+    const f3 =
+        f +
+        (transactions.filter((tx) => !isDeletedTransaction(tx)).length ||
+        getHistoricalTransactions().length ||
+        isDbConnected
+            ? color
+            : 'invisible');
 
     const shouldUseOverflow = useMemo(
         () => (height < 590 && !isMobileSize()) || (height < 660 && isMobileSize()),

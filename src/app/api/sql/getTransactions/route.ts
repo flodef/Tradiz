@@ -29,6 +29,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date'); // Format: YYYY-MM-DD
     const period = searchParams.get('period'); // 'day' or 'full'
+    const includeDeleted = searchParams.get('includeDeleted') === 'true';
 
     try {
         const connection = await getPosDb();
@@ -67,8 +68,8 @@ export async function GET(request: Request) {
         const transactions: Transaction[] = [];
 
         for (const row of rows as TransactionRow[]) {
-            // Skip deleted transactions
-            if (row.method === DELETED_KEYWORD) continue;
+            // Skip deleted transactions unless explicitly included (for sync)
+            if (!includeDeleted && row.method === DELETED_KEYWORD) continue;
 
             const [productRows] = await connection.execute(
                 `SELECT label, category, amount, quantity, discount_amount, discount_unit, total

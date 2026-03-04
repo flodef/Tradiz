@@ -40,7 +40,7 @@ import {
     Transaction,
     TransactionSet,
 } from '../utils/interfaces';
-import { isDeletedTransaction, isProcessingTransaction, isWaitingTransaction } from './dataProvider/transactionHelpers';
+import { isProcessingTransaction, isWaitingTransaction } from './dataProvider/transactionHelpers';
 import { useMercurial } from './dataProvider/useMercurial';
 
 enum DatabaseAction {
@@ -166,8 +166,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 const sqlTransactions = await loadTransactionsFromSQL();
                 if (sqlTransactions?.length) {
                     const merged = mergeTransactionArrays(localTransactions, sqlTransactions);
-                    const mergedNonDeleted = merged.filter((tx) => !isDeletedTransaction(tx));
-                    setLocalStorageItem(filename, mergedNonDeleted);
+                    setLocalStorageItem(filename, merged);
                     setTransactions(merged);
                     areTransactionLoaded.current = true;
                     setTransactionsFilename(filename);
@@ -273,12 +272,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const storeTransaction = useCallback(
         (transaction: Transaction) => {
-            const isDeleted = isDeletedTransaction(transaction);
             const index = transactions.findIndex(({ createdDate }) => createdDate === transaction.createdDate);
-            if (!isDeleted) {
-                if (index >= 0) transactions.splice(index, 1, transaction);
-                else transactions.unshift(transaction);
-            } else if (index >= 0) transactions.splice(index, 1);
+            if (index >= 0) {
+                transactions.splice(index, 1, transaction);
+            } else {
+                transactions.unshift(transaction);
+            }
 
             setTransactions([...transactions]);
         },
@@ -344,14 +343,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const txToUpdate = transactionSet.transactions.filter(
                 (transaction) => !isProcessingTransaction(transaction)
             );
-            if (txToUpdate.length) {
-                const txToLocalStorage = txToUpdate.filter((tx) => !isDeletedTransaction(tx));
-                if (txToLocalStorage.length) {
-                    setLocalStorageItem(transactionSet.id, txToLocalStorage);
-                } else {
-                    localStorage.removeItem(transactionSet.id);
-                }
-            }
+            // Always persist to localStorage (including deleted-flagged transactions)
+            setLocalStorageItem(transactionSet.id, txToUpdate);
             txToUpdate
                 .filter((tx) => new Date(tx.createdDate).toLocaleDateString() === new Date().toLocaleDateString())
                 .forEach((tx) => storeTransaction(tx));
@@ -456,12 +449,49 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         ]
     );
 
+    const pushTransactionToSQL = useCallback(async (transaction: Transaction, action: 'add' | 'sync' = 'add') => {
+        try {
+            const response = await fetch('/api/sql/saveTransaction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action,
+                    transaction: {
+                        id: transaction.createdDate,
+                        panier_id: String(transaction.createdDate).slice(0, 10),
+                        user_id: transaction.validator,
+                        payment_method_id: transaction.method,
+                        amount: transaction.amount,
+                        currency: transaction.currency,
+                        note: '',
+                        created_at: toSQLDateTime(transaction.createdDate),
+                        updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
+                        products: transaction.products.map((product) => ({
+                            label: product.label,
+                            category: product.category,
+                            amount: product.amount,
+                            quantity: product.quantity,
+                            discount_amount: product.discount.amount,
+                            discount_unit: product.discount.unit,
+                            total: product.total || 0,
+                        })),
+                    },
+                }),
+            });
+            if (!response.ok) {
+                console.error('Failed to push transaction to SQL:', await response.json());
+            }
+        } catch (error) {
+            console.error('Error pushing transaction to SQL:', error);
+        }
+    }, []);
+
     const processSyncFromSQL = useCallback(
         async (syncPeriod: SyncPeriod) => {
             try {
-                // For SQL DB, we load all transactions and let fullSync handle them
+                // Include deleted transactions so deletions propagate across devices
                 const response = await fetch(
-                    `/api/sql/getTransactions?period=${syncPeriod === SyncPeriod.day ? 'day' : 'full'}&date=${new Date().toISOString().split('T')[0]}`
+                    `/api/sql/getTransactions?period=${syncPeriod === SyncPeriod.day ? 'day' : 'full'}&date=${new Date().toISOString().split('T')[0]}&includeDeleted=true`
                 );
                 if (!response.ok) {
                     console.error('SQL DB sync error:', await response.json());
@@ -470,21 +500,40 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 const data = await response.json();
                 const sqlTransactions = data.transactions as Transaction[];
 
-                if (sqlTransactions.length) {
-                    const cloudTransactionSets: TransactionSet[] = [
-                        {
-                            id: transactionsFilename,
-                            transactions: sqlTransactions,
-                        },
-                    ];
-                    fullSync(cloudTransactionSets, syncPeriod);
+                // Always run cloud→local merge (even with empty SQL data)
+                const cloudTransactionSets: TransactionSet[] = [
+                    {
+                        id: transactionsFilename,
+                        transactions: sqlTransactions,
+                    },
+                ];
+                await fullSync(cloudTransactionSets, syncPeriod);
+
+                // Local→SQL push: reconcile local transactions with SQL
+                const localData = localStorage.getItem(transactionsFilename);
+                if (localData) {
+                    const localTransactions = JSON.parse(localData) as Transaction[];
+                    for (const localTx of localTransactions) {
+                        if (isProcessingTransaction(localTx)) continue;
+                        const sqlTx = sqlTransactions.find((s) => s.createdDate === localTx.createdDate);
+                        if (!sqlTx) {
+                            // Local-only → push to SQL
+                            console.log('Pushing local transaction to SQL:', localTx.createdDate);
+                            await pushTransactionToSQL(localTx, 'add');
+                        } else if (localTx.modifiedDate > sqlTx.modifiedDate) {
+                            // Local is newer → update SQL (full replace)
+                            console.log('Updating SQL with newer local transaction:', localTx.createdDate);
+                            await pushTransactionToSQL(localTx, 'sync');
+                        }
+                    }
                 }
-                console.log('SQL DB sync completed:', sqlTransactions.length, 'transactions');
+
+                console.log('SQL DB sync completed:', sqlTransactions.length, 'SQL transactions');
             } catch (error) {
                 console.error('Error syncing from SQL DB:', error);
             }
         },
-        [fullSync, transactionsFilename]
+        [fullSync, transactionsFilename, pushTransactionToSQL]
     );
 
     const processSync = useCallback(
@@ -652,7 +701,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     syncTransactions(SyncPeriod.day, filename);
                     break;
                 case SyncAction.resync:
-                    localStorage.removeItem(filename);
                     syncTransactions(SyncPeriod.day, filename);
                     break;
                 case SyncAction.export:
@@ -676,11 +724,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             );
             transaction.validator = parameters.user.name;
 
-            if (transactions.length) {
-                setLocalStorageItem(transactionsFilename, transactions);
-            } else {
-                localStorage.removeItem(transactionsFilename);
-            }
+            // Always persist to localStorage (including deleted-flagged transactions)
+            setLocalStorageItem(transactionsFilename, transactions);
 
             const index = transaction.createdDate;
             transactionId.current = action === DatabaseAction.update ? index : 0;
