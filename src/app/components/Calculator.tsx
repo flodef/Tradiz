@@ -7,6 +7,7 @@ import { useIsMobileDevice } from '../utils/mobile';
 interface CalculatorProps {
     onUseResult?: (value: number) => void;
     initialValue?: number;
+    maxDecimals?: number;
 }
 
 type CalcButton = {
@@ -61,20 +62,20 @@ const applyOperation = (op: string, left: number, right: number): number => {
     }
 };
 
-export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 }) => {
+export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0, maxDecimals = 2 }) => {
     const isMobileDevice = useIsMobileDevice();
-    const [display, setDisplay] = useState(initialValue.toShortFixed());
+    const [display, setDisplay] = useState(initialValue.toShortFixed(maxDecimals));
     const [previousValue, setPreviousValue] = useState<number | null>(null);
     const [operation, setOperation] = useState<string | null>(null);
     const [resetOnNextInput, setResetOnNextInput] = useState(false);
 
     // Update display when initialValue changes
     useEffect(() => {
-        setDisplay(initialValue.toShortFixed());
+        setDisplay(initialValue.toShortFixed(maxDecimals));
         setPreviousValue(null);
         setOperation(null);
         setResetOnNextInput(false);
-    }, [initialValue]);
+    }, [initialValue, maxDecimals]);
 
     const handleNumber = useCallback(
         (num: string) => {
@@ -103,7 +104,7 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
 
             if (previousValue !== null && operation && !resetOnNextInput) {
                 const result = applyOperation(operation, previousValue, current);
-                setDisplay(result.toShortFixed());
+                setDisplay(result.toShortFixed(maxDecimals));
                 setPreviousValue(result);
             } else {
                 setPreviousValue(current);
@@ -112,7 +113,7 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
             setOperation(op);
             setResetOnNextInput(true);
         },
-        [display, previousValue, operation, resetOnNextInput]
+        [display, previousValue, operation, resetOnNextInput, maxDecimals]
     );
 
     const handleEquals = useCallback(() => {
@@ -120,11 +121,11 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
 
         const current = parseFloat(display);
         const result = applyOperation(operation, previousValue, current);
-        setDisplay(result.toShortFixed());
+        setDisplay(result.toShortFixed(maxDecimals));
         setPreviousValue(null);
         setOperation(null);
         setResetOnNextInput(true);
-    }, [display, previousValue, operation]);
+    }, [display, previousValue, operation, maxDecimals]);
 
     const handleClear = useCallback(() => {
         setDisplay('0');
@@ -219,11 +220,11 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0 
             <div className="mb-4 p-4 bg-secondary-light dark:bg-secondary-dark rounded-xl">
                 <div className="text-right">
                     {operation && previousValue !== null && (
-                        <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                        <div className="text-sm text-popup-dark/60 dark:text-popup-dark/60 mb-1">
                             {previousValue} {operation}
                         </div>
                     )}
-                    <div className="text-3xl font-bold break-all">{display}</div>
+                    <div className="text-3xl font-bold break-all text-popup-dark dark:text-popup-dark">{display}</div>
                 </div>
             </div>
 

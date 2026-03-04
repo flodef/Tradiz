@@ -334,6 +334,7 @@ export const NumPad: FC = () => {
                 <Calculator
                     key={`calculator-${currentValue}-${Math.random()}`}
                     initialValue={currentValue}
+                    maxDecimals={maxDecimals}
                     onUseResult={(result) => {
                         if (selectedProduct) {
                             selectedProduct.amount = result;
