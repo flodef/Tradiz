@@ -8,13 +8,14 @@ import { printSummary } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { useData } from './useData';
 import { usePopup } from './usePopup';
-import { DataElement, SyncAction, Transaction } from '../utils/interfaces';
+import { Currency, DataElement, SyncAction, Transaction } from '../utils/interfaces';
 
 export type SummaryData = {
     shop: Shop;
     period: string;
     amount: string;
     transactions: Transaction[];
+    currency: Currency;
     summary: string[];
 };
 
@@ -491,9 +492,18 @@ export const useSummary = () => {
             period,
             amount,
             transactions: filteredTransactions,
+            currency: currencies[currencyIndex],
             summary,
         });
-    }, [parameters.shop, getTransactionsData, getPeriodDescription, getFilteredTransactions, toCurrency]);
+    }, [
+        parameters.shop,
+        getTransactionsData,
+        getPeriodDescription,
+        getFilteredTransactions,
+        toCurrency,
+        currencies,
+        currencyIndex,
+    ]);
 
     const downloadData = useCallback(
         (fileName: string) => {
@@ -583,10 +593,19 @@ export const useSummary = () => {
                 period,
                 amount: '',
                 transactions: filteredTransactions,
+                currency: currencies[currencyIndex],
                 summary,
             });
         },
-        [getFilteredTransactions, getPeriodDescription, getTransactionsData, parameters, getPrinterAddresses]
+        [
+            getFilteredTransactions,
+            getPeriodDescription,
+            getTransactionsData,
+            parameters,
+            getPrinterAddresses,
+            currencies,
+            currencyIndex,
+        ]
     );
 
     const showTransactionsSummaryMenu = useCallback(() => {

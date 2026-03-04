@@ -8,6 +8,7 @@ import { SummaryData } from '../hooks/useSummary';
 import { IS_DEV, PROCESSING_KEYWORD, WAITING_KEYWORD } from './constants';
 import { formatFrenchDate, generateReceiptNumber } from './date';
 import { createMockPrinter } from './mockPrinter';
+import { Currency } from './interfaces';
 
 type PrintResponse = {
     success?: boolean;
@@ -105,16 +106,13 @@ function printShopInfo(printer: ThermalPrinter, shop: Shop) {
     printer.newLine();
 }
 
-/**
- * Formats an amount to a string with the specified currency
- */
-const toCurrency = (amount: number | string, currency: string) =>
+const toCurrency = (amount: number | string, currency: Currency) =>
     Number(
         amount
             .toString()
             .replace(/[^0-9., ]/g, '')
             .trim()
-    ).toFixed(2) + currency;
+    ).toCurrency(currency.decimals, currency.symbol);
 
 /**
  * Server action to print a receipt with standard formatting
@@ -132,7 +130,7 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
             receiptData.transaction.method !== WAITING_KEYWORD && receiptData.transaction.method !== PROCESSING_KEYWORD
                 ? receiptData.transaction.method
                 : undefined;
-        const currency = receiptData.transaction.currency.match(/\((.+)\)/)?.[1] || receiptData.transaction.currency;
+        const currency = receiptData.currency;
 
         // Print header
         printShopInfo(printer, receiptData.shop);
@@ -174,7 +172,7 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
                 { text: '', align: 'LEFT', cols: 1 },
                 { text: label, align: 'LEFT', cols: 26 },
                 { text: '', align: 'LEFT', cols: 1 },
-                { text: toCurrency(item.amount || 0, currency), align: 'LEFT', cols: 7 },
+                { text: toCurrency(item.amount, currency), align: 'LEFT', cols: 7 },
                 { text: '', align: 'LEFT', cols: 1 },
                 { text: toCurrency(item.total || 0, currency), align: 'LEFT', cols: 8 },
             ]);
@@ -287,7 +285,7 @@ export async function printSummary(printerAddresses: string[], summaryData: Summ
             0
         );
         const averageTicket = transactionCount > 0 ? totalAmount / transactionCount : 0;
-        const currency = transactionCount > 0 ? summaryData.transactions[0].currency : '€';
+        const currency = summaryData.currency;
 
         // Create a simpler header for the ticket
         printer.alignCenter();

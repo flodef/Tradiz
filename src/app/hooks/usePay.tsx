@@ -3,7 +3,7 @@ import { QRCode } from '../components/QRCode';
 import { Shop } from '../contexts/ConfigProvider';
 import { isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
 import { IS_LOCAL, PRINT_KEYWORD, REFUND_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
-import { InventoryItem, Transaction } from '../utils/interfaces';
+import { Currency, InventoryItem, Transaction } from '../utils/interfaces';
 import { printReceipt } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
@@ -13,6 +13,7 @@ import { usePopup } from './usePopup';
 export type ReceiptData = {
     shop: Shop;
     transaction: Transaction;
+    currency: Currency;
     thanksMessage?: string;
     userName: string;
     inventory?: InventoryItem[];
@@ -58,6 +59,7 @@ export const usePay = () => {
         async (printerName?: string, transaction?: Transaction) => {
             // Prepare receipt data
             let currentTransaction = transaction;
+            const currency = currencies[currencyIndex];
 
             if (!currentTransaction) {
                 // Try to find existing waiting transaction
@@ -74,7 +76,7 @@ export const usePay = () => {
                     amount: getCurrentTotal(),
                     createdDate: new Date().getTime(),
                     modifiedDate: new Date().getTime(),
-                    currency: currencies[currencyIndex].label,
+                    currency: currency.label,
                     products: products.current,
                 };
             }
@@ -88,6 +90,7 @@ export const usePay = () => {
             return await printReceipt(printerAddresses, {
                 shop: parameters.shop,
                 transaction: currentTransaction,
+                currency,
                 thanksMessage: parameters.thanksMessage,
                 userName: parameters.user.name,
                 inventory: inventory,
