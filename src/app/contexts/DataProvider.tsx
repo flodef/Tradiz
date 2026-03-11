@@ -839,6 +839,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                                     // Update the already-stored transaction with the order number
                                     transaction.shortNumOrder = counterData.short_num_order;
                                     storeTransaction(transaction);
+                                    // Persist shortNumOrder to localStorage (storeTransaction only updates React state)
+                                    setLocalStorageItem(transactionsFilename, transactions);
                                 }
                             } else {
                                 console.error('counter-order upstream error:', await counterResponse.text());
