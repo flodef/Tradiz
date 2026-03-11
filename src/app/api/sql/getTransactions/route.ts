@@ -45,6 +45,11 @@ export async function GET(request: Request) {
         }
 
         // Query to get transactions with their products
+        // Note: created_at / updated_at are stored as UTC strings (via toSQLDateTime → .toISOString()).
+        // UNIX_TIMESTAMP() interprets them as server-local time, so we compensate with
+        // TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) which equals the server UTC offset
+        // (e.g. +3600 for Europe/Paris in winter). This prevents a 1-hour gap that would cause
+        // mergeTransactionArrays to treat the same transaction as two distinct entries.
         const mainDb = process.env.DB_NAME || 'DC';
         const query = `
             SELECT 
@@ -56,8 +61,8 @@ export async function GET(request: Request) {
                 f.amount,
                 f.currency,
                 f.note,
-                UNIX_TIMESTAMP(f.created_at) * 1000 as createdDate,
-                UNIX_TIMESTAMP(f.updated_at) * 1000 as modifiedDate
+                (UNIX_TIMESTAMP(f.created_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as createdDate,
+                (UNIX_TIMESTAMP(f.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate
             FROM facturation f
             LEFT JOIN users u ON u.id = f.user_id
             LEFT JOIN payment_methods pm ON pm.id = f.payment_method_id
