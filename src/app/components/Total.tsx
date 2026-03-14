@@ -357,10 +357,11 @@ export const Total: FC = () => {
             if (isUpdatingTransaction(transaction) || !transaction?.amount || !isStateReady) return;
 
             openPopup(
-                (transaction.shortNumOrder ? `[#${transaction.shortNumOrder}] ` : '') +
-                    toCurrency(transaction) +
+                toCurrency(transaction) +
                     ' en ' +
-                    transaction.method,
+                    transaction.method +
+                    (transaction.shortNumOrder ? ` [#${transaction.shortNumOrder}]` : ''),
+
                 transaction.products
                     .map((product) => displayProduct(product, transaction.currency))
                     .concat(isMobileSize() ? ['', BACK_KEYWORD] : []),
