@@ -66,7 +66,7 @@ const dataNames: { [key: string]: DataName } = {
 };
 
 export const defaultParameters: Parameters = {
-    shop: { name: '', email: EMAIL, address: '', zipCode: '', city: '', id: '', idType: '' },
+    shop: { name: '', email: EMAIL, address: '', zipCode: '', city: '', id: '' },
     thanksMessage: '',
     mercurial: Mercurial.none,
     lastModified: new Date().toLocaleString(),
@@ -148,13 +148,12 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
             zipCode: param.values.at(2) ?? '',
             city: param.values.at(3) ?? '',
             id: param.values.at(4) ?? '',
-            idType: param.keys.at(4)?.toUpperCase() ?? '',
             email: param.values.at(5) ?? EMAIL,
         },
         thanksMessage: param.values.at(6) ?? 'Merci de votre visite !',
         mercurial: (param.values.at(7) ?? Mercurial.none) as Mercurial,
-        lastModified: param.values.at(8) ?? new Date('0').toLocaleString(),
-        closingHour: Math.max(0, Math.min(23, Number(param.values.at(9)) || 0)),
+        closingHour: Math.max(0, Math.min(23, Number(param.values.at(8)) || 0)),
+        lastModified: param.values.at(9) ?? new Date('0').toLocaleString(),
         user: user,
     };
 
