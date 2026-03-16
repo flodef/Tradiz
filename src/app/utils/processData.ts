@@ -141,19 +141,25 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
         : { name: DEFAULT_USER, role: Role.cashier };
     if (!user || user.role === Role.none) throw new UserNotFoundError(param.values.at(1));
 
+    // Helper function: lookup by key first, then by index
+    const getParamValue = (key: string, fallbackIndex: number): string => {
+        const keyIndex = param.keys.findIndex((k) => k === key);
+        return keyIndex !== -1 ? param.values.at(keyIndex) ?? '' : param.values.at(fallbackIndex) ?? '';
+    };
+
     const parameters: Parameters = {
         shop: {
-            name: param.values.at(0) ?? '',
-            address: param.values.at(1) ?? '',
-            zipCode: param.values.at(2) ?? '',
-            city: param.values.at(3) ?? '',
-            id: param.values.at(4) ?? '',
-            email: param.values.at(5) ?? EMAIL,
+            name: getParamValue('name', 0),
+            address: getParamValue('address', 1),
+            zipCode: getParamValue('zipCode', 2),
+            city: getParamValue('city', 3),
+            id: getParamValue('id', 4),
+            email: getParamValue('email', 5) || EMAIL,
         },
-        thanksMessage: param.values.at(6) ?? 'Merci de votre visite !',
-        mercurial: (param.values.at(7) ?? Mercurial.none) as Mercurial,
-        closingHour: Math.max(0, Math.min(23, Number(param.values.at(8)) || 0)),
-        lastModified: param.values.at(9) ?? new Date('0').toLocaleString(),
+        thanksMessage: getParamValue('thanksMessage', 6) || 'Merci de votre visite !',
+        mercurial: (getParamValue('mercurial', 7) || Mercurial.none) as Mercurial,
+        closingHour: Math.max(0, Math.min(23, Number(getParamValue('closingHour', 8)) || 0)),
+        lastModified: getParamValue('lastModified', 9) || new Date().toLocaleString(),
         user: user,
     };
 
@@ -289,7 +295,7 @@ async function convertParametersData(
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-            checkData(data, 1, 2, 9, 10);
+            checkData(data, 1, 2, 5, 10);
 
             return {
                 keys: data.values.map((item) => {
