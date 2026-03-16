@@ -136,9 +136,8 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
 
     const users = await fetchData(dataNames.users, id, false).then(convertUsersData);
     const publicKey = users?.length ? getPublicKey() : undefined;
-    const user = users?.length
-        ? users.filter(({ key }) => key === publicKey).at(0)
-        : { name: DEFAULT_USER, role: Role.cashier };
+    const foundUser = users?.length ? users.filter(({ key }) => key === publicKey).at(0) : undefined;
+    const user = foundUser || { name: DEFAULT_USER, role: Role.cashier };
     if (!user || user.role === Role.none) throw new UserNotFoundError(param.values.at(1));
 
     // Helper function: lookup by key first, then by index
