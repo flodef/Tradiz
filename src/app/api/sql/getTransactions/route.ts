@@ -56,7 +56,7 @@ export async function GET(request: Request) {
                 f.id,
                 f.panier_id,
                 p.short_num_order,
-                COALESCE(u.name, ${DEFAULT_USER}) as validator,
+                COALESCE(u.name, '${DEFAULT_USER}') as validator,
                 pm.label as method,
                 f.amount,
                 f.currency,
