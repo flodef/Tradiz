@@ -47,7 +47,7 @@
         "@types/react": "latest",
         "@types/react-dom": "latest",
         "@typescript-eslint/eslint-plugin": "latest",
-        "baseline-browser-mapping": "^2.10.0",
+        "baseline-browser-mapping": "^2.10.8",
         "encoding": "latest",
         "eslint": "latest",
         "eslint-config-next": "latest",
@@ -61,7 +61,7 @@
         "shx": "latest",
         "typescript": "latest",
         "typescript-eslint": "latest",
-        "vitest": "^4.0.18"
+        "vitest": "^4.1.0"
     },
     "trustedDependencies": [
         "@firebase/util",
