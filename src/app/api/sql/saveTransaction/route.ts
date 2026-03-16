@@ -1,4 +1,4 @@
-import { DELETED_KEYWORD, PROCESSING_KEYWORD } from '@/app/utils/constants';
+import { DELETED_KEYWORD, PROCESSING_KEYWORD, DEFAULT_USER } from '@/app/utils/constants';
 import { NextResponse } from 'next/server';
 import { Connection, getPosDb } from '../db';
 
@@ -222,24 +222,31 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
 }
 
 async function ensureUserExists(connection: Connection, userName: string): Promise<string> {
+    // If no userName provided, use DEFAULT_USER
+    const actualUserName = userName || DEFAULT_USER;
+
     // Check if user exists
-    const [rows] = await connection.execute('SELECT id FROM users WHERE name = ?', [userName]);
+    const [rows] = await connection.execute('SELECT id FROM users WHERE name = ?', [actualUserName]);
 
     const userRows = rows as IdRow[];
     if (userRows.length > 0) return String(userRows[0].id);
 
     // User doesn't exist, create with default role 'Cashier'
     const insertUserQuery = `
-        INSERT INTO users (id, name, role, created_at)
-        VALUES (?, ?, 'Cashier', NOW())
+        INSERT INTO users (\`key\`, name, role)
+        VALUES (?, ?, 'Cashier')
     `;
 
-    // Generate a simple ID for the user (you might want to use a better ID generation strategy)
-    const userId = userName.toLowerCase().replace(/\s+/g, '_');
+    // Generate a key for the user
+    const userKey = actualUserName.toLowerCase().replace(/\s+/g, '_');
 
-    await connection.execute(insertUserQuery, [userId, userName]);
+    await connection.execute(insertUserQuery, [userKey, actualUserName]);
 
-    return userId;
+    // Get the inserted ID
+    const [insertResult] = await connection.execute('SELECT LAST_INSERT_ID() as id');
+    const insertedId = (insertResult as IdRow[])[0].id;
+
+    return String(insertedId);
 }
 
 async function ensurePaymentMethodExists(
