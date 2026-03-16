@@ -46,11 +46,22 @@ export const usePay = () => {
         setCounterServiceType,
     } = useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
-    const { paymentMethods, currencies, currencyIndex, parameters, getPrintersNames, getPrinterAddresses, inventory, isFastFood } =
+    const {
+        paymentMethods,
+        currencies,
+        currencyIndex,
+        parameters,
+        getPrintersNames,
+        getPrinterAddresses,
+        inventory,
+        modeFonctionnement,
+    } =
         useConfig();
 
     // Ref local pour éviter de redemander le type de service lors de l'appel récursif à pay()
     const serviceTypeSelectedRef = useRef(false);
+    // Empêche la validation multiple d'un même popup de paiement (double-clic/tap)
+    const paymentSelectionLockedRef = useRef(false);
 
     const canPay = useMemo(() => {
         // Can pay if we have a normal transaction OR partial payment selected
@@ -381,6 +392,9 @@ export const usePay = () => {
     );
 
     const pay = useCallback(() => {
+        // Nouveau cycle de paiement: on déverrouille la sélection
+        paymentSelectionLockedRef.current = false;
+
         // Check if we're in partial payment mode (orderId is set AND selector is shown)
         if (orderId && selectedOrderItems.length > 0 && showPartialPaymentSelector) {
             // Partial payment mode - show payment methods for the selected items
@@ -391,6 +405,8 @@ export const usePay = () => {
                     .map((item) => item.type);
 
                 if (paymentMethodsLabels.length === 1) {
+                    if (paymentSelectionLockedRef.current) return;
+                    paymentSelectionLockedRef.current = true;
                     selectPaymentForPartial(paymentMethodsLabels[0]);
                 } else {
                     openPopup(
@@ -402,6 +418,8 @@ export const usePay = () => {
                                 setShowPartialPaymentSelector(true);
                                 return;
                             }
+                            if (paymentSelectionLockedRef.current) return;
+                            paymentSelectionLockedRef.current = true;
                             selectPaymentForPartial(option);
                         },
                         true
@@ -411,8 +429,13 @@ export const usePay = () => {
         } else {
             // Normal payment mode
 
-            // Fast-food + commande comptoir : demander le type de service avant le paiement
-            if (isFastFood && !orderId && !serviceTypeSelectedRef.current) {
+            // En mode fastfood, demander le type de service avant le paiement comptoir.
+            // En mode restaurant/light, on force sur_place de façon transparente.
+            if (!orderId && modeFonctionnement !== 'fastfood') {
+                setCounterServiceType('sur_place');
+            }
+
+            if (modeFonctionnement === 'fastfood' && !orderId && !serviceTypeSelectedRef.current) {
                 openPopup(
                     'Type de service',
                     ['Sur place', 'À emporter'],
@@ -456,6 +479,8 @@ export const usePay = () => {
                 allOptions.push('METTRE ' + WAITING_KEYWORD, REFUND_KEYWORD);
 
                 if (paymentMethodsLabels.length === 1) {
+                    if (paymentSelectionLockedRef.current) return;
+                    paymentSelectionLockedRef.current = true;
                     selectPayment(paymentMethodsLabels[0], pay);
                 } else {
                     openPopup(
@@ -463,6 +488,8 @@ export const usePay = () => {
                         allOptions,
                         (index, option) => {
                             if (index < 0) return;
+                            if (paymentSelectionLockedRef.current) return;
+                            paymentSelectionLockedRef.current = true;
 
                             // Handle PAIEMENT PARTIEL option
                             if (option === 'PAIEMENT PARTIEL') {
@@ -508,7 +535,7 @@ export const usePay = () => {
         showPartialPaymentSelector,
         setShowPartialPaymentSelector,
         partialPaymentAmount,
-        isFastFood,
+        modeFonctionnement,
         setCounterServiceType,
     ]);
 

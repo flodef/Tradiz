@@ -23,6 +23,7 @@ import {
     defaultPaymentMethods,
     loadData,
 } from '../utils/processData';
+import { OperationMode } from '../hooks/useConfig';
 
 export interface Shop {
     name: string;
@@ -63,7 +64,10 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const { isDemo } = useWindowParam();
 
     const [state, setState] = useState(State.init);
+    const [modeFonctionnement, setModeFonctionnement] = useState<OperationMode>('restaurant');
     const [isFastFood, setIsFastFood] = useState(false);
+    const [isKitchenViewEnabled, setIsKitchenViewEnabled] = useState(true);
+    const [isGrafanaAccessEnabled, setIsGrafanaAccessEnabled] = useState(true);
 
     const [config, setConfig] = useLocalStorage<Config | undefined>('Config', undefined);
     const [parameters, setParameters] = useState<Parameters>(defaultParameters);
@@ -78,10 +82,30 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const isStateReady = useMemo(() => state === State.preloaded || state === State.loaded, [state]);
 
     useEffect(() => {
+        type EtabConfigResponse = {
+            mode_fonctionnement?: OperationMode;
+            kitchen_view_enabled?: boolean;
+            grafana_access_enabled?: boolean;
+        };
+
         fetch('/api/sql/getEtabConfig')
             .then((r) => r.json())
-            .then((data) => setIsFastFood(data.mode_fonctionnement === 'fastfood'))
-            .catch(() => setIsFastFood(false));
+            .then((data: EtabConfigResponse) => {
+                const mode =
+                    data?.mode_fonctionnement === 'fastfood' || data?.mode_fonctionnement === 'light'
+                        ? data.mode_fonctionnement
+                        : 'restaurant';
+                setModeFonctionnement(mode);
+                setIsFastFood(mode === 'fastfood' || mode === 'light');
+                setIsKitchenViewEnabled(data?.kitchen_view_enabled ?? true);
+                setIsGrafanaAccessEnabled(data?.grafana_access_enabled ?? true);
+            })
+            .catch(() => {
+                setModeFonctionnement('restaurant');
+                setIsFastFood(false);
+                setIsKitchenViewEnabled(true);
+                setIsGrafanaAccessEnabled(true);
+            });
     }, []);
 
     const setCurrency = useCallback(
@@ -206,7 +230,10 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
                 state,
                 setState,
                 isStateReady,
+                modeFonctionnement,
                 isFastFood,
+                isKitchenViewEnabled,
+                isGrafanaAccessEnabled,
                 parameters,
                 currencyIndex,
                 setCurrency,

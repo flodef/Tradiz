@@ -236,16 +236,16 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, [parameters.shop.name, getNextResetTime, performDayReset]);
 
     useEffect(() => {
-        if (IS_DEV || isDemo) return;
+        if (IS_DEV || isDemo || process.env.NEXT_PUBLIC_USE_SQLDB) return;
 
-        fetch(`./api/firebase`)
+        fetch(`/api/firebase`)
             .catch((error) => {
                 console.error(error);
             })
             .then((response) => {
                 if (typeof response === 'undefined') return;
                 response.json().then((options) => {
-                    if (!options) return;
+                    if (!options?.apiKey || !options?.projectId || !options?.appId) return;
                     const firebaseApp = initializeApp(options);
                     const firebaseFirestore = getFirestore(firebaseApp);
                     setFirestore(firebaseFirestore);
@@ -268,16 +268,20 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const storeTransaction = useCallback(
         (transaction: Transaction) => {
-            const index = transactions.findIndex(({ createdDate }) => createdDate === transaction.createdDate);
-            if (index >= 0) {
-                transactions.splice(index, 1, transaction);
-            } else {
-                transactions.unshift(transaction);
-            }
+            setTransactions((previous) => {
+                const next = [...previous];
+                const index = next.findIndex(({ createdDate }) => createdDate === transaction.createdDate);
 
-            setTransactions([...transactions]);
+                if (index >= 0) {
+                    next.splice(index, 1, transaction);
+                } else {
+                    next.unshift(transaction);
+                }
+
+                return next;
+            });
         },
-        [transactions, setTransactions]
+        [setTransactions]
     );
 
     const convertTransactionsData = useCallback(

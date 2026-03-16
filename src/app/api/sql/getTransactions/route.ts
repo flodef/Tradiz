@@ -36,7 +36,7 @@ export async function GET(request: Request) {
         const connection = await getPosDb();
 
         let whereClause = '1=1';
-        const params: string[] = [];
+        const params: (string | number)[] = [DEFAULT_USER];
 
         // Filter by date if provided
         if (date && period === 'day') {
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
                 f.id,
                 f.panier_id,
                 p.short_num_order,
-                COALESCE(u.name, ${DEFAULT_USER}) as validator,
+                COALESCE(u.name, ?) as validator,
                 pm.label as method,
                 f.amount,
                 f.currency,
