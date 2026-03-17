@@ -29,19 +29,26 @@ CREATE TABLE IF NOT EXISTS config_etablissement (
 
 -- Catégories d'articles
 CREATE TABLE IF NOT EXISTS categorie (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nom VARCHAR(255) NOT NULL
+    id VARCHAR(10) NOT NULL,
+    nom VARCHAR(50) NOT NULL,
+    ordre INT(3) NOT NULL,
+    INDEX `Index 1` (id) USING BTREE
 ) ENGINE=InnoDB;
 
 -- Articles
 CREATE TABLE IF NOT EXISTS article (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nom VARCHAR(255) NOT NULL,
-    prix DECIMAL(10,2) NOT NULL DEFAULT 0,
-    taux_tva DECIMAL(5,4) NOT NULL DEFAULT 0.1000,
-    categorie INT,
-    options TEXT,
-    FOREIGN KEY (categorie) REFERENCES categorie(id) ON DELETE SET NULL
+    id INT(5) NOT NULL AUTO_INCREMENT,
+    ordre INT(11) NOT NULL,
+    nom VARCHAR(50) NOT NULL DEFAULT '',
+    prix DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+    photo VARCHAR(50) NOT NULL DEFAULT '',
+    disponible INT(2) NOT NULL,
+    categorie VARCHAR(50) NOT NULL DEFAULT '',
+    description VARCHAR(300) DEFAULT '',
+    options VARCHAR(1000) DEFAULT '',
+    nbr_commandes INT(11) NOT NULL DEFAULT 0,
+    taux_tva DECIMAL(5,2) DEFAULT NULL,
+    PRIMARY KEY (id) USING BTREE
 ) ENGINE=InnoDB;
 
 -- Formules
@@ -258,15 +265,24 @@ INSERT INTO theme_admin (
 );
 
 -- Sample categories
-INSERT INTO categorie (nom) VALUES ('Boissons'), ('Entrées'), ('Plats'), ('Desserts');
+INSERT INTO categorie (id, nom, ordre) VALUES
+    ('1', 'Boissons', 1),
+    ('2', 'Entrées', 2),
+    ('3', 'Plats', 3),
+    ('4', 'Desserts', 4);
 
--- Sample articles
-INSERT INTO article (nom, prix, categorie) VALUES
-    ('Coca-Cola', 3.00, 1),
-    ('Eau', 1.50, 1),
-    ('Salade César', 8.50, 2),
-    ('Steak Frites', 14.00, 3),
-    ('Crème Brûlée', 7.00, 4);
+-- Sample articles (with options examples)
+INSERT INTO article (ordre, nom, prix, photo, disponible, categorie, description, options, nbr_commandes, taux_tva) VALUES
+    (1, 'Coca-Cola', 3.00, '', 1, '1', '', '[{"type":"Volume","options":[{"valeur":"33cl","prix":"3.0"},{"valeur":"50cl","prix":"4.5"}]}]', 0, NULL),
+    (2, 'Eau', 1.50, '', 1, '1', '', '[{"type":"Volume","options":[{"valeur":"50cl","prix":"1.5"},{"valeur":"1L","prix":"2.5"}]}]', 0, NULL),
+    (3, 'Café', 1.80, '', 1, '1', '', '', 0, NULL),
+    (4, 'Salade César', 8.50, '', 1, '2', '', '', 0, NULL),
+    (5, 'Soupe du jour', 6.00, '', 1, '2', '', '', 0, NULL),
+    (6, 'Steak Frites', 14.00, '', 1, '3', '', '[{"type":"Cuisson","options":[{"valeur":"Bleu","prix":"14.0"},{"valeur":"Saignant","prix":"14.0"},{"valeur":"À point","prix":"14.0"},{"valeur":"Bien cuit","prix":"14.0"}]}]', 0, NULL),
+    (7, 'Pizza Margherita', 11.00, '', 1, '3', '', '[{"type":"Taille","options":[{"valeur":"Moyenne","prix":"11.0"},{"valeur":"Grande","prix":"14.0"}]}]', 0, NULL),
+    (8, 'Crème Brûlée', 7.00, '', 1, '4', '', '', 0, NULL),
+    (9, 'Glace', 2.50, '', 1, '4', '', '[{"type":"Nb de boules","options":[{"valeur":"1 boule","prix":"2.5"},{"valeur":"2 boules","prix":"4.9"},{"valeur":"3 boules","prix":"7.3"}]}]', 0, NULL),
+    (10, 'Tarte aux pommes', 6.50, '', 1, '4', '', '', 0, NULL);
 
 USE DC_POS;
 
