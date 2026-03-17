@@ -22,6 +22,7 @@ export const IS_LOCAL = !process.env.NEXT_PUBLIC_VERCEL_ENV;
 // Solana
 export const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
 export const IS_DEV = process.env.NEXT_PUBLIC_IS_DEV?.toLowerCase() === 'true';
+export const NEED_FULLSCREEN = process.env.NEXT_PUBLIC_NEED_FULLSCREEN?.toLowerCase() === 'true';
 export const SPL_TOKEN = new PublicKey(
     IS_DEV ? 'J99D2TvHcev22FF8rNfdUXQx31qzuoVdXRpRiPzJCH6c' : 'Pnsjp9dbenPeFZWqqPHDygzkCZ4Gr37G8mgdRK2KjQp'
 );

@@ -3,8 +3,8 @@
 import { FC, useEffect } from 'react';
 import { useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
-import { IS_DEV } from '../utils/constants'; // Not needed anymore
-import { isFullscreen, requestFullscreen } from '../utils/fullscreen'; // REMOVED: auto-fullscreen disabled
+import { IS_DEV, NEED_FULLSCREEN } from '../utils/constants';
+import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { Category } from './Category';
 import { NumPad } from './NumPad';
 import { Total } from './Total';
@@ -63,7 +63,7 @@ export const MainContent: FC = () => {
     }, [setOrderId, setOrderData, addProduct, clearTotal]);
 
     const handleClick = () => {
-        if (isStateReady && !isFullscreen() && !IS_DEV) requestFullscreen();
+        if (isStateReady && !isFullscreen() && !IS_DEV && NEED_FULLSCREEN) requestFullscreen();
     };
 
     return (
