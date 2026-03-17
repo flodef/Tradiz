@@ -5,7 +5,7 @@ interface PaymentMethodRow {
     label: string;
     address: string;
     currency: string;
-    hidden: number;
+    hidden: number | null;
 }
 
 export async function GET() {
@@ -27,7 +27,7 @@ export async function GET() {
                 String(row.label),
                 String(row.address),
                 String(row.currency),
-                Boolean(row.hidden),
+                Number(row.hidden ?? 0) === 1,
             ])
         );
 

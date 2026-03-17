@@ -18,6 +18,10 @@
     --secondary-active-dark-color: rgb(249, 115, 22);
 }
 
+html[data-theme-ready='0'] body {
+    visibility: hidden;
+}
+
 @theme {
     --color-writing-light: var(--writing-light-color);
     --color-main-from-light: var(--main-from-light-color);

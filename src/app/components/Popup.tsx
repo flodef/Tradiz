@@ -81,10 +81,9 @@ export const Popup: FC = () => {
                             <div
                                 className={twMerge(
                                     'py-2 w-full relative flex font-semibold text-xl cursor-pointer',
-                                    // TODO: check for multiline options like formula
-                                    // typeof option === 'string' && option.includes('\n')
-                                    //     ? 'flex-col items-start text-left pl-3 :'
-                                    'justify-around items-center text-center',
+                                    typeof option === 'string'
+                                        ? 'flex-col items-start text-left pl-3 gap-1'
+                                        : 'justify-around items-center text-center',
                                     !isMobileDevice
                                         ? 'hover:bg-active-light dark:hover:bg-active-dark active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light'
                                         : '',

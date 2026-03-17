@@ -111,10 +111,14 @@ export function getPublicKey() {
 
 export async function loadData(shop: string, shouldUseLocalData = false): Promise<Config | undefined> {
     // TODO: use fee
+    const useSqlDb = process.env.NEXT_PUBLIC_USE_SQLDB?.toLowerCase() === 'true';
+
     const id = shouldUseLocalData
         ? undefined // if the app is used locally, use the local data
+        : useSqlDb
+          ? ''
         : typeof shop === 'string' // if shop is a string, it means that the app is used by a customer (custom path)
-          ? await fetch(`./api/spreadsheet?sheetName=index`)
+          ? await fetch(`/api/spreadsheet?sheetName=index`)
                 .then(convertIndexData)
                 .then(
                     (data) =>
@@ -215,8 +219,8 @@ async function fetchData(dataName: DataName, id: string | undefined, isRaw = tru
     const url = process.env.NEXT_PUBLIC_USE_SQLDB
         ? `/api/sql/${dataName.sql}`
         : id !== undefined
-          ? `./api/spreadsheet?sheetName=${dataName.sheet}&id=${id}&isRaw=${isRaw.toString()}`
-          : `./api/json?fileName=${dataName.json}`;
+          ? `/api/spreadsheet?sheetName=${dataName.sheet}&id=${id}&isRaw=${isRaw.toString()}`
+          : `/api/json?fileName=${dataName.json}`;
 
     return await fetch(url).catch((error) => console.error(error));
 }

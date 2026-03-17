@@ -24,7 +24,9 @@ USE DC;
 -- Config établissement
 CREATE TABLE IF NOT EXISTS config_etablissement (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    mode_fonctionnement VARCHAR(50) NOT NULL DEFAULT 'restaurant'
+    mode_fonctionnement VARCHAR(50) NOT NULL DEFAULT 'restaurant',
+    kitchen_view_enabled TINYINT NOT NULL DEFAULT 1,
+    grafana_access_enabled TINYINT NOT NULL DEFAULT 1
 ) ENGINE=InnoDB;
 
 -- Catégories d'articles

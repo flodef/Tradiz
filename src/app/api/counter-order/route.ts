@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
 
-        const response = await fetch('http://localhost:8082/complete_order', {
+        const response = await fetch('http://localhost:8082/counter_order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
