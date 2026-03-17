@@ -1,5 +1,29 @@
 import { NextResponse } from 'next/server';
+import { RowDataPacket } from 'mysql2';
 import { getMainDb } from '../db';
+
+interface ArticleRow extends RowDataPacket {
+    id: number;
+    nom: string;
+    prix: number;
+    categorie: string;
+    options: string | null;
+}
+
+interface FormulaRow extends RowDataPacket {
+    fid: number;
+    fnom: string;
+    fprix: number;
+    fordre: number;
+    eid: number;
+    enom: string;
+    eordre: number;
+    aid: number;
+    anom: string;
+    aprix: number;
+    aoptions: string | null;
+    aordre: number;
+}
 
 export async function GET() {
     try {
@@ -34,7 +58,7 @@ export async function GET() {
         type ElemMap = Map<string, { id: string; nom: string; articles: object[] }>;
         const formulaMap = new Map<string, { id: string; nom: string; prix: number; elementMap: ElemMap }>();
 
-        for (const row of formulaRows as any[]) {
+        for (const row of formulaRows as FormulaRow[]) {
             const fKey = String(row.fid);
             if (!formulaMap.has(fKey)) {
                 formulaMap.set(fKey, {
@@ -59,7 +83,7 @@ export async function GET() {
 
         return NextResponse.json(
             {
-                articles: (articleRows as any[]).map((a) => ({
+                articles: (articleRows as ArticleRow[]).map((a) => ({
                     id: Number(a.id),
                     nom: String(a.nom),
                     prix: Number(a.prix),

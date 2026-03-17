@@ -123,7 +123,10 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
         const interval = setInterval(async () => {
             try {
                 if (crypto === Crypto.Solana && reference) {
-                    const signature = await findReference(connection.current as any, reference);
+                    const signature = await findReference(
+                        connection.current as unknown as Parameters<typeof findReference>[0],
+                        reference
+                    );
 
                     if (!changed) {
                         watchDog.current = 0;
@@ -150,7 +153,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
                         setPaymentStatus(PaymentStatus.Finalized);
                     }
                 }
-            } catch (error: any) {
+            } catch (error: unknown) {
                 const isTimeOut = watchDog.current++ > TRANSACTION_TIME_OUT * 4;
 
                 // If status is no longer correct or the watch dog has expired, stop polling
@@ -163,7 +166,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
 
                 // If the RPC node doesn't have the transaction signature yet, try again
                 if (!(error instanceof FindReferenceError)) {
-                    setError(error);
+                    setError(error instanceof Error ? error : new Error(String(error)));
                 }
             }
         }, 250);
@@ -196,7 +199,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
                 if (!changed) {
                     setPaymentStatus(PaymentStatus.Valid);
                 }
-            } catch (error: any) {
+            } catch (error: unknown) {
                 // If status is no longer correct, stop polling
                 if (paymentStatus !== PaymentStatus.Confirmed) return;
 
@@ -210,7 +213,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
                     return;
                 }
 
-                setError(error);
+                setError(error instanceof Error ? error : new Error(String(error)));
             }
         };
         let timeout = setTimeout(run, 0);
@@ -241,8 +244,8 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
                         setPaymentStatus(PaymentStatus.Finalized);
                     }
                 }
-            } catch (error: any) {
-                setError(error);
+            } catch (error: unknown) {
+                setError(error instanceof Error ? error : new Error(String(error)));
             }
         }, 250);
 

@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
+import { RowDataPacket } from 'mysql2';
 import { getMainDb } from '../db';
+
+interface EtabConfigRow extends RowDataPacket {
+    mode_fonctionnement: string | null;
+}
 
 export async function GET() {
     try {
@@ -9,11 +14,8 @@ export async function GET() {
         );
         await connection.end();
 
-        const row = (rows as any[])[0];
-        return NextResponse.json(
-            { mode_fonctionnement: row?.mode_fonctionnement ?? 'restaurant' },
-            { status: 200 }
-        );
+        const row = (rows as EtabConfigRow[])[0];
+        return NextResponse.json({ mode_fonctionnement: row?.mode_fonctionnement ?? 'restaurant' }, { status: 200 });
     } catch (error) {
         console.error('getEtabConfig error:', error);
         return NextResponse.json({ error: 'An error occurred' }, { status: 500 });

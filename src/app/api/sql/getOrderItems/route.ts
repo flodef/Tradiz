@@ -1,6 +1,37 @@
 import { NextResponse } from 'next/server';
+import { RowDataPacket } from 'mysql2';
 import { Product, EmptyDiscount } from '@/app/utils/interfaces';
 import { getMainDb } from '../db';
+
+interface FormuleRow extends RowDataPacket {
+    rpf_id: number;
+    label: string;
+    amount: number;
+    quantity: number;
+    note: string | null;
+}
+
+interface FormuleElementRow extends RowDataPacket {
+    id_pf: number;
+    nom_ef: string;
+    nom_article: string;
+    nom_categorie: string | null;
+    selected_options: string | null;
+    all_options: string | null;
+}
+
+interface PanierRow extends RowDataPacket {
+    short_num_order: string | null;
+}
+
+interface ArticleOrderRow extends RowDataPacket {
+    label: string;
+    amount: number;
+    quantity: number;
+    category: string;
+    selected_options: string | null;
+    all_options: string | null;
+}
 
 // Helper: compute extra price from selected options against option definitions
 const computeOptionsExtra = (
@@ -73,20 +104,20 @@ export async function GET(request: Request) {
 
         // For each formule instance, fetch its elements
         const formulesWithDetails = await Promise.all(
-            (formulesRows as any[]).map(async (formule) => {
+            (formulesRows as FormuleRow[]).map(async (formule) => {
                 const [elementRows] = await connection.execute(queryFormuleElements, [formule.rpf_id]);
-                return { ...formule, elements: elementRows as any[] };
+                return { ...formule, elements: elementRows as FormuleElementRow[] };
             })
         );
 
         // Fetch short_num_order
         const [panierRow] = await connection.execute(`SELECT short_num_order FROM panier WHERE id = ?`, [orderId]);
-        const shortNumOrder: string = (panierRow as any[])[0]?.short_num_order ?? '';
+        const shortNumOrder: string = (panierRow as PanierRow[])[0]?.short_num_order ?? '';
 
         await connection.end();
 
         // Build products for articles
-        const articleProducts: Product[] = (articlesRows as any[]).map((row) => {
+        const articleProducts: Product[] = (articlesRows as ArticleOrderRow[]).map((row) => {
             let baseAmount = Number(Number(row.amount).toFixed(2));
             let selectedOptions: { type: string; valeur: string; prix: number }[] | undefined;
 
