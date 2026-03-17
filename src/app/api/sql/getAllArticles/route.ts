@@ -36,7 +36,10 @@ export async function GET() {
         // Combine all rows
         const allRows = [...(articlesRows as ArticleRow[]), ...(formulesRows as ArticleRow[])];
 
-        const data: { values: (number | string | boolean)[][] } = { values: [] };
+        const data: { values: (number | string | boolean)[][]; options: (string | null)[] } = {
+            values: [],
+            options: [],
+        };
         data.values.push(['Taux', 'Catégorie', 'Nom', 'Indisponible', 'Euro (€)']);
         data.values.push(
             ...allRows.map((row): (number | string | boolean)[] => [
@@ -47,6 +50,7 @@ export async function GET() {
                 Number(Number(row.amount).toFixed(2)),
             ])
         );
+        data.options = allRows.map((row) => row.options || null);
 
         return NextResponse.json(data, { status: 200 });
     } catch (error) {

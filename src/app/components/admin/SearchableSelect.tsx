@@ -3,9 +3,9 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 
 interface SearchableSelectProps {
-    options: { label: string; value: any }[];
-    value: any;
-    onChange: (value: any) => void;
+    options: { label: string; value: string }[];
+    value: string | string[];
+    onChange: (value: string | string[]) => void;
     placeholder?: string;
     isMulti?: boolean;
 }
@@ -23,25 +23,23 @@ export default function SearchableSelect({
 
     const selectedLabels = useMemo(() => {
         if (isMulti && Array.isArray(value)) {
-            return value.map(val => options.find(opt => opt.value === val)?.label || '').join(', ');
+            return value.map((val) => options.find((opt) => opt.value === val)?.label || '').join(', ');
         } else if (!isMulti) {
-            return options.find(opt => opt.value === value)?.label || '';
+            return options.find((opt) => opt.value === value)?.label || '';
         }
         return '';
     }, [value, options, isMulti]);
 
     const filteredOptions = useMemo(() => {
-        return options.filter(option =>
-            option.label.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        return options.filter((option) => option.label.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [options, searchTerm]);
 
-    const handleSelect = (optionValue: any) => {
+    const handleSelect = (optionValue: string) => {
         if (isMulti) {
             const newValue = Array.isArray(value)
-                ? (value.includes(optionValue)
-                    ? value.filter(val => val !== optionValue)
-                    : [...value, optionValue])
+                ? value.includes(optionValue)
+                    ? value.filter((val) => val !== optionValue)
+                    : [...value, optionValue]
                 : [optionValue];
             onChange(newValue);
         } else {
@@ -93,7 +91,7 @@ export default function SearchableSelect({
                     {filteredOptions.length === 0 ? (
                         <div className="p-3 text-gray-500 dark:text-gray-400">Aucun résultat</div>
                     ) : (
-                        filteredOptions.map(option => (
+                        filteredOptions.map((option) => (
                             <div
                                 key={option.value}
                                 className={`p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 ${

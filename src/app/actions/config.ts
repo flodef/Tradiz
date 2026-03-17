@@ -17,7 +17,8 @@ export async function getShopConfig(shopName: string): Promise<Config> {
     return config;
 }
 
-export async function updateConfigTheme(shopName: string, theme: string, data: any) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function updateConfigTheme(shopName: string, theme: string, data: Record<string, any>) {
     const configDoc = doc(db, `Config_${shopName}`, theme);
     await setDoc(configDoc, data, { merge: true });
 }

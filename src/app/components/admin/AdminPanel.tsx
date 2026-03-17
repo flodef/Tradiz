@@ -36,7 +36,8 @@ export default function AdminPanel({ initialConfig, shopName }: AdminPanelProps)
         return newConfig;
     });
 
-    const handleSave = async (theme: string, data: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleSave = async (theme: string, data: Record<string, any>) => {
         try {
             await updateConfigTheme(shopName, theme, data);
             alert(`${theme} enregistré avec succès!`);
@@ -46,7 +47,8 @@ export default function AdminPanel({ initialConfig, shopName }: AdminPanelProps)
         }
     };
 
-    const handleChange = (theme: string, data: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleChange = (theme: string, data: Record<string, any>) => {
         setConfig((prevConfig) => ({
             ...prevConfig,
             [theme]: data,
@@ -54,13 +56,13 @@ export default function AdminPanel({ initialConfig, shopName }: AdminPanelProps)
     };
 
     const categories = config.Categories
-        ? Object.values(config.Categories).map((cat: any) => ({ label: cat.Label, value: cat.Label }))
+        ? Object.values(config.Categories as Category[]).map((cat) => ({ label: cat.label, value: cat.label }))
         : [];
     const currencies = config.Currencies
-        ? Object.values(config.Currencies).map((cur: any) => ({ label: cur.Label, value: cur.Label }))
+        ? Object.values(config.Currencies as Currency[]).map((cur) => ({ label: cur.label, value: cur.label }))
         : [];
     const currencySymbols = config.Currencies
-        ? Object.values(config.Currencies).map((cur: any) => ({ label: cur.Symbol, value: cur.Symbol }))
+        ? Object.values(config.Currencies as Currency[]).map((cur) => ({ label: cur.symbol, value: cur.symbol }))
         : [];
 
     return (
