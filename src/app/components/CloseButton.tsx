@@ -10,6 +10,12 @@ interface CloseButtonProps {
 export const CloseButton: FC<CloseButtonProps> = ({ onClose, className, size = 'md' }) => {
     const buttonClassName = { xs: 'h-4 w-4', sm: 'h-5 w-5', md: 'h-6 w-6', lg: 'h-7 w-7', xl: 'h-8 w-8' }[size];
 
+    const handleClose = (e: React.MouseEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+    };
+
     return (
         <div
             className={twMerge(
@@ -17,11 +23,8 @@ export const CloseButton: FC<CloseButtonProps> = ({ onClose, className, size = '
                 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark text-popup-dark dark:text-popup-light',
                 className
             )}
-            onClick={onClose}
-            onContextMenu={(e) => {
-                e.preventDefault();
-                onClose();
-            }}
+            onClick={handleClose}
+            onContextMenu={handleClose}
             aria-label="Close"
         >
             <svg
