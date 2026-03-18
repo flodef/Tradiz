@@ -226,11 +226,11 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0,
             {/* Display */}
             <div className="mb-4 p-4 bg-secondary-light dark:bg-secondary-dark rounded-xl">
                 <div className="text-right">
-                    {operation && previousValue !== null && (
-                        <div className="text-sm text-popup-dark/60 dark:text-popup-dark/60 mb-1">
-                            {previousValue} {operation}
-                        </div>
-                    )}
+                    <div
+                        className={`text-sm mb-1 ${operation && previousValue !== null ? 'text-popup-dark/60 dark:text-popup-dark/60' : 'invisible'}`}
+                    >
+                        {operation && previousValue !== null ? `${previousValue} ${operation}` : '\u00A0'}
+                    </div>
                     <div className="text-3xl font-bold break-all text-popup-dark dark:text-popup-dark">{display}</div>
                 </div>
             </div>

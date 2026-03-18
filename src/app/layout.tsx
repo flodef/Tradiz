@@ -7,6 +7,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 const preloadedThemeScript = `(function () {
     var root = document.documentElement;
+    var applied = false;
 
     try {
         var raw = window.localStorage.getItem('Config');
@@ -39,10 +40,17 @@ const preloadedThemeScript = `(function () {
                 root.style.setProperty('--' + name + '-dark-color', dark);
             }
         }
+        applied = true;
     } catch (_) {
         // Ignore invalid cached config.
     } finally {
-        root.setAttribute('data-theme-ready', '1');
+        if (applied) {
+            root.setAttribute('data-theme-ready', '1');
+        } else {
+            setTimeout(function () {
+                root.setAttribute('data-theme-ready', '1');
+            }, 2000);
+        }
     }
 })();`;
 

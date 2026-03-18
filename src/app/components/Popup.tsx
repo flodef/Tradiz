@@ -84,7 +84,7 @@ export const Popup: FC = () => {
                                     typeof option === 'string'
                                         ? 'flex-col items-start text-left pl-3 gap-1'
                                         : 'justify-around items-center text-center',
-                                    !isMobileDevice
+                                    !isMobileDevice && typeof option === 'string'
                                         ? 'hover:bg-active-light dark:hover:bg-active-dark active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light'
                                         : '',
                                     popupIsSpecial && popupIsSpecial(option.toString()) ? 'animate-pulse' : ''

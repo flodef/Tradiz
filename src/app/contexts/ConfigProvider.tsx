@@ -199,6 +199,8 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
         document.documentElement.style.setProperty('--active-dark-color', colors[4].dark);
         document.documentElement.style.setProperty('--secondary-dark-color', colors[5].dark);
         document.documentElement.style.setProperty('--secondary-active-dark-color', colors[6].dark);
+
+        document.documentElement.setAttribute('data-theme-ready', '1');
     }, [colors]);
 
     useEffect(() => {

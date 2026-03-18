@@ -535,7 +535,7 @@ export const Total: FC = () => {
                             }}
                             className="shrink-0 text-xs md:text-sm px-2 md:px-3 py-1 md:py-2 bg-red-500 text-white rounded hover:bg-red-600"
                         >
-                            ← Retour
+                            {BACK_KEYWORD}
                         </button>
                         <span className="text-base md:text-lg font-bold truncate">Paiement Partiel</span>
                     </div>
@@ -564,7 +564,7 @@ export const Total: FC = () => {
                 onClick={handleClick}
                 onContextMenu={handleClick}
             >
-                <div className="flex items-center justify-center gap-2 w-full">
+                <div className="flex items-center justify-center gap-0 w-full">
                     <div className="flex-1 min-w-0 truncate">
                         {canDisplayTotal ? (
                             <span>

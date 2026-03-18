@@ -8,7 +8,7 @@ import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { useWindowParam } from '../hooks/useWindowParam';
 import Loading, { LoadingType } from '../loading';
-import { EMAIL, OTHER_KEYWORD } from '../utils/constants';
+import { BACK_KEYWORD, EMAIL, OTHER_KEYWORD } from '../utils/constants';
 import { useIsMobileDevice } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
 import { useAddPopupClass } from './Popup';
@@ -80,11 +80,14 @@ export const Category: FC = () => {
     };
 
     // ── Option-selection chain: one popup per option type ──
+    // basePrice: when > 0, option prices are supplements (displayed with +);
+    //            when 0, option prices are standalone (displayed without +).
     const selectOptionsChain = (
         optionTypes: OptionDef[],
         selected: OptionSel[],
         idx: number,
-        onDone: (selected: OptionSel[]) => void
+        onDone: (selected: OptionSel[]) => void,
+        basePrice = 0
     ) => {
         if (idx >= optionTypes.length) {
             onDone(selected);
@@ -93,7 +96,8 @@ export const Category: FC = () => {
         const ot = optionTypes[idx];
         const choices = ot.options.map((o) => {
             const p = parseFloat(String(o.prix)) || 0;
-            return p > 0 ? `${o.valeur} (+${p.toFixed(2)}€)` : o.valeur;
+            if (p <= 0) return o.valeur;
+            return basePrice > 0 ? `${o.valeur} (+${p.toFixed(2)}€)` : `${o.valeur} (${p.toFixed(2)}€)`;
         });
         choices.push('Passer');
         openPopup(ot.type, choices, (i) => {
@@ -105,7 +109,7 @@ export const Category: FC = () => {
                 const prix = parseFloat(String(opt.prix)) || 0;
                 next.push({ type: ot.type, valeur: opt.valeur, prix });
             }
-            selectOptionsChain(optionTypes, next, idx + 1, onDone);
+            selectOptionsChain(optionTypes, next, idx + 1, onDone, basePrice);
         });
     };
 
@@ -146,7 +150,7 @@ export const Category: FC = () => {
                     try {
                         const ots: OptionDef[] = JSON.parse(art.options);
                         if (ots.length > 0) {
-                            selectOptionsChain(ots, [], 0, afterOptions);
+                            selectOptionsChain(ots, [], 0, afterOptions, Number(art.prix) || 0);
                             return;
                         }
                     } catch {
@@ -188,11 +192,16 @@ export const Category: FC = () => {
                     try {
                         const ots: OptionDef[] = JSON.parse(article.options);
                         if (ots.length > 0) {
-                            selectOptionsChain(ots, [], 0, (selected) =>
-                                doAdd(
-                                    selected.reduce((s, o) => s + o.prix, 0),
-                                    selected
-                                )
+                            selectOptionsChain(
+                                ots,
+                                [],
+                                0,
+                                (selected) =>
+                                    doAdd(
+                                        selected.reduce((s, o) => s + o.prix, 0),
+                                        selected
+                                    ),
+                                Number(article.prix) || 0
                             );
                             return;
                         }
@@ -286,19 +295,9 @@ export const Category: FC = () => {
 
         const sorted = [...item.products].sort((a, b) => a.label.localeCompare(b.label));
 
-        // Build popup entries: ReactNode with arrow for products with options, plain string otherwise
-        const entries: (string | React.ReactNode)[] = sorted.map((p) => {
-            const hasOpts = !!p.options;
-            if (hasOpts) {
-                return (
-                    <div key={p.label} className="flex w-full items-center justify-between pr-3">
-                        <span>{p.label}</span>
-                        <span className="text-secondary-active-light dark:text-secondary-active-dark">▸</span>
-                    </div>
-                );
-            }
-            return p.label;
-        });
+        // Build popup entries: append ▸ arrow for products with options
+        const ARROW = ' ▸';
+        const entries: string[] = sorted.map((p) => (p.options ? `${p.label}${ARROW}` : p.label));
         entries.push('', OTHER_KEYWORD);
 
         openPopup(item.category, entries, (index, option) => {
@@ -350,9 +349,10 @@ export const Category: FC = () => {
 
             const choices: string[] = ot.options.map((o) => {
                 const p = parseFloat(String(o.prix)) || 0;
-                return p !== basePrice && p > 0 ? `${o.valeur} (${p.toFixed(2)}€)` : o.valeur;
+                if (p <= 0) return o.valeur;
+                return basePrice > 0 ? `${o.valeur} (+${p.toFixed(2)}€)` : `${o.valeur} (${p.toFixed(2)}€)`;
             });
-            choices.push('', '← Retour');
+            choices.push('', BACK_KEYWORD);
 
             openPopup(`${product.label} — ${ot.type}`, choices, (i) => {
                 if (i < 0) {
@@ -361,13 +361,13 @@ export const Category: FC = () => {
                     return;
                 }
                 if (i >= ot.options.length) {
-                    // "← Retour" button
+                    // Back button
                     openProductListPopup(item);
                     return;
                 }
                 const opt = ot.options[i];
                 const prix = parseFloat(String(opt.prix)) || 0;
-                const finalAmount = prix > 0 ? prix : baseAmount;
+                const finalAmount = basePrice > 0 ? baseAmount + prix : prix > 0 ? prix : baseAmount;
                 const selected: OptionSel[] = [{ type: ot.type, valeur: opt.valeur, prix }];
                 addProduct({
                     category: item.category,
@@ -384,17 +384,23 @@ export const Category: FC = () => {
             const isNewPrice = amount && amount !== selectedProduct?.amount;
             const baseAmount = isNewPrice ? amount : basePrice;
 
-            selectOptionsChain(optionTypes, [], 0, (selected) => {
-                const extra = selected.reduce((s, o) => s + o.prix, 0);
-                addProduct({
-                    category: item.category,
-                    label: product.label,
-                    quantity: 1,
-                    discount: EmptyDiscount,
-                    amount: baseAmount + extra,
-                    options: JSON.stringify(selected),
-                });
-            });
+            selectOptionsChain(
+                optionTypes,
+                [],
+                0,
+                (selected) => {
+                    const extra = selected.reduce((s, o) => s + o.prix, 0);
+                    addProduct({
+                        category: item.category,
+                        label: product.label,
+                        quantity: 1,
+                        discount: EmptyDiscount,
+                        amount: baseAmount + extra,
+                        options: JSON.stringify(selected),
+                    });
+                },
+                basePrice
+            );
         }
     };
 
