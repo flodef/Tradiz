@@ -7,11 +7,12 @@ import { IS_DEV, USE_DIGICARTE, WEB_URL } from '../utils/constants';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { Category } from './Category';
 import { NumPad } from './NumPad';
+import { OrderBadge } from './OrderBadge';
 import { Total } from './Total';
 
 export const MainContent: FC = () => {
     const { isStateReady } = useConfig();
-    const { setOrderId, setOrderData, addProduct, clearTotal, shortNumOrder, orderId } = useData();
+    const { setOrderId, setOrderData, addProduct, clearTotal, shortNumOrder, setShortNumOrder, orderId } = useData();
 
     // Listen for ORDER_ID messages from parent (kitchen iframe)
     useEffect(() => {
@@ -41,12 +42,13 @@ export const MainContent: FC = () => {
                     console.error('Failed to load order data:', error);
                 }
 
-                // Load order items as products
+                // Load order items as products (+ shortNumOrder)
                 try {
                     const res = await fetch(`/api/sql/getOrderItems?orderId=${orderId}`);
                     if (res.ok) {
-                        const products = await res.json();
-                        products.forEach(addProduct);
+                        const data = await res.json();
+                        if (data.shortNumOrder) setShortNumOrder(data.shortNumOrder);
+                        (data.products || []).forEach(addProduct);
                     }
                 } catch (error) {
                     console.error('Failed to load order items:', error);
@@ -62,7 +64,7 @@ export const MainContent: FC = () => {
         return () => {
             window.removeEventListener('message', handleMessage);
         };
-    }, [setOrderId, setOrderData, addProduct, clearTotal]);
+    }, [setOrderId, setOrderData, setShortNumOrder, addProduct, clearTotal]);
 
     const handleClick = () => {
         if (isStateReady && !isFullscreen() && !IS_DEV && !USE_DIGICARTE) requestFullscreen();
@@ -70,11 +72,7 @@ export const MainContent: FC = () => {
 
     return (
         <div className="z-10 flex flex-col justify-between" onClick={handleClick}>
-            {orderId && shortNumOrder && (
-                <span className="fixed top-3 left-4 hidden md:block text-2xl font-bold opacity-75 select-none pointer-events-none z-50">
-                    Commande #{shortNumOrder}
-                </span>
-            )}
+            <OrderBadge orderId={orderId} shortNumOrder={shortNumOrder} />
             <Total />
             <NumPad />
             <Category />
