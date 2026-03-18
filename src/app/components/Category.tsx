@@ -58,7 +58,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
 export const Category: FC = () => {
     const { inventory, state, setState, currencyIndex, parameters } = useConfig();
     const { addProduct, amount, setSelectedProduct, clearAmount, selectedProduct } = useData();
-    const { openPopup, openFullscreenPopup, closePopup } = usePopup();
+    const { openPopup, updatePopup, openFullscreenPopup, closePopup } = usePopup();
     const { isLocalhost, isDemo } = useWindowParam();
 
     const [hasSentEmail, setHasSentEmail] = useState(false);
@@ -283,7 +283,43 @@ export const Category: FC = () => {
         isLocalhost,
     ]);
 
-    // ── Open the product list popup for a category, with ▸ arrows on items that have options ──
+    // Saved scroll position of the product list popup so we can restore it when coming back from options
+    const productListScrollRef = useRef(0);
+
+    // Helper: get current popup scroll position
+    const getPopupScroll = () => document.getElementById('popup')?.scrollTop ?? 0;
+
+    // ── Build the product list popup content for a category ──
+    const buildProductListPopup = (item: InventoryItem) => {
+        const sorted = [...item.products].sort((a, b) => a.label.localeCompare(b.label));
+        const ARROW = ' ▸';
+        const entries: string[] = sorted.map((p) => (p.options ? `${p.label}${ARROW}` : p.label));
+        entries.push('', OTHER_KEYWORD);
+
+        const action = (index: number, option: string) => {
+            if (index < 0) {
+                // Popup is already being closed by the overlay/X button
+                setSelectedProduct(undefined);
+                clearAmount();
+                return;
+            }
+            if (index >= sorted.length) {
+                closePopup(() => handleProductSelection(item, option));
+                return;
+            }
+            const product = sorted[index];
+            if (product.options) {
+                productListScrollRef.current = getPopupScroll();
+                openOptionsSubPopup(item, product);
+            } else {
+                closePopup(() => handleProductSelection(item, product.label));
+            }
+        };
+
+        return { title: item.category, entries, action };
+    };
+
+    // ── Open the product list popup (first time — popup not yet visible) ──
     const openProductListPopup = (item: InventoryItem) => {
         setSelectedProduct({
             category: item.category,
@@ -292,33 +328,14 @@ export const Category: FC = () => {
             discount: EmptyDiscount,
             amount: 0,
         });
+        const { title, entries, action } = buildProductListPopup(item);
+        openPopup(title, entries, action, true);
+    };
 
-        const sorted = [...item.products].sort((a, b) => a.label.localeCompare(b.label));
-
-        // Build popup entries: append ▸ arrow for products with options
-        const ARROW = ' ▸';
-        const entries: string[] = sorted.map((p) => (p.options ? `${p.label}${ARROW}` : p.label));
-        entries.push('', OTHER_KEYWORD);
-
-        openPopup(item.category, entries, (index, option) => {
-            if (index < 0) {
-                setSelectedProduct(undefined);
-                clearAmount();
-                return;
-            }
-            // "Autre" or separator
-            if (index >= sorted.length) {
-                handleProductSelection(item, option);
-                return;
-            }
-            const product = sorted[index];
-            if (product.options) {
-                // Open options sub-popup
-                openOptionsSubPopup(item, product);
-            } else {
-                handleProductSelection(item, product.label);
-            }
-        });
+    // ── Return to the product list popup in-place (no close/reopen) ──
+    const returnToProductListPopup = (item: InventoryItem) => {
+        const { title, entries, action } = buildProductListPopup(item);
+        updatePopup(title, entries, action, productListScrollRef.current);
     };
 
     // ── Options sub-popup: shows option values for a product with a back button ──
@@ -330,7 +347,6 @@ export const Category: FC = () => {
         try {
             optionTypes = JSON.parse(product.options!) as OptionDef[];
         } catch {
-            // Malformed options → just add product directly
             handleProductSelection(item, product.label);
             return;
         }
@@ -339,8 +355,6 @@ export const Category: FC = () => {
             return;
         }
 
-        // Flatten all option choices into a single list
-        // For single-type options, show choices directly; for multi-type, chain through selectOptionsChain
         if (optionTypes.length === 1) {
             const ot = optionTypes[0];
             const basePrice = product.prices[currencyIndex] ?? 0;
@@ -354,32 +368,35 @@ export const Category: FC = () => {
             });
             choices.push('', BACK_KEYWORD);
 
-            openPopup(`${product.label} — ${ot.type}`, choices, (i) => {
+            // Update popup content in-place (no flicker)
+            updatePopup(`${product.label} — ${ot.type}`, choices, (i) => {
                 if (i < 0) {
-                    // X button → go back to product list
-                    openProductListPopup(item);
+                    // X/overlay close — popup is already closing
+                    setSelectedProduct(undefined);
+                    clearAmount();
                     return;
                 }
                 if (i >= ot.options.length) {
-                    // Back button
-                    openProductListPopup(item);
+                    // "← Retour" button — go back to product list in-place
+                    returnToProductListPopup(item);
                     return;
                 }
                 const opt = ot.options[i];
                 const prix = parseFloat(String(opt.prix)) || 0;
                 const finalAmount = basePrice > 0 ? baseAmount + prix : prix > 0 ? prix : baseAmount;
                 const selected: OptionSel[] = [{ type: ot.type, valeur: opt.valeur, prix }];
-                addProduct({
-                    category: item.category,
-                    label: product.label,
-                    quantity: 1,
-                    discount: EmptyDiscount,
-                    amount: finalAmount,
-                    options: JSON.stringify(selected),
-                });
+                closePopup(() =>
+                    addProduct({
+                        category: item.category,
+                        label: product.label,
+                        quantity: 1,
+                        discount: EmptyDiscount,
+                        amount: finalAmount,
+                        options: JSON.stringify(selected),
+                    })
+                );
             });
         } else {
-            // Multi-type options → use the existing chain, then add product
             const basePrice = product.prices[currencyIndex] ?? 0;
             const isNewPrice = amount && amount !== selectedProduct?.amount;
             const baseAmount = isNewPrice ? amount : basePrice;

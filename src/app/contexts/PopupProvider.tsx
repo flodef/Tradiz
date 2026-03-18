@@ -41,6 +41,26 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
         []
     );
 
+    const updatePopup = useCallback(
+        (
+            title: string,
+            options: (string | ReactNode)[],
+            action?: (index: number, option: string) => void,
+            scrollTop?: number
+        ) => {
+            setPopupTitle(title);
+            setPopupOptions(options);
+            setPopupAction(() => action);
+            if (scrollTop !== undefined) {
+                requestAnimationFrame(() => {
+                    const el = document.getElementById('popup');
+                    if (el) el.scrollTop = scrollTop;
+                });
+            }
+        },
+        []
+    );
+
     const openFullscreenPopup = useCallback(
         (
             title: string,
@@ -66,6 +86,7 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
             value={{
                 isPopupOpen,
                 openPopup,
+                updatePopup,
                 openFullscreenPopup,
                 closePopup,
                 popupTitle,

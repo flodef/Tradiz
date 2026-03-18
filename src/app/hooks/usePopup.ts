@@ -10,6 +10,12 @@ export interface PopupContextState {
         specialAction?: (index: number) => void,
         isSpecial?: (option: string) => boolean
     ) => void;
+    updatePopup: (
+        title: string,
+        options: (string | ReactNode)[],
+        action?: (index: number, option: string) => void,
+        scrollTop?: number
+    ) => void;
     openFullscreenPopup: (
         title: string,
         options: string[] | ReactNode[],
