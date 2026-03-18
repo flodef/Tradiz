@@ -1056,7 +1056,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     }
                     // Regular product with paid/free options
                     const parts = parsed.map((o) =>
-                        o.prix > 0 ? `${o.valeur} (+${toCurrency({ amount: o.prix, currency })})` : o.valeur
+                        o.prix > 0 && o.prix !== product.amount
+                            ? `${o.valeur} (+${toCurrency({ amount: o.prix, currency })})`
+                            : o.valeur
                     );
                     if (parts.length > 0) {
                         return `${name} [${parts.join(', ')}]${priceSuffix}`;
