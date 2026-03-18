@@ -3,7 +3,7 @@
 import { FC, useEffect } from 'react';
 import { useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
-import { IS_DEV, NEED_FULLSCREEN } from '../utils/constants';
+import { IS_DEV, USE_DIGICARTE, WEB_URL } from '../utils/constants';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { Category } from './Category';
 import { NumPad } from './NumPad';
@@ -15,8 +15,10 @@ export const MainContent: FC = () => {
 
     // Listen for ORDER_ID messages from parent (kitchen iframe)
     useEffect(() => {
+        if (!USE_DIGICARTE) return;
+
         const handleMessage = async (event: MessageEvent) => {
-            if (event.origin !== process.env.NEXT_PUBLIC_WEB_URL) return;
+            if (event.origin !== WEB_URL) return;
 
             if (event.data && event.data.type === 'ORDER_ID') {
                 const orderId = event.data.orderId;
@@ -63,7 +65,7 @@ export const MainContent: FC = () => {
     }, [setOrderId, setOrderData, addProduct, clearTotal]);
 
     const handleClick = () => {
-        if (isStateReady && !isFullscreen() && !IS_DEV && NEED_FULLSCREEN) requestFullscreen();
+        if (isStateReady && !isFullscreen() && !IS_DEV && !USE_DIGICARTE) requestFullscreen();
     };
 
     return (

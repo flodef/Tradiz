@@ -27,6 +27,7 @@ import {
     TRANSACTIONS_KEYWORD,
     UPDATING_KEYWORD,
     WAITING_KEYWORD,
+    USE_DIGICARTE,
 } from '../utils/constants';
 import { getFormattedDate, getTransactionFileName, toSQLDateTime } from '../utils/date';
 import {
@@ -158,7 +159,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const localTransactions = JSON.parse(localStorage.getItem(filename) || '[]') as Transaction[];
 
             // If SQL DB is enabled, merge SQL data into local (latest modifiedDate wins)
-            if (process.env.NEXT_PUBLIC_USE_SQLDB) {
+            if (USE_DIGICARTE) {
                 const sqlTransactions = await loadTransactionsFromSQL();
                 if (sqlTransactions?.length) {
                     const merged = mergeTransactionArrays(localTransactions, sqlTransactions);
@@ -236,7 +237,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, [parameters.shop.name, getNextResetTime, performDayReset]);
 
     useEffect(() => {
-        if (IS_DEV || isDemo || process.env.NEXT_PUBLIC_USE_SQLDB) return;
+        if (IS_DEV || isDemo || USE_DIGICARTE) return;
 
         fetch(`/api/firebase`)
             .catch((error) => {
@@ -545,7 +546,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const processSync = useCallback(
         (ids: string | string[], syncPeriod: SyncPeriod) => {
             // Use SQL DB if enabled
-            if (process.env.NEXT_PUBLIC_USE_SQLDB) {
+            if (USE_DIGICARTE) {
                 processSyncFromSQL(syncPeriod);
                 return;
             }
@@ -576,7 +577,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const syncTransactions = useCallback(
         (period: SyncPeriod, filename = transactionsFilename) => {
             // For SQL DB, directly use processSync which handles SQL logic
-            if (process.env.NEXT_PUBLIC_USE_SQLDB) {
+            if (USE_DIGICARTE) {
                 if (!filename || convertTransactionsData(ConvertAction.local)) return;
                 processSync(filename, period);
                 return;
@@ -600,7 +601,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     useEffect(() => {
         // For SQL DB mode, only sync transactions without Firebase real-time listener
-        if (process.env.NEXT_PUBLIC_USE_SQLDB) {
+        if (USE_DIGICARTE) {
             if (!transactionsFilename) return;
             syncTransactions(SyncPeriod.day);
             return;
@@ -696,7 +697,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const processTransactions = useCallback(
         (syncAction: SyncAction, date?: Date, event?: ChangeEvent<HTMLInputElement>) => {
             // Allow processing with SQL DB or Firebase
-            if (!firestore && !process.env.NEXT_PUBLIC_USE_SQLDB) return;
+            if (!firestore && !USE_DIGICARTE) return;
 
             const filename = date ? getTransactionFileName(shopId, date) : transactionsFilename;
             switch (syncAction) {
@@ -755,7 +756,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }
             }
 
-            if (process.env.NEXT_PUBLIC_USE_SQLDB) {
+            if (USE_DIGICARTE) {
                 try {
                     // Prepare the transaction data for SQL DB
                     const sqlTransactionData = {

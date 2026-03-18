@@ -8,7 +8,7 @@ import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { useWindowParam } from '../hooks/useWindowParam';
 import Loading, { LoadingType } from '../loading';
-import { EMAIL, OTHER_KEYWORD } from '../utils/constants';
+import { EMAIL, OTHER_KEYWORD, USE_DIGICARTE, WEB_URL } from '../utils/constants';
 import { useIsMobileDevice } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
 import { useAddPopupClass } from './Popup';
@@ -284,8 +284,10 @@ export const Category: FC = () => {
     ]);
 
     useEffect(() => {
+        if (!USE_DIGICARTE) return;
+
         const handler = (e: MessageEvent) => {
-            if (e.origin !== process.env.NEXT_PUBLIC_WEB_URL) return;
+            if (e.origin !== WEB_URL) return;
             if (e.data?.type === 'ORDER_ID') {
                 clearTotal(); // Clear existing products before adding new ones
 

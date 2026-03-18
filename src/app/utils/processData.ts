@@ -10,7 +10,7 @@ import {
     Role,
     User,
 } from '../utils/interfaces';
-import { DEFAULT_USER, EMAIL } from './constants';
+import { DEFAULT_USER, EMAIL, USE_DIGICARTE } from './constants';
 import './extensions';
 import { generateSimpleId } from './id';
 
@@ -112,11 +112,9 @@ export function getPublicKey() {
 
 export async function loadData(shop: string, shouldUseLocalData = false): Promise<Config | undefined> {
     // TODO: use fee
-    const useSqlDb = process.env.NEXT_PUBLIC_USE_SQLDB?.toLowerCase() === 'true';
-
     const id = shouldUseLocalData
         ? undefined // if the app is used locally, use the local data
-        : useSqlDb
+        : USE_DIGICARTE
           ? ''
           : typeof shop === 'string' // if shop is a string, it means that the app is used by a customer (custom path)
             ? await fetch(`/api/spreadsheet?sheetName=index`)
@@ -219,7 +217,7 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
 }
 
 async function fetchData(dataName: DataName, id: string | undefined, isRaw = true) {
-    const url = process.env.NEXT_PUBLIC_USE_SQLDB
+    const url = USE_DIGICARTE
         ? `/api/sql/${dataName.sql}`
         : id !== undefined
           ? `/api/spreadsheet?sheetName=${dataName.sheet}&id=${id}&isRaw=${isRaw.toString()}`

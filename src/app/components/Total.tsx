@@ -14,12 +14,13 @@ import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
-import { BACK_KEYWORD, REFUND_KEYWORD, UPDATING_KEYWORD, WAITING_KEYWORD } from '../utils/constants';
+import { BACK_KEYWORD, REFUND_KEYWORD, UPDATING_KEYWORD, WAITING_KEYWORD, USE_DIGICARTE } from '../utils/constants';
 import { isMobileSize, useIsMobile, useIsMobileDevice } from '../utils/mobile';
 import { Amount } from './Amount';
 import { useAddPopupClass } from './Popup';
 import { OrderItem, Transaction } from '../utils/interfaces';
 import { OrderItemsSelector } from './OrderItemsSelector';
+import { CLOSE, postMessageToParent } from '../utils/message';
 
 const payLabel = 'PAYER';
 const totalLabel = 'TOTAL';
@@ -571,6 +572,17 @@ export const Total: FC = () => {
                         {'Ticket : ' + visibleTransactions.length}
                         <span className="text-xl">{`vente${(visibleTransactions.length ?? 0) > 1 ? 's' : ''}`}</span>
                     </span>
+                )}
+                {USE_DIGICARTE && (
+                    <button
+                        className="absolute top-2 right-2 w-10 h-10 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-600 active:bg-red-700 text-white text-2xl font-bold z-50"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            postMessageToParent(CLOSE);
+                        }}
+                    >
+                        ×
+                    </button>
                 )}
             </div>
 

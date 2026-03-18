@@ -9,6 +9,7 @@ import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
 import { useData } from './useData';
 import { usePopup } from './usePopup';
+import { CLOSE, postMessageToParent, REFRESH } from '../utils/message';
 
 export type ReceiptData = {
     shop: Shop;
@@ -55,8 +56,7 @@ export const usePay = () => {
         getPrinterAddresses,
         inventory,
         modeFonctionnement,
-    } =
-        useConfig();
+    } = useConfig();
 
     // Ref local pour éviter de redemander le type de service lors de l'appel récursif à pay()
     const serviceTypeSelectedRef = useRef(false);
@@ -338,9 +338,7 @@ export const usePay = () => {
 
                     // Notify parent window (kitchen view) to refresh orders
                     // Use REFRESH_ORDERS instead of PAYMENT_COMPLETE to avoid closing the cashier
-                    if (window.parent && window.parent !== window) {
-                        window.parent.postMessage({ type: 'REFRESH_ORDERS' }, process.env.NEXT_PUBLIC_WEB_URL || '*');
-                    }
+                    postMessageToParent(REFRESH);
 
                     // Reset selection after successful payment
                     setSelectedOrderItems([]);
@@ -361,12 +359,7 @@ export const usePay = () => {
                             setOrderId('');
                             setOrderData(null);
 
-                            if (window.parent && window.parent !== window) {
-                                window.parent.postMessage(
-                                    { type: 'CLOSE_CAISSE' },
-                                    process.env.NEXT_PUBLIC_WEB_URL || '*'
-                                );
-                            }
+                            postMessageToParent(CLOSE);
                         }
                         // If X is clicked (index < 0), keep orderId/orderData to prevent full payment
                     });
