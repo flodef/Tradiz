@@ -50,7 +50,7 @@ export interface PaymentMethod {
 export interface InventoryItem {
     category: string;
     rate: number;
-    products: { label: string; prices: number[] }[];
+    products: { label: string; prices: number[]; options?: string | null }[];
 }
 
 export interface Discount {

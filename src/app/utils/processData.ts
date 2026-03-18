@@ -44,6 +44,7 @@ interface ProductData {
         category: string;
         label: string;
         prices: number[];
+        options?: string | null;
     }[];
     currencies: string[];
 }
@@ -117,21 +118,21 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
         ? undefined // if the app is used locally, use the local data
         : useSqlDb
           ? ''
-        : typeof shop === 'string' // if shop is a string, it means that the app is used by a customer (custom path)
-          ? await fetch(`/api/spreadsheet?sheetName=index`)
-                .then(convertIndexData)
-                .then(
-                    (data) =>
-                        data
-                            .filter(({ shop: s }) => s === shop)
-                            .map(({ id }) => id)
-                            .at(0) ?? undefined
-                )
-                .catch((error) => {
-                    console.error(error);
-                    return undefined;
-                })
-          : ''; // if shop is not a string, it means that the app is used by a shop (root path)
+          : typeof shop === 'string' // if shop is a string, it means that the app is used by a customer (custom path)
+            ? await fetch(`/api/spreadsheet?sheetName=index`)
+                  .then(convertIndexData)
+                  .then(
+                      (data) =>
+                          data
+                              .filter(({ shop: s }) => s === shop)
+                              .map(({ id }) => id)
+                              .at(0) ?? undefined
+                  )
+                  .catch((error) => {
+                      console.error(error);
+                      return undefined;
+                  })
+            : ''; // if shop is not a string, it means that the app is used by a shop (root path)
 
     if (id !== undefined && !navigator.onLine) throw new AppOfflineError();
 
@@ -189,6 +190,7 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
             category.products.push({
                 label: item.label,
                 prices: item.prices,
+                options: item.options,
             });
         } else {
             inventory.push({
@@ -198,6 +200,7 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
                     {
                         label: item.label,
                         prices: item.prices,
+                        options: item.options,
                     },
                 ],
             });
@@ -428,26 +431,38 @@ async function convertPrintersData(response: void | Response): Promise<Printer[]
 async function convertProductsData(response: void | Response): Promise<ProductData | undefined> {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
-        return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
-            checkData(data, 4, 10);
+        return await response
+            .json()
+            .then(
+                (data: { values: (string | number)[][]; options?: (string | null)[]; error: { message: string } }) => {
+                    checkData(data, 4, 10);
 
-            return {
-                products: data.values
-                    .removeHeader()
-                    .removeEmpty(1, 2)
-                    .filter((item) => !item.at(3))
-                    .map((item) => {
-                        checkColumn(item, 4);
-                        return {
-                            rate: Number(item.at(0)) * 100,
-                            category: normalizedString(item.at(1)),
-                            label: normalizedString(item.at(2)),
-                            prices: item.filter((_, i) => i >= 4).map((price) => Number(price)),
-                        };
-                    }),
-                currencies: data.values[0].filter((_, i) => i >= 4).map((currency) => String(currency).trim()),
-            };
-        });
+                    // Build a mapping from filtered row index → options string
+                    const rowsAfterHeader = data.values.slice(1);
+                    const optionsArr = data.options ?? [];
+
+                    // Track which original rows survive the removeEmpty + filter pipeline
+                    const filtered = rowsAfterHeader
+                        .map((item, origIdx) => ({ item, origIdx }))
+                        .filter(({ item }) => item[1] != null && String(item[1]).trim() !== '')
+                        .filter(({ item }) => item[2] != null && String(item[2]).trim() !== '')
+                        .filter(({ item }) => !item[3]);
+
+                    return {
+                        products: filtered.map(({ item, origIdx }) => {
+                            checkColumn(item, 4);
+                            return {
+                                rate: Number(item.at(0)) * 100,
+                                category: normalizedString(item.at(1)),
+                                label: normalizedString(item.at(2)),
+                                prices: item.filter((_, i) => i >= 4).map((price) => Number(price)),
+                                options: optionsArr[origIdx] ?? null,
+                            };
+                        }),
+                        currencies: data.values[0].filter((_, i) => i >= 4).map((currency) => String(currency).trim()),
+                    };
+                }
+            );
     } catch (error) {
         console.error(error);
         return;

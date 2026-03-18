@@ -1,22 +1,17 @@
+import { AdminProduct } from '../sections/ProductsConfig';
 import ValidatedInput from '../ValidatedInput';
 import SearchableSelect from '../SearchableSelect';
 import Switch from '../Switch';
 
 interface ProductItemProps {
-    product: any;
-    onChange: (product: any) => void;
+    product: AdminProduct;
+    onChange: (product: AdminProduct) => void;
     onDelete: () => void;
-    categories: { label: string; value: any }[];
-    currencies: { label: string; value: any }[];
+    categories: { label: string; value: string }[];
+    currencies: { label: string; value: string }[];
 }
 
-export default function ProductItem({
-    product,
-    onChange,
-    onDelete,
-    categories,
-    currencies,
-}: ProductItemProps) {
+export default function ProductItem({ product, onChange, onDelete, categories, currencies }: ProductItemProps) {
     return (
         <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4 mb-4">
             <div className="flex justify-end">
@@ -31,8 +26,8 @@ export default function ProductItem({
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom</label>
                     <ValidatedInput
-                        value={product.Name}
-                        onChange={(value) => onChange({ ...product, Name: value })}
+                        value={product.name}
+                        onChange={(value) => onChange({ ...product, name: String(value) })}
                         placeholder="Nom du produit"
                     />
                 </div>
@@ -40,24 +35,30 @@ export default function ProductItem({
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Catégorie</label>
                     <SearchableSelect
                         options={categories}
-                        value={product.Category}
-                        onChange={(value) => onChange({ ...product, Category: value })}
+                        value={product.category}
+                        onChange={(value) =>
+                            onChange({ ...product, category: Array.isArray(value) ? value[0] : value })
+                        }
                         placeholder="Sélectionner une catégorie"
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Disponibilité</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Disponibilité
+                    </label>
                     <Switch
-                        checked={product.Availability}
-                        onChange={(checked) => onChange({ ...product, Availability: checked })}
+                        checked={product.availability}
+                        onChange={(checked) => onChange({ ...product, availability: checked })}
                     />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Devises</label>
                     <SearchableSelect
                         options={currencies}
-                        value={product.Currencies}
-                        onChange={(value) => onChange({ ...product, Currencies: value })}
+                        value={product.currencies}
+                        onChange={(value) =>
+                            onChange({ ...product, currencies: Array.isArray(value) ? value : [value] })
+                        }
                         placeholder="Sélectionner les devises"
                         isMulti={true}
                     />

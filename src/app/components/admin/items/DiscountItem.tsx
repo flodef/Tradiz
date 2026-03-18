@@ -1,19 +1,15 @@
+import { Discount } from '@/app/utils/interfaces';
 import ValidatedInput from '../ValidatedInput';
 
 interface DiscountItemProps {
-    discount: any;
-    onChange: (discount: any) => void;
+    discount: Discount;
+    onChange: (discount: Discount) => void;
     onDelete: () => void;
-    currencies: { label: string; value: any }[];
+    currencies: { label: string; value: string }[];
 }
 
-export default function DiscountItem({
-    discount,
-    onChange,
-    onDelete,
-    currencies,
-}: DiscountItemProps) {
-    const units = ['%', ...currencies.map(c => c.label)];
+export default function DiscountItem({ discount, onChange, onDelete, currencies }: DiscountItemProps) {
+    const units = ['%', ...currencies.map((c) => c.label)];
 
     return (
         <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4 mb-4">
@@ -30,20 +26,22 @@ export default function DiscountItem({
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Montant</label>
                     <ValidatedInput
                         type="number"
-                        value={discount.Amount}
-                        onChange={(value) => onChange({ ...discount, Amount: value })}
+                        value={discount.amount}
+                        onChange={(value) => onChange({ ...discount, amount: Number(value) })}
                         placeholder="Montant de la réduction"
                     />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unité</label>
                     <select
-                        value={discount.Unity}
-                        onChange={(e) => onChange({ ...discount, Unity: e.target.value })}
+                        value={discount.unit}
+                        onChange={(e) => onChange({ ...discount, unit: e.target.value })}
                         className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
                     >
-                        {units.map(unit => (
-                            <option key={unit} value={unit}>{unit}</option>
+                        {units.map((unit) => (
+                            <option key={unit} value={unit}>
+                                {unit}
+                            </option>
                         ))}
                     </select>
                 </div>

@@ -1,16 +1,13 @@
+import { Role, User } from '@/app/utils/interfaces';
 import ValidatedInput from '../ValidatedInput';
 
 interface UserItemProps {
-    user: any;
-    onChange: (user: any) => void;
+    user: User;
+    onChange: (user: User) => void;
     onDelete: () => void;
 }
 
-export default function UserItem({
-    user,
-    onChange,
-    onDelete,
-}: UserItemProps) {
+export default function UserItem({ user, onChange, onDelete }: UserItemProps) {
     const roles = ['Cashier', 'Service', 'Kitchen'];
 
     return (
@@ -27,28 +24,30 @@ export default function UserItem({
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Clé</label>
                     <ValidatedInput
-                        value={user.Key}
-                        onChange={(value) => onChange({ ...user, Key: value })}
+                        value={user.key ?? ''}
+                        onChange={(value) => onChange({ ...user, key: String(value) })}
                         placeholder="Clé de l'utilisateur"
                     />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom</label>
                     <ValidatedInput
-                        value={user.Name}
-                        onChange={(value) => onChange({ ...user, Name: value })}
+                        value={user.name}
+                        onChange={(value) => onChange({ ...user, name: String(value) })}
                         placeholder="Nom de l'utilisateur"
                     />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rôle</label>
                     <select
-                        value={user.Role}
-                        onChange={(e) => onChange({ ...user, Role: e.target.value })}
+                        value={user.role}
+                        onChange={(e) => onChange({ ...user, role: e.target.value as Role })}
                         className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
                     >
-                        {roles.map(role => (
-                            <option key={role} value={role}>{role}</option>
+                        {roles.map((role) => (
+                            <option key={role} value={role}>
+                                {role}
+                            </option>
                         ))}
                     </select>
                 </div>

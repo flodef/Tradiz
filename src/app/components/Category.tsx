@@ -306,6 +306,130 @@ export const Category: FC = () => {
         return () => window.removeEventListener('message', handler);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // ── Open the product list popup for a category, with ▸ arrows on items that have options ──
+    const openProductListPopup = (item: InventoryItem) => {
+        setSelectedProduct({
+            category: item.category,
+            label: OTHER_KEYWORD,
+            quantity: 0,
+            discount: EmptyDiscount,
+            amount: 0,
+        });
+
+        const sorted = [...item.products].sort((a, b) => a.label.localeCompare(b.label));
+
+        // Build popup entries: ReactNode with arrow for products with options, plain string otherwise
+        const entries: (string | React.ReactNode)[] = sorted.map((p) => {
+            const hasOpts = !!p.options;
+            if (hasOpts) {
+                return (
+                    <div key={p.label} className="flex w-full items-center justify-between pr-3">
+                        <span>{p.label}</span>
+                        <span className="text-secondary-active-light dark:text-secondary-active-dark">▸</span>
+                    </div>
+                );
+            }
+            return p.label;
+        });
+        entries.push('', OTHER_KEYWORD);
+
+        openPopup(item.category, entries, (index, option) => {
+            if (index < 0) {
+                setSelectedProduct(undefined);
+                clearAmount();
+                return;
+            }
+            // "Autre" or separator
+            if (index >= sorted.length) {
+                handleProductSelection(item, option);
+                return;
+            }
+            const product = sorted[index];
+            if (product.options) {
+                // Open options sub-popup
+                openOptionsSubPopup(item, product);
+            } else {
+                handleProductSelection(item, product.label);
+            }
+        });
+    };
+
+    // ── Options sub-popup: shows option values for a product with a back button ──
+    const openOptionsSubPopup = (
+        item: InventoryItem,
+        product: { label: string; prices: number[]; options?: string | null }
+    ) => {
+        let optionTypes: OptionDef[];
+        try {
+            optionTypes = JSON.parse(product.options!) as OptionDef[];
+        } catch {
+            // Malformed options → just add product directly
+            handleProductSelection(item, product.label);
+            return;
+        }
+        if (!optionTypes || optionTypes.length === 0) {
+            handleProductSelection(item, product.label);
+            return;
+        }
+
+        // Flatten all option choices into a single list
+        // For single-type options, show choices directly; for multi-type, chain through selectOptionsChain
+        if (optionTypes.length === 1) {
+            const ot = optionTypes[0];
+            const basePrice = product.prices[currencyIndex] ?? 0;
+            const isNewPrice = amount && amount !== selectedProduct?.amount;
+            const baseAmount = isNewPrice ? amount : basePrice;
+
+            const choices: string[] = ot.options.map((o) => {
+                const p = parseFloat(String(o.prix)) || 0;
+                return p !== basePrice && p > 0 ? `${o.valeur} (${p.toFixed(2)}€)` : o.valeur;
+            });
+            choices.push('', '← Retour');
+
+            openPopup(`${product.label} — ${ot.type}`, choices, (i) => {
+                if (i < 0) {
+                    // X button → go back to product list
+                    openProductListPopup(item);
+                    return;
+                }
+                if (i >= ot.options.length) {
+                    // "← Retour" button
+                    openProductListPopup(item);
+                    return;
+                }
+                const opt = ot.options[i];
+                const prix = parseFloat(String(opt.prix)) || 0;
+                const finalAmount = prix > 0 ? prix : baseAmount;
+                const selected: OptionSel[] = [{ type: ot.type, valeur: opt.valeur, prix }];
+                addProduct({
+                    category: item.category,
+                    label: product.label,
+                    quantity: 1,
+                    discount: EmptyDiscount,
+                    amount: finalAmount,
+                    options: JSON.stringify(selected),
+                });
+            });
+        } else {
+            // Multi-type options → use the existing chain, then add product
+            const basePrice = product.prices[currencyIndex] ?? 0;
+            const isNewPrice = amount && amount !== selectedProduct?.amount;
+            const baseAmount = isNewPrice ? amount : basePrice;
+
+            selectOptionsChain(optionTypes, [], 0, (selected) => {
+                const extra = selected.reduce((s, o) => s + o.prix, 0);
+                addProduct({
+                    category: item.category,
+                    label: product.label,
+                    quantity: 1,
+                    discount: EmptyDiscount,
+                    amount: baseAmount + extra,
+                    options: JSON.stringify(selected),
+                });
+            });
+        }
+    };
+
     const onInput = (input: string, eventType: string) => {
         const item =
             inventory.find(({ category }) => category === input) ??
@@ -324,32 +448,16 @@ export const Category: FC = () => {
         }
 
         if (item.products.length === 1) {
-            handleProductSelection(item, item.products[0].label);
+            const product = item.products[0];
+            if (product.options) {
+                openOptionsSubPopup(item, product);
+            } else {
+                handleProductSelection(item, product.label);
+            }
             return;
         }
 
-        setSelectedProduct({
-            category: item.category,
-            label: OTHER_KEYWORD,
-            quantity: 0,
-            discount: EmptyDiscount,
-            amount: 0,
-        });
-        openPopup(
-            item.category,
-            item.products
-                .map(({ label }) => label)
-                .sort((a, b) => a.localeCompare(b))
-                .concat('', OTHER_KEYWORD),
-            (index, option) => {
-                if (index < 0) {
-                    setSelectedProduct(undefined);
-                    clearAmount();
-                    return;
-                }
-                handleProductSelection(item, option);
-            }
-        );
+        openProductListPopup(item);
     };
 
     const categories = useMemo(() => inventory.map(({ category }) => category), [inventory]);
