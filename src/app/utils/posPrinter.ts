@@ -6,6 +6,7 @@ import { Shop } from '../contexts/ConfigProvider';
 import { ReceiptData } from '../hooks/usePay';
 import { SummaryData } from '../hooks/useSummary';
 import { IS_DEV, PROCESSING_KEYWORD, WAITING_KEYWORD } from './constants';
+import { SERVICE_TYPE_LABELS } from './interfaces';
 import { formatFrenchDate, generateReceiptNumber } from './date';
 import { createMockPrinter } from './mockPrinter';
 import { Currency } from './interfaces';
@@ -138,7 +139,7 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
         printer.println(`N° de reçu : ${receiptNumber}`);
         if (receiptData.orderNumber) printer.println(`N° de commande : ${receiptData.orderNumber}`);
         if (receiptData.serviceType) {
-            const serviceLabel = receiptData.serviceType === 'sur_place' ? 'Sur place' : 'À emporter';
+            const serviceLabel = SERVICE_TYPE_LABELS[receiptData.serviceType];
             printer.println(`Service : ${serviceLabel}`);
         }
         if (receiptData.transaction.validator) printer.println(`Vendeur•se : ${receiptData.transaction.validator}`);

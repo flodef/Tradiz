@@ -3,7 +3,7 @@ import { QRCode } from '../components/QRCode';
 import { Shop } from '../contexts/ConfigProvider';
 import { isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
 import { IS_LOCAL, PRINT_KEYWORD, REFUND_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
-import { Currency, InventoryItem, Transaction } from '../utils/interfaces';
+import { Currency, InventoryItem, SERVICE_TYPE_LABELS, ServiceType, Transaction } from '../utils/interfaces';
 import { printReceipt } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
@@ -19,7 +19,7 @@ export type ReceiptData = {
     userName: string;
     inventory?: InventoryItem[];
     orderNumber?: string;
-    serviceType?: 'emporter' | 'sur_place';
+    serviceType?: ServiceType;
 };
 
 export const usePay = () => {
@@ -431,10 +431,11 @@ export const usePay = () => {
             if (modeFonctionnement === 'fastfood' && !orderId && !serviceTypeSelectedRef.current) {
                 openPopup(
                     'Type de service',
-                    ['Sur place', 'À emporter'],
+                    Object.values(SERVICE_TYPE_LABELS),
                     (index) => {
                         if (index < 0) return; // annulé
-                        setCounterServiceType(index === 0 ? 'sur_place' : 'emporter');
+                        const types = Object.keys(SERVICE_TYPE_LABELS) as ServiceType[];
+                        setCounterServiceType(types[index]);
                         serviceTypeSelectedRef.current = true;
                         closePopup(() => pay());
                     },

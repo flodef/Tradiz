@@ -1,5 +1,14 @@
 import { ChangeEvent, createContext, RefObject, useContext } from 'react';
-import { Discount, Mercurial, OrderData, OrderItem, Product, SyncAction, Transaction } from '../utils/interfaces';
+import {
+    Discount,
+    Mercurial,
+    OrderData,
+    OrderItem,
+    Product,
+    ServiceType,
+    SyncAction,
+    Transaction,
+} from '../utils/interfaces';
 
 export interface DataContextState {
     total: number;
@@ -43,8 +52,8 @@ export interface DataContextState {
     setPartialPaymentAmount: (amount: number) => void;
     showPartialPaymentSelector: boolean;
     setShowPartialPaymentSelector: (show: boolean) => void;
-    counterServiceType: 'sur_place' | 'emporter';
-    setCounterServiceType: (type: 'sur_place' | 'emporter') => void;
+    counterServiceType: ServiceType;
+    setCounterServiceType: (type: ServiceType) => void;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);

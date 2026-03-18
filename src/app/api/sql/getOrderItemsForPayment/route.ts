@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, getMainDb } from '../db';
-import { OrderData, OrderItem } from '@/app/utils/interfaces';
+import { OrderData, OrderItem, ServiceType } from '@/app/utils/interfaces';
 
 interface PanierRow {
     id: number;
     short_num_order: string;
-    service_type: 'emporter' | 'sur_place';
+    service_type: ServiceType;
 }
 
 interface ArticleRow {

@@ -36,6 +36,7 @@ import {
     OrderData,
     OrderItem,
     Product,
+    ServiceType,
     SyncAction,
     SyncPeriod,
     Transaction,
@@ -87,9 +88,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [selectedOrderItems, setSelectedOrderItems] = useState<OrderItem[]>([]);
     const [partialPaymentAmount, setPartialPaymentAmount] = useState(0);
     const [showPartialPaymentSelector, setShowPartialPaymentSelector] = useState(false);
-    const [counterServiceType, setCounterServiceTypeState] = useState<'sur_place' | 'emporter'>('sur_place');
-    const counterServiceTypeRef = useRef<'sur_place' | 'emporter'>('sur_place');
-    const setCounterServiceType = useCallback((type: 'sur_place' | 'emporter') => {
+    const [counterServiceType, setCounterServiceTypeState] = useState<ServiceType>('sur_place');
+    const counterServiceTypeRef = useRef<ServiceType>('sur_place');
+    const setCounterServiceType = useCallback((type: ServiceType) => {
         counterServiceTypeRef.current = type;
         setCounterServiceTypeState(type);
     }, []);

@@ -144,10 +144,17 @@ export interface OrderFormule {
 
 export type OrderItem = OrderArticle | OrderFormule;
 
+export type ServiceType = 'sur_place' | 'emporter';
+
+export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
+    sur_place: 'Sur place',
+    emporter: 'À emporter',
+};
+
 export interface OrderData {
     panier_id: number;
     short_num_order: string;
-    service_type: 'emporter' | 'sur_place';
+    service_type: ServiceType;
     items: OrderItem[];
     total_amount: number;
     paid_amount: number;
