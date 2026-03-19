@@ -38,7 +38,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
         <div
             className={twMerge(
                 { 1: 'w-full', 2: 'w-1/2', 3: 'w-1/3' }[length] ?? 'w-auto',
-                'relative flex justify-center h-10 items-center font-semibold text-lg',
+                'relative flex justify-center h-12 items-center font-semibold text-xl',
                 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light',
                 !isMobileDevice ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : '',
                 selectedProduct?.category === input
@@ -458,8 +458,8 @@ export const Category: FC = () => {
     const rows = Array.from({ length: Math.ceil(categories.length / COLS) }, (_, i) =>
         categories.slice(i * COLS, i * COLS + COLS)
     );
-    // Row height = h-10 (40px) + 1px divider
-    const ROW_HEIGHT = 41;
+    // Row height = h-12 (48px) + 1px divider
+    const ROW_HEIGHT = 12 * 4 + 1;
     const MAX_VISIBLE_ROWS = 3;
     const gridHeight = Math.min(rows.length, MAX_VISIBLE_ROWS) * ROW_HEIGHT;
 

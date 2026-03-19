@@ -401,7 +401,7 @@ export const NumPad: FC = () => {
     return (
         <div
             className={useAddPopupClass(
-                'inset-0 min-w-[375px] w-full self-center absolute bottom-[126px] ' +
+                'inset-0 min-w-[375px] w-full self-center absolute bottom-[150px] ' +
                     'md:top-0 md:w-1/2 md:justify-center md:max-w-[50%] ' +
                     (shouldUseOverflow
                         ? isPopupOpen
