@@ -23,6 +23,7 @@ export const MainContent: FC = () => {
     const { openPopup, closePopup } = usePopup();
     const { setOrderId, setOrderData, addProduct, clearTotal, shortNumOrder, setShortNumOrder, orderId, setContextTableId, contextTableId } = useData();
     const [showTransverseMode, setShowTransverseMode] = useState(false);
+    const [showOrderWithTable, setShowOrderWithTable] = useState(false);
 
     // Listen for ORDER_ID messages from parent (kitchen iframe)
     useEffect(() => {
@@ -62,11 +63,13 @@ export const MainContent: FC = () => {
 
                 const rawOrderId = event.data.orderId;
                 const rawTableId = Number(event.data.tableId);
+                const openMode = String(event.data.openMode ?? '');
                 const hasTableContext = Number.isFinite(rawTableId) && rawTableId > 0;
                 const hasTableIdField =
                     typeof event.data === 'object' &&
                     event.data !== null &&
                     Object.prototype.hasOwnProperty.call(event.data, 'tableId');
+                const isSingleOrderOpen = openMode === 'single_order' && hasTableContext;
                 setContextTableId(hasTableContext ? String(rawTableId) : '');
 
                 // Always clear any existing transaction on caisse open
@@ -78,11 +81,16 @@ export const MainContent: FC = () => {
                 // No order context — stop here (don't call API with undefined orderId)
                 if (!orderId || orderId === '0' || orderId === 'undefined') {
                     const isTransverseOpen = hasTableIdField && !hasTableContext;
+                    const isTableOpenWithoutOrder = hasTableIdField && hasTableContext;
                     setShowTransverseMode(isTransverseOpen);
+                    setShowOrderWithTable(false);
 
-                    if (isTransverseOpen) {
+                    if (isTransverseOpen || isTableOpenWithoutOrder) {
                         try {
-                            const response = await fetch('/api/sql/getPendingOrdersForCashier');
+                            const endpoint = isTableOpenWithoutOrder
+                                ? `/api/sql/getPendingOrdersForCashier?tableId=${rawTableId}`
+                                : '/api/sql/getPendingOrdersForCashier';
+                            const response = await fetch(endpoint);
                             if (!response.ok) return;
 
                             const pendingOrders = (await response.json()) as PendingOrder[];
@@ -105,7 +113,7 @@ export const MainContent: FC = () => {
                             });
 
                             openPopup(
-                                'Mode transverse',
+                                isTableOpenWithoutOrder ? `Table ${rawTableId}` : 'Mode transverse',
                                 options,
                                 (index) => {
                                     if (index < 0) return;
@@ -126,6 +134,7 @@ export const MainContent: FC = () => {
                 }
 
                 setShowTransverseMode(false);
+                setShowOrderWithTable(isSingleOrderOpen);
                 await loadOrderById(orderId);
             }
         };
@@ -148,6 +157,7 @@ export const MainContent: FC = () => {
                 shortNumOrder={shortNumOrder}
                 contextTableId={contextTableId}
                 showTransverseMode={showTransverseMode}
+                showOrderWithTable={showOrderWithTable}
             />
             <Total />
             <NumPad />

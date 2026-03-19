@@ -7,13 +7,24 @@ interface OrderBadgeProps {
     shortNumOrder: string;
     contextTableId: string;
     showTransverseMode: boolean;
+    showOrderWithTable: boolean;
 }
 
-export const OrderBadge: FC<OrderBadgeProps> = ({ orderId, shortNumOrder, contextTableId, showTransverseMode }) => {
+export const OrderBadge: FC<OrderBadgeProps> = ({
+    orderId,
+    shortNumOrder,
+    contextTableId,
+    showTransverseMode,
+    showOrderWithTable,
+}) => {
     let label = '';
 
     if (contextTableId) {
-        label = `Table ${contextTableId}`;
+        if (showOrderWithTable && orderId && shortNumOrder) {
+            label = `Table ${contextTableId} - Commande #${shortNumOrder}`;
+        } else {
+            label = `Table ${contextTableId}`;
+        }
     } else if (showTransverseMode) {
         label = 'Mode transverse';
     } else if (orderId && shortNumOrder) {

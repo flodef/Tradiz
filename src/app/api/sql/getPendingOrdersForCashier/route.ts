@@ -9,12 +9,17 @@ interface PendingOrderRow extends RowDataPacket {
     table_id: number | null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+    const tableIdParam = new URL(request.url).searchParams.get('tableId');
     let connection;
     try {
         connection = await getMainDb();
 
-        const query = `
+        const parsedTableId = Number(tableIdParam);
+        const hasTableFilter = Number.isFinite(parsedTableId) && parsedTableId > 0;
+
+        const params: number[] = [];
+        let query = `
             SELECT
                 p.id AS order_id,
                 p.short_num_order,
@@ -23,11 +28,19 @@ export async function GET() {
             FROM panier p
             LEFT JOIN rel_table_panier rtp ON rtp.panier_id = p.id
             WHERE p.paid = 0
+        `;
+
+        if (hasTableFilter) {
+            query += ' AND rtp.table_id = ?';
+            params.push(parsedTableId);
+        }
+
+        query += `
             GROUP BY p.id, p.short_num_order, p.date
             ORDER BY p.date ASC, p.id ASC
         `;
 
-        const [rows] = await connection.execute(query);
+        const [rows] = await connection.execute(query, params);
 
         const pendingOrders = (rows as PendingOrderRow[]).map((row) => ({
             orderId: Number(row.order_id),
