@@ -54,6 +54,8 @@ export interface DataContextState {
     setShowPartialPaymentSelector: (show: boolean) => void;
     counterServiceType: ServiceType;
     setCounterServiceType: (type: ServiceType) => void;
+    contextTableId: string;
+    setContextTableId: (tableId: string) => void;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);

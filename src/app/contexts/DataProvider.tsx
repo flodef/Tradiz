@@ -89,6 +89,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [partialPaymentAmount, setPartialPaymentAmount] = useState(0);
     const [showPartialPaymentSelector, setShowPartialPaymentSelector] = useState(false);
     const [counterServiceType, setCounterServiceTypeState] = useState<ServiceType>('sur_place');
+    const [contextTableId, setContextTableId] = useState('');
     const counterServiceTypeRef = useRef<ServiceType>('sur_place');
     const setCounterServiceType = useCallback((type: ServiceType) => {
         counterServiceTypeRef.current = type;
@@ -836,6 +837,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                                         options: p.options ?? null,
                                     })),
                                     service_type: counterServiceTypeRef.current,
+                                    ...(contextTableId ? { table_id: Number(contextTableId) } : {}),
                                 }),
                             });
                             if (counterResponse.ok) {
@@ -871,6 +873,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             currencies,
             storeIndex,
             orderId,
+            contextTableId,
             setShortNumOrder,
             storeTransaction,
         ]
@@ -1223,6 +1226,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 setShowPartialPaymentSelector,
                 counterServiceType,
                 setCounterServiceType,
+                contextTableId,
+                setContextTableId,
             }}
         >
             {children}
