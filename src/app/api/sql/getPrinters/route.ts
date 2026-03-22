@@ -10,12 +10,22 @@ export async function GET() {
     try {
         const connection = await getPosDb();
 
-        const query = `
-            SELECT name, ip_address
-            FROM printers
-        `;
+                // Compat schema: if note_enabled exists, only expose printers enabled for note tickets.
+                const [columns] = await connection.execute("SHOW COLUMNS FROM printers LIKE 'note_enabled'");
+                const hasNoteEnabled = Array.isArray(columns) && columns.length > 0;
 
-        const [rows] = await connection.execute(query);
+                const query = hasNoteEnabled
+                        ? `
+                                SELECT name, ip_address
+                                FROM printers
+                                WHERE note_enabled = 1
+                            `
+                        : `
+                                SELECT name, ip_address
+                                FROM printers
+                            `;
+
+                const [rows] = await connection.execute(query);
         await connection.end();
 
         const data: { values: string[][] } = { values: [] };
