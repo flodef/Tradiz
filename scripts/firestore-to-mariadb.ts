@@ -130,6 +130,8 @@ async function main() {
                 try {
                     await conn.beginTransaction();
 
+                    let facturationId: number;
+
                     // Check if transaction already exists (by created_at timestamp)
                     const [existing] = await conn.execute<mysql.RowDataPacket[]>(
                         `SELECT id FROM facturation WHERE created_at = ?`,
@@ -137,8 +139,14 @@ async function main() {
                     );
 
                     if (existing.length > 0) {
-                        await conn.rollback();
-                        continue; // Skip duplicate
+                        if (!cli.overwrite) {
+                            await conn.rollback();
+                            continue; // Skip duplicate
+                        }
+                        // Overwrite mode: delete existing transaction and its articles
+                        facturationId = existing[0].id as number;
+                        await conn.execute(`DELETE FROM facturation_article WHERE facturation_id = ?`, [facturationId]);
+                        await conn.execute(`DELETE FROM facturation WHERE id = ?`, [facturationId]);
                     }
 
                     // Use transaction.createdDate as panier_id (integer timestamp)
@@ -147,7 +155,7 @@ async function main() {
                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                         [tx.createdDate, validator, paymentMethodId, tx.amount, 'EUR', note, createdAt, updatedAt]
                     );
-                    const facturationId = factResult.insertId;
+                    facturationId = factResult.insertId;
 
                     for (const p of tx.products) {
                         const discountAmount = p.discount?.value ?? p.discount?.amount ?? 0;

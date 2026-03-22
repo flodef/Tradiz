@@ -62,35 +62,37 @@ export interface CliArgs {
     mode: 'shop' | 'file';
     value: string; // shop name or file path
     dryRun: boolean;
+    overwrite: boolean;
 }
 
 export function parseArgs(argv: string[]): CliArgs {
     const args = argv.slice(2);
     const dryRun = args.includes('--dry-run');
-    const filtered = args.filter((a) => a !== '--dry-run');
+    const overwrite = args.includes('--overwrite');
+    const filtered = args.filter((a) => a !== '--dry-run' && a !== '--overwrite');
 
     // --shop <name>
     const shopIdx = filtered.indexOf('--shop');
     if (shopIdx !== -1 && filtered[shopIdx + 1]) {
-        return { mode: 'shop', value: filtered[shopIdx + 1], dryRun };
+        return { mode: 'shop', value: filtered[shopIdx + 1], dryRun, overwrite };
     }
 
     // --file <path>
     const fileIdx = filtered.indexOf('--file');
     if (fileIdx !== -1 && filtered[fileIdx + 1]) {
-        return { mode: 'file', value: filtered[fileIdx + 1], dryRun };
+        return { mode: 'file', value: filtered[fileIdx + 1], dryRun, overwrite };
     }
 
     // Legacy: bare positional arg = file path
     const positional = filtered.find((a) => !a.startsWith('--'));
     if (positional) {
-        return { mode: 'file', value: positional, dryRun };
+        return { mode: 'file', value: positional, dryRun, overwrite };
     }
 
     console.error(
         'Usage:\n' +
-            '  bun run <script> --shop <shopname> [--dry-run]\n' +
-            '  bun run <script> --file <path.json> [--dry-run]'
+            '  bun run <script> --shop <shopname> [--dry-run] [--overwrite]\n' +
+            '  bun run <script> --file <path.json> [--dry-run] [--overwrite]'
     );
     process.exit(1);
 }

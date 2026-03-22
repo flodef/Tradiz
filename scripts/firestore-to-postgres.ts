@@ -131,12 +131,34 @@ async function main() {
                 try {
                     await client.query('BEGIN');
 
+                    let facturationId: number;
+
+                    // Check if transaction already exists (by created_at timestamp)
+                    const existingResult = await client.query<{ id: number }>(
+                        `SELECT id FROM facturation WHERE created_at = $1`,
+                        [createdAt]
+                    );
+
+                    if (existingResult.rows.length > 0) {
+                        if (!cli.overwrite) {
+                            await client.query('ROLLBACK');
+                            continue; // Skip duplicate
+                        }
+                        // Overwrite mode: delete existing transaction and its articles
+                        facturationId = existingResult.rows[0].id;
+                        await client.query(`DELETE FROM facturation_article WHERE facturation_id = $1`, [
+                            facturationId,
+                        ]);
+                        await client.query(`DELETE FROM facturation WHERE id = $1`, [facturationId]);
+                    }
+
+                    // Use transaction.createdDate as panier_id (integer timestamp)
                     const factResult = await client.query<{ id: number }>(
                         `INSERT INTO facturation (panier_id, user_id, payment_method_id, amount, currency, note, created_at, updated_at)
                          VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-                        [panierId, validator, paymentMethodId, tx.amount, 'EUR', note, createdAt, updatedAt]
+                        [tx.createdDate, validator, paymentMethodId, tx.amount, 'EUR', note, createdAt, updatedAt]
                     );
-                    const facturationId = factResult.rows[0].id;
+                    facturationId = factResult.rows[0].id;
 
                     for (const p of tx.products) {
                         const discountAmount = p.discount?.value ?? p.discount?.amount ?? 0;
