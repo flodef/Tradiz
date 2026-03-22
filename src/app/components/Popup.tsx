@@ -80,15 +80,20 @@ export const Popup: FC = () => {
                         option?.toString().trim() ? (
                             <div
                                 className={twMerge(
-                                    'py-2 w-full relative flex font-semibold text-xl cursor-pointer',
+                                    'py-2 w-full relative cursor-pointer',
                                     typeof option === 'string'
-                                        ? 'flex-col items-start text-left pl-3 gap-1'
-                                        : 'justify-around items-center text-center',
+                                        ? 'grid auto-cols-fr text-left pl-3 gap-4'
+                                        : 'flex justify-around items-center text-center',
                                     !isMobileDevice && typeof option === 'string'
                                         ? 'hover:bg-active-light dark:hover:bg-active-dark active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light'
                                         : '',
                                     popupIsSpecial && popupIsSpecial(option.toString()) ? 'animate-pulse' : ''
                                 )}
+                                style={
+                                    typeof option === 'string'
+                                        ? { gridTemplateColumns: `repeat(${option.split('\n').length}, 1fr)` }
+                                        : undefined
+                                }
                                 key={index}
                                 onClick={() => handleClick(index, option.toString())}
                                 onContextMenu={(e) => {
@@ -99,7 +104,11 @@ export const Popup: FC = () => {
                                 }}
                             >
                                 {typeof option === 'string'
-                                    ? option.split('\n').map((line, index) => <div key={index}>{line}</div>)
+                                    ? option.split('\n').map((line, index) => (
+                                          <div key={index} className="font-semibold text-xl whitespace-nowrap">
+                                              {line}
+                                          </div>
+                                      ))
                                     : option}
                             </div>
                         ) : (
