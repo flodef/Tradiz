@@ -68,6 +68,13 @@ async function ensurePaymentMethods(conn: mysql.PoolConnection): Promise<Map<str
     return map;
 }
 
+// ── Get default user ─────────────────────────────────────────────────────────
+
+async function getDefaultUserId(conn: mysql.PoolConnection): Promise<number | null> {
+    const [rows] = await conn.query<mysql.RowDataPacket[]>('SELECT id FROM users ORDER BY id ASC LIMIT 1');
+    return rows.length > 0 ? (rows[0].id as number) : null;
+}
+
 // ── Main import ──────────────────────────────────────────────────────────────
 
 async function main() {
@@ -103,6 +110,15 @@ async function main() {
 
         console.log('Ensuring payment methods...');
         const paymentMethodMap = await ensurePaymentMethods(conn);
+        console.log(`Payment methods ready (${paymentMethodMap.size} methods).`);
+
+        console.log('Getting default user...');
+        const defaultUserId = await getDefaultUserId(conn);
+        if (!defaultUserId) {
+            console.error('No users found in database. Please create at least one user first.');
+            return;
+        }
+        console.log(`Default user ID: ${defaultUserId}`);
 
         let imported = 0;
         let errors = 0;
@@ -124,7 +140,7 @@ async function main() {
 
                 const createdAt = msToDatetime(tx.createdDate);
                 const updatedAt = msToDatetime(tx.modifiedDate);
-                const validator = tx.validator || null;
+                const userId = tx.validator ? parseInt(tx.validator) : defaultUserId;
                 const note = tx.note || null;
 
                 try {
@@ -153,7 +169,7 @@ async function main() {
                     const [factResult] = await conn.execute<mysql.ResultSetHeader>(
                         `INSERT INTO facturation (panier_id, user_id, payment_method_id, amount, currency, note, created_at, updated_at)
                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                        [tx.createdDate, validator, paymentMethodId, tx.amount, 'EUR', note, createdAt, updatedAt]
+                        [tx.createdDate, userId, paymentMethodId, tx.amount, 'EUR', note, createdAt, updatedAt]
                     );
                     facturationId = factResult.insertId;
 
