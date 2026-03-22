@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { sendSummaryEmail } from '../actions/email';
 import { Shop } from '../contexts/ConfigProvider';
-import { DELETED_KEYWORD, PRINT_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
+import { BACK_KEYWORD, DELETED_KEYWORD, PRINT_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
 import { formatFrenchDate, getFormattedDate } from '../utils/date';
 import { printSummary } from '../utils/posPrinter';
 import {
@@ -37,21 +37,19 @@ export const useSummary = () => {
 
     const ImportOption = useMemo(
         () => (
-            <>
-                <label className="w-full cursor-pointer text-left">
-                    Importer
-                    <input
-                        className="hidden"
-                        type="file"
-                        accept=".json"
-                        multiple={false}
-                        onChange={(event) => {
-                            processTransactions(SyncAction.import, undefined, event);
-                            closePopup();
-                        }}
-                    />
-                </label>
-            </>
+            <label className="w-full cursor-pointer text-left">
+                Importer
+                <input
+                    className="hidden"
+                    type="file"
+                    accept=".json"
+                    multiple={false}
+                    onChange={(event) => {
+                        processTransactions(SyncAction.import, undefined, event);
+                        closePopup();
+                    }}
+                />
+            </label>
         ),
         [processTransactions, closePopup]
     );
@@ -274,7 +272,8 @@ export const useSummary = () => {
                 'Synchronisation',
                 ['Synchronisation complète', "Synchronisation d'aujourd'hui", ImportOption]
                     .concat(getHistoricalTransactions().length ? ['Exporter'] : [])
-                    .concat(['Migrer localStorage', 'Stockage', 'Supprimer données locales']),
+                    .concat(['Migrer localStorage', 'Stockage', 'Supprimer données locales'])
+                    .concat(['', BACK_KEYWORD]),
                 (_, option) => {
                     const action = {
                         'Synchronisation complète': SyncAction.fullsync,
@@ -298,7 +297,7 @@ export const useSummary = () => {
                     } else if (option === 'Stockage') {
                         getStorageUsage().then((usage) => {
                             openPopup(
-                                'Stockage IndexedDB',
+                                'Stockage',
                                 [
                                     `Utilisé : ${usage.usedFormatted}`,
                                     `Disponible : ${usage.quotaFormatted}`,
@@ -311,16 +310,9 @@ export const useSummary = () => {
                     } else if (option === 'Supprimer données locales') {
                         openPopup(
                             '⚠️ Attention - Suppression des données',
-                            [
-                                'Cette action va supprimer TOUTES les données locales (localStorage et IndexedDB).',
-                                '',
-                                'Les données synchronisées avec la base de données ne seront pas affectées.',
-                                '',
-                                '✓ Confirmer la suppression',
-                                '✗ Annuler',
-                            ],
+                            ['Confirmer la suppression', 'Annuler'],
                             (_, confirmOption) => {
-                                if (confirmOption === '✓ Confirmer la suppression') {
+                                if (confirmOption === 'Confirmer la suppression') {
                                     // Clear localStorage
                                     const prefix = transactionsFilename?.split('_')[0] ?? '';
                                     const keysToDelete: string[] = [];
@@ -342,6 +334,8 @@ export const useSummary = () => {
                                 }
                             }
                         );
+                    } else if (option === BACK_KEYWORD) {
+                        closePopup();
                     }
                 },
                 true
