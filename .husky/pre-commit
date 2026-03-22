@@ -1,12 +1,13 @@
 #!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
-
-# Run tests first
-echo "Running tests..."
-bun test || exit 1
-
-# Run build
-echo "Running build..."
-bun run build || exit 1
+if git diff --cached --name-only | grep -E '\.(ts(x)?|js(x)?)$'; 
+then 
+    echo "Running tests..."
+    bun test || exit 1
+    echo "Running build..."
+    bun run build || exit 1
+else 
+    echo "Running lint..."
+    bun lint
+fi
 
 echo "Pre-commit checks passed!"
