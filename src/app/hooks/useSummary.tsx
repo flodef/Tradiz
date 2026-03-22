@@ -268,11 +268,23 @@ export const useSummary = () => {
 
     const showSyncMenu = useCallback(() => {
         if (isDbConnected) {
+            // Check if there's data to migrate in localStorage
+            const prefix = transactionsFilename?.split('_')[0] ?? '';
+            let hasLocalStorageData = false;
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.split('_')[0] === prefix) {
+                    hasLocalStorageData = true;
+                    break;
+                }
+            }
+
             openPopup(
                 'Synchronisation',
                 ['Synchronisation complète', "Synchronisation d'aujourd'hui", ImportOption]
                     .concat(getHistoricalTransactions().length ? ['Exporter'] : [])
-                    .concat(['Migrer localStorage', 'Stockage', 'Supprimer données locales'])
+                    .concat(hasLocalStorageData ? ['Migrer localStorage'] : [])
+                    .concat(['Stockage', 'Supprimer données locales'])
                     .concat(['', BACK_KEYWORD]),
                 (_, option) => {
                     const action = {
@@ -289,9 +301,7 @@ export const useSummary = () => {
                         migrateLocalStorageToIDB(prefix).then((count) => {
                             refreshHistoricalKeys();
                             openPopup('Migration', [
-                                count > 0
-                                    ? `${count} jeu(x) de transactions migré(s) vers IndexedDB.`
-                                    : 'Aucune donnée à migrer dans le localStorage.',
+                                count > 0 ? `${count} jeu(x) de transactions migré(s)` : 'Aucune donnée à migrer !',
                             ]);
                         });
                     } else if (option === 'Stockage') {
