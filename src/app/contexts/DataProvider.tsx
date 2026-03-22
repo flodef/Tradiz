@@ -42,6 +42,12 @@ import {
     Transaction,
     TransactionSet,
 } from '../utils/interfaces';
+import {
+    idbGetTransactions,
+    idbSetTransactions,
+    idbGetAllTransactionSets,
+    idbRemoveTransactions,
+} from '../utils/transactionStore';
 import { mergeTransactionArrays } from './dataProvider/syncUtils';
 import { isProcessingTransaction, isWaitingTransaction } from './dataProvider/transactionHelpers';
 import { useMercurial } from './dataProvider/useMercurial';
@@ -119,33 +125,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         }
     }, []);
 
-    const getLocalTransactions = useCallback(() => {
-        const localTransactionSets: TransactionSet[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key?.includes(shopId || TRANSACTIONS_KEYWORD)) {
-                const value = localStorage.getItem(key);
-                if (value) {
-                    const transactions = JSON.parse(value) as Transaction[];
-                    localTransactionSets.push({ id: key, transactions });
-                }
-            }
-        }
-        return localTransactionSets.sort((a, b) => a.id.localeCompare(b.id));
+    const getLocalTransactions = useCallback(async () => {
+        return idbGetAllTransactionSets(shopId || TRANSACTIONS_KEYWORD);
     }, [shopId]);
 
-    const setLocalStorageItem = useCallback(
-        (key: string, transactions: Transaction[]) => {
-            try {
-                localStorage.setItem(key, JSON.stringify(transactions));
-            } catch {
-                const localTransactionSets = getLocalTransactions();
-                localStorage.removeItem(localTransactionSets[0].id);
-                setLocalStorageItem(key, transactions);
-            }
-        },
-        [getLocalTransactions]
-    );
+    const setLocalStorageItem = useCallback(async (key: string, transactions: Transaction[]) => {
+        await idbSetTransactions(key, transactions);
+    }, []);
 
     useEffect(() => {
         if (!parameters.shop.name || areTransactionLoaded.current) return;
@@ -156,8 +142,17 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         const filename = getTransactionFileName(shopId);
 
         const loadTransactions = async () => {
-            // Always load from localStorage first to avoid data loss
-            const localTransactions = JSON.parse(localStorage.getItem(filename) || '[]') as Transaction[];
+            // Load from IndexedDB (with localStorage fallback for migration)
+            let localTransactions = await idbGetTransactions(filename);
+            if (!localTransactions.length) {
+                const lsRaw = localStorage.getItem(filename);
+                if (lsRaw) {
+                    localTransactions = JSON.parse(lsRaw) as Transaction[];
+                    // Auto-migrate to IDB and remove from localStorage
+                    await idbSetTransactions(filename, localTransactions);
+                    localStorage.removeItem(filename);
+                }
+            }
 
             // If SQL DB is enabled, merge SQL data into local (latest modifiedDate wins)
             if (USE_DIGICARTE) {
@@ -287,7 +282,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const convertTransactionsData = useCallback(
-        (convertAction = ConvertAction.none) => {
+        async (convertAction = ConvertAction.none) => {
             // CONVERT CLOUD TRANSACTIONS
             if (convertAction === ConvertAction.cloud || convertAction === ConvertAction.both) {
                 if (!firestore) return;
@@ -310,8 +305,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             // CONVERT LOCAL TRANSACTIONS
             if (convertAction === ConvertAction.local || convertAction === ConvertAction.both) {
-                const localTransactionSets = getLocalTransactions();
-                localTransactionSets.forEach((localTransactionSet) => {
+                const localTransactionSets = await getLocalTransactions();
+                for (const localTransactionSet of localTransactionSets) {
                     let id = localTransactionSet.id;
                     const tx = localTransactionSet.transactions.map((transaction) => {
                         return {
@@ -328,11 +323,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         };
                     });
                     if (id.includes('+')) {
-                        localStorage.removeItem(id);
+                        await idbRemoveTransactions(id);
                         id = id.split('+')[1];
                     }
-                    setLocalStorageItem(id, tx);
-                });
+                    await setLocalStorageItem(id, tx);
+                }
             }
 
             return convertAction === ConvertAction.cloud || convertAction === ConvertAction.both;
@@ -368,7 +363,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // Then, check if the "transaction set" in local exists in the cloud, using the same method as above.
     const fullSync = useCallback(
         async (cloudTransactionSets: TransactionSet[], syncPeriod: SyncPeriod) => {
-            let localTransactionSets = getLocalTransactions();
+            let localTransactionSets = await getLocalTransactions();
 
             console.log(
                 'syncTransactions',
@@ -422,7 +417,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             // Merge local → cloud (full sync only, requires Firebase)
             if (syncPeriod === SyncPeriod.full && firestore) {
-                localTransactionSets = getLocalTransactions(); // Update local transaction sets after cloud sync
+                localTransactionSets = await getLocalTransactions(); // Update local transaction sets after cloud sync
                 for (const localTransactionSet of localTransactionSets) {
                     const cloudTransactionSet = cloudTransactionSets.find((set) => set.id === localTransactionSet.id);
 
@@ -518,9 +513,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 await fullSync(cloudTransactionSets, syncPeriod);
 
                 // Local→SQL push: reconcile local transactions with SQL
-                const localData = localStorage.getItem(transactionsFilename);
-                if (localData) {
-                    const localTransactions = JSON.parse(localData) as Transaction[];
+                const localTransactions = await idbGetTransactions(transactionsFilename);
+                if (localTransactions.length) {
                     for (const localTx of localTransactions) {
                         if (isProcessingTransaction(localTx)) continue;
                         const sqlTx = sqlTransactions.find((s) => s.createdDate === localTx.createdDate);
@@ -576,15 +570,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const syncTransactions = useCallback(
-        (period: SyncPeriod, filename = transactionsFilename) => {
+        async (period: SyncPeriod, filename = transactionsFilename) => {
             // For SQL DB, directly use processSync which handles SQL logic
             if (USE_DIGICARTE) {
-                if (!filename || convertTransactionsData(ConvertAction.local)) return;
+                if (!filename || (await convertTransactionsData(ConvertAction.local))) return;
                 processSync(filename, period);
                 return;
             }
 
-            if (!firestore || !filename || convertTransactionsData(ConvertAction.local)) return;
+            if (!firestore || !filename || (await convertTransactionsData(ConvertAction.local))) return;
 
             if (period === SyncPeriod.day) {
                 processSync(filename, period);
@@ -646,8 +640,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         return () => unsubscribe();
     }, [firestore, transactionsFilename]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const exportTransactions = useCallback(() => {
-        const localTransactionSets = getLocalTransactions();
+    const exportTransactions = useCallback(async () => {
+        const localTransactionSets = await getLocalTransactions();
         const jsonData = JSON.stringify(localTransactionSets);
 
         // Create a Blob and URL object containing the JSON data

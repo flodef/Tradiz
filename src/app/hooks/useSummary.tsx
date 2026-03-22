@@ -1,10 +1,16 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { sendSummaryEmail } from '../actions/email';
 import { Shop } from '../contexts/ConfigProvider';
 import { DELETED_KEYWORD, PRINT_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
 import { formatFrenchDate, getFormattedDate } from '../utils/date';
 import { printSummary } from '../utils/posPrinter';
+import {
+    idbGetAllKeys,
+    idbGetTransactions,
+    migrateLocalStorageToIDB,
+    getStorageUsage,
+} from '../utils/transactionStore';
 import { useConfig } from './useConfig';
 import { useData } from './useData';
 import { usePopup } from './usePopup';
@@ -32,7 +38,7 @@ export const useSummary = () => {
     const ImportOption = useMemo(
         () => (
             <>
-                <label className="w-full cursor-pointer">
+                <label className="w-full cursor-pointer text-left">
                     Importer
                     <input
                         className="hidden"
@@ -50,11 +56,20 @@ export const useSummary = () => {
         [processTransactions, closePopup]
     );
 
+    const [historicalKeys, setHistoricalKeys] = useState<string[]>([]);
+
     const tempTransactions = useRef<Transaction[]>([]);
-    const getHistoricalTransactions = useCallback(() => {
-        return transactionsFilename
-            ? Object.keys(localStorage).filter((key) => key.split('_')[0] === transactionsFilename.split('_')[0])
-            : [];
+    const getHistoricalTransactions = useCallback(() => historicalKeys, [historicalKeys]);
+
+    const refreshHistoricalKeys = useCallback(async () => {
+        if (!transactionsFilename) {
+            setHistoricalKeys([]);
+            return;
+        }
+        const prefix = transactionsFilename.split('_')[0];
+        const allKeys = await idbGetAllKeys();
+        const matching = allKeys.filter((key) => key.split('_')[0] === prefix);
+        setHistoricalKeys(matching);
     }, [transactionsFilename]);
 
     const getFilteredTransactions = useCallback(() => {
@@ -257,9 +272,9 @@ export const useSummary = () => {
         if (isDbConnected) {
             openPopup(
                 'Synchronisation',
-                ['Synchronisation complète', "Synchronisation d'aujourd'hui", ImportOption].concat(
-                    getHistoricalTransactions().length ? ['Exporter'] : []
-                ),
+                ['Synchronisation complète', "Synchronisation d'aujourd'hui", ImportOption]
+                    .concat(getHistoricalTransactions().length ? ['Exporter'] : [])
+                    .concat(['Migrer localStorage', 'Stockage', 'Supprimer données locales']),
                 (_, option) => {
                     const action = {
                         'Synchronisation complète': SyncAction.fullsync,
@@ -269,12 +284,79 @@ export const useSummary = () => {
                     if (action) {
                         processTransactions(action);
                         closePopup();
+                    } else if (option === 'Migrer localStorage') {
+                        const prefix = transactionsFilename?.split('_')[0] ?? '';
+                        openPopup('Migration', ['Migration en cours...']);
+                        migrateLocalStorageToIDB(prefix).then((count) => {
+                            refreshHistoricalKeys();
+                            openPopup('Migration', [
+                                count > 0
+                                    ? `${count} jeu(x) de transactions migré(s) vers IndexedDB.`
+                                    : 'Aucune donnée à migrer dans le localStorage.',
+                            ]);
+                        });
+                    } else if (option === 'Stockage') {
+                        getStorageUsage().then((usage) => {
+                            openPopup(
+                                'Stockage IndexedDB',
+                                [
+                                    `Utilisé : ${usage.usedFormatted}`,
+                                    `Disponible : ${usage.quotaFormatted}`,
+                                    `Utilisation : ${usage.percentUsed}%`,
+                                ],
+                                () => showSyncMenu(),
+                                true
+                            );
+                        });
+                    } else if (option === 'Supprimer données locales') {
+                        openPopup(
+                            '⚠️ Attention - Suppression des données',
+                            [
+                                'Cette action va supprimer TOUTES les données locales (localStorage et IndexedDB).',
+                                '',
+                                'Les données synchronisées avec la base de données ne seront pas affectées.',
+                                '',
+                                '✓ Confirmer la suppression',
+                                '✗ Annuler',
+                            ],
+                            (_, confirmOption) => {
+                                if (confirmOption === '✓ Confirmer la suppression') {
+                                    // Clear localStorage
+                                    const prefix = transactionsFilename?.split('_')[0] ?? '';
+                                    const keysToDelete: string[] = [];
+                                    for (let i = 0; i < localStorage.length; i++) {
+                                        const key = localStorage.key(i);
+                                        if (key && key.split('_')[0] === prefix) {
+                                            keysToDelete.push(key);
+                                        }
+                                    }
+                                    keysToDelete.forEach((key) => localStorage.removeItem(key));
+
+                                    // Clear IndexedDB
+                                    indexedDB.deleteDatabase('TradizTransactions');
+
+                                    refreshHistoricalKeys();
+                                    openPopup('Suppression', ['Données locales supprimées avec succès.']);
+                                } else {
+                                    showSyncMenu();
+                                }
+                            }
+                        );
                     }
                 },
                 true
             );
         }
-    }, [openPopup, processTransactions, ImportOption, isDbConnected, getHistoricalTransactions, closePopup]);
+    }, [
+        openPopup,
+        processTransactions,
+        ImportOption,
+        isDbConnected,
+        getHistoricalTransactions,
+        closePopup,
+        transactionsFilename,
+        refreshHistoricalKeys,
+    ]);
 
     const showHistoricalTransactions = useCallback(
         (
@@ -318,29 +400,27 @@ export const useSummary = () => {
                     if (index < 0 && fallback) {
                         fallback();
                     } else if (index >= 0) {
-                        if (isDayPeriod) {
-                            const transactions = localStorage.getItem(
-                                transactionsFilename.split('_')[0] + '_' + items[index]
+                        (async () => {
+                            if (isDayPeriod) {
+                                const key = transactionsFilename.split('_')[0] + '_' + items[index];
+                                const txs = await idbGetTransactions(key);
+                                if (!txs.length) return;
+                                tempTransactions.current = txs;
+                            } else {
+                                const matchingKeys = getHistoricalTransactions().filter((key) =>
+                                    key.includes(items[index])
+                                );
+                                tempTransactions.current = [];
+                                for (const key of matchingKeys) {
+                                    const txs = await idbGetTransactions(key);
+                                    txs.forEach((tx) => tempTransactions.current.push(tx));
+                                }
+                            }
+
+                            showTransactionsCallback(menu, () =>
+                                showHistoricalTransactions(historicalPeriod, menu, showTransactionsCallback, fallback)
                             );
-                            if (!transactions) return;
-
-                            tempTransactions.current = JSON.parse(transactions);
-                        } else {
-                            getHistoricalTransactions()
-                                .filter((key) => key.includes(items[index]))
-                                .forEach((key) => {
-                                    const transactions = localStorage.getItem(key);
-                                    if (!transactions) return;
-
-                                    JSON.parse(transactions).forEach((transaction: Transaction) =>
-                                        tempTransactions.current.push(transaction)
-                                    );
-                                });
-                        }
-
-                        showTransactionsCallback(menu, () =>
-                            showHistoricalTransactions(historicalPeriod, menu, showTransactionsCallback, fallback)
-                        );
+                        })();
                     }
                 },
                 true,
@@ -696,5 +776,6 @@ export const useSummary = () => {
         showTransactionsSummary,
         showTransactionsSummaryMenu,
         getHistoricalTransactions,
+        refreshHistoricalKeys,
     };
 };

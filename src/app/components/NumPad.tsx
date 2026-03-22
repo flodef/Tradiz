@@ -146,7 +146,12 @@ export const NumPad: FC = () => {
     } = useData();
     const { openPopup, closePopup, isPopupOpen } = usePopup();
     const { pay, canPay, canAddProduct } = usePay();
-    const { showTransactionsSummary, showTransactionsSummaryMenu, getHistoricalTransactions } = useSummary();
+    const { showTransactionsSummary, showTransactionsSummaryMenu, getHistoricalTransactions, refreshHistoricalKeys } =
+        useSummary();
+
+    useEffect(() => {
+        refreshHistoricalKeys();
+    }, [refreshHistoricalKeys]);
 
     const maxValue = useMemo(() => currencies[currencyIndex].maxValue, [currencies, currencyIndex]);
     const maxDecimals = useMemo(() => currencies[currencyIndex].decimals, [currencies, currencyIndex]);
