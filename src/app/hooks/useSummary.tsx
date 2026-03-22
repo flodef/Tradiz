@@ -37,7 +37,7 @@ export const useSummary = () => {
 
     const ImportOption = useMemo(
         () => (
-            <label className="w-full cursor-pointer text-left">
+            <label className="w-full cursor-pointer font-semibold text-xl pl-3 text-left">
                 Importer
                 <input
                     className="hidden"
@@ -335,7 +335,7 @@ export const useSummary = () => {
                             }
                         );
                     } else if (option === BACK_KEYWORD) {
-                        closePopup();
+                        showTransactionsSummaryMenu();
                     }
                 },
                 true
