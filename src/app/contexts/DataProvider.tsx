@@ -466,7 +466,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     action,
                     transaction: {
                         id: transaction.createdDate,
-                        panier_id: String(transaction.createdDate).slice(0, 10),
+                        panier_id: String(transaction.createdDate),
                         user_id: transaction.validator,
                         payment_method_id: transaction.method,
                         amount: transaction.amount,
@@ -764,7 +764,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         action: DatabaseAction[action],
                         transaction: {
                             id: index,
-                            panier_id: orderId || String(transaction.createdDate).slice(0, 10),
+                            panier_id: orderId || String(transaction.createdDate),
                             user_id: transaction.validator,
                             payment_method_id: transaction.method,
                             amount: transaction.amount,

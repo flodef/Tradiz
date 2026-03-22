@@ -78,6 +78,17 @@ export async function POST(request: Request) {
 }
 
 async function handleAddTransaction(connection: Connection, transaction: TransactionData) {
+    // Check if transaction already exists (by created_at timestamp to avoid duplicates)
+    const [existing] = await connection.execute('SELECT id FROM facturation WHERE created_at = ?', [
+        transaction.created_at,
+    ]);
+    const existingRows = existing as IdRow[];
+
+    if (existingRows.length > 0) {
+        // Transaction already exists, skip insert
+        return;
+    }
+
     // First, ensure the user exists in the users table
     const userId = await ensureUserExists(connection, transaction.user_id);
 

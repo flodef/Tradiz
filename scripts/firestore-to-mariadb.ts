@@ -130,10 +130,22 @@ async function main() {
                 try {
                     await conn.beginTransaction();
 
+                    // Check if transaction already exists (by created_at timestamp)
+                    const [existing] = await conn.execute<mysql.RowDataPacket[]>(
+                        `SELECT id FROM facturation WHERE created_at = ?`,
+                        [createdAt]
+                    );
+
+                    if (existing.length > 0) {
+                        await conn.rollback();
+                        continue; // Skip duplicate
+                    }
+
+                    // Use transaction.createdDate as panier_id (integer timestamp)
                     const [factResult] = await conn.execute<mysql.ResultSetHeader>(
                         `INSERT INTO facturation (panier_id, user_id, payment_method_id, amount, currency, note, created_at, updated_at)
                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                        [panierId, validator, paymentMethodId, tx.amount, 'EUR', note, createdAt, updatedAt]
+                        [tx.createdDate, validator, paymentMethodId, tx.amount, 'EUR', note, createdAt, updatedAt]
                     );
                     const facturationId = factResult.insertId;
 
