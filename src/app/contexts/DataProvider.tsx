@@ -134,11 +134,32 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         await idbSetTransactions(key, transactions);
     }, []);
 
+    // Get the LAST occurrence of closing hour (in the past) - this is the cutoff for current day's transactions
+    const getLastResetTime = useCallback(() => {
+        const now = new Date();
+        const reset = new Date();
+        reset.setHours(parameters.closingHour, 0, 0, 0);
+        // If we haven't reached today's closing hour yet, use yesterday's
+        if (now < reset) reset.setDate(reset.getDate() - 1);
+        return reset.getTime();
+    }, [parameters.closingHour]);
+
+    // Compute NEXT reset timestamp (in the future) for scheduling the reset
+    const getNextResetTime = useCallback(() => {
+        const now = new Date();
+        const reset = new Date();
+        reset.setHours(parameters.closingHour, 0, 0, 0);
+        // If we're already past today's closing hour, schedule for tomorrow
+        if (now >= reset) reset.setDate(reset.getDate() + 1);
+        return reset.getTime();
+    }, [parameters.closingHour]);
+
     useEffect(() => {
         if (!parameters.shop.name || areTransactionLoaded.current) return;
 
         const shopId = window.location.pathname.split('/')[1];
         setShopId(shopId);
+        console.log('[DataProvider] Using shopId:', shopId);
 
         const filename = getTransactionFileName(shopId);
 
@@ -160,8 +181,40 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 const sqlTransactions = await loadTransactionsFromSQL();
                 if (sqlTransactions?.length) {
                     const merged = mergeTransactionArrays(localTransactions, sqlTransactions);
-                    setLocalStorageItem(filename, merged);
-                    setTransactions(merged);
+
+                    // Filter transactions: only keep those after the last reset time
+                    const lastResetTime = getLastResetTime();
+                    const currentDayTransactions = merged.filter((tx) => tx.createdDate >= lastResetTime);
+                    const oldTransactions = merged.filter((tx) => tx.createdDate < lastResetTime);
+
+                    // Store old transactions in IndexedDB for historical access
+                    if (oldTransactions.length > 0) {
+                        // Group old transactions by day and store them
+                        const groupedByDay = new Map<string, Transaction[]>();
+                        oldTransactions.forEach((tx) => {
+                            const date = new Date(tx.createdDate);
+                            const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                            const key = `${shopId}_${dateKey}`;
+                            if (!groupedByDay.has(key)) groupedByDay.set(key, []);
+                            groupedByDay.get(key)!.push(tx);
+                        });
+
+                        // Save each day's transactions to IndexedDB
+                        for (const key of Array.from(groupedByDay.keys())) {
+                            const txs = groupedByDay.get(key)!;
+                            const existing = await idbGetTransactions(key);
+                            const mergedOld = mergeTransactionArrays(existing, txs);
+                            await idbSetTransactions(key, mergedOld);
+                        }
+
+                        console.log(
+                            `[DayReset] Archived ${oldTransactions.length} old transactions into ${groupedByDay.size} day(s)`
+                        );
+                    }
+
+                    // Only show current day's transactions
+                    setLocalStorageItem(filename, currentDayTransactions);
+                    setTransactions(currentDayTransactions);
                     areTransactionLoaded.current = true;
                     setTransactionsFilename(filename);
                     console.log(
@@ -169,30 +222,25 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         localTransactions.length,
                         'sql=',
                         sqlTransactions.length,
-                        'result=',
-                        merged.length
+                        'current day=',
+                        currentDayTransactions.length,
+                        'archived=',
+                        oldTransactions.length
                     );
                     return;
                 }
             }
 
-            setTransactions(localTransactions);
+            // Filter local transactions by last reset time
+            const lastResetTime = getLastResetTime();
+            const currentDayTransactions = localTransactions.filter((tx) => tx.createdDate >= lastResetTime);
+            setTransactions(currentDayTransactions);
             areTransactionLoaded.current = true;
             setTransactionsFilename(filename);
         };
 
         loadTransactions();
-    }, [parameters.shop.name, transactionsFilename, loadTransactionsFromSQL, setLocalStorageItem]);
-
-    // Compute next reset timestamp based on closingHour
-    const getNextResetTime = useCallback(() => {
-        const now = new Date();
-        const reset = new Date();
-        reset.setHours(parameters.closingHour, 0, 0, 0);
-        // If we're already past today's closing hour, schedule for tomorrow
-        if (now >= reset) reset.setDate(reset.getDate() + 1);
-        return reset.getTime();
-    }, [parameters.closingHour]);
+    }, [parameters.shop.name, transactionsFilename, loadTransactionsFromSQL, setLocalStorageItem, getLastResetTime]);
 
     const performDayReset = useCallback(() => {
         console.log('[DayReset] Performing day reset...');
@@ -513,16 +561,33 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 const data = await response.json();
                 const sqlTransactions = data.transactions as Transaction[];
 
-                // Always run cloud→local merge (even with empty SQL data)
-                const cloudTransactionSets: TransactionSet[] = [
-                    {
-                        id: transactionsFilename,
-                        transactions: sqlTransactions,
-                    },
-                ];
-                await fullSync(cloudTransactionSets, syncPeriod);
+                // Group SQL transactions by their creation date
+                const groupedByDate = new Map<string, Transaction[]>();
+                sqlTransactions.forEach((tx) => {
+                    const date = new Date(tx.createdDate);
+                    const dateKey = getTransactionFileName(shopId, date);
+                    if (!groupedByDate.has(dateKey)) groupedByDate.set(dateKey, []);
+                    groupedByDate.get(dateKey)!.push(tx);
+                });
 
-                // Local→SQL push: reconcile local transactions with SQL
+                console.log(
+                    `[SQL Sync] Grouped ${sqlTransactions.length} transactions into ${groupedByDate.size} day(s)`
+                );
+
+                // Sync each day's transactions separately
+                for (const dateKey of Array.from(groupedByDate.keys())) {
+                    const dayTransactions = groupedByDate.get(dateKey)!;
+                    const cloudTransactionSets: TransactionSet[] = [
+                        {
+                            id: dateKey,
+                            transactions: dayTransactions,
+                        },
+                    ];
+                    await fullSync(cloudTransactionSets, syncPeriod);
+                    console.log(`[SQL Sync] Synced ${dayTransactions.length} transactions for ${dateKey}`);
+                }
+
+                // Local→SQL push: reconcile local transactions with SQL for current day only
                 const localTransactions = await idbGetTransactions(transactionsFilename);
                 if (localTransactions.length) {
                     for (const localTx of localTransactions) {
@@ -545,7 +610,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 console.error('Error syncing from SQL DB:', error);
             }
         },
-        [fullSync, transactionsFilename, pushTransactionToSQL]
+        [fullSync, transactionsFilename, pushTransactionToSQL, shopId]
     );
 
     const processSync = useCallback(
@@ -580,11 +645,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const syncTransactions = useCallback(
-        async (period: SyncPeriod, filename = transactionsFilename) => {
+        async (period: SyncPeriod, filename = transactionsFilename): Promise<void> => {
             // For SQL DB, directly use processSync which handles SQL logic
             if (USE_DIGICARTE) {
                 if (!filename || (await convertTransactionsData(ConvertAction.local))) return;
-                processSync(filename, period);
+                await processSyncFromSQL(period);
                 return;
             }
 
@@ -593,15 +658,17 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (period === SyncPeriod.day) {
                 processSync(filename, period);
             } else {
-                getDocs(query(collection(firestore, 'Indexes'), where('shop', '==', shopId))).then((querySnapshot) => {
-                    processSync(
-                        querySnapshot.docs.map((doc) => doc.id),
-                        period
-                    );
-                });
+                await getDocs(query(collection(firestore, 'Indexes'), where('shop', '==', shopId))).then(
+                    (querySnapshot) => {
+                        processSync(
+                            querySnapshot.docs.map((doc) => doc.id),
+                            period
+                        );
+                    }
+                );
             }
         },
-        [convertTransactionsData, firestore, processSync, shopId, transactionsFilename]
+        [convertTransactionsData, firestore, processSync, shopId, transactionsFilename, processSyncFromSQL]
     );
 
     useEffect(() => {
@@ -700,23 +767,23 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const processTransactions = useCallback(
-        (syncAction: SyncAction, date?: Date, event?: ChangeEvent<HTMLInputElement>) => {
+        async (syncAction: SyncAction, date?: Date, event?: ChangeEvent<HTMLInputElement>): Promise<void> => {
             // Allow processing with SQL DB or Firebase
             if (!firestore && !USE_DIGICARTE) return;
 
             const filename = date ? getTransactionFileName(shopId, date) : transactionsFilename;
             switch (syncAction) {
                 case SyncAction.fullsync:
-                    syncTransactions(SyncPeriod.full);
+                    await syncTransactions(SyncPeriod.full);
                     break;
                 case SyncAction.daysync:
-                    syncTransactions(SyncPeriod.day, filename);
+                    await syncTransactions(SyncPeriod.day, filename);
                     break;
                 case SyncAction.resync:
-                    syncTransactions(SyncPeriod.day, filename);
+                    await syncTransactions(SyncPeriod.day, filename);
                     break;
                 case SyncAction.export:
-                    exportTransactions();
+                    await exportTransactions();
                     break;
                 case SyncAction.import:
                     importTransactions(event);

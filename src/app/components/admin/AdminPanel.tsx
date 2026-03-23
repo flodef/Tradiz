@@ -40,7 +40,7 @@ export default function AdminPanel({ initialConfig, shopName }: AdminPanelProps)
     const handleSave = async (theme: string, data: Record<string, any>) => {
         try {
             await updateConfigTheme(shopName, theme, data);
-            alert(`${theme} enregistré avec succès!`);
+            alert(`${theme} enregistré !`);
         } catch (error) {
             console.error(`Erreur lors de l'enregistrement de ${theme}:`, error);
             alert(`Erreur lors de l'enregistrement de ${theme}.`);
