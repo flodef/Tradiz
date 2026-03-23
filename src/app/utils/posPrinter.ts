@@ -102,7 +102,7 @@ function printShopInfo(printer: ThermalPrinter, shop: Shop) {
     printer.newLine();
     if (shop.address) printer.println(shop.address);
     if (shop.zipCode && shop.city) printer.println(shop.zipCode + ' ' + shop.city);
-    if (shop.id) printer.println('SIRET : ' + shop.id);
+    if (shop.serial) printer.println('SIRET : ' + shop.serial);
     if (shop.email) printer.println(shop.email);
     printer.newLine();
 }

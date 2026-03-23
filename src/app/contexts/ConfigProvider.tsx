@@ -30,8 +30,9 @@ export interface Shop {
     address: string;
     zipCode: string;
     city: string;
-    id: string;
+    serial: string;
     email: string;
+    id: string;
 }
 
 export interface Parameters {

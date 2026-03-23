@@ -67,7 +67,7 @@ const dataNames: { [key: string]: DataName } = {
 };
 
 export const defaultParameters: Parameters = {
-    shop: { name: '', email: EMAIL, address: '', zipCode: '', city: '', id: '' },
+    shop: { name: '', email: EMAIL, address: '', zipCode: '', city: '', id: '', serial: '' },
     thanksMessage: '',
     mercurial: Mercurial.none,
     lastModified: new Date().toLocaleString(),
@@ -156,15 +156,16 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
             address: getParamValue('address', 1),
             zipCode: getParamValue('zipCode', 2),
             city: getParamValue('city', 3),
-            id: getParamValue('id', 4),
+            serial: getParamValue('serial', 4),
             email: getParamValue('email', 5) || EMAIL,
+            id: getParamValue('id', 6),
         },
-        thanksMessage: getParamValue('thanksMessage', 6) || 'Merci de votre visite !',
-        mercurial: (getParamValue('mercurial', 7) || Mercurial.none) as Mercurial,
-        closingHour: Math.max(0, Math.min(23, Number(getParamValue('closingHour', 8)) || 0)),
+        thanksMessage: getParamValue('thanksMessage', 7) || 'Merci de votre visite !',
+        mercurial: (getParamValue('mercurial', 8) || Mercurial.none) as Mercurial,
+        closingHour: Math.max(0, Math.min(23, Number(getParamValue('closingHour', 9)) || 0)),
         yearStartDate: (() => {
             try {
-                const value = getParamValue('yearStartDate', 9);
+                const value = getParamValue('yearStartDate', 10);
                 if (value) {
                     const parsed = JSON.parse(value);
                     if (parsed && typeof parsed.month === 'number' && typeof parsed.day === 'number') {
@@ -176,7 +177,7 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
             }
             return { month: 1, day: 1 }; // Default to January 1st
         })(),
-        lastModified: getParamValue('lastModified', 10) || new Date().toLocaleString(),
+        lastModified: getParamValue('lastModified', 11) || new Date().toLocaleString(),
         user: user,
     };
 
