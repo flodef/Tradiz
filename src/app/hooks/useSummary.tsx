@@ -296,8 +296,11 @@ export const useSummary = () => {
                             Exporter: SyncAction.export,
                         }[option];
                         if (action) {
-                            processTransactions(action);
-                            closePopup();
+                            openPopup('Synchronisation', ['Synchronisation en cours...']);
+                            processTransactions(action).then(() => {
+                                refreshHistoricalKeys();
+                                openPopup('Synchronisation', ['Synchronisation terminée.']);
+                            });
                         } else if (option === 'Migrer localStorage') {
                             const prefix = transactionsFilename?.split('_')[0] ?? '';
                             openPopup('Migration', ['Migration en cours...']);
@@ -361,7 +364,6 @@ export const useSummary = () => {
             ImportOption,
             isDbConnected,
             getHistoricalTransactions,
-            closePopup,
             transactionsFilename,
             refreshHistoricalKeys,
         ]
