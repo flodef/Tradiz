@@ -563,30 +563,39 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, []);
 
     const processSyncFromSQL = useCallback(
-        async (syncPeriod: SyncPeriod) => {
+        async (syncPeriod: SyncPeriod): Promise<number> => {
             try {
+                console.log('[SQL Sync] Starting sync with shopId:', shopId);
                 // Include deleted transactions so deletions propagate across devices
                 const response = await fetch(
                     `/api/sql/getTransactions?period=${syncPeriod === SyncPeriod.day ? 'day' : 'full'}&date=${new Date().toISOString().split('T')[0]}&includeDeleted=true`
                 );
                 if (!response.ok) {
                     console.error('SQL DB sync error:', await response.json());
-                    return;
+                    return 0;
                 }
                 const data = await response.json();
                 const sqlTransactions = data.transactions as Transaction[];
+                console.log('[SQL Sync] Fetched transactions from SQL:', sqlTransactions.length);
+
+                if (!sqlTransactions.length) {
+                    console.log('[SQL Sync] No transactions to sync');
+                    return 0;
+                }
 
                 // Group SQL transactions by their creation date
                 const groupedByDate = new Map<string, Transaction[]>();
                 sqlTransactions.forEach((tx) => {
                     const date = new Date(tx.createdDate);
                     const dateKey = getTransactionFileName(shopId, date);
+                    console.log('[SQL Sync] Transaction dateKey:', dateKey, 'for tx:', tx.createdDate);
                     if (!groupedByDate.has(dateKey)) groupedByDate.set(dateKey, []);
                     groupedByDate.get(dateKey)!.push(tx);
                 });
 
                 console.log(
-                    `[SQL Sync] Grouped ${sqlTransactions.length} transactions into ${groupedByDate.size} day(s)`
+                    `[SQL Sync] Grouped ${sqlTransactions.length} transactions into ${groupedByDate.size} day(s)`,
+                    Array.from(groupedByDate.keys())
                 );
 
                 // Sync each day's transactions separately
@@ -621,8 +630,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }
 
                 console.log('SQL DB sync completed:', sqlTransactions.length, 'SQL transactions');
+                return sqlTransactions.length;
             } catch (error) {
                 console.error('Error syncing from SQL DB:', error);
+                return 0;
             }
         },
         [fullSync, transactionsFilename, pushTransactionToSQL, shopId]
@@ -660,15 +671,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const syncTransactions = useCallback(
-        async (period: SyncPeriod, filename = transactionsFilename): Promise<void> => {
+        async (period: SyncPeriod, filename = transactionsFilename): Promise<number> => {
             // For SQL DB, directly use processSync which handles SQL logic
             if (USE_DIGICARTE) {
-                if (!filename || (await convertTransactionsData(ConvertAction.local))) return;
-                await processSyncFromSQL(period);
-                return;
+                if (!filename || (await convertTransactionsData(ConvertAction.local))) return 0;
+                return await processSyncFromSQL(period);
             }
 
-            if (!firestore || !filename || (await convertTransactionsData(ConvertAction.local))) return;
+            if (!firestore || !filename || (await convertTransactionsData(ConvertAction.local))) return 0;
 
             if (period === SyncPeriod.day) {
                 processSync(filename, period);
@@ -682,6 +692,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     }
                 );
             }
+            return 0; // Firebase doesn't return count yet
         },
         [convertTransactionsData, firestore, processSync, shopId, transactionsFilename, processSyncFromSQL]
     );
@@ -782,28 +793,26 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const processTransactions = useCallback(
-        async (syncAction: SyncAction, date?: Date, event?: ChangeEvent<HTMLInputElement>): Promise<void> => {
+        async (syncAction: SyncAction, date?: Date, event?: ChangeEvent<HTMLInputElement>): Promise<number> => {
             // Allow processing with SQL DB or Firebase
-            if (!firestore && !USE_DIGICARTE) return;
+            if (!firestore && !USE_DIGICARTE) return 0;
 
             const filename = date ? getTransactionFileName(shopId, date) : transactionsFilename;
             switch (syncAction) {
                 case SyncAction.fullsync:
-                    await syncTransactions(SyncPeriod.full);
-                    break;
+                    return await syncTransactions(SyncPeriod.full);
                 case SyncAction.daysync:
-                    await syncTransactions(SyncPeriod.day, filename);
-                    break;
+                    return await syncTransactions(SyncPeriod.day, filename);
                 case SyncAction.resync:
-                    await syncTransactions(SyncPeriod.day, filename);
-                    break;
+                    return await syncTransactions(SyncPeriod.day, filename);
                 case SyncAction.export:
                     await exportTransactions();
-                    break;
+                    return 0;
                 case SyncAction.import:
                     importTransactions(event);
-                    break;
+                    return 0;
             }
+            return 0;
         },
         [firestore, syncTransactions, exportTransactions, importTransactions, shopId, transactionsFilename]
     );

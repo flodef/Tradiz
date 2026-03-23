@@ -296,18 +296,22 @@ export const useSummary = () => {
                             Exporter: SyncAction.export,
                         }[option];
                         if (action) {
-                            openPopup('Synchronisation', ['Synchronisation en cours...']);
-                            processTransactions(action).then(() => {
+                            openPopup('Synchronisation', ['Synchronisation en cours...'], () => {}, true);
+                            processTransactions(action).then((count) => {
                                 refreshHistoricalKeys();
-                                openPopup('Synchronisation', ['Synchronisation terminée.']);
+                                openPopup('Synchronisation', [
+                                    count > 0
+                                        ? `${count} transaction(s) synchronisée(s)`
+                                        : 'Aucune transaction à synchroniser',
+                                ]);
                             });
                         } else if (option === 'Migrer localStorage') {
                             const prefix = transactionsFilename?.split('_')[0] ?? '';
-                            openPopup('Migration', ['Migration en cours...']);
+                            openPopup('Migration', ['Migration en cours...'], () => {}, true);
                             migrateLocalStorageToIDB(prefix).then((count) => {
                                 refreshHistoricalKeys();
                                 openPopup('Migration', [
-                                    count > 0 ? `${count} jeu(x) de transactions migré(s)` : 'Aucune donnée à migrer !',
+                                    count > 0 ? `${count} jeu(x) de transactions migré(s)` : 'Aucune donnée à migrer',
                                 ]);
                             });
                         } else if (option === 'Stockage') {
@@ -344,7 +348,7 @@ export const useSummary = () => {
                                         indexedDB.deleteDatabase('TradizTransactions');
 
                                         refreshHistoricalKeys();
-                                        openPopup('Suppression', ['Données locales supprimées avec succès.']);
+                                        openPopup('Suppression', ['Données locales supprimées.']);
                                     } else {
                                         showSyncMenu();
                                     }
