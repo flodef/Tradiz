@@ -266,101 +266,104 @@ export const useSummary = () => {
         [getTaxAmountByCategory, getTaxesByCategory, getTransactionsDetails, toCurrency]
     );
 
-    const showSyncMenu = useCallback(() => {
-        if (isDbConnected) {
-            // Check if there's data to migrate in localStorage
-            const prefix = transactionsFilename?.split('_')[0] ?? '';
-            let hasLocalStorageData = false;
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && key.split('_')[0] === prefix) {
-                    hasLocalStorageData = true;
-                    break;
-                }
-            }
-
-            openPopup(
-                'Synchronisation',
-                ['Synchronisation complète', "Synchronisation d'aujourd'hui", ImportOption]
-                    .concat(getHistoricalTransactions().length ? ['Exporter'] : [])
-                    .concat(hasLocalStorageData ? ['Migrer localStorage'] : [])
-                    .concat(['Stockage', 'Supprimer données locales'])
-                    .concat(['', BACK_KEYWORD]),
-                (_, option) => {
-                    const action = {
-                        'Synchronisation complète': SyncAction.fullsync,
-                        "Synchronisation d'aujourd'hui": SyncAction.daysync,
-                        Exporter: SyncAction.export,
-                    }[option];
-                    if (action) {
-                        processTransactions(action);
-                        closePopup();
-                    } else if (option === 'Migrer localStorage') {
-                        const prefix = transactionsFilename?.split('_')[0] ?? '';
-                        openPopup('Migration', ['Migration en cours...']);
-                        migrateLocalStorageToIDB(prefix).then((count) => {
-                            refreshHistoricalKeys();
-                            openPopup('Migration', [
-                                count > 0 ? `${count} jeu(x) de transactions migré(s)` : 'Aucune donnée à migrer !',
-                            ]);
-                        });
-                    } else if (option === 'Stockage') {
-                        getStorageUsage().then((usage) => {
-                            openPopup(
-                                'Stockage',
-                                [
-                                    `Utilisé : ${usage.usedFormatted}`,
-                                    `Disponible : ${usage.quotaFormatted}`,
-                                    `Utilisation : ${usage.percentUsed}%`,
-                                ],
-                                () => showSyncMenu(),
-                                true
-                            );
-                        });
-                    } else if (option === 'Supprimer données locales') {
-                        openPopup(
-                            '⚠️ Attention - Suppression des données',
-                            ['Confirmer la suppression', 'Annuler'],
-                            (_, confirmOption) => {
-                                if (confirmOption === 'Confirmer la suppression') {
-                                    // Clear localStorage
-                                    const prefix = transactionsFilename?.split('_')[0] ?? '';
-                                    const keysToDelete: string[] = [];
-                                    for (let i = 0; i < localStorage.length; i++) {
-                                        const key = localStorage.key(i);
-                                        if (key && key.split('_')[0] === prefix) {
-                                            keysToDelete.push(key);
-                                        }
-                                    }
-                                    keysToDelete.forEach((key) => localStorage.removeItem(key));
-
-                                    // Clear IndexedDB
-                                    indexedDB.deleteDatabase('TradizTransactions');
-
-                                    refreshHistoricalKeys();
-                                    openPopup('Suppression', ['Données locales supprimées avec succès.']);
-                                } else {
-                                    showSyncMenu();
-                                }
-                            }
-                        );
-                    } else if (option === BACK_KEYWORD) {
-                        showTransactionsSummaryMenu();
+    const showSyncMenu = useCallback(
+        (backCallback?: () => void) => {
+            if (isDbConnected) {
+                // Check if there's data to migrate in localStorage
+                const prefix = transactionsFilename?.split('_')[0] ?? '';
+                let hasLocalStorageData = false;
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.split('_')[0] === prefix) {
+                        hasLocalStorageData = true;
+                        break;
                     }
-                },
-                true
-            );
-        }
-    }, [
-        openPopup,
-        processTransactions,
-        ImportOption,
-        isDbConnected,
-        getHistoricalTransactions,
-        closePopup,
-        transactionsFilename,
-        refreshHistoricalKeys,
-    ]);
+                }
+
+                openPopup(
+                    'Synchronisation',
+                    ['Synchronisation complète', "Synchronisation d'aujourd'hui", ImportOption]
+                        .concat(getHistoricalTransactions().length ? ['Exporter'] : [])
+                        .concat(hasLocalStorageData ? ['Migrer localStorage'] : [])
+                        .concat(['Stockage', 'Supprimer données locales'])
+                        .concat(['', BACK_KEYWORD]),
+                    (_, option) => {
+                        const action = {
+                            'Synchronisation complète': SyncAction.fullsync,
+                            "Synchronisation d'aujourd'hui": SyncAction.daysync,
+                            Exporter: SyncAction.export,
+                        }[option];
+                        if (action) {
+                            processTransactions(action);
+                            closePopup();
+                        } else if (option === 'Migrer localStorage') {
+                            const prefix = transactionsFilename?.split('_')[0] ?? '';
+                            openPopup('Migration', ['Migration en cours...']);
+                            migrateLocalStorageToIDB(prefix).then((count) => {
+                                refreshHistoricalKeys();
+                                openPopup('Migration', [
+                                    count > 0 ? `${count} jeu(x) de transactions migré(s)` : 'Aucune donnée à migrer !',
+                                ]);
+                            });
+                        } else if (option === 'Stockage') {
+                            getStorageUsage().then((usage) => {
+                                openPopup(
+                                    'Stockage',
+                                    [
+                                        `Utilisé : ${usage.usedFormatted}`,
+                                        `Disponible : ${usage.quotaFormatted}`,
+                                        `Utilisation : ${usage.percentUsed}%`,
+                                    ],
+                                    () => showSyncMenu(),
+                                    true
+                                );
+                            });
+                        } else if (option === 'Supprimer données locales') {
+                            openPopup(
+                                '⚠️ Attention - Suppression des données',
+                                ['Confirmer la suppression', 'Annuler'],
+                                (_, confirmOption) => {
+                                    if (confirmOption === 'Confirmer la suppression') {
+                                        // Clear localStorage
+                                        const prefix = transactionsFilename?.split('_')[0] ?? '';
+                                        const keysToDelete: string[] = [];
+                                        for (let i = 0; i < localStorage.length; i++) {
+                                            const key = localStorage.key(i);
+                                            if (key && key.split('_')[0] === prefix) {
+                                                keysToDelete.push(key);
+                                            }
+                                        }
+                                        keysToDelete.forEach((key) => localStorage.removeItem(key));
+
+                                        // Clear IndexedDB
+                                        indexedDB.deleteDatabase('TradizTransactions');
+
+                                        refreshHistoricalKeys();
+                                        openPopup('Suppression', ['Données locales supprimées avec succès.']);
+                                    } else {
+                                        showSyncMenu();
+                                    }
+                                }
+                            );
+                        } else if (option === BACK_KEYWORD) {
+                            if (backCallback) backCallback();
+                        }
+                    },
+                    true
+                );
+            }
+        },
+        [
+            openPopup,
+            processTransactions,
+            ImportOption,
+            isDbConnected,
+            getHistoricalTransactions,
+            closePopup,
+            transactionsFilename,
+            refreshHistoricalKeys,
+        ]
+    );
 
     const showHistoricalTransactions = useCallback(
         (
@@ -728,7 +731,7 @@ export const useSummary = () => {
                             closePopup();
                             break;
                         case 'Menu Synchronisation':
-                            showSyncMenu();
+                            showSyncMenu(showTransactionsSummaryMenu);
                             break;
                         case 'Resynchroniser jour':
                             processTransactions(SyncAction.resync, transactionsDate.date);
