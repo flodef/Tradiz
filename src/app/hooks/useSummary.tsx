@@ -4,17 +4,17 @@ import { sendSummaryEmail } from '../actions/email';
 import { Shop } from '../contexts/ConfigProvider';
 import { BACK_KEYWORD, DELETED_KEYWORD, PRINT_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
 import { formatFrenchDate, getFormattedDate } from '../utils/date';
+import { Currency, DataElement, SyncAction, Transaction } from '../utils/interfaces';
 import { printSummary } from '../utils/posPrinter';
 import {
+    getStorageUsage,
     idbGetAllKeys,
     idbGetTransactions,
     migrateLocalStorageToIDB,
-    getStorageUsage,
 } from '../utils/transactionStore';
 import { useConfig } from './useConfig';
 import { useData } from './useData';
 import { usePopup } from './usePopup';
-import { Currency, DataElement, SyncAction, Transaction } from '../utils/interfaces';
 
 export type SummaryData = {
     shop: Shop;
@@ -34,7 +34,7 @@ enum HistoricalPeriod {
 export const useSummary = () => {
     const { currencies, currencyIndex, inventory, parameters, getPrintersNames, getPrinterAddresses } = useConfig();
     const { transactions, toCurrency, transactionsFilename, isDbConnected, processTransactions } = useData();
-    const { openPopup, closePopup } = usePopup();
+    const { openPopup, closePopup, updatePopup } = usePopup();
 
     const ImportOption = useMemo(
         () => (
@@ -393,10 +393,94 @@ export const useSummary = () => {
             // Get year start date with default fallback to January 1st
             const yearStartDate = parameters.yearStartDate || { month: 1, day: 1 };
 
+            // For day period, group by month
+            if (isDayPeriod) {
+                const ARROW = ' ▸';
+                const months = historicalTransactions
+                    .map((key) => key.split('_')[1] ?? '')
+                    .map((key) => key.split('-').slice(0, 2).join('-'))
+                    .filter((key, index, array) => key && array.indexOf(key) === index)
+                    .sort()
+                    .reverse();
+
+                if (!months.length) return;
+
+                const monthEntries = months.map((monthKey) => {
+                    return `${new Date(monthKey).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}${ARROW}`;
+                });
+
+                openPopup(
+                    'Historique par jour',
+                    monthEntries,
+                    (index) => {
+                        if (index < 0 && fallback) {
+                            fallback();
+                            return;
+                        }
+                        if (index >= 0) {
+                            // Expand to show days in this month
+                            const selectedMonth = months[index];
+                            const daysInMonth = historicalTransactions
+                                .map((key) => key.split('_')[1] ?? '')
+                                .filter((key) => key.startsWith(selectedMonth))
+                                .sort()
+                                .reverse();
+
+                            const dayEntries = daysInMonth.map((dayKey) => {
+                                return new Date(dayKey).toLocaleDateString(undefined, {
+                                    weekday: 'short',
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                });
+                            });
+                            dayEntries.push('', BACK_KEYWORD);
+
+                            updatePopup(
+                                `${new Date(selectedMonth).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}`,
+                                dayEntries,
+                                (dayIndex: number) => {
+                                    if (dayIndex < 0 && fallback) {
+                                        fallback();
+                                        return;
+                                    }
+                                    if (dayIndex >= daysInMonth.length) {
+                                        // Back button - return to month list
+                                        showHistoricalTransactions(
+                                            HistoricalPeriod.day,
+                                            menu,
+                                            showTransactionsCallback,
+                                            fallback
+                                        );
+                                        return;
+                                    }
+                                    // Load transactions for selected day
+                                    (async () => {
+                                        const key = transactionsFilename.split('_')[0] + '_' + daysInMonth[dayIndex];
+                                        const txs = await idbGetTransactions(key);
+                                        if (!txs.length) return;
+                                        tempTransactions.current = txs;
+                                        showTransactionsCallback(menu, () =>
+                                            showHistoricalTransactions(
+                                                HistoricalPeriod.day,
+                                                menu,
+                                                showTransactionsCallback,
+                                                fallback
+                                            )
+                                        );
+                                    })();
+                                }
+                            );
+                        }
+                    },
+                    true
+                );
+                return;
+            }
+
             const items = historicalTransactions
                 .map((key) => key.split('_')[1] ?? '')
                 .map((key) => {
-                    if (isDayPeriod) return key;
                     if (isMonthPeriod) return key.split('-').slice(0, 2).join('-');
                     // For year period, we need to determine fiscal year based on the date
                     if (isYearPeriod) {
@@ -418,8 +502,10 @@ export const useSummary = () => {
 
             if (!items.length) return;
 
+            const popupTitle = isMonthPeriod ? 'Historique par mois' : 'Historique par année';
+
             openPopup(
-                'Historique',
+                popupTitle,
                 items.map((key) => {
                     if (isYearPeriod) {
                         const yearNum = parseInt(key);
@@ -435,17 +521,7 @@ export const useSummary = () => {
 
                         return isCurrent ? `${yearNum} (en cours)` : `${yearNum}`;
                     }
-                    return new Date(key).toLocaleDateString(
-                        undefined,
-                        isDayPeriod
-                            ? {
-                                  weekday: 'short',
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric',
-                              }
-                            : { month: 'long', year: 'numeric' }
-                    );
+                    return new Date(key).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
                 }),
                 (index) => {
                     if (index < 0 && fallback) {
@@ -453,6 +529,7 @@ export const useSummary = () => {
                     } else if (index >= 0) {
                         (async () => {
                             if (isDayPeriod) {
+                                // This path is now handled above
                                 const key = transactionsFilename.split('_')[0] + '_' + items[index];
                                 const txs = await idbGetTransactions(key);
                                 if (!txs.length) return;
@@ -512,7 +589,14 @@ export const useSummary = () => {
                     )
             );
         },
-        [openPopup, getHistoricalTransactions, transactionsFilename, showSyncMenu, parameters.yearStartDate]
+        [
+            openPopup,
+            getHistoricalTransactions,
+            transactionsFilename,
+            showSyncMenu,
+            parameters.yearStartDate,
+            updatePopup,
+        ]
     );
 
     const displayCategoryDetails = useCallback(
