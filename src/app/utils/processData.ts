@@ -112,7 +112,6 @@ export function getPublicKey() {
 }
 
 export async function loadData(shop: string, shouldUseLocalData = false): Promise<Config | undefined> {
-    // TODO: use fee
     const id = shouldUseLocalData
         ? undefined // if the app is used locally, use the local data
         : USE_DIGICARTE
@@ -315,7 +314,7 @@ async function convertParametersData(
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-            checkData(data, 1, 2, 5, 10);
+            checkData(data, 1, 2, 6, 12);
 
             return {
                 keys: data.values.map((item) => {
