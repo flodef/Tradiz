@@ -14,7 +14,7 @@ import {
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigContext } from '../hooks/useConfig';
 import { useWindowParam } from '../hooks/useWindowParam';
-import { IS_DEV, LOCAL_PRINTER_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
+import { IS_DEV, LOCAL_PRINTER_KEYWORD, PRINT_KEYWORD, SEPARATOR, USE_DIGICARTE } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
 import {
     UserNotFoundError,
@@ -82,6 +82,8 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const isStateReady = useMemo(() => state === State.preloaded || state === State.loaded, [state]);
 
     useEffect(() => {
+        if (!USE_DIGICARTE) return;
+
         type EtabConfigResponse = {
             mode_fonctionnement?: OperationMode;
             kitchen_view_enabled?: boolean;
