@@ -31,7 +31,7 @@ export interface DataContextState {
     clearTotal: () => void;
     products: RefObject<Product[]>;
     transactions: Transaction[];
-    processTransactions: (syncAction: SyncAction, date?: Date, event?: ChangeEvent<HTMLInputElement>) => void;
+    processTransactions: (syncAction: SyncAction, date?: Date, event?: ChangeEvent<HTMLInputElement>) => Promise<void>;
     updateTransaction: (item: string | Transaction) => void;
     editTransaction: (index: number) => void;
     deleteTransaction: (index: number) => void;
