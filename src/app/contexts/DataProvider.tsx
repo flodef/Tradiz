@@ -157,7 +157,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     useEffect(() => {
         if (!parameters.shop.name || areTransactionLoaded.current) return;
 
-        const shopId = window.location.pathname.split('/')[1];
+        const shopId = parameters.shop.id || (!USE_DIGICARTE && window.location.pathname.split('/')[1]);
+
+        // Validate shop ID when using SQL database
+        if (!shopId) {
+            console.error('[DataProvider] ERROR: shop.id is required when USE_DIGICARTE is enabled');
+            alert('Configuration Error: Shop ID is missing. Please configure the shop ID in the database parameters.');
+            return;
+        }
+
         setShopId(shopId);
         console.log('[DataProvider] Using shopId:', shopId);
 
@@ -240,7 +248,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         };
 
         loadTransactions();
-    }, [parameters.shop.name, transactionsFilename, loadTransactionsFromSQL, setLocalStorageItem, getLastResetTime]);
+    }, [
+        parameters.shop.name,
+        parameters.shop.id,
+        transactionsFilename,
+        loadTransactionsFromSQL,
+        setLocalStorageItem,
+        getLastResetTime,
+    ]);
 
     const performDayReset = useCallback(() => {
         console.log('[DayReset] Performing day reset...');
