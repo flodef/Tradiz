@@ -398,7 +398,19 @@ export const useSummary = () => {
                 .map((key) => {
                     if (isDayPeriod) return key;
                     if (isMonthPeriod) return key.split('-').slice(0, 2).join('-');
-                    return key.split('-')[0]; // Year only
+                    // For year period, we need to determine fiscal year based on the date
+                    if (isYearPeriod) {
+                        const [year, month, day] = key.split('-').map(Number);
+                        const txDate = new Date(year, month - 1, day);
+                        const fiscalYearStart = new Date(year, yearStartDate.month - 1, yearStartDate.day);
+
+                        // If transaction date is before fiscal year start, it belongs to previous fiscal year
+                        if (txDate < fiscalYearStart) {
+                            return String(year - 1);
+                        }
+                        return String(year);
+                    }
+                    return key.split('-')[0]; // Fallback
                 })
                 .filter((key, index, array) => key && array.indexOf(key) === index)
                 .sort()
@@ -445,7 +457,35 @@ export const useSummary = () => {
                                 const txs = await idbGetTransactions(key);
                                 if (!txs.length) return;
                                 tempTransactions.current = txs;
+                            } else if (isYearPeriod) {
+                                // For fiscal year, filter by date range
+                                const fiscalYear = parseInt(items[index]);
+                                const fiscalYearStart = new Date(
+                                    fiscalYear,
+                                    yearStartDate.month - 1,
+                                    yearStartDate.day
+                                );
+                                const fiscalYearEnd = new Date(
+                                    fiscalYear + 1,
+                                    yearStartDate.month - 1,
+                                    yearStartDate.day - 1
+                                );
+
+                                const matchingKeys = getHistoricalTransactions().filter((key) => {
+                                    const dateStr = key.split('_')[1];
+                                    if (!dateStr) return false;
+                                    const [year, month, day] = dateStr.split('-').map(Number);
+                                    const txDate = new Date(year, month - 1, day);
+                                    return txDate >= fiscalYearStart && txDate <= fiscalYearEnd;
+                                });
+
+                                tempTransactions.current = [];
+                                for (const key of matchingKeys) {
+                                    const txs = await idbGetTransactions(key);
+                                    txs.forEach((tx) => tempTransactions.current.push(tx));
+                                }
                             } else {
+                                // For month period, use simple string matching
                                 const matchingKeys = getHistoricalTransactions().filter((key) =>
                                     key.includes(items[index])
                                 );
