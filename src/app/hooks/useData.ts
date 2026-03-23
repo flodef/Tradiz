@@ -56,6 +56,7 @@ export interface DataContextState {
     setCounterServiceType: (type: ServiceType) => void;
     contextTableId: string;
     setContextTableId: (tableId: string) => void;
+    checkAndPerformDayReset: () => boolean;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);

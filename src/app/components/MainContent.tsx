@@ -21,7 +21,18 @@ interface PendingOrder {
 export const MainContent: FC = () => {
     const { isStateReady } = useConfig();
     const { openPopup, closePopup } = usePopup();
-    const { setOrderId, setOrderData, addProduct, clearTotal, shortNumOrder, setShortNumOrder, orderId, setContextTableId, contextTableId } = useData();
+    const {
+        setOrderId,
+        setOrderData,
+        addProduct,
+        clearTotal,
+        shortNumOrder,
+        setShortNumOrder,
+        orderId,
+        setContextTableId,
+        contextTableId,
+        checkAndPerformDayReset,
+    } = useData();
     const [showTransverseMode, setShowTransverseMode] = useState(false);
     const [showOrderWithTable, setShowOrderWithTable] = useState(false);
 
@@ -106,9 +117,7 @@ export const MainContent: FC = () => {
                                     ? `Commande #${pending.shortNumOrder}`
                                     : `Commande #${pending.orderId}`;
                                 const table =
-                                    pending.tableId && pending.tableId > 0
-                                        ? `Table ${pending.tableId}`
-                                        : 'Sans table';
+                                    pending.tableId && pending.tableId > 0 ? `Table ${pending.tableId}` : 'Sans table';
                                 return `${number} - ${table}`;
                             });
 
@@ -147,6 +156,10 @@ export const MainContent: FC = () => {
     }, [setOrderId, setOrderData, setShortNumOrder, addProduct, clearTotal, setContextTableId, openPopup, closePopup]);
 
     const handleClick = () => {
+        // Check if daily reset should happen (silently)
+        checkAndPerformDayReset();
+
+        // Request fullscreen if needed
         if (isStateReady && !isFullscreen() && !IS_DEV && !USE_DIGICARTE) requestFullscreen();
     };
 

@@ -182,7 +182,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         };
 
         loadTransactions();
-    }, [parameters.shop.name, loadTransactionsFromSQL, setLocalStorageItem]);
+    }, [parameters.shop.name, transactionsFilename, loadTransactionsFromSQL, setLocalStorageItem]);
 
     // Compute next reset timestamp based on closingHour
     const getNextResetTime = useCallback(() => {
@@ -195,11 +195,20 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, [parameters.closingHour]);
 
     const performDayReset = useCallback(() => {
-        if (!areTransactionLoaded.current) return; // Already resetting
+        console.log('[DayReset] Performing day reset...');
         areTransactionLoaded.current = false;
         setTransactionsFilename('');
         nextResetTime.current = getNextResetTime();
     }, [getNextResetTime]);
+
+    // Check if reset should happen and perform it
+    const checkAndPerformDayReset = useCallback(() => {
+        if (Date.now() >= nextResetTime.current && areTransactionLoaded.current) {
+            performDayReset();
+            return true;
+        }
+        return false;
+    }, [performDayReset]);
 
     const nextResetTime = useRef(0);
 
@@ -1222,6 +1231,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 setCounterServiceType,
                 contextTableId,
                 setContextTableId,
+                checkAndPerformDayReset,
             }}
         >
             {children}
