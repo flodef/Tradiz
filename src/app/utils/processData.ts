@@ -164,7 +164,7 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
         closingHour: Math.max(0, Math.min(23, Number(getParamValue('closingHour', 8)) || 0)),
         yearStartDate: (() => {
             try {
-                const value = getParamValue('yearStartDate', 10);
+                const value = getParamValue('yearStartDate', 9);
                 if (value) {
                     const parsed = JSON.parse(value);
                     if (parsed && typeof parsed.month === 'number' && typeof parsed.day === 'number') {
@@ -176,7 +176,7 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
             }
             return { month: 1, day: 1 }; // Default to January 1st
         })(),
-        lastModified: getParamValue('lastModified', 9) || new Date().toLocaleString(),
+        lastModified: getParamValue('lastModified', 10) || new Date().toLocaleString(),
         user: user,
     };
 
