@@ -72,6 +72,7 @@ export const defaultParameters: Parameters = {
     mercurial: Mercurial.none,
     lastModified: new Date().toLocaleString(),
     closingHour: 0,
+    yearStartDate: { month: 1, day: 1 }, // January 1st by default
     user: { name: '', role: Role.none },
 };
 
@@ -161,6 +162,20 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
         thanksMessage: getParamValue('thanksMessage', 6) || 'Merci de votre visite !',
         mercurial: (getParamValue('mercurial', 7) || Mercurial.none) as Mercurial,
         closingHour: Math.max(0, Math.min(23, Number(getParamValue('closingHour', 8)) || 0)),
+        yearStartDate: (() => {
+            try {
+                const value = getParamValue('yearStartDate', 10);
+                if (value) {
+                    const parsed = JSON.parse(value);
+                    if (parsed && typeof parsed.month === 'number' && typeof parsed.day === 'number') {
+                        return parsed;
+                    }
+                }
+            } catch {
+                // Invalid JSON, use default
+            }
+            return { month: 1, day: 1 }; // Default to January 1st
+        })(),
         lastModified: getParamValue('lastModified', 9) || new Date().toLocaleString(),
         user: user,
     };

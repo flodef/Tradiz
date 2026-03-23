@@ -28,6 +28,7 @@ export type SummaryData = {
 enum HistoricalPeriod {
     day,
     month,
+    year,
 }
 
 export const useSummary = () => {
@@ -67,6 +68,7 @@ export const useSummary = () => {
         const prefix = transactionsFilename.split('_')[0];
         const allKeys = await idbGetAllKeys();
         const matching = allKeys.filter((key) => key.split('_')[0] === prefix);
+        console.log('[useSummary] refreshHistoricalKeys:', { prefix, allKeys, matching });
         setHistoricalKeys(matching);
     }, [transactionsFilename]);
 
@@ -379,9 +381,19 @@ export const useSummary = () => {
             }
 
             const isDayPeriod = historicalPeriod === HistoricalPeriod.day;
+            const isMonthPeriod = historicalPeriod === HistoricalPeriod.month;
+            const isYearPeriod = historicalPeriod === HistoricalPeriod.year;
+
+            // Get year start date with default fallback to January 1st
+            const yearStartDate = parameters.yearStartDate || { month: 1, day: 1 };
+
             const items = historicalTransactions
                 .map((key) => key.split('_')[1] ?? '')
-                .map((key) => (isDayPeriod ? key : key.split('-').slice(0, 2).join('-')))
+                .map((key) => {
+                    if (isDayPeriod) return key;
+                    if (isMonthPeriod) return key.split('-').slice(0, 2).join('-');
+                    return key.split('-')[0]; // Year only
+                })
                 .filter((key, index, array) => key && array.indexOf(key) === index)
                 .sort()
                 .reverse();
@@ -390,8 +402,22 @@ export const useSummary = () => {
 
             openPopup(
                 'Historique',
-                items.map((key) =>
-                    new Date(key).toLocaleDateString(
+                items.map((key) => {
+                    if (isYearPeriod) {
+                        const yearNum = parseInt(key);
+                        const now = new Date();
+                        const currentYear = now.getFullYear();
+                        const yearStart = new Date(currentYear, yearStartDate.month - 1, yearStartDate.day);
+
+                        // Check if this is the current fiscal year
+                        const isCurrent =
+                            now >= yearStart
+                                ? yearNum === currentYear // We're after the year start date
+                                : yearNum === currentYear - 1; // We're before the year start date
+
+                        return isCurrent ? `${yearNum} (en cours)` : `${yearNum}`;
+                    }
+                    return new Date(key).toLocaleDateString(
                         undefined,
                         isDayPeriod
                             ? {
@@ -401,8 +427,8 @@ export const useSummary = () => {
                                   day: 'numeric',
                               }
                             : { month: 'long', year: 'numeric' }
-                    )
-                ),
+                    );
+                }),
                 (index) => {
                     if (index < 0 && fallback) {
                         fallback();
@@ -440,7 +466,7 @@ export const useSummary = () => {
                     )
             );
         },
-        [openPopup, getHistoricalTransactions, transactionsFilename, showSyncMenu]
+        [openPopup, getHistoricalTransactions, transactionsFilename, showSyncMenu, parameters.yearStartDate]
     );
 
     const displayCategoryDetails = useCallback(
@@ -698,6 +724,11 @@ export const useSummary = () => {
     const showTransactionsSummaryMenu = useCallback(() => {
         const hasTransactions = transactions.length || tempTransactions.current.length;
         const historicalTransactions = getHistoricalTransactions();
+        console.log('[useSummary] showTransactionsSummaryMenu:', {
+            hasTransactions,
+            historicalTransactions,
+            isDbConnected,
+        });
         if (hasTransactions || isDbConnected) {
             const transactionsDate = getTransactionsDate(getFilteredTransactions());
             const isDailyPeriod = transactionsDate.period === HistoricalPeriod.day;
@@ -708,7 +739,7 @@ export const useSummary = () => {
                     .concat(hasTransactions ? getPrintersNames() : [])
                     .concat(isDbConnected && hasTransactions && isDailyPeriod ? ['Resynchroniser jour'] : [])
                     .concat(isDbConnected ? ['Menu Synchronisation'] : [])
-                    .concat(historicalTransactions.length ? ['Histo jour', 'Histo mois'] : [])
+                    .concat(historicalTransactions.length ? ['Histo jour', 'Histo mois', 'Histo année'] : [])
                     .concat(hasTransactions ? 'Afficher' : []),
                 (_, option) => {
                     switch (option.split(SEPARATOR)[0]) {
@@ -739,9 +770,16 @@ export const useSummary = () => {
                             break;
                         case 'Histo jour':
                         case 'Histo mois':
+                        case 'Histo année':
                             if (historicalTransactions.length) {
+                                const period =
+                                    option === 'Histo jour'
+                                        ? HistoricalPeriod.day
+                                        : option === 'Histo mois'
+                                          ? HistoricalPeriod.month
+                                          : HistoricalPeriod.year;
                                 showHistoricalTransactions(
-                                    option === 'Histo jour' ? HistoricalPeriod.day : HistoricalPeriod.month,
+                                    period,
                                     showTransactionsSummaryMenu,
                                     showTransactionsSummary,
                                     transactions.length ? showTransactionsSummaryMenu : undefined
