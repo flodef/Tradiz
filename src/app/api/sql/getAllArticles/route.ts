@@ -8,6 +8,7 @@ interface ArticleRow {
     rate: string;
     category: string;
     options: string;
+    disponible: number;
 }
 
 export async function GET() {
@@ -16,7 +17,7 @@ export async function GET() {
 
         // Query 1: Get all articles
         const queryArticles = `
-            SELECT a.nom as label, a.prix as amount, a.taux_tva as rate, b.nom as category, a.options as options
+            SELECT a.nom as label, a.prix as amount, a.taux_tva as rate, b.nom as category, a.options as options, a.disponible as disponible
             FROM article a
             JOIN categorie b on b.id = a.categorie
         `;
@@ -46,7 +47,7 @@ export async function GET() {
                 Number(row.rate) / 100,
                 String(row.category),
                 String(row.label),
-                false,
+                !row.disponible, // disponible=1 means available, so Indisponible=!disponible
                 Number(Number(row.amount).toFixed(2)),
             ])
         );
