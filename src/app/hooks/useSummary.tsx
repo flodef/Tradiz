@@ -269,7 +269,7 @@ export const useSummary = () => {
     );
 
     const showSyncMenu = useCallback(
-        (backCallback?: () => void) => {
+        (backCallback = closePopup) => {
             if (isDbConnected) {
                 // Check if there's data to migrate in localStorage
                 const prefix = transactionsFilename?.split('_')[0] ?? '';
@@ -355,7 +355,7 @@ export const useSummary = () => {
                                 }
                             );
                         } else if (option === BACK_KEYWORD) {
-                            if (backCallback) backCallback();
+                            backCallback();
                         }
                     },
                     true
@@ -370,6 +370,7 @@ export const useSummary = () => {
             getHistoricalTransactions,
             transactionsFilename,
             refreshHistoricalKeys,
+            closePopup,
         ]
     );
 
@@ -378,7 +379,7 @@ export const useSummary = () => {
             historicalPeriod: HistoricalPeriod,
             menu: () => void,
             showTransactionsCallback: (menu: () => void, fallback?: () => void) => void,
-            fallback?: () => void
+            fallback = closePopup
         ) => {
             const historicalTransactions = getHistoricalTransactions();
             if (!historicalTransactions.length) {
@@ -408,12 +409,18 @@ export const useSummary = () => {
                 const monthEntries = months.map((monthKey) => {
                     return `${new Date(monthKey).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}${ARROW}`;
                 });
+                monthEntries.push('', BACK_KEYWORD);
 
                 openPopup(
                     'Historique par jour',
                     monthEntries,
                     (index) => {
-                        if (index < 0 && fallback) {
+                        if (index < 0) {
+                            fallback();
+                            return;
+                        }
+                        if (index >= months.length) {
+                            // Back button
                             fallback();
                             return;
                         }
@@ -440,7 +447,7 @@ export const useSummary = () => {
                                 `${new Date(selectedMonth).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}`,
                                 dayEntries,
                                 (dayIndex: number) => {
-                                    if (dayIndex < 0 && fallback) {
+                                    if (dayIndex < 0) {
                                         fallback();
                                         return;
                                     }
@@ -504,27 +511,33 @@ export const useSummary = () => {
 
             const popupTitle = isMonthPeriod ? 'Historique par mois' : 'Historique par année';
 
+            const displayItems = items.map((key) => {
+                if (isYearPeriod) {
+                    const yearNum = parseInt(key);
+                    const now = new Date();
+                    const currentYear = now.getFullYear();
+                    const yearStart = new Date(currentYear, yearStartDate.month - 1, yearStartDate.day);
+
+                    // Check if this is the current fiscal year
+                    const isCurrent =
+                        now >= yearStart
+                            ? yearNum === currentYear // We're after the year start date
+                            : yearNum === currentYear - 1; // We're before the year start date
+
+                    return isCurrent ? `${yearNum} (en cours)` : `${yearNum}`;
+                }
+                return new Date(key).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+            });
+            displayItems.push('', BACK_KEYWORD);
+
             openPopup(
                 popupTitle,
-                items.map((key) => {
-                    if (isYearPeriod) {
-                        const yearNum = parseInt(key);
-                        const now = new Date();
-                        const currentYear = now.getFullYear();
-                        const yearStart = new Date(currentYear, yearStartDate.month - 1, yearStartDate.day);
-
-                        // Check if this is the current fiscal year
-                        const isCurrent =
-                            now >= yearStart
-                                ? yearNum === currentYear // We're after the year start date
-                                : yearNum === currentYear - 1; // We're before the year start date
-
-                        return isCurrent ? `${yearNum} (en cours)` : `${yearNum}`;
-                    }
-                    return new Date(key).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-                }),
+                displayItems,
                 (index) => {
-                    if (index < 0 && fallback) {
+                    if (index < 0) {
+                        fallback();
+                    } else if (index >= items.length) {
+                        // Back button
                         fallback();
                     } else if (index >= 0) {
                         (async () => {
@@ -596,6 +609,7 @@ export const useSummary = () => {
             showSyncMenu,
             parameters.yearStartDate,
             updatePopup,
+            closePopup,
         ]
     );
 
@@ -864,7 +878,7 @@ export const useSummary = () => {
             const isDailyPeriod = transactionsDate.period === HistoricalPeriod.day;
             const formattedDate = getFormattedDate(transactionsDate.date, isDailyPeriod ? 3 : 2);
             openPopup(
-                'TicketZ ' + (hasTransactions ? formattedDate : ''),
+                'Ticket Z ' + (hasTransactions ? formattedDate : ''),
                 (hasTransactions ? ['Email', 'Feuille de calcul'] : [])
                     .concat(hasTransactions ? getPrintersNames() : [])
                     .concat(isDbConnected && hasTransactions && isDailyPeriod ? ['Resynchroniser jour'] : [])
@@ -912,7 +926,7 @@ export const useSummary = () => {
                                     period,
                                     showTransactionsSummaryMenu,
                                     showTransactionsSummary,
-                                    transactions.length ? showTransactionsSummaryMenu : undefined
+                                    showTransactionsSummaryMenu
                                 );
                             }
                             break;
