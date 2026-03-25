@@ -284,10 +284,10 @@ async function convertIndexData(response: void | Response) {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-            checkData(data, 3, 3, 1, 100000, 'Index');
+            checkData(data, 2, 2, 1, 100000, 'Index');
 
             return data.values.map((item) => {
-                checkColumn(item, 3, 'Index');
+                checkColumn(item, 2, 'Index');
                 return {
                     shop: String(item.at(0)).trim(),
                     id: String(item.at(1)).trim(),
