@@ -322,8 +322,14 @@ export const useSummary = () => {
                                         `Utilisé : ${usage.usedFormatted}`,
                                         `Disponible : ${usage.quotaFormatted}`,
                                         `Utilisation : ${usage.percentUsed}%`,
+                                        '',
+                                        BACK_KEYWORD,
                                     ],
-                                    () => showSyncMenu(),
+                                    (index) => {
+                                        // Only handle back button click (index 4) and close button (index -1), ignore storage info items
+                                        if (index < 0) closePopup();
+                                        if (index === 4) showSyncMenu();
+                                    },
                                     true
                                 );
                             });
