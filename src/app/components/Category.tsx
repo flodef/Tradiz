@@ -13,6 +13,10 @@ import { useIsMobileDevice } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
 import { useAddPopupClass } from './Popup';
 import { Catalog, CatalogFormula, EmptyDiscount, InventoryItem, Role, State } from '../utils/interfaces';
+import { ButtonSize } from '../utils/types';
+import { getButtonSizeConfig } from '../utils/buttonSizeConfig';
+
+export const CATEGORY_BUTTON_SIZE: ButtonSize = 'xl';
 
 // Local types for option selection helpers
 type OptionDef = { type: string; options: { valeur: string; prix: number | string }[] };
@@ -22,11 +26,13 @@ interface CategoryInputButton {
     input: string;
     onInput: (input: string, eventType: string) => void;
     length: number;
+    size?: ButtonSize;
 }
 
-const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => {
+const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length, size = 'md' }) => {
     const { selectedProduct } = useData();
     const isMobileDevice = useIsMobileDevice();
+    const sizeConfig = getButtonSizeConfig(size);
 
     const onClick: MouseEventHandler = (e) => {
         e.preventDefault();
@@ -38,7 +44,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length }) => 
         <div
             className={twMerge(
                 { 1: 'w-full', 2: 'w-1/2', 3: 'w-1/3' }[length] ?? 'w-auto',
-                'relative flex justify-center h-12 items-center font-semibold text-xl',
+                `relative flex justify-center ${sizeConfig.tailwindClass} items-center font-semibold text-xl`,
                 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light',
                 !isMobileDevice ? 'hover:bg-active-light dark:hover:bg-active-dark cursor-pointer' : '',
                 selectedProduct?.category === input
@@ -454,12 +460,12 @@ export const Category: FC = () => {
     const categories = useMemo(() => inventory.map(({ category }) => category), [inventory]);
 
     // 2 columns per row, all categories shown (scroll if > 3 rows)
+    const sizeConfig = getButtonSizeConfig(CATEGORY_BUTTON_SIZE);
     const COLS = 2;
     const rows = Array.from({ length: Math.ceil(categories.length / COLS) }, (_, i) =>
         categories.slice(i * COLS, i * COLS + COLS)
     );
-    // Row height = h-12 (48px) + 1px divider
-    const ROW_HEIGHT = 12 * 4 + 1;
+    const ROW_HEIGHT = sizeConfig.rowHeight;
     const MAX_VISIBLE_ROWS = 3;
     const gridHeight = Math.min(rows.length, MAX_VISIBLE_ROWS) * ROW_HEIGHT;
 
@@ -487,7 +493,13 @@ export const Category: FC = () => {
                     {rows.map((row, rowIdx) => (
                         <div key={rowIdx} className={rowClassName}>
                             {row.map((category, colIdx) => (
-                                <CategoryButton key={colIdx} input={category} onInput={onInput} length={row.length} />
+                                <CategoryButton
+                                    key={colIdx}
+                                    input={category}
+                                    onInput={onInput}
+                                    length={row.length}
+                                    size={CATEGORY_BUTTON_SIZE}
+                                />
                             ))}
                         </div>
                     ))}

@@ -2,6 +2,7 @@
 
 import { FC, MouseEventHandler, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
+import { isDeletedTransaction } from '../contexts/dataProvider/transactionHelpers';
 import { useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
@@ -12,13 +13,14 @@ import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { CalculatorIcon } from '../images/CalculatorIcon';
 import { WalletIcon } from '../images/WalletIcon';
-import { isDeletedTransaction } from '../contexts/dataProvider/transactionHelpers';
+import { getButtonSizeConfig } from '../utils/buttonSizeConfig';
 import { WAITING_KEYWORD } from '../utils/constants';
 import { EmptyDiscount, Mercurial } from '../utils/interfaces';
 import { isMobileSize, useIsMobileDevice } from '../utils/mobile';
 import { Digits } from '../utils/types';
 import { Amount } from './Amount';
 import { Calculator } from './Calculator';
+import { CATEGORY_BUTTON_SIZE } from './Category';
 import { useAddPopupClass } from './Popup';
 
 interface NumPadButtonProps {
@@ -403,17 +405,22 @@ export const NumPad: FC = () => {
     );
     const left = useMemo(() => Math.max(((isMobileSize() ? width : width / 2) - 512) / 2, 0), [width]);
 
+    // Use same button size as Category component
+    const sizeConfig = getButtonSizeConfig(CATEGORY_BUTTON_SIZE);
+
     return (
         <div
             className={useAddPopupClass(
-                'inset-0 min-w-[375px] w-full self-center absolute bottom-[150px] ' +
-                    'md:top-0 md:w-1/2 md:justify-center md:max-w-[50%] ' +
+                `inset-0 min-w-[375px] w-full self-center absolute md:top-0 md:w-1/2 md:justify-center md:max-w-[50%] ` +
                     (shouldUseOverflow
                         ? isPopupOpen
                             ? 'top-[76px] '
                             : 'top-32 block overflow-auto '
                         : 'flex flex-col justify-center items-center top-20 md:top-0')
             )}
+            style={{
+                bottom: `${sizeConfig.numPadBottom}px`,
+            }}
         >
             <div className="flex flex-col justify-center items-center w-full">
                 <div
