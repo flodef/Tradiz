@@ -485,10 +485,99 @@ export const useSummary = () => {
                 return;
             }
 
+            // For month period, group by year
+            if (isMonthPeriod) {
+                const ARROW = ' ▸';
+                const years = historicalTransactions
+                    .map((key) => key.split('_')[1] ?? '')
+                    .map((key) => key.split('-')[0])
+                    .filter((key, index, array) => key && array.indexOf(key) === index)
+                    .sort()
+                    .reverse();
+
+                if (!years.length) return;
+
+                const yearEntries = years.map((year) => `${year}${ARROW}`);
+                yearEntries.push('', BACK_KEYWORD);
+
+                openPopup(
+                    'Historique par mois',
+                    yearEntries,
+                    (index) => {
+                        if (index < 0) {
+                            fallback();
+                            return;
+                        }
+                        if (index >= years.length) {
+                            // Back button
+                            fallback();
+                            return;
+                        }
+                        if (index >= 0) {
+                            // Expand to show months in this year
+                            const selectedYear = years[index];
+                            const monthsInYear = historicalTransactions
+                                .map((key) => key.split('_')[1] ?? '')
+                                .map((key) => key.split('-').slice(0, 2).join('-'))
+                                .filter((key) => key.startsWith(selectedYear))
+                                .filter((key, idx, arr) => arr.indexOf(key) === idx)
+                                .sort()
+                                .reverse();
+
+                            const monthEntries = monthsInYear.map((monthKey) => {
+                                return new Date(monthKey).toLocaleDateString(undefined, {
+                                    month: 'long',
+                                    year: 'numeric',
+                                });
+                            });
+                            monthEntries.push('', BACK_KEYWORD);
+
+                            updatePopup(selectedYear, monthEntries, (monthIndex: number) => {
+                                if (monthIndex < 0) {
+                                    fallback();
+                                    return;
+                                }
+                                if (monthIndex >= monthsInYear.length) {
+                                    // Back button - return to year list
+                                    showHistoricalTransactions(
+                                        HistoricalPeriod.month,
+                                        menu,
+                                        showTransactionsCallback,
+                                        fallback
+                                    );
+                                    return;
+                                }
+                                // Load transactions for selected month
+                                (async () => {
+                                    const matchingKeys = getHistoricalTransactions().filter((key) =>
+                                        key.includes(monthsInYear[monthIndex])
+                                    );
+                                    tempTransactions.current = [];
+                                    for (const key of matchingKeys) {
+                                        const txs = await idbGetTransactions(key);
+                                        txs.forEach((tx) => tempTransactions.current.push(tx));
+                                    }
+
+                                    showTransactionsCallback(menu, () =>
+                                        showHistoricalTransactions(
+                                            HistoricalPeriod.month,
+                                            menu,
+                                            showTransactionsCallback,
+                                            fallback
+                                        )
+                                    );
+                                })();
+                            });
+                        }
+                    },
+                    true
+                );
+                return;
+            }
+
             const items = historicalTransactions
                 .map((key) => key.split('_')[1] ?? '')
                 .map((key) => {
-                    if (isMonthPeriod) return key.split('-').slice(0, 2).join('-');
                     // For year period, we need to determine fiscal year based on the date
                     if (isYearPeriod) {
                         const [year, month, day] = key.split('-').map(Number);
@@ -509,24 +598,21 @@ export const useSummary = () => {
 
             if (!items.length) return;
 
-            const popupTitle = isMonthPeriod ? 'Historique par mois' : 'Historique par année';
+            const popupTitle = 'Historique par année fiscale';
 
             const displayItems = items.map((key) => {
-                if (isYearPeriod) {
-                    const yearNum = parseInt(key);
-                    const now = new Date();
-                    const currentYear = now.getFullYear();
-                    const yearStart = new Date(currentYear, yearStartDate.month - 1, yearStartDate.day);
+                const yearNum = parseInt(key);
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                const yearStart = new Date(currentYear, yearStartDate.month - 1, yearStartDate.day);
 
-                    // Check if this is the current fiscal year
-                    const isCurrent =
-                        now >= yearStart
-                            ? yearNum === currentYear // We're after the year start date
-                            : yearNum === currentYear - 1; // We're before the year start date
+                // Check if this is the current fiscal year
+                const isCurrent =
+                    now >= yearStart
+                        ? yearNum === currentYear // We're after the year start date
+                        : yearNum === currentYear - 1; // We're before the year start date
 
-                    return isCurrent ? `${yearNum} (en cours)` : `${yearNum}`;
-                }
-                return new Date(key).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+                return isCurrent ? `${yearNum} (en cours)` : `${yearNum}`;
             });
             displayItems.push('', BACK_KEYWORD);
 
@@ -874,6 +960,12 @@ export const useSummary = () => {
             isDbConnected,
         });
         if (hasTransactions || isDbConnected) {
+            // If no transactions and DB connected, show sync menu directly
+            if (!hasTransactions && isDbConnected) {
+                showSyncMenu();
+                return;
+            }
+
             const transactionsDate = getTransactionsDate(getFilteredTransactions());
             const isDailyPeriod = transactionsDate.period === HistoricalPeriod.day;
             const formattedDate = getFormattedDate(transactionsDate.date, isDailyPeriod ? 3 : 2);
@@ -883,7 +975,11 @@ export const useSummary = () => {
                     .concat(hasTransactions ? getPrintersNames() : [])
                     .concat(isDbConnected && hasTransactions && isDailyPeriod ? ['Resynchroniser jour'] : [])
                     .concat(isDbConnected ? ['Menu Synchronisation'] : [])
-                    .concat(historicalTransactions.length ? ['Histo jour', 'Histo mois', 'Histo année'] : [])
+                    .concat(
+                        historicalTransactions.length
+                            ? ['Historique par jour', 'Historique par mois', 'Historique par année fiscale']
+                            : []
+                    )
                     .concat(hasTransactions ? 'Afficher' : []),
                 (_, option) => {
                     switch (option.split(SEPARATOR)[0]) {
@@ -912,14 +1008,14 @@ export const useSummary = () => {
                             processTransactions(SyncAction.resync, transactionsDate.date);
                             showTransactionsSummary(showTransactionsSummaryMenu, showTransactionsSummaryMenu);
                             break;
-                        case 'Histo jour':
-                        case 'Histo mois':
-                        case 'Histo année':
+                        case 'Historique par jour':
+                        case 'Historique par mois':
+                        case 'Historique par année fiscale':
                             if (historicalTransactions.length) {
                                 const period =
-                                    option === 'Histo jour'
+                                    option === 'Historique par jour'
                                         ? HistoricalPeriod.day
-                                        : option === 'Histo mois'
+                                        : option === 'Historique par mois'
                                           ? HistoricalPeriod.month
                                           : HistoricalPeriod.year;
                                 showHistoricalTransactions(

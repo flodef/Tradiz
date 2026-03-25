@@ -5,7 +5,7 @@ describe('Historical Transactions', () => {
         vi.clearAllMocks();
     });
 
-    describe('Histo Jour (Day)', () => {
+    describe('Historique par Jour (Day)', () => {
         it('should filter and display transactions by day', () => {
             const historicalKeys = ['testshop_2026-03-21', 'testshop_2026-03-22', 'testshop_2026-03-23'];
 
@@ -32,7 +32,7 @@ describe('Historical Transactions', () => {
         });
     });
 
-    describe('Histo Mois (Month)', () => {
+    describe('Historique par Mois (Month)', () => {
         it('should group transactions by month', () => {
             const historicalKeys = [
                 'testshop_2026-03-21',
@@ -63,7 +63,7 @@ describe('Historical Transactions', () => {
         });
     });
 
-    describe('Histo Année (Year)', () => {
+    describe('Historique par Année fiscale (Year)', () => {
         it('should filter transactions within fiscal year based on yearStartDate', () => {
             const yearStartDate = { month: 3, day: 3 }; // March 3rd
             const historicalKeys = [
