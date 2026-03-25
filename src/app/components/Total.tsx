@@ -107,7 +107,7 @@ export const Total: FC = () => {
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
     const { pay, printTransaction } = usePay();
-    const { isStateReady, getPrintersNames } = useConfig();
+    const { isStateReady, getPrintersNames, modeFonctionnement } = useConfig();
 
     const [needRefresh, setNeedRefresh] = useState(false);
     const visibleTransactions = useMemo(() => transactions.filter((tx) => !isDeletedTransaction(tx)), [transactions]);
@@ -577,7 +577,7 @@ export const Total: FC = () => {
                             </span>
                         )}
                     </div>
-                    {USE_DIGICARTE && (
+                    {USE_DIGICARTE && modeFonctionnement !== 'light' && (
                         <CloseButton
                             onClose={() => postMessageToParent(CLOSE)}
                             className="pt-0 active:bg-light dark:active:bg-dark text-light dark:text-dark"
