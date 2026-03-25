@@ -425,6 +425,11 @@ async function convertPrintersData(response: void | Response): Promise<Printer[]
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
+            // Printers are optional, return empty array if no data
+            if (!data.values?.length) {
+                return [];
+            }
+
             checkData(data, 2, 2);
 
             return data.values.removeHeader().map((item) => {
