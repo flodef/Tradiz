@@ -13,9 +13,10 @@ import { BackspaceIcon } from '../images/BackspaceIcon';
 import { BasketIcon } from '../images/BasketIcon';
 import { CalculatorIcon } from '../images/CalculatorIcon';
 import { WalletIcon } from '../images/WalletIcon';
+import Loading, { LoadingType } from '../loading';
 import { getButtonSizeConfig } from '../utils/buttonSizeConfig';
 import { WAITING_KEYWORD } from '../utils/constants';
-import { EmptyDiscount, Mercurial } from '../utils/interfaces';
+import { EmptyDiscount, Mercurial, State } from '../utils/interfaces';
 import { isMobileSize, useIsMobileDevice } from '../utils/mobile';
 import { Digits } from '../utils/types';
 import { Amount } from './Amount';
@@ -127,7 +128,7 @@ const ImageButton: FC<ImageButtonProps> = ({ children, onClick, onContextMenu, c
 };
 
 export const NumPad: FC = () => {
-    const { currencies, currencyIndex, setCurrency, isStateReady, discounts } = useConfig();
+    const { currencies, currencyIndex, setCurrency, state, isStateReady, discounts } = useConfig();
     const {
         total,
         amount,
@@ -408,16 +409,36 @@ export const NumPad: FC = () => {
     // Use same button size as Category component
     const sizeConfig = getButtonSizeConfig(CATEGORY_BUTTON_SIZE);
 
+    // Call useAddPopupClass before any conditional return
+    const numPadClass = useAddPopupClass(
+        `inset-0 min-w-[375px] w-full self-center absolute md:top-0 md:w-1/2 md:justify-center md:max-w-[50%] ` +
+            (shouldUseOverflow
+                ? isPopupOpen
+                    ? 'top-[76px] '
+                    : 'top-32 block overflow-auto '
+                : 'flex flex-col justify-center items-center top-20 md:top-0')
+    );
+
+    // Show loading animation while state is init, loading, or error (after all hooks are called)
+    if (state === State.init || state === State.loading || state === State.error) {
+        return (
+            <div
+                className={numPadClass}
+                style={{
+                    bottom: `${sizeConfig.numPadBottom}px`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}
+            >
+                {Loading(LoadingType.Dot, false)}
+            </div>
+        );
+    }
+
     return (
         <div
-            className={useAddPopupClass(
-                `inset-0 min-w-[375px] w-full self-center absolute md:top-0 md:w-1/2 md:justify-center md:max-w-[50%] ` +
-                    (shouldUseOverflow
-                        ? isPopupOpen
-                            ? 'top-[76px] '
-                            : 'top-32 block overflow-auto '
-                        : 'flex flex-col justify-center items-center top-20 md:top-0')
-            )}
+            className={numPadClass}
             style={{
                 bottom: `${sizeConfig.numPadBottom}px`,
             }}

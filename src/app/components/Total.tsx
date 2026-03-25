@@ -14,8 +14,9 @@ import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
+import Loading, { LoadingType } from '../loading';
 import { BACK_KEYWORD, REFUND_KEYWORD, UPDATING_KEYWORD, USE_DIGICARTE, WAITING_KEYWORD } from '../utils/constants';
-import { OrderItem, Transaction } from '../utils/interfaces';
+import { OrderItem, State, Transaction } from '../utils/interfaces';
 import { CLOSE, postMessageToParent } from '../utils/message';
 import { isMobileSize, useIsMobile, useIsMobileDevice } from '../utils/mobile';
 import { Amount } from './Amount';
@@ -107,7 +108,7 @@ export const Total: FC = () => {
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
     const { pay, printTransaction } = usePay();
-    const { isStateReady, getPrintersNames } = useConfig();
+    const { state, isStateReady, getPrintersNames } = useConfig();
 
     const [needRefresh, setNeedRefresh] = useState(false);
     const visibleTransactions = useMemo(() => transactions.filter((tx) => !isDeletedTransaction(tx)), [transactions]);
@@ -520,6 +521,15 @@ export const Total: FC = () => {
             'md:border-secondary-active-light md:dark:border-secondary-active-dark '
     );
     const isMobile = useIsMobile();
+
+    // Show loading animation while state is init, loading, or error (after all hooks are called)
+    if (state === State.init || state === State.loading || state === State.error) {
+        return (
+            <div className={popupClass} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {Loading(LoadingType.Dot, false)}
+            </div>
+        );
+    }
 
     // If showPartialPaymentSelector is true, show the OrderItemsSelector instead of normal view
     if (showPartialPaymentSelector && orderId) {
