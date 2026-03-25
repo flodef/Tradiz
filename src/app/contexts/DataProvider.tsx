@@ -102,7 +102,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         setCounterServiceTypeState(type);
     }, []);
 
-    const isDbConnected = useMemo(() => (USE_DIGICARTE || !!firestore) && isOnline, [firestore, isOnline]);
+    const isDbConnected = useMemo(() => (USE_DIGICARTE || IS_DEV || !!firestore) && isOnline, [firestore, isOnline]);
 
     useEffect(() => {
         setCurrentMercurial(parameters.mercurial);
