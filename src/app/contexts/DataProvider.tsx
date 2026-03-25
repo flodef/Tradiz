@@ -415,11 +415,19 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             );
             // Always persist to localStorage (including deleted-flagged transactions)
             setLocalStorageItem(transactionSet.id, txToUpdate);
+
+            // Update React state if this is the current day's transaction set
+            if (transactionSet.id === transactionsFilename) {
+                const lastResetTime = getLastResetTime();
+                const currentDayTransactions = txToUpdate.filter((tx) => tx.createdDate >= lastResetTime);
+                setTransactions(currentDayTransactions);
+            }
+
             txToUpdate
                 .filter((tx) => new Date(tx.createdDate).toLocaleDateString() === new Date().toLocaleDateString())
                 .forEach((tx) => storeTransaction(tx));
         },
-        [setLocalStorageItem, storeTransaction]
+        [setLocalStorageItem, storeTransaction, transactionsFilename, getLastResetTime]
     );
     const updateCloudTransaction = useCallback(
         async (id: string, transaction: Transaction) => {
@@ -435,8 +443,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // If it's the cloud one, update the local, if it's the local one, update the cloud.
     // Then, check if the "transaction set" in local exists in the cloud, using the same method as above.
     const fullSync = useCallback(
-        async (cloudTransactionSets: TransactionSet[], syncPeriod: SyncPeriod) => {
+        async (cloudTransactionSets: TransactionSet[], syncPeriod: SyncPeriod): Promise<number> => {
             let localTransactionSets = await getLocalTransactions();
+            let syncedCount = 0;
 
             console.log(
                 'syncTransactions',
@@ -453,6 +462,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 if (!localTransactionSet) {
                     console.log('Added set to local', cloudTransactionSet.id);
                     updateLocalTransaction(cloudTransactionSet);
+                    syncedCount += cloudTransactionSet.transactions.length;
                 } else {
                     const updateTransactionSet: TransactionSet = {
                         id: localTransactionSet.id,
@@ -466,21 +476,25 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         if (index === -1) {
                             console.log('Added transaction to local', cloudTransaction);
                             updateTransactionSet.transactions.push(cloudTransaction);
+                            syncedCount++;
                         } else if (localTransactionSet.id === transactionsFilename) {
                             const localTransaction = localTransactionSet.transactions[index];
 
                             if (cloudTransaction.modifiedDate > localTransaction.modifiedDate) {
                                 console.log('Updated transaction in local', cloudTransaction);
                                 updateTransactionSet.transactions.splice(index, 1, cloudTransaction);
+                                syncedCount++;
                             } else if (firestore && cloudTransaction.modifiedDate < localTransaction.modifiedDate) {
                                 console.log('Updated transaction in cloud', localTransaction);
                                 await updateCloudTransaction(cloudTransactionSet.id, localTransaction);
+                                syncedCount++;
                             } else if (cloudTransaction.shortNumOrder && !localTransaction.shortNumOrder) {
                                 // Always propagate shortNumOrder from cloud even if no other changes
                                 updateTransactionSet.transactions.splice(index, 1, {
                                     ...localTransaction,
                                     shortNumOrder: cloudTransaction.shortNumOrder,
                                 });
+                                syncedCount++;
                             }
                         }
                     }
@@ -499,6 +513,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         await storeIndex(localTransactionSet.id);
                         for (const localTransaction of localTransactionSet.transactions) {
                             await updateCloudTransaction(localTransactionSet.id, localTransaction);
+                            syncedCount++;
                         }
                     } else {
                         for (const localTransaction of localTransactionSet.transactions) {
@@ -509,11 +524,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             ) {
                                 console.log('Added transaction to cloud', localTransaction);
                                 await updateCloudTransaction(localTransactionSet.id, localTransaction);
+                                syncedCount++;
                             }
                         }
                     }
                 }
             }
+
+            return syncedCount;
         },
         [
             firestore,
@@ -640,30 +658,31 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const processSync = useCallback(
-        (ids: string | string[], syncPeriod: SyncPeriod) => {
+        async (ids: string | string[], syncPeriod: SyncPeriod): Promise<number> => {
             // Use SQL DB if enabled
             if (USE_DIGICARTE) {
-                processSyncFromSQL(syncPeriod);
-                return;
+                return await processSyncFromSQL(syncPeriod);
             }
 
-            if (!firestore) return;
+            if (!firestore) return 0;
 
             const collectionIds = Array.isArray(ids) ? ids : [ids];
             let txToProcess = collectionIds.length;
             console.log('Loaded all collections:', txToProcess);
 
-            const cloudTransactionSets: TransactionSet[] = [];
-            collectionIds.forEach((id) => {
-                getDocs(collection(firestore, id)).then((query) => {
-                    const transactions = query.docs.map((doc) => doc.data() as Transaction);
-                    if (transactions.length) cloudTransactionSets.push({ id, transactions });
+            return new Promise((resolve) => {
+                const cloudTransactionSets: TransactionSet[] = [];
+                collectionIds.forEach((id) => {
+                    getDocs(collection(firestore, id)).then((query) => {
+                        const transactions = query.docs.map((doc) => doc.data() as Transaction);
+                        if (transactions.length) cloudTransactionSets.push({ id, transactions });
 
-                    console.log('Collections to process:', txToProcess);
+                        console.log('Collections to process:', txToProcess);
 
-                    if (!--txToProcess) {
-                        fullSync(cloudTransactionSets, syncPeriod);
-                    }
+                        if (!--txToProcess) {
+                            fullSync(cloudTransactionSets, syncPeriod).then(resolve);
+                        }
+                    });
                 });
             });
         },
@@ -681,18 +700,17 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!firestore || !filename || (await convertTransactionsData(ConvertAction.local))) return 0;
 
             if (period === SyncPeriod.day) {
-                processSync(filename, period);
+                return await processSync(filename, period);
             } else {
-                await getDocs(query(collection(firestore, 'Indexes'), where('shop', '==', shopId))).then(
-                    (querySnapshot) => {
-                        processSync(
+                return await getDocs(query(collection(firestore, 'Indexes'), where('shop', '==', shopId))).then(
+                    async (querySnapshot) => {
+                        return await processSync(
                             querySnapshot.docs.map((doc) => doc.id),
                             period
                         );
                     }
                 );
             }
-            return 0; // Firebase doesn't return count yet
         },
         [convertTransactionsData, firestore, processSync, shopId, transactionsFilename, processSyncFromSQL]
     );
