@@ -577,7 +577,7 @@ export const Total: FC = () => {
                             </span>
                         )}
                     </div>
-                    {USE_DIGICARTE && modeFonctionnement !== 'light' && (
+                    {USE_DIGICARTE && modeFonctionnement !== 'lite' && (
                         <CloseButton
                             onClose={() => postMessageToParent(CLOSE)}
                             className="pt-0 active:bg-light dark:active:bg-dark text-light dark:text-dark"

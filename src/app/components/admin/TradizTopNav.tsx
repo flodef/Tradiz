@@ -31,7 +31,7 @@ export default function TradizTopNav() {
         [isGrafanaAccessEnabled]
     );
 
-    if (modeFonctionnement !== 'light') {
+    if (modeFonctionnement !== 'lite') {
         return null;
     }
 

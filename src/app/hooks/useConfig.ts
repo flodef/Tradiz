@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react';
 import { Parameters } from '../contexts/ConfigProvider';
 import { Currency, PaymentMethod, InventoryItem, Discount, Color, State } from '../utils/interfaces';
 
-export type OperationMode = 'restaurant' | 'fastfood' | 'light';
+export type OperationMode = 'restaurant' | 'fastfood' | 'lite';
 
 export interface ConfigContextState {
     state: State;
