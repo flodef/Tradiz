@@ -6,12 +6,7 @@ import { BACK_KEYWORD, DELETED_KEYWORD, PRINT_KEYWORD, SEPARATOR, WAITING_KEYWOR
 import { formatFrenchDate, getFormattedDate } from '../utils/date';
 import { Currency, DataElement, SyncAction, Transaction } from '../utils/interfaces';
 import { printSummary } from '../utils/posPrinter';
-import {
-    getStorageUsage,
-    idbGetAllKeys,
-    idbGetTransactions,
-    migrateLocalStorageToIDB,
-} from '../utils/transactionStore';
+import { getStorageUsage, idbGetAllKeys, idbGetTransactions } from '../utils/transactionStore';
 import { useConfig } from './useConfig';
 import { useData } from './useData';
 import { usePopup } from './usePopup';
@@ -272,21 +267,10 @@ export const useSummary = () => {
         (backCallback = closePopup) => {
             if (isDbConnected) {
                 // Check if there's data to migrate in localStorage
-                const prefix = transactionsFilename?.split('_')[0] ?? '';
-                let hasLocalStorageData = false;
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key && key.split('_')[0] === prefix) {
-                        hasLocalStorageData = true;
-                        break;
-                    }
-                }
-
                 openPopup(
                     'Synchronisation',
                     ['Synchronisation complète', "Synchronisation d'aujourd'hui", ImportOption]
                         .concat(getHistoricalTransactions().length ? ['Exporter'] : [])
-                        .concat(hasLocalStorageData ? ['Migrer localStorage'] : [])
                         .concat(['Stockage', 'Supprimer données locales'])
                         .concat(['', BACK_KEYWORD]),
                     (_, option) => {
@@ -303,15 +287,6 @@ export const useSummary = () => {
                                     count > 0
                                         ? `${count} transaction(s) synchronisée(s)`
                                         : 'Aucune transaction à synchroniser',
-                                ]);
-                            });
-                        } else if (option === 'Migrer localStorage') {
-                            const prefix = transactionsFilename?.split('_')[0] ?? '';
-                            openPopup('Migration', ['Migration en cours...'], () => {}, true);
-                            migrateLocalStorageToIDB(prefix).then((count) => {
-                                refreshHistoricalKeys();
-                                openPopup('Migration', [
-                                    count > 0 ? `${count} jeu(x) de transactions migré(s)` : 'Aucune donnée à migrer',
                                 ]);
                             });
                         } else if (option === 'Stockage') {

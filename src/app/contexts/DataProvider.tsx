@@ -172,17 +172,50 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         const filename = getTransactionFileName(shopId);
 
         const loadTransactions = async () => {
-            // Load from IndexedDB (with localStorage fallback for migration)
-            let localTransactions = await idbGetTransactions(filename);
-            if (!localTransactions.length) {
-                const lsRaw = localStorage.getItem(filename);
-                if (lsRaw) {
-                    localTransactions = JSON.parse(lsRaw) as Transaction[];
-                    // Auto-migrate to IDB and remove from localStorage
-                    await idbSetTransactions(filename, localTransactions);
-                    localStorage.removeItem(filename);
+            // Auto-migrate ALL transaction keys from localStorage to IndexedDB
+            const keysToMigrate: string[] = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.split('_')[0] === shopId) {
+                    keysToMigrate.push(key);
                 }
             }
+
+            if (keysToMigrate.length > 0) {
+                console.log(
+                    `[Migration] Auto-migrating ${keysToMigrate.length} transaction set(s) from localStorage to IndexedDB`
+                );
+                for (const key of keysToMigrate) {
+                    const raw = localStorage.getItem(key);
+                    if (!raw) continue;
+                    try {
+                        const transactions = JSON.parse(raw) as Transaction[];
+                        const existing = await idbGetTransactions(key);
+                        if (existing.length) {
+                            // Merge: keep unique by createdDate, prefer newer modifiedDate
+                            const merged = [...existing];
+                            for (const tx of transactions) {
+                                const idx = merged.findIndex((m) => m.createdDate === tx.createdDate);
+                                if (idx === -1) {
+                                    merged.push(tx);
+                                } else if (tx.modifiedDate > merged[idx].modifiedDate) {
+                                    merged[idx] = tx;
+                                }
+                            }
+                            await idbSetTransactions(key, merged);
+                        } else {
+                            await idbSetTransactions(key, transactions);
+                        }
+                        localStorage.removeItem(key);
+                        console.log(`[Migration] Migrated ${key} (${transactions.length} transactions)`);
+                    } catch (e) {
+                        console.error(`[Migration] Failed to migrate ${key}:`, e);
+                    }
+                }
+            }
+
+            // Load from IndexedDB
+            let localTransactions = await idbGetTransactions(filename);
 
             // If SQL DB is enabled, merge SQL data into local (latest modifiedDate wins)
             if (USE_DIGICARTE) {
@@ -339,6 +372,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const storeTransaction = useCallback(
         (transaction: Transaction) => {
             setTransactions((previous) => {
+                console.log('[storeTransaction] Previous state:', previous.length, 'transactions');
                 const next = [...previous];
                 const index = next.findIndex(({ createdDate }) => createdDate === transaction.createdDate);
 
@@ -348,6 +382,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     next.unshift(transaction);
                 }
 
+                console.log('[storeTransaction] New state:', next.length, 'transactions');
                 return next;
             });
         },
@@ -847,6 +882,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             // Build the updated transactions array to save
             let transactionsToSave = [...transactions];
+            console.log('[saveTransactions] Current transactions in state:', transactions.length);
             if (action === DatabaseAction.add) {
                 // For new transactions, check if it already exists (by createdDate)
                 const existingIndex = transactionsToSave.findIndex((tx) => tx.createdDate === transaction.createdDate);
@@ -863,6 +899,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }
             }
 
+            console.log('[saveTransactions] Saving to localStorage:', transactionsToSave.length, 'transactions');
             // Always persist to localStorage (including deleted-flagged transactions)
             setLocalStorageItem(transactionsFilename, transactionsToSave);
 
