@@ -82,7 +82,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
 
     useEffect(() => {
         type EtabConfigResponse = {
-            mode_fonctionnement?: OperationMode | 'light';
+            mode_fonctionnement?: OperationMode;
             kitchen_view_enabled?: boolean;
             grafana_access_enabled?: boolean;
         };
@@ -93,7 +93,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
                 const mode =
                     data?.mode_fonctionnement === 'fastfood'
                         ? 'fastfood'
-                                                : data?.mode_fonctionnement === 'lite' || data?.mode_fonctionnement === 'light'
+                        : data?.mode_fonctionnement === 'lite'
                           ? 'lite'
                           : 'restaurant';
                 setModeFonctionnement(mode);

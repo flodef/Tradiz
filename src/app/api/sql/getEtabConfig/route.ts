@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server';
 import { RowDataPacket } from 'mysql2';
 import { getMainDb } from '../db';
 
-type OperationMode = 'restaurant' | 'fastfood' | 'lite' | 'light';
-type NormalizedOperationMode = 'restaurant' | 'fastfood' | 'lite';
+type OperationMode = 'restaurant' | 'fastfood' | 'lite';
 
 interface EtabConfigRow extends RowDataPacket {
     mode_fonctionnement: OperationMode | null;
@@ -22,8 +21,7 @@ export async function GET() {
 
         const row = (rows as EtabConfigRow[])[0];
         const rawMode = row?.mode_fonctionnement;
-        const mode: NormalizedOperationMode =
-            rawMode === 'fastfood' ? 'fastfood' : rawMode === 'light' ? 'lite' : rawMode === 'lite' ? 'lite' : 'restaurant';
+        const mode: OperationMode = rawMode === 'fastfood' || rawMode === 'lite' ? rawMode : 'restaurant';
         const kitchenViewEnabled = mode === 'lite' ? false : Number(row?.kitchen_view_enabled ?? 1) === 1;
         const grafanaAccessEnabled = Number(row?.grafana_access_enabled ?? 1) === 1;
 
