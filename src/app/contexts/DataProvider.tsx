@@ -375,7 +375,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const storeTransaction = useCallback(
         (transaction: Transaction) => {
             setTransactions((previous) => {
-                console.log('[storeTransaction] Previous state:', previous.length, 'transactions');
                 const next = [...previous];
                 const index = next.findIndex(({ createdDate }) => createdDate === transaction.createdDate);
 
@@ -385,7 +384,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     next.unshift(transaction);
                 }
 
-                console.log('[storeTransaction] New state:', next.length, 'transactions');
                 return next;
             });
         },
@@ -458,15 +456,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (transactionSet.id === transactionsFilename) {
                 const lastResetTime = getLastResetTime();
                 const currentDayTransactions = txToUpdate.filter((tx) => tx.createdDate >= lastResetTime);
-                console.log(
-                    '[updateLocalTransaction] Filtering transactions:',
-                    'total=',
-                    txToUpdate.length,
-                    'after reset filter=',
-                    currentDayTransactions.length,
-                    'resetTime=',
-                    new Date(lastResetTime)
-                );
                 setTransactions(currentDayTransactions);
             }
 
@@ -897,7 +886,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             // Build the updated transactions array to save
             const transactionsToSave = [...transactions];
-            console.log('[saveTransactions] Current transactions in state:', transactions.length);
             if (action === DatabaseAction.add) {
                 // For new transactions, check if it already exists (by createdDate)
                 const existingIndex = transactionsToSave.findIndex((tx) => tx.createdDate === transaction.createdDate);
@@ -914,7 +902,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }
             }
 
-            console.log('[saveTransactions] Saving to localStorage:', transactionsToSave.length, 'transactions');
             // Always persist to localStorage (including deleted-flagged transactions)
             setLocalStorageItem(transactionsFilename, transactionsToSave);
 
