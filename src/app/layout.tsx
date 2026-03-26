@@ -54,6 +54,23 @@ const preloadedThemeScript = `(function () {
     }
 })();`;
 
+const conditionalManifestScript = `(function () {
+    try {
+        var path = window.location.pathname || '';
+        var isLiteRoute = /\/admin\/tradiz\/?$/.test(path);
+        if (isLiteRoute) return;
+
+        if (!document.querySelector('link[rel="manifest"]')) {
+            var link = document.createElement('link');
+            link.rel = 'manifest';
+            link.href = '/manifest.webmanifest';
+            document.head.appendChild(link);
+        }
+    } catch (_) {
+        // Ignore manifest injection failures.
+    }
+})();`;
+
 export const metadata = {
     title: 'Tradiz',
     description: 'Caisse enregistreuse merveilleuse',
@@ -69,6 +86,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <html lang="fr" data-theme-ready="0" suppressHydrationWarning>
             <head>
                 <script dangerouslySetInnerHTML={{ __html: preloadedThemeScript }} />
+                <script dangerouslySetInnerHTML={{ __html: conditionalManifestScript }} />
                 <noscript>
                     <style>{`html[data-theme-ready="0"] body { visibility: visible; }`}</style>
                 </noscript>
