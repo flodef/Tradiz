@@ -775,15 +775,18 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         syncTransactions(SyncPeriod.day); // Synchronize the daily transactions on the first load
 
         const q = query(collection(firestore, transactionsFilename));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+            // Load the full transaction set from IndexedDB to avoid using filtered state
+            const fullTransactionSet = await idbGetTransactions(transactionsFilename);
+
             querySnapshot.docChanges().forEach((change) => {
                 // change type can be 'added', 'modified', or 'deleted'
                 const tx = change.doc.data() as Transaction;
                 console.log(change.type, tx);
 
-                const localTx = transactions.find((transaction) => transaction.createdDate === tx.createdDate);
+                const localTx = fullTransactionSet.find((transaction) => transaction.createdDate === tx.createdDate);
 
-                const txToUpdate = [...transactions];
+                const txToUpdate = [...fullTransactionSet];
                 const updateTx = (txToUpdate: Transaction[]) =>
                     updateLocalTransaction({ id: transactionsFilename, transactions: txToUpdate });
                 if (!localTx) {
