@@ -33,9 +33,8 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { action, transaction } = body;
 
-        if (!action || !transaction) {
+        if (!action || !transaction)
             return NextResponse.json({ error: 'Action and transaction data are required' }, { status: 400 });
-        }
 
         const connection = await getPosDb();
 

@@ -74,9 +74,8 @@ export const Category: FC = () => {
     const catalogLoadingRef = useRef<Promise<Catalog> | null>(null);
     const loadCatalog = (): Promise<Catalog> => {
         if (catalogRef.current) return Promise.resolve(catalogRef.current);
-        if (!USE_DIGICARTE) {
-            return Promise.resolve({ articles: [], formulas: [] });
-        }
+        if (!USE_DIGICARTE) return Promise.resolve({ articles: [], formulas: [] });
+
         if (!catalogLoadingRef.current) {
             catalogLoadingRef.current = fetch('/api/sql/getCatalog')
                 .then((r) => r.json())

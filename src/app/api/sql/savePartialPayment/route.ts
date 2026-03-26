@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     let connection: Connection | undefined;
     try {
         const body = await request.json();
-        const { orderId, paidItems, paymentMethod } = body as {
+        const { orderId, paidItems } = body as {
             orderId: string;
             paidItems: PaymentItem[];
             paymentMethod: string;
