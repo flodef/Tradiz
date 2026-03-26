@@ -8,7 +8,7 @@ import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { useWindowParam } from '../hooks/useWindowParam';
 import Loading, { LoadingType } from '../loading';
-import { BACK_KEYWORD, EMAIL, OTHER_KEYWORD } from '../utils/constants';
+import { BACK_KEYWORD, EMAIL, OTHER_KEYWORD, USE_DIGICARTE } from '../utils/constants';
 import { useIsMobileDevice } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
 import { useAddPopupClass } from './Popup';
@@ -74,6 +74,9 @@ export const Category: FC = () => {
     const catalogLoadingRef = useRef<Promise<Catalog> | null>(null);
     const loadCatalog = (): Promise<Catalog> => {
         if (catalogRef.current) return Promise.resolve(catalogRef.current);
+        if (!USE_DIGICARTE) {
+            return Promise.resolve({ articles: [], formulas: [] });
+        }
         if (!catalogLoadingRef.current) {
             catalogLoadingRef.current = fetch('/api/sql/getCatalog')
                 .then((r) => r.json())

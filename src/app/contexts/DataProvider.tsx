@@ -215,7 +215,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             }
 
             // Load from IndexedDB
-            let localTransactions = await idbGetTransactions(filename);
+            const localTransactions = await idbGetTransactions(filename);
 
             // If SQL DB is enabled, merge SQL data into local (latest modifiedDate wins)
             if (USE_DIGICARTE) {
@@ -881,7 +881,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             transaction.validator = parameters.user.name;
 
             // Build the updated transactions array to save
-            let transactionsToSave = [...transactions];
+            const transactionsToSave = [...transactions];
             console.log('[saveTransactions] Current transactions in state:', transactions.length);
             if (action === DatabaseAction.add) {
                 // For new transactions, check if it already exists (by createdDate)
