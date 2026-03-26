@@ -157,7 +157,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     useEffect(() => {
         if (!parameters.shop.name || areTransactionLoaded.current) return;
 
-        const shopId = parameters.shop.id || (!USE_DIGICARTE && window.location.pathname.split('/')[1]);
+        // Determine shopId: use 'dev' in dev mode, otherwise use shop.id or URL path
+        const shopId = IS_DEV
+            ? 'dev'
+            : parameters.shop.id || (!USE_DIGICARTE && window.location.pathname.split('/')[1]);
 
         // Validate shop ID when using SQL database
         if (!shopId) {
