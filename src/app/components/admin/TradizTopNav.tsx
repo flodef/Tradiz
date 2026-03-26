@@ -36,7 +36,7 @@ export default function TradizTopNav() {
     }
 
     return (
-        <div id="nav" className="fixed top-3 left-3 z-50 flex items-center gap-2 rounded-2xl border border-black/10 bg-white/85 p-2 shadow-md backdrop-blur dark:border-white/10 dark:bg-black/45">
+        <div id="nav" className="fixed top-3 left-3 z-50 flex items-center gap-3 rounded-2xl border border-black/10 bg-white/85 p-2 shadow-md backdrop-blur dark:border-white/10 dark:bg-black/45">
             {!collapsed &&
                 navItems
                     .filter((item) => !item.hidden)
@@ -45,21 +45,21 @@ export default function TradizTopNav() {
                             id={item.id}
                             key={item.id}
                             href={item.href}
-                            className="flex h-10 w-10 items-center justify-center rounded-xl text-lg transition hover:bg-black/5 dark:hover:bg-white/10"
+                            className="flex h-14 w-14 items-center justify-center rounded-xl text-4xl leading-none transition hover:bg-black/5 dark:hover:bg-white/10"
                             aria-label={item.label}
                             title={item.label}
                         >
-                            <span aria-hidden>{item.icon}</span>
+                            <span className="block scale-125" aria-hidden>{item.icon}</span>
                         </Link>
                     ))}
             <button
                 type="button"
                 onClick={() => setCollapsed((value) => !value)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl text-lg transition hover:bg-black/5 dark:hover:bg-white/10"
+                className="flex h-14 w-14 items-center justify-center rounded-xl text-4xl leading-none transition hover:bg-black/5 dark:hover:bg-white/10"
                 aria-label={collapsed ? 'Afficher la navigation' : 'Masquer la navigation'}
                 title={collapsed ? 'Afficher la navigation' : 'Masquer la navigation'}
             >
-                <span id="collapse_nav" aria-hidden>{collapsed ? '▶' : '◀'}</span>
+                <span id="collapse_nav" className="block scale-125" aria-hidden>{collapsed ? '▶' : '◀'}</span>
             </button>
         </div>
     );
