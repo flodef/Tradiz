@@ -458,6 +458,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (transactionSet.id === transactionsFilename) {
                 const lastResetTime = getLastResetTime();
                 const currentDayTransactions = txToUpdate.filter((tx) => tx.createdDate >= lastResetTime);
+                console.log(
+                    '[updateLocalTransaction] Filtering transactions:',
+                    'total=',
+                    txToUpdate.length,
+                    'after reset filter=',
+                    currentDayTransactions.length,
+                    'resetTime=',
+                    new Date(lastResetTime)
+                );
                 setTransactions(currentDayTransactions);
             }
 
