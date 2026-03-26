@@ -845,8 +845,26 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             );
             transaction.validator = parameters.user.name;
 
+            // Build the updated transactions array to save
+            let transactionsToSave = [...transactions];
+            if (action === DatabaseAction.add) {
+                // For new transactions, check if it already exists (by createdDate)
+                const existingIndex = transactionsToSave.findIndex((tx) => tx.createdDate === transaction.createdDate);
+                if (existingIndex >= 0) {
+                    transactionsToSave.splice(existingIndex, 1, transaction);
+                } else {
+                    transactionsToSave.unshift(transaction);
+                }
+            } else {
+                // For update/delete, find and replace the transaction
+                const existingIndex = transactionsToSave.findIndex((tx) => tx.createdDate === transaction.createdDate);
+                if (existingIndex >= 0) {
+                    transactionsToSave.splice(existingIndex, 1, transaction);
+                }
+            }
+
             // Always persist to localStorage (including deleted-flagged transactions)
-            setLocalStorageItem(transactionsFilename, transactions);
+            setLocalStorageItem(transactionsFilename, transactionsToSave);
 
             const index = transaction.createdDate;
             transactionId.current = action === DatabaseAction.update ? index : 0;
