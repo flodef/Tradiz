@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
     return {
         name: 'Tradiz - Caisse Enregistreuse',
         short_name: 'Tradiz',
-        description: 'Caisse Enregistreuse pour les commercants permettant de gerer les ventes et les stocks',
+        description: 'Caisse Enregistreuse pour les commerçants permettant de gérer les ventes et les stocks',
         start_url: '/',
         scope: '/',
         lang: 'fr',
