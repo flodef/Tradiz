@@ -940,13 +940,14 @@ export const useSummary = () => {
             historicalTransactions,
             isDbConnected,
         });
-        if (hasTransactions || isDbConnected) {
-            // If no transactions and DB connected, show sync menu directly
-            if (!hasTransactions && isDbConnected) {
-                showSyncMenu();
-                return;
-            }
 
+        // If no transactions, nor historical transaction and DB connected, show sync menu directly
+        if (!hasTransactions && !historicalTransactions.length && isDbConnected) {
+            showSyncMenu();
+            return;
+        }
+
+        if (hasTransactions || isDbConnected) {
             const transactionsDate = getTransactionsDate(getFilteredTransactions());
             const isDailyPeriod = transactionsDate.period === HistoricalPeriod.day;
             const formattedDate = getFormattedDate(transactionsDate.date, isDailyPeriod ? 3 : 2);
