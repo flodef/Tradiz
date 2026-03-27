@@ -95,11 +95,13 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
             .then((r) => r.json())
             .then((data: EtabConfigResponse) => {
                 const mode =
-                    data?.mode_fonctionnement === 'fastfood' || data?.mode_fonctionnement === 'light'
-                        ? data.mode_fonctionnement
-                        : 'restaurant';
+                    data?.mode_fonctionnement === 'fastfood'
+                        ? 'fastfood'
+                        : data?.mode_fonctionnement === 'lite'
+                          ? 'lite'
+                          : 'restaurant';
                 setModeFonctionnement(mode);
-                setIsFastFood(mode === 'fastfood' || mode === 'light');
+                setIsFastFood(mode === 'fastfood' || mode === 'lite');
                 setIsKitchenViewEnabled(data?.kitchen_view_enabled ?? true);
                 setIsGrafanaAccessEnabled(data?.grafana_access_enabled ?? true);
             })

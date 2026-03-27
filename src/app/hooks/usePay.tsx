@@ -423,7 +423,7 @@ export const usePay = () => {
             // Normal payment mode
 
             // En mode fastfood, demander le type de service avant le paiement comptoir.
-            // En mode restaurant/light, on force sur_place de façon transparente.
+            // En mode restaurant/lite, on force sur_place de facon transparente.
             if (!orderId && modeFonctionnement !== 'fastfood') {
                 setCounterServiceType('sur_place');
             }
