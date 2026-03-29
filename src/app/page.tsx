@@ -7,5 +7,5 @@ type HomeProps = {
 export default async function Home({ params }: HomeProps) {
     const { shop } = await params;
 
-    return <CashRegisterApp shop={shop} />;
+    return <CashRegisterApp shop={shop} showLightAdminNav />;
 }

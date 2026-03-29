@@ -6,5 +6,6 @@ type PageProps = {
 
 export default async function ShopAdminTradizPage({ params }: PageProps) {
     const { shop } = await params;
+
     return <CashRegisterApp shop={shop} showLightAdminNav />;
 }
