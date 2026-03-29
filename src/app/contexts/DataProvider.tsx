@@ -449,7 +449,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const txToUpdate = transactionSet.transactions.filter(
                 (transaction) => !isProcessingTransaction(transaction)
             );
-            // Always persist to localStorage (including deleted-flagged transactions)
+            // Always persist to IndexedDB (including deleted-flagged transactions)
             setLocalStorageItem(transactionSet.id, txToUpdate);
 
             // Update React state if this is the current day's transaction set
@@ -458,12 +458,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 const currentDayTransactions = txToUpdate.filter((tx) => tx.createdDate >= lastResetTime);
                 setTransactions(currentDayTransactions);
             }
-
-            txToUpdate
-                .filter((tx) => new Date(tx.createdDate).toLocaleDateString() === new Date().toLocaleDateString())
-                .forEach((tx) => storeTransaction(tx));
         },
-        [setLocalStorageItem, storeTransaction, transactionsFilename, getLastResetTime]
+        [setLocalStorageItem, transactionsFilename, getLastResetTime]
     );
     const updateCloudTransaction = useCallback(
         async (id: string, transaction: Transaction) => {
