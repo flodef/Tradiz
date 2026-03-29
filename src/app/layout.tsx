@@ -57,7 +57,9 @@ const preloadedThemeScript = `(function () {
 const conditionalManifestScript = `(function () {
     try {
         var path = window.location.pathname || '';
-        var isLiteRoute = /\/admin\/tradiz\/?$/.test(path);
+        var pattern1 = new RegExp('/admin/tradiz/?$');
+        var pattern2 = new RegExp('^/[^/]+/admin/tradiz/?$');
+        var isLiteRoute = pattern1.test(path) || pattern2.test(path);
         if (isLiteRoute) return;
 
         if (!document.querySelector('link[rel="manifest"]')) {
