@@ -65,8 +65,8 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
     const { isDemo } = useWindowParam();
 
     const [state, setState] = useState(State.init);
-    const [modeFonctionnement, setModeFonctionnement] = useState<OperationMode>('restaurant');
-    const [isFastFood, setIsFastFood] = useState(false);
+    const [modeFonctionnement, setModeFonctionnement] = useState<OperationMode>(USE_DIGICARTE ? 'restaurant' : 'lite');
+    const [isFastFood, setIsFastFood] = useState(!USE_DIGICARTE);
     const [isKitchenViewEnabled, setIsKitchenViewEnabled] = useState(true);
     const [isGrafanaAccessEnabled, setIsGrafanaAccessEnabled] = useState(true);
 
