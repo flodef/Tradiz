@@ -19,7 +19,7 @@
         "@solana/web3.js": "1.95.8",
         "@tailwindcss/postcss": "latest",
         "@types/nodemailer": "latest",
-        "@types/pg": "^8.18.0",
+        "@types/pg": "^8.20.0",
         "bignumber.js": "9.1.2",
         "caniuse-lite": "latest",
         "dotenv": "^17.3.1",
@@ -34,6 +34,7 @@
         "postcss": "latest",
         "react": "latest",
         "react-dom": "latest",
+        "recharts": "^3.8.1",
         "tailwind-merge": "latest",
         "tailwindcss": "latest",
         "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
@@ -51,7 +52,7 @@
         "@types/react": "latest",
         "@types/react-dom": "latest",
         "@typescript-eslint/eslint-plugin": "latest",
-        "baseline-browser-mapping": "^2.10.9",
+        "baseline-browser-mapping": "^2.10.12",
         "encoding": "latest",
         "eslint": "latest",
         "eslint-config-next": "latest",
@@ -65,7 +66,7 @@
         "shx": "latest",
         "typescript": "latest",
         "typescript-eslint": "latest",
-        "vitest": "^4.1.0"
+        "vitest": "^4.1.2"
     },
     "trustedDependencies": [
         "@firebase/util",
