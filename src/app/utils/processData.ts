@@ -114,7 +114,26 @@ export function getPublicKey() {
     return publicKey;
 }
 
+const loadDataCache = new Map<string, Promise<Config | undefined>>();
+
+export function clearLoadDataCache() {
+    loadDataCache.clear();
+}
+
 export async function loadData(shop: string, shouldUseLocalData = false): Promise<Config | undefined> {
+    const cacheKey = `${shop}|${shouldUseLocalData}`;
+    const cached = loadDataCache.get(cacheKey);
+    if (cached) return cached;
+
+    const promise = _loadDataImpl(shop, shouldUseLocalData).catch((err) => {
+        loadDataCache.delete(cacheKey); // allow retry on error
+        throw err;
+    });
+    loadDataCache.set(cacheKey, promise);
+    return promise;
+}
+
+async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<Config | undefined> {
     const id = shouldUseLocalData
         ? undefined // if the app is used locally, use the local data
         : USE_DIGICARTE
