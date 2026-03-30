@@ -15,12 +15,14 @@ export default function ProductsConfig({
     onSave,
     categories,
     currencies,
+    isReadOnly = false,
 }: {
     config: AdminProduct[];
     onChange: (data: AdminProduct[]) => void;
-    onSave: (data: AdminProduct[]) => void;
+    onSave?: (data: AdminProduct[]) => void;
     categories: { label: string; value: string }[];
     currencies: { label: string; value: string }[];
+    isReadOnly?: boolean;
 }) {
     const [products, setProducts] = useState(config || []);
 
@@ -53,23 +55,25 @@ export default function ProductsConfig({
     };
 
     return (
-        <SectionCard title="Produits" onSave={() => onSave(products)}>
+        <SectionCard title="Produits" onSave={onSave ? () => onSave(products) : undefined}>
             {products.map((product, index) => (
                 <ProductItem
                     key={index}
                     product={product}
                     onChange={(updatedProduct) => handleProductChange(index, updatedProduct)}
-                    onDelete={() => handleDeleteProduct(index)}
+                    onDelete={isReadOnly ? undefined : () => handleDeleteProduct(index)}
                     categories={categories}
                     currencies={currencies}
                 />
             ))}
-            <button
-                onClick={handleAddProduct}
-                className="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-sm"
-            >
-                Ajouter un produit
-            </button>
+            {!isReadOnly && (
+                <button
+                    onClick={handleAddProduct}
+                    className="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-sm"
+                >
+                    Ajouter un produit
+                </button>
+            )}
         </SectionCard>
     );
 }

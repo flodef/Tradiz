@@ -4,7 +4,7 @@ import { Category } from '@/app/utils/interfaces';
 interface CategoryItemProps {
     category: Category;
     onChange: (category: Category) => void;
-    onDelete: () => void;
+    onDelete?: () => void;
 }
 
 export default function CategoryItem({ category, onChange, onDelete }: CategoryItemProps) {
@@ -12,14 +12,16 @@ export default function CategoryItem({ category, onChange, onDelete }: CategoryI
 
     return (
         <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4 mb-4">
-            <div className="flex justify-end">
-                <button
-                    onClick={onDelete}
-                    className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
-                >
-                    Supprimer
-                </button>
-            </div>
+            {onDelete && (
+                <div className="flex justify-end">
+                    <button
+                        onClick={onDelete}
+                        className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
+                    >
+                        Supprimer
+                    </button>
+                </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Label</label>

@@ -7,10 +7,12 @@ export default function CategoriesConfig({
     config,
     onChange,
     onSave,
+    isReadOnly = false,
 }: {
     config: Category[];
     onChange: (data: Category[]) => void;
-    onSave: (data: Category[]) => void;
+    onSave?: (data: Category[]) => void;
+    isReadOnly?: boolean;
 }) {
     const [categories, setCategories] = useState(config || []);
 
@@ -41,21 +43,23 @@ export default function CategoriesConfig({
     };
 
     return (
-        <SectionCard title="Catégories" onSave={() => onSave(categories)}>
+        <SectionCard title="Catégories" onSave={onSave ? () => onSave(categories) : undefined}>
             {categories.map((category, index) => (
                 <CategoryItem
                     key={index}
                     category={category}
                     onChange={(updatedCategory) => handleCategoryChange(index, updatedCategory)}
-                    onDelete={() => handleDeleteCategory(index)}
+                    onDelete={isReadOnly ? undefined : () => handleDeleteCategory(index)}
                 />
             ))}
-            <button
-                onClick={handleAddCategory}
-                className="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-sm"
-            >
-                Ajouter une catégorie
-            </button>
+            {!isReadOnly && (
+                <button
+                    onClick={handleAddCategory}
+                    className="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-sm"
+                >
+                    Ajouter une catégorie
+                </button>
+            )}
         </SectionCard>
     );
 }
