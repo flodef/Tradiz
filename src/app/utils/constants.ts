@@ -19,6 +19,7 @@ export const CATEGORY_SEPARATOR = '>';
 export const TRANSACTION_TIME_OUT = 60; // Time out in seconds
 export const IS_LOCAL = !process.env.NEXT_PUBLIC_VERCEL_ENV;
 export const IS_DEV = process.env.NEXT_PUBLIC_IS_DEV?.toLowerCase() === 'true';
+export const SHOP_ID = process.env.NEXT_PUBLIC_SHOP_ID || '';
 export const USE_DIGICARTE = process.env.NEXT_PUBLIC_USE_DIGICARTE?.toLowerCase() === 'true';
 export const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || '';
 

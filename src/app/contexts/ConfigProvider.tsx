@@ -14,7 +14,15 @@ import {
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigContext } from '../hooks/useConfig';
 import { useWindowParam } from '../hooks/useWindowParam';
-import { IS_DEV, LOCAL_PRINTER_KEYWORD, PRINT_KEYWORD, SEPARATOR, USE_DIGICARTE } from '../utils/constants';
+import {
+    IS_DEV,
+    IS_LOCAL,
+    LOCAL_PRINTER_KEYWORD,
+    PRINT_KEYWORD,
+    SEPARATOR,
+    SHOP_ID,
+    USE_DIGICARTE,
+} from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
 import {
     UserNotFoundError,
@@ -61,7 +69,8 @@ export interface ConfigProviderProps {
     shop: string;
 }
 
-export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop }) => {
+export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopProp }) => {
+    const shop = shopProp || (IS_LOCAL ? SHOP_ID : '');
     const { isDemo } = useWindowParam();
 
     const [state, setState] = useState(State.init);
