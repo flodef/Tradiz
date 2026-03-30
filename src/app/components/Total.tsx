@@ -21,6 +21,7 @@ import { CLOSE, postMessageToParent } from '../utils/message';
 import { isMobileSize, useIsMobile, useIsMobileDevice } from '../utils/mobile';
 import { Amount } from './Amount';
 import { CloseButton } from './CloseButton';
+import TradizTopNav from './admin/TradizTopNav';
 import { OrderItemsSelector } from './OrderItemsSelector';
 import { useAddPopupClass } from './Popup';
 
@@ -79,8 +80,9 @@ const Item: FC<ItemProps> = ({ label, onClick = () => {}, onContextMenu, classNa
     );
 };
 
-export const Total: FC = () => {
+export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav = false }) => {
     const isMobileDevice = useIsMobileDevice();
+    const [navExpanded, setNavExpanded] = useState(false);
     const {
         total,
         getCurrentTotal,
@@ -564,25 +566,36 @@ export const Total: FC = () => {
         <div className={popupClassNormal}>
             <div
                 className={twMerge(
-                    'md:w-1/2 w-full fixed text-5xl truncate text-center font-bold py-3',
+                    'md:w-1/2 w-full fixed text-5xl text-center font-bold py-3',
                     'border-b-4 border-active-light dark:border-active-dark',
-                    (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length)
-                        ? clickClassName
-                        : '',
                     isMobile ? 'md:hidden' : 'hidden md:block'
                 )}
-                onClick={handleClick}
-                onContextMenu={handleClick}
             >
-                <div className="flex items-center justify-center gap-0 w-full">
-                    <div className="flex-1 min-w-0 truncate">
+                <div className="flex items-center gap-0 w-full">
+                    {showLightAdminNav && isMobile && (
+                        <div onClick={(e) => e.stopPropagation()}>
+                            <TradizTopNav inline onCollapsedChange={(c) => setNavExpanded(!c)} />
+                        </div>
+                    )}
+                    <div
+                        className={twMerge(
+                            'flex-1 text-center overflow-hidden',
+                            (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length)
+                                ? clickClassName
+                                : ''
+                        )}
+                        onClick={handleClick}
+                        onContextMenu={handleClick}
+                    >
                         {canDisplayTotal ? (
                             <span>
-                                {canDisplayTotal && total ? label : totalLabel} <Amount value={total} showZero />
+                                {!navExpanded && (canDisplayTotal && total ? label : totalLabel)}{' '}
+                                <Amount value={total} showZero />
                             </span>
                         ) : (
                             <span>
-                                {'Ticket : ' + visibleTransactions.length}
+                                {!navExpanded && 'Ticket : '}
+                                {visibleTransactions.length}
                                 <span className="text-xl">{`vente${(visibleTransactions.length ?? 0) > 1 ? 's' : ''}`}</span>
                             </span>
                         )}

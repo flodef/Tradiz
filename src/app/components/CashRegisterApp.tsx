@@ -50,8 +50,8 @@ export function CashRegisterApp({ shop, showLightAdminNav = false }: CashRegiste
                 <DataProvider>
                     <PopupProvider>
                         <CryptoProvider>
-                            {showLightAdminNav ? <TradizTopNav /> : null}
-                            <MainContent />
+                            {showLightAdminNav ? <TradizTopNav className="hidden md:flex" /> : null}
+                            <MainContent showLightAdminNav={showLightAdminNav} />
                             <Popup />
                         </CryptoProvider>
                     </PopupProvider>

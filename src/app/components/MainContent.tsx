@@ -18,7 +18,7 @@ interface PendingOrder {
     createdAt: string;
 }
 
-export const MainContent: FC = () => {
+export const MainContent: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav = false }) => {
     const { isStateReady } = useConfig();
     const { openPopup, closePopup } = usePopup();
     const {
@@ -172,7 +172,7 @@ export const MainContent: FC = () => {
                 showTransverseMode={showTransverseMode}
                 showOrderWithTable={showOrderWithTable}
             />
-            <Total />
+            <Total showLightAdminNav={showLightAdminNav} />
             <NumPad />
             <Category />
         </div>
