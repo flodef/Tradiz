@@ -48,6 +48,8 @@ interface ProductData {
         label: string;
         prices: number[];
         options?: string | null;
+        availability: boolean;
+        order: number;
     }[];
     currencies: string[];
 }
@@ -219,6 +221,7 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
     });
 
     const inventory: InventoryItem[] = [];
+    let categoryOrder = 0;
     data.products.forEach((item) => {
         const category = inventory.find(({ category }) => category === item.category);
         if (category) {
@@ -226,16 +229,21 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
                 label: item.label,
                 prices: item.prices,
                 options: item.options,
+                availability: item.availability,
+                order: item.order,
             });
         } else {
             inventory.push({
                 category: item.category,
                 rate: item.rate,
+                order: categoryOrder++,
                 products: [
                     {
                         label: item.label,
                         prices: item.prices,
                         options: item.options,
+                        availability: item.availability,
+                        order: item.order,
                     },
                 ],
             });
@@ -493,20 +501,21 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
                     const rowsAfterHeader = data.values.slice(1);
                     const optionsArr = data.options ?? [];
 
-                    // Track which original rows survive the removeEmpty + filter pipeline
+                    // Track which original rows survive the removeEmpty pipeline
                     const filtered = rowsAfterHeader
                         .map((item, origIdx) => ({ item, origIdx }))
                         .filter(({ item }) => item[1] != null && String(item[1]).trim() !== '')
-                        .filter(({ item }) => item[2] != null && String(item[2]).trim() !== '')
-                        .filter(({ item }) => !item[3]);
+                        .filter(({ item }) => item[2] != null && String(item[2]).trim() !== '');
 
                     return {
-                        products: filtered.map(({ item, origIdx }) => {
+                        products: filtered.map(({ item, origIdx }, rowOrder) => {
                             checkColumn(item, 4, 'Produits');
                             return {
                                 rate: Number(item.at(0)) * 100,
                                 category: normalizedString(item.at(1)),
                                 label: normalizedString(item.at(2)),
+                                availability: !item[3],
+                                order: rowOrder,
                                 prices: item.filter((_, i) => i >= 4).map((price) => Number(price)),
                                 options: optionsArr[origIdx] ?? null,
                             };

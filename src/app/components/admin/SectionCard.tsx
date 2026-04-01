@@ -1,26 +1,57 @@
-import { ReactNode } from 'react';
+'use client';
+
+import { ReactNode, useState } from 'react';
 
 interface SectionCardProps {
     title: string;
     children: ReactNode;
     onSave?: () => void;
+    defaultOpen?: boolean;
+    headerExtra?: ReactNode;
 }
 
-export default function SectionCard({ title, children, onSave }: SectionCardProps) {
+export default function SectionCard({ title, children, onSave, defaultOpen = true, headerExtra }: SectionCardProps) {
+    const [open, setOpen] = useState(defaultOpen);
+
     return (
-        <div className="bg-white/30 dark:bg-black/20 shadow-lg rounded-lg p-6 mb-6 border border-black/10 dark:border-white/10 backdrop-blur">
-            <div className="flex justify-between items-center mb-4 pb-4 border-b border-black/10 dark:border-white/10">
-                <h2 className="text-2xl font-semibold text-light dark:text-dark">{title}</h2>
-                {onSave && (
-                    <button
-                        onClick={onSave}
-                        className="bg-active-light dark:bg-active-dark hover:opacity-80 text-popup-light dark:text-popup-dark font-bold py-2 px-5 rounded-md transition"
-                    >
-                        Enregistrer
-                    </button>
+        <div className="bg-white/30 dark:bg-black/20 shadow-lg rounded-lg mb-6 border border-black/10 dark:border-white/10 backdrop-blur overflow-hidden">
+            <div className="cursor-pointer select-none" onClick={() => setOpen((o) => !o)}>
+                <div className="flex justify-between items-center px-6 py-4">
+                    <div className="flex items-center gap-2">
+                        <svg
+                            className={`w-5 h-5 transition-transform duration-200 ${open ? 'rotate-90' : 'rotate-0'}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                        <h2 className="text-2xl font-semibold text-light dark:text-dark">{title}</h2>
+                    </div>
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        {open && headerExtra && <div className="hidden md:flex items-center gap-2">{headerExtra}</div>}
+                        {open && onSave && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onSave();
+                                }}
+                                className="bg-active-light dark:bg-active-dark hover:opacity-80 text-popup-light dark:text-popup-dark font-bold py-2 px-5 rounded-md transition"
+                            >
+                                Enregistrer
+                            </button>
+                        )}
+                    </div>
+                </div>
+                {open && headerExtra && (
+                    <div className="md:hidden px-6 pb-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+                        {headerExtra}
+                    </div>
                 )}
             </div>
-            <div className="space-y-4">{children}</div>
+            {open && (
+                <div className="px-6 pb-6 pt-2 border-t border-black/10 dark:border-white/10 space-y-4">{children}</div>
+            )}
         </div>
     );
 }

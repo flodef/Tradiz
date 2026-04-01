@@ -22,7 +22,7 @@ export default function AdminPageLayout({ title, children, action }: AdminPageLa
                 <div className="shrink-0 z-10">
                     <TradizTopNav inline />
                 </div>
-                <h1 className="absolute inset-x-0 text-center text-2xl font-bold truncate px-16 pointer-events-none">
+                <h1 className="absolute inset-x-0 text-center text-3xl font-bold leading-tight wrap-break-word line-clamp-2 px-16 pointer-events-none">
                     {title}
                 </h1>
                 <div className="ml-auto shrink-0 z-10">

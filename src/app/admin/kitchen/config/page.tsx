@@ -119,14 +119,45 @@ export default function SettingsPage() {
         }));
     };
 
+    const MONTH_NAMES = [
+        'Janvier',
+        'Février',
+        'Mars',
+        'Avril',
+        'Mai',
+        'Juin',
+        'Juillet',
+        'Août',
+        'Septembre',
+        'Octobre',
+        'Novembre',
+        'Décembre',
+    ];
+
+    const maxDaysInMonth = (month: number): number => {
+        const days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        return days[month - 1] ?? 31;
+    };
+
     const handleYearStartDateChange = (field: 'month' | 'day', value: number) => {
-        setSettings((prev) => ({
-            ...prev,
-            yearStartDate: {
-                month: field === 'month' ? value : prev.yearStartDate?.month || 1,
-                day: field === 'day' ? value : prev.yearStartDate?.day || 1,
-            },
-        }));
+        setSettings((prev) => {
+            const currentMonth = prev.yearStartDate?.month || 1;
+            const currentDay = prev.yearStartDate?.day || 1;
+            if (field === 'month') {
+                const newMonth = Math.max(1, Math.min(12, value));
+                const maxDay = maxDaysInMonth(newMonth);
+                return {
+                    ...prev,
+                    yearStartDate: { month: newMonth, day: Math.min(currentDay, maxDay) },
+                };
+            } else {
+                const maxDay = maxDaysInMonth(currentMonth);
+                return {
+                    ...prev,
+                    yearStartDate: { month: currentMonth, day: Math.max(1, Math.min(maxDay, value)) },
+                };
+            }
+        });
     };
 
     const handleSave = async () => {
@@ -205,56 +236,54 @@ export default function SettingsPage() {
                         <AdminLabel>Nom du commerce</AdminLabel>
                         <ValidatedInput
                             value={String(settings.shop.name || '')}
-                            onChange={(value) => !isReadOnly && handleShopChange('name', String(value))}
+                            onChange={(value) => handleShopChange('name', String(value))}
                             placeholder="Nom du commerce"
+                            disabled={isReadOnly}
                         />
                     </div>
                     <div>
                         <AdminLabel>Email</AdminLabel>
                         <ValidatedInput
                             value={String(settings.shop.email || '')}
-                            onChange={(value) => !isReadOnly && handleShopChange('email', String(value))}
+                            onChange={(value) => handleShopChange('email', String(value))}
                             placeholder="Email"
+                            disabled={isReadOnly}
                         />
                     </div>
                     <div>
                         <AdminLabel>Adresse</AdminLabel>
                         <ValidatedInput
                             value={String(settings.shop.address || '')}
-                            onChange={(value) => !isReadOnly && handleShopChange('address', String(value))}
+                            onChange={(value) => handleShopChange('address', String(value))}
                             placeholder="Adresse"
+                            disabled={isReadOnly}
                         />
                     </div>
                     <div>
                         <AdminLabel>Code postal</AdminLabel>
                         <ValidatedInput
                             value={String(settings.shop.zipCode || '')}
-                            onChange={(value) => !isReadOnly && handleShopChange('zipCode', String(value))}
+                            onChange={(value) => handleShopChange('zipCode', String(value))}
                             placeholder="Code postal"
+                            disabled={isReadOnly}
                         />
                     </div>
                     <div>
                         <AdminLabel>Ville</AdminLabel>
                         <ValidatedInput
                             value={String(settings.shop.city || '')}
-                            onChange={(value) => !isReadOnly && handleShopChange('city', String(value))}
+                            onChange={(value) => handleShopChange('city', String(value))}
                             placeholder="Ville"
+                            disabled={isReadOnly}
                         />
                     </div>
                     <div>
                         <AdminLabel>SIRET</AdminLabel>
                         <ValidatedInput
                             value={String(settings.shop.serial || '')}
-                            onChange={(value) => !isReadOnly && handleShopChange('serial', String(value))}
+                            onChange={(value) => handleShopChange('serial', String(value))}
                             placeholder="SIRET"
-                        />
-                    </div>
-                    <div>
-                        <AdminLabel>ID</AdminLabel>
-                        <ValidatedInput
-                            value={String(settings.shop.id || '')}
-                            onChange={(value) => !isReadOnly && handleShopChange('id', String(value))}
-                            placeholder="ID"
+                            disabled={isReadOnly}
                         />
                     </div>
                 </div>
@@ -266,8 +295,9 @@ export default function SettingsPage() {
                         <AdminLabel>Message de remerciement</AdminLabel>
                         <ValidatedInput
                             value={settings.thanksMessage || ''}
-                            onChange={(value) => !isReadOnly && handleChange('thanksMessage', String(value))}
+                            onChange={(value) => handleChange('thanksMessage', String(value))}
                             placeholder="Message de remerciement"
+                            disabled={isReadOnly}
                         />
                     </div>
                     <div>
@@ -289,29 +319,37 @@ export default function SettingsPage() {
                         <ValidatedInput
                             type="number"
                             value={String(settings.closingHour)}
-                            onChange={(value) =>
-                                !isReadOnly && handleChange('closingHour', Math.max(0, Math.min(23, Number(value))))
-                            }
+                            onChange={(value) => handleChange('closingHour', Math.max(0, Math.min(23, Number(value))))}
                             placeholder="Heure de fermeture"
+                            disabled={isReadOnly}
                         />
                     </div>
                     <div>
-                        <AdminLabel>Début d'année fiscale - Mois (1-12)</AdminLabel>
-                        <ValidatedInput
-                            type="number"
-                            value={String(settings.yearStartDate?.month || 1)}
-                            onChange={(value) => !isReadOnly && handleYearStartDateChange('month', Number(value))}
-                            placeholder="Mois"
-                        />
-                    </div>
-                    <div>
-                        <AdminLabel>Début d'année fiscale - Jour (1-31)</AdminLabel>
-                        <ValidatedInput
-                            type="number"
-                            value={String(settings.yearStartDate?.day || 1)}
-                            onChange={(value) => !isReadOnly && handleYearStartDateChange('day', Number(value))}
-                            placeholder="Jour"
-                        />
+                        <AdminLabel>Début d&apos;année fiscale</AdminLabel>
+                        <div className="flex gap-2">
+                            <input
+                                type="number"
+                                min={1}
+                                max={maxDaysInMonth(settings.yearStartDate?.month || 1)}
+                                value={settings.yearStartDate?.day || 1}
+                                disabled={isReadOnly}
+                                onChange={(e) => handleYearStartDateChange('day', Number(e.target.value))}
+                                className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:select-none"
+                                placeholder="Jour"
+                            />
+                            <select
+                                value={settings.yearStartDate?.month || 1}
+                                onChange={(e) => handleYearStartDateChange('month', Number(e.target.value))}
+                                disabled={isReadOnly}
+                                className="w-40 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:select-none"
+                            >
+                                {MONTH_NAMES.map((name, i) => (
+                                    <option key={i + 1} value={i + 1}>
+                                        {name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                 </div>
             </SectionCard>

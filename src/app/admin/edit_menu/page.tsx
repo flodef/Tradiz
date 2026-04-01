@@ -45,14 +45,14 @@ export default function EditMenuPage() {
                             if (!allCategories.find((c) => c.label === item.category)) {
                                 allCategories.push({
                                     label: item.category,
-                                    vat: item.rate / 100,
+                                    vat: item.rate,
                                 });
                             }
                             item.products.forEach((product) => {
                                 allProducts.push({
                                     name: product.label,
                                     category: item.category,
-                                    availability: true,
+                                    availability: product.availability,
                                     currencies: product.prices.map(String),
                                 });
                             });

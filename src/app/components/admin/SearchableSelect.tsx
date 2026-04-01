@@ -8,6 +8,7 @@ interface SearchableSelectProps {
     onChange: (value: string | string[]) => void;
     placeholder?: string;
     isMulti?: boolean;
+    disabled?: boolean;
 }
 
 export default function SearchableSelect({
@@ -16,6 +17,7 @@ export default function SearchableSelect({
     onChange,
     placeholder,
     isMulti = false,
+    disabled = false,
 }: SearchableSelectProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [isOpen, setIsOpen] = useState(false);
@@ -65,8 +67,10 @@ export default function SearchableSelect({
     return (
         <div className="relative" ref={selectRef}>
             <div
-                className="w-full px-3 py-2 border border-gray-300 rounded-md cursor-pointer bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 flex justify-between items-center"
-                onClick={() => setIsOpen(!isOpen)}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-md bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 flex justify-between items-center select-none ${
+                    disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                }`}
+                onClick={() => !disabled && setIsOpen(!isOpen)}
             >
                 {selectedLabels || placeholder}
                 <svg
