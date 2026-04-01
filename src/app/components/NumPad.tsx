@@ -185,8 +185,8 @@ export const NumPad: FC = () => {
             } else {
                 const newQuantity =
                     {
-                        '½': (quantity > 0 && quantity < 1 ? quantity : 1) / 2,
-                        '¼': (quantity > 0 && quantity < 1 ? quantity : 1) / 4,
+                        '½': Math.max(0.125, (quantity > 0 && quantity < 1 ? quantity : 1) / 2),
+                        '¼': Math.max(0.125, (quantity > 0 && quantity < 1 ? quantity : 1) / 4),
                     }[key.toString()] ??
                     parseInt(quantity >= 1 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString());
                 if (selectedProduct) {
