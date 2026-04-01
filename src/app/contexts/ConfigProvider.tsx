@@ -176,14 +176,14 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
 
     const storeData = useCallback(
         (data: Config | undefined) => {
+            if (!data) return;
             if (
                 !(
-                    data?.currencies.length &&
-                    data?.paymentMethods.length &&
-                    data?.inventory.length &&
-                    data?.discounts.length &&
-                    data?.colors.length &&
-                    data?.parameters
+                    data.currencies.length &&
+                    data.paymentMethods.length &&
+                    data.inventory.length &&
+                    data.colors.length &&
+                    data.parameters
                 )
             )
                 throw new Error('Empty config data');
