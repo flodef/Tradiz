@@ -431,8 +431,8 @@ export const Category: FC = () => {
 
     const onInput = (input: string, eventType: string) => {
         const item =
-            inventory.find(({ category }) => category === input) ??
-            inventory.find(({ products }) => products.some(({ label }) => label === input));
+            displayInventory.find(({ category }) => category === input) ??
+            displayInventory.find(({ products }) => products.some(({ label }) => label === input));
         if (!item) return;
 
         if (eventType === 'contextmenu' || item.products.length === 0) {
@@ -459,7 +459,20 @@ export const Category: FC = () => {
         openProductListPopup(item);
     };
 
-    const categories = useMemo(() => inventory.map(({ category }) => category), [inventory]);
+    const displayInventory = useMemo(
+        () =>
+            inventory
+                .slice()
+                .sort((a, b) => a.order - b.order)
+                .map((item) => ({
+                    ...item,
+                    products: item.products.filter((p) => p.availability).sort((a, b) => a.order - b.order),
+                }))
+                .filter((item) => item.products.length > 0 || true), // keep category even if empty (for OTHER_KEYWORD)
+        [inventory]
+    );
+
+    const categories = useMemo(() => displayInventory.map(({ category }) => category), [displayInventory]);
 
     // 2 columns per row, all categories shown (scroll if > 3 rows)
     const sizeConfig = getButtonSizeConfig(CATEGORY_BUTTON_SIZE);
