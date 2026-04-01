@@ -5,15 +5,17 @@ import { useConfig } from '@/app/hooks/useConfig';
 import { Parameters } from '@/app/contexts/ConfigProvider';
 import SectionCard from '@/app/components/admin/SectionCard';
 import ValidatedInput from '@/app/components/admin/ValidatedInput';
-import { Mercurial } from '@/app/utils/interfaces';
+import { Discount, Mercurial } from '@/app/utils/interfaces';
 import { defaultParameters } from '@/app/utils/processData';
 import { USE_DIGICARTE } from '@/app/utils/constants';
 import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
 import AdminLabel from '@/app/components/admin/AdminLabel';
+import DiscountsConfig from '@/app/components/admin/sections/DiscountsConfig';
 
 export default function SettingsPage() {
-    const { parameters } = useConfig();
+    const { parameters, discounts: configDiscounts, currencies } = useConfig();
     const [settings, setSettings] = useState<Parameters>(defaultParameters);
+    const [discounts, setDiscounts] = useState<Discount[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isReadOnly, setIsReadOnly] = useState(true);
@@ -44,6 +46,9 @@ export default function SettingsPage() {
                     // Wait until at least one meaningful field has loaded
                     if (parameters?.lastModified) {
                         setSettings(parameters);
+                    }
+                    if (configDiscounts) {
+                        setDiscounts(configDiscounts);
                     }
                     setIsLoading(false);
                     return;
@@ -91,6 +96,23 @@ export default function SettingsPage() {
 
                     setSettings(loadedSettings);
                 }
+
+                // Load discounts from DB
+                try {
+                    const discountsResponse = await fetch('/api/sql/getDiscounts');
+                    const discountsData = await discountsResponse.json();
+                    if (discountsData.values && discountsData.values.length > 1) {
+                        const loaded: Discount[] = discountsData.values
+                            .slice(1)
+                            .map(([amount, unit]: [number, string]) => ({
+                                amount: Number(amount),
+                                unit: String(unit).trim(),
+                            }));
+                        setDiscounts(loaded);
+                    }
+                } catch {
+                    if (configDiscounts) setDiscounts(configDiscounts);
+                }
             } catch (error) {
                 console.error('Error fetching parameters:', error);
                 if (parameters) setSettings(parameters);
@@ -100,7 +122,7 @@ export default function SettingsPage() {
         };
 
         fetchParameters();
-    }, [dbConfigChecked, isReadOnly, parameters]);
+    }, [dbConfigChecked, isReadOnly, parameters, configDiscounts]);
 
     const handleChange = (field: keyof Parameters, value: string | number) => {
         setSettings((prev) => ({
@@ -158,6 +180,22 @@ export default function SettingsPage() {
                 };
             }
         });
+    };
+
+    const handleDiscountsSave = async (data: Discount[]) => {
+        try {
+            const response = await fetch('/api/sql/updateDiscounts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ discounts: data }),
+            });
+            if (!response.ok) throw new Error('Failed to save discounts');
+            setDiscounts(data);
+            alert('Réductions enregistrées avec succès !');
+        } catch (error) {
+            console.error("Erreur lors de l'enregistrement:", error);
+            alert("Erreur lors de l'enregistrement des réductions.");
+        }
     };
 
     const handleSave = async () => {
@@ -353,6 +391,14 @@ export default function SettingsPage() {
                     </div>
                 </div>
             </SectionCard>
+
+            <DiscountsConfig
+                config={discounts}
+                onChange={setDiscounts}
+                onSave={handleDiscountsSave}
+                currencies={currencies?.map((c) => ({ label: c.label, value: c.label })) ?? []}
+                isReadOnly={isReadOnly}
+            />
 
             {!isReadOnly && (
                 <div className="mt-6 flex justify-end">
