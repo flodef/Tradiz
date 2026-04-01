@@ -54,7 +54,11 @@ const preloadedThemeScript = `(function () {
     }
 })();`;
 
-const conditionalManifestScript = `(function () {
+const useDigicarte = process.env.NEXT_PUBLIC_USE_DIGICARTE?.toLowerCase() === 'true';
+
+const conditionalManifestScript = useDigicarte
+    ? ''
+    : `(function () {
     try {
         var path = window.location.pathname || '';
         var pattern1 = new RegExp('/admin/tradiz/?$');
