@@ -10,11 +10,13 @@ export default function CurrenciesConfig({
     config,
     onChange,
     onSave,
+    hasChanges = false,
     isReadOnly = false,
 }: {
     config: Currency[];
     onChange: (data: Currency[]) => void;
     onSave: (data: Currency[]) => void;
+    hasChanges?: boolean;
     isReadOnly?: boolean;
 }) {
     const [currencies, setCurrencies] = useState(config || []);
@@ -51,7 +53,7 @@ export default function CurrenciesConfig({
     };
 
     return (
-        <SectionCard title="Devises" onSave={isReadOnly ? undefined : () => onSave(currencies)}>
+        <SectionCard title="Devises" onSave={isReadOnly || !hasChanges ? undefined : () => onSave(currencies)}>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {currencies.map((currency, index) => (
                     <CurrencyItem

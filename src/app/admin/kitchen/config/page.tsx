@@ -42,6 +42,9 @@ export default function SettingsPage() {
     const [dbConfigChecked, setDbConfigChecked] = useState(false);
     const [isSiretValid, setIsSiretValid] = useState(true);
     const [hasChanges, setHasChanges] = useState(false);
+    const [hasSettingsChanges, setHasSettingsChanges] = useState(false);
+    const [hasDiscountsChanges, setHasDiscountsChanges] = useState(false);
+    const [hasCurrenciesChanges, setHasCurrenciesChanges] = useState(false);
     const [originalSettings, setOriginalSettings] = useState<Parameters>(defaultParameters);
     const [originalDiscounts, setOriginalDiscounts] = useState<Discount[]>([]);
     const [originalCurrencies, setOriginalCurrencies] = useState<Currency[]>([]);
@@ -171,6 +174,9 @@ export default function SettingsPage() {
         const settingsChanged = JSON.stringify(settings) !== JSON.stringify(originalSettings);
         const discountsChanged = JSON.stringify(discounts) !== JSON.stringify(originalDiscounts);
         const currenciesChanged = JSON.stringify(currenciesConfig) !== JSON.stringify(originalCurrencies);
+        setHasSettingsChanges(settingsChanged);
+        setHasDiscountsChanges(discountsChanged);
+        setHasCurrenciesChanges(currenciesChanged);
         setHasChanges(settingsChanged || discountsChanged || currenciesChanged);
     }, [settings, discounts, currenciesConfig, originalSettings, originalDiscounts, originalCurrencies]);
 
@@ -349,111 +355,121 @@ export default function SettingsPage() {
             )}
 
             <SectionCard
-                title="Informations du commerce"
-                onSave={isReadOnly ? undefined : handleSave}
+                title="Paramètres"
+                onSave={isReadOnly || !hasSettingsChanges ? undefined : handleSave}
                 saveDisabled={!isSiretValid}
             >
-                <div className="flex flex-wrap gap-4">
-                    <ValidatedInput
-                        label="Nom du commerce"
-                        value={String(settings.shop.name || '')}
-                        onChange={(value) => handleShopChange('name', String(value))}
-                        placeholder="Nom du commerce"
-                        disabled={isReadOnly}
-                        className="flex-1 min-w-40"
-                    />
-                    <ValidatedInput
-                        label="Email"
-                        value={String(settings.shop.email || '')}
-                        onChange={(value) => handleShopChange('email', String(value))}
-                        placeholder="Email"
-                        disabled={isReadOnly}
-                        className="flex-1 min-w-40"
-                    />
-                    <ValidatedInput
-                        label="Adresse"
-                        value={String(settings.shop.address || '')}
-                        onChange={(value) => handleShopChange('address', String(value))}
-                        placeholder="Adresse"
-                        disabled={isReadOnly}
-                        className="flex-1 min-w-40 max-w-xs"
-                    />
-                    <div className="w-full flex flex-wrap gap-4 items-end">
-                        <ZipCityRow
-                            zipCode={String(settings.shop.zipCode || '')}
-                            city={String(settings.shop.city || '')}
-                            onZipChange={(value: string) => handleShopChange('zipCode', value)}
-                            onCityChange={(value: string) => handleShopChange('city', value)}
+                {/* Subsection: Commerce */}
+                <div className="mb-6">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
+                        Commerce
+                    </h3>
+                    <div className="flex flex-wrap gap-4">
+                        <ValidatedInput
+                            label="Nom du commerce"
+                            value={String(settings.shop.name || '')}
+                            onChange={(value) => handleShopChange('name', String(value))}
+                            placeholder="Nom du commerce"
                             disabled={isReadOnly}
+                            className="flex-1 min-w-40"
                         />
-                        <SiretInput
-                            value={String(settings.shop.serial || '')}
-                            onChange={(value: string) => handleShopChange('serial', value)}
-                            onValidation={setIsSiretValid}
+                        <ValidatedInput
+                            label="Email"
+                            value={String(settings.shop.email || '')}
+                            onChange={(value) => handleShopChange('email', String(value))}
+                            placeholder="Email"
                             disabled={isReadOnly}
+                            className="flex-1 min-w-40"
                         />
+                        <ValidatedInput
+                            label="Adresse"
+                            value={String(settings.shop.address || '')}
+                            onChange={(value) => handleShopChange('address', String(value))}
+                            placeholder="Adresse"
+                            disabled={isReadOnly}
+                            className="flex-1 min-w-40 max-w-xs"
+                        />
+                        <div className="w-full flex flex-wrap gap-4 items-end">
+                            <ZipCityRow
+                                zipCode={String(settings.shop.zipCode || '')}
+                                city={String(settings.shop.city || '')}
+                                onZipChange={(value: string) => handleShopChange('zipCode', value)}
+                                onCityChange={(value: string) => handleShopChange('city', value)}
+                                disabled={isReadOnly}
+                            />
+                            <SiretInput
+                                value={String(settings.shop.serial || '')}
+                                onChange={(value: string) => handleShopChange('serial', value)}
+                                onValidation={setIsSiretValid}
+                                disabled={isReadOnly}
+                            />
+                        </div>
                     </div>
                 </div>
-            </SectionCard>
 
-            <SectionCard title="Paramètres généraux" onSave={isReadOnly ? undefined : handleSave}>
-                <div className="flex flex-wrap gap-4 items-end">
-                    <ValidatedInput
-                        label="Message de remerciement"
-                        value={settings.thanksMessage || ''}
-                        onChange={(value) => handleChange('thanksMessage', String(value))}
-                        placeholder="Message de remerciement"
-                        disabled={isReadOnly}
-                        className="max-w-xs flex-1"
-                    />
-                    <AdminSelect
-                        label="Mercurial"
-                        value={settings.mercurial}
-                        onChange={(e) => !isReadOnly && handleChange('mercurial', e.target.value as Mercurial)}
-                        disabled={isReadOnly}
-                        className="w-40"
-                        options={[
-                            { label: 'Aucun', value: Mercurial.none },
-                            { label: 'Exponentielle', value: Mercurial.exponential },
-                            { label: 'Douce', value: Mercurial.soft },
-                            { label: 'Zelet', value: Mercurial.zelet },
-                        ]}
-                    />
-                    <AdminInput
-                        label="Heure de clôture (0-23)"
-                        type="number"
-                        min={0}
-                        max={23}
-                        value={settings.closingHour}
-                        onChange={(e) =>
-                            !isReadOnly &&
-                            handleChange('closingHour', Math.max(0, Math.min(23, Number(e.target.value))))
-                        }
-                        disabled={isReadOnly}
-                        className="w-32"
-                    />
-                    <div className="flex flex-col">
-                        <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
-                            Début d&apos;année fiscale
-                        </label>
-                        <div className="flex gap-2">
-                            <AdminInput
-                                type="number"
-                                min={1}
-                                max={maxDaysInMonth(settings.yearStartDate?.month || 1)}
-                                value={settings.yearStartDate?.day || 1}
-                                disabled={isReadOnly}
-                                onChange={(e) => handleYearStartDateChange('day', Number(e.target.value))}
-                                className="w-16"
-                                placeholder="Jour"
-                            />
-                            <AdminSelect
-                                value={settings.yearStartDate?.month || 1}
-                                onChange={(e) => handleYearStartDateChange('month', Number(e.target.value))}
-                                disabled={isReadOnly}
-                                className="w-32"
-                                options={MONTH_NAMES.map((name, i) => ({ label: name, value: i + 1 }))}
-                            />
+                {/* Subsection: Général */}
+                <div>
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
+                        Général
+                    </h3>
+                    <div className="flex flex-wrap gap-4 items-end">
+                        <ValidatedInput
+                            label="Message de remerciement"
+                            value={settings.thanksMessage || ''}
+                            onChange={(value) => handleChange('thanksMessage', String(value))}
+                            placeholder="Message de remerciement"
+                            disabled={isReadOnly}
+                            className="max-w-xs flex-1"
+                        />
+                        <AdminSelect
+                            label="Mercurial"
+                            value={settings.mercurial}
+                            onChange={(e) => !isReadOnly && handleChange('mercurial', e.target.value as Mercurial)}
+                            disabled={isReadOnly}
+                            className="w-40"
+                            options={[
+                                { label: 'Aucun', value: Mercurial.none },
+                                { label: 'Exponentielle', value: Mercurial.exponential },
+                                { label: 'Douce', value: Mercurial.soft },
+                                { label: 'Zelet', value: Mercurial.zelet },
+                            ]}
+                        />
+                        <AdminInput
+                            label="Heure de clôture (0-23)"
+                            type="number"
+                            min={0}
+                            max={23}
+                            value={settings.closingHour}
+                            onChange={(e) =>
+                                !isReadOnly &&
+                                handleChange('closingHour', Math.max(0, Math.min(23, Number(e.target.value))))
+                            }
+                            disabled={isReadOnly}
+                            className="w-32"
+                        />
+                        <div className="flex flex-col">
+                            <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                                Début d&apos;année fiscale
+                            </label>
+                            <div className="flex gap-2">
+                                <AdminInput
+                                    type="number"
+                                    min={1}
+                                    max={maxDaysInMonth(settings.yearStartDate?.month || 1)}
+                                    value={settings.yearStartDate?.day || 1}
+                                    disabled={isReadOnly}
+                                    onChange={(e) => handleYearStartDateChange('day', Number(e.target.value))}
+                                    className="w-16"
+                                    placeholder="Jour"
+                                />
+                                <AdminSelect
+                                    value={settings.yearStartDate?.month || 1}
+                                    onChange={(e) => handleYearStartDateChange('month', Number(e.target.value))}
+                                    disabled={isReadOnly}
+                                    className="w-32"
+                                    options={MONTH_NAMES.map((name, i) => ({ label: name, value: i + 1 }))}
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -463,6 +479,7 @@ export default function SettingsPage() {
                 config={discounts}
                 onChange={setDiscounts}
                 onSave={handleDiscountsSave}
+                hasChanges={hasDiscountsChanges}
                 currencies={currencies?.map((c) => ({ label: c.label, value: c.label })) ?? []}
                 isReadOnly={isReadOnly}
             />
@@ -471,6 +488,7 @@ export default function SettingsPage() {
                 config={currenciesConfig}
                 onChange={setCurrenciesConfig}
                 onSave={handleCurrenciesSave}
+                hasChanges={hasCurrenciesChanges}
                 isReadOnly={isReadOnly}
             />
 

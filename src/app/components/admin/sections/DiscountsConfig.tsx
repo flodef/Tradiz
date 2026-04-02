@@ -8,12 +8,14 @@ export default function DiscountsConfig({
     config,
     onChange,
     onSave,
+    hasChanges = false,
     currencies,
     isReadOnly = false,
 }: {
     config: Discount[];
     onChange: (data: Discount[]) => void;
     onSave: (data: Discount[]) => void;
+    hasChanges?: boolean;
     currencies: { label: string; value: string }[];
     isReadOnly?: boolean;
 }) {
@@ -44,7 +46,7 @@ export default function DiscountsConfig({
     };
 
     return (
-        <SectionCard title="Réductions" onSave={isReadOnly ? undefined : () => onSave(discounts)}>
+        <SectionCard title="Réductions" onSave={isReadOnly || !hasChanges ? undefined : () => onSave(discounts)}>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
                 {discounts.map((discount, index) => (
                     <DiscountItem
