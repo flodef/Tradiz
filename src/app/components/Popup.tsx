@@ -47,20 +47,20 @@ export const Popup: FC = () => {
 
     const isMobile = useIsMobile();
 
+    if (!isPopupOpen) return null;
+
     return (
-        <div className="absolute h-screen w-screen grid">
+        <div className="fixed inset-0 z-[100] grid">
             <div
                 onClick={close}
-                data-open={isPopupOpen}
-                className={'absolute inset-0 z-20 opacity-50 bg-gray-900 data-[open=false]:hidden'}
+                className="absolute inset-0 z-20 opacity-50 bg-gray-900"
             ></div>
             <div
                 id="popup" // id is mandatory for the screenshot to work
-                data-open={isPopupOpen}
                 className={twMerge(
                     'absolute z-30 w-[90%] max-h-[90%] max-w-[400px] overflow-y-auto overflow-x-hidden justify-self-center',
                     'bg-popup-light dark:bg-popup-dark h-fit rounded-2xl self-center blur-none border-black border-[3px]',
-                    'dark:border-secondary-active-dark data-[open=false]:hidden',
+                    'dark:border-secondary-active-dark',
                     !isMobile && !popupIsFullscreen
                         ? 'md:border-0 md:w-1/2 md:max-w-[50%] md:max-h-full md:left-1/2 md:bottom-0 md:rounded-none ' +
                               'md:border-l-4 md:border-secondary-active-light'

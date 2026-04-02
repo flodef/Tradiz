@@ -1,16 +1,25 @@
 'use client';
 
 import { ReactNode, useState } from 'react';
+import AdminButton from './AdminButton';
 
 interface SectionCardProps {
     title: string;
     children: ReactNode;
     onSave?: () => void;
+    saveDisabled?: boolean;
     defaultOpen?: boolean;
     headerExtra?: ReactNode;
 }
 
-export default function SectionCard({ title, children, onSave, defaultOpen = true, headerExtra }: SectionCardProps) {
+export default function SectionCard({
+    title,
+    children,
+    onSave,
+    saveDisabled = false,
+    defaultOpen = true,
+    headerExtra,
+}: SectionCardProps) {
     const [open, setOpen] = useState(defaultOpen);
 
     return (
@@ -31,15 +40,16 @@ export default function SectionCard({ title, children, onSave, defaultOpen = tru
                     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         {open && headerExtra && <div className="hidden md:flex items-center gap-2">{headerExtra}</div>}
                         {open && onSave && (
-                            <button
+                            <AdminButton
+                                variant="save"
+                                disabled={saveDisabled}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onSave();
                                 }}
-                                className="bg-active-light dark:bg-active-dark hover:opacity-80 text-popup-light dark:text-popup-dark font-bold py-2 px-5 rounded-md transition"
                             >
                                 Enregistrer
-                            </button>
+                            </AdminButton>
                         )}
                     </div>
                 </div>

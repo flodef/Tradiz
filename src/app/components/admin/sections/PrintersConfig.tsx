@@ -2,15 +2,18 @@ import { Printer } from '@/app/utils/interfaces';
 import { useEffect, useState } from 'react';
 import SectionCard from '../SectionCard';
 import PrinterItem from '../items/PrinterItem';
+import AdminButton from '../AdminButton';
 
 export default function PrintersConfig({
     config,
     onChange,
     onSave,
+    isReadOnly = false,
 }: {
     config: Printer[];
     onChange: (data: Printer[]) => void;
     onSave: (data: Printer[]) => void;
+    isReadOnly?: boolean;
 }) {
     const [printers, setPrinters] = useState(config || []);
 
@@ -30,8 +33,9 @@ export default function PrintersConfig({
             label: '',
             ipAddress: '',
         };
-        setPrinters([...printers, newPrinter]);
-        onChange([...printers, newPrinter]);
+        const updated = [...printers, newPrinter];
+        setPrinters(updated);
+        onChange(updated);
     };
 
     const handleDeletePrinter = (index: number) => {
@@ -41,21 +45,23 @@ export default function PrintersConfig({
     };
 
     return (
-        <SectionCard title="Imprimantes" onSave={() => onSave(printers)}>
-            {printers.map((printer, index) => (
-                <PrinterItem
-                    key={index}
-                    printer={printer}
-                    onChange={(updatedPrinter) => handlePrinterChange(index, updatedPrinter)}
-                    onDelete={() => handleDeletePrinter(index)}
-                />
-            ))}
-            <button
-                onClick={handleAddPrinter}
-                className="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-sm"
-            >
-                Ajouter une imprimante
-            </button>
+        <SectionCard title="Imprimantes" onSave={isReadOnly ? undefined : () => onSave(printers)}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {printers.map((printer, index) => (
+                    <PrinterItem
+                        key={index}
+                        printer={printer}
+                        onChange={(updatedPrinter) => handlePrinterChange(index, updatedPrinter)}
+                        onDelete={() => handleDeletePrinter(index)}
+                        isReadOnly={isReadOnly}
+                    />
+                ))}
+            </div>
+            {!isReadOnly && (
+                <AdminButton variant="add" onClick={handleAddPrinter}>
+                    Ajouter une imprimante
+                </AdminButton>
+            )}
         </SectionCard>
     );
 }

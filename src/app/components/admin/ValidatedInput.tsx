@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, ChangeEvent } from 'react';
+import AdminInput from './AdminInput';
 
 interface ValidatedInputProps {
     value: string | number;
@@ -10,6 +11,9 @@ interface ValidatedInputProps {
     type?: string;
     disabled?: boolean;
     maxLength?: number;
+    label?: string;
+    className?: string;
+    isReadOnly?: boolean;
 }
 
 export default function ValidatedInput({
@@ -18,29 +22,32 @@ export default function ValidatedInput({
     placeholder,
     validation,
     type = 'text',
-    disabled = false,
     maxLength,
+    label,
+    className,
+    disabled = false,
 }: ValidatedInputProps) {
     const [isValid, setIsValid] = useState(true);
 
     const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
         if (disabled) return;
+
         const newValue = e.target.value;
         if (validation) setIsValid(validation(newValue));
         onChange(newValue);
     };
 
     return (
-        <input
+        <AdminInput
             type={type}
             value={value}
             onChange={handleChange}
             placeholder={placeholder}
-            disabled={disabled}
             maxLength={maxLength}
-            className={`w-full px-3 py-2 border rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:select-none ${
-                isValid ? 'border-gray-300 dark:border-gray-600' : 'border-red-500 dark:border-red-400'
-            }`}
+            error={!isValid}
+            label={label}
+            className={className}
+            disabled={disabled}
         />
     );
 }

@@ -38,6 +38,8 @@ export interface Currency {
     maxValue: number;
     symbol: string;
     decimals: number;
+    rate: number;
+    fee: number;
 }
 
 export interface PaymentMethod {

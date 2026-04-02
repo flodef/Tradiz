@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import AdminLabel from './AdminLabel';
+import AdminInput from './AdminInput';
+import AdminSelect from './AdminSelect';
 
 const ZIP_REGEX = /^\d{0,5}$/;
 const VALID_ZIP_REGEX = /^\d{5}$/;
@@ -54,14 +55,11 @@ export default function ZipCityRow({ zipCode, city, onZipChange, onCityChange, d
         })
             .then((r) => r.json())
             .then((data: GeoApiCity[]) => {
-                // Store uppercase city names for consistent matching
                 const names = data.map((c) => toUpper(c.nom));
                 setCities(names);
                 if (names.length === 1) {
-                    // Auto-fill only if empty; update to uppercase if single match
                     onCityChange(names[0]);
                 } else if (city) {
-                    // Case-insensitive match: normalise existing value to uppercase
                     const matched = names.find((n) => n === toUpper(city));
                     if (matched) onCityChange(matched);
                 }
@@ -70,7 +68,6 @@ export default function ZipCityRow({ zipCode, city, onZipChange, onCityChange, d
                 if (e.name !== 'AbortError') setCities([]);
             })
             .finally(() => setIsLoadingCities(false));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [zipCode, isOffline]);
 
     const handleZipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,60 +76,49 @@ export default function ZipCityRow({ zipCode, city, onZipChange, onCityChange, d
     };
 
     const isZipValid = zipCode === '' || VALID_ZIP_REGEX.test(zipCode);
-
-    // When showing a select, check whether the current city value matches one of the options
     const showSelect = !isOffline && cities.length > 1;
     const cityMatchesOption = cities.some((c) => c === toUpper(city));
     const selectHasError = showSelect && city !== '' && !cityMatchesOption;
 
-    const baseSelect =
-        'min-w-0 px-3 py-2 border rounded-md bg-white dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed';
-    const baseInput =
-        'w-full min-w-0 px-3 py-2 border rounded-md bg-white dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed';
-    const borderOk = 'border-gray-300 dark:border-gray-600';
-    const borderErr = 'border-red-500 dark:border-red-400';
+    // Filter cities to avoid double entries of the current city
+    const filteredCities = cities.filter(c => c !== toUpper(city));
 
     return (
         <div className="flex gap-3 items-start">
-            <div className="flex flex-col gap-1 shrink-0">
-                <AdminLabel>CP</AdminLabel>
-                <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={5}
-                    value={zipCode}
-                    onChange={handleZipChange}
-                    disabled={disabled}
-                    placeholder="75001"
-                    className={`w-20 px-3 py-2 border rounded-md bg-white dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed ${
-                        isZipValid ? borderOk : borderErr
-                    }`}
-                />
-            </div>
-            <div className="flex flex-col gap-1 min-w-0 w-48">
-                <AdminLabel>Ville{isLoadingCities ? ' …' : ''}</AdminLabel>
+            <AdminInput
+                label="CP"
+                type="text"
+                inputMode="numeric"
+                maxLength={5}
+                value={zipCode}
+                onChange={handleZipChange}
+                disabled={disabled}
+                placeholder="75001"
+                error={!isZipValid}
+                className="w-20"
+            />
+            <div className="flex flex-col min-w-0 w-48">
                 {showSelect ? (
-                    <select
+                    <AdminSelect
+                        label={`Ville${isLoadingCities ? ' …' : ''}`}
                         value={toUpper(city)}
                         onChange={(e) => onCityChange(e.target.value)}
                         disabled={disabled}
-                        className={`${baseSelect} ${selectHasError ? borderErr : borderOk}`}
-                    >
-                        <option value="">{city || 'Sélectionner…'}</option>
-                        {cities.map((c) => (
-                            <option key={c} value={c}>
-                                {c}
-                            </option>
-                        ))}
-                    </select>
+                        error={selectHasError}
+                        options={[
+                            { label: city || 'Sélectionner…', value: toUpper(city) },
+                            ...filteredCities.map(c => ({ label: c, value: c }))
+                        ]}
+                    />
                 ) : (
-                    <input
+                    <AdminInput
+                        label={`Ville${isLoadingCities ? ' …' : ''}`}
                         type="text"
                         value={city}
                         onChange={(e) => onCityChange(toUpper(e.target.value))}
                         disabled={disabled}
                         placeholder="Ville"
-                        className={`${baseInput} ${borderOk}`}
+                        className="w-full"
                     />
                 )}
             </div>

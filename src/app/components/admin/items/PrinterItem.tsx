@@ -5,9 +5,10 @@ interface PrinterItemProps {
     printer: Printer;
     onChange: (printer: Printer) => void;
     onDelete: () => void;
+    isReadOnly?: boolean;
 }
 
-export default function PrinterItem({ printer, onChange, onDelete }: PrinterItemProps) {
+export default function PrinterItem({ printer, onChange, onDelete, isReadOnly = false }: PrinterItemProps) {
     const ipV4Validation = (ip: string) => {
         const regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
         return regex.test(ip);
@@ -30,6 +31,7 @@ export default function PrinterItem({ printer, onChange, onDelete }: PrinterItem
                         value={printer.label}
                         onChange={(value) => onChange({ ...printer, label: String(value) })}
                         placeholder="Label de l'imprimante"
+                        disabled={isReadOnly}
                     />
                 </div>
                 <div>
@@ -41,6 +43,7 @@ export default function PrinterItem({ printer, onChange, onDelete }: PrinterItem
                         onChange={(value) => onChange({ ...printer, ipAddress: String(value) })}
                         placeholder="Adresse IP de l'imprimante"
                         validation={(ip) => ipV4Validation(String(ip))}
+                        disabled={isReadOnly}
                     />
                 </div>
             </div>

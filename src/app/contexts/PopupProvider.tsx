@@ -33,10 +33,7 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
             setPopupSpecialAction(() => specialAction);
             setPopupIsSpecial(() => isSpecial);
             setPopupIsFullscreen(false);
-
-            setTimeout(() => {
-                setIsPopupOpen(true);
-            }, 100);
+            setIsPopupOpen(true);
         },
         []
     );
@@ -75,10 +72,8 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
     );
 
     const closePopup = useCallback((callback?: () => void) => {
-        setTimeout(() => {
-            setIsPopupOpen(false);
-            if (callback) callback();
-        }, 100);
+        setIsPopupOpen(false);
+        if (callback) callback();
     }, []);
 
     return (

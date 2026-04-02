@@ -7,19 +7,20 @@ import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } 
 import { CSS } from '@dnd-kit/utilities';
 import SectionCard from '../SectionCard';
 import CategoryItem from '../items/CategoryItem';
+import AdminButton from '../AdminButton';
 
 function SortableCategoryItem({
     id,
     category,
     onChange,
     onDelete,
-    readOnly,
+    isReadOnly,
 }: {
     id: string;
     category: Category;
     onChange: (c: Category) => void;
     onDelete?: () => void;
-    readOnly: boolean;
+    isReadOnly: boolean;
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
     const style = {
@@ -33,8 +34,8 @@ function SortableCategoryItem({
                 category={category}
                 onChange={onChange}
                 onDelete={onDelete}
-                readOnly={readOnly}
-                dragHandleProps={readOnly ? undefined : { ...attributes, ...listeners }}
+                isReadOnly={isReadOnly}
+                dragHandleProps={isReadOnly ? undefined : { ...attributes, ...listeners }}
             />
         </div>
     );
@@ -102,19 +103,16 @@ export default function CategoriesConfig({
                                 category={category}
                                 onChange={(updated) => handleCategoryChange(index, updated)}
                                 onDelete={isReadOnly ? undefined : () => handleDeleteCategory(index)}
-                                readOnly={isReadOnly}
+                                isReadOnly={isReadOnly}
                             />
                         ))}
                     </div>
                 </SortableContext>
             </DndContext>
             {!isReadOnly && (
-                <button
-                    onClick={handleAddCategory}
-                    className="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-sm"
-                >
+                <AdminButton variant="add" onClick={handleAddCategory}>
                     Ajouter une catégorie
-                </button>
+                </AdminButton>
             )}
         </SectionCard>
     );

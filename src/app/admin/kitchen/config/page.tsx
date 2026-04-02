@@ -1,27 +1,34 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useConfig } from '@/app/hooks/useConfig';
 import { Parameters } from '@/app/contexts/ConfigProvider';
 import SectionCard from '@/app/components/admin/SectionCard';
 import ValidatedInput from '@/app/components/admin/ValidatedInput';
-import { Discount, Mercurial } from '@/app/utils/interfaces';
+import { Discount, Mercurial, Currency } from '@/app/utils/interfaces';
 import { defaultParameters } from '@/app/utils/processData';
 import { USE_DIGICARTE } from '@/app/utils/constants';
 import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
-import AdminLabel from '@/app/components/admin/AdminLabel';
 import DiscountsConfig from '@/app/components/admin/sections/DiscountsConfig';
+import CurrenciesConfig from '@/app/components/admin/sections/CurrenciesConfig';
 import ZipCityRow from '@/app/components/admin/ZipCityRow';
 import SiretInput from '@/app/components/admin/SiretInput';
+import AdminButton from '@/app/components/admin/AdminButton';
+import AdminSelect from '@/app/components/admin/AdminSelect';
+import AdminInput from '@/app/components/admin/AdminInput';
+import { usePopup } from '@/app/hooks/usePopup';
 
 export default function SettingsPage() {
     const { parameters, discounts: configDiscounts, currencies } = useConfig();
+    const { openFullscreenPopup } = usePopup();
     const [settings, setSettings] = useState<Parameters>(defaultParameters);
     const [discounts, setDiscounts] = useState<Discount[]>([]);
+    const [currenciesConfig, setCurrenciesConfig] = useState<Currency[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isReadOnly, setIsReadOnly] = useState(true);
     const [dbConfigChecked, setDbConfigChecked] = useState(false);
+    const [isSiretValid, setIsSiretValid] = useState(true);
 
     // Step 1: check DB config once on mount
     useEffect(() => {
@@ -37,94 +44,108 @@ export default function SettingsPage() {
             });
     }, []);
 
+    const fetchParameters = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            if (isReadOnly) {
+                if (parameters?.lastModified) setSettings(parameters);
+                if (configDiscounts) setDiscounts(configDiscounts);
+                if (currencies) setCurrenciesConfig(currencies);
+                setIsLoading(false);
+                return;
+            }
+
+            const response = await fetch('/api/sql/getParameters');
+            const data = await response.json();
+
+            if (data.values && data.values.length > 0) {
+                const paramMap = new Map<string, string>();
+                data.values.forEach(([key, value]: [string, string]) => {
+                    paramMap.set(key, value);
+                });
+
+                const loadedSettings: Parameters = {
+                    shop: {
+                        name: paramMap.get('name') || '',
+                        address: paramMap.get('address') || '',
+                        zipCode: paramMap.get('zipCode') || '',
+                        city: paramMap.get('city') || '',
+                        serial: paramMap.get('serial') || '',
+                        id: paramMap.get('id') || '',
+                        email: paramMap.get('email') || '',
+                    },
+                    thanksMessage: paramMap.get('thanksMessage') || 'Merci de votre visite !',
+                    mercurial: (paramMap.get('mercurial') || Mercurial.none) as Mercurial,
+                    closingHour: Math.max(0, Math.min(23, Number(paramMap.get('closingHour')) || 0)),
+                    yearStartDate: (() => {
+                        try {
+                            const value = paramMap.get('yearStartDate');
+                            if (value) {
+                                const parsed = JSON.parse(value);
+                                if (parsed && typeof parsed.month === 'number' && typeof parsed.day === 'number') {
+                                    return parsed;
+                                }
+                            }
+                        } catch {
+                            // Invalid JSON
+                        }
+                        return { month: 1, day: 1 };
+                    })(),
+                    lastModified: paramMap.get('lastModified') || new Date().toLocaleString(),
+                    user: parameters?.user || { name: '', role: 0 },
+                };
+
+                setSettings(loadedSettings);
+            }
+
+            // Load discounts from DB
+            try {
+                const discountsResponse = await fetch('/api/sql/getDiscounts');
+                const discountsData = await discountsResponse.json();
+                if (discountsData.values && discountsData.values.length > 1) {
+                    const loaded: Discount[] = discountsData.values
+                        .slice(1)
+                        .map(([amount, unit]: [number, string]) => ({
+                            amount: Number(amount),
+                            unit: String(unit).trim(),
+                        }));
+                    setDiscounts(loaded);
+                }
+            } catch {
+                if (configDiscounts) setDiscounts(configDiscounts);
+            }
+
+            // Load currencies from DB
+            try {
+                const currenciesResponse = await fetch('/api/sql/getCurrencies');
+                const currenciesData = await currenciesResponse.json();
+                if (currenciesData.values && currenciesData.values.length > 1) {
+                    const loaded: Currency[] = currenciesData.values.slice(1).map((row: any[]) => ({
+                        label: String(row[0]),
+                        maxValue: Number(row[1]),
+                        symbol: String(row[2]),
+                        decimals: Number(row[3]),
+                        rate: Number(row[4] ?? 1),
+                        fee: Number(row[5] ?? 0),
+                    }));
+                    setCurrenciesConfig(loaded);
+                }
+            } catch {
+                if (currencies) setCurrenciesConfig(currencies);
+            }
+        } catch (error) {
+            console.error('Error fetching parameters:', error);
+            if (parameters) setSettings(parameters);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [isReadOnly, parameters, configDiscounts, currencies]);
+
     // Step 2: once DB config is known, load data
     useEffect(() => {
         if (!dbConfigChecked) return;
-
-        const fetchParameters = async () => {
-            try {
-                if (isReadOnly) {
-                    // No DB — use spreadsheet data from useConfig
-                    // Wait until at least one meaningful field has loaded
-                    if (parameters?.lastModified) {
-                        setSettings(parameters);
-                    }
-                    if (configDiscounts) {
-                        setDiscounts(configDiscounts);
-                    }
-                    setIsLoading(false);
-                    return;
-                }
-
-                const response = await fetch('/api/sql/getParameters');
-                const data = await response.json();
-
-                if (data.values && data.values.length > 0) {
-                    const paramMap = new Map<string, string>();
-                    data.values.forEach(([key, value]: [string, string]) => {
-                        paramMap.set(key, value);
-                    });
-
-                    const loadedSettings: Parameters = {
-                        shop: {
-                            name: paramMap.get('name') || '',
-                            address: paramMap.get('address') || '',
-                            zipCode: paramMap.get('zipCode') || '',
-                            city: paramMap.get('city') || '',
-                            serial: paramMap.get('serial') || '',
-                            id: paramMap.get('id') || '',
-                            email: paramMap.get('email') || '',
-                        },
-                        thanksMessage: paramMap.get('thanksMessage') || 'Merci de votre visite !',
-                        mercurial: (paramMap.get('mercurial') || Mercurial.none) as Mercurial,
-                        closingHour: Math.max(0, Math.min(23, Number(paramMap.get('closingHour')) || 0)),
-                        yearStartDate: (() => {
-                            try {
-                                const value = paramMap.get('yearStartDate');
-                                if (value) {
-                                    const parsed = JSON.parse(value);
-                                    if (parsed && typeof parsed.month === 'number' && typeof parsed.day === 'number') {
-                                        return parsed;
-                                    }
-                                }
-                            } catch {
-                                // Invalid JSON, use default
-                            }
-                            return { month: 1, day: 1 };
-                        })(),
-                        lastModified: paramMap.get('lastModified') || new Date().toLocaleString(),
-                        user: parameters?.user || { name: '', role: 0 },
-                    };
-
-                    setSettings(loadedSettings);
-                }
-
-                // Load discounts from DB
-                try {
-                    const discountsResponse = await fetch('/api/sql/getDiscounts');
-                    const discountsData = await discountsResponse.json();
-                    if (discountsData.values && discountsData.values.length > 1) {
-                        const loaded: Discount[] = discountsData.values
-                            .slice(1)
-                            .map(([amount, unit]: [number, string]) => ({
-                                amount: Number(amount),
-                                unit: String(unit).trim(),
-                            }));
-                        setDiscounts(loaded);
-                    }
-                } catch {
-                    if (configDiscounts) setDiscounts(configDiscounts);
-                }
-            } catch (error) {
-                console.error('Error fetching parameters:', error);
-                if (parameters) setSettings(parameters);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
         fetchParameters();
-    }, [dbConfigChecked, isReadOnly, parameters, configDiscounts]);
+    }, [dbConfigChecked, fetchParameters]);
 
     const handleChange = (field: keyof Parameters, value: string | number) => {
         setSettings((prev) => ({
@@ -193,17 +214,36 @@ export default function SettingsPage() {
             });
             if (!response.ok) throw new Error('Failed to save discounts');
             setDiscounts(data);
-            alert('Réductions enregistrées avec succès !');
+            openFullscreenPopup('Réductions enregistrées avec succès !', ['OK']);
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
-            alert("Erreur lors de l'enregistrement des réductions.");
+            openFullscreenPopup("Erreur lors de l'enregistrement des réductions.", ['OK']);
+        }
+    };
+
+    const handleCurrenciesSave = async (data: Currency[]) => {
+        try {
+            const response = await fetch('/api/sql/updateCurrencies', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ currencies: data }),
+            });
+            if (!response.ok) throw new Error('Failed to save currencies');
+            setCurrenciesConfig(data);
+            openFullscreenPopup('Devises enregistrées avec succès !', ['OK']);
+        } catch (error) {
+            console.error("Erreur lors de l'enregistrement:", error);
+            openFullscreenPopup("Erreur lors de l'enregistrement des devises.", ['OK']);
         }
     };
 
     const handleSave = async () => {
+        if (!isSiretValid) {
+            openFullscreenPopup("Veuillez corriger les erreurs avant d'enregistrer.", ['OK']);
+            return;
+        }
         setIsSaving(true);
         try {
-            // Save each parameter to the database
             const paramUpdates = [
                 { key: 'name', value: settings.shop.name },
                 { key: 'address', value: settings.shop.address },
@@ -219,28 +259,33 @@ export default function SettingsPage() {
                 { key: 'lastModified', value: new Date().toLocaleString() },
             ];
 
-            // Send updates to API (you'll need to create an update endpoint)
             const response = await fetch('/api/sql/updateParameters', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ parameters: paramUpdates }),
             });
 
-            if (!response.ok) {
-                throw new Error('Failed to save parameters');
-            }
+            if (!response.ok) throw new Error('Failed to save parameters');
 
-            alert('Paramètres enregistrés avec succès !');
-            window.location.reload();
+            openFullscreenPopup('Paramètres enregistrés avec succès !', ['OK'], () => {
+                fetchParameters();
+            });
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
-            alert("Erreur lors de l'enregistrement des paramètres.");
+            openFullscreenPopup("Erreur lors de l'enregistrement des paramètres.", ['OK']);
         } finally {
             setIsSaving(false);
         }
     };
 
-    // Redirect if using Digicarte
+    const handleCancel = () => {
+        openFullscreenPopup('Êtes-vous sûr de vouloir annuler les modifications ?', ['Oui', 'Non'], (index) => {
+            if (index === 0) {
+                fetchParameters();
+            }
+        });
+    };
+
     if (USE_DIGICARTE) return null;
 
     if (isLoading) {
@@ -270,35 +315,36 @@ export default function SettingsPage() {
                 </div>
             )}
 
-            <SectionCard title="Informations du commerce" onSave={isReadOnly ? undefined : handleSave}>
+            <SectionCard
+                title="Informations du commerce"
+                onSave={isReadOnly ? undefined : handleSave}
+                saveDisabled={!isSiretValid}
+            >
                 <div className="flex flex-wrap gap-4">
-                    <div className="flex-1 min-w-40">
-                        <AdminLabel>Nom du commerce</AdminLabel>
-                        <ValidatedInput
-                            value={String(settings.shop.name || '')}
-                            onChange={(value) => handleShopChange('name', String(value))}
-                            placeholder="Nom du commerce"
-                            disabled={isReadOnly}
-                        />
-                    </div>
-                    <div className="flex-1 min-w-40">
-                        <AdminLabel>Email</AdminLabel>
-                        <ValidatedInput
-                            value={String(settings.shop.email || '')}
-                            onChange={(value) => handleShopChange('email', String(value))}
-                            placeholder="Email"
-                            disabled={isReadOnly}
-                        />
-                    </div>
-                    <div className="flex-1 min-w-40 max-w-xs">
-                        <AdminLabel>Adresse</AdminLabel>
-                        <ValidatedInput
-                            value={String(settings.shop.address || '')}
-                            onChange={(value) => handleShopChange('address', String(value))}
-                            placeholder="Adresse"
-                            disabled={isReadOnly}
-                        />
-                    </div>
+                    <ValidatedInput
+                        label="Nom du commerce"
+                        value={String(settings.shop.name || '')}
+                        onChange={(value) => handleShopChange('name', String(value))}
+                        placeholder="Nom du commerce"
+                        disabled={isReadOnly}
+                        className="flex-1 min-w-40"
+                    />
+                    <ValidatedInput
+                        label="Email"
+                        value={String(settings.shop.email || '')}
+                        onChange={(value) => handleShopChange('email', String(value))}
+                        placeholder="Email"
+                        disabled={isReadOnly}
+                        className="flex-1 min-w-40"
+                    />
+                    <ValidatedInput
+                        label="Adresse"
+                        value={String(settings.shop.address || '')}
+                        onChange={(value) => handleShopChange('address', String(value))}
+                        placeholder="Adresse"
+                        disabled={isReadOnly}
+                        className="flex-1 min-w-40 max-w-xs"
+                    />
                     <div className="w-full flex flex-wrap gap-4 items-end">
                         <ZipCityRow
                             zipCode={String(settings.shop.zipCode || '')}
@@ -307,83 +353,74 @@ export default function SettingsPage() {
                             onCityChange={(value: string) => handleShopChange('city', value)}
                             disabled={isReadOnly}
                         />
-                        <div>
-                            <AdminLabel>SIRET</AdminLabel>
-                            <SiretInput
-                                value={String(settings.shop.serial || '')}
-                                onChange={(value: string) => handleShopChange('serial', value)}
-                                disabled={isReadOnly}
-                            />
-                        </div>
+                        <SiretInput
+                            value={String(settings.shop.serial || '')}
+                            onChange={(value: string) => handleShopChange('serial', value)}
+                            onValidation={setIsSiretValid}
+                            disabled={isReadOnly}
+                        />
                     </div>
                 </div>
             </SectionCard>
 
             <SectionCard title="Paramètres généraux" onSave={isReadOnly ? undefined : handleSave}>
-                <div className="flex flex-wrap gap-4">
-                    <div className="flex-1 min-w-40 max-w-xs">
-                        <AdminLabel>Message de remerciement</AdminLabel>
-                        <ValidatedInput
-                            value={settings.thanksMessage || ''}
-                            onChange={(value) => handleChange('thanksMessage', String(value))}
-                            placeholder="Message de remerciement"
-                            disabled={isReadOnly}
-                        />
-                    </div>
-                    <div className="shrink-0">
-                        <AdminLabel>Mercurial</AdminLabel>
-                        <select
-                            value={settings.mercurial}
-                            onChange={(e) => !isReadOnly && handleChange('mercurial', e.target.value as Mercurial)}
-                            disabled={isReadOnly}
-                            className="w-auto px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <option value={Mercurial.none}>Aucun</option>
-                            <option value={Mercurial.exponential}>Exponentielle</option>
-                            <option value={Mercurial.soft}>Douce</option>
-                            <option value={Mercurial.zelet}>Zelet</option>
-                        </select>
-                    </div>
-                    <div className="shrink-0">
-                        <AdminLabel>Heure de clôture (0-23)</AdminLabel>
-                        <input
-                            type="number"
-                            min={0}
-                            max={23}
-                            value={settings.closingHour}
-                            onChange={(e) =>
-                                !isReadOnly &&
-                                handleChange('closingHour', Math.max(0, Math.min(23, Number(e.target.value))))
-                            }
-                            disabled={isReadOnly}
-                            className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        />
-                    </div>
-                    <div className="shrink-0">
-                        <AdminLabel>Début d&apos;année fiscale</AdminLabel>
+                <div className="flex flex-wrap gap-4 items-end">
+                    <ValidatedInput
+                        label="Message de remerciement"
+                        value={settings.thanksMessage || ''}
+                        onChange={(value) => handleChange('thanksMessage', String(value))}
+                        placeholder="Message de remerciement"
+                        disabled={isReadOnly}
+                        className="max-w-xs flex-1"
+                    />
+                    <AdminSelect
+                        label="Mercurial"
+                        value={settings.mercurial}
+                        onChange={(e) => !isReadOnly && handleChange('mercurial', e.target.value as Mercurial)}
+                        disabled={isReadOnly}
+                        className="w-40"
+                        options={[
+                            { label: 'Aucun', value: Mercurial.none },
+                            { label: 'Exponentielle', value: Mercurial.exponential },
+                            { label: 'Douce', value: Mercurial.soft },
+                            { label: 'Zelet', value: Mercurial.zelet },
+                        ]}
+                    />
+                    <AdminInput
+                        label="Heure de clôture (0-23)"
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={settings.closingHour}
+                        onChange={(e) =>
+                            !isReadOnly &&
+                            handleChange('closingHour', Math.max(0, Math.min(23, Number(e.target.value))))
+                        }
+                        disabled={isReadOnly}
+                        className="w-32"
+                    />
+                    <div className="flex flex-col">
+                        <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                            Début d&apos;année fiscale
+                        </label>
                         <div className="flex gap-2">
-                            <input
+                            <AdminInput
                                 type="number"
                                 min={1}
                                 max={maxDaysInMonth(settings.yearStartDate?.month || 1)}
                                 value={settings.yearStartDate?.day || 1}
                                 disabled={isReadOnly}
                                 onChange={(e) => handleYearStartDateChange('day', Number(e.target.value))}
-                                className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:select-none"
+                                className="w-16"
                                 placeholder="Jour"
                             />
-                            <select
+                            <AdminSelect
                                 value={settings.yearStartDate?.month || 1}
                                 onChange={(e) => handleYearStartDateChange('month', Number(e.target.value))}
                                 disabled={isReadOnly}
-                                className="w-40 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:select-none"
-                            >
-                                {MONTH_NAMES.map((name, i) => (
-                                    <option key={i + 1} value={i + 1}>
-                                        {name}
-                                    </option>
-                                ))}
-                            </select>
+                                className="w-32"
+                                options={MONTH_NAMES.map((name, i) => ({ label: name, value: i + 1 }))}
+                            />
                         </div>
                     </div>
                 </div>
@@ -397,15 +434,21 @@ export default function SettingsPage() {
                 isReadOnly={isReadOnly}
             />
 
+            <CurrenciesConfig
+                config={currenciesConfig}
+                onChange={setCurrenciesConfig}
+                onSave={handleCurrenciesSave}
+                isReadOnly={isReadOnly}
+            />
+
             {!isReadOnly && (
-                <div className="mt-6 flex justify-end">
-                    <button
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="bg-active-light dark:bg-active-dark hover:opacity-80 text-popup-light dark:text-popup-dark font-bold py-2 px-6 rounded-md transition disabled:opacity-50"
-                    >
-                        {isSaving ? 'Enregistrement...' : 'Enregistrer tous les paramètres'}
-                    </button>
+                <div className="mt-6 flex justify-end gap-4">
+                    <AdminButton onClick={handleCancel} variant="secondary">
+                        Annuler
+                    </AdminButton>
+                    <AdminButton onClick={handleSave} isLoading={isSaving} disabled={!isSiretValid} variant="save">
+                        Enregistrer tous les paramètres
+                    </AdminButton>
                 </div>
             )}
         </AdminPageLayout>

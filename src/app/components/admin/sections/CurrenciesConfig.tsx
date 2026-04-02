@@ -1,16 +1,21 @@
+'use client';
+
 import { Currency } from '@/app/utils/interfaces';
 import { useEffect, useState } from 'react';
 import SectionCard from '../SectionCard';
 import CurrencyItem from '../items/CurrencyItem';
+import AdminButton from '../AdminButton';
 
 export default function CurrenciesConfig({
     config,
     onChange,
     onSave,
+    isReadOnly = false,
 }: {
     config: Currency[];
     onChange: (data: Currency[]) => void;
     onSave: (data: Currency[]) => void;
+    isReadOnly?: boolean;
 }) {
     const [currencies, setCurrencies] = useState(config || []);
 
@@ -28,36 +33,41 @@ export default function CurrenciesConfig({
     const handleAddCurrency = () => {
         const newCurrency: Currency = {
             label: '',
-            maxValue: 0,
+            maxValue: 1000,
             symbol: '',
             decimals: 2,
+            rate: 1,
+            fee: 0,
         };
-        setCurrencies([...currencies, newCurrency]);
-        onChange([...currencies, newCurrency]);
+        const updated = [...currencies, newCurrency];
+        setCurrencies(updated);
+        onChange(updated);
     };
 
     const handleDeleteCurrency = (index: number) => {
-        const newCurrencies = currencies.filter((_, i) => i !== index);
-        setCurrencies(newCurrencies);
-        onChange(newCurrencies);
+        const updated = currencies.filter((_, i) => i !== index);
+        setCurrencies(updated);
+        onChange(updated);
     };
 
     return (
-        <SectionCard title="Devises" onSave={() => onSave(currencies)}>
-            {currencies.map((currency, index) => (
-                <CurrencyItem
-                    key={index}
-                    currency={currency}
-                    onChange={(updatedCurrency) => handleCurrencyChange(index, updatedCurrency)}
-                    onDelete={() => handleDeleteCurrency(index)}
-                />
-            ))}
-            <button
-                onClick={handleAddCurrency}
-                className="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-sm"
-            >
-                Ajouter une devise
-            </button>
+        <SectionCard title="Devises" onSave={isReadOnly ? undefined : () => onSave(currencies)}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {currencies.map((currency, index) => (
+                    <CurrencyItem
+                        key={index}
+                        currency={currency}
+                        onChange={(updated) => handleCurrencyChange(index, updated)}
+                        onDelete={() => handleDeleteCurrency(index)}
+                        isReadOnly={isReadOnly}
+                    />
+                ))}
+            </div>
+            {!isReadOnly && (
+                <AdminButton variant="add" onClick={handleAddCurrency}>
+                    Ajouter une devise
+                </AdminButton>
+            )}
         </SectionCard>
     );
 }

@@ -23,7 +23,7 @@ function SortableProductItem({
     onDelete,
     categories,
     currencies,
-    readOnly,
+    isReadOnly,
 }: {
     id: string;
     product: AdminProduct;
@@ -31,7 +31,7 @@ function SortableProductItem({
     onDelete?: () => void;
     categories: { label: string; value: string }[];
     currencies: { label: string; value: string }[];
-    readOnly: boolean;
+    isReadOnly: boolean;
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
     const style = {
@@ -47,8 +47,8 @@ function SortableProductItem({
                 onDelete={onDelete}
                 categories={categories}
                 currencies={currencies}
-                readOnly={readOnly}
-                dragHandleProps={readOnly ? undefined : { ...attributes, ...listeners }}
+                isReadOnly={isReadOnly}
+                dragHandleProps={isReadOnly ? undefined : { ...attributes, ...listeners }}
             />
         </div>
     );
@@ -139,7 +139,7 @@ function CategoryAccordion({
                                         onDelete={isReadOnly ? undefined : () => onProductDelete(i)}
                                         categories={categories}
                                         currencies={currencies}
-                                        readOnly={isReadOnly}
+                                        isReadOnly={isReadOnly}
                                     />
                                 ))}
                             </SortableContext>

@@ -6,19 +6,22 @@ interface ColorItemProps {
     color: Color;
     onChange: (color: Color) => void;
     onDelete: () => void;
+    isReadOnly: boolean;
 }
 
-export default function ColorItem({ color, onChange, onDelete }: ColorItemProps) {
+export default function ColorItem({ color, onChange, onDelete, isReadOnly }: ColorItemProps) {
     return (
         <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4 mb-4">
-            <div className="flex justify-end">
-                <button
-                    onClick={onDelete}
-                    className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
-                >
-                    Supprimer
-                </button>
-            </div>
+            {!isReadOnly && (
+                <div className="flex justify-end">
+                    <button
+                        onClick={onDelete}
+                        className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
+                    >
+                        Supprimer
+                    </button>
+                </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Label</label>
@@ -26,15 +29,24 @@ export default function ColorItem({ color, onChange, onDelete }: ColorItemProps)
                         value={color.label}
                         onChange={(value) => onChange({ ...color, label: String(value) })}
                         placeholder="Label de la couleur"
+                        disabled={isReadOnly}
                     />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Light</label>
-                    <ColorPicker color={color.light} onChange={(value) => onChange({ ...color, light: value })} />
+                    <ColorPicker
+                        color={color.light}
+                        onChange={(value) => onChange({ ...color, light: value })}
+                        disabled={isReadOnly}
+                    />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dark</label>
-                    <ColorPicker color={color.dark} onChange={(value) => onChange({ ...color, dark: value })} />
+                    <ColorPicker
+                        color={color.dark}
+                        onChange={(value) => onChange({ ...color, dark: value })}
+                        disabled={isReadOnly}
+                    />
                 </div>
             </div>
         </div>

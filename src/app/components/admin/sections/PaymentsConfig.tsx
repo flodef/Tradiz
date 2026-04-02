@@ -2,17 +2,20 @@ import { PaymentMethod } from '@/app/utils/interfaces';
 import { useEffect, useState } from 'react';
 import SectionCard from '../SectionCard';
 import PaymentItem from '../items/PaymentItem';
+import AdminButton from '../AdminButton';
 
 export default function PaymentsConfig({
     config,
     onChange,
     onSave,
     currencies,
+    isReadOnly = false,
 }: {
     config: PaymentMethod[];
     onChange: (data: PaymentMethod[]) => void;
     onSave: (data: PaymentMethod[]) => void;
     currencies: { label: string; value: string }[];
+    isReadOnly?: boolean;
 }) {
     const [payments, setPayments] = useState(config || []);
 
@@ -34,8 +37,9 @@ export default function PaymentsConfig({
             currency: '',
             availability: false,
         };
-        setPayments([...payments, newPayment]);
-        onChange([...payments, newPayment]);
+        const updated = [...payments, newPayment];
+        setPayments(updated);
+        onChange(updated);
     };
 
     const handleDeletePayment = (index: number) => {
@@ -45,22 +49,24 @@ export default function PaymentsConfig({
     };
 
     return (
-        <SectionCard title="Paiements" onSave={() => onSave(payments)}>
-            {payments.map((payment, index) => (
-                <PaymentItem
-                    key={index}
-                    payment={payment}
-                    onChange={(updatedPayment) => handlePaymentChange(index, updatedPayment)}
-                    onDelete={() => handleDeletePayment(index)}
-                    currencies={currencies}
-                />
-            ))}
-            <button
-                onClick={handleAddPayment}
-                className="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-sm"
-            >
-                Ajouter un paiement
-            </button>
+        <SectionCard title="Paiements" onSave={isReadOnly ? undefined : () => onSave(payments)}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {payments.map((payment, index) => (
+                    <PaymentItem
+                        key={index}
+                        payment={payment}
+                        onChange={(updatedPayment) => handlePaymentChange(index, updatedPayment)}
+                        onDelete={() => handleDeletePayment(index)}
+                        currencies={currencies}
+                        isReadOnly={isReadOnly}
+                    />
+                ))}
+            </div>
+            {!isReadOnly && (
+                <AdminButton variant="add" onClick={handleAddPayment}>
+                    Ajouter un paiement
+                </AdminButton>
+            )}
         </SectionCard>
     );
 }

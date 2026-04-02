@@ -8,9 +8,10 @@ interface PaymentItemProps {
     onChange: (payment: PaymentMethod) => void;
     onDelete: () => void;
     currencies: { label: string; value: string }[];
+    isReadOnly?: boolean;
 }
 
-export default function PaymentItem({ payment, onChange, onDelete, currencies }: PaymentItemProps) {
+export default function PaymentItem({ payment, onChange, onDelete, currencies, isReadOnly = false }: PaymentItemProps) {
     const paymentTypes = [
         'Carte Bancaire',
         'Espèce',
@@ -53,6 +54,7 @@ export default function PaymentItem({ payment, onChange, onDelete, currencies }:
                         value={payment.id ?? ''}
                         onChange={(value) => onChange({ ...payment, id: String(value) })}
                         placeholder="ID du paiement"
+                        disabled={isReadOnly}
                     />
                 </div>
                 <div>
@@ -64,6 +66,7 @@ export default function PaymentItem({ payment, onChange, onDelete, currencies }:
                             onChange({ ...payment, currency: Array.isArray(value) ? value[0] : value })
                         }
                         placeholder="Sélectionner une devise"
+                        disabled={isReadOnly}
                     />
                 </div>
                 <div>
@@ -73,6 +76,7 @@ export default function PaymentItem({ payment, onChange, onDelete, currencies }:
                     <Switch
                         checked={payment.availability}
                         onChange={(checked) => onChange({ ...payment, availability: checked })}
+                        disabled={isReadOnly}
                     />
                 </div>
             </div>

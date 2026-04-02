@@ -5,9 +5,10 @@ interface UserItemProps {
     user: User;
     onChange: (user: User) => void;
     onDelete: () => void;
+    isReadOnly: boolean;
 }
 
-export default function UserItem({ user, onChange, onDelete }: UserItemProps) {
+export default function UserItem({ user, onChange, onDelete, isReadOnly }: UserItemProps) {
     const roles = ['Cashier', 'Service', 'Kitchen'];
 
     return (
@@ -27,6 +28,7 @@ export default function UserItem({ user, onChange, onDelete }: UserItemProps) {
                         value={user.key ?? ''}
                         onChange={(value) => onChange({ ...user, key: String(value) })}
                         placeholder="Clé de l'utilisateur"
+                        isReadOnly={isReadOnly}
                     />
                 </div>
                 <div>
@@ -35,6 +37,7 @@ export default function UserItem({ user, onChange, onDelete }: UserItemProps) {
                         value={user.name}
                         onChange={(value) => onChange({ ...user, name: String(value) })}
                         placeholder="Nom de l'utilisateur"
+                        isReadOnly={isReadOnly}
                     />
                 </div>
                 <div>
@@ -43,6 +46,7 @@ export default function UserItem({ user, onChange, onDelete }: UserItemProps) {
                         value={user.role}
                         onChange={(e) => onChange({ ...user, role: e.target.value as Role })}
                         className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                        disabled={isReadOnly}
                     >
                         {roles.map((role) => (
                             <option key={role} value={role}>

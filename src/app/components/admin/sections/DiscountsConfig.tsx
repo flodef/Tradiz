@@ -2,6 +2,7 @@ import { Discount } from '@/app/utils/interfaces';
 import SectionCard from '../SectionCard';
 import DiscountItem from '../items/DiscountItem';
 import { useState, useEffect } from 'react';
+import AdminButton from '../AdminButton';
 
 export default function DiscountsConfig({
     config,
@@ -52,17 +53,14 @@ export default function DiscountsConfig({
                         onChange={(updated) => handleDiscountChange(index, updated)}
                         onDelete={() => handleDeleteDiscount(index)}
                         currencies={currencies}
-                        readOnly={isReadOnly}
+                        isReadOnly={isReadOnly}
                     />
                 ))}
             </div>
             {!isReadOnly && (
-                <button
-                    onClick={handleAddDiscount}
-                    className="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-sm"
-                >
+                <AdminButton variant="add" onClick={handleAddDiscount}>
                     Ajouter une réduction
-                </button>
+                </AdminButton>
             )}
         </SectionCard>
     );

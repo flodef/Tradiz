@@ -9,7 +9,7 @@ interface ProductItemProps {
     onDelete?: () => void;
     categories: { label: string; value: string }[];
     currencies: { label: string; value: string }[];
-    readOnly?: boolean;
+    isReadOnly?: boolean;
     dragHandleProps?: Record<string, unknown>;
 }
 
@@ -19,7 +19,7 @@ export default function ProductItem({
     onDelete,
     categories,
     currencies,
-    readOnly = false,
+    isReadOnly = false,
     dragHandleProps,
 }: ProductItemProps) {
     return (
@@ -50,7 +50,7 @@ export default function ProductItem({
                         value={product.name}
                         onChange={(value) => onChange({ ...product, name: String(value) })}
                         placeholder="Nom du produit"
-                        disabled={readOnly}
+                        disabled={isReadOnly}
                     />
                 </div>
                 <div className="w-auto">
@@ -62,7 +62,7 @@ export default function ProductItem({
                             onChange({ ...product, category: Array.isArray(value) ? value[0] : value })
                         }
                         placeholder="Catégorie"
-                        disabled={readOnly}
+                        disabled={isReadOnly}
                     />
                 </div>
                 <div className="w-24">
@@ -78,7 +78,7 @@ export default function ProductItem({
                             onChange({ ...product, currencies: updated });
                         }}
                         placeholder="0.00"
-                        disabled={readOnly}
+                        disabled={isReadOnly}
                     />
                 </div>
                 <div className="w-20 flex flex-col items-center justify-center gap-1">
@@ -89,7 +89,7 @@ export default function ProductItem({
                         <Switch
                             checked={product.availability}
                             onChange={(checked) => onChange({ ...product, availability: checked })}
-                            disabled={readOnly}
+                            disabled={isReadOnly}
                         />
                     </div>
                 </div>

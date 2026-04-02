@@ -2,15 +2,18 @@ import { Role, User } from '@/app/utils/interfaces';
 import { useEffect, useState } from 'react';
 import SectionCard from '../SectionCard';
 import UserItem from '../items/UserItem';
+import AdminButton from '../AdminButton';
 
 export default function UsersConfig({
     config,
     onChange,
     onSave,
+    isReadOnly = false,
 }: {
     config: User[];
     onChange: (data: User[]) => void;
     onSave: (data: User[]) => void;
+    isReadOnly?: boolean;
 }) {
     const [users, setUsers] = useState(config || []);
 
@@ -31,8 +34,9 @@ export default function UsersConfig({
             name: '',
             role: Role.cashier,
         };
-        setUsers([...users, newUser]);
-        onChange([...users, newUser]);
+        const updated = [...users, newUser];
+        setUsers(updated);
+        onChange(updated);
     };
 
     const handleDeleteUser = (index: number) => {
@@ -42,21 +46,23 @@ export default function UsersConfig({
     };
 
     return (
-        <SectionCard title="Utilisateurs" onSave={() => onSave(users)}>
-            {users.map((user, index) => (
-                <UserItem
-                    key={index}
-                    user={user}
-                    onChange={(updatedUser) => handleUserChange(index, updatedUser)}
-                    onDelete={() => handleDeleteUser(index)}
-                />
-            ))}
-            <button
-                onClick={handleAddUser}
-                className="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-sm"
-            >
-                Ajouter un utilisateur
-            </button>
+        <SectionCard title="Utilisateurs" onSave={isReadOnly ? undefined : () => onSave(users)}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {users.map((user, index) => (
+                    <UserItem
+                        key={index}
+                        user={user}
+                        onChange={(updatedUser) => handleUserChange(index, updatedUser)}
+                        onDelete={() => handleDeleteUser(index)}
+                        isReadOnly={isReadOnly}
+                    />
+                ))}
+            </div>
+            {!isReadOnly && (
+                <AdminButton variant="add" onClick={handleAddUser}>
+                    Ajouter un utilisateur
+                </AdminButton>
+            )}
         </SectionCard>
     );
 }

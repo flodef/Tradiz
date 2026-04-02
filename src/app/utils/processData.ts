@@ -87,6 +87,8 @@ export const defaultCurrencies: Currency[] = [
         maxValue: 999.99,
         symbol: '€',
         decimals: 2,
+        rate: 1,
+        fee: 0,
     },
 ];
 export const defaultPaymentMethods: PaymentMethod[] = [
@@ -405,7 +407,7 @@ async function convertCurrenciesData(response: void | Response): Promise<Currenc
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
-            checkData(data, 4, 4, 1, 100000, 'Devises');
+            checkData(data, 4, 6, 1, 100000, 'Devises');
 
             return data.values.removeHeader().map((item) => {
                 checkColumn(item, 4, 'Devises');
@@ -414,6 +416,8 @@ async function convertCurrenciesData(response: void | Response): Promise<Currenc
                     maxValue: Number(item.at(1)),
                     symbol: String(item.at(2)).trim(),
                     decimals: Number(item.at(3)),
+                    rate: item.length > 4 ? Number(item.at(4)) : 1,
+                    fee: item.length > 5 ? Number(item.at(5)) : 0,
                 };
             });
         });
