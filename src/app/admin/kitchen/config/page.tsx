@@ -11,6 +11,8 @@ import { USE_DIGICARTE } from '@/app/utils/constants';
 import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
 import AdminLabel from '@/app/components/admin/AdminLabel';
 import DiscountsConfig from '@/app/components/admin/sections/DiscountsConfig';
+import ZipCityRow from '@/app/components/admin/ZipCityRow';
+import SiretInput from '@/app/components/admin/SiretInput';
 
 export default function SettingsPage() {
     const { parameters, discounts: configDiscounts, currencies } = useConfig();
@@ -269,8 +271,8 @@ export default function SettingsPage() {
             )}
 
             <SectionCard title="Informations du commerce" onSave={isReadOnly ? undefined : handleSave}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                <div className="flex flex-wrap gap-4">
+                    <div className="flex-1 min-w-40">
                         <AdminLabel>Nom du commerce</AdminLabel>
                         <ValidatedInput
                             value={String(settings.shop.name || '')}
@@ -279,7 +281,7 @@ export default function SettingsPage() {
                             disabled={isReadOnly}
                         />
                     </div>
-                    <div>
+                    <div className="flex-1 min-w-40">
                         <AdminLabel>Email</AdminLabel>
                         <ValidatedInput
                             value={String(settings.shop.email || '')}
@@ -288,7 +290,7 @@ export default function SettingsPage() {
                             disabled={isReadOnly}
                         />
                     </div>
-                    <div>
+                    <div className="flex-1 min-w-40 max-w-xs">
                         <AdminLabel>Adresse</AdminLabel>
                         <ValidatedInput
                             value={String(settings.shop.address || '')}
@@ -297,39 +299,29 @@ export default function SettingsPage() {
                             disabled={isReadOnly}
                         />
                     </div>
-                    <div>
-                        <AdminLabel>Code postal</AdminLabel>
-                        <ValidatedInput
-                            value={String(settings.shop.zipCode || '')}
-                            onChange={(value) => handleShopChange('zipCode', String(value))}
-                            placeholder="Code postal"
+                    <div className="w-full flex flex-wrap gap-4 items-end">
+                        <ZipCityRow
+                            zipCode={String(settings.shop.zipCode || '')}
+                            city={String(settings.shop.city || '')}
+                            onZipChange={(value: string) => handleShopChange('zipCode', value)}
+                            onCityChange={(value: string) => handleShopChange('city', value)}
                             disabled={isReadOnly}
                         />
-                    </div>
-                    <div>
-                        <AdminLabel>Ville</AdminLabel>
-                        <ValidatedInput
-                            value={String(settings.shop.city || '')}
-                            onChange={(value) => handleShopChange('city', String(value))}
-                            placeholder="Ville"
-                            disabled={isReadOnly}
-                        />
-                    </div>
-                    <div>
-                        <AdminLabel>SIRET</AdminLabel>
-                        <ValidatedInput
-                            value={String(settings.shop.serial || '')}
-                            onChange={(value) => handleShopChange('serial', String(value))}
-                            placeholder="SIRET"
-                            disabled={isReadOnly}
-                        />
+                        <div>
+                            <AdminLabel>SIRET</AdminLabel>
+                            <SiretInput
+                                value={String(settings.shop.serial || '')}
+                                onChange={(value: string) => handleShopChange('serial', value)}
+                                disabled={isReadOnly}
+                            />
+                        </div>
                     </div>
                 </div>
             </SectionCard>
 
             <SectionCard title="Paramètres généraux" onSave={isReadOnly ? undefined : handleSave}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                <div className="flex flex-wrap gap-4">
+                    <div className="flex-1 min-w-40 max-w-xs">
                         <AdminLabel>Message de remerciement</AdminLabel>
                         <ValidatedInput
                             value={settings.thanksMessage || ''}
@@ -338,13 +330,13 @@ export default function SettingsPage() {
                             disabled={isReadOnly}
                         />
                     </div>
-                    <div>
+                    <div className="shrink-0">
                         <AdminLabel>Mercurial</AdminLabel>
                         <select
                             value={settings.mercurial}
                             onChange={(e) => !isReadOnly && handleChange('mercurial', e.target.value as Mercurial)}
                             disabled={isReadOnly}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-auto px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <option value={Mercurial.none}>Aucun</option>
                             <option value={Mercurial.exponential}>Exponentielle</option>
@@ -352,17 +344,22 @@ export default function SettingsPage() {
                             <option value={Mercurial.zelet}>Zelet</option>
                         </select>
                     </div>
-                    <div>
+                    <div className="shrink-0">
                         <AdminLabel>Heure de clôture (0-23)</AdminLabel>
-                        <ValidatedInput
+                        <input
                             type="number"
-                            value={String(settings.closingHour)}
-                            onChange={(value) => handleChange('closingHour', Math.max(0, Math.min(23, Number(value))))}
-                            placeholder="Heure de fermeture"
+                            min={0}
+                            max={23}
+                            value={settings.closingHour}
+                            onChange={(e) =>
+                                !isReadOnly &&
+                                handleChange('closingHour', Math.max(0, Math.min(23, Number(e.target.value))))
+                            }
                             disabled={isReadOnly}
+                            className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                     </div>
-                    <div>
+                    <div className="shrink-0">
                         <AdminLabel>Début d&apos;année fiscale</AdminLabel>
                         <div className="flex gap-2">
                             <input
