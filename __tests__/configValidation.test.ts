@@ -8,10 +8,15 @@ import { describe, it, expect } from 'vitest';
  *   app ran under Digicarte (which serves its own manifest behind auth).
  *   Fix: when NEXT_PUBLIC_USE_DIGICARTE=true the script is set to '' at build time.
  *
- * Bug 2 — Error when loading with no discounts:
- *   storeData() required discounts.length > 0, throwing 'Empty config data' and
- *   causing State.error for any shop with no discounts configured.
- *   Fix: discounts are optional — removed from the validity guard.
+ * Bug 2 — Infinite spinner / error on prod when no products in DB:
+ *   loadData() returns undefined when there are no products. storeData(undefined)
+ *   was throwing 'Empty config data' → State.error on prod, but on localhost
+ *   IS_DEV=true so the local products.json is always used and the bug didn't show.
+ *   After an intermediate fix (storeData returned early on undefined), the app hung
+ *   forever at State.loading with no feedback.
+ *   Final fix: the caller in ConfigProvider now checks for undefined explicitly and
+ *   sets State.error, giving the user the retry popup. storeData() now takes Config
+ *   (non-optional). Discounts are also optional and removed from the validity guard.
  */
 
 // ── Helpers replicating the exact logic from the production code ─────────────
@@ -47,9 +52,8 @@ interface MockConfig {
     parameters: object | null;
 }
 
-// Mirrors the fixed storeData logic: return early on undefined, throw on partial data.
-function validateConfig(data: MockConfig | undefined): 'stored' | 'skipped' {
-    if (!data) return 'skipped';
+// Mirrors the fixed storeData logic (non-optional Config).
+function validateConfig(data: MockConfig): 'stored' {
     if (
         !(
             data.currencies.length &&
@@ -61,6 +65,12 @@ function validateConfig(data: MockConfig | undefined): 'stored' | 'skipped' {
     )
         throw new Error('Empty config data');
     return 'stored';
+}
+
+// Mirrors the caller logic in ConfigProvider: undefined → State.error, defined → storeData.
+function callerLogic(data: MockConfig | undefined): 'error' | 'stored' {
+    if (!data) return 'error';
+    return validateConfig(data);
 }
 
 // ── Bug 1: Manifest script ────────────────────────────────────────────────────
@@ -108,39 +118,39 @@ const baseConfig: MockConfig = {
 };
 
 describe('storeData config validation (no-products / empty-discounts fix)', () => {
-    it('returns skipped (no error) when data is undefined — no products configured', () => {
-        expect(validateConfig(undefined)).toBe('skipped');
+    it('undefined data (no products in DB) triggers State.error — not an infinite spinner', () => {
+        expect(callerLogic(undefined)).toBe('error');
     });
 
     it('does not throw when discounts array is empty', () => {
-        expect(() => validateConfig({ ...baseConfig, discounts: [] })).not.toThrow();
+        expect(() => callerLogic({ ...baseConfig, discounts: [] })).not.toThrow();
     });
 
     it('returns stored when discounts has entries', () => {
-        expect(validateConfig({ ...baseConfig, discounts: [{ amount: 10, unit: '%' }] })).toBe('stored');
+        expect(callerLogic({ ...baseConfig, discounts: [{ amount: 10, unit: '%' }] })).toBe('stored');
     });
 
     it('returns stored when all required fields are present', () => {
-        expect(validateConfig(baseConfig)).toBe('stored');
+        expect(callerLogic(baseConfig)).toBe('stored');
     });
 
     it('throws when currencies is empty', () => {
-        expect(() => validateConfig({ ...baseConfig, currencies: [] })).toThrow('Empty config data');
+        expect(() => callerLogic({ ...baseConfig, currencies: [] })).toThrow('Empty config data');
     });
 
     it('throws when paymentMethods is empty', () => {
-        expect(() => validateConfig({ ...baseConfig, paymentMethods: [] })).toThrow('Empty config data');
+        expect(() => callerLogic({ ...baseConfig, paymentMethods: [] })).toThrow('Empty config data');
     });
 
     it('throws when inventory is empty', () => {
-        expect(() => validateConfig({ ...baseConfig, inventory: [] })).toThrow('Empty config data');
+        expect(() => callerLogic({ ...baseConfig, inventory: [] })).toThrow('Empty config data');
     });
 
     it('throws when colors is empty', () => {
-        expect(() => validateConfig({ ...baseConfig, colors: [] })).toThrow('Empty config data');
+        expect(() => callerLogic({ ...baseConfig, colors: [] })).toThrow('Empty config data');
     });
 
     it('throws when parameters is null', () => {
-        expect(() => validateConfig({ ...baseConfig, parameters: null })).toThrow('Empty config data');
+        expect(() => callerLogic({ ...baseConfig, parameters: null })).toThrow('Empty config data');
     });
 });
