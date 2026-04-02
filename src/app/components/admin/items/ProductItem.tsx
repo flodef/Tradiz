@@ -43,8 +43,8 @@ export default function ProductItem({
                     </button>
                 )}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+            <div className="flex flex-wrap items-start gap-3">
+                <div className="flex-1 min-w-32">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom</label>
                     <ValidatedInput
                         value={product.name}
@@ -53,7 +53,7 @@ export default function ProductItem({
                         disabled={readOnly}
                     />
                 </div>
-                <div>
+                <div className="w-auto">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Catégorie</label>
                     <SearchableSelect
                         options={categories}
@@ -61,32 +61,37 @@ export default function ProductItem({
                         onChange={(value) =>
                             onChange({ ...product, category: Array.isArray(value) ? value[0] : value })
                         }
-                        placeholder="Sélectionner une catégorie"
+                        placeholder="Catégorie"
                         disabled={readOnly}
                     />
                 </div>
-                <div>
+                <div className="w-24">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Disponibilité
+                        Prix {currencies[0] ? `(${currencies[0].label})` : ''}
                     </label>
-                    <Switch
-                        checked={product.availability}
-                        onChange={(checked) => onChange({ ...product, availability: checked })}
+                    <ValidatedInput
+                        type="number"
+                        value={product.currencies[0] ?? ''}
+                        onChange={(value) => {
+                            const updated = [...product.currencies];
+                            updated[0] = String(value);
+                            onChange({ ...product, currencies: updated });
+                        }}
+                        placeholder="0.00"
                         disabled={readOnly}
                     />
                 </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Devises</label>
-                    <SearchableSelect
-                        options={currencies}
-                        value={product.currencies}
-                        onChange={(value) =>
-                            onChange({ ...product, currencies: Array.isArray(value) ? value : [value] })
-                        }
-                        placeholder="Sélectionner les devises"
-                        isMulti={true}
-                        disabled={readOnly}
-                    />
+                <div className="w-20 flex flex-col items-center justify-center gap-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {product.availability ? 'Disponible' : 'Indisponible'}
+                    </label>
+                    <div className="h-[42px] content-end">
+                        <Switch
+                            checked={product.availability}
+                            onChange={(checked) => onChange({ ...product, availability: checked })}
+                            disabled={readOnly}
+                        />
+                    </div>
                 </div>
             </div>
         </div>
