@@ -215,7 +215,7 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
     if (!data?.products?.length || !data?.currencies?.length) return;
 
     const currencies = data.currencies.map((item) => {
-        const currency = allCurrencies.find(({ label }) => label === item);
+        const currency = allCurrencies.find(({ label }) => label === item.split('(')[0].trim());
         if (!currency) throw new Error('currency not found');
         return currency;
     });
