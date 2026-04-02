@@ -10,7 +10,7 @@ import {
     Role,
     User,
 } from '../utils/interfaces';
-import { DEFAULT_USER, EMAIL, USE_DIGICARTE } from './constants';
+import { DEFAULT_USER, EMAIL } from './constants';
 import './extensions';
 import { generateSimpleId } from './id';
 
@@ -138,10 +138,13 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
 }
 
 async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<Config | undefined> {
+    // Check if DB is configured
+    const hasDbConfig = await checkDbConfig();
+
     const id = shouldUseLocalData
         ? undefined // if the app is used locally, use the local data
-        : USE_DIGICARTE
-          ? ''
+        : hasDbConfig
+          ? '' // if DB is configured, use DB (empty id means DB)
           : typeof shop === 'string' // if shop is a string, it means that the app is used by a customer (custom path)
             ? await fetch(`/api/spreadsheet?sheetName=index`)
                   .then(convertIndexData)
@@ -264,8 +267,38 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
     };
 }
 
+// Cache for DB config check to avoid repeated API calls
+let hasDbConfigCache: boolean | null = null;
+let hasDbConfigPromise: Promise<boolean> | null = null;
+
+export function clearDbConfigCache() {
+    hasDbConfigCache = null;
+    hasDbConfigPromise = null;
+}
+
+async function checkDbConfig(): Promise<boolean> {
+    if (hasDbConfigCache !== null) return hasDbConfigCache;
+    if (hasDbConfigPromise !== null) return hasDbConfigPromise;
+
+    hasDbConfigPromise = fetch('/api/sql/getDbConfig')
+        .then((r) => r.json())
+        .then(({ hasDbConfig }) => {
+            hasDbConfigCache = hasDbConfig;
+            return hasDbConfig;
+        })
+        .catch(() => {
+            hasDbConfigCache = false;
+            return false;
+        });
+
+    return hasDbConfigPromise;
+}
+
 async function fetchData(dataName: DataName, id: string | undefined, isRaw = true) {
-    const url = USE_DIGICARTE
+    // Check if DB is configured, if so use DB regardless of USE_DIGICARTE
+    const hasDbConfig = await checkDbConfig();
+
+    const url = hasDbConfig
         ? `/api/sql/${dataName.sql}`
         : id !== undefined
           ? `/api/spreadsheet?sheetName=${dataName.sheet}&id=${id}&isRaw=${isRaw.toString()}`

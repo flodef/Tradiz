@@ -310,19 +310,10 @@ export default function SettingsPage() {
         e?.stopPropagation();
         openFullscreenPopup('Êtes-vous sûr de vouloir annuler les modifications ?', ['Oui', 'Non'], (index) => {
             if (index === 0) {
-                // Restore from ConfigProvider context instead of fetching from DB
-                if (parameters) {
-                    setSettings(parameters);
-                    setOriginalSettings(parameters);
-                }
-                if (configDiscounts) {
-                    setDiscounts(configDiscounts);
-                    setOriginalDiscounts(configDiscounts);
-                }
-                if (currencies) {
-                    setCurrenciesConfig(currencies);
-                    setOriginalCurrencies(currencies);
-                }
+                // Restore from originally loaded DB data, not from ConfigProvider context
+                setSettings(originalSettings);
+                setDiscounts(originalDiscounts);
+                setCurrenciesConfig(originalCurrencies);
                 setHasChanges(false);
             }
         });
