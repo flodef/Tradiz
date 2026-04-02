@@ -69,8 +69,21 @@ export interface ConfigProviderProps {
     shop: string;
 }
 
+/**
+ * Extracts the shop ID from the subdomain of the current hostname.
+ * e.g. annette.tradiz.fr → "annette", localhost → ""
+ * Must only be called client-side (requires window).
+ */
+function getShopFromSubdomain(): string {
+    if (typeof window === 'undefined') return '';
+    const parts = window.location.hostname.split('.');
+    // Only treat the first label as a shop if there are at least 3 parts (subdomain.domain.tld)
+    if (parts.length < 3) return '';
+    return parts[0];
+}
+
 export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopProp }) => {
-    const shop = shopProp || (IS_LOCAL ? SHOP_ID : '');
+    const shop = shopProp || (IS_LOCAL ? SHOP_ID : getShopFromSubdomain());
     const { isDemo } = useWindowParam();
 
     const [state, setState] = useState(State.init);
@@ -175,8 +188,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
     }, []);
 
     const storeData = useCallback(
-        (data: Config | undefined) => {
-            if (!data) return;
+        (data: Config) => {
             if (
                 !(
                     data.currencies.length &&
@@ -226,7 +238,13 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
         loadConfig(config);
 
         loadData(shop, IS_DEV || isDemo)
-            .then(storeData)
+            .then((data) => {
+                if (!data) {
+                    setState(State.error);
+                    return;
+                }
+                storeData(data);
+            })
             .catch((error) => {
                 console.error(error);
 
