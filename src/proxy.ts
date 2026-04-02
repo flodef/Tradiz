@@ -10,7 +10,7 @@ const LEGACY_HOST = `pos.${BASE_DOMAIN}`;
  *
  * Must NOT redirect API routes, Next.js internals, or static assets.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
     const { hostname, pathname } = request.nextUrl;
 
     if (hostname !== LEGACY_HOST) return NextResponse.next();
