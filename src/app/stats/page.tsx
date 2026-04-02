@@ -43,7 +43,7 @@ interface CategorySale {
 interface RecentOrder {
     orderId: string;
     shortOrderNumber: string;
-    date: string;
+    timestamp: number;
     paymentMethod: string;
     status: string;
     amount: number;
@@ -147,7 +147,7 @@ export default function StatsPage() {
             .map((tx) => ({
                 orderId: String(tx.createdDate),
                 shortOrderNumber: tx.shortNumOrder || '-',
-                date: new Date(tx.createdDate).toLocaleString('fr-FR'),
+                timestamp: tx.createdDate,
                 paymentMethod: tx.method,
                 status: nonPaidMethods.has(tx.method) ? 'Non payé' : 'Payé',
                 amount: tx.amount,
@@ -339,7 +339,11 @@ export default function StatsPage() {
                                 <tr key={index} className="border-b dark:border-gray-700">
                                     <td className="py-2">{order.orderId}</td>
                                     <td className="py-2">{order.shortOrderNumber}</td>
-                                    <td className="py-2">{new Date(order.date).toLocaleString('fr-FR')}</td>
+                                    <td className="py-2">
+                                        {order.timestamp
+                                            ? new Date(order.timestamp).toLocaleString('fr-FR')
+                                            : 'Invalid Date'}
+                                    </td>
                                     <td className="py-2">{order.paymentMethod}</td>
                                     <td className="py-2">
                                         <span

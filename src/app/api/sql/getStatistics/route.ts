@@ -59,7 +59,7 @@ export async function GET(request: Request) {
             ORDER BY date ASC
         `;
         const [dailySalesRows] = await connection.execute(dailySalesQuery, params);
-        const dailySales = (dailySalesRows as DailySalesRow[]).map(row => ({
+        const dailySales = (dailySalesRows as DailySalesRow[]).map((row) => ({
             date: row.date,
             revenue: Number(row.revenue) || 0,
         }));
@@ -79,7 +79,7 @@ export async function GET(request: Request) {
             LIMIT 10
         `;
         const [topProductsRows] = await connection.execute(topProductsQuery, params);
-        const topProducts = (topProductsRows as TopProductRow[]).map(row => ({
+        const topProducts = (topProductsRows as TopProductRow[]).map((row) => ({
             label: row.label,
             category: row.category,
             quantity: Number(row.quantity) || 0,
@@ -93,7 +93,7 @@ export async function GET(request: Request) {
             WHERE ${nonPaidCondition} ${dateFilter}
         `;
         const [avgBasketRows] = await connection.execute(avgBasketQuery, params);
-        const avgBasket = Number((avgBasketRows as any[])[0]?.avgBasket) || 0;
+        const avgBasket = Number((avgBasketRows as { avgBasket: number }[])[0]?.avgBasket) || 0;
 
         // 4. Sales by category (Ventes par catégorie)
         const categorySalesQuery = `
@@ -108,7 +108,7 @@ export async function GET(request: Request) {
             ORDER BY count DESC
         `;
         const [categorySalesRows] = await connection.execute(categorySalesQuery, params);
-        const categorySales = (categorySalesRows as CategorySalesRow[]).map(row => ({
+        const categorySales = (categorySalesRows as CategorySalesRow[]).map((row) => ({
             category: row.category || 'Non catégorisé',
             count: Number(row.count) || 0,
         }));
@@ -121,7 +121,7 @@ export async function GET(request: Request) {
             WHERE ${nonPaidCondition} ${dateFilter}
         `;
         const [ordersCountRows] = await connection.execute(ordersCountQuery, params);
-        const totalOrders = Number((ordersCountRows as any[])[0]?.totalOrders) || 0;
+        const totalOrders = Number((ordersCountRows as { totalOrders: number }[])[0]?.totalOrders) || 0;
 
         // 6. Recent orders (Dernières commandes)
         const recentOrdersQuery = `
@@ -144,10 +144,10 @@ export async function GET(request: Request) {
         `;
         const recentParams = startDate && endDate ? [startDate, endDate] : [];
         const [recentOrdersRows] = await connection.execute(recentOrdersQuery, recentParams);
-        const recentOrders = (recentOrdersRows as RecentOrderRow[]).map(row => ({
+        const recentOrders = (recentOrdersRows as RecentOrderRow[]).map((row) => ({
             orderId: row.panier_id,
             shortOrderNumber: row.short_num_order || '-',
-            date: row.created_at,
+            timestamp: row.created_at ? new Date(row.created_at).getTime() : 0,
             paymentMethod: row.payment_method || 'Inconnu',
             status: row.status,
             amount: Number(row.amount) || 0,
@@ -155,14 +155,17 @@ export async function GET(request: Request) {
 
         await connection.end();
 
-        return NextResponse.json({
-            dailySales,
-            topProducts,
-            avgBasket: Number(avgBasket.toFixed(2)),
-            categorySales,
-            totalOrders,
-            recentOrders,
-        }, { status: 200 });
+        return NextResponse.json(
+            {
+                dailySales,
+                topProducts,
+                avgBasket: Number(avgBasket.toFixed(2)),
+                categorySales,
+                totalOrders,
+                recentOrders,
+            },
+            { status: 200 }
+        );
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching statistics' }, { status: 500 });
