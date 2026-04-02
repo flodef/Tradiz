@@ -5,6 +5,7 @@ import { twMerge } from 'tailwind-merge';
 import { usePopup } from '../hooks/usePopup';
 import { useIsMobile, useIsMobileDevice } from '../utils/mobile';
 import { CloseButton } from './CloseButton';
+import { getPopupStyles, getDesktopContainerStyles, getOptionHoverStyles, PopupVariant } from '../utils/popupStyles';
 
 export function useAddPopupClass(className: string): string {
     const { isPopupOpen } = usePopup();
@@ -12,7 +13,11 @@ export function useAddPopupClass(className: string): string {
     return className + (isPopupOpen ? ' blur-xs pointer-events-none md:blur-none md:pointer-events-auto ' : '');
 }
 
-export const Popup: FC = () => {
+export interface PopupProps {
+    variant?: PopupVariant;
+}
+
+export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
     const {
         popupTitle,
         popupOptions,
@@ -25,6 +30,7 @@ export const Popup: FC = () => {
         isPopupOpen,
     } = usePopup();
     const isMobileDevice = useIsMobileDevice();
+    const styles = getPopupStyles(variant);
 
     const close = useCallback(() => {
         closePopup(() => {
@@ -50,28 +56,18 @@ export const Popup: FC = () => {
     if (!isPopupOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] grid">
-            <div
-                onClick={close}
-                className="absolute inset-0 z-20 opacity-50 bg-gray-900"
-            ></div>
+        <div className="fixed inset-0 z-100 grid">
+            <div onClick={close} className={styles.overlay}></div>
             <div
                 id="popup" // id is mandatory for the screenshot to work
                 className={twMerge(
-                    'absolute z-30 w-[90%] max-h-[90%] max-w-[400px] overflow-y-auto overflow-x-hidden justify-self-center',
-                    'bg-popup-light dark:bg-popup-dark h-fit rounded-2xl self-center blur-none border-black border-[3px]',
-                    'dark:border-secondary-active-dark',
-                    !isMobile && !popupIsFullscreen
-                        ? 'md:border-0 md:w-1/2 md:max-w-[50%] md:max-h-full md:left-1/2 md:bottom-0 md:rounded-none ' +
-                              'md:border-l-4 md:border-secondary-active-light'
-                        : ''
+                    styles.container,
+                    !isMobile && !popupIsFullscreen ? getDesktopContainerStyles(popupIsFullscreen) : ''
                 )}
             >
                 <div>
-                    <div className="flex justify-between bg-secondary-active-light dark:bg-secondary-active-dark">
-                        <div className="text-2xl font-semibold py-3 pl-3 text-popup-dark dark:text-popup-light">
-                            {popupTitle}
-                        </div>
+                    <div className={styles.header}>
+                        <div className={styles.title}>{popupTitle}</div>
                         <CloseButton onClose={close} />
                     </div>
                 </div>
@@ -80,13 +76,11 @@ export const Popup: FC = () => {
                         option?.toString().trim() ? (
                             <div
                                 className={twMerge(
-                                    'py-2 w-full relative cursor-pointer',
+                                    styles.option,
                                     typeof option === 'string'
                                         ? 'grid auto-cols-fr text-left pl-3 gap-4'
                                         : 'flex justify-around items-center text-center',
-                                    !isMobileDevice && typeof option === 'string'
-                                        ? 'hover:bg-active-light dark:hover:bg-active-dark active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light'
-                                        : '',
+                                    getOptionHoverStyles(isMobileDevice, typeof option === 'string'),
                                     popupIsSpecial && popupIsSpecial(option.toString()) ? 'animate-pulse' : ''
                                 )}
                                 style={
@@ -104,18 +98,15 @@ export const Popup: FC = () => {
                                 }}
                             >
                                 {typeof option === 'string'
-                                    ? option.split('\n').map((line, index) => (
-                                          <div key={index} className="font-semibold text-xl whitespace-nowrap">
+                                    ? option.split('\n').map((line, idx) => (
+                                          <div key={idx} className={styles.optionText}>
                                               {line}
                                           </div>
                                       ))
                                     : option}
                             </div>
                         ) : (
-                            <div
-                                key={index}
-                                className="border-b-2 border-secondary-active-light dark:border-secondary-active-dark"
-                            />
+                            <div key={index} className={styles.separator} />
                         )
                     )}
                 </div>

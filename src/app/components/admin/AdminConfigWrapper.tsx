@@ -10,7 +10,7 @@ export default function AdminConfigWrapper({ children }: { children: ReactNode }
         <ConfigProvider shop="">
             <PopupProvider>
                 {children}
-                <Popup />
+                <Popup variant="admin" />
             </PopupProvider>
         </ConfigProvider>
     );

@@ -1,24 +1,36 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useConfig } from '@/app/hooks/useConfig';
-import { Parameters } from '@/app/contexts/ConfigProvider';
-import SectionCard from '@/app/components/admin/SectionCard';
-import ValidatedInput from '@/app/components/admin/ValidatedInput';
-import { Discount, Mercurial, Currency } from '@/app/utils/interfaces';
-import { defaultParameters } from '@/app/utils/processData';
-import { USE_DIGICARTE } from '@/app/utils/constants';
-import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
-import DiscountsConfig from '@/app/components/admin/sections/DiscountsConfig';
-import CurrenciesConfig from '@/app/components/admin/sections/CurrenciesConfig';
-import ZipCityRow from '@/app/components/admin/ZipCityRow';
-import SiretInput from '@/app/components/admin/SiretInput';
 import AdminButton from '@/app/components/admin/AdminButton';
-import AdminSelect from '@/app/components/admin/AdminSelect';
 import AdminInput from '@/app/components/admin/AdminInput';
+import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
+import AdminSelect from '@/app/components/admin/AdminSelect';
+import SectionCard from '@/app/components/admin/SectionCard';
+import CurrenciesConfig from '@/app/components/admin/sections/CurrenciesConfig';
+import DiscountsConfig from '@/app/components/admin/sections/DiscountsConfig';
+import SiretInput from '@/app/components/admin/SiretInput';
+import ValidatedInput from '@/app/components/admin/ValidatedInput';
+import ZipCityRow from '@/app/components/admin/ZipCityRow';
+import { Parameters } from '@/app/contexts/ConfigProvider';
+import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
+import { USE_DIGICARTE } from '@/app/utils/constants';
+import { Currency, Discount, Mercurial } from '@/app/utils/interfaces';
+import { useIsMobile } from '@/app/utils/mobile';
+import { defaultParameters } from '@/app/utils/processData';
+import { useCallback, useEffect, useState } from 'react';
+
+// Type for currency row from DB
+interface CurrencyRow {
+    0: string; // label
+    1: number; // maxValue
+    2: string; // symbol
+    3: number; // decimals
+    4?: number; // rate
+    5?: number; // fee
+}
 
 export default function SettingsPage() {
+    const isMobile = useIsMobile();
     const { parameters, discounts: configDiscounts, currencies } = useConfig();
     const { openFullscreenPopup } = usePopup();
     const [settings, setSettings] = useState<Parameters>(defaultParameters);
@@ -29,6 +41,10 @@ export default function SettingsPage() {
     const [isReadOnly, setIsReadOnly] = useState(true);
     const [dbConfigChecked, setDbConfigChecked] = useState(false);
     const [isSiretValid, setIsSiretValid] = useState(true);
+    const [hasChanges, setHasChanges] = useState(false);
+    const [originalSettings, setOriginalSettings] = useState<Parameters>(defaultParameters);
+    const [originalDiscounts, setOriginalDiscounts] = useState<Discount[]>([]);
+    const [originalCurrencies, setOriginalCurrencies] = useState<Currency[]>([]);
 
     // Step 1: check DB config once on mount
     useEffect(() => {
@@ -96,6 +112,7 @@ export default function SettingsPage() {
                 };
 
                 setSettings(loadedSettings);
+                setOriginalSettings(loadedSettings);
             }
 
             // Load discounts from DB
@@ -110,6 +127,7 @@ export default function SettingsPage() {
                             unit: String(unit).trim(),
                         }));
                     setDiscounts(loaded);
+                    setOriginalDiscounts(loaded);
                 }
             } catch {
                 if (configDiscounts) setDiscounts(configDiscounts);
@@ -120,7 +138,7 @@ export default function SettingsPage() {
                 const currenciesResponse = await fetch('/api/sql/getCurrencies');
                 const currenciesData = await currenciesResponse.json();
                 if (currenciesData.values && currenciesData.values.length > 1) {
-                    const loaded: Currency[] = currenciesData.values.slice(1).map((row: any[]) => ({
+                    const loaded: Currency[] = currenciesData.values.slice(1).map((row: CurrencyRow) => ({
                         label: String(row[0]),
                         maxValue: Number(row[1]),
                         symbol: String(row[2]),
@@ -129,6 +147,7 @@ export default function SettingsPage() {
                         fee: Number(row[5] ?? 0),
                     }));
                     setCurrenciesConfig(loaded);
+                    setOriginalCurrencies(loaded);
                 }
             } catch {
                 if (currencies) setCurrenciesConfig(currencies);
@@ -146,6 +165,14 @@ export default function SettingsPage() {
         if (!dbConfigChecked) return;
         fetchParameters();
     }, [dbConfigChecked, fetchParameters]);
+
+    // Track changes by comparing current state with original loaded data
+    useEffect(() => {
+        const settingsChanged = JSON.stringify(settings) !== JSON.stringify(originalSettings);
+        const discountsChanged = JSON.stringify(discounts) !== JSON.stringify(originalDiscounts);
+        const currenciesChanged = JSON.stringify(currenciesConfig) !== JSON.stringify(originalCurrencies);
+        setHasChanges(settingsChanged || discountsChanged || currenciesChanged);
+    }, [settings, discounts, currenciesConfig, originalSettings, originalDiscounts, originalCurrencies]);
 
     const handleChange = (field: keyof Parameters, value: string | number) => {
         setSettings((prev) => ({
@@ -278,10 +305,25 @@ export default function SettingsPage() {
         }
     };
 
-    const handleCancel = () => {
+    const handleCancel = (e?: React.MouseEvent) => {
+        e?.preventDefault();
+        e?.stopPropagation();
         openFullscreenPopup('Êtes-vous sûr de vouloir annuler les modifications ?', ['Oui', 'Non'], (index) => {
             if (index === 0) {
-                fetchParameters();
+                // Restore from ConfigProvider context instead of fetching from DB
+                if (parameters) {
+                    setSettings(parameters);
+                    setOriginalSettings(parameters);
+                }
+                if (configDiscounts) {
+                    setDiscounts(configDiscounts);
+                    setOriginalDiscounts(configDiscounts);
+                }
+                if (currencies) {
+                    setCurrenciesConfig(currencies);
+                    setOriginalCurrencies(currencies);
+                }
+                setHasChanges(false);
             }
         });
     };
@@ -441,13 +483,19 @@ export default function SettingsPage() {
                 isReadOnly={isReadOnly}
             />
 
-            {!isReadOnly && (
+            {!isReadOnly && hasChanges && (
                 <div className="mt-6 flex justify-end gap-4">
                     <AdminButton onClick={handleCancel} variant="secondary">
                         Annuler
                     </AdminButton>
-                    <AdminButton onClick={handleSave} isLoading={isSaving} disabled={!isSiretValid} variant="save">
-                        Enregistrer tous les paramètres
+                    <AdminButton
+                        onClick={handleSave}
+                        isLoading={isSaving}
+                        disabled={!isSiretValid}
+                        variant="save"
+                        className={isMobile ? 'px-3 py-2' : ''}
+                    >
+                        {isMobile ? 'Enregistrer tout' : 'Enregistrer tous les paramètres'}
                     </AdminButton>
                 </div>
             )}

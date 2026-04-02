@@ -1,6 +1,8 @@
 'use client';
 
 import { ReactNode, useState } from 'react';
+import { TickIcon } from '@/app/images/TickIcon';
+import { useIsMobile } from '@/app/utils/mobile';
 import AdminButton from './AdminButton';
 
 interface SectionCardProps {
@@ -21,6 +23,7 @@ export default function SectionCard({
     headerExtra,
 }: SectionCardProps) {
     const [open, setOpen] = useState(defaultOpen);
+    const isMobile = useIsMobile();
 
     return (
         <div className="bg-white/30 dark:bg-black/20 shadow-lg rounded-lg mb-6 border border-black/10 dark:border-white/10 backdrop-blur overflow-hidden">
@@ -47,8 +50,9 @@ export default function SectionCard({
                                     e.stopPropagation();
                                     onSave();
                                 }}
+                                className={isMobile ? 'px-3 py-2' : ''}
                             >
-                                Enregistrer
+                                {isMobile ? <TickIcon className="w-5 h-5" /> : 'Enregistrer'}
                             </AdminButton>
                         )}
                     </div>
