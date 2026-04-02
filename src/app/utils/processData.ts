@@ -215,8 +215,9 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
     if (!data?.products?.length || !data?.currencies?.length) return;
 
     const currencies = data.currencies.map((item) => {
-        const currency = allCurrencies.find(({ label }) => label.split('(')[0].trim() === item.split('(')[0].trim());
-        if (!currency) throw new Error('currency not found');
+        const normalizedItem = item.normalizeCurrency();
+        const currency = allCurrencies.find(({ label }) => label.normalizeCurrency() === normalizedItem);
+        if (!currency) throw new Error(`currency not found: "${item}"`);
         return currency;
     });
 

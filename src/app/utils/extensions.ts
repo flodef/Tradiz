@@ -7,7 +7,7 @@ declare global {
     interface Number {
         toLocaleCurrency(currency?: string): string;
         toShortCurrency(maxDecimals?: number, symbol?: string): string;
-        toCurrency(maxDecimals?: number, symbol?: string): string;
+        toCurrency(maxDecimals?: number, symbol?: string, symbolPosition?: SymbolPosition): string;
         toRatio(maxDecimals?: number): string;
         toLocaleDateString(): string;
         toShortFixed(maxDecimals?: number): string;
@@ -17,6 +17,7 @@ declare global {
     }
     interface String {
         fromCurrency(locale?: string): number;
+        normalizeCurrency(): string;
         toFirstUpperCase(): string;
         testLimit(limit: MinMax): boolean;
     }
@@ -104,6 +105,23 @@ String.prototype.fromCurrency = function (locale?: string) {
         ? this.replace(/,/g, '.')
         : this.replace(/,/g, '');
     return parseFloat(number.replace(/[^0-9\.\-]/g, ''));
+};
+
+/**
+ * Normalize currency label by removing trailing parenthetical suffix (e.g., symbol).
+ * Examples: "Euro (€)" → "Euro", "Dollar ($)" → "Dollar", "Euro" → "Euro"
+ * Handles multiple groups: "Dollar (US) (USD)" → "Dollar (US)"
+ */
+String.prototype.normalizeCurrency = function () {
+    // Find the last opening paren, then strip everything from there to the end
+    const lastParenIndex = this.lastIndexOf('(');
+    if (lastParenIndex === -1) return this.toFirstUpperCase();
+
+    // Check if there's a closing paren after it (valid parenthetical group)
+    const afterParen = this.slice(lastParenIndex);
+    if (!afterParen.includes(')')) return this.toFirstUpperCase();
+
+    return this.slice(0, lastParenIndex).toFirstUpperCase();
 };
 
 String.prototype.toFirstUpperCase = function () {
