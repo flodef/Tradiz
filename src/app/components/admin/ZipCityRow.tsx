@@ -68,7 +68,7 @@ export default function ZipCityRow({ zipCode, city, onZipChange, onCityChange, d
                 if (e.name !== 'AbortError') setCities([]);
             })
             .finally(() => setIsLoadingCities(false));
-    }, [zipCode, isOffline]);
+    }, [zipCode, isOffline]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleZipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
@@ -81,7 +81,7 @@ export default function ZipCityRow({ zipCode, city, onZipChange, onCityChange, d
     const selectHasError = showSelect && city !== '' && !cityMatchesOption;
 
     // Filter cities to avoid double entries of the current city
-    const filteredCities = cities.filter(c => c !== toUpper(city));
+    const filteredCities = cities.filter((c) => c !== toUpper(city));
 
     return (
         <div className="flex gap-3 items-start">
@@ -95,9 +95,9 @@ export default function ZipCityRow({ zipCode, city, onZipChange, onCityChange, d
                 disabled={disabled}
                 placeholder="75001"
                 error={!isZipValid}
-                className="w-20"
+                className="w-16"
             />
-            <div className="flex flex-col min-w-0 w-48">
+            <div className="flex flex-col min-w-0 w-52">
                 {showSelect ? (
                     <AdminSelect
                         label={`Ville${isLoadingCities ? ' …' : ''}`}
@@ -107,8 +107,9 @@ export default function ZipCityRow({ zipCode, city, onZipChange, onCityChange, d
                         error={selectHasError}
                         options={[
                             { label: city || 'Sélectionner…', value: toUpper(city) },
-                            ...filteredCities.map(c => ({ label: c, value: c }))
+                            ...filteredCities.map((c) => ({ label: c, value: c })),
                         ]}
+                        className="w-full"
                     />
                 ) : (
                     <AdminInput

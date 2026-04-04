@@ -1,4 +1,4 @@
-import { Discount } from '@/app/utils/interfaces';
+import { Currency, Discount } from '@/app/utils/interfaces';
 import SectionCard from '../SectionCard';
 import DiscountItem from '../items/DiscountItem';
 import { useState, useEffect } from 'react';
@@ -16,7 +16,7 @@ export default function DiscountsConfig({
     onChange: (data: Discount[]) => void;
     onSave: (data: Discount[]) => void;
     hasChanges?: boolean;
-    currencies: { label: string; value: string }[];
+    currencies: Currency[];
     isReadOnly?: boolean;
 }) {
     const [discounts, setDiscounts] = useState(config || []);

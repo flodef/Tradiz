@@ -61,9 +61,7 @@ export default function AdminPanel({ initialConfig, shopName }: AdminPanelProps)
     const currencies = config.Currencies
         ? Object.values(config.Currencies as Currency[]).map((cur) => ({ label: cur.label, value: cur.label }))
         : [];
-    const currencySymbols = config.Currencies
-        ? Object.values(config.Currencies as Currency[]).map((cur) => ({ label: cur.symbol, value: cur.symbol }))
-        : [];
+    const currencySymbols = config.Currencies ? Object.values(config.Currencies as Currency[]) : [];
 
     return (
         <div className="container mx-auto p-4 bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-gray-100">

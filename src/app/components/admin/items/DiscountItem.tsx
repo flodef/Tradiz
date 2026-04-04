@@ -1,4 +1,4 @@
-import { Discount } from '@/app/utils/interfaces';
+import { Currency, Discount } from '@/app/utils/interfaces';
 import { CloseButton } from '@/app/components/CloseButton';
 import AdminInput from '../AdminInput';
 import AdminSelect from '../AdminSelect';
@@ -7,16 +7,15 @@ interface DiscountItemProps {
     discount: Discount;
     onChange: (discount: Discount) => void;
     onDelete: () => void;
-    currencies: { label: string; value: string }[];
+    currencies: Currency[];
     isReadOnly?: boolean;
 }
 
-function getDecimalStep(value: string): number {
-    const decimals = value.includes('.') ? value.split('.')[1].length : 0;
+function getDecimalStep(decimals: number): number {
     return decimals > 0 ? Math.pow(10, -decimals) : 1;
 }
 
-function getCurrencyMax(label: string, currencies: { label: string; value: string }[]): number {
+function getCurrencyMax(label: string, currencies: Currency[]): number {
     const match = currencies.find((c) => c.label === label);
     if (!match) return 9999;
     return 9999;
@@ -29,11 +28,11 @@ export default function DiscountItem({
     currencies,
     isReadOnly = false,
 }: DiscountItemProps) {
-    const units = ['%', ...currencies.map((c) => c.label)];
+    const units = ['%', ...currencies.map((c) => c.symbol)];
     const isPercent = discount.unit === '%';
 
     const currencyEntry = currencies.find((c) => c.label === discount.unit);
-    const step = isPercent ? 0.5 : currencyEntry ? getDecimalStep(currencyEntry.value) : 1;
+    const step = isPercent ? 0.5 : currencyEntry ? getDecimalStep(currencyEntry.decimals) : 1;
     const max = isPercent ? 100 : getCurrencyMax(discount.unit, currencies);
 
     if (isReadOnly) {
@@ -57,7 +56,7 @@ export default function DiscountItem({
                     const val = Math.min(max, Math.max(0, Number(e.target.value)));
                     onChange({ ...discount, amount: val });
                 }}
-                className="w-20"
+                className="w-24"
                 disabled={isReadOnly}
             />
             <AdminSelect

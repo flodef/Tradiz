@@ -247,7 +247,6 @@ export default function SettingsPage() {
             });
             if (!response.ok) throw new Error('Failed to save discounts');
             setDiscounts(data);
-            openFullscreenPopup('Réductions enregistrées avec succès !', ['OK']);
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des réductions.", ['OK']);
@@ -263,7 +262,6 @@ export default function SettingsPage() {
             });
             if (!response.ok) throw new Error('Failed to save currencies');
             setCurrenciesConfig(data);
-            openFullscreenPopup('Devises enregistrées avec succès !', ['OK']);
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des devises.", ['OK']);
@@ -300,9 +298,7 @@ export default function SettingsPage() {
 
             if (!response.ok) throw new Error('Failed to save parameters');
 
-            openFullscreenPopup('Paramètres enregistrés avec succès !', ['OK'], () => {
-                fetchParameters();
-            });
+            fetchParameters();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des paramètres.", ['OK']);
@@ -371,7 +367,7 @@ export default function SettingsPage() {
                             onChange={(value) => handleShopChange('name', String(value))}
                             placeholder="Nom du commerce"
                             disabled={isReadOnly}
-                            className="flex-1 min-w-40"
+                            className="flex-1 min-w-40 max-w-xs"
                         />
                         <ValidatedInput
                             label="Email"
@@ -379,7 +375,7 @@ export default function SettingsPage() {
                             onChange={(value) => handleShopChange('email', String(value))}
                             placeholder="Email"
                             disabled={isReadOnly}
-                            className="flex-1 min-w-40"
+                            className="flex-1 min-w-40 max-w-xs"
                         />
                         <ValidatedInput
                             label="Adresse"
@@ -426,7 +422,7 @@ export default function SettingsPage() {
                             value={settings.mercurial}
                             onChange={(e) => !isReadOnly && handleChange('mercurial', e.target.value as Mercurial)}
                             disabled={isReadOnly}
-                            className="w-40"
+                            className="w-32"
                             options={[
                                 { label: 'Aucun', value: Mercurial.none },
                                 { label: 'Exponentielle', value: Mercurial.exponential },
@@ -435,7 +431,7 @@ export default function SettingsPage() {
                             ]}
                         />
                         <AdminInput
-                            label="Heure de clôture (0-23)"
+                            label="Heure de clôture"
                             type="number"
                             min={0}
                             max={23}
@@ -445,7 +441,7 @@ export default function SettingsPage() {
                                 handleChange('closingHour', Math.max(0, Math.min(23, Number(e.target.value))))
                             }
                             disabled={isReadOnly}
-                            className="w-32"
+                            className="w-28"
                         />
                         <div className="flex flex-col">
                             <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
@@ -459,14 +455,14 @@ export default function SettingsPage() {
                                     value={settings.yearStartDate?.day || 1}
                                     disabled={isReadOnly}
                                     onChange={(e) => handleYearStartDateChange('day', Number(e.target.value))}
-                                    className="w-16"
+                                    className="w-14"
                                     placeholder="Jour"
                                 />
                                 <AdminSelect
                                     value={settings.yearStartDate?.month || 1}
                                     onChange={(e) => handleYearStartDateChange('month', Number(e.target.value))}
                                     disabled={isReadOnly}
-                                    className="w-32"
+                                    className="w-28"
                                     options={MONTH_NAMES.map((name, i) => ({ label: name, value: i + 1 }))}
                                 />
                             </div>
@@ -480,7 +476,7 @@ export default function SettingsPage() {
                 onChange={setDiscounts}
                 onSave={handleDiscountsSave}
                 hasChanges={hasDiscountsChanges}
-                currencies={currencies?.map((c) => ({ label: c.label, value: c.label })) ?? []}
+                currencies={currencies}
                 isReadOnly={isReadOnly}
             />
 

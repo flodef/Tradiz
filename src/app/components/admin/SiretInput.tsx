@@ -56,7 +56,7 @@ export default function SiretInput({ value, onChange, onValidation, disabled = f
                 disabled={disabled}
                 placeholder="12345678901234"
                 error={!isValid}
-                className="w-44"
+                className="w-36"
             />
         </div>
     );
