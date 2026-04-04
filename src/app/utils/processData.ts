@@ -442,10 +442,10 @@ async function convertCurrenciesData(response: void | Response): Promise<Currenc
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
-            checkData(data, 'Devises', 6);
+            checkData(data, 'Devises', 4, 6);
 
             return data.values.removeHeader().map((item) => {
-                checkColumn(item, 'Devises', 6);
+                checkColumn(item, 'Devises', 4);
                 return {
                     label: normalizedString(item.at(0)),
                     maxValue: Number(item.at(1)),
