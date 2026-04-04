@@ -328,8 +328,10 @@ function checkData(
         const actualRows = data.values.length;
         const actualCols = data.values[0]?.length ?? 0;
         const context = dataName ? ` (${dataName})` : '';
+        const formatRange = (min: number, max: number) =>
+            min === max ? `exactement ${min}` : `entre ${min} et ${max}`;
         throw new WrongDataPatternError(
-            `Format de données incorrect${context}: attendu ${minRow}-${maxRow} lignes et ${minCol}-${maxCol} colonnes, reçu ${actualRows} lignes et ${actualCols} colonnes`
+            `Format de données incorrect${context}: attendu ${formatRange(minRow, maxRow)} lignes et ${formatRange(minCol, maxCol)} colonnes, reçu ${actualRows} lignes et ${actualCols} colonnes`
         );
     }
 }
