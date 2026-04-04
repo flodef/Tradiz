@@ -309,11 +309,11 @@ async function fetchData(dataName: DataName, id: string | undefined, isRaw = tru
 
 function checkData(
     data: { values?: unknown[][]; error?: { message: string } },
+    dataName: string,
     minCol: number,
     maxCol = minCol,
     minRow = 1,
-    maxRow = 100000,
-    dataName?: string
+    maxRow = 100000
 ) {
     if (!data) throw new Error('data not fetched');
     if (data.error?.message) throw new Error(data.error.message);
@@ -334,7 +334,7 @@ function checkData(
     }
 }
 
-function checkColumn(item: unknown[], minCol: number, rowContext?: string) {
+function checkColumn(item: unknown[], rowContext: string, minCol: number) {
     if (item.length < minCol) {
         const context = rowContext ? ` (${rowContext})` : '';
         throw new WrongDataPatternError(
@@ -347,10 +347,10 @@ async function convertIndexData(response: void | Response) {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-            checkData(data, 2, 2, 1, 100000, 'Index');
+            checkData(data, 'Index', 2);
 
             return data.values.map((item) => {
-                checkColumn(item, 2, 'Index');
+                checkColumn(item, 'Index', 2);
                 return {
                     shop: String(item.at(0)).trim(),
                     id: String(item.at(1)).trim(),
@@ -369,10 +369,10 @@ async function convertUsersData(response: void | Response): Promise<User[]> {
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
             if (!data?.values) return []; // That's fine if there is no user data
 
-            checkData(data, 3, 3, 1, 100000, 'Utilisateurs');
+            checkData(data, 'Utilisateurs', 3);
 
             return data.values.removeHeader().map((item) => {
-                checkColumn(item, 3, 'Utilisateurs');
+                checkColumn(item, 'Utilisateurs', 3);
                 return {
                     key: String(item.at(0)).trim(),
                     name: String(item.at(1)).trim(),
@@ -392,15 +392,15 @@ async function convertParametersData(
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-            checkData(data, 1, 2, 6, 12, 'Paramètres');
+            checkData(data, 'Paramètres', 1, 2, 6, 12);
 
             return {
                 keys: data.values.map((item) => {
-                    checkColumn(item, 1);
+                    checkColumn(item, 'Clé', 1);
                     return item.at(0);
                 }),
                 values: data.values.map((item) => {
-                    checkColumn(item, 1);
+                    checkColumn(item, 'Valeur', 1);
                     return item.at(1);
                 }),
             };
@@ -415,13 +415,13 @@ async function convertPaymentMethodsData(response: void | Response): Promise<Pay
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: (string | boolean)[][]; error: { message: string } }) => {
-            checkData(data, 4, 4, 1, 100000, 'Moyens de paiement');
+            checkData(data, 'Moyens de paiement', 4);
 
             return data.values
                 .removeHeader()
                 .filter((item) => !item.at(3))
                 .map((item) => {
-                    checkColumn(item, 4, 'Moyens de paiement');
+                    checkColumn(item, 'Moyens de paiement', 4);
                     return {
                         type: normalizedString(item.at(0)),
                         id: String(item.at(1)).trim(),
@@ -440,10 +440,10 @@ async function convertCurrenciesData(response: void | Response): Promise<Currenc
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
-            checkData(data, 4, 6, 1, 100000, 'Devises');
+            checkData(data, 'Devises', 6);
 
             return data.values.removeHeader().map((item) => {
-                checkColumn(item, 4, 'Devises');
+                checkColumn(item, 'Devises', 6);
                 return {
                     label: normalizedString(item.at(0)),
                     maxValue: Number(item.at(1)),
@@ -464,10 +464,10 @@ async function convertDiscountsData(response: void | Response): Promise<Discount
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: (string | number)[][]; error: { message: string } }) => {
-            checkData(data, 2, 2, 1, 100000, 'Remises');
+            checkData(data, 'Remises', 2);
 
             return data.values.removeHeader().map((item) => {
-                checkColumn(item, 2, 'Remises');
+                checkColumn(item, 'Remises', 2);
                 return {
                     amount: Number(item.at(0)),
                     unit: String(item.at(1)).trim(),
@@ -484,10 +484,10 @@ async function convertColorsData(response: void | Response): Promise<Color[]> {
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-            checkData(data, 3, 3, 8, 8, 'Couleurs');
+            checkData(data, 'Couleurs', 3, 3, 8, 8);
 
             return data.values.removeHeader().map((item) => {
-                checkColumn(item, 3, 'Couleurs');
+                checkColumn(item, 'Couleurs', 3);
                 return {
                     label: String(item.at(0)).trim(),
                     light: String(item.at(1)).trim(),
@@ -510,10 +510,10 @@ async function convertPrintersData(response: void | Response): Promise<Printer[]
                 return [];
             }
 
-            checkData(data, 2, 2, 1, 100000, 'Imprimantes');
+            checkData(data, 'Imprimantes', 2);
 
             return data.values.removeHeader().map((item) => {
-                checkColumn(item, 2, 'Imprimantes');
+                checkColumn(item, 'Imprimantes', 2);
                 return {
                     label: String(item.at(0)).trim(),
                     ipAddress: String(item.at(1)).trim(),
@@ -533,7 +533,7 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
             .json()
             .then(
                 (data: { values: (string | number)[][]; options?: (string | null)[]; error: { message: string } }) => {
-                    checkData(data, 4, 10, 1, 100000, 'Produits');
+                    checkData(data, 'Produits', 4, 10);
 
                     // Build a mapping from filtered row index → options string
                     const rowsAfterHeader = data.values.slice(1);
@@ -547,7 +547,7 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
 
                     return {
                         products: filtered.map(({ item, origIdx }, rowOrder) => {
-                            checkColumn(item, 4, 'Produits');
+                            checkColumn(item, 'Produits', 4);
                             return {
                                 rate: Number(item.at(0)) * 100,
                                 category: normalizedString(item.at(1)),
