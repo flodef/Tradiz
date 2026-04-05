@@ -8,13 +8,13 @@ import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { useWindowParam } from '../hooks/useWindowParam';
 import Loading, { LoadingType } from '../loading';
-import { BACK_KEYWORD, EMAIL, OTHER_KEYWORD, USE_DIGICARTE } from '../utils/constants';
+import { getButtonSizeConfig } from '../utils/buttonSizeConfig';
+import { BACK_KEYWORD, CONFIG_KEYWORD, DEV_EMAIL, OTHER_KEYWORD, USE_DIGICARTE } from '../utils/constants';
+import { Catalog, CatalogFormula, EmptyDiscount, InventoryItem, Role, State } from '../utils/interfaces';
 import { useIsMobileDevice } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
-import { useAddPopupClass } from './Popup';
-import { Catalog, CatalogFormula, EmptyDiscount, InventoryItem, Role, State } from '../utils/interfaces';
 import { ButtonSize } from '../utils/types';
-import { getButtonSizeConfig } from '../utils/buttonSizeConfig';
+import { useAddPopupClass } from './Popup';
 
 export const CATEGORY_BUTTON_SIZE: ButtonSize = 'xl';
 
@@ -231,9 +231,23 @@ export const Category: FC = () => {
                     return;
                 }
 
+                // Check if there are saved parameters in localStorage
+                const savedParameters = localStorage.getItem(CONFIG_KEYWORD);
+                if (!savedParameters) {
+                    // No saved data, set state to fatal
+                    setTimeout(() => setState(State.fatal), 100);
+                    return;
+                }
+
+                // Has saved data, extract lastModified from saved parameters
+                const parsedParams = JSON.parse(savedParameters);
+                const savedLastModified = parsedParams?.lastModified;
                 openFullscreenPopup(
                     'Erreur chargement données',
-                    [`Utiliser sauvegarde du ${parameters.lastModified}`, 'Réessayer'],
+                    [
+                        `Utiliser ${savedLastModified ? 'sauvegarde du ' + savedLastModified : 'dernières sauvegarde'}`,
+                        'Réessayer',
+                    ],
                     (index) => {
                         setState(index === 1 ? State.init : State.loaded);
                     }
@@ -265,7 +279,7 @@ export const Category: FC = () => {
             case State.fatal:
                 openFullscreenPopup(
                     'Erreur fatale',
-                    ['Rafraîchir la page'].concat(!hasSentEmail ? ['Contacter ' + EMAIL] : []),
+                    ['Rafraîchir la page'].concat(!hasSentEmail ? ['Contacter ' + DEV_EMAIL] : []),
                     (i) => {
                         if (i === 1) {
                             sendFatalErrorEmail(parameters.error || 'Erreur inconnue').then(setHasSentEmail);
