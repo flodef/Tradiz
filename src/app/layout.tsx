@@ -1,7 +1,8 @@
 import { Inter } from 'next/font/google';
+import { ReactNode } from 'react';
 import { twMerge } from 'tailwind-merge';
 import './globals.css';
-import { ReactNode } from 'react';
+import { CONFIG_KEYWORD } from './utils/constants';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -10,7 +11,7 @@ const preloadedThemeScript = `(function () {
     var applied = false;
 
     try {
-        var raw = window.localStorage.getItem('Config');
+        var raw = window.localStorage.getItem('${CONFIG_KEYWORD}');
         if (!raw) return;
 
         var parsed = JSON.parse(raw);

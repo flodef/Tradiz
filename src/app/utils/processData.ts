@@ -10,7 +10,7 @@ import {
     Role,
     User,
 } from '../utils/interfaces';
-import { DEFAULT_USER, EMAIL } from './constants';
+import { DEFAULT_USER, DEV_EMAIL } from './constants';
 import './extensions';
 import { generateSimpleId } from './id';
 
@@ -72,7 +72,7 @@ const dataNames: { [key: string]: DataName } = {
 };
 
 export const defaultParameters: Parameters = {
-    shop: { name: '', email: EMAIL, address: '', zipCode: '', city: '', id: '', serial: '' },
+    shop: { name: '', email: DEV_EMAIL, address: '', zipCode: '', city: '', id: '', serial: '' },
     thanksMessage: '',
     mercurial: Mercurial.none,
     lastModified: new Date().toLocaleString(),
@@ -186,7 +186,7 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
             city: getParamValue('city', 3),
             serial: getParamValue('serial', 4),
             id: getParamValue('id', 5),
-            email: getParamValue('email', 6) || EMAIL,
+            email: getParamValue('email', 6) || DEV_EMAIL,
         },
         thanksMessage: getParamValue('thanksMessage', 7) || 'Merci de votre visite !',
         mercurial: (getParamValue('mercurial', 8) || Mercurial.none) as Mercurial,

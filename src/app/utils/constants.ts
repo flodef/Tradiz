@@ -1,7 +1,8 @@
 import { PublicKey, clusterApiUrl } from '@solana/web3.js';
 
 // UI
-export const EMAIL = 'flo@fims.fi';
+export const DEV_EMAIL = 'flo@tradiz.fr';
+export const CONFIG_KEYWORD = 'Config';
 export const OTHER_KEYWORD = 'Autres';
 export const TRANSACTIONS_KEYWORD = 'Transactions';
 export const WAITING_KEYWORD = 'EN ATTENTE';

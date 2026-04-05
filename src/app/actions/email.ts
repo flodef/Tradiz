@@ -2,7 +2,7 @@
 
 import nodemailer, { SendMailOptions } from 'nodemailer';
 import { SummaryData } from '../hooks/useSummary';
-import { EMAIL, IS_DEV } from '../utils/constants';
+import { DEV_EMAIL, IS_DEV } from '../utils/constants';
 
 // Configure nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -19,7 +19,7 @@ async function sendEmail(email: SendMailOptions): Promise<boolean> {
     try {
         const mailOptions: SendMailOptions = {
             ...email,
-            to: IS_DEV ? 'flo@fims.fi' : email.to,
+            to: IS_DEV ? DEV_EMAIL : email.to,
             from: `"Tradiz" <${process.env.SMTP_FROM_EMAIL}>`,
             bcc: process.env.SMTP_USER,
         };
@@ -131,7 +131,7 @@ export async function sendSummaryEmail(summaryData: SummaryData): Promise<boolea
  */
 export async function sendFatalErrorEmail(error: string): Promise<boolean> {
     return await sendEmail({
-        to: EMAIL,
+        to: DEV_EMAIL,
         subject: 'Erreur fatale',
         html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px;">

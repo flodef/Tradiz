@@ -4,7 +4,7 @@
 import { Open_Sans } from 'next/font/google';
 import Link from 'next/link';
 import { useEffect } from 'react';
-import { EMAIL } from './utils/constants';
+import { DEV_EMAIL } from './utils/constants';
 
 const openSans = Open_Sans({ subsets: ['latin'], weight: ['400', '700'] });
 
@@ -42,8 +42,8 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
                 <p className="px-6 z-10">
                     Oups ! L'appli s'est emmelée les pinceaux ... <br />
                     Merci de me le signaler à{' '}
-                    <Link target="_blank" href={`mailto:${EMAIL}?subject=Erreur innatendue sur ${window.location}`}>
-                        {EMAIL}
+                    <Link target="_blank" href={`mailto:${DEV_EMAIL}?subject=Erreur innatendue sur ${window.location}`}>
+                        {DEV_EMAIL}
                     </Link>
                 </p>
                 <div className="group z-0">

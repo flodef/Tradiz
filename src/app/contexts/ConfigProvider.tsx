@@ -12,9 +12,10 @@ import {
     User,
 } from '@/app/utils/interfaces';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { ConfigContext } from '../hooks/useConfig';
+import { ConfigContext, OperationMode } from '../hooks/useConfig';
 import { useWindowParam } from '../hooks/useWindowParam';
 import {
+    CONFIG_KEYWORD,
     IS_DEV,
     IS_LOCAL,
     LOCAL_PRINTER_KEYWORD,
@@ -31,7 +32,6 @@ import {
     defaultPaymentMethods,
     loadData,
 } from '../utils/processData';
-import { OperationMode } from '../hooks/useConfig';
 
 export interface Shop {
     name: string;
@@ -92,7 +92,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
     const [isKitchenViewEnabled, setIsKitchenViewEnabled] = useState(true);
     const [isGrafanaAccessEnabled, setIsGrafanaAccessEnabled] = useState(true);
 
-    const [config, setConfig] = useLocalStorage<Config | undefined>('Config', undefined);
+    const [config, setConfig] = useLocalStorage<Config | undefined>(CONFIG_KEYWORD, undefined);
     const [parameters, setParameters] = useState<Parameters>(defaultParameters);
     const [currencyIndex, setCurrencyIndex] = useState(0);
     const [currencies, setCurrencies] = useState<Currency[]>(defaultCurrencies);
@@ -174,7 +174,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
     const loadConfig = useCallback((data: Config | undefined) => {
         if (!data) return;
 
-        localStorage.removeItem('Config');
+        localStorage.removeItem(CONFIG_KEYWORD);
 
         setParameters(data.parameters);
         setCurrencies(data.currencies);
