@@ -1,5 +1,11 @@
-import { Currency, Discount } from '@/app/utils/interfaces';
 import { CloseButton } from '@/app/components/CloseButton';
+import {
+    adminContainerStyle,
+    adminTextStyle,
+    errorRoundButtonStyle,
+    errorRoundContainerStyle,
+} from '@/app/utils/constants';
+import { Currency, Discount } from '@/app/utils/interfaces';
 import AdminInput from '../AdminInput';
 import AdminSelect from '../AdminSelect';
 
@@ -37,15 +43,21 @@ export default function DiscountItem({
 
     if (isReadOnly) {
         return (
-            <div className="border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 flex items-center gap-2 bg-white dark:bg-gray-800">
-                <span className="text-sm font-medium">{discount.amount}</span>
-                <span className="text-sm text-gray-500 dark:text-gray-400">{discount.unit}</span>
+            <div className={adminContainerStyle(true)}>
+                <div className="flex flex-col">
+                    <span className={adminTextStyle}>Montant</span>
+                    <span className="font-medium">{discount.amount}</span>
+                </div>
+                <div className="flex flex-col">
+                    <span className={adminTextStyle}>Unité</span>
+                    <span className="font-medium">{discount.unit}</span>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 flex items-center gap-2 bg-white dark:bg-gray-800 relative group">
+        <div className={adminContainerStyle()}>
             <AdminInput
                 type="number"
                 value={discount.amount}
@@ -66,12 +78,8 @@ export default function DiscountItem({
                 className="w-16"
                 disabled={isReadOnly}
             />
-            <div className="absolute -top-2 -right-2 hidden group-hover:block">
-                <CloseButton
-                    onClose={onDelete}
-                    size="xs"
-                    className="bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 rounded-full p-1 shadow-sm"
-                />
+            <div className={errorRoundContainerStyle}>
+                <CloseButton onClose={onDelete} size="xs" className={errorRoundButtonStyle} />
             </div>
         </div>
     );

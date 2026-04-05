@@ -62,6 +62,7 @@ export default function CurrenciesConfig({
                         onChange={(updated) => handleCurrencyChange(index, updated)}
                         onDelete={() => handleDeleteCurrency(index)}
                         isReadOnly={isReadOnly}
+                        canDelete={currencies.length > 1}
                     />
                 ))}
             </div>

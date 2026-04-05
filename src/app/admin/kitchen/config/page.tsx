@@ -1,15 +1,10 @@
 'use client';
 
 import AdminButton from '@/app/components/admin/AdminButton';
-import AdminInput from '@/app/components/admin/AdminInput';
 import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
-import AdminSelect from '@/app/components/admin/AdminSelect';
-import SectionCard from '@/app/components/admin/SectionCard';
 import CurrenciesConfig from '@/app/components/admin/sections/CurrenciesConfig';
 import DiscountsConfig from '@/app/components/admin/sections/DiscountsConfig';
-import SiretInput from '@/app/components/admin/SiretInput';
-import ValidatedInput from '@/app/components/admin/ValidatedInput';
-import ZipCityRow from '@/app/components/admin/ZipCityRow';
+import ParametersConfig from '@/app/components/admin/sections/ParametersConfig';
 import { Parameters } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
@@ -180,62 +175,11 @@ export default function SettingsPage() {
         setHasChanges(settingsChanged || discountsChanged || currenciesChanged);
     }, [settings, discounts, currenciesConfig, originalSettings, originalDiscounts, originalCurrencies]);
 
-    const handleChange = (field: keyof Parameters, value: string | number) => {
-        setSettings((prev) => ({
-            ...prev,
-            [field]: value,
-        }));
-    };
-
-    const handleShopChange = (field: string, value: string) => {
-        setSettings((prev) => ({
-            ...prev,
-            shop: {
-                ...prev.shop,
-                [field]: value,
-            },
-        }));
-    };
-
-    const MONTH_NAMES = [
-        'Janvier',
-        'Février',
-        'Mars',
-        'Avril',
-        'Mai',
-        'Juin',
-        'Juillet',
-        'Août',
-        'Septembre',
-        'Octobre',
-        'Novembre',
-        'Décembre',
-    ];
-
-    const maxDaysInMonth = (month: number): number => {
-        const days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-        return days[month - 1] ?? 31;
-    };
-
-    const handleYearStartDateChange = (field: 'month' | 'day', value: number) => {
-        setSettings((prev) => {
-            const currentMonth = prev.yearStartDate?.month || 1;
-            const currentDay = prev.yearStartDate?.day || 1;
-            if (field === 'month') {
-                const newMonth = Math.max(1, Math.min(12, value));
-                const maxDay = maxDaysInMonth(newMonth);
-                return {
-                    ...prev,
-                    yearStartDate: { month: newMonth, day: Math.min(currentDay, maxDay) },
-                };
-            } else {
-                const maxDay = maxDaysInMonth(currentMonth);
-                return {
-                    ...prev,
-                    yearStartDate: { month: currentMonth, day: Math.max(1, Math.min(maxDay, value)) },
-                };
-            }
-        });
+    const handleSaveAll = async () => {
+        // Save all changed sections
+        if (hasSettingsChanges) await handleParametersSave(settings);
+        if (hasDiscountsChanges) await handleDiscountsSave(discounts);
+        if (hasCurrenciesChanges) await handleCurrenciesSave(currenciesConfig);
     };
 
     const handleDiscountsSave = async (data: Discount[]) => {
@@ -268,7 +212,7 @@ export default function SettingsPage() {
         }
     };
 
-    const handleSave = async () => {
+    const handleParametersSave = async (data: Parameters) => {
         if (!isSiretValid) {
             openFullscreenPopup("Veuillez corriger les erreurs avant d'enregistrer.", ['OK']);
             return;
@@ -276,17 +220,17 @@ export default function SettingsPage() {
         setIsSaving(true);
         try {
             const paramUpdates = [
-                { key: 'name', value: settings.shop.name },
-                { key: 'address', value: settings.shop.address },
-                { key: 'zipCode', value: settings.shop.zipCode },
-                { key: 'city', value: settings.shop.city },
-                { key: 'serial', value: settings.shop.serial },
-                { key: 'id', value: settings.shop.id },
-                { key: 'email', value: settings.shop.email },
-                { key: 'thanksMessage', value: settings.thanksMessage },
-                { key: 'mercurial', value: settings.mercurial },
-                { key: 'closingHour', value: String(settings.closingHour) },
-                { key: 'yearStartDate', value: JSON.stringify(settings.yearStartDate) },
+                { key: 'name', value: data.shop.name },
+                { key: 'address', value: data.shop.address },
+                { key: 'zipCode', value: data.shop.zipCode },
+                { key: 'city', value: data.shop.city },
+                { key: 'serial', value: data.shop.serial },
+                { key: 'id', value: data.shop.id },
+                { key: 'email', value: data.shop.email },
+                { key: 'thanksMessage', value: data.thanksMessage },
+                { key: 'mercurial', value: data.mercurial },
+                { key: 'closingHour', value: String(data.closingHour) },
+                { key: 'yearStartDate', value: JSON.stringify(data.yearStartDate) },
                 { key: 'lastModified', value: new Date().toLocaleString() },
             ];
 
@@ -350,126 +294,15 @@ export default function SettingsPage() {
                 </div>
             )}
 
-            <SectionCard
-                title="Paramètres"
-                onSave={isReadOnly || !hasSettingsChanges ? undefined : handleSave}
-                saveDisabled={!isSiretValid}
-            >
-                {/* Subsection: Commerce */}
-                <div className="mb-6">
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
-                        Commerce
-                    </h3>
-                    <div className="flex flex-wrap gap-4">
-                        <ValidatedInput
-                            label="Nom du commerce"
-                            value={String(settings.shop.name || '')}
-                            onChange={(value) => handleShopChange('name', String(value))}
-                            placeholder="Nom du commerce"
-                            disabled={isReadOnly}
-                            className="flex-1 min-w-40 max-w-xs"
-                        />
-                        <ValidatedInput
-                            label="Email"
-                            value={String(settings.shop.email || '')}
-                            onChange={(value) => handleShopChange('email', String(value))}
-                            placeholder="Email"
-                            disabled={isReadOnly}
-                            className="flex-1 min-w-40 max-w-xs"
-                        />
-                        <ValidatedInput
-                            label="Adresse"
-                            value={String(settings.shop.address || '')}
-                            onChange={(value) => handleShopChange('address', String(value))}
-                            placeholder="Adresse"
-                            disabled={isReadOnly}
-                            className="flex-1 min-w-40 max-w-xs"
-                        />
-                        <div className="w-full flex flex-wrap gap-4 items-end">
-                            <ZipCityRow
-                                zipCode={String(settings.shop.zipCode || '')}
-                                city={String(settings.shop.city || '')}
-                                onZipChange={(value: string) => handleShopChange('zipCode', value)}
-                                onCityChange={(value: string) => handleShopChange('city', value)}
-                                disabled={isReadOnly}
-                            />
-                            <SiretInput
-                                value={String(settings.shop.serial || '')}
-                                onChange={(value: string) => handleShopChange('serial', value)}
-                                onValidation={setIsSiretValid}
-                                disabled={isReadOnly}
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Subsection: Général */}
-                <div>
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
-                        Général
-                    </h3>
-                    <div className="flex flex-wrap gap-4 items-end">
-                        <ValidatedInput
-                            label="Message de remerciement"
-                            value={settings.thanksMessage || ''}
-                            onChange={(value) => handleChange('thanksMessage', String(value))}
-                            placeholder="Message de remerciement"
-                            disabled={isReadOnly}
-                            className="max-w-xs flex-1"
-                        />
-                        <AdminSelect
-                            label="Mercurial"
-                            value={settings.mercurial}
-                            onChange={(e) => !isReadOnly && handleChange('mercurial', e.target.value as Mercurial)}
-                            disabled={isReadOnly}
-                            className="w-32"
-                            options={[
-                                { label: 'Aucun', value: Mercurial.none },
-                                { label: 'Exponentielle', value: Mercurial.exponential },
-                                { label: 'Douce', value: Mercurial.soft },
-                                { label: 'Zelet', value: Mercurial.zelet },
-                            ]}
-                        />
-                        <AdminInput
-                            label="Heure de clôture"
-                            type="number"
-                            min={0}
-                            max={23}
-                            value={settings.closingHour}
-                            onChange={(e) =>
-                                !isReadOnly &&
-                                handleChange('closingHour', Math.max(0, Math.min(23, Number(e.target.value))))
-                            }
-                            disabled={isReadOnly}
-                            className="w-28"
-                        />
-                        <div className="flex flex-col">
-                            <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
-                                Début d&apos;année fiscale
-                            </label>
-                            <div className="flex gap-2">
-                                <AdminInput
-                                    type="number"
-                                    min={1}
-                                    max={maxDaysInMonth(settings.yearStartDate?.month || 1)}
-                                    value={settings.yearStartDate?.day || 1}
-                                    disabled={isReadOnly}
-                                    onChange={(e) => handleYearStartDateChange('day', Number(e.target.value))}
-                                    className="w-14"
-                                    placeholder="Jour"
-                                />
-                                <AdminSelect
-                                    value={settings.yearStartDate?.month || 1}
-                                    onChange={(e) => handleYearStartDateChange('month', Number(e.target.value))}
-                                    disabled={isReadOnly}
-                                    className="w-28"
-                                    options={MONTH_NAMES.map((name, i) => ({ label: name, value: i + 1 }))}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </SectionCard>
+            <ParametersConfig
+                config={settings}
+                onChange={setSettings}
+                onSave={handleParametersSave}
+                hasChanges={hasSettingsChanges}
+                isReadOnly={isReadOnly}
+                isSiretValid={isSiretValid}
+                onSiretValidation={setIsSiretValid}
+            />
 
             <DiscountsConfig
                 config={discounts}
@@ -494,7 +327,7 @@ export default function SettingsPage() {
                         Annuler
                     </AdminButton>
                     <AdminButton
-                        onClick={handleSave}
+                        onClick={handleSaveAll}
                         isLoading={isSaving}
                         disabled={!isSiretValid}
                         variant="save"

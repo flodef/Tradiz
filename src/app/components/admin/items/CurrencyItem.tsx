@@ -1,5 +1,11 @@
-import { Currency } from '@/app/utils/interfaces';
 import { CloseButton } from '@/app/components/CloseButton';
+import {
+    adminContainerStyle,
+    adminTextStyle,
+    errorRoundButtonStyle,
+    errorRoundContainerStyle,
+} from '@/app/utils/constants';
+import { Currency } from '@/app/utils/interfaces';
 import AdminInput from '../AdminInput';
 
 interface CurrencyItemProps {
@@ -7,35 +13,42 @@ interface CurrencyItemProps {
     onChange: (currency: Currency) => void;
     onDelete: () => void;
     isReadOnly?: boolean;
+    canDelete?: boolean;
 }
 
-export default function CurrencyItem({ currency, onChange, onDelete, isReadOnly = false }: CurrencyItemProps) {
+export default function CurrencyItem({
+    currency,
+    onChange,
+    onDelete,
+    isReadOnly = false,
+    canDelete = true,
+}: CurrencyItemProps) {
     if (isReadOnly) {
         const rateDisplay = currency.rate === 0 ? 'Auto' : currency.rate === 1 ? 'Aucun' : currency.rate;
         return (
-            <div className="border border-gray-200 dark:border-gray-700 rounded-md p-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm bg-white dark:bg-gray-800">
+            <div className={adminContainerStyle(true)}>
                 <div className="flex flex-col">
-                    <span className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Label</span>
+                    <span className={adminTextStyle}>Label</span>
                     <span className="font-medium truncate max-w-[150px]">{currency.label}</span>
                 </div>
                 <div className="flex flex-col">
-                    <span className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Symb.</span>
+                    <span className={adminTextStyle}>Symb.</span>
                     <span className="font-medium">{currency.symbol}</span>
                 </div>
                 <div className="flex flex-col">
-                    <span className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Max</span>
+                    <span className={adminTextStyle}>Max</span>
                     <span className="font-medium">{currency.maxValue}</span>
                 </div>
                 <div className="flex flex-col">
-                    <span className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Déc.</span>
+                    <span className={adminTextStyle}>Déc.</span>
                     <span className="font-medium">{currency.decimals}</span>
                 </div>
                 <div className="flex flex-col">
-                    <span className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Taux</span>
+                    <span className={adminTextStyle}>Taux</span>
                     <span className="font-medium">{rateDisplay}</span>
                 </div>
                 <div className="flex flex-col">
-                    <span className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Frais</span>
+                    <span className={adminTextStyle}>Frais</span>
                     <span className="font-medium">{currency.fee}%</span>
                 </div>
             </div>
@@ -45,7 +58,7 @@ export default function CurrencyItem({ currency, onChange, onDelete, isReadOnly 
     const step = 1 / Math.pow(10, currency.decimals);
 
     return (
-        <div className="border border-gray-200 dark:border-gray-700 rounded-md p-3 flex flex-wrap items-center gap-x-3 gap-y-2 bg-white dark:bg-gray-800 relative group">
+        <div className={adminContainerStyle()}>
             <AdminInput
                 label="Label"
                 type="text"
@@ -118,13 +131,11 @@ export default function CurrencyItem({ currency, onChange, onDelete, isReadOnly 
                 disabled={isReadOnly}
             />
 
-            <div className="absolute -top-2 -right-2 hidden group-hover:block">
-                <CloseButton
-                    onClose={onDelete}
-                    size="xs"
-                    className="bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 rounded-full p-1 shadow-sm"
-                />
-            </div>
+            {canDelete && (
+                <div className={errorRoundContainerStyle}>
+                    <CloseButton onClose={onDelete} size="xs" className={errorRoundButtonStyle} />
+                </div>
+            )}
         </div>
     );
 }
