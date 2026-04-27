@@ -68,14 +68,14 @@ export default function DiscountItem({
                     const val = Math.min(max, Math.max(0, Number(e.target.value)));
                     onChange({ ...discount, amount: val });
                 }}
-                className="w-24"
+                inputClassName="w-24"
                 disabled={isReadOnly}
             />
             <AdminSelect
                 value={discount.unit}
                 onChange={(e) => onChange({ ...discount, unit: e.target.value })}
                 options={units.map((u) => ({ label: u, value: u }))}
-                className="w-16"
+                inputClassName="w-16"
                 disabled={isReadOnly}
             />
             <div className={errorRoundContainerStyle}>
