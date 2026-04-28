@@ -1,15 +1,16 @@
 'use client';
 
+import { useConfig } from '@/app/hooks/useConfig';
+import { ChevronLeftIcon } from '@/app/images/ChevronLeftIcon';
+import { ChevronRightIcon } from '@/app/images/ChevronRightIcon';
+import { PencilIcon } from '@/app/images/PencilIcon';
+import { PieChartIcon } from '@/app/images/PieChartIcon';
+import { SettingsIcon } from '@/app/images/SettingsIcon';
+import { USE_DIGICARTE } from '@/app/utils/constants';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ReactNode, useMemo, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
-import { useConfig } from '@/app/hooks/useConfig';
-import { ChevronRightIcon } from '@/app/images/ChevronRightIcon';
-import { ChevronLeftIcon } from '@/app/images/ChevronLeftIcon';
-import { SettingsIcon } from '@/app/images/SettingsIcon';
-import { PencilIcon } from '@/app/images/PencilIcon';
-import { PieChartIcon } from '@/app/images/PieChartIcon';
 
 type NavItem = {
     id: string;
@@ -46,7 +47,7 @@ export default function TradizTopNav({ inline = false, className, onCollapsedCha
             },
             {
                 id: 'kpi',
-                href: '/stats',
+                href: USE_DIGICARTE ? '/stats/d/vue-dc-1/vue-dc' : '/stats',
                 label: 'Statistiques',
                 icon: <PieChartIcon className="h-7 w-7" />,
                 hidden: !isGrafanaAccessEnabled,

@@ -200,8 +200,11 @@ export default function StatsPage() {
         }
     }, [startDate, endDate, fetchStatistics]);
 
-    // Redirect if using Digicarte (after all hooks)
-    if (USE_DIGICARTE) return null;
+    // Redirect to Grafana dashboard if using Digicarte
+    if (USE_DIGICARTE) {
+        window.location.href = '/stats/d/vue-dc-1/vue-dc';
+        return null;
+    }
 
     if (loading) {
         return (
