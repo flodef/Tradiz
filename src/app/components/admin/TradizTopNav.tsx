@@ -1,11 +1,7 @@
 'use client';
 
 import { useConfig } from '@/app/hooks/useConfig';
-import { ChevronLeftIcon } from '@/app/images/ChevronLeftIcon';
-import { ChevronRightIcon } from '@/app/images/ChevronRightIcon';
-import { PencilIcon } from '@/app/images/PencilIcon';
-import { PieChartIcon } from '@/app/images/PieChartIcon';
-import { SettingsIcon } from '@/app/images/SettingsIcon';
+import { IconChevronLeft, IconChevronRight, IconPencil, IconChartPie, IconSettings } from '@tabler/icons-react';
 import { USE_DIGICARTE } from '@/app/utils/constants';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -37,19 +33,19 @@ export default function TradizTopNav({ inline = false, className, onCollapsedCha
                 id: 'cash_register',
                 href: '/admin/kitchen/config/',
                 label: 'Configuration',
-                icon: <SettingsIcon className="h-7 w-7" />,
+                icon: <IconSettings size={28} />,
             },
             {
                 id: 'edit_menu',
                 href: '/admin/edit_menu/',
                 label: 'Edition menu',
-                icon: <PencilIcon className="h-7 w-7" />,
+                icon: <IconPencil size={28} />,
             },
             {
                 id: 'kpi',
                 href: USE_DIGICARTE ? '/stats/d/vue-dc-1/vue-dc' : '/stats',
                 label: 'Statistiques',
-                icon: <PieChartIcon className="h-7 w-7" />,
+                icon: <IconChartPie size={28} />,
                 hidden: !isGrafanaAccessEnabled,
             },
         ],
@@ -109,11 +105,7 @@ export default function TradizTopNav({ inline = false, className, onCollapsedCha
                 aria-label={collapsed ? 'Afficher la navigation' : 'Masquer la navigation'}
                 title={collapsed ? 'Afficher la navigation' : 'Masquer la navigation'}
             >
-                {collapsed ? (
-                    <ChevronRightIcon className="h-6 w-6" aria-hidden />
-                ) : (
-                    <ChevronLeftIcon className="h-6 w-6" aria-hidden />
-                )}
+                {collapsed ? <IconChevronRight size={24} aria-hidden /> : <IconChevronLeft size={24} aria-hidden />}
             </button>
         </div>
     );

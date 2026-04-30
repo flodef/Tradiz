@@ -2,7 +2,7 @@
 
 import { FC, MouseEventHandler, ReactNode, useCallback, useEffect, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
-import { BackspaceIcon } from '../images/BackspaceIcon';
+import { IconBackspace } from '@tabler/icons-react';
 import { useIsMobileDevice } from '../utils/mobile';
 
 interface CalculatorProps {
@@ -178,7 +178,7 @@ export const Calculator: FC<CalculatorProps> = ({ onUseResult, initialValue = 0,
         ],
         [
             { label: 'C', value: 'clear', className: 'bg-red-500/20 dark:bg-red-500/30' },
-            { label: <BackspaceIcon width={28} height={28} />, value: 'backspace' },
+            { label: <IconBackspace size={28} />, value: 'backspace' },
             { label: '=', value: 'equals', colspan: 2, className: 'bg-green-500/20 dark:bg-green-500/30' },
         ],
     ];

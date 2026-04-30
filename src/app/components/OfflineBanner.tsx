@@ -2,7 +2,7 @@
 
 import { FC, useEffect, useState } from 'react';
 import { useWindowParam } from '../hooks/useWindowParam';
-import { WifiOffIcon } from '../images/WifiOffIcon';
+import { IconWifiOff } from '@tabler/icons-react';
 import { useIsMobile } from '../utils/mobile';
 
 export const OfflineBanner: FC = () => {
@@ -20,7 +20,7 @@ export const OfflineBanner: FC = () => {
     return (
         <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-2 bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-md md:text-base">
             <div className="flex items-center justify-center gap-2 w-full">
-                <WifiOffIcon className="h-4 w-4 shrink-0 md:h-5 md:w-5" />
+                <IconWifiOff className="h-4 w-4 shrink-0 md:h-5 md:w-5" />
                 <span>
                     {isMobile ? 'Application hors ligne' : 'Application hors ligne — Vérifiez votre connexion internet'}
                 </span>

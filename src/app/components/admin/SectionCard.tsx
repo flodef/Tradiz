@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, useState } from 'react';
-import { TickIcon } from '@/app/images/TickIcon';
+import { IconCheck } from '@tabler/icons-react';
 import { useIsMobile } from '@/app/utils/mobile';
 import AdminButton from './AdminButton';
 
@@ -28,7 +28,7 @@ export default function SectionCard({
     return (
         <div className="bg-white/30 dark:bg-black/20 shadow-lg rounded-lg mb-6 border border-black/10 dark:border-white/10 backdrop-blur overflow-hidden">
             <div className="cursor-pointer select-none" onClick={() => setOpen((o) => !o)}>
-                <div className="flex justify-between items-center px-6 py-4">
+                <div className="flex justify-between items-start px-6 py-4 gap-4">
                     <div className="flex items-center gap-2">
                         <svg
                             className={`w-5 h-5 transition-transform duration-200 ${open ? 'rotate-90' : 'rotate-0'}`}
@@ -40,8 +40,8 @@ export default function SectionCard({
                         </svg>
                         <h2 className="text-2xl font-semibold text-light dark:text-dark">{title}</h2>
                     </div>
-                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                        {open && headerExtra && <div className="hidden md:flex items-center gap-2">{headerExtra}</div>}
+                    <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {open && headerExtra}
                         {open && onSave && (
                             <AdminButton
                                 variant="save"
@@ -52,16 +52,11 @@ export default function SectionCard({
                                 }}
                                 className={isMobile ? 'px-3 py-2' : ''}
                             >
-                                {isMobile ? <TickIcon className="w-5 h-5" /> : 'Enregistrer'}
+                                {isMobile ? <IconCheck size={20} /> : 'Enregistrer'}
                             </AdminButton>
                         )}
                     </div>
                 </div>
-                {open && headerExtra && (
-                    <div className="md:hidden px-6 pb-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
-                        {headerExtra}
-                    </div>
-                )}
             </div>
             {open && (
                 <div className="px-6 pb-6 pt-2 border-t border-black/10 dark:border-white/10 space-y-4">{children}</div>

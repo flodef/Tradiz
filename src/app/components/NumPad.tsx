@@ -9,10 +9,7 @@ import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
-import { BackspaceIcon } from '../images/BackspaceIcon';
-import { BasketIcon } from '../images/BasketIcon';
-import { CalculatorIcon } from '../images/CalculatorIcon';
-import { WalletIcon } from '../images/WalletIcon';
+import { IconBackspace, IconShoppingCart, IconCalculator, IconWallet } from '@tabler/icons-react';
 import Loading, { LoadingType } from '../loading';
 import { getButtonSizeConfig } from '../utils/buttonSizeConfig';
 import { WAITING_KEYWORD } from '../utils/constants';
@@ -465,7 +462,7 @@ export const NumPad: FC = () => {
                             onClick={showCurrencies}
                         />
                         <ImageButton className={f1} onClick={onClear} onContextMenu={onClearTotal}>
-                            <BackspaceIcon />
+                            <IconBackspace size={42} />
                         </ImageButton>
                         <FunctionButton
                             className={f2}
@@ -474,7 +471,7 @@ export const NumPad: FC = () => {
                             onContextMenu={discount ?? mercuriale}
                         />
                         <ImageButton className={f + color} onClick={openCalculator} onContextMenu={openCalculator}>
-                            <CalculatorIcon width={42} height={42} />
+                            <IconCalculator size={42} />
                         </ImageButton>
                         <FunctionButton
                             className={f3}
@@ -508,7 +505,7 @@ export const NumPad: FC = () => {
                                 canPay ? () => updateTransaction(WAITING_KEYWORD) : canAddProduct ? pay : () => {}
                             }
                         >
-                            {canPay ? <WalletIcon /> : canAddProduct ? <BasketIcon /> : ''}
+                            {canPay ? <IconWallet size={42} /> : canAddProduct ? <IconShoppingCart size={42} /> : ''}
                         </ImageButton>
                     </div>
                 </div>
