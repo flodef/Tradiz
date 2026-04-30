@@ -169,10 +169,6 @@ export default function EditMenuPage() {
     };
 
     const categoryOptions = categories.map((c) => ({ label: c.label, value: c.label }));
-    const currencyOptions =
-        currencies?.length > 0
-            ? currencies.map((c) => ({ label: c.symbol, value: c.label }))
-            : [{ label: '€', value: 'Euro' }];
 
     // Redirect if using Digicarte
     if (USE_DIGICARTE) return null;
@@ -209,7 +205,7 @@ export default function EditMenuPage() {
                     onChange={handleProductsChange}
                     onSave={isReadOnly ? undefined : handleProductsSave}
                     categories={categoryOptions}
-                    currencies={currencyOptions}
+                    currencies={currencies}
                     isReadOnly={isReadOnly}
                 />
             </div>

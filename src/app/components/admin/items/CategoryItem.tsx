@@ -19,6 +19,27 @@ export default function CategoryItem({
 }: CategoryItemProps) {
     const vatRates = [20, 10, 5.5, 2.1, 0];
 
+    if (isReadOnly) {
+        return (
+            <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4">
+                <div className="flex gap-3">
+                    <div className="flex-1 min-w-0">
+                        <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                            Label
+                        </label>
+                        <div className="text-sm font-medium">{category.label}</div>
+                    </div>
+                    <div className="w-24 shrink-0">
+                        <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                            TVA
+                        </label>
+                        <div className="text-sm font-medium">{category.vat}%</div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4">
             <div className="flex justify-end items-center gap-2 mb-1">
@@ -42,7 +63,9 @@ export default function CategoryItem({
             </div>
             <div className="flex gap-3 items-end">
                 <div className="flex-1 min-w-0">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Label</label>
+                    <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                        Label
+                    </label>
                     <ValidatedInput
                         value={category.label}
                         onChange={(value) => onChange({ ...category, label: String(value) })}
@@ -52,7 +75,9 @@ export default function CategoryItem({
                     />
                 </div>
                 <div className="w-24 shrink-0">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">TVA</label>
+                    <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                        TVA
+                    </label>
                     <select
                         value={Number(category.vat)}
                         onChange={(e) => onChange({ ...category, vat: parseFloat(e.target.value) })}

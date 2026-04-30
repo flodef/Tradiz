@@ -1,3 +1,5 @@
+import { Currency } from '@/app/utils/interfaces';
+import { IconCheck, IconX } from '@tabler/icons-react';
 import SearchableSelect from '../SearchableSelect';
 import { AdminProduct } from '../sections/ProductsConfig';
 import Switch from '../Switch';
@@ -8,7 +10,7 @@ interface ProductItemProps {
     onChange: (product: AdminProduct) => void;
     onDelete?: () => void;
     categories: { label: string; value: string }[];
-    currencies: { label: string; value: string }[];
+    currencies: Currency[];
     isReadOnly?: boolean;
     dragHandleProps?: Record<string, unknown>;
 }
@@ -22,9 +24,52 @@ export default function ProductItem({
     isReadOnly = false,
     dragHandleProps,
 }: ProductItemProps) {
+    if (isReadOnly) {
+        return (
+            <div className="border border-gray-200 dark:border-gray-700 rounded-md p-3">
+                <div className="grid grid-cols-2 gap-2">
+                    <div>
+                        <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                            Nom
+                        </label>
+                        <div className="text-sm font-medium">{product.name}</div>
+                    </div>
+                    <div>
+                        <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                            Prix {currencies[0] ? `(${currencies[0].symbol})` : ''}
+                        </label>
+                        <div className="text-sm font-medium">
+                            {product.currencies[0] && product.currencies[0] !== '0'
+                                ? parseFloat(product.currencies[0]).toFixed(currencies[0]?.decimals ?? 2)
+                                : ''}
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                            Catégorie
+                        </label>
+                        <div className="text-sm font-medium">{product.category}</div>
+                    </div>
+                    <div>
+                        <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                            Disponibilité
+                        </label>
+                        <div className="flex items-center gap-2">
+                            {product.availability ? (
+                                <IconCheck className="text-green-500" size={24} stroke={3} />
+                            ) : (
+                                <IconX className="text-red-500" size={24} stroke={3} />
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4 mb-4">
-            <div className="flex justify-end items-center gap-2 mb-1">
+        <div className="border border-gray-200 dark:border-gray-700 rounded-md p-3">
+            <div className="flex justify-end items-center gap-2 mb-2">
                 {dragHandleProps && (
                     <span
                         {...dragHandleProps}
@@ -43,18 +88,39 @@ export default function ProductItem({
                     </button>
                 )}
             </div>
-            <div className="flex flex-wrap items-start gap-3">
-                <div className="flex-1 min-w-32">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom</label>
+            <div className="grid grid-cols-2 gap-2">
+                <div>
+                    <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                        Nom
+                    </label>
                     <ValidatedInput
                         value={product.name}
                         onChange={(value) => onChange({ ...product, name: String(value) })}
                         placeholder="Nom du produit"
+                        maxLength={50}
                         disabled={isReadOnly}
                     />
                 </div>
-                <div className="w-auto">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Catégorie</label>
+                <div>
+                    <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                        Prix {currencies[0] ? `(${currencies[0].symbol})` : ''}
+                    </label>
+                    <ValidatedInput
+                        type="number"
+                        value={product.currencies[0] ?? ''}
+                        onChange={(value) => {
+                            const updated = [...product.currencies];
+                            updated[0] = String(value);
+                            onChange({ ...product, currencies: updated });
+                        }}
+                        placeholder={(0).toFixed(currencies[0]?.decimals ?? 2)}
+                        disabled={isReadOnly}
+                    />
+                </div>
+                <div>
+                    <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                        Catégorie
+                    </label>
                     <SearchableSelect
                         options={categories}
                         value={product.category}
@@ -65,32 +131,17 @@ export default function ProductItem({
                         disabled={isReadOnly}
                     />
                 </div>
-                <div className="w-24">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Prix {currencies[0] ? `(${currencies[0].label})` : ''}
+                <div className="flex flex-col">
+                    <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                        Disponibilité
                     </label>
-                    <ValidatedInput
-                        type="number"
-                        value={product.currencies[0] ?? ''}
-                        onChange={(value) => {
-                            const updated = [...product.currencies];
-                            updated[0] = String(value);
-                            onChange({ ...product, currencies: updated });
-                        }}
-                        placeholder="0.00"
-                        disabled={isReadOnly}
-                    />
-                </div>
-                <div className="w-20 flex flex-col items-center justify-center gap-1">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {product.availability ? 'Disponible' : 'Indisponible'}
-                    </label>
-                    <div className="h-[42px] content-end">
+                    <div className="flex items-center h-[42px]">
                         <Switch
                             checked={product.availability}
                             onChange={(checked) => onChange({ ...product, availability: checked })}
                             disabled={isReadOnly}
                         />
+                        <span className="ml-2 text-sm">{product.availability ? 'Oui' : 'Non'}</span>
                     </div>
                 </div>
             </div>

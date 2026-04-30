@@ -1,4 +1,4 @@
-import { PaymentMethod } from '@/app/utils/interfaces';
+import { Currency, PaymentMethod } from '@/app/utils/interfaces';
 import ValidatedInput from '../ValidatedInput';
 import SearchableSelect from '../SearchableSelect';
 import Switch from '../Switch';
@@ -7,7 +7,7 @@ interface PaymentItemProps {
     payment: PaymentMethod;
     onChange: (payment: PaymentMethod) => void;
     onDelete: () => void;
-    currencies: { label: string; value: string }[];
+    currencies: Currency[];
     isReadOnly?: boolean;
 }
 
@@ -60,7 +60,7 @@ export default function PaymentItem({ payment, onChange, onDelete, currencies, i
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Devise</label>
                     <SearchableSelect
-                        options={currencies}
+                        options={currencies.map((currency) => ({ label: currency.label, value: currency.label }))}
                         value={payment.currency}
                         onChange={(value) =>
                             onChange({ ...payment, currency: Array.isArray(value) ? value[0] : value })

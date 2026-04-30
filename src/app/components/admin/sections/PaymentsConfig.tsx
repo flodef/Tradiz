@@ -1,4 +1,4 @@
-import { PaymentMethod } from '@/app/utils/interfaces';
+import { Currency, PaymentMethod } from '@/app/utils/interfaces';
 import { useEffect, useState } from 'react';
 import SectionCard from '../SectionCard';
 import PaymentItem from '../items/PaymentItem';
@@ -14,7 +14,7 @@ export default function PaymentsConfig({
     config: PaymentMethod[];
     onChange: (data: PaymentMethod[]) => void;
     onSave: (data: PaymentMethod[]) => void;
-    currencies: { label: string; value: string }[];
+    currencies: Currency[];
     isReadOnly?: boolean;
 }) {
     const [payments, setPayments] = useState(config || []);
