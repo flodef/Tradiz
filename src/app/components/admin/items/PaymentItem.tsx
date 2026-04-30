@@ -1,7 +1,7 @@
 import { Currency, PaymentMethod } from '@/app/utils/interfaces';
 import ValidatedInput from '../ValidatedInput';
-import SearchableSelect from '../SearchableSelect';
-import Switch from '../Switch';
+import AdminSelect from '../AdminSelect';
+import { IconCheck, IconX } from '@tabler/icons-react';
 
 interface PaymentItemProps {
     payment: PaymentMethod;
@@ -35,22 +35,17 @@ export default function PaymentItem({ payment, onChange, onDelete, currencies, i
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
-                    <select
+                    <AdminSelect
+                        label="Type"
                         value={payment.type}
-                        onChange={(e) => onChange({ ...payment, type: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-                    >
-                        {paymentTypes.map((type) => (
-                            <option key={type} value={type}>
-                                {type}
-                            </option>
-                        ))}
-                    </select>
+                        onChange={(e) => !isReadOnly && onChange({ ...payment, type: e.target.value })}
+                        disabled={isReadOnly}
+                        options={paymentTypes.map((type) => ({ label: type, value: type }))}
+                    />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ID</label>
                     <ValidatedInput
+                        label="ID"
                         value={payment.id ?? ''}
                         onChange={(value) => onChange({ ...payment, id: String(value) })}
                         placeholder="ID du paiement"
@@ -58,26 +53,38 @@ export default function PaymentItem({ payment, onChange, onDelete, currencies, i
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Devise</label>
-                    <SearchableSelect
-                        options={currencies.map((currency) => ({ label: currency.label, value: currency.label }))}
+                    <AdminSelect
+                        label="Devise"
                         value={payment.currency}
-                        onChange={(value) =>
-                            onChange({ ...payment, currency: Array.isArray(value) ? value[0] : value })
-                        }
-                        placeholder="Sélectionner une devise"
+                        onChange={(e) => !isReadOnly && onChange({ ...payment, currency: e.target.value })}
                         disabled={isReadOnly}
+                        options={currencies.map((currency) => ({ label: currency.symbol, value: currency.symbol }))}
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
                         Disponibilité
                     </label>
-                    <Switch
-                        checked={payment.availability}
-                        onChange={(checked) => onChange({ ...payment, availability: checked })}
-                        disabled={isReadOnly}
-                    />
+                    {isReadOnly ? (
+                        <div className="flex items-center h-[42px]">
+                            {payment.availability ? (
+                                <IconCheck className="text-green-500" size={28} stroke={3} />
+                            ) : (
+                                <IconX className="text-red-500" size={28} stroke={3} />
+                            )}
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => onChange({ ...payment, availability: !payment.availability })}
+                            className="flex items-center h-[42px]"
+                        >
+                            {payment.availability ? (
+                                <IconCheck className="text-green-500 hover:text-green-600" size={28} stroke={3} />
+                            ) : (
+                                <IconX className="text-red-500 hover:text-red-600" size={28} stroke={3} />
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

@@ -5,11 +5,13 @@ import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
 import CurrenciesConfig from '@/app/components/admin/sections/CurrenciesConfig';
 import DiscountsConfig from '@/app/components/admin/sections/DiscountsConfig';
 import ParametersConfig from '@/app/components/admin/sections/ParametersConfig';
+import PaymentsConfig from '@/app/components/admin/sections/PaymentsConfig';
+import ColorsConfig from '@/app/components/admin/sections/ColorsConfig';
 import { Parameters } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
 import { USE_DIGICARTE } from '@/app/utils/constants';
-import { Currency, Discount, Mercurial } from '@/app/utils/interfaces';
+import { Currency, Discount, Mercurial, PaymentMethod, Color } from '@/app/utils/interfaces';
 import { useIsMobile } from '@/app/utils/mobile';
 import { defaultParameters } from '@/app/utils/processData';
 import { useCallback, useEffect, useState } from 'react';
@@ -26,11 +28,19 @@ interface CurrencyRow {
 
 export default function SettingsPage() {
     const isMobile = useIsMobile();
-    const { parameters, discounts: configDiscounts, currencies } = useConfig();
+    const {
+        parameters,
+        discounts: configDiscounts,
+        currencies,
+        paymentMethods: configPayments,
+        colors: configColors,
+    } = useConfig();
     const { openFullscreenPopup } = usePopup();
     const [settings, setSettings] = useState<Parameters>(defaultParameters);
     const [discounts, setDiscounts] = useState<Discount[]>([]);
     const [currenciesConfig, setCurrenciesConfig] = useState<Currency[]>([]);
+    const [paymentsConfig, setPaymentsConfig] = useState<PaymentMethod[]>([]);
+    const [colorsConfig, setColorsConfig] = useState<Color[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isReadOnly, setIsReadOnly] = useState(true);
@@ -40,9 +50,13 @@ export default function SettingsPage() {
     const [hasSettingsChanges, setHasSettingsChanges] = useState(false);
     const [hasDiscountsChanges, setHasDiscountsChanges] = useState(false);
     const [hasCurrenciesChanges, setHasCurrenciesChanges] = useState(false);
+    const [hasPaymentsChanges, setHasPaymentsChanges] = useState(false);
+    const [hasColorsChanges, setHasColorsChanges] = useState(false);
     const [originalSettings, setOriginalSettings] = useState<Parameters>(defaultParameters);
     const [originalDiscounts, setOriginalDiscounts] = useState<Discount[]>([]);
     const [originalCurrencies, setOriginalCurrencies] = useState<Currency[]>([]);
+    const [originalPayments, setOriginalPayments] = useState<PaymentMethod[]>([]);
+    const [originalColors, setOriginalColors] = useState<Color[]>([]);
 
     // Step 1: check DB config once on mount
     useEffect(() => {
@@ -65,6 +79,8 @@ export default function SettingsPage() {
                 if (parameters?.lastModified) setSettings(parameters);
                 if (configDiscounts) setDiscounts(configDiscounts);
                 if (currencies) setCurrenciesConfig(currencies);
+                if (configPayments) setPaymentsConfig(configPayments);
+                if (configColors) setColorsConfig(configColors);
                 setIsLoading(false);
                 return;
             }
@@ -150,13 +166,23 @@ export default function SettingsPage() {
             } catch {
                 if (currencies) setCurrenciesConfig(currencies);
             }
+
+            // Load payments and colors from config (no DB API yet)
+            if (configPayments) {
+                setPaymentsConfig(configPayments);
+                setOriginalPayments(configPayments);
+            }
+            if (configColors) {
+                setColorsConfig(configColors);
+                setOriginalColors(configColors);
+            }
         } catch (error) {
             console.error('Error fetching parameters:', error);
             if (parameters) setSettings(parameters);
         } finally {
             setIsLoading(false);
         }
-    }, [isReadOnly, parameters, configDiscounts, currencies]);
+    }, [isReadOnly, parameters, configDiscounts, currencies, configPayments, configColors]);
 
     // Step 2: once DB config is known, load data
     useEffect(() => {
@@ -169,17 +195,34 @@ export default function SettingsPage() {
         const settingsChanged = JSON.stringify(settings) !== JSON.stringify(originalSettings);
         const discountsChanged = JSON.stringify(discounts) !== JSON.stringify(originalDiscounts);
         const currenciesChanged = JSON.stringify(currenciesConfig) !== JSON.stringify(originalCurrencies);
+        const paymentsChanged = JSON.stringify(paymentsConfig) !== JSON.stringify(originalPayments);
+        const colorsChanged = JSON.stringify(colorsConfig) !== JSON.stringify(originalColors);
         setHasSettingsChanges(settingsChanged);
         setHasDiscountsChanges(discountsChanged);
         setHasCurrenciesChanges(currenciesChanged);
-        setHasChanges(settingsChanged || discountsChanged || currenciesChanged);
-    }, [settings, discounts, currenciesConfig, originalSettings, originalDiscounts, originalCurrencies]);
+        setHasPaymentsChanges(paymentsChanged);
+        setHasColorsChanges(colorsChanged);
+        setHasChanges(settingsChanged || discountsChanged || currenciesChanged || paymentsChanged || colorsChanged);
+    }, [
+        settings,
+        discounts,
+        currenciesConfig,
+        paymentsConfig,
+        colorsConfig,
+        originalSettings,
+        originalDiscounts,
+        originalCurrencies,
+        originalPayments,
+        originalColors,
+    ]);
 
     const handleSaveAll = async () => {
         // Save all changed sections
         if (hasSettingsChanges) await handleParametersSave(settings);
         if (hasDiscountsChanges) await handleDiscountsSave(discounts);
         if (hasCurrenciesChanges) await handleCurrenciesSave(currenciesConfig);
+        if (hasPaymentsChanges) await handlePaymentsSave(paymentsConfig);
+        if (hasColorsChanges) await handleColorsSave(colorsConfig);
     };
 
     const handleDiscountsSave = async (data: Discount[]) => {
@@ -251,6 +294,18 @@ export default function SettingsPage() {
         }
     };
 
+    const handlePaymentsSave = async (data: PaymentMethod[]) => {
+        // Placeholder for payments save - implement when API is ready
+        console.log('Saving payments:', data);
+        setOriginalPayments(data);
+    };
+
+    const handleColorsSave = async (data: Color[]) => {
+        // Placeholder for colors save - implement when API is ready
+        console.log('Saving colors:', data);
+        setOriginalColors(data);
+    };
+
     const handleCancel = (e?: React.MouseEvent) => {
         e?.preventDefault();
         e?.stopPropagation();
@@ -260,6 +315,8 @@ export default function SettingsPage() {
                 setSettings(originalSettings);
                 setDiscounts(originalDiscounts);
                 setCurrenciesConfig(originalCurrencies);
+                setPaymentsConfig(originalPayments);
+                setColorsConfig(originalColors);
                 setHasChanges(false);
             }
         });
@@ -318,6 +375,21 @@ export default function SettingsPage() {
                 onChange={setCurrenciesConfig}
                 onSave={handleCurrenciesSave}
                 hasChanges={hasCurrenciesChanges}
+                isReadOnly={isReadOnly}
+            />
+
+            <PaymentsConfig
+                config={paymentsConfig}
+                onChange={setPaymentsConfig}
+                onSave={handlePaymentsSave}
+                currencies={currenciesConfig}
+                isReadOnly={isReadOnly}
+            />
+
+            <ColorsConfig
+                config={colorsConfig}
+                onChange={setColorsConfig}
+                onSave={handleColorsSave}
                 isReadOnly={isReadOnly}
             />
 
