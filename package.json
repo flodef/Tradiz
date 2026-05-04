@@ -13,6 +13,7 @@
         "nuke": "shx rm -rf node_modules package-lock.json || true",
         "prepare": "husky",
         "migrate": "bun scripts/migrate-sheets-to-postgres.ts",
+        "export-firestore": "bun scripts/firestore-to-postgres.ts",
         "test-db": "bun scripts/test-postgres-connection.ts"
     },
     "dependencies": {
