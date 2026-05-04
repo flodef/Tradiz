@@ -16,9 +16,13 @@ Le projet étant open source, il est possible de le cloner et de l'utiliser pour
 
 ## Création des données
 
+> **🆕 Migration PostgreSQL disponible !**  
+> Vous pouvez maintenant migrer vos données vers une base PostgreSQL (Neon) pour de meilleures performances.  
+> Consultez le guide rapide : [`scripts/QUICK_START.md`](scripts/QUICK_START.md)
+
 ### Importer les données de démonstration
 
-Les données nécessaires pour utiliser l'application sont stockées dans un fichier Google Sheets. Il est donc nécessaire d'avoir un compte Google.
+Les données nécessaires pour utiliser l'application sont stockées dans un fichier Google Sheets ou une base de données PostgreSQL. Pour Google Sheets, il est nécessaire d'avoir un compte Google.
 
 Ensuite, il faut importer le fichier de données de démonstration dans son propre Google Drive, en allant sur le lien suivant : [https://docs.google.com/spreadsheets/d/1XW4zcU3maFGeOu8tznoDHiHnd0qj0Fxy_DVq2Vkrcnw/edit?usp=sharing](https://docs.google.com/spreadsheets/d/1XW4zcU3maFGeOu8tznoDHiHnd0qj0Fxy_DVq2Vkrcnw/edit?usp=sharing)
 

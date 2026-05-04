@@ -11,7 +11,9 @@
         "lint": "eslint .",
         "test": "vitest run",
         "nuke": "shx rm -rf node_modules package-lock.json || true",
-        "prepare": "husky"
+        "prepare": "husky",
+        "migrate": "bun scripts/migrate-sheets-to-postgres.ts",
+        "test-db": "bun scripts/test-postgres-connection.ts"
     },
     "dependencies": {
         "@dnd-kit/core": "latest",
