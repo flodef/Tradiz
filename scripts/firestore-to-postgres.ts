@@ -100,7 +100,10 @@ async function interactiveMode(): Promise<{
         // Fetching from Firestore: ask about export AND import
         const shouldExport = await promptYesNo('Export to JSON file?', true);
         if (shouldExport) {
-            exportPath = await prompt('Export file path', `firestore-export-${Date.now()}.json`);
+            const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            const defaultFilename = `firestore-${value}-${timestamp}.json`;
+            const defaultPath = `/home/flo/Downloads/${defaultFilename}`;
+            exportPath = await prompt('Export file path', defaultPath);
         }
 
         shouldImport = await promptYesNo('Import to database?', true);
@@ -129,7 +132,16 @@ if (!hasArgs) {
 } else {
     const parsed = parseArgs(process.argv);
     const exportIdx = process.argv.indexOf('--export');
-    const exportPath = exportIdx !== -1 && process.argv[exportIdx + 1] ? process.argv[exportIdx + 1] : undefined;
+    let exportPath = exportIdx !== -1 && process.argv[exportIdx + 1] ? process.argv[exportIdx + 1] : undefined;
+
+    // If --export is specified without a path, generate default path
+    if (process.argv.includes('--export') && (!exportPath || exportPath.startsWith('--'))) {
+        const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const shopName = parsed.mode === 'shop' ? parsed.value : 'data';
+        const defaultFilename = `firestore-${shopName}-${timestamp}.json`;
+        exportPath = `/home/flo/Downloads/${defaultFilename}`;
+    }
+
     // In CLI mode: if --export is the only flag, don't import. Otherwise, import by default
     const shouldImport = !exportPath || process.argv.includes('--overwrite') || process.argv.includes('--dry-run');
     cli = { ...parsed, exportPath, shouldImport };

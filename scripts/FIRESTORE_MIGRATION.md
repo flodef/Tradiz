@@ -23,7 +23,7 @@ bun run migrate-firestore
 
 1. **Shop name**
 2. **Export to JSON file?** (default: Yes) - Creates a backup
-3. **Export file path** (default: `firestore-export-{timestamp}.json`)
+3. **Export file path** (default: `/home/flo/Downloads/firestore-{shopname}-{date}.json`)
 4. **Import to database?** (default: Yes) - Import after export
 5. **Dry run?** (if importing) - Preview without changes
 6. **Overwrite existing?** (if importing) - Replace duplicates
@@ -44,8 +44,11 @@ bun run migrate-firestore
 # Export from Firestore to JSON (no database import)
 bun run migrate-firestore --shop myshop --export backup.json
 
+# Export with auto-generated filename (saves to ~/Downloads/firestore-myshop-YYYY-MM-DD.json)
+bun run migrate-firestore --shop myshop --export
+
 # Or use the alias
-bun run export-firestore --shop myshop --export backup.json
+bun run export-firestore --shop myshop --export
 ```
 
 #### Import Only
