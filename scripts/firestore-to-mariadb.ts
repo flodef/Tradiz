@@ -5,8 +5,16 @@
  * Data can be fetched directly from Firestore or read from a JSON dump file.
  *
  * Usage:
- *   bun run scripts/firestore-to-mariadb.ts --shop <shopname> [--dry-run]
+ *   bun run scripts/firestore-to-mariadb.ts                    (interactive mode)
+ *   bun run scripts/firestore-to-mariadb.ts --shop <shopname> [--dry-run] [--export <file.json>]
  *   bun run scripts/firestore-to-mariadb.ts --file <path.json> [--dry-run]
+ *
+ * Options:
+ *   --shop <name>       Fetch from Firestore for this shop
+ *   --file <path>       Read from JSON file instead of Firestore
+ *   --export <path>     Export to JSON file (don't import to DB)
+ *   --dry-run           Preview without making changes
+ *   --overwrite         Overwrite existing transactions
  *
  * Environment variables (or .env):
  *   DB_HOST     – MariaDB host        (default: localhost)
@@ -25,10 +33,167 @@ import * as mysql from 'mysql2/promise';
 import { fetchFromFirestore, loadFromFile } from './import/firestore';
 import { parseArgs, PAYMENT_METHOD_MAP, SKIP_METHODS, msToDatetime } from './import/types';
 import type { TransactionSet } from './import/types';
+import * as fs from 'fs';
+import * as readline from 'readline';
+import * as path from 'path';
+
+// ── Configuration ────────────────────────────────────────────────────────────
+
+const BATCH_SIZE = 50; // Process transactions in batches
+const MAX_RETRIES = 3; // Retry failed transactions
+const CHECKPOINT_FILE = '/home/flo/Downloads/.firestore-mariadb-checkpoint.json';
+
+// ── Interactive prompts ──────────────────────────────────────────────────────
+
+async function prompt(question: string, defaultValue?: string): Promise<string> {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+    });
+
+    return new Promise((resolve) => {
+        const displayQuestion = defaultValue ? `${question} (default: ${defaultValue}): ` : `${question}: `;
+        rl.question(displayQuestion, (answer) => {
+            rl.close();
+            resolve(answer.trim() || defaultValue || '');
+        });
+    });
+}
+
+async function promptYesNo(question: string, defaultYes: boolean): Promise<boolean> {
+    const defaultHint = defaultYes ? 'Y/n' : 'y/N';
+    const answer = await prompt(`${question} (default: ${defaultHint})`);
+    if (!answer) return defaultYes;
+    return answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes';
+}
+
+async function interactiveMode(): Promise<{
+    mode: 'shop' | 'file';
+    value: string;
+    exportPath?: string;
+    shouldImport: boolean;
+    dryRun: boolean;
+    overwrite: boolean;
+}> {
+    console.log('\n🔄 Firestore → MariaDB Migration Tool\n');
+
+    const useShop = await promptYesNo('Fetch from Firestore (vs. read from file)?', true);
+    const mode = useShop ? 'shop' : 'file';
+
+    let value: string;
+    if (mode === 'shop') {
+        value = await prompt('Shop name');
+        if (!value) {
+            console.error('❌ Shop name is required');
+            process.exit(1);
+        }
+    } else {
+        // List available JSON files in Downloads folder
+        const downloadsPath = '/home/flo/Downloads';
+        let files: string[] = [];
+
+        try {
+            files = fs
+                .readdirSync(downloadsPath)
+                .filter((f) => f.endsWith('.json') && f.startsWith('firestore-'))
+                .sort()
+                .reverse(); // Most recent first
+
+            if (files.length > 0) {
+                console.log('\n📂 Available JSON files in Downloads:');
+                files.slice(0, 10).forEach((f, i) => {
+                    console.log(`   ${i + 1}. ${f}`);
+                });
+                if (files.length > 10) console.log(`   ... and ${files.length - 10} more`);
+                console.log('');
+            }
+        } catch {
+            // Ignore if can't read directory
+        }
+
+        // Loop until valid file is provided
+        while (true) {
+            const input = await prompt('JSON file path (or number from list)', '/home/flo/Downloads/');
+            if (!input) {
+                console.error('❌ File path is required');
+                process.exit(1);
+            }
+
+            // Check if input is a number (file selection)
+            const fileNum = parseInt(input, 10);
+            if (!isNaN(fileNum) && fileNum >= 1 && fileNum <= files.length) {
+                value = path.join(downloadsPath, files[fileNum - 1]);
+                break;
+            }
+
+            // If user just entered a filename, prepend Downloads path
+            value = input.includes('/') ? input : path.join(downloadsPath, input);
+
+            // Check if file exists
+            if (fs.existsSync(value)) {
+                break;
+            }
+
+            console.error(`❌ File not found: ${value}`);
+            console.log('Please try again or use a number from the list above.\n');
+        }
+    }
+
+    let exportPath: string | undefined;
+    let shouldImport = true;
+    let dryRun = false;
+    let overwrite = false;
+
+    if (mode === 'shop') {
+        // Fetching from Firestore: ask about export AND import
+        const shouldExport = await promptYesNo('Export to JSON file?', true);
+        if (shouldExport) {
+            const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            const defaultFilename = `firestore-${value}-${timestamp}.json`;
+            const defaultPath = `/home/flo/Downloads/${defaultFilename}`;
+            exportPath = await prompt('Export file path', defaultPath);
+        }
+
+        shouldImport = await promptYesNo('Import to database?', true);
+        if (shouldImport) {
+            dryRun = await promptYesNo('Dry run (preview only)?', false);
+            overwrite = await promptYesNo('Overwrite existing transactions?', false);
+        }
+    } else {
+        // Reading from file: only ask about import (no export needed)
+        console.log('\n📁 Reading from file - will import to database\n');
+        dryRun = await promptYesNo('Dry run (preview only)?', false);
+        overwrite = await promptYesNo('Overwrite existing transactions?', false);
+    }
+
+    return { mode, value, exportPath, shouldImport, dryRun, overwrite };
+}
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
 
-const cli = parseArgs(process.argv);
+let cli: Awaited<ReturnType<typeof interactiveMode>>;
+
+// Check if running in interactive mode (no arguments)
+const hasArgs = process.argv.slice(2).some((arg) => arg.startsWith('--') || !arg.startsWith('-'));
+if (!hasArgs) {
+    cli = await interactiveMode();
+} else {
+    const parsed = parseArgs(process.argv);
+    const exportIdx = process.argv.indexOf('--export');
+    let exportPath = exportIdx !== -1 && process.argv[exportIdx + 1] ? process.argv[exportIdx + 1] : undefined;
+
+    // If --export is specified without a path, generate default path
+    if (process.argv.includes('--export') && (!exportPath || exportPath.startsWith('--'))) {
+        const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const shopName = parsed.mode === 'shop' ? parsed.value : 'data';
+        const defaultFilename = `firestore-${shopName}-${timestamp}.json`;
+        exportPath = `/home/flo/Downloads/${defaultFilename}`;
+    }
+
+    // In CLI mode: if --export is the only flag, don't import. Otherwise, import by default
+    const shouldImport = !exportPath || process.argv.includes('--overwrite') || process.argv.includes('--dry-run');
+    cli = { ...parsed, exportPath, shouldImport };
+}
 
 // ── DB connection ────────────────────────────────────────────────────────────
 
@@ -88,6 +253,45 @@ async function getDefaultUserId(conn: mysql.PoolConnection): Promise<number> {
     return result.insertId;
 }
 
+// ── Checkpoint management ────────────────────────────────────────────────────
+
+interface Checkpoint {
+    lastProcessedIndex: number;
+    imported: number;
+    errors: number;
+    timestamp: string;
+}
+
+function loadCheckpoint(): Checkpoint | null {
+    try {
+        if (fs.existsSync(CHECKPOINT_FILE)) {
+            const data = fs.readFileSync(CHECKPOINT_FILE, 'utf-8');
+            return JSON.parse(data);
+        }
+    } catch {
+        // Ignore errors
+    }
+    return null;
+}
+
+function saveCheckpoint(checkpoint: Checkpoint): void {
+    try {
+        fs.writeFileSync(CHECKPOINT_FILE, JSON.stringify(checkpoint, null, 2), 'utf-8');
+    } catch {
+        // Ignore errors
+    }
+}
+
+function clearCheckpoint(): void {
+    try {
+        if (fs.existsSync(CHECKPOINT_FILE)) {
+            fs.unlinkSync(CHECKPOINT_FILE);
+        }
+    } catch {
+        // Ignore errors
+    }
+}
+
 // ── Main import ──────────────────────────────────────────────────────────────
 
 async function main() {
@@ -105,6 +309,19 @@ async function main() {
         }
     }
     console.log(`Found ${entries.length} days, ${totalTx} transactions to import (${skippedTx} deleted skipped)`);
+
+    // Export to JSON file if requested
+    if (cli.exportPath) {
+        console.log(`\n📝 Exporting to ${cli.exportPath}...`);
+        fs.writeFileSync(cli.exportPath, JSON.stringify(entries, null, 2), 'utf-8');
+        console.log(`✅ Exported ${entries.length} days (${totalTx} transactions) to ${cli.exportPath}`);
+    }
+
+    // If not importing to database, we're done
+    if (!cli.shouldImport) {
+        console.log('\n✨ Export completed. Skipping database import.');
+        return;
+    }
 
     if (cli.dryRun) {
         console.log('\n[DRY RUN] No database changes will be made.\n');
@@ -129,48 +346,91 @@ async function main() {
         const defaultUserId = await getDefaultUserId(conn);
         console.log(`Default user ID: ${defaultUserId}`);
 
+        // Flatten all transactions into a single array with metadata
+        interface TxWithMeta {
+            tx: TransactionSet['transactions'][0];
+            panierId: string;
+            index: number;
+        }
+        const allTransactions: TxWithMeta[] = [];
+        let txIndex = 0;
+        for (const entry of entries) {
+            for (const tx of entry.transactions) {
+                if (!SKIP_METHODS.has(tx.method)) {
+                    allTransactions.push({ tx, panierId: entry.id, index: txIndex++ });
+                }
+            }
+        }
+
+        // Check for existing checkpoint
+        const checkpoint = loadCheckpoint();
+        let startIndex = 0;
         let imported = 0;
         let errors = 0;
-        let processed = 0;
+
+        if (checkpoint && checkpoint.lastProcessedIndex >= 0) {
+            const resume = await promptYesNo(
+                `\n🔄 Found checkpoint from ${checkpoint.timestamp}. Resume from transaction ${checkpoint.lastProcessedIndex + 1}/${totalTx}?`,
+                true
+            );
+            if (resume) {
+                startIndex = checkpoint.lastProcessedIndex + 1;
+                imported = checkpoint.imported;
+                errors = checkpoint.errors;
+                console.log(`✅ Resuming from transaction ${startIndex + 1}...`);
+            } else {
+                clearCheckpoint();
+            }
+        }
 
         console.log('\n📊 Importing transactions...\n');
 
-        for (const entry of entries) {
-            const panierId = entry.id;
+        // Process in batches with retry logic
+        for (let i = startIndex; i < allTransactions.length; i++) {
+            const { tx, panierId, index } = allTransactions[i];
 
-            for (const tx of entry.transactions) {
-                if (SKIP_METHODS.has(tx.method)) continue;
+            // Update progress counter (overwrite same line)
+            process.stdout.write(
+                `\r⏳ Progress: ${index + 1}/${totalTx} | ✅ Imported: ${imported} | ❌ Errors: ${errors}`
+            );
 
-                processed++;
+            // Save checkpoint every BATCH_SIZE transactions
+            if (i > 0 && i % BATCH_SIZE === 0) {
+                saveCheckpoint({
+                    lastProcessedIndex: i - 1,
+                    imported,
+                    errors,
+                    timestamp: new Date().toISOString(),
+                });
+            }
 
-                // Update progress counter (overwrite same line)
-                process.stdout.write(
-                    `\r⏳ Progress: ${processed}/${totalTx} | ✅ Imported: ${imported} | ❌ Errors: ${errors}`
-                );
+            const methodLabel = PAYMENT_METHOD_MAP[tx.method] ?? tx.method;
+            const paymentMethodId = paymentMethodMap.get(methodLabel);
 
-                const methodLabel = PAYMENT_METHOD_MAP[tx.method] ?? tx.method;
-                const paymentMethodId = paymentMethodMap.get(methodLabel);
+            if (!paymentMethodId) {
+                process.stdout.write('\r' + ' '.repeat(100) + '\r');
+                console.warn(`  ⚠ Unknown payment method "${tx.method}", skipping transaction`);
+                errors++;
+                continue;
+            }
 
-                if (!paymentMethodId) {
-                    console.warn(`  ⚠ Unknown payment method "${tx.method}", skipping transaction`);
-                    errors++;
-                    continue;
+            const createdAt = msToDatetime(tx.createdDate);
+            const updatedAt = msToDatetime(tx.modifiedDate);
+
+            // Parse user ID safely - use default if invalid
+            let userId = defaultUserId;
+            if (tx.validator) {
+                const parsed = parseInt(tx.validator, 10);
+                if (!isNaN(parsed)) {
+                    userId = parsed;
                 }
+            }
 
-                const createdAt = msToDatetime(tx.createdDate);
-                const updatedAt = msToDatetime(tx.modifiedDate);
+            const note = tx.note || null;
 
-                // Parse user ID safely - use default if invalid
-                let userId = defaultUserId;
-                if (tx.validator) {
-                    const parsed = parseInt(tx.validator, 10);
-                    if (!isNaN(parsed)) {
-                        userId = parsed;
-                    }
-                }
-
-                const note = tx.note || null;
-
+            // Retry logic
+            let success = false;
+            for (let attempt = 1; attempt <= MAX_RETRIES && !success; attempt++) {
                 try {
                     await conn.beginTransaction();
 
@@ -185,7 +445,8 @@ async function main() {
                     if (existing.length > 0) {
                         if (!cli.overwrite) {
                             await conn.rollback();
-                            continue; // Skip duplicate
+                            success = true; // Skip duplicate, don't retry
+                            break;
                         }
                         // Overwrite mode: delete existing transaction and its articles
                         facturationId = existing[0].id as number;
@@ -223,10 +484,21 @@ async function main() {
 
                     await conn.commit();
                     imported++;
+                    success = true;
                 } catch (err) {
                     await conn.rollback();
-                    console.error(`  ✗ Error importing transaction from ${panierId} at ${createdAt}:`, err);
-                    errors++;
+                    if (attempt < MAX_RETRIES) {
+                        // Wait before retry (exponential backoff)
+                        await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+                    } else {
+                        // Final attempt failed
+                        process.stdout.write('\r' + ' '.repeat(100) + '\r');
+                        console.error(
+                            `  ✗ Error importing transaction from ${panierId} at ${createdAt} (${MAX_RETRIES} attempts):`,
+                            err
+                        );
+                        errors++;
+                    }
                 }
             }
         }
@@ -234,6 +506,9 @@ async function main() {
         // Clear progress line and show final summary
         process.stdout.write('\r' + ' '.repeat(100) + '\r'); // Clear the line
         console.log(`\n✨ Done! Imported ${imported} transactions (${errors} errors).`);
+
+        // Clear checkpoint on successful completion
+        clearCheckpoint();
     } finally {
         conn.release();
         await pool.end();

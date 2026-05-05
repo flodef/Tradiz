@@ -35,8 +35,15 @@ import { parseArgs, PAYMENT_METHOD_MAP, SKIP_METHODS, msToDatetime } from './imp
 import type { TransactionSet } from './import/types';
 import * as fs from 'fs';
 import * as readline from 'readline';
+import * as path from 'path';
 
 type PgPool = InstanceType<typeof Pool>;
+
+// ── Configuration ────────────────────────────────────────────────────────────
+
+const BATCH_SIZE = 50; // Process transactions in batches
+const MAX_RETRIES = 3; // Retry failed transactions
+const CHECKPOINT_FILE = '/home/flo/Downloads/.firestore-import-checkpoint.json';
 
 // ── Interactive prompts ──────────────────────────────────────────────────────
 
@@ -86,8 +93,10 @@ async function interactiveMode(): Promise<{
     } else {
         // List available JSON files in Downloads folder
         const downloadsPath = '/home/flo/Downloads';
+        let files: string[] = [];
+
         try {
-            const files = fs
+            files = fs
                 .readdirSync(downloadsPath)
                 .filter((f) => f.endsWith('.json') && f.startsWith('firestore-'))
                 .sort()
@@ -105,15 +114,31 @@ async function interactiveMode(): Promise<{
             // Ignore if can't read directory
         }
 
-        value = await prompt('JSON file path', '/home/flo/Downloads/');
-        if (!value) {
-            console.error('❌ File path is required');
-            process.exit(1);
-        }
+        // Loop until valid file is provided
+        while (true) {
+            const input = await prompt('JSON file path (or number from list)', '/home/flo/Downloads/');
+            if (!input) {
+                console.error('❌ File path is required');
+                process.exit(1);
+            }
 
-        // If user just entered a filename, prepend Downloads path
-        if (!value.includes('/')) {
-            value = `/home/flo/Downloads/${value}`;
+            // Check if input is a number (file selection)
+            const fileNum = parseInt(input, 10);
+            if (!isNaN(fileNum) && fileNum >= 1 && fileNum <= files.length) {
+                value = path.join(downloadsPath, files[fileNum - 1]);
+                break;
+            }
+
+            // If user just entered a filename, prepend Downloads path
+            value = input.includes('/') ? input : path.join(downloadsPath, input);
+
+            // Check if file exists
+            if (fs.existsSync(value)) {
+                break;
+            }
+
+            console.error(`❌ File not found: ${value}`);
+            console.log('Please try again or use a number from the list above.\n');
         }
     }
 
@@ -231,6 +256,45 @@ async function getDefaultUserId(client: PoolClient): Promise<number> {
     return insertResult.rows[0].id;
 }
 
+// ── Checkpoint management ────────────────────────────────────────────────────
+
+interface Checkpoint {
+    lastProcessedIndex: number;
+    imported: number;
+    errors: number;
+    timestamp: string;
+}
+
+function loadCheckpoint(): Checkpoint | null {
+    try {
+        if (fs.existsSync(CHECKPOINT_FILE)) {
+            const data = fs.readFileSync(CHECKPOINT_FILE, 'utf-8');
+            return JSON.parse(data);
+        }
+    } catch {
+        // Ignore errors
+    }
+    return null;
+}
+
+function saveCheckpoint(checkpoint: Checkpoint): void {
+    try {
+        fs.writeFileSync(CHECKPOINT_FILE, JSON.stringify(checkpoint, null, 2), 'utf-8');
+    } catch {
+        // Ignore errors
+    }
+}
+
+function clearCheckpoint(): void {
+    try {
+        if (fs.existsSync(CHECKPOINT_FILE)) {
+            fs.unlinkSync(CHECKPOINT_FILE);
+        }
+    } catch {
+        // Ignore errors
+    }
+}
+
 // ── Main import ──────────────────────────────────────────────────────────────
 
 async function main() {
@@ -285,48 +349,91 @@ async function main() {
         const defaultUserId = await getDefaultUserId(client);
         console.log(`Default user ID: ${defaultUserId}`);
 
+        // Flatten all transactions into a single array with metadata
+        interface TxWithMeta {
+            tx: TransactionSet['transactions'][0];
+            panierId: string;
+            index: number;
+        }
+        const allTransactions: TxWithMeta[] = [];
+        let txIndex = 0;
+        for (const entry of entries) {
+            for (const tx of entry.transactions) {
+                if (!SKIP_METHODS.has(tx.method)) {
+                    allTransactions.push({ tx, panierId: entry.id, index: txIndex++ });
+                }
+            }
+        }
+
+        // Check for existing checkpoint
+        const checkpoint = loadCheckpoint();
+        let startIndex = 0;
         let imported = 0;
         let errors = 0;
-        let processed = 0;
+
+        if (checkpoint && checkpoint.lastProcessedIndex >= 0) {
+            const resume = await promptYesNo(
+                `\n🔄 Found checkpoint from ${checkpoint.timestamp}. Resume from transaction ${checkpoint.lastProcessedIndex + 1}/${totalTx}?`,
+                true
+            );
+            if (resume) {
+                startIndex = checkpoint.lastProcessedIndex + 1;
+                imported = checkpoint.imported;
+                errors = checkpoint.errors;
+                console.log(`✅ Resuming from transaction ${startIndex + 1}...`);
+            } else {
+                clearCheckpoint();
+            }
+        }
 
         console.log('\n📊 Importing transactions...\n');
 
-        for (const entry of entries) {
-            const panierId = entry.id;
+        // Process in batches with retry logic
+        for (let i = startIndex; i < allTransactions.length; i++) {
+            const { tx, panierId, index } = allTransactions[i];
 
-            for (const tx of entry.transactions) {
-                if (SKIP_METHODS.has(tx.method)) continue;
+            // Update progress counter (overwrite same line)
+            process.stdout.write(
+                `\r⏳ Progress: ${index + 1}/${totalTx} | ✅ Imported: ${imported} | ❌ Errors: ${errors}`
+            );
 
-                processed++;
+            // Save checkpoint every BATCH_SIZE transactions
+            if (i > 0 && i % BATCH_SIZE === 0) {
+                saveCheckpoint({
+                    lastProcessedIndex: i - 1,
+                    imported,
+                    errors,
+                    timestamp: new Date().toISOString(),
+                });
+            }
 
-                // Update progress counter (overwrite same line)
-                process.stdout.write(
-                    `\r⏳ Progress: ${processed}/${totalTx} | ✅ Imported: ${imported} | ❌ Errors: ${errors}`
-                );
+            const methodLabel = PAYMENT_METHOD_MAP[tx.method] ?? tx.method;
+            const paymentMethodId = paymentMethodMap.get(methodLabel);
 
-                const methodLabel = PAYMENT_METHOD_MAP[tx.method] ?? tx.method;
-                const paymentMethodId = paymentMethodMap.get(methodLabel);
+            if (!paymentMethodId) {
+                process.stdout.write('\r' + ' '.repeat(100) + '\r');
+                console.warn(`  ⚠ Unknown payment method "${tx.method}", skipping transaction`);
+                errors++;
+                continue;
+            }
 
-                if (!paymentMethodId) {
-                    console.warn(`  ⚠ Unknown payment method "${tx.method}", skipping transaction`);
-                    errors++;
-                    continue;
+            const createdAt = msToDatetime(tx.createdDate);
+            const updatedAt = msToDatetime(tx.modifiedDate);
+
+            // Parse user ID safely - use default if invalid
+            let userId = defaultUserId;
+            if (tx.validator) {
+                const parsed = parseInt(tx.validator, 10);
+                if (!isNaN(parsed)) {
+                    userId = parsed;
                 }
+            }
 
-                const createdAt = msToDatetime(tx.createdDate);
-                const updatedAt = msToDatetime(tx.modifiedDate);
+            const note = tx.note || null;
 
-                // Parse user ID safely - use default if invalid
-                let userId = defaultUserId;
-                if (tx.validator) {
-                    const parsed = parseInt(tx.validator, 10);
-                    if (!isNaN(parsed)) {
-                        userId = parsed;
-                    }
-                }
-
-                const note = tx.note || null;
-
+            // Retry logic
+            let success = false;
+            for (let attempt = 1; attempt <= MAX_RETRIES && !success; attempt++) {
                 try {
                     await client.query('BEGIN');
 
@@ -341,7 +448,8 @@ async function main() {
                     if (existingResult.rows.length > 0) {
                         if (!cli.overwrite) {
                             await client.query('ROLLBACK');
-                            continue; // Skip duplicate
+                            success = true; // Skip duplicate, don't retry
+                            break;
                         }
                         // Overwrite mode: delete existing transaction and its articles
                         facturationId = existingResult.rows[0].id;
@@ -381,10 +489,21 @@ async function main() {
 
                     await client.query('COMMIT');
                     imported++;
+                    success = true;
                 } catch (err) {
                     await client.query('ROLLBACK');
-                    console.error(`  ✗ Error importing transaction from ${panierId} at ${createdAt}:`, err);
-                    errors++;
+                    if (attempt < MAX_RETRIES) {
+                        // Wait before retry (exponential backoff)
+                        await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+                    } else {
+                        // Final attempt failed
+                        process.stdout.write('\r' + ' '.repeat(100) + '\r');
+                        console.error(
+                            `  ✗ Error importing transaction from ${panierId} at ${createdAt} (${MAX_RETRIES} attempts):`,
+                            err
+                        );
+                        errors++;
+                    }
                 }
             }
         }
@@ -392,6 +511,9 @@ async function main() {
         // Clear progress line and show final summary
         process.stdout.write('\r' + ' '.repeat(100) + '\r'); // Clear the line
         console.log(`\n✨ Done! Imported ${imported} transactions (${errors} errors).`);
+
+        // Clear checkpoint on successful completion
+        clearCheckpoint();
     } finally {
         client.release();
         await pool.end();
