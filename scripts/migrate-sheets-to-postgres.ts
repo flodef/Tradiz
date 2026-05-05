@@ -636,34 +636,52 @@ async function migrateUsers() {
     console.log('👥 Migrating users...');
 
     const data = await fetchSheetData(SHEETS.USERS);
-    if (data.error || !data.values?.length) {
-        console.log('ℹ️  No users data found (optional)');
-        return;
-    }
-
     const client = new Client({ ...pgConfig, database: 'dc_pos' });
     await client.connect();
 
     // Clear existing data
     await client.query('DELETE FROM users');
 
-    // Skip header row
-    const rows = data.values.slice(1);
     let count = 0;
 
-    for (const row of rows) {
-        if (row.length >= 3) {
-            const key = String(row[0]).trim();
-            const name = String(row[1]).trim();
-            const role = String(row[2]).trim();
+    if (data.error || !data.values?.length) {
+        console.log('ℹ️  No users data found in spreadsheet - creating default user');
+        // Create a default admin user
+        await client.query('INSERT INTO users (key, name, role) VALUES ($1, $2, $3)', [
+            'admin',
+            'Administrator',
+            'Admin',
+        ]);
+        count = 1;
+    } else {
+        // Skip header row
+        const rows = data.values.slice(1);
 
-            await client.query('INSERT INTO users (key, name, role) VALUES ($1, $2, $3)', [key, name, role]);
-            count++;
+        for (const row of rows) {
+            if (row.length >= 3) {
+                const key = String(row[0]).trim();
+                const name = String(row[1]).trim();
+                const role = String(row[2]).trim();
+
+                await client.query('INSERT INTO users (key, name, role) VALUES ($1, $2, $3)', [key, name, role]);
+                count++;
+            }
         }
     }
 
+    // Ensure at least one user exists
+    if (count === 0) {
+        console.log('⚠️  No valid users found - creating default user');
+        await client.query('INSERT INTO users (key, name, role) VALUES ($1, $2, $3)', [
+            'admin',
+            'Administrator',
+            'Admin',
+        ]);
+        count = 1;
+    }
+
     await client.end();
-    console.log(`✅ Migrated ${count} users`);
+    console.log(`✅ Migrated ${count} user${count > 1 ? 's' : ''}`);
 }
 
 /**

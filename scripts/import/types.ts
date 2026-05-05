@@ -41,9 +41,19 @@ export interface TransactionSet {
 // ── Payment method mapping ───────────────────────────────────────────────────
 
 export const PAYMENT_METHOD_MAP: Record<string, string> = {
+    // Standard payment methods
     Espèce: 'Espèce',
     'Carte Bancaire': 'Carte Bancaire',
     Chèque: 'Chèque',
+    Crypto: 'Crypto',
+
+    // Special transaction states (from constants.ts)
+    'EN ATTENTE': 'EN ATTENTE', // WAITING_KEYWORD
+    REMBOURSEMENT: 'REMBOURSEMENT', // REFUND_KEYWORD
+    'EN MODIF': 'EN MODIF', // UPDATING_KEYWORD
+    'EN COURS': 'EN COURS', // PROCESSING_KEYWORD
+    EFFACÉE: 'EFFACÉE', // DELETED_KEYWORD (but skipped)
+    RETOUR: 'RETOUR', // BACK_KEYWORD
 };
 
 export const SKIP_METHODS = new Set(['EFFACÉE']);

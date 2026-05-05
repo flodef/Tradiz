@@ -84,10 +84,36 @@ async function interactiveMode(): Promise<{
             process.exit(1);
         }
     } else {
-        value = await prompt('JSON file path');
+        // List available JSON files in Downloads folder
+        const downloadsPath = '/home/flo/Downloads';
+        try {
+            const files = fs
+                .readdirSync(downloadsPath)
+                .filter((f) => f.endsWith('.json') && f.startsWith('firestore-'))
+                .sort()
+                .reverse(); // Most recent first
+
+            if (files.length > 0) {
+                console.log('\n📂 Available JSON files in Downloads:');
+                files.slice(0, 10).forEach((f, i) => {
+                    console.log(`   ${i + 1}. ${f}`);
+                });
+                if (files.length > 10) console.log(`   ... and ${files.length - 10} more`);
+                console.log('');
+            }
+        } catch {
+            // Ignore if can't read directory
+        }
+
+        value = await prompt('JSON file path', '/home/flo/Downloads/');
         if (!value) {
             console.error('❌ File path is required');
             process.exit(1);
+        }
+
+        // If user just entered a filename, prepend Downloads path
+        if (!value.includes('/')) {
+            value = `/home/flo/Downloads/${value}`;
         }
     }
 
@@ -156,6 +182,7 @@ function createPool(): PgPool {
         user: process.env.PG_USER || 'postgres',
         password: process.env.PG_PASSWORD || '',
         database: process.env.PG_DATABASE || 'dc_pos',
+        ssl: { rejectUnauthorized: false }, // Required for Neon
         max: 5,
     });
 }
@@ -186,9 +213,22 @@ async function ensurePaymentMethods(client: PoolClient): Promise<Map<string, num
 
 // ── Get default user ─────────────────────────────────────────────────────────
 
-async function getDefaultUserId(client: PoolClient): Promise<number | null> {
+async function getDefaultUserId(client: PoolClient): Promise<number> {
     const result = await client.query<{ id: number }>('SELECT id FROM users ORDER BY id ASC LIMIT 1');
-    return result.rows.length > 0 ? result.rows[0].id : null;
+
+    if (result.rows.length > 0) {
+        return result.rows[0].id;
+    }
+
+    // No users found - create a default admin user
+    console.log('  ℹ️  No users found - creating default admin user');
+    const insertResult = await client.query<{ id: number }>(
+        'INSERT INTO users (key, name, role) VALUES ($1, $2, $3) RETURNING id',
+        ['admin', 'Administrator', 'Admin']
+    );
+
+    console.log(`  ✅ Created default user with ID: ${insertResult.rows[0].id}`);
+    return insertResult.rows[0].id;
 }
 
 // ── Main import ──────────────────────────────────────────────────────────────
@@ -243,20 +283,26 @@ async function main() {
 
         console.log('Getting default user...');
         const defaultUserId = await getDefaultUserId(client);
-        if (!defaultUserId) {
-            console.error('No users found in database. Please create at least one user first.');
-            return;
-        }
         console.log(`Default user ID: ${defaultUserId}`);
 
         let imported = 0;
         let errors = 0;
+        let processed = 0;
+
+        console.log('\n📊 Importing transactions...\n');
 
         for (const entry of entries) {
             const panierId = entry.id;
 
             for (const tx of entry.transactions) {
                 if (SKIP_METHODS.has(tx.method)) continue;
+
+                processed++;
+
+                // Update progress counter (overwrite same line)
+                process.stdout.write(
+                    `\r⏳ Progress: ${processed}/${totalTx} | ✅ Imported: ${imported} | ❌ Errors: ${errors}`
+                );
 
                 const methodLabel = PAYMENT_METHOD_MAP[tx.method] ?? tx.method;
                 const paymentMethodId = paymentMethodMap.get(methodLabel);
@@ -269,7 +315,16 @@ async function main() {
 
                 const createdAt = msToDatetime(tx.createdDate);
                 const updatedAt = msToDatetime(tx.modifiedDate);
-                const userId = tx.validator ? parseInt(tx.validator) : defaultUserId;
+
+                // Parse user ID safely - use default if invalid
+                let userId = defaultUserId;
+                if (tx.validator) {
+                    const parsed = parseInt(tx.validator, 10);
+                    if (!isNaN(parsed)) {
+                        userId = parsed;
+                    }
+                }
+
                 const note = tx.note || null;
 
                 try {
@@ -334,7 +389,9 @@ async function main() {
             }
         }
 
-        console.log(`\nDone! Imported ${imported} transactions (${errors} errors).`);
+        // Clear progress line and show final summary
+        process.stdout.write('\r' + ' '.repeat(100) + '\r'); // Clear the line
+        console.log(`\n✨ Done! Imported ${imported} transactions (${errors} errors).`);
     } finally {
         client.release();
         await pool.end();

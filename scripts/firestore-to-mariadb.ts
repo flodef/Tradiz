@@ -70,9 +70,22 @@ async function ensurePaymentMethods(conn: mysql.PoolConnection): Promise<Map<str
 
 // ── Get default user ─────────────────────────────────────────────────────────
 
-async function getDefaultUserId(conn: mysql.PoolConnection): Promise<number | null> {
+async function getDefaultUserId(conn: mysql.PoolConnection): Promise<number> {
     const [rows] = await conn.query<mysql.RowDataPacket[]>('SELECT id FROM users ORDER BY id ASC LIMIT 1');
-    return rows.length > 0 ? (rows[0].id as number) : null;
+
+    if (rows.length > 0) {
+        return rows[0].id as number;
+    }
+
+    // No users found - create a default admin user
+    console.log('  ℹ️  No users found - creating default admin user');
+    const [result] = await conn.execute<mysql.ResultSetHeader>(
+        'INSERT INTO users (`key`, name, role) VALUES (?, ?, ?)',
+        ['admin', 'Administrator', 'Admin']
+    );
+
+    console.log(`  ✅ Created default user with ID: ${result.insertId}`);
+    return result.insertId;
 }
 
 // ── Main import ──────────────────────────────────────────────────────────────
@@ -114,20 +127,26 @@ async function main() {
 
         console.log('Getting default user...');
         const defaultUserId = await getDefaultUserId(conn);
-        if (!defaultUserId) {
-            console.error('No users found in database. Please create at least one user first.');
-            return;
-        }
         console.log(`Default user ID: ${defaultUserId}`);
 
         let imported = 0;
         let errors = 0;
+        let processed = 0;
+
+        console.log('\n📊 Importing transactions...\n');
 
         for (const entry of entries) {
             const panierId = entry.id;
 
             for (const tx of entry.transactions) {
                 if (SKIP_METHODS.has(tx.method)) continue;
+
+                processed++;
+
+                // Update progress counter (overwrite same line)
+                process.stdout.write(
+                    `\r⏳ Progress: ${processed}/${totalTx} | ✅ Imported: ${imported} | ❌ Errors: ${errors}`
+                );
 
                 const methodLabel = PAYMENT_METHOD_MAP[tx.method] ?? tx.method;
                 const paymentMethodId = paymentMethodMap.get(methodLabel);
@@ -140,7 +159,16 @@ async function main() {
 
                 const createdAt = msToDatetime(tx.createdDate);
                 const updatedAt = msToDatetime(tx.modifiedDate);
-                const userId = tx.validator ? parseInt(tx.validator) : defaultUserId;
+
+                // Parse user ID safely - use default if invalid
+                let userId = defaultUserId;
+                if (tx.validator) {
+                    const parsed = parseInt(tx.validator, 10);
+                    if (!isNaN(parsed)) {
+                        userId = parsed;
+                    }
+                }
+
                 const note = tx.note || null;
 
                 try {
@@ -203,7 +231,9 @@ async function main() {
             }
         }
 
-        console.log(`\nDone! Imported ${imported} transactions (${errors} errors).`);
+        // Clear progress line and show final summary
+        process.stdout.write('\r' + ' '.repeat(100) + '\r'); // Clear the line
+        console.log(`\n✨ Done! Imported ${imported} transactions (${errors} errors).`);
     } finally {
         conn.release();
         await pool.end();

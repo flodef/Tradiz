@@ -176,19 +176,12 @@ bun run migrate-firestore --shop myshop --overwrite
 
 1. **Duplicate Detection**: Transactions are identified by `created_at` timestamp
 2. **Payment Methods**: Unknown payment methods are automatically created
-3. **Default User**: First user in the database is used if validator is missing
-4. **Skipped Methods**: Transactions with method "EFFACÉE" are skipped
-5. **Currency**: Currently set to `null` (FK to currency table)
+3. **Default User**: If no users exist, a default admin user is created automatically
+4. **User Assignment**: First user in the database is used if validator is missing
+5. **Skipped Methods**: Transactions with method "EFFACÉE" are skipped
+6. **Currency**: Currently set to `null` (FK to currency table)
 
 ## 🐛 Troubleshooting
-
-### "No users found in database"
-
-Create at least one user first:
-
-```sql
-INSERT INTO users (key, name, role) VALUES ('admin', 'Admin', 'Admin');
-```
 
 ### "Payment method not found"
 
