@@ -209,7 +209,7 @@ CREATE TABLE IF NOT EXISTS facturation_article (
     label VARCHAR(255) NOT NULL,
     category VARCHAR(255),
     amount DECIMAL(10,2) NOT NULL DEFAULT 0,
-    quantity INT NOT NULL DEFAULT 1,
+    quantity DECIMAL(10,2) NOT NULL DEFAULT 1,
     discount_amount DECIMAL(10,2) DEFAULT 0,
     discount_unit VARCHAR(10) DEFAULT '%',
     total DECIMAL(10,2) NOT NULL DEFAULT 0,
