@@ -72,10 +72,13 @@ async function main() {
         ssl: { rejectUnauthorized: false },
     };
 
+    // Connect to postgres database (system database) to avoid being connected to a database we want to delete
     const adminPool = new Pool({
         ...baseConfig,
-        database: baseUrl.pathname.slice(1) || 'postgres',
+        database: 'postgres', // Always use postgres system database for admin operations
     });
+
+    log(`\n📡 Connected to system database for admin operations`, 'green');
 
     try {
         // Build list of databases to check
