@@ -202,7 +202,8 @@ export default function StatsPage() {
 
     // Redirect to Grafana dashboard if using Digicarte
     if (USE_DIGICARTE) {
-        window.location.href = '/stats/d/vue-dc-1/vue-dc';
+        if (typeof window !== 'undefined') window.location.href = '/stats/d/vue-dc-1/vue-dc';
+
         return null;
     }
 
