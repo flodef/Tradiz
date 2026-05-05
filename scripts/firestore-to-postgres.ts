@@ -201,14 +201,20 @@ if (!hasArgs) {
 // ── DB connection ────────────────────────────────────────────────────────────
 
 function createPool(): PgPool {
+    // Use NEXT_PUBLIC_SHOP_ID as database name (e.g., 'annette')
+    // Falls back to PG_DATABASE for backwards compatibility
+    const database = process.env.NEXT_PUBLIC_SHOP_ID || process.env.PG_DATABASE || 'dc_pos';
+
     return new Pool({
         host: process.env.PG_HOST || 'localhost',
         port: Number(process.env.PG_PORT) || 5432,
         user: process.env.PG_USER || 'postgres',
         password: process.env.PG_PASSWORD || '',
-        database: process.env.PG_DATABASE || 'dc_pos',
+        database,
         ssl: { rejectUnauthorized: false }, // Required for Neon
         max: 5,
+        // Always use dc_pos schema for transaction imports
+        options: `-c search_path=dc_pos,public`,
     });
 }
 

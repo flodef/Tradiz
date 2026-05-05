@@ -198,12 +198,16 @@ if (!hasArgs) {
 // ── DB connection ────────────────────────────────────────────────────────────
 
 function createPool(): mysql.Pool {
+    // Use NEXT_PUBLIC_SHOP_ID as database name (e.g., 'annette')
+    // Falls back to DB_NAME for backwards compatibility
+    const database = process.env.NEXT_PUBLIC_SHOP_ID || process.env.DB_NAME || 'DC_POS';
+
     return mysql.createPool({
         host: process.env.DB_HOST || 'localhost',
         port: Number(process.env.DB_PORT) || 3306,
         user: process.env.DB_USER || 'root',
         password: process.env.DB_PASSWORD || '',
-        database: process.env.DB_NAME || 'DC_POS',
+        database,
         waitForConnections: true,
         connectionLimit: 5,
     });
