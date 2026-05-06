@@ -55,20 +55,19 @@ async function main() {
     log('   ✅ Verified all data is present in the new database', 'yellow');
     log('   ✅ Backed up your data (if needed)\n', 'yellow');
 
-    // Check DATABASE_URL
-    if (!process.env.DATABASE_URL) {
-        log('❌ ERROR: DATABASE_URL not found in environment', 'red');
-        log('Please add it to your .env.local file', 'yellow');
+    // Check DATABASE connection parameters
+    if (!process.env.PG_HOST || !process.env.PG_PORT || !process.env.PG_USER || !process.env.PG_PASSWORD) {
+        log('❌ ERROR: Database connection parameters not found in environment', 'red');
+        log('Please add them to your .env.local file', 'yellow');
         process.exit(1);
     }
 
-    // Parse DATABASE_URL
-    const baseUrl = new URL(process.env.DATABASE_URL);
+    // Build connection config from environment variables
     const baseConfig = {
-        host: baseUrl.hostname,
-        port: parseInt(baseUrl.port) || 5432,
-        user: baseUrl.username,
-        password: baseUrl.password,
+        host: process.env.PG_HOST,
+        port: parseInt(process.env.PG_PORT || '5432'),
+        user: process.env.PG_USER,
+        password: process.env.PG_PASSWORD,
         ssl: { rejectUnauthorized: false },
     };
 

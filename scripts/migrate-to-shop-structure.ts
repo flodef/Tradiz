@@ -72,7 +72,7 @@ async function main() {
     log('📦 Step 1: Creating database...', 'green');
     const adminPool = new Pool({
         ...baseConfig,
-        database: baseUrl.pathname.slice(1) || 'postgres', // Use current database for admin operations
+        database: 'postgres', // Always use postgres system database for admin operations
     });
 
     try {
@@ -216,13 +216,40 @@ async function main() {
                 const params = await dcPosPool.query('SELECT * FROM parameters');
                 if (params.rows.length > 0) {
                     for (const p of params.rows) {
+                        // Fix closingHour if it's stored as a date/time
+                        let paramValue = p.param_value;
+                        if (p.param_key === 'closingHour' && paramValue) {
+                            // Extract hour from time/datetime string (e.g., "2000-01-01 18:00:00" -> "18")
+                            const hourMatch = String(paramValue).match(/(\d{1,2}):/);
+                            if (hourMatch) {
+                                paramValue = hourMatch[1];
+                            }
+                        }
+
                         await shopPool.query(
                             `INSERT INTO dc_pos.parameters (id, param_key, param_value) 
-                         VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-                            [p.id, p.param_key, p.param_value]
+                             VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+                            [p.id, p.param_key, paramValue]
                         );
                     }
                     log(`   ✅ Migrated ${params.rows.length} parameters`, 'green');
+                }
+
+                // Migrate currencies
+                try {
+                    const currencies = await dcPosPool.query('SELECT * FROM currency');
+                    if (currencies.rows.length > 0) {
+                        for (const c of currencies.rows) {
+                            await shopPool.query(
+                                `INSERT INTO dc_pos.currency (id, label, symbol, created_at) 
+                                 VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+                                [c.id, c.label, c.symbol, c.created_at]
+                            );
+                        }
+                        log(`   ✅ Migrated ${currencies.rows.length} currencies`, 'green');
+                    }
+                } catch {
+                    log('   ⚠️  Currency table not found or empty', 'yellow');
                 }
 
                 await dcPosPool.end();
