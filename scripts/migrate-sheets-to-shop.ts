@@ -106,7 +106,19 @@ async function migrateParameters(client: Client) {
         const row = data.values[i];
         if (row.length >= 2) {
             const key = String(row[0]).trim();
-            const value = String(row[1]).trim();
+            let value = String(row[1]).trim();
+
+            // Fix closingHour: extract hour (0-23) from datetime or time string
+            if (key === 'closingHour' && value) {
+                // Try to extract hour from time/datetime (e.g., "18:00:00" or "2000-01-01 18:00:00" -> "18")
+                const hourMatch = value.match(/(\d{1,2}):/);
+                if (hourMatch) {
+                    value = hourMatch[1];
+                } else if (!isNaN(Number(value))) {
+                    // If it's already a number, keep it
+                    value = String(Math.floor(Number(value) % 24));
+                }
+            }
 
             if (key) {
                 await client.query('INSERT INTO dc_pos.parameters (param_key, param_value) VALUES ($1, $2)', [
@@ -325,6 +337,7 @@ async function migrateColors(client: Client) {
 
 /**
  * Migrate products (categories and articles)
+ * Format from spreadsheet: [rate, category, label, unavailable, ...prices]
  */
 async function migrateProducts(client: Client) {
     console.log('📦 Migrating products...');
@@ -347,22 +360,31 @@ async function migrateProducts(client: Client) {
         photo: string;
         disponible: number;
         categorie: string;
+        taux_tva: number;
         description: string;
         options: string;
     }> = [];
 
-    // Parse products data
-    for (let i = 1; i < data.values.length; i++) {
-        const row = data.values[i];
-        if (row.length >= 8) {
-            const ordre = Number(row[0]) || 0;
-            const nom = String(row[1]).trim();
-            const prix = Number(row[2]) || 0;
-            const photo = String(row[3]).trim();
-            const disponible = Number(row[4]) || 1;
-            const categorie = String(row[5]).trim();
-            const description = String(row[6] || '').trim();
-            const options = String(row[7] || '').trim();
+    // Parse products data (skip header row)
+    const rowsAfterHeader = data.values.slice(1);
+    const optionsArr = (data as { options?: (string | null)[] }).options ?? [];
+
+    // Filter out empty rows
+    const filtered = rowsAfterHeader
+        .map((item, origIdx) => ({ item, origIdx }))
+        .filter(({ item }) => item[1] != null && String(item[1]).trim() !== '') // category not empty
+        .filter(({ item }) => item[2] != null && String(item[2]).trim() !== ''); // label not empty
+
+    let ordre = 0;
+    for (const { item: row, origIdx } of filtered) {
+        if (row.length >= 4) {
+            const taux_tva = Number(row[0]) || 0.1; // Default 10% if not specified
+            const categorie = String(row[1]).trim();
+            const nom = String(row[2]).trim();
+            const unavailable = row[3]; // true/false or 1/0
+            const disponible = unavailable ? 0 : 1; // Invert: unavailable -> disponible
+            const prix = Number(row[4]) || 0; // First price (Euro)
+            const options = optionsArr[origIdx] ?? '';
 
             if (nom && categorie) {
                 // Track category
@@ -375,14 +397,15 @@ async function migrateProducts(client: Client) {
 
                 // Add article
                 articles.push({
-                    ordre,
+                    ordre: ++ordre,
                     nom,
                     prix,
-                    photo,
+                    photo: '', // No photo in spreadsheet
                     disponible,
                     categorie,
-                    description,
-                    options,
+                    taux_tva,
+                    description: '', // No description in spreadsheet
+                    options: String(options || ''),
                 });
             }
         }
@@ -400,8 +423,8 @@ async function migrateProducts(client: Client) {
     for (const article of articles) {
         await client.query(
             `INSERT INTO dc.article (
-                ordre, nom, prix, photo, disponible, categorie, description, options
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                ordre, nom, prix, photo, disponible, categorie, taux_tva, description, options
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
             [
                 article.ordre,
                 article.nom,
@@ -409,6 +432,7 @@ async function migrateProducts(client: Client) {
                 article.photo,
                 article.disponible,
                 article.categorie,
+                article.taux_tva,
                 article.description,
                 article.options,
             ]

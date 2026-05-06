@@ -2,6 +2,15 @@
  * Shared types and data-mapping helpers for the Firestore → SQL importers.
  */
 
+import {
+    CRYPTO_KEYWORD,
+    DELETED_KEYWORD,
+    PROCESSING_KEYWORD,
+    REFUND_KEYWORD,
+    UPDATING_KEYWORD,
+    WAITING_KEYWORD,
+} from '@/app/utils/constants';
+
 // ── Firestore data shapes ────────────────────────────────────────────────────
 
 export interface FirestoreDiscount {
@@ -45,15 +54,14 @@ export const PAYMENT_METHOD_MAP: Record<string, string> = {
     Espèce: 'Espèce',
     'Carte Bancaire': 'Carte Bancaire',
     Chèque: 'Chèque',
-    Crypto: 'Crypto',
+    Crypto: CRYPTO_KEYWORD,
 
     // Special transaction states (from constants.ts)
-    'EN ATTENTE': 'EN ATTENTE', // WAITING_KEYWORD
-    REMBOURSEMENT: 'REMBOURSEMENT', // REFUND_KEYWORD
-    'EN MODIF': 'EN MODIF', // UPDATING_KEYWORD
-    'EN COURS': 'EN COURS', // PROCESSING_KEYWORD
-    EFFACÉE: 'EFFACÉE', // DELETED_KEYWORD (but skipped)
-    RETOUR: 'RETOUR', // BACK_KEYWORD
+    'EN ATTENTE': WAITING_KEYWORD,
+    REMBOURSEMENT: REFUND_KEYWORD,
+    'EN MODIF': UPDATING_KEYWORD,
+    'EN COURS': PROCESSING_KEYWORD,
+    EFFACÉE: DELETED_KEYWORD,
 };
 
 export const SKIP_METHODS = new Set(['EFFACÉE']);

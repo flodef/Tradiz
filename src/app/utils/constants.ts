@@ -5,20 +5,35 @@ export const DEV_EMAIL = 'flo@tradiz.fr';
 export const CONFIG_KEYWORD = 'Config';
 export const OTHER_KEYWORD = 'Autres';
 export const TRANSACTIONS_KEYWORD = 'Transactions';
-export const WAITING_KEYWORD = 'EN ATTENTE';
-export const REFUND_KEYWORD = 'REMBOURSEMENT';
 export const PRINT_KEYWORD = 'Impression';
 export const LOCAL_PRINTER_KEYWORD = 'Local';
+
+export const CRYPTO_KEYWORD = 'Crypto';
+
+export const WAITING_KEYWORD = 'EN ATTENTE';
+export const REFUND_KEYWORD = 'REMBOURSEMENT';
 export const UPDATING_KEYWORD = 'EN MODIF';
 export const PROCESSING_KEYWORD = 'EN COURS';
 export const DELETED_KEYWORD = 'EFFACÉE';
-export const BACK_KEYWORD = 'RETOUR';
+
+// Internal payment methods that should not be displayed in admin UI
+export const INTERNAL_PAYMENT_METHODS = [
+    CRYPTO_KEYWORD,
+    WAITING_KEYWORD,
+    REFUND_KEYWORD,
+    UPDATING_KEYWORD,
+    PROCESSING_KEYWORD,
+    DELETED_KEYWORD,
+];
+
 export const DC = 'DC';
 export const DC_POS = 'DC_POS';
 export const DEFAULT_USER = 'Comptoir';
 export const SEPARATOR = ' : ';
 export const CATEGORY_SEPARATOR = '>';
 export const TRANSACTION_TIME_OUT = 60; // Time out in seconds
+export const BACK_KEYWORD = 'RETOUR';
+
 export const IS_LOCAL = !process.env.NEXT_PUBLIC_VERCEL_ENV;
 export const IS_DEV = process.env.NEXT_PUBLIC_IS_DEV?.toLowerCase() === 'true';
 export const SHOP_ID = process.env.NEXT_PUBLIC_SHOP_ID || '';
@@ -33,7 +48,7 @@ export const adminInputStyle = (error: boolean) =>
 export const adminContainerStyle = (disabled = false) =>
     `p-3 flex items-center gap-2 border-gray-300 dark:border-gray-600 relative group ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${adminBaseStyle}`;
 export const adminTextStyle = 'text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5';
-export const errorRoundContainerStyle = 'absolute -top-2 -right-2 hidden group-hover:block';
+export const errorRoundContainerStyle = 'absolute -top-2 -right-2';
 export const errorRoundButtonStyle =
     'bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 rounded-full p-1 shadow-sm';
 
