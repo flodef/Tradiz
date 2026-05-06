@@ -41,7 +41,8 @@ CREATE TABLE dc.config_etablissement (
 CREATE TABLE dc.categorie (
     id VARCHAR(10) NOT NULL,
     nom VARCHAR(50) NOT NULL,
-    ordre INTEGER NOT NULL
+    ordre INTEGER NOT NULL,
+    taux_tva_default DECIMAL(5,2) DEFAULT 10.00
 );
 CREATE INDEX idx_categorie_id ON dc.categorie(id);
 
@@ -148,6 +149,7 @@ CREATE TABLE dc.rel_pf_ef (
 CREATE TABLE dc.theme_admin (
     id SERIAL PRIMARY KEY,
     selected BOOLEAN NOT NULL DEFAULT false,
+    name VARCHAR(50) NOT NULL DEFAULT 'unnamed',
     text_light VARCHAR(9) DEFAULT '#000000',
     text_dark VARCHAR(9) DEFAULT '#FFFFFF',
     gradient_start_light VARCHAR(9) DEFAULT '#FFFFFF',
@@ -162,6 +164,21 @@ CREATE TABLE dc.theme_admin (
     secondary_dark VARCHAR(9) DEFAULT '#6AB0FF',
     secondary_activated_light VARCHAR(9) DEFAULT '#357ABD',
     secondary_activated_dark VARCHAR(9) DEFAULT '#4A90D9'
+);
+
+-- Thème client
+CREATE TABLE dc.theme_client (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL DEFAULT 'unnamed',
+    primary_text VARCHAR(9) NOT NULL,
+    secondary_text VARCHAR(9) NOT NULL,
+    background VARCHAR(9) NOT NULL,
+    border VARCHAR(9) NOT NULL,
+    error VARCHAR(9) NOT NULL,
+    success VARCHAR(9) NOT NULL,
+    warning VARCHAR(9) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT false,
+    theme_type VARCHAR(20) NOT NULL DEFAULT 'custom'
 );
 
 -- ============================================================
