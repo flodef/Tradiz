@@ -8,33 +8,29 @@ const pgConfig = {
     host: process.env.PG_HOST,
     user: process.env.PG_USER,
     password: process.env.PG_PASSWORD,
-    database: process.env.PG_DATABASE,
+    // Use NEXT_PUBLIC_SHOP_ID as database name, fallback to PG_DATABASE for backwards compatibility
+    database: process.env.NEXT_PUBLIC_SHOP_ID || process.env.PG_DATABASE,
     ssl: { rejectUnauthorized: false }, // Required for Neon
     max: 20, // Maximum pool size
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
+    // Note: Neon doesn't support search_path in connection options
+    // We'll set it per query instead
 };
 
 export function getMainPgDb() {
-    if (!mainPool) {
-        mainPool = new Pool(pgConfig);
-    }
+    if (!mainPool) mainPool = new Pool(pgConfig);
+
     return mainPool;
 }
 
 export function getPosPgDb() {
-    if (!posPool) {
-        posPool = new Pool(pgConfig);
-    }
+    if (!posPool) posPool = new Pool(pgConfig);
     return posPool;
 }
 
 // Helper to check if PostgreSQL is configured
 export function isPgConfigured(): boolean {
-    return !!(
-        process.env.PG_HOST &&
-        process.env.PG_USER &&
-        process.env.PG_PASSWORD &&
-        process.env.PG_DATABASE
-    );
+    const hasDatabase = !!(process.env.NEXT_PUBLIC_SHOP_ID || process.env.PG_DATABASE);
+    return !!(process.env.PG_HOST && process.env.PG_USER && process.env.PG_PASSWORD && hasDatabase);
 }
