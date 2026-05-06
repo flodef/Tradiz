@@ -1,7 +1,10 @@
+import { CloseButton } from '@/app/components/CloseButton';
+import { errorRoundButtonStyle, errorRoundContainerStyle } from '@/app/utils/constants';
 import { Currency, PaymentMethod } from '@/app/utils/interfaces';
-import ValidatedInput from '../ValidatedInput';
-import AdminSelect from '../AdminSelect';
 import { IconCheck, IconX } from '@tabler/icons-react';
+import AdminSelect from '../AdminSelect';
+import ValidatedInput from '../ValidatedInput';
+import { PAYMENT_TYPES } from '@/app/utils/constants';
 
 interface PaymentItemProps {
     payment: PaymentMethod;
@@ -12,35 +15,19 @@ interface PaymentItemProps {
 }
 
 export default function PaymentItem({ payment, onChange, onDelete, currencies, isReadOnly = false }: PaymentItemProps) {
-    const paymentTypes = [
-        'Carte Bancaire',
-        'Espèce',
-        'Chèque',
-        'Ticket Restaurant',
-        'Chèque Vacances',
-        'Solana',
-        'G1 June',
-        'Virement',
-    ];
-
     return (
-        <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4 mb-4">
-            <div className="flex justify-end">
-                <button
-                    onClick={onDelete}
-                    className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
-                >
-                    Supprimer
-                </button>
+        <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4 mb-4 relative">
+            <div className={errorRoundContainerStyle + ' absolute top-2 right-2'}>
+                <CloseButton onClose={onDelete} size="xs" className={errorRoundButtonStyle} />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-8">
                 <div>
                     <AdminSelect
                         label="Type"
                         value={payment.type}
                         onChange={(e) => !isReadOnly && onChange({ ...payment, type: e.target.value })}
                         disabled={isReadOnly}
-                        options={paymentTypes.map((type) => ({ label: type, value: type }))}
+                        options={PAYMENT_TYPES.map((type) => ({ label: type, value: type }))}
                     />
                 </div>
                 <div>

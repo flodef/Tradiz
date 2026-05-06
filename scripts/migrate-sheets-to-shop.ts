@@ -102,21 +102,39 @@ async function migrateParameters(client: Client) {
 
     // Skip header row and insert parameters
     let count = 0;
+    let hasShopName = false;
+
     for (let i = 1; i < data.values.length; i++) {
         const row = data.values[i];
         if (row.length >= 2) {
             const key = String(row[0]).trim();
             let value = String(row[1]).trim();
 
+            // Track if shop name exists
+            if (key === 'name' || key === 'Nom du commerce') {
+                hasShopName = true;
+            }
+
             // Fix closingHour: extract hour (0-23) from datetime or time string
-            if (key === 'closingHour' && value) {
-                // Try to extract hour from time/datetime (e.g., "18:00:00" or "2000-01-01 18:00:00" -> "18")
-                const hourMatch = value.match(/(\d{1,2}):/);
-                if (hourMatch) {
-                    value = hourMatch[1];
-                } else if (!isNaN(Number(value))) {
-                    // If it's already a number, keep it
-                    value = String(Math.floor(Number(value) % 24));
+            if ((key === 'closingHour' || key === 'Heure de fermeture') && value) {
+                // Check if it's an Excel serial date (number > 1000)
+                const numValue = Number(value);
+                if (!isNaN(numValue) && numValue > 1000) {
+                    // Excel serial date - convert to hours (fractional part * 24)
+                    const fractionalDay = numValue - Math.floor(numValue);
+                    value = String(Math.floor(fractionalDay * 24));
+                } else {
+                    // Try to extract hour from time/datetime (e.g., "18:00:00" or "2000-01-01 18:00:00" -> "18")
+                    const hourMatch = value.match(/(\d{1,2}):/);
+                    if (hourMatch) {
+                        value = hourMatch[1];
+                    } else if (!isNaN(numValue) && numValue < 24) {
+                        // If it's already a valid hour number (0-23), keep it
+                        value = String(Math.floor(numValue));
+                    } else {
+                        // Default to 0 if we can't parse it
+                        value = '0';
+                    }
                 }
             }
 
@@ -128,6 +146,16 @@ async function migrateParameters(client: Client) {
                 count++;
             }
         }
+    }
+
+    // Add shop name if not present in spreadsheet
+    if (!hasShopName && SHOP_NAME) {
+        await client.query('INSERT INTO dc_pos.parameters (param_key, param_value) VALUES ($1, $2)', [
+            'Nom du commerce',
+            SHOP_NAME,
+        ]);
+        count++;
+        console.log(`  ℹ️  Added shop name from environment: ${SHOP_NAME}`);
     }
 
     console.log(`✅ Migrated ${count} parameters`);

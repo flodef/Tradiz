@@ -1,8 +1,11 @@
 import { Currency, Discount } from '@/app/utils/interfaces';
 import SectionCard from '../SectionCard';
-import DiscountItem from '../items/DiscountItem';
 import { useState, useEffect } from 'react';
 import AdminButton from '../AdminButton';
+import { IconTrash, IconGripVertical } from '@tabler/icons-react';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 export default function DiscountsConfig({
     config,
@@ -45,19 +48,125 @@ export default function DiscountsConfig({
         onChange(updated);
     };
 
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+        const oldIndex = discounts.findIndex((_, i) => i === Number(active.id));
+        const newIndex = discounts.findIndex((_, i) => i === Number(over.id));
+        const reordered = arrayMove(discounts, oldIndex, newIndex);
+        setDiscounts(reordered);
+        onChange(reordered);
+    };
+
+    const sensors = useSensors(useSensor(PointerSensor));
+    const units = ['%', ...currencies.map((c) => c.symbol)];
+
+    function SortableRow({ discount, index, isReadOnly }: { discount: Discount; index: number; isReadOnly: boolean }) {
+        const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+            id: index,
+        });
+        const style = {
+            transform: CSS.Transform.toString(transform),
+            transition,
+            opacity: isDragging ? 0.5 : 1,
+        };
+
+        return (
+            <tr ref={setNodeRef} style={style} className="border-b border-gray-200 dark:border-gray-700">
+                {!isReadOnly && (
+                    <td className="p-2 text-center cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
+                        <IconGripVertical size={18} className="mx-auto text-gray-400" />
+                    </td>
+                )}
+                <td className="p-2">
+                    {isReadOnly ? (
+                        <div className="text-sm">{discount.amount}</div>
+                    ) : (
+                        <input
+                            type="number"
+                            value={discount.amount}
+                            onChange={(e) =>
+                                handleDiscountChange(index, {
+                                    ...discount,
+                                    amount: Number(e.target.value),
+                                })
+                            }
+                            min={0}
+                            step={discount.unit === '%' ? 0.5 : 0.01}
+                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    )}
+                </td>
+                <td className="p-2">
+                    {isReadOnly ? (
+                        <div className="text-sm">{discount.unit}</div>
+                    ) : (
+                        <select
+                            value={discount.unit}
+                            onChange={(e) =>
+                                handleDiscountChange(index, {
+                                    ...discount,
+                                    unit: e.target.value,
+                                })
+                            }
+                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            {units.map((u) => (
+                                <option key={u} value={u}>
+                                    {u}
+                                </option>
+                            ))}
+                        </select>
+                    )}
+                </td>
+                {!isReadOnly && (
+                    <td className="p-2 text-center">
+                        <button
+                            onClick={() => handleDeleteDiscount(index)}
+                            className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
+                            title="Supprimer"
+                        >
+                            <IconTrash size={18} />
+                        </button>
+                    </td>
+                )}
+            </tr>
+        );
+    }
+
     return (
         <SectionCard title="Réductions" onSave={isReadOnly || !hasChanges ? undefined : () => onSave(discounts)}>
-            <div className="flex flex-wrap gap-2">
-                {discounts.map((discount, index) => (
-                    <DiscountItem
-                        key={index}
-                        discount={discount}
-                        onChange={(updated) => handleDiscountChange(index, updated)}
-                        onDelete={() => handleDeleteDiscount(index)}
-                        currencies={currencies}
-                        isReadOnly={isReadOnly}
-                    />
-                ))}
+            <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                    <thead>
+                        <tr className="border-b-2 border-gray-300 dark:border-gray-600">
+                            {!isReadOnly && (
+                                <th className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-12"></th>
+                            )}
+                            <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400">
+                                Montant
+                            </th>
+                            <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-32">
+                                Unité
+                            </th>
+                            {!isReadOnly && <th className="w-24"></th>}
+                        </tr>
+                    </thead>
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <SortableContext items={discounts.map((_, i) => i)} strategy={verticalListSortingStrategy}>
+                            <tbody>
+                                {discounts.map((discount, index) => (
+                                    <SortableRow
+                                        key={index}
+                                        discount={discount}
+                                        index={index}
+                                        isReadOnly={isReadOnly}
+                                    />
+                                ))}
+                            </tbody>
+                        </SortableContext>
+                    </DndContext>
+                </table>
             </div>
             {!isReadOnly && (
                 <AdminButton variant="add" onClick={handleAddDiscount}>

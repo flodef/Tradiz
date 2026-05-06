@@ -1,6 +1,5 @@
 import { Color } from '@/app/utils/interfaces';
 import ColorPicker from '../ColorPicker';
-import ValidatedInput from '../ValidatedInput';
 
 interface ColorItemProps {
     color: Color;
@@ -9,28 +8,15 @@ interface ColorItemProps {
     isReadOnly: boolean;
 }
 
-export default function ColorItem({ color, onChange, onDelete, isReadOnly }: ColorItemProps) {
+export default function ColorItem({ color, onChange, isReadOnly }: ColorItemProps) {
     return (
         <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4 mb-4">
-            {!isReadOnly && (
-                <div className="flex justify-end">
-                    <button
-                        onClick={onDelete}
-                        className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
-                    >
-                        Supprimer
-                    </button>
-                </div>
-            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Label</label>
-                    <ValidatedInput
-                        value={color.label}
-                        onChange={(value) => onChange({ ...color, label: String(value) })}
-                        placeholder="Label de la couleur"
-                        disabled={isReadOnly}
-                    />
+                    <div className="h-[42px] flex items-center px-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {color.label}
+                    </div>
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Light</label>

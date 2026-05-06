@@ -52,6 +52,9 @@ export default function DiscountItem({
                     <span className={adminTextStyle}>Unité</span>
                     <span className="font-medium">{discount.unit}</span>
                 </div>
+                <div className={errorRoundContainerStyle}>
+                    <CloseButton onClose={onDelete} size="xs" className={errorRoundButtonStyle} />
+                </div>
             </div>
         );
     }

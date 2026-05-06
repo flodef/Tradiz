@@ -10,7 +10,7 @@ import ColorsConfig from '@/app/components/admin/sections/ColorsConfig';
 import { Parameters } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
-import { USE_DIGICARTE } from '@/app/utils/constants';
+import { USE_DIGICARTE, INTERNAL_PAYMENT_METHODS } from '@/app/utils/constants';
 import { Currency, Discount, Mercurial, PaymentMethod, Color } from '@/app/utils/interfaces';
 import { useIsMobile } from '@/app/utils/mobile';
 import { defaultParameters } from '@/app/utils/processData';
@@ -87,6 +87,7 @@ export default function SettingsPage() {
 
             const response = await fetch('/api/sql/getParameters');
             const data = await response.json();
+            console.log('Parameters API response:', data);
 
             if (data.values && data.values.length > 0) {
                 const paramMap = new Map<string, string>();
@@ -94,22 +95,27 @@ export default function SettingsPage() {
                     paramMap.set(key, value);
                 });
 
+                // Helper function to get parameter value (handles both English and French keys)
+                const getParam = (enKey: string, frKey: string): string => {
+                    return paramMap.get(enKey) || paramMap.get(frKey) || '';
+                };
+
                 const loadedSettings: Parameters = {
                     shop: {
-                        name: paramMap.get('name') || '',
-                        address: paramMap.get('address') || '',
-                        zipCode: paramMap.get('zipCode') || '',
-                        city: paramMap.get('city') || '',
-                        serial: paramMap.get('serial') || '',
-                        id: paramMap.get('id') || '',
-                        email: paramMap.get('email') || '',
+                        name: getParam('name', 'Nom du commerce'),
+                        address: getParam('address', 'Adresse'),
+                        zipCode: getParam('zipCode', 'Code postal'),
+                        city: getParam('city', 'Ville'),
+                        serial: getParam('serial', 'SIRET'),
+                        id: getParam('id', 'Identifiant'),
+                        email: getParam('email', 'Email de contact'),
                     },
-                    thanksMessage: paramMap.get('thanksMessage') || 'Merci de votre visite !',
-                    mercurial: (paramMap.get('mercurial') || Mercurial.none) as Mercurial,
-                    closingHour: Math.max(0, Math.min(23, Number(paramMap.get('closingHour')) || 0)),
+                    thanksMessage: getParam('thanksMessage', 'Message de remerciement') || 'Merci de votre visite !',
+                    mercurial: (getParam('mercurial', 'Mercuriale quadratique') || Mercurial.none) as Mercurial,
+                    closingHour: Math.max(0, Math.min(23, Number(getParam('closingHour', 'Heure de fermeture')) || 0)),
                     yearStartDate: (() => {
                         try {
-                            const value = paramMap.get('yearStartDate');
+                            const value = getParam('yearStartDate', 'Année fiscale');
                             if (value) {
                                 const parsed = JSON.parse(value);
                                 if (parsed && typeof parsed.month === 'number' && typeof parsed.day === 'number') {
@@ -121,7 +127,7 @@ export default function SettingsPage() {
                         }
                         return { month: 1, day: 1 };
                     })(),
-                    lastModified: paramMap.get('lastModified') || new Date().toLocaleString(),
+                    lastModified: getParam('lastModified', 'Dernière modification') || new Date().toLocaleString(),
                     user: parameters?.user || { name: '', role: 0 },
                 };
 
@@ -167,14 +173,52 @@ export default function SettingsPage() {
                 if (currencies) setCurrenciesConfig(currencies);
             }
 
-            // Load payments and colors from config (no DB API yet)
-            if (configPayments) {
-                setPaymentsConfig(configPayments);
-                setOriginalPayments(configPayments);
+            // Load payments from DB
+            try {
+                const paymentsResponse = await fetch('/api/sql/getPaymentMethods');
+                const paymentsData = await paymentsResponse.json();
+                if (paymentsData.values && paymentsData.values.length > 1) {
+                    const loaded: PaymentMethod[] = paymentsData.values
+                        .slice(1)
+                        .filter((row: unknown[]) => {
+                            const type = String(row[0]);
+                            return !INTERNAL_PAYMENT_METHODS.includes(type);
+                        })
+                        .map((row: unknown[]) => ({
+                            type: String(row[0]),
+                            id: String(row[1]),
+                            currency: String(row[2]),
+                            availability: !row[3], // hidden=true means availability=false
+                        }));
+                    setPaymentsConfig(loaded);
+                    setOriginalPayments(loaded);
+                }
+            } catch {
+                if (configPayments) {
+                    const filtered = configPayments.filter((p) => !INTERNAL_PAYMENT_METHODS.includes(p.type));
+                    setPaymentsConfig(filtered);
+                    setOriginalPayments(filtered);
+                }
             }
-            if (configColors) {
-                setColorsConfig(configColors);
-                setOriginalColors(configColors);
+
+            // Load colors/theme from DB
+            try {
+                const colorsResponse = await fetch('/api/sql/getColors');
+                const colorsData = await colorsResponse.json();
+                if (colorsData.values && colorsData.values.length > 1) {
+                    const loaded: Color[] = colorsData.values.slice(1).map((row: string[]) => ({
+                        label: String(row[0]),
+                        light: String(row[1]),
+                        dark: String(row[2]),
+                    }));
+                    setColorsConfig(loaded);
+                    setOriginalColors(loaded);
+                }
+            } catch {
+                if (configColors) {
+                    setColorsConfig(configColors);
+                    setOriginalColors(configColors);
+                }
             }
         } catch (error) {
             console.error('Error fetching parameters:', error);
@@ -188,7 +232,8 @@ export default function SettingsPage() {
     useEffect(() => {
         if (!dbConfigChecked) return;
         fetchParameters();
-    }, [dbConfigChecked, fetchParameters]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dbConfigChecked]);
 
     // Track changes by comparing current state with original loaded data
     useEffect(() => {

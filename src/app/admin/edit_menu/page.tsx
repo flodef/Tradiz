@@ -69,10 +69,12 @@ export default function EditMenuPage() {
                 // Fetch categories
                 const categoriesResponse = await fetch('/api/sql/getCategories');
                 const categoriesData = await categoriesResponse.json();
+                console.log('Categories API response:', categoriesData);
 
                 // Fetch products
                 const productsResponse = await fetch('/api/sql/getAllArticles');
                 const productsData = await productsResponse.json();
+                console.log('Products API response:', productsData);
 
                 // Parse categories (skip header row)
                 const loadedCategories: Category[] = [];
