@@ -419,18 +419,15 @@ async function convertPaymentMethodsData(response: void | Response): Promise<Pay
         return await response.json().then((data: { values: (string | boolean)[][]; error: { message: string } }) => {
             checkData(data, 'Moyens de paiement', 4);
 
-            return data.values
-                .removeHeader()
-                .filter((item) => !item.at(3))
-                .map((item) => {
-                    checkColumn(item, 'Moyens de paiement', 4);
-                    return {
-                        type: normalizedString(item.at(0)),
-                        id: String(item.at(1)).trim(),
-                        currency: String(item.at(2)).trim(),
-                        availability: true,
-                    };
-                });
+            return data.values.removeHeader().map((item) => {
+                checkColumn(item, 'Moyens de paiement', 4);
+                return {
+                    type: normalizedString(item.at(0)),
+                    id: String(item.at(1)).trim(),
+                    currency: String(item.at(2)).trim(),
+                    availability: Boolean(item.at(3)),
+                };
+            });
         });
     } catch (error) {
         console.error(error);

@@ -26,6 +26,17 @@ export const INTERNAL_PAYMENT_METHODS = [
     DELETED_KEYWORD,
 ];
 
+export const PAYMENT_TYPES = [
+    'Carte Bancaire',
+    'Espèce',
+    'Chèque',
+    'Ticket Restaurant',
+    'Chèque Vacances',
+    'Solana',
+    'Ğ1 June',
+    'Virement',
+];
+
 export const DC = 'DC';
 export const DC_POS = 'DC_POS';
 export const DEFAULT_USER = 'Comptoir';
