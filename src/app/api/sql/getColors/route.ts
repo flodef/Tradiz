@@ -41,7 +41,7 @@ export async function GET() {
             FROM
                 theme_admin
             WHERE
-                selected = 1
+                selected = true
         `;
 
         const [rows] = await connection.execute(query);

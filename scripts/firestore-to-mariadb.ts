@@ -200,7 +200,7 @@ if (!hasArgs) {
 function createPool(): mysql.Pool {
     // Use NEXT_PUBLIC_SHOP_ID as database name (e.g., 'annette')
     // Falls back to DB_NAME for backwards compatibility
-    const database = process.env.NEXT_PUBLIC_SHOP_ID || process.env.DB_NAME || 'DC_POS';
+    const database = process.env.NEXT_PUBLIC_SHOP_ID || 'DC_POS';
 
     return mysql.createPool({
         host: process.env.DB_HOST || 'localhost',

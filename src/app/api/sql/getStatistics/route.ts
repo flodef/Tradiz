@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
     try {
         const connection = await getPosDb();
-        const mainDb = process.env.DB_NAME || 'DC';
+        const mainDb = 'DC';
 
         // Non-paid payment methods
         const nonPaidMethods = ['EFFACÉE', 'REMBOURSEMENT', 'EN COURS', 'EN ATTENTE'];

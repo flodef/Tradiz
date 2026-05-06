@@ -14,7 +14,16 @@ interface CurrencyRow {
 export async function GET() {
     try {
         const connection = await getPosDb();
-        const [rows] = await connection.execute('SELECT label, symbol, max_value, decimals, rate, fee FROM currency');
+
+        // Try to query with all columns first (MariaDB schema)
+        // If it fails, fall back to basic columns (PostgreSQL schema)
+        let rows;
+        try {
+            [rows] = await connection.execute('SELECT label, symbol, max_value, decimals, rate, fee FROM currency');
+        } catch {
+            // PostgreSQL schema only has label and symbol
+            [rows] = await connection.execute('SELECT label, symbol FROM currency');
+        }
         await connection.end();
 
         const currencyRows = rows as CurrencyRow[];

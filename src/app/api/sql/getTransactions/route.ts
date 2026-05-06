@@ -50,7 +50,7 @@ export async function GET(request: Request) {
         // TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) which equals the server UTC offset
         // (e.g. +3600 for Europe/Paris in winter). This prevents a 1-hour gap that would cause
         // mergeTransactionArrays to treat the same transaction as two distinct entries.
-        const mainDb = process.env.DB_NAME || 'DC';
+        const mainDb = 'DC';
         const query = `
             SELECT 
                 f.id,
