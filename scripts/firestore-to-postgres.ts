@@ -207,14 +207,12 @@ function createPool(): PgPool {
 
     return new Pool({
         host: process.env.PG_HOST || 'localhost',
-        port: Number(process.env.PG_PORT) || 5432,
+        port: parseInt(process.env.PG_PORT || '5432'),
         user: process.env.PG_USER || 'postgres',
         password: process.env.PG_PASSWORD || '',
         database,
         ssl: { rejectUnauthorized: false }, // Required for Neon
         max: 5,
-        // Always use dc_pos schema for transaction imports
-        options: `-c search_path=dc_pos,public`,
     });
 }
 
@@ -223,7 +221,7 @@ function createPool(): PgPool {
 async function ensurePaymentMethods(client: PoolClient): Promise<Map<string, number>> {
     const map = new Map<string, number>();
 
-    const { rows } = await client.query<{ id: number; label: string }>('SELECT id, label FROM payment_methods');
+    const { rows } = await client.query<{ id: number; label: string }>('SELECT id, label FROM dc_pos.payment_methods');
     for (const row of rows) {
         map.set(row.label, row.id);
     }
@@ -231,7 +229,7 @@ async function ensurePaymentMethods(client: PoolClient): Promise<Map<string, num
     for (const label of Object.values(PAYMENT_METHOD_MAP)) {
         if (!map.has(label)) {
             const result = await client.query<{ id: number }>(
-                'INSERT INTO payment_methods (label, currency) VALUES ($1, $2) RETURNING id',
+                'INSERT INTO dc_pos.payment_methods (label, currency) VALUES ($1, $2) RETURNING id',
                 [label, 'EUR']
             );
             map.set(label, result.rows[0].id);
@@ -242,10 +240,27 @@ async function ensurePaymentMethods(client: PoolClient): Promise<Map<string, num
     return map;
 }
 
+// ── Load currencies ──────────────────────────────────────────────────────────
+
+async function loadCurrencies(client: PoolClient): Promise<Map<string, number>> {
+    const map = new Map<string, number>();
+
+    const { rows } = await client.query<{ id: number; label: string; symbol: string }>(
+        'SELECT id, label, symbol FROM dc_pos.currency'
+    );
+
+    for (const row of rows) {
+        map.set(row.symbol.toLowerCase(), row.id);
+        map.set(row.label.toLowerCase(), row.id);
+    }
+
+    return map;
+}
+
 // ── Get default user ─────────────────────────────────────────────────────────
 
 async function getDefaultUserId(client: PoolClient): Promise<number> {
-    const result = await client.query<{ id: number }>('SELECT id FROM users ORDER BY id ASC LIMIT 1');
+    const result = await client.query<{ id: number }>('SELECT id FROM dc_pos.users ORDER BY id ASC LIMIT 1');
 
     if (result.rows.length > 0) {
         return result.rows[0].id;
@@ -254,7 +269,7 @@ async function getDefaultUserId(client: PoolClient): Promise<number> {
     // No users found - create a default admin user
     console.log('  ℹ️  No users found - creating default admin user');
     const insertResult = await client.query<{ id: number }>(
-        'INSERT INTO users (key, name, role) VALUES ($1, $2, $3) RETURNING id',
+        'INSERT INTO dc_pos.users (key, name, role) VALUES ($1, $2, $3) RETURNING id',
         ['admin', 'Administrator', 'Admin']
     );
 
@@ -351,6 +366,10 @@ async function main() {
         const paymentMethodMap = await ensurePaymentMethods(client);
         console.log(`Payment methods ready (${paymentMethodMap.size} methods).`);
 
+        console.log('Loading currencies...');
+        const currencyMap = await loadCurrencies(client);
+        console.log(`Currencies loaded (${currencyMap.size} mappings).`);
+
         console.log('Getting default user...');
         const defaultUserId = await getDefaultUserId(client);
         console.log(`Default user ID: ${defaultUserId}`);
@@ -423,6 +442,10 @@ async function main() {
                 continue;
             }
 
+            // Map currency symbol to ID
+            const currencySymbol = (tx.currency || '€').toLowerCase();
+            const currencyId = currencyMap.get(currencySymbol) || Array.from(currencyMap.values())[0] || null;
+
             const createdAt = msToDatetime(tx.createdDate);
             const updatedAt = msToDatetime(tx.modifiedDate);
 
@@ -447,7 +470,7 @@ async function main() {
 
                     // Check if transaction already exists (by created_at timestamp)
                     const existingResult = await client.query<{ id: number }>(
-                        `SELECT id FROM facturation WHERE created_at = $1`,
+                        `SELECT id FROM dc_pos.facturation WHERE created_at = $1`,
                         [createdAt]
                     );
 
@@ -459,17 +482,17 @@ async function main() {
                         }
                         // Overwrite mode: delete existing transaction and its articles
                         facturationId = existingResult.rows[0].id;
-                        await client.query(`DELETE FROM facturation_article WHERE facturation_id = $1`, [
+                        await client.query(`DELETE FROM dc_pos.facturation_article WHERE facturation_id = $1`, [
                             facturationId,
                         ]);
-                        await client.query(`DELETE FROM facturation WHERE id = $1`, [facturationId]);
+                        await client.query(`DELETE FROM dc_pos.facturation WHERE id = $1`, [facturationId]);
                     }
 
                     // Use transaction.createdDate as panier_id (integer timestamp)
                     const factResult = await client.query<{ id: number }>(
-                        `INSERT INTO facturation (panier_id, user_id, payment_method_id, amount, currency_id, note, created_at, updated_at)
+                        `INSERT INTO dc_pos.facturation (panier_id, user_id, payment_method_id, amount, currency_id, note, created_at, updated_at)
                          VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-                        [tx.createdDate, userId, paymentMethodId, tx.amount, null, note, createdAt, updatedAt]
+                        [tx.createdDate, userId, paymentMethodId, tx.amount, currencyId, note, createdAt, updatedAt]
                     );
                     facturationId = factResult.rows[0].id;
 
@@ -478,7 +501,7 @@ async function main() {
                         const discountUnit = p.discount?.unity ?? p.discount?.unit ?? '%';
 
                         await client.query(
-                            `INSERT INTO facturation_article (facturation_id, label, category, amount, quantity, discount_amount, discount_unit, total)
+                            `INSERT INTO dc_pos.facturation_article (facturation_id, label, category, amount, quantity, discount_amount, discount_unit, total)
                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
                             [
                                 facturationId,

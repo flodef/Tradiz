@@ -56,7 +56,7 @@ async function main() {
     log('   ✅ Backed up your data (if needed)\n', 'yellow');
 
     // Check DATABASE connection parameters
-    if (!process.env.PG_HOST || !process.env.PG_PORT || !process.env.PG_USER || !process.env.PG_PASSWORD) {
+    if (!process.env.PG_HOST || !process.env.PG_USER || !process.env.PG_PASSWORD) {
         log('❌ ERROR: Database connection parameters not found in environment', 'red');
         log('Please add them to your .env.local file', 'yellow');
         process.exit(1);
