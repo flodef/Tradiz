@@ -100,11 +100,11 @@ async function migrateParameters(client: Client) {
     // Clear existing parameters
     await client.query('DELETE FROM dc_pos.parameters');
 
-    // Skip header row and insert parameters
+    // Insert parameters
     let count = 0;
     let hasShopName = false;
 
-    for (let i = 1; i < data.values.length; i++) {
+    for (let i = 0; i < data.values.length; i++) {
         const row = data.values[i];
         if (row.length >= 2) {
             const key = String(row[0]).trim();
