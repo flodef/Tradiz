@@ -9,7 +9,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import AvailabilityToggle from '../AvailabilityToggle';
 import SearchableSelect from '../SearchableSelect';
 import SectionCard from '../SectionCard';
-import ProductItem from '../items/ProductItem';
 
 type SortField = 'order' | 'name' | 'category' | 'price' | 'availability';
 type SortDirection = 'asc' | 'desc';
@@ -23,23 +22,7 @@ export interface AdminProduct {
 
 type AvailabilityFilter = 'all' | 'available' | 'unavailable';
 
-function SortableProductItem({
-    id,
-    product,
-    onChange,
-    onDelete,
-    categories,
-    currencies,
-    isReadOnly,
-}: {
-    id: string;
-    product: AdminProduct;
-    onChange: (p: AdminProduct) => void;
-    onDelete?: () => void;
-    categories: { label: string; value: string }[];
-    currencies: Currency[];
-    isReadOnly: boolean;
-}) {
+function SortableRow({ id, children, isReadOnly }: { id: string; children: React.ReactNode; isReadOnly: boolean }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -47,128 +30,19 @@ function SortableProductItem({
         opacity: isDragging ? 0.5 : 1,
     };
     return (
-        <div ref={setNodeRef} style={style}>
-            <ProductItem
-                product={product}
-                onChange={onChange}
-                onDelete={onDelete}
-                categories={categories}
-                currencies={currencies}
-                isReadOnly={isReadOnly}
-                dragHandleProps={isReadOnly ? undefined : { ...attributes, ...listeners }}
-            />
-        </div>
-    );
-}
-
-function CategoryAccordion({
-    cat,
-    items,
-    allProducts,
-    onProductChange,
-    onProductDelete,
-    onProductsReorder,
-    onAddProduct,
-    categories,
-    currencies,
-    isReadOnly,
-    hasFilter,
-    availFilter,
-}: {
-    cat: string;
-    items: { p: AdminProduct; i: number }[];
-    allProducts: AdminProduct[];
-    onProductChange: (i: number, p: AdminProduct) => void;
-    onProductDelete: (i: number) => void;
-    onProductsReorder: (updated: AdminProduct[]) => void;
-    onAddProduct: (cat: string) => void;
-    categories: { label: string; value: string }[];
-    currencies: Currency[];
-    isReadOnly: boolean;
-    hasFilter: boolean;
-    availFilter: AvailabilityFilter;
-}) {
-    const [open, setOpen] = useState(false);
-    const sensors = useSensors(useSensor(PointerSensor));
-
-    const itemIds = items.map(({ i }) => String(i));
-
-    const handleDragEnd = (event: DragEndEvent) => {
-        const { active, over } = event;
-        if (!over || active.id === over.id) return;
-        const oldIdx = itemIds.indexOf(String(active.id));
-        const newIdx = itemIds.indexOf(String(over.id));
-        const reordered = arrayMove(items, oldIdx, newIdx);
-        // Replace this category's items in their original positions with the reordered versions
-        const catProducts = reordered.map(({ p }) => p);
-        const catIndices = allProducts
-            .map((p, i) => ((p.category || 'Sans catégorie') === cat ? i : -1))
-            .filter((i) => i !== -1);
-        const result = [...allProducts];
-        catIndices.forEach((origIdx, slot) => {
-            result[origIdx] = catProducts[slot];
-        });
-        onProductsReorder(result);
-    };
-
-    return (
-        <div className="mb-2 border border-black/10 dark:border-white/10 rounded-lg overflow-hidden">
-            <div
-                className="flex items-center justify-between px-4 py-2 cursor-pointer select-none bg-white/20 dark:bg-black/20"
-                onClick={() => setOpen((o) => !o)}
-            >
-                <div className="flex items-center gap-2">
-                    <svg
-                        className={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                    <span className="font-semibold">{cat}</span>
-                    <span className="text-xs opacity-60">
-                        {availFilter === 'all'
-                            ? `(${items.filter(({ p }) => p.availability).length} / ${items.length} produit${items.length > 1 ? 's' : ''})`
-                            : `(${items.length} produit${items.length > 1 ? 's' : ''})`}
-                    </span>
-                </div>
-            </div>
-            {open && (
-                <div className="px-4 py-2">
-                    {items.length === 0 ? (
-                        <p className="text-md opacity-60 py-2">Aucun produit correspondant</p>
-                    ) : (
-                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                            <SortableContext items={itemIds}>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                                    {items.map(({ p, i }) => (
-                                        <SortableProductItem
-                                            key={i}
-                                            id={String(i)}
-                                            product={p}
-                                            onChange={(updated) => onProductChange(i, updated)}
-                                            onDelete={isReadOnly ? undefined : () => onProductDelete(i)}
-                                            categories={categories}
-                                            currencies={currencies}
-                                            isReadOnly={isReadOnly}
-                                        />
-                                    ))}
-                                </div>
-                            </SortableContext>
-                        </DndContext>
-                    )}
-                    {!isReadOnly && !hasFilter && (
-                        <button
-                            onClick={() => onAddProduct(cat === 'Sans catégorie' ? '' : cat)}
-                            className="mt-1 mb-1 text-sm bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-sm"
-                        >
-                            + Ajouter dans &quot;{cat}&quot;
-                        </button>
-                    )}
-                </div>
+        <tr ref={setNodeRef} style={style} className="border-b border-gray-200 dark:border-gray-700">
+            {!isReadOnly && (
+                <td className="p-2 text-center">
+                    <IconGripVertical
+                        size={18}
+                        className="mx-auto text-gray-400 cursor-grab"
+                        {...attributes}
+                        {...listeners}
+                    />
+                </td>
             )}
-        </div>
+            {children}
+        </tr>
     );
 }
 
@@ -193,7 +67,7 @@ export default function ProductsConfig({
     const [sortField, setSortField] = useState<SortField>('order');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
-    const groupByCategory = true;
+    const sensors = useSensors(useSensor(PointerSensor));
 
     const categoryOrder = useMemo(() => {
         const seen: string[] = [];
@@ -244,6 +118,42 @@ export default function ProductsConfig({
         onChange(updated);
     };
 
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+
+        const activeId = String(active.id);
+        const overId = String(over.id);
+
+        // Find the category and indices
+        const activeCat = Object.keys(categoryGroups).find((cat) =>
+            categoryGroups[cat].some(({ i }) => String(i) === activeId)
+        );
+        const overCat = Object.keys(categoryGroups).find((cat) =>
+            categoryGroups[cat].some(({ i }) => String(i) === overId)
+        );
+
+        if (!activeCat || !overCat) return;
+
+        // Get all product indices in their original order
+        const catProducts = categoryGroups[activeCat];
+        const oldIdx = catProducts.findIndex(({ i }) => String(i) === activeId);
+        const newIdx = catProducts.findIndex(({ i }) => String(i) === overId);
+
+        // Reorder within category
+        const reordered = arrayMove(catProducts, oldIdx, newIdx);
+
+        // Replace this category's items in their original positions
+        const catIndices = products
+            .map((p, i) => ((p.category || 'Sans catégorie') === activeCat ? i : -1))
+            .filter((i) => i !== -1);
+        const result = [...products];
+        catIndices.forEach((origIdx, slot) => {
+            result[origIdx] = reordered[slot].p;
+        });
+        handleReorder(result);
+    };
+
     const handleAddProduct = (category = '') => {
         const newProduct: AdminProduct = { name: '', category, availability: false, currencies: [] };
         const updated = [...products, newProduct];
@@ -273,54 +183,28 @@ export default function ProductsConfig({
         }
 
         // Sort within each category if grouping is enabled
-        if (groupByCategory) {
-            Object.keys(groups).forEach((cat) => {
-                groups[cat].sort((a, b) => {
-                    let comparison = 0;
-                    if (sortField === 'order') {
-                        comparison = a.i - b.i;
-                    } else if (sortField === 'name') {
-                        comparison = a.p.name.localeCompare(b.p.name);
-                    } else if (sortField === 'category') {
-                        comparison = a.p.category.localeCompare(b.p.category);
-                    } else if (sortField === 'price') {
-                        const priceA = parseFloat(a.p.currencies[0] || '0');
-                        const priceB = parseFloat(b.p.currencies[0] || '0');
-                        comparison = priceA - priceB;
-                    } else if (sortField === 'availability') {
-                        comparison = (a.p.availability ? 1 : 0) - (b.p.availability ? 1 : 0);
-                    }
-                    return sortDirection === 'asc' ? comparison : -comparison;
-                });
+        Object.keys(groups).forEach((cat) => {
+            groups[cat].sort((a, b) => {
+                let comparison = 0;
+                if (sortField === 'order') {
+                    comparison = a.i - b.i;
+                } else if (sortField === 'name') {
+                    comparison = a.p.name.localeCompare(b.p.name);
+                } else if (sortField === 'category') {
+                    comparison = a.p.category.localeCompare(b.p.category);
+                } else if (sortField === 'price') {
+                    const priceA = parseFloat(a.p.currencies[0] || '0');
+                    const priceB = parseFloat(b.p.currencies[0] || '0');
+                    comparison = priceA - priceB;
+                } else if (sortField === 'availability') {
+                    comparison = (a.p.availability ? 1 : 0) - (b.p.availability ? 1 : 0);
+                }
+                return sortDirection === 'asc' ? comparison : -comparison;
             });
-        }
+        });
 
         return groups;
-    }, [filteredProducts, groupByCategory, sortField, sortDirection]);
-
-    const sortedFilteredProducts = useMemo(() => {
-        if (groupByCategory) return filteredProducts;
-
-        const sorted = [...filteredProducts];
-        sorted.sort((a, b) => {
-            let comparison = 0;
-            if (sortField === 'order') {
-                comparison = a.i - b.i;
-            } else if (sortField === 'name') {
-                comparison = a.p.name.localeCompare(b.p.name);
-            } else if (sortField === 'category') {
-                comparison = a.p.category.localeCompare(b.p.category);
-            } else if (sortField === 'price') {
-                const priceA = parseFloat(a.p.currencies[0] || '0');
-                const priceB = parseFloat(b.p.currencies[0] || '0');
-                comparison = priceA - priceB;
-            } else if (sortField === 'availability') {
-                comparison = (a.p.availability ? 1 : 0) - (b.p.availability ? 1 : 0);
-            }
-            return sortDirection === 'asc' ? comparison : -comparison;
-        });
-        return sorted;
-    }, [filteredProducts, sortField, sortDirection, groupByCategory]);
+    }, [filteredProducts, sortField, sortDirection]);
 
     const handleSort = (field: SortField) => {
         if (sortField === field) {
@@ -445,136 +329,7 @@ export default function ProductsConfig({
             {mobileSearchRow}
             {totalFiltered === 0 && hasFilter ? (
                 <p className="text-md opacity-60 py-4 text-center">Aucun produit correspondant</p>
-            ) : !groupByCategory ? (
-                <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                {!isReadOnly && (
-                                    <th className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-12"></th>
-                                )}
-                                <th
-                                    className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    onClick={() => handleSort('name')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        Nom
-                                        <SortIcon field="name" />
-                                    </div>
-                                </th>
-                                <th
-                                    className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-40 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    onClick={() => handleSort('category')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        Catégorie
-                                        <SortIcon field="category" />
-                                    </div>
-                                </th>
-                                <th
-                                    className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-24 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    onClick={() => handleSort('price')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        Prix {currencies[0] ? `(${currencies[0].symbol})` : ''}
-                                        <SortIcon field="price" />
-                                    </div>
-                                </th>
-                                <th
-                                    className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-24 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    onClick={() => handleSort('availability')}
-                                >
-                                    <div className="flex items-center justify-center gap-1">
-                                        Disponibilité
-                                        <SortIcon field="availability" />
-                                    </div>
-                                </th>
-                                {!isReadOnly && <th className="w-24"></th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {sortedFilteredProducts.map(({ p, i }) => (
-                                <tr key={i} className="border-b border-gray-200 dark:border-gray-700">
-                                    {!isReadOnly && (
-                                        <td className="p-2 text-center">
-                                            <IconGripVertical size={18} className="mx-auto text-gray-400" />
-                                        </td>
-                                    )}
-                                    <td className="p-2">
-                                        {isReadOnly ? (
-                                            <div className="text-sm">{p.name}</div>
-                                        ) : (
-                                            <input
-                                                type="text"
-                                                value={p.name}
-                                                onChange={(e) => handleProductChange(i, { ...p, name: e.target.value })}
-                                                maxLength={50}
-                                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
-                                        )}
-                                    </td>
-                                    <td className="p-2">
-                                        {isReadOnly ? (
-                                            <div className="text-sm">{p.category}</div>
-                                        ) : (
-                                            <SearchableSelect
-                                                options={categories}
-                                                value={p.category}
-                                                onChange={(value) =>
-                                                    handleProductChange(i, {
-                                                        ...p,
-                                                        category: Array.isArray(value) ? value[0] : value,
-                                                    })
-                                                }
-                                                placeholder="Catégorie"
-                                                disabled={isReadOnly}
-                                            />
-                                        )}
-                                    </td>
-                                    <td className="p-2">
-                                        {isReadOnly ? (
-                                            <div className="text-sm">{formatPrice(p.currencies[0] ?? '0')}</div>
-                                        ) : (
-                                            <input
-                                                type="number"
-                                                value={p.currencies[0] ?? ''}
-                                                onChange={(e) => {
-                                                    const updated = [...p.currencies];
-                                                    updated[0] = e.target.value;
-                                                    handleProductChange(i, { ...p, currencies: updated });
-                                                }}
-                                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
-                                        )}
-                                    </td>
-                                    <td className="p-2 text-center">
-                                        <div className="flex justify-center">
-                                            <AvailabilityToggle
-                                                availability={p.availability}
-                                                isReadOnly={isReadOnly}
-                                                onChange={(newValue) =>
-                                                    handleProductChange(i, { ...p, availability: newValue })
-                                                }
-                                            />
-                                        </div>
-                                    </td>
-                                    {!isReadOnly && (
-                                        <td className="p-2 text-center">
-                                            <button
-                                                onClick={() => handleDeleteProduct(i)}
-                                                className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
-                                                title="Supprimer"
-                                            >
-                                                <IconTrash size={18} />
-                                            </button>
-                                        </td>
-                                    )}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            ) : groupByCategory ? (
+            ) : (
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
                         <thead>
@@ -652,138 +407,107 @@ export default function ProductsConfig({
                                                 </div>
                                             </td>
                                         </tr>
-                                        {expandedCategories.has(cat) &&
-                                            categoryGroups[cat].map(({ p, i }) => (
-                                                <tr key={i} className="border-b border-gray-200 dark:border-gray-700">
-                                                    {!isReadOnly && (
-                                                        <td className="p-2 text-center">
-                                                            <IconGripVertical
-                                                                size={18}
-                                                                className="mx-auto text-gray-400"
-                                                            />
-                                                        </td>
-                                                    )}
-                                                    <td className="p-2">
-                                                        {isReadOnly ? (
-                                                            <div className="text-sm">{p.name}</div>
-                                                        ) : (
-                                                            <input
-                                                                type="text"
-                                                                value={p.name}
-                                                                onChange={(e) =>
-                                                                    handleProductChange(i, {
-                                                                        ...p,
-                                                                        name: e.target.value,
-                                                                    })
-                                                                }
-                                                                maxLength={50}
-                                                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                            />
-                                                        )}
-                                                    </td>
-                                                    <td className="p-2">
-                                                        {isReadOnly ? (
-                                                            <div className="text-sm">{p.category}</div>
-                                                        ) : (
-                                                            <SearchableSelect
-                                                                options={categories}
-                                                                value={p.category}
-                                                                onChange={(val) =>
-                                                                    handleProductChange(i, {
-                                                                        ...p,
-                                                                        category: Array.isArray(val) ? val[0] : val,
-                                                                    })
-                                                                }
-                                                                placeholder="Catégorie"
-                                                            />
-                                                        )}
-                                                    </td>
-                                                    <td className="p-2">
-                                                        {isReadOnly ? (
-                                                            <div className="text-sm">
-                                                                {formatPrice(p.currencies[0] ?? '0')}
-                                                            </div>
-                                                        ) : (
-                                                            <input
-                                                                type="number"
-                                                                value={p.currencies[0] ?? ''}
-                                                                onChange={(e) => {
-                                                                    const updated = [...p.currencies];
-                                                                    updated[0] = e.target.value;
-                                                                    handleProductChange(i, {
-                                                                        ...p,
-                                                                        currencies: updated,
-                                                                    });
-                                                                }}
-                                                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                            />
-                                                        )}
-                                                    </td>
-                                                    <td className="p-2 text-center">
-                                                        <div className="flex justify-center">
-                                                            <AvailabilityToggle
-                                                                availability={p.availability}
-                                                                isReadOnly={isReadOnly}
-                                                                onChange={(newValue) =>
-                                                                    handleProductChange(i, {
-                                                                        ...p,
-                                                                        availability: newValue,
-                                                                    })
-                                                                }
-                                                            />
-                                                        </div>
-                                                    </td>
-                                                    {!isReadOnly && (
-                                                        <td className="p-2 text-center">
-                                                            <button
-                                                                onClick={() => handleDeleteProduct(i)}
-                                                                className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
-                                                                title="Supprimer"
-                                                            >
-                                                                <IconTrash size={18} />
-                                                            </button>
-                                                        </td>
-                                                    )}
-                                                </tr>
-                                            ))}
+                                        {expandedCategories.has(cat) && (
+                                            <DndContext
+                                                sensors={sensors}
+                                                collisionDetection={closestCenter}
+                                                onDragEnd={handleDragEnd}
+                                            >
+                                                <SortableContext items={categoryGroups[cat].map(({ i }) => String(i))}>
+                                                    {categoryGroups[cat].map(({ p, i }) => (
+                                                        <SortableRow key={i} id={String(i)} isReadOnly={isReadOnly}>
+                                                            <td className="p-2">
+                                                                {isReadOnly ? (
+                                                                    <div className="text-sm">{p.name}</div>
+                                                                ) : (
+                                                                    <input
+                                                                        type="text"
+                                                                        value={p.name}
+                                                                        onChange={(e) =>
+                                                                            handleProductChange(i, {
+                                                                                ...p,
+                                                                                name: e.target.value,
+                                                                            })
+                                                                        }
+                                                                        maxLength={50}
+                                                                        className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                    />
+                                                                )}
+                                                            </td>
+                                                            <td className="p-2">
+                                                                {isReadOnly ? (
+                                                                    <div className="text-sm">{p.category}</div>
+                                                                ) : (
+                                                                    <SearchableSelect
+                                                                        options={categories}
+                                                                        value={p.category}
+                                                                        onChange={(val) =>
+                                                                            handleProductChange(i, {
+                                                                                ...p,
+                                                                                category: Array.isArray(val)
+                                                                                    ? val[0]
+                                                                                    : val,
+                                                                            })
+                                                                        }
+                                                                        placeholder="Catégorie"
+                                                                    />
+                                                                )}
+                                                            </td>
+                                                            <td className="p-2">
+                                                                {isReadOnly ? (
+                                                                    <div className="text-sm">
+                                                                        {formatPrice(p.currencies[0] ?? '0')}
+                                                                    </div>
+                                                                ) : (
+                                                                    <input
+                                                                        type="number"
+                                                                        value={p.currencies[0] ?? ''}
+                                                                        onChange={(e) => {
+                                                                            const updated = [...p.currencies];
+                                                                            updated[0] = e.target.value;
+                                                                            handleProductChange(i, {
+                                                                                ...p,
+                                                                                currencies: updated,
+                                                                            });
+                                                                        }}
+                                                                        className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                    />
+                                                                )}
+                                                            </td>
+                                                            <td className="p-2 text-center">
+                                                                <div className="flex justify-center">
+                                                                    <AvailabilityToggle
+                                                                        availability={p.availability}
+                                                                        isReadOnly={isReadOnly}
+                                                                        onChange={(newValue) =>
+                                                                            handleProductChange(i, {
+                                                                                ...p,
+                                                                                availability: newValue,
+                                                                            })
+                                                                        }
+                                                                    />
+                                                                </div>
+                                                            </td>
+                                                            {!isReadOnly && (
+                                                                <td className="p-2 text-center">
+                                                                    <button
+                                                                        onClick={() => handleDeleteProduct(i)}
+                                                                        className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
+                                                                        title="Supprimer"
+                                                                    >
+                                                                        <IconTrash size={18} />
+                                                                    </button>
+                                                                </td>
+                                                            )}
+                                                        </SortableRow>
+                                                    ))}
+                                                </SortableContext>
+                                            </DndContext>
+                                        )}
                                     </React.Fragment>
                                 ))}
                         </tbody>
                     </table>
-                </div>
-            ) : groupByCategory ? (
-                categoryOrder
-                    .filter((cat) => categoryGroups[cat] !== undefined)
-                    .map((cat) => (
-                        <CategoryAccordion
-                            key={cat}
-                            cat={cat}
-                            items={categoryGroups[cat]}
-                            allProducts={products}
-                            onProductChange={handleProductChange}
-                            onProductDelete={handleDeleteProduct}
-                            onProductsReorder={handleReorder}
-                            onAddProduct={handleAddProduct}
-                            categories={categories}
-                            currencies={currencies}
-                            isReadOnly={isReadOnly}
-                            hasFilter={hasFilter}
-                            availFilter={availFilter}
-                        />
-                    ))
-            ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                    {filteredProducts.map(({ p, i }) => (
-                        <ProductItem
-                            key={i}
-                            product={p}
-                            onChange={(updated) => handleProductChange(i, updated)}
-                            onDelete={isReadOnly ? undefined : () => handleDeleteProduct(i)}
-                            categories={categories}
-                            currencies={currencies}
-                            isReadOnly={isReadOnly}
-                        />
-                    ))}
                 </div>
             )}
             {!isReadOnly && !hasFilter && (
