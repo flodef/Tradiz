@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, useState } from 'react';
-import { IconCheck } from '@tabler/icons-react';
+import { IconCheck, IconX } from '@tabler/icons-react';
 import { useIsMobile } from '@/app/utils/mobile';
 import AdminButton from './AdminButton';
 
@@ -10,6 +10,7 @@ interface SectionCardProps {
     children: ReactNode;
     onSave?: () => void;
     saveDisabled?: boolean;
+    onCancel?: () => void;
     defaultOpen?: boolean;
     headerExtra?: ReactNode;
 }
@@ -19,6 +20,7 @@ export default function SectionCard({
     children,
     onSave,
     saveDisabled = false,
+    onCancel,
     defaultOpen = true,
     headerExtra,
 }: SectionCardProps) {
@@ -42,18 +44,34 @@ export default function SectionCard({
                     </div>
                     <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                         {open && headerExtra}
-                        {open && onSave && (
-                            <AdminButton
-                                variant="save"
-                                disabled={saveDisabled}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onSave();
-                                }}
-                                className={isMobile ? 'px-3 py-1.5' : ''}
-                            >
-                                {isMobile ? <IconCheck size={20} stroke={3} /> : 'Enregistrer'}
-                            </AdminButton>
+                        {open && (onSave || onCancel) && (
+                            <div className="flex items-center gap-2">
+                                {onCancel && (
+                                    <AdminButton
+                                        variant="secondary"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onCancel();
+                                        }}
+                                        className={isMobile ? 'px-3 py-1.5' : ''}
+                                    >
+                                        {isMobile ? <IconX size={20} stroke={3} /> : 'Annuler'}
+                                    </AdminButton>
+                                )}
+                                {onSave && (
+                                    <AdminButton
+                                        variant="save"
+                                        disabled={saveDisabled}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onSave();
+                                        }}
+                                        className={isMobile ? 'px-3 py-1.5' : ''}
+                                    >
+                                        {isMobile ? <IconCheck size={20} stroke={3} /> : 'Enregistrer'}
+                                    </AdminButton>
+                                )}
+                            </div>
                         )}
                     </div>
                 </div>

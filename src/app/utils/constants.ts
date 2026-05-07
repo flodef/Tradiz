@@ -58,7 +58,7 @@ export const adminInputStyle = (error: boolean) =>
     `w-full h-8 px-2 py-1 ${adminBaseStyle} ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600 focus:border-blue-500'}`;
 export const adminContainerStyle = (disabled = false) =>
     `p-3 flex items-center gap-2 border-gray-300 dark:border-gray-600 relative group ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${adminBaseStyle}`;
-export const adminTextStyle = 'text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5';
+export const adminTextStyle = 'block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5';
 export const errorRoundContainerStyle = 'absolute -top-2 -right-2';
 export const errorRoundButtonStyle =
     'bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 rounded-full p-1 shadow-sm';

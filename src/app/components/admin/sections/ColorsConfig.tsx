@@ -4,6 +4,7 @@ import SectionCard from '../SectionCard';
 import ColorPicker from '../ColorPicker';
 import AdminButton from '../AdminButton';
 import DeleteButton from '../DeleteButton';
+import { adminTextStyle } from '@/app/utils/constants';
 
 export default function ColorsConfig({
     config,
@@ -12,6 +13,7 @@ export default function ColorsConfig({
     isReadOnly = false,
     themeName,
     onThemeNameChange,
+    onCancel,
 }: {
     config: Color[];
     onChange: (data: Color[]) => void;
@@ -19,6 +21,7 @@ export default function ColorsConfig({
     isReadOnly?: boolean;
     themeName?: string;
     onThemeNameChange?: (name: string) => void;
+    onCancel?: () => void;
 }) {
     const [colors, setColors] = useState(config || []);
 
@@ -56,7 +59,11 @@ export default function ColorsConfig({
     }
 
     return (
-        <SectionCard title="Thèmes" onSave={isReadOnly ? undefined : onSave ? () => onSave(colors) : undefined}>
+        <SectionCard
+            title="Thèmes"
+            onSave={isReadOnly ? undefined : onSave ? () => onSave(colors) : undefined}
+            onCancel={onCancel}
+        >
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {themes.map((theme, themeIndex) => (
                     <div
@@ -92,15 +99,9 @@ export default function ColorsConfig({
                             <table className="w-full border-collapse">
                                 <thead>
                                     <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                        <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400">
-                                            Couleur
-                                        </th>
-                                        <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-32">
-                                            Clair
-                                        </th>
-                                        <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-32">
-                                            Sombre
-                                        </th>
+                                        <th className={adminTextStyle}>Couleur</th>
+                                        <th className={adminTextStyle}>Clair</th>
+                                        <th className={adminTextStyle}>Sombre</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -109,7 +110,11 @@ export default function ColorsConfig({
                                         return (
                                             <tr
                                                 key={colorIndex}
-                                                className="border-b border-gray-200 dark:border-gray-700"
+                                                className={
+                                                    colorIndex === theme.length - 1
+                                                        ? ''
+                                                        : 'border-b border-gray-200 dark:border-gray-700'
+                                                }
                                             >
                                                 <td className="p-2">
                                                     <div className="text-sm font-medium text-gray-900 dark:text-gray-100">

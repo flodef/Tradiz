@@ -1,5 +1,5 @@
 import { CloseButton } from '@/app/components/CloseButton';
-import { errorRoundButtonStyle, errorRoundContainerStyle } from '@/app/utils/constants';
+import { adminTextStyle, errorRoundButtonStyle, errorRoundContainerStyle } from '@/app/utils/constants';
 import { Currency, PaymentMethod } from '@/app/utils/interfaces';
 import AdminSelect from '../AdminSelect';
 import ValidatedInput from '../ValidatedInput';
@@ -49,9 +49,7 @@ export default function PaymentItem({ payment, onChange, onDelete, currencies, i
                     />
                 </div>
                 <div>
-                    <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
-                        Disponibilité
-                    </label>
+                    <label className={adminTextStyle}>Disponibilité</label>
                     <AvailabilityToggle
                         availability={payment.availability}
                         isReadOnly={isReadOnly}

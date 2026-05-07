@@ -9,6 +9,7 @@ import DeleteButton from '../DeleteButton';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { adminTextStyle } from '@/app/utils/constants';
 
 export default function CurrenciesConfig({
     config,
@@ -209,27 +210,13 @@ export default function CurrenciesConfig({
                 <table className="w-full border-collapse">
                     <thead>
                         <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                            {!isReadOnly && (
-                                <th className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-12"></th>
-                            )}
-                            <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400">
-                                Label
-                            </th>
-                            <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-24">
-                                Symbole
-                            </th>
-                            <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-32">
-                                Max
-                            </th>
-                            <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-24">
-                                Décimales
-                            </th>
-                            <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-24">
-                                Taux
-                            </th>
-                            <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-24">
-                                Frais
-                            </th>
+                            {!isReadOnly && <th className={adminTextStyle}></th>}
+                            <th className={adminTextStyle}>Label</th>
+                            <th className={adminTextStyle + ' w-24'}>Symbole</th>
+                            <th className={adminTextStyle + ' w-32'}>Max</th>
+                            <th className={adminTextStyle + ' w-24'}>Décimales</th>
+                            <th className={adminTextStyle + ' w-24'}>Taux</th>
+                            <th className={adminTextStyle + ' w-24'}>Frais</th>
                             {!isReadOnly && <th className="w-24"></th>}
                         </tr>
                     </thead>

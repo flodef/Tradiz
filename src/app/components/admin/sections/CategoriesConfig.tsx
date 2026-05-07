@@ -9,6 +9,7 @@ import SectionCard from '../SectionCard';
 import AdminButton from '../AdminButton';
 import { IconChevronDown, IconChevronUp, IconGripVertical } from '@tabler/icons-react';
 import DeleteButton from '../DeleteButton';
+import { adminTextStyle } from '@/app/utils/constants';
 
 type SortField = 'order' | 'label' | 'vat';
 type SortDirection = 'asc' | 'desc';
@@ -170,11 +171,11 @@ export default function CategoriesConfig({
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                {!isReadOnly && (
-                                    <th className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-12"></th>
-                                )}
+                                {!isReadOnly && <th className={adminTextStyle}></th>}
                                 <th
-                                    className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                    className={
+                                        adminTextStyle + ' cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }
                                     onClick={() => handleSort('label')}
                                 >
                                     <div className="flex items-center gap-1">
@@ -183,7 +184,9 @@ export default function CategoriesConfig({
                                     </div>
                                 </th>
                                 <th
-                                    className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-24 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                    className={
+                                        adminTextStyle + ' w-24 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }
                                     onClick={() => handleSort('vat')}
                                 >
                                     <div className="flex items-center gap-1">

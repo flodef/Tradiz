@@ -7,6 +7,7 @@ import DeleteButton from '../DeleteButton';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { adminTextStyle } from '@/app/utils/constants';
 
 export default function DiscountsConfig({
     config,
@@ -135,15 +136,9 @@ export default function DiscountsConfig({
                 <table className="w-full border-collapse">
                     <thead>
                         <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                            {!isReadOnly && (
-                                <th className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-12"></th>
-                            )}
-                            <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400">
-                                Montant
-                            </th>
-                            <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-32">
-                                Unité
-                            </th>
+                            {!isReadOnly && <th className={adminTextStyle + ' w-12'}></th>}
+                            <th className={adminTextStyle}>Montant</th>
+                            <th className={adminTextStyle + ' w-32'}>Unité</th>
                             {!isReadOnly && <th className="w-24"></th>}
                         </tr>
                     </thead>

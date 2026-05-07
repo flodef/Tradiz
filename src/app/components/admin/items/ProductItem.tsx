@@ -3,6 +3,7 @@ import SearchableSelect from '../SearchableSelect';
 import { AdminProduct } from '../sections/ProductsConfig';
 import ValidatedInput from '../ValidatedInput';
 import AvailabilityToggle from '../AvailabilityToggle';
+import { adminTextStyle } from '@/app/utils/constants';
 
 interface ProductItemProps {
     product: AdminProduct;
@@ -28,13 +29,11 @@ export default function ProductItem({
             <div className="border border-gray-200 dark:border-gray-700 rounded-md p-3">
                 <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
-                            Nom
-                        </label>
+                        <label className={adminTextStyle}>Nom</label>
                         <div className="text-sm font-medium">{product.name}</div>
                     </div>
                     <div>
-                        <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                        <label className={adminTextStyle}>
                             Prix {currencies[0] ? `(${currencies[0].symbol})` : ''}
                         </label>
                         <div className="text-sm font-medium">
@@ -44,15 +43,11 @@ export default function ProductItem({
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
-                            Catégorie
-                        </label>
+                        <label className={adminTextStyle}>Catégorie</label>
                         <div className="text-sm font-medium">{product.category}</div>
                     </div>
                     <div>
-                        <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
-                            Disponibilité
-                        </label>
+                        <label className={adminTextStyle}>Disponibilité</label>
                         <AvailabilityToggle availability={product.availability} isReadOnly={true} />
                     </div>
                 </div>
@@ -83,9 +78,7 @@ export default function ProductItem({
             </div>
             <div className="grid grid-cols-2 gap-2">
                 <div>
-                    <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
-                        Nom
-                    </label>
+                    <label className={adminTextStyle}>Nom</label>
                     <ValidatedInput
                         value={product.name}
                         onChange={(value) => onChange({ ...product, name: String(value) })}
@@ -95,9 +88,7 @@ export default function ProductItem({
                     />
                 </div>
                 <div>
-                    <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
-                        Prix {currencies[0] ? `(${currencies[0].symbol})` : ''}
-                    </label>
+                    <label className={adminTextStyle}>Prix {currencies[0] ? `(${currencies[0].symbol})` : ''}</label>
                     <ValidatedInput
                         type="number"
                         value={product.currencies[0] ?? ''}
@@ -111,9 +102,7 @@ export default function ProductItem({
                     />
                 </div>
                 <div>
-                    <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
-                        Catégorie
-                    </label>
+                    <label className={adminTextStyle}>Catégorie</label>
                     <SearchableSelect
                         options={categories}
                         value={product.category}
@@ -125,9 +114,7 @@ export default function ProductItem({
                     />
                 </div>
                 <div className="flex flex-col">
-                    <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
-                        Disponibilité
-                    </label>
+                    <label className={adminTextStyle}>Disponibilité</label>
                     <AvailabilityToggle
                         availability={product.availability}
                         isReadOnly={isReadOnly}

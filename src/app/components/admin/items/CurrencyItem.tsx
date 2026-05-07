@@ -65,7 +65,7 @@ export default function CurrencyItem({
                 value={currency.label}
                 maxLength={50}
                 onChange={(e) => onChange({ ...currency, label: e.target.value })}
-                className="min-w-[120px] flex-1"
+                inputClassName="min-w-[120px] flex-1"
                 placeholder="ex: Euro"
                 disabled={isReadOnly}
             />

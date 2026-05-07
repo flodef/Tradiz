@@ -1,11 +1,8 @@
 'use client';
 
-import { adminBaseStyle, adminTextStyle } from '@/app/utils/constants';
+import { adminInputStyle, adminTextStyle } from '@/app/utils/constants';
 import React from 'react';
 import { twMerge } from 'tailwind-merge';
-
-export const adminInputStyle = (error: boolean) =>
-    `h-8 px-2 py-1 ${adminBaseStyle} ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600 focus:border-blue-500'}`;
 
 interface AdminInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
     label?: string;
@@ -24,7 +21,7 @@ export default function AdminInput({
     ...props
 }: AdminInputProps) {
     return (
-        <div className={`flex flex-col ${containerClassName || className}`}>
+        <div className={twMerge('flex flex-col', containerClassName || className)}>
             {label && <label className={adminTextStyle}>{label}</label>}
             <input
                 disabled={disabled}

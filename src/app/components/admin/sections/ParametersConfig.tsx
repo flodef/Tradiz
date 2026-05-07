@@ -151,7 +151,7 @@ export default function ParametersConfig({
                         onChange={(value) => handleChange('thanksMessage', String(value))}
                         placeholder="Message de remerciement"
                         disabled={isReadOnly}
-                        className="max-w-xs flex-1"
+                        className="max-w-xs min-w-40 flex-1"
                     />
                     <AdminSelect
                         label="Mercurial"

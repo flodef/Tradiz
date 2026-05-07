@@ -1,6 +1,7 @@
 import React from 'react';
 import ValidatedInput from '../ValidatedInput';
 import { Category } from '@/app/utils/interfaces';
+import { adminTextStyle } from '@/app/utils/constants';
 
 interface CategoryItemProps {
     category: Category;
@@ -24,15 +25,11 @@ export default function CategoryItem({
             <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4">
                 <div className="flex gap-3">
                     <div className="flex-1 min-w-0">
-                        <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
-                            Label
-                        </label>
+                        <label className={adminTextStyle}>Label</label>
                         <div className="text-sm font-medium">{category.label}</div>
                     </div>
                     <div className="w-24 shrink-0">
-                        <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
-                            TVA
-                        </label>
+                        <label className={adminTextStyle}>TVA</label>
                         <div className="text-sm font-medium">{category.vat}%</div>
                     </div>
                 </div>
@@ -63,9 +60,7 @@ export default function CategoryItem({
             </div>
             <div className="flex gap-3 items-end">
                 <div className="flex-1 min-w-0">
-                    <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
-                        Label
-                    </label>
+                    <label className={adminTextStyle}>Label</label>
                     <ValidatedInput
                         value={category.label}
                         onChange={(value) => onChange({ ...category, label: String(value) })}
@@ -75,9 +70,7 @@ export default function CategoryItem({
                     />
                 </div>
                 <div className="w-24 shrink-0">
-                    <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
-                        TVA
-                    </label>
+                    <label className={adminTextStyle}>TVA</label>
                     <select
                         value={Number(category.vat)}
                         onChange={(e) => onChange({ ...category, vat: parseFloat(e.target.value) })}

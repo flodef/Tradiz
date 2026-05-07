@@ -4,7 +4,7 @@ import SectionCard from '../SectionCard';
 import AdminButton from '../AdminButton';
 import { IconGripVertical } from '@tabler/icons-react';
 import DeleteButton from '../DeleteButton';
-import { PAYMENT_TYPES } from '@/app/utils/constants';
+import { adminTextStyle, PAYMENT_TYPES } from '@/app/utils/constants';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -16,12 +16,14 @@ export default function PaymentsConfig({
     onSave,
     currencies,
     isReadOnly = false,
+    onCancel,
 }: {
     config: PaymentMethod[];
     onChange: (data: PaymentMethod[]) => void;
     onSave?: (data: PaymentMethod[]) => void;
     currencies: Currency[];
     isReadOnly?: boolean;
+    onCancel?: () => void;
 }) {
     const [payments, setPayments] = useState(config || []);
 
@@ -176,26 +178,20 @@ export default function PaymentsConfig({
     }
 
     return (
-        <SectionCard title="Paiements" onSave={isReadOnly ? undefined : onSave ? () => onSave(payments) : undefined}>
+        <SectionCard
+            title="Paiements"
+            onSave={isReadOnly ? undefined : onSave ? () => onSave(payments) : undefined}
+            onCancel={onCancel}
+        >
             <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                     <thead>
                         <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                            {!isReadOnly && (
-                                <th className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-12"></th>
-                            )}
-                            <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400">
-                                Type
-                            </th>
-                            <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400">
-                                ID
-                            </th>
-                            <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-24">
-                                Devise
-                            </th>
-                            <th className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-32">
-                                Disponibilité
-                            </th>
+                            {!isReadOnly && <th className={adminTextStyle + ' w-12'}></th>}
+                            <th className={adminTextStyle}>Type</th>
+                            <th className={adminTextStyle}>ID</th>
+                            <th className={adminTextStyle}>Devise</th>
+                            <th className={adminTextStyle}>Disponibilité</th>
                             {!isReadOnly && <th className="w-24"></th>}
                         </tr>
                     </thead>
