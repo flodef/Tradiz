@@ -330,6 +330,7 @@ async function migrateColors(client: Client) {
     // Insert theme with all colors
     await client.query(
         `INSERT INTO dc.theme_admin (
+            name,
             selected,
             text_light, text_dark,
             gradient_start_light, gradient_start_dark,
@@ -339,10 +340,12 @@ async function migrateColors(client: Client) {
             secondary_light, secondary_dark,
             secondary_activated_light, secondary_activated_dark
         ) VALUES (
+            $1,
             true,
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+            $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
         )`,
         [
+            'Défaut',
             colorMap.texte?.light || '#000000',
             colorMap.texte?.dark || '#FFFFFF',
             colorMap.fond_début_dégradé?.light || '#FFFFFF',
