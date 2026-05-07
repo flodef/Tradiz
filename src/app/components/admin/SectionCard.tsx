@@ -53,7 +53,7 @@ export default function SectionCard({
                                             e.stopPropagation();
                                             onCancel();
                                         }}
-                                        className={isMobile ? 'px-3 py-1.5' : ''}
+                                        className={isMobile ? 'px-3 py-1.5' : 'px-3 py-1'}
                                     >
                                         {isMobile ? <IconX size={20} stroke={3} /> : 'Annuler'}
                                     </AdminButton>
@@ -66,7 +66,7 @@ export default function SectionCard({
                                             e.stopPropagation();
                                             onSave();
                                         }}
-                                        className={isMobile ? 'px-3 py-1.5' : ''}
+                                        className={isMobile ? 'px-3 py-1.5' : 'px-3 py-1'}
                                     >
                                         {isMobile ? <IconCheck size={20} stroke={3} /> : 'Enregistrer'}
                                     </AdminButton>
