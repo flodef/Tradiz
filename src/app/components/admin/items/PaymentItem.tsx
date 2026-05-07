@@ -1,10 +1,10 @@
 import { CloseButton } from '@/app/components/CloseButton';
 import { errorRoundButtonStyle, errorRoundContainerStyle } from '@/app/utils/constants';
 import { Currency, PaymentMethod } from '@/app/utils/interfaces';
-import { IconCheck, IconX } from '@tabler/icons-react';
 import AdminSelect from '../AdminSelect';
 import ValidatedInput from '../ValidatedInput';
 import { PAYMENT_TYPES } from '@/app/utils/constants';
+import AvailabilityToggle from '../AvailabilityToggle';
 
 interface PaymentItemProps {
     payment: PaymentMethod;
@@ -52,26 +52,11 @@ export default function PaymentItem({ payment, onChange, onDelete, currencies, i
                     <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
                         Disponibilité
                     </label>
-                    {isReadOnly ? (
-                        <div className="flex items-center h-[42px]">
-                            {payment.availability ? (
-                                <IconCheck className="text-green-500" size={28} stroke={3} />
-                            ) : (
-                                <IconX className="text-red-500" size={28} stroke={3} />
-                            )}
-                        </div>
-                    ) : (
-                        <button
-                            onClick={() => onChange({ ...payment, availability: !payment.availability })}
-                            className="flex items-center h-[42px]"
-                        >
-                            {payment.availability ? (
-                                <IconCheck className="text-green-500 hover:text-green-600" size={28} stroke={3} />
-                            ) : (
-                                <IconX className="text-red-500 hover:text-red-600" size={28} stroke={3} />
-                            )}
-                        </button>
-                    )}
+                    <AvailabilityToggle
+                        availability={payment.availability}
+                        isReadOnly={isReadOnly}
+                        onChange={(newValue) => onChange({ ...payment, availability: newValue })}
+                    />
                 </div>
             </div>
         </div>

@@ -1,9 +1,8 @@
 import { Currency } from '@/app/utils/interfaces';
-import { IconCheck, IconX } from '@tabler/icons-react';
 import SearchableSelect from '../SearchableSelect';
 import { AdminProduct } from '../sections/ProductsConfig';
-import Switch from '../Switch';
 import ValidatedInput from '../ValidatedInput';
+import AvailabilityToggle from '../AvailabilityToggle';
 
 interface ProductItemProps {
     product: AdminProduct;
@@ -54,13 +53,7 @@ export default function ProductItem({
                         <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
                             Disponibilité
                         </label>
-                        <div className="flex items-center gap-2">
-                            {product.availability ? (
-                                <IconCheck className="text-green-500" size={24} stroke={3} />
-                            ) : (
-                                <IconX className="text-red-500" size={24} stroke={3} />
-                            )}
-                        </div>
+                        <AvailabilityToggle availability={product.availability} isReadOnly={true} />
                     </div>
                 </div>
             </div>
@@ -135,14 +128,11 @@ export default function ProductItem({
                     <label className="block text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5">
                         Disponibilité
                     </label>
-                    <div className="flex items-center h-[42px]">
-                        <Switch
-                            checked={product.availability}
-                            onChange={(checked) => onChange({ ...product, availability: checked })}
-                            disabled={isReadOnly}
-                        />
-                        <span className="ml-2 text-sm">{product.availability ? 'Oui' : 'Non'}</span>
-                    </div>
+                    <AvailabilityToggle
+                        availability={product.availability}
+                        isReadOnly={isReadOnly}
+                        onChange={(newValue) => onChange({ ...product, availability: newValue })}
+                    />
                 </div>
             </div>
         </div>

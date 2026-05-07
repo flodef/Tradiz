@@ -2,11 +2,12 @@ import { Currency, PaymentMethod } from '@/app/utils/interfaces';
 import { useEffect, useState } from 'react';
 import SectionCard from '../SectionCard';
 import AdminButton from '../AdminButton';
-import { IconTrash, IconCheck, IconX, IconGripVertical } from '@tabler/icons-react';
+import { IconTrash, IconGripVertical } from '@tabler/icons-react';
 import { PAYMENT_TYPES } from '@/app/utils/constants';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import AvailabilityToggle from '../AvailabilityToggle';
 
 export default function PaymentsConfig({
     config,
@@ -151,29 +152,18 @@ export default function PaymentsConfig({
                     )}
                 </td>
                 <td className="p-2 text-center">
-                    {isReadOnly ? (
-                        payment.availability ? (
-                            <IconCheck size={18} className="mx-auto text-green-500" />
-                        ) : (
-                            <IconX size={18} className="mx-auto text-red-500" />
-                        )
-                    ) : (
-                        <button
-                            onClick={() =>
+                    <div className="flex justify-center">
+                        <AvailabilityToggle
+                            availability={payment.availability}
+                            isReadOnly={isReadOnly}
+                            onChange={(newValue) =>
                                 handlePaymentChange(index, {
                                     ...payment,
-                                    availability: !payment.availability,
+                                    availability: newValue,
                                 })
                             }
-                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-                        >
-                            {payment.availability ? (
-                                <IconCheck size={18} className="text-green-500" />
-                            ) : (
-                                <IconX size={18} className="text-red-500" />
-                            )}
-                        </button>
-                    )}
+                        />
+                    </div>
                 </td>
                 {!isReadOnly && (
                     <td className="p-2 text-center">

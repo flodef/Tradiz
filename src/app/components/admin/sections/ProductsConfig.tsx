@@ -8,17 +8,16 @@ import { CSS } from '@dnd-kit/utilities';
 import SectionCard from '../SectionCard';
 import ProductItem from '../items/ProductItem';
 import {
-    IconLayoutGrid,
-    IconLayoutList,
-    IconChevronUp,
     IconChevronDown,
-    IconCheck,
-    IconX,
-    IconFolders,
+    IconChevronUp,
     IconList,
+    IconFolders,
+    IconTrash,
+    IconGripVertical,
 } from '@tabler/icons-react';
 import SearchableSelect from '../SearchableSelect';
 import { useLocalStorage } from '@/app/utils/localStorage';
+import AvailabilityToggle from '../AvailabilityToggle';
 
 type SortField = 'order' | 'name' | 'category' | 'price' | 'availability';
 type SortDirection = 'asc' | 'desc';
@@ -199,7 +198,6 @@ export default function ProductsConfig({
     const [products, setProducts] = useState(config || []);
     const [search, setSearch] = useState('');
     const [availFilter, setAvailFilter] = useState<AvailabilityFilter>('all');
-    const [viewMode, setViewMode] = useLocalStorage<'grid' | 'list'>('products-view-mode', 'list');
     const [groupByCategory, setGroupByCategory] = useLocalStorage<boolean>('products-group-by-category', false);
     const [sortField, setSortField] = useState<SortField>('order');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -282,7 +280,7 @@ export default function ProductsConfig({
         }
 
         // Sort within each category if grouping is enabled
-        if (groupByCategory && viewMode === 'list') {
+        if (groupByCategory) {
             Object.keys(groups).forEach((cat) => {
                 groups[cat].sort((a, b) => {
                     let comparison = 0;
@@ -305,10 +303,10 @@ export default function ProductsConfig({
         }
 
         return groups;
-    }, [filteredProducts, groupByCategory, viewMode, sortField, sortDirection]);
+    }, [filteredProducts, groupByCategory, sortField, sortDirection]);
 
     const sortedFilteredProducts = useMemo(() => {
-        if (viewMode !== 'list' || groupByCategory) return filteredProducts;
+        if (groupByCategory) return filteredProducts;
 
         const sorted = [...filteredProducts];
         sorted.sort((a, b) => {
@@ -329,7 +327,7 @@ export default function ProductsConfig({
             return sortDirection === 'asc' ? comparison : -comparison;
         });
         return sorted;
-    }, [filteredProducts, sortField, sortDirection, viewMode, groupByCategory]);
+    }, [filteredProducts, sortField, sortDirection, groupByCategory]);
 
     const handleSort = (field: SortField) => {
         if (sortField === field) {
@@ -346,33 +344,6 @@ export default function ProductsConfig({
     };
 
     const totalFiltered = filteredProducts.length;
-
-    const viewToggle = (
-        <div className="flex items-center gap-1 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden">
-            <button
-                onClick={() => setViewMode('grid')}
-                className={`p-1.5 transition ${
-                    viewMode === 'grid'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
-                }`}
-                title="Vue grille"
-            >
-                <IconLayoutGrid size={18} />
-            </button>
-            <button
-                onClick={() => setViewMode('list')}
-                className={`p-1.5 transition ${
-                    viewMode === 'list'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
-                }`}
-                title="Vue liste"
-            >
-                <IconLayoutList size={18} />
-            </button>
-        </div>
-    );
 
     const groupToggle = (
         <div className="flex items-center gap-1 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden">
@@ -412,7 +383,6 @@ export default function ProductsConfig({
         <>
             {/* Desktop: all controls in one row */}
             <div className="hidden md:flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                {viewToggle}
                 {groupToggle}
                 <div className="relative">
                     <svg
@@ -459,7 +429,6 @@ export default function ProductsConfig({
             {/* Mobile: Row 1 - toggles only */}
             <div className="md:hidden flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 {groupToggle}
-                {viewToggle}
             </div>
         </>
     );
@@ -515,20 +484,14 @@ export default function ProductsConfig({
             {mobileSearchRow}
             {totalFiltered === 0 && hasFilter ? (
                 <p className="text-md opacity-60 py-4 text-center">Aucun produit correspondant</p>
-            ) : viewMode === 'list' && !groupByCategory ? (
+            ) : !groupByCategory ? (
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                <th
-                                    className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-16 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    onClick={() => handleSort('order')}
-                                >
-                                    <div className="flex items-center justify-center gap-1">
-                                        Ordre
-                                        <SortIcon field="order" />
-                                    </div>
-                                </th>
+                                {!isReadOnly && (
+                                    <th className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-12"></th>
+                                )}
                                 <th
                                     className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                                     onClick={() => handleSort('name')}
@@ -571,9 +534,11 @@ export default function ProductsConfig({
                         <tbody>
                             {sortedFilteredProducts.map(({ p, i }) => (
                                 <tr key={i} className="border-b border-gray-200 dark:border-gray-700">
-                                    <td className="p-2 text-center">
-                                        <div className="text-sm font-medium">{i + 1}</div>
-                                    </td>
+                                    {!isReadOnly && (
+                                        <td className="p-2 text-center">
+                                            <IconGripVertical size={18} className="mx-auto text-gray-400" />
+                                        </td>
+                                    )}
                                     <td className="p-2">
                                         {isReadOnly ? (
                                             <div className="text-sm">{p.name}</div>
@@ -622,42 +587,24 @@ export default function ProductsConfig({
                                         )}
                                     </td>
                                     <td className="p-2 text-center">
-                                        {isReadOnly ? (
-                                            p.availability ? (
-                                                <IconCheck className="inline text-green-500" size={28} stroke={3} />
-                                            ) : (
-                                                <IconX className="inline text-red-500" size={28} stroke={3} />
-                                            )
-                                        ) : (
-                                            <button
-                                                onClick={() =>
-                                                    handleProductChange(i, { ...p, availability: !p.availability })
+                                        <div className="flex justify-center">
+                                            <AvailabilityToggle
+                                                availability={p.availability}
+                                                isReadOnly={isReadOnly}
+                                                onChange={(newValue) =>
+                                                    handleProductChange(i, { ...p, availability: newValue })
                                                 }
-                                                className="inline-flex items-center justify-center"
-                                            >
-                                                {p.availability ? (
-                                                    <IconCheck
-                                                        className="text-green-500 hover:text-green-600"
-                                                        size={28}
-                                                        stroke={3}
-                                                    />
-                                                ) : (
-                                                    <IconX
-                                                        className="text-red-500 hover:text-red-600"
-                                                        size={28}
-                                                        stroke={3}
-                                                    />
-                                                )}
-                                            </button>
-                                        )}
+                                            />
+                                        </div>
                                     </td>
                                     {!isReadOnly && (
                                         <td className="p-2 text-center">
                                             <button
                                                 onClick={() => handleDeleteProduct(i)}
-                                                className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600 text-sm"
+                                                className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
+                                                title="Supprimer"
                                             >
-                                                Supprimer
+                                                <IconTrash size={18} />
                                             </button>
                                         </td>
                                     )}
@@ -666,20 +613,14 @@ export default function ProductsConfig({
                         </tbody>
                     </table>
                 </div>
-            ) : viewMode === 'list' && groupByCategory ? (
+            ) : groupByCategory ? (
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                <th
-                                    className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-16 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    onClick={() => handleSort('order')}
-                                >
-                                    <div className="flex items-center justify-center gap-1">
-                                        Ordre
-                                        <SortIcon field="order" />
-                                    </div>
-                                </th>
+                                {!isReadOnly && (
+                                    <th className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-12"></th>
+                                )}
                                 <th
                                     className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                                     onClick={() => handleSort('name')}
@@ -753,9 +694,14 @@ export default function ProductsConfig({
                                         {expandedCategories.has(cat) &&
                                             categoryGroups[cat].map(({ p, i }) => (
                                                 <tr key={i} className="border-b border-gray-200 dark:border-gray-700">
-                                                    <td className="p-2 text-center">
-                                                        <div className="text-sm font-medium">{i + 1}</div>
-                                                    </td>
+                                                    {!isReadOnly && (
+                                                        <td className="p-2 text-center">
+                                                            <IconGripVertical
+                                                                size={18}
+                                                                className="mx-auto text-gray-400"
+                                                            />
+                                                        </td>
+                                                    )}
                                                     <td className="p-2">
                                                         {isReadOnly ? (
                                                             <div className="text-sm">{p.name}</div>
@@ -813,53 +759,27 @@ export default function ProductsConfig({
                                                         )}
                                                     </td>
                                                     <td className="p-2 text-center">
-                                                        {isReadOnly ? (
-                                                            p.availability ? (
-                                                                <IconCheck
-                                                                    className="inline text-green-500"
-                                                                    size={32}
-                                                                    stroke={3}
-                                                                />
-                                                            ) : (
-                                                                <IconX
-                                                                    className="inline text-red-500"
-                                                                    size={32}
-                                                                    stroke={3}
-                                                                />
-                                                            )
-                                                        ) : (
-                                                            <button
-                                                                onClick={() =>
+                                                        <div className="flex justify-center">
+                                                            <AvailabilityToggle
+                                                                availability={p.availability}
+                                                                isReadOnly={isReadOnly}
+                                                                onChange={(newValue) =>
                                                                     handleProductChange(i, {
                                                                         ...p,
-                                                                        availability: !p.availability,
+                                                                        availability: newValue,
                                                                     })
                                                                 }
-                                                                className="inline-flex items-center justify-center"
-                                                            >
-                                                                {p.availability ? (
-                                                                    <IconCheck
-                                                                        className="text-green-500 hover:text-green-600"
-                                                                        size={32}
-                                                                        stroke={3}
-                                                                    />
-                                                                ) : (
-                                                                    <IconX
-                                                                        className="text-red-500 hover:text-red-600"
-                                                                        size={32}
-                                                                        stroke={3}
-                                                                    />
-                                                                )}
-                                                            </button>
-                                                        )}
+                                                            />
+                                                        </div>
                                                     </td>
                                                     {!isReadOnly && (
                                                         <td className="p-2 text-center">
                                                             <button
                                                                 onClick={() => handleDeleteProduct(i)}
-                                                                className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600 text-sm"
+                                                                className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
+                                                                title="Supprimer"
                                                             >
-                                                                Supprimer
+                                                                <IconTrash size={18} />
                                                             </button>
                                                         </td>
                                                     )}
