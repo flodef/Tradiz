@@ -7,20 +7,6 @@ import { SortableContext, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import SectionCard from '../SectionCard';
 import ProductItem from '../items/ProductItem';
-import {
-    IconChevronDown,
-    IconChevronUp,
-    IconList,
-    IconFolders,
-    IconTrash,
-    IconGripVertical,
-} from '@tabler/icons-react';
-import SearchableSelect from '../SearchableSelect';
-import { useLocalStorage } from '@/app/utils/localStorage';
-import AvailabilityToggle from '../AvailabilityToggle';
-
-type SortField = 'order' | 'name' | 'category' | 'price' | 'availability';
-type SortDirection = 'asc' | 'desc';
 
 export interface AdminProduct {
     name: string;
@@ -198,9 +184,6 @@ export default function ProductsConfig({
     const [products, setProducts] = useState(config || []);
     const [search, setSearch] = useState('');
     const [availFilter, setAvailFilter] = useState<AvailabilityFilter>('all');
-    const [groupByCategory, setGroupByCategory] = useLocalStorage<boolean>('products-group-by-category', false);
-    const [sortField, setSortField] = useState<SortField>('order');
-    const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
     const categoryOrder = useMemo(() => {
         const seen: string[] = [];
@@ -210,28 +193,10 @@ export default function ProductsConfig({
         }
         return seen;
     }, [products]);
-    const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(categoryOrder));
 
     useEffect(() => {
         setProducts(config || []);
     }, [config]);
-
-    useEffect(() => {
-        // Initialize all categories as expanded when component mounts or categories change
-        setExpandedCategories(new Set(categoryOrder));
-    }, [categoryOrder]);
-
-    const toggleCategory = (cat: string) => {
-        setExpandedCategories((prev) => {
-            const next = new Set(prev);
-            if (next.has(cat)) {
-                next.delete(cat);
-            } else {
-                next.add(cat);
-            }
-            return next;
-        });
-    };
 
     const handleProductChange = (index: number, updatedProduct: AdminProduct) => {
         const newProducts = [...products];
@@ -278,112 +243,15 @@ export default function ProductsConfig({
             if (!groups[key]) groups[key] = [];
             groups[key].push(item);
         }
-
-        // Sort within each category if grouping is enabled
-        if (groupByCategory) {
-            Object.keys(groups).forEach((cat) => {
-                groups[cat].sort((a, b) => {
-                    let comparison = 0;
-                    if (sortField === 'order') {
-                        comparison = a.i - b.i;
-                    } else if (sortField === 'name') {
-                        comparison = a.p.name.localeCompare(b.p.name);
-                    } else if (sortField === 'category') {
-                        comparison = a.p.category.localeCompare(b.p.category);
-                    } else if (sortField === 'price') {
-                        const priceA = parseFloat(a.p.currencies[0] || '0');
-                        const priceB = parseFloat(b.p.currencies[0] || '0');
-                        comparison = priceA - priceB;
-                    } else if (sortField === 'availability') {
-                        comparison = (a.p.availability ? 1 : 0) - (b.p.availability ? 1 : 0);
-                    }
-                    return sortDirection === 'asc' ? comparison : -comparison;
-                });
-            });
-        }
-
         return groups;
-    }, [filteredProducts, groupByCategory, sortField, sortDirection]);
-
-    const sortedFilteredProducts = useMemo(() => {
-        if (groupByCategory) return filteredProducts;
-
-        const sorted = [...filteredProducts];
-        sorted.sort((a, b) => {
-            let comparison = 0;
-            if (sortField === 'order') {
-                comparison = a.i - b.i;
-            } else if (sortField === 'name') {
-                comparison = a.p.name.localeCompare(b.p.name);
-            } else if (sortField === 'category') {
-                comparison = a.p.category.localeCompare(b.p.category);
-            } else if (sortField === 'price') {
-                const priceA = parseFloat(a.p.currencies[0] || '0');
-                const priceB = parseFloat(b.p.currencies[0] || '0');
-                comparison = priceA - priceB;
-            } else if (sortField === 'availability') {
-                comparison = (a.p.availability ? 1 : 0) - (b.p.availability ? 1 : 0);
-            }
-            return sortDirection === 'asc' ? comparison : -comparison;
-        });
-        return sorted;
-    }, [filteredProducts, sortField, sortDirection, groupByCategory]);
-
-    const handleSort = (field: SortField) => {
-        if (sortField === field) {
-            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortField(field);
-            setSortDirection('asc');
-        }
-    };
-
-    const SortIcon = ({ field }: { field: SortField }) => {
-        if (sortField !== field) return null;
-        return sortDirection === 'asc' ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />;
-    };
+    }, [filteredProducts]);
 
     const totalFiltered = filteredProducts.length;
-
-    const groupToggle = (
-        <div className="flex items-center gap-1 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden">
-            <button
-                onClick={() => setGroupByCategory(false)}
-                className={`p-1.5 transition ${
-                    !groupByCategory
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
-                }`}
-                title="Sans groupement"
-            >
-                <IconList size={18} />
-            </button>
-            <button
-                onClick={() => setGroupByCategory(true)}
-                className={`p-1.5 transition ${
-                    groupByCategory
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
-                }`}
-                title="Grouper par catégorie"
-            >
-                <IconFolders size={18} />
-            </button>
-        </div>
-    );
-
-    const formatPrice = (price: string, currencyIndex = 0) => {
-        if (!price || price === '' || price === '0') return '';
-        const decimals = currencies[currencyIndex]?.decimals ?? 2;
-        const numPrice = parseFloat(price);
-        return numPrice.toFixed(decimals);
-    };
 
     const headerControls = (
         <>
             {/* Desktop: all controls in one row */}
             <div className="hidden md:flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                {groupToggle}
                 <div className="relative">
                     <svg
                         className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 opacity-50 pointer-events-none"
@@ -425,10 +293,6 @@ export default function ProductsConfig({
                     <option value="available">Disponibles</option>
                     <option value="unavailable">Indisponibles</option>
                 </select>
-            </div>
-            {/* Mobile: Row 1 - toggles only */}
-            <div className="md:hidden flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                {groupToggle}
             </div>
         </>
     );
@@ -484,313 +348,7 @@ export default function ProductsConfig({
             {mobileSearchRow}
             {totalFiltered === 0 && hasFilter ? (
                 <p className="text-md opacity-60 py-4 text-center">Aucun produit correspondant</p>
-            ) : !groupByCategory ? (
-                <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                {!isReadOnly && (
-                                    <th className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-12"></th>
-                                )}
-                                <th
-                                    className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    onClick={() => handleSort('name')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        Nom
-                                        <SortIcon field="name" />
-                                    </div>
-                                </th>
-                                <th
-                                    className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-40 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    onClick={() => handleSort('category')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        Catégorie
-                                        <SortIcon field="category" />
-                                    </div>
-                                </th>
-                                <th
-                                    className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-24 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    onClick={() => handleSort('price')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        Prix {currencies[0] ? `(${currencies[0].symbol})` : ''}
-                                        <SortIcon field="price" />
-                                    </div>
-                                </th>
-                                <th
-                                    className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-24 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    onClick={() => handleSort('availability')}
-                                >
-                                    <div className="flex items-center justify-center gap-1">
-                                        Disponibilité
-                                        <SortIcon field="availability" />
-                                    </div>
-                                </th>
-                                {!isReadOnly && <th className="w-24"></th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {sortedFilteredProducts.map(({ p, i }) => (
-                                <tr key={i} className="border-b border-gray-200 dark:border-gray-700">
-                                    {!isReadOnly && (
-                                        <td className="p-2 text-center">
-                                            <IconGripVertical size={18} className="mx-auto text-gray-400" />
-                                        </td>
-                                    )}
-                                    <td className="p-2">
-                                        {isReadOnly ? (
-                                            <div className="text-sm">{p.name}</div>
-                                        ) : (
-                                            <input
-                                                type="text"
-                                                value={p.name}
-                                                onChange={(e) => handleProductChange(i, { ...p, name: e.target.value })}
-                                                maxLength={50}
-                                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
-                                        )}
-                                    </td>
-                                    <td className="p-2">
-                                        {isReadOnly ? (
-                                            <div className="text-sm">{p.category}</div>
-                                        ) : (
-                                            <SearchableSelect
-                                                options={categories}
-                                                value={p.category}
-                                                onChange={(value) =>
-                                                    handleProductChange(i, {
-                                                        ...p,
-                                                        category: Array.isArray(value) ? value[0] : value,
-                                                    })
-                                                }
-                                                placeholder="Catégorie"
-                                                disabled={isReadOnly}
-                                            />
-                                        )}
-                                    </td>
-                                    <td className="p-2">
-                                        {isReadOnly ? (
-                                            <div className="text-sm">{formatPrice(p.currencies[0] ?? '0')}</div>
-                                        ) : (
-                                            <input
-                                                type="number"
-                                                value={p.currencies[0] ?? ''}
-                                                onChange={(e) => {
-                                                    const updated = [...p.currencies];
-                                                    updated[0] = e.target.value;
-                                                    handleProductChange(i, { ...p, currencies: updated });
-                                                }}
-                                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
-                                        )}
-                                    </td>
-                                    <td className="p-2 text-center">
-                                        <div className="flex justify-center">
-                                            <AvailabilityToggle
-                                                availability={p.availability}
-                                                isReadOnly={isReadOnly}
-                                                onChange={(newValue) =>
-                                                    handleProductChange(i, { ...p, availability: newValue })
-                                                }
-                                            />
-                                        </div>
-                                    </td>
-                                    {!isReadOnly && (
-                                        <td className="p-2 text-center">
-                                            <button
-                                                onClick={() => handleDeleteProduct(i)}
-                                                className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
-                                                title="Supprimer"
-                                            >
-                                                <IconTrash size={18} />
-                                            </button>
-                                        </td>
-                                    )}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            ) : groupByCategory ? (
-                <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                {!isReadOnly && (
-                                    <th className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-12"></th>
-                                )}
-                                <th
-                                    className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    onClick={() => handleSort('name')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        Nom
-                                        <SortIcon field="name" />
-                                    </div>
-                                </th>
-                                <th
-                                    className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-40 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    onClick={() => handleSort('category')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        Catégorie
-                                        <SortIcon field="category" />
-                                    </div>
-                                </th>
-                                <th
-                                    className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-24 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    onClick={() => handleSort('price')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        Prix {currencies[0] ? `(${currencies[0].symbol})` : ''}
-                                        <SortIcon field="price" />
-                                    </div>
-                                </th>
-                                <th
-                                    className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-24 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    onClick={() => handleSort('availability')}
-                                >
-                                    <div className="flex items-center justify-center gap-1">
-                                        Disponibilité
-                                        <SortIcon field="availability" />
-                                    </div>
-                                </th>
-                                {!isReadOnly && <th className="w-24"></th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {categoryOrder
-                                .filter((cat) => categoryGroups[cat] !== undefined)
-                                .map((cat) => (
-                                    <React.Fragment key={cat}>
-                                        <tr
-                                            className="bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700"
-                                            onClick={() => toggleCategory(cat)}
-                                        >
-                                            <td colSpan={isReadOnly ? 5 : 6} className="p-2 font-semibold text-sm">
-                                                <div className="flex items-center gap-2">
-                                                    <svg
-                                                        className={`w-4 h-4 transition-transform duration-200 ${expandedCategories.has(cat) ? 'rotate-90' : ''}`}
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        viewBox="0 0 24 24"
-                                                    >
-                                                        <path
-                                                            strokeLinecap="round"
-                                                            strokeLinejoin="round"
-                                                            strokeWidth={2}
-                                                            d="M9 5l7 7-7 7"
-                                                        />
-                                                    </svg>
-                                                    {cat}{' '}
-                                                    {availFilter === 'all'
-                                                        ? `(${categoryGroups[cat].filter(({ p }) => p.availability).length} / ${categoryGroups[cat].length} produit${categoryGroups[cat].length > 1 ? 's' : ''})`
-                                                        : `(${categoryGroups[cat].length} produit${categoryGroups[cat].length > 1 ? 's' : ''})`}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        {expandedCategories.has(cat) &&
-                                            categoryGroups[cat].map(({ p, i }) => (
-                                                <tr key={i} className="border-b border-gray-200 dark:border-gray-700">
-                                                    {!isReadOnly && (
-                                                        <td className="p-2 text-center">
-                                                            <IconGripVertical
-                                                                size={18}
-                                                                className="mx-auto text-gray-400"
-                                                            />
-                                                        </td>
-                                                    )}
-                                                    <td className="p-2">
-                                                        {isReadOnly ? (
-                                                            <div className="text-sm">{p.name}</div>
-                                                        ) : (
-                                                            <input
-                                                                type="text"
-                                                                value={p.name}
-                                                                onChange={(e) =>
-                                                                    handleProductChange(i, {
-                                                                        ...p,
-                                                                        name: e.target.value,
-                                                                    })
-                                                                }
-                                                                maxLength={50}
-                                                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                            />
-                                                        )}
-                                                    </td>
-                                                    <td className="p-2">
-                                                        {isReadOnly ? (
-                                                            <div className="text-sm">{p.category}</div>
-                                                        ) : (
-                                                            <SearchableSelect
-                                                                options={categories}
-                                                                value={p.category}
-                                                                onChange={(val) =>
-                                                                    handleProductChange(i, {
-                                                                        ...p,
-                                                                        category: Array.isArray(val) ? val[0] : val,
-                                                                    })
-                                                                }
-                                                                placeholder="Catégorie"
-                                                            />
-                                                        )}
-                                                    </td>
-                                                    <td className="p-2">
-                                                        {isReadOnly ? (
-                                                            <div className="text-sm">
-                                                                {formatPrice(p.currencies[0] ?? '0')}
-                                                            </div>
-                                                        ) : (
-                                                            <input
-                                                                type="number"
-                                                                value={p.currencies[0] ?? ''}
-                                                                onChange={(e) => {
-                                                                    const updated = [...p.currencies];
-                                                                    updated[0] = e.target.value;
-                                                                    handleProductChange(i, {
-                                                                        ...p,
-                                                                        currencies: updated,
-                                                                    });
-                                                                }}
-                                                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                            />
-                                                        )}
-                                                    </td>
-                                                    <td className="p-2 text-center">
-                                                        <div className="flex justify-center">
-                                                            <AvailabilityToggle
-                                                                availability={p.availability}
-                                                                isReadOnly={isReadOnly}
-                                                                onChange={(newValue) =>
-                                                                    handleProductChange(i, {
-                                                                        ...p,
-                                                                        availability: newValue,
-                                                                    })
-                                                                }
-                                                            />
-                                                        </div>
-                                                    </td>
-                                                    {!isReadOnly && (
-                                                        <td className="p-2 text-center">
-                                                            <button
-                                                                onClick={() => handleDeleteProduct(i)}
-                                                                className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
-                                                                title="Supprimer"
-                                                            >
-                                                                <IconTrash size={18} />
-                                                            </button>
-                                                        </td>
-                                                    )}
-                                                </tr>
-                                            ))}
-                                    </React.Fragment>
-                                ))}
-                        </tbody>
-                    </table>
-                </div>
-            ) : groupByCategory ? (
+            ) : (
                 categoryOrder
                     .filter((cat) => categoryGroups[cat] !== undefined)
                     .map((cat) => (
@@ -810,20 +368,6 @@ export default function ProductsConfig({
                             availFilter={availFilter}
                         />
                     ))
-            ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                    {filteredProducts.map(({ p, i }) => (
-                        <ProductItem
-                            key={i}
-                            product={p}
-                            onChange={(updated) => handleProductChange(i, updated)}
-                            onDelete={isReadOnly ? undefined : () => handleDeleteProduct(i)}
-                            categories={categories}
-                            currencies={currencies}
-                            isReadOnly={isReadOnly}
-                        />
-                    ))}
-                </div>
             )}
             {!isReadOnly && !hasFilter && (
                 <button
