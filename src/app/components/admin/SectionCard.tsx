@@ -50,9 +50,9 @@ export default function SectionCard({
                                     e.stopPropagation();
                                     onSave();
                                 }}
-                                className={isMobile ? 'px-3 py-2' : ''}
+                                className={isMobile ? 'px-3 py-1.5' : ''}
                             >
-                                {isMobile ? <IconCheck size={20} /> : 'Enregistrer'}
+                                {isMobile ? <IconCheck size={20} stroke={3} /> : 'Enregistrer'}
                             </AdminButton>
                         )}
                     </div>

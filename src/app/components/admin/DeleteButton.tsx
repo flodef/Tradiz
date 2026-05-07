@@ -12,7 +12,7 @@ export default function DeleteButton({ onClick, title = 'Supprimer' }: DeleteBut
             className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
             title={title}
         >
-            <IconTrash size={28} stroke={3} />
+            <IconTrash size={28} stroke={2} />
         </button>
     );
 }

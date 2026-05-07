@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { twMerge } from 'tailwind-merge';
 
 interface AdminButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: 'primary' | 'secondary' | 'add' | 'save' | 'danger';
@@ -27,7 +28,7 @@ export default function AdminButton({
     }[variant];
 
     return (
-        <button disabled={disabled || isLoading} className={`${baseStyles} ${variantStyles} ${className}`} {...props}>
+        <button disabled={disabled || isLoading} className={twMerge(baseStyles, variantStyles, className)} {...props}>
             {isLoading ? (
                 <span className="flex items-center gap-2">
                     <svg className="animate-spin h-4 w-4 text-current" viewBox="0 0 24 24">
