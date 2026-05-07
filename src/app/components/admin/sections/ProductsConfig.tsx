@@ -1,23 +1,15 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
 import { Currency } from '@/app/utils/interfaces';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { IconChevronDown, IconChevronUp, IconGripVertical, IconTrash } from '@tabler/icons-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import AvailabilityToggle from '../AvailabilityToggle';
+import SearchableSelect from '../SearchableSelect';
 import SectionCard from '../SectionCard';
 import ProductItem from '../items/ProductItem';
-import {
-    IconChevronDown,
-    IconChevronUp,
-    IconList,
-    IconFolders,
-    IconTrash,
-    IconGripVertical,
-} from '@tabler/icons-react';
-import SearchableSelect from '../SearchableSelect';
-import { useLocalStorage } from '@/app/utils/localStorage';
-import AvailabilityToggle from '../AvailabilityToggle';
 
 type SortField = 'order' | 'name' | 'category' | 'price' | 'availability';
 type SortDirection = 'asc' | 'desc';
@@ -198,9 +190,10 @@ export default function ProductsConfig({
     const [products, setProducts] = useState(config || []);
     const [search, setSearch] = useState('');
     const [availFilter, setAvailFilter] = useState<AvailabilityFilter>('all');
-    const [groupByCategory, setGroupByCategory] = useLocalStorage<boolean>('products-group-by-category', false);
     const [sortField, setSortField] = useState<SortField>('order');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+    const groupByCategory = true;
 
     const categoryOrder = useMemo(() => {
         const seen: string[] = [];
@@ -345,33 +338,6 @@ export default function ProductsConfig({
 
     const totalFiltered = filteredProducts.length;
 
-    const groupToggle = (
-        <div className="flex items-center gap-1 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden">
-            <button
-                onClick={() => setGroupByCategory(false)}
-                className={`p-1.5 transition ${
-                    !groupByCategory
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
-                }`}
-                title="Sans groupement"
-            >
-                <IconList size={18} />
-            </button>
-            <button
-                onClick={() => setGroupByCategory(true)}
-                className={`p-1.5 transition ${
-                    groupByCategory
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
-                }`}
-                title="Grouper par catégorie"
-            >
-                <IconFolders size={18} />
-            </button>
-        </div>
-    );
-
     const formatPrice = (price: string, currencyIndex = 0) => {
         if (!price || price === '' || price === '0') return '';
         const decimals = currencies[currencyIndex]?.decimals ?? 2;
@@ -383,7 +349,6 @@ export default function ProductsConfig({
         <>
             {/* Desktop: all controls in one row */}
             <div className="hidden md:flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                {groupToggle}
                 <div className="relative">
                     <svg
                         className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 opacity-50 pointer-events-none"
@@ -425,10 +390,6 @@ export default function ProductsConfig({
                     <option value="available">Disponibles</option>
                     <option value="unavailable">Indisponibles</option>
                 </select>
-            </div>
-            {/* Mobile: Row 1 - toggles only */}
-            <div className="md:hidden flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                {groupToggle}
             </div>
         </>
     );
