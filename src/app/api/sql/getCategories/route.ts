@@ -5,6 +5,7 @@ interface CategoryRow {
     id: string;
     nom: string;
     ordre: number;
+    taux_tva_default: number | null;
 }
 
 export async function GET() {
@@ -12,7 +13,7 @@ export async function GET() {
         const connection = await getMainDb();
 
         const query = `
-            SELECT id, nom, ordre
+            SELECT id, nom, ordre, taux_tva_default
             FROM categorie
             ORDER BY ordre
         `;
@@ -25,7 +26,7 @@ export async function GET() {
         data.values.push(
             ...(rows as CategoryRow[]).map((row): string[] => [
                 String(row.nom),
-                '20', // Default VAT rate, you can adjust this if you have a taux_tva field
+                String(row.taux_tva_default ?? 20), // Use taux_tva_default from DB, default to 20
             ])
         );
 

@@ -206,6 +206,10 @@ CREATE TABLE dc_pos.currency (
     id SERIAL PRIMARY KEY,
     label VARCHAR(255) NOT NULL,
     symbol VARCHAR(10) NOT NULL,
+    max_value DECIMAL(10,4) DEFAULT NULL,
+    decimals INTEGER DEFAULT 2,
+    rate DECIMAL(10,4) DEFAULT '0.00000',
+    fee DECIMAL(3,1) DEFAULT '0.0',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

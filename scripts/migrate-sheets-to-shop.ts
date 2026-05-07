@@ -75,12 +75,13 @@ async function fetchSheetData(sheetName: string, isRaw = true): Promise<SheetDat
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            // Return error object instead of throwing - let caller handle it
+            return { error: { message: `HTTP ${response.status}` } };
         }
 
         return await response.json();
     } catch (error) {
-        console.error(`Error fetching sheet "${sheetName}":`, error);
+        // Return error object instead of throwing - let caller handle it
         return { error: { message: String(error) } };
     }
 }
@@ -180,12 +181,28 @@ async function migrateCurrencies(client: Client) {
     let count = 0;
     for (let i = 1; i < data.values.length; i++) {
         const row = data.values[i];
-        if (row.length >= 3) {
-            const label = String(row[0]).trim();
-            const symbol = String(row[2]).trim();
+        if (row.length >= 6) {
+            // Extract label and symbol from row[0] if symbol is in parentheses (e.g., "Euro (€)" -> label="Euro", symbol="€")
+            const rawLabel = String(row[0]).trim();
+            let label = rawLabel;
+            const symbol = String(row[2]).trim(); // Get symbol from row[2] (Symbole column)
+
+            const symbolMatch = rawLabel.match(/\(([^)]+)\)$/);
+            if (symbolMatch) {
+                label = rawLabel.substring(0, symbolMatch.index).trim();
+            }
+
+            // Handle comma as decimal separator for max_value
+            const max_value = Number(row[1]);
+            const decimals = Number(row[3]);
+            const rate = Number(row[4]);
+            const fee = Number(row[5]);
 
             if (label && symbol) {
-                await client.query('INSERT INTO dc_pos.currency (label, symbol) VALUES ($1, $2)', [label, symbol]);
+                await client.query(
+                    'INSERT INTO dc_pos.currency (label, symbol, max_value, decimals, rate, fee) VALUES ($1, $2, $3, $4, $5, $6)',
+                    [label, symbol, max_value, decimals, rate, fee]
+                );
                 count++;
             }
         }
@@ -383,7 +400,7 @@ async function migrateProducts(client: Client) {
     await client.query('DELETE FROM dc.article');
     await client.query('DELETE FROM dc.categorie');
 
-    const categories = new Map<string, { nom: string; ordre: number }>();
+    const categories = new Map<string, { nom: string; ordre: number; taux_tva_default: number }>();
     const articles: Array<{
         ordre: number;
         nom: string;
@@ -409,7 +426,32 @@ async function migrateProducts(client: Client) {
     let ordre = 0;
     for (const { item: row, origIdx } of filtered) {
         if (row.length >= 4) {
-            const taux_tva = Number(row[0]) || 0.1; // Default 10% if not specified
+            // Parse VAT rate - handle both formatted strings ("5,5%") and raw numbers (5.5 or 0.055)
+            let taux_tva = 0.2; // Default 20% if not specified
+            const rawTva = row[0];
+            if (rawTva != null) {
+                // If it's already a number
+                if (typeof rawTva === 'number') {
+                    // If it's a decimal (e.g., 0.055), convert to percentage (5.5)
+                    if (rawTva < 1) {
+                        taux_tva = rawTva * 100;
+                    } else {
+                        // It's already a percentage (e.g., 5.5)
+                        taux_tva = rawTva;
+                    }
+                } else {
+                    // It's a string - parse percentage format (e.g., "5,5%" → 5.5)
+                    const strTva = String(rawTva).trim();
+                    if (strTva) {
+                        const parsed = strTva.replace('%', '').replace(',', '.');
+                        const num = Number(parsed);
+                        if (!isNaN(num)) {
+                            // If the parsed number is a decimal (e.g., 0.055), convert to percentage
+                            taux_tva = num < 1 ? num * 100 : num;
+                        }
+                    }
+                }
+            }
             const categorie = String(row[1]).trim();
             const nom = String(row[2]).trim();
             const unavailable = row[3]; // true/false or 1/0
@@ -418,11 +460,12 @@ async function migrateProducts(client: Client) {
             const options = optionsArr[origIdx] ?? '';
 
             if (nom && categorie) {
-                // Track category
+                // Track category with its VAT rate
                 if (!categories.has(categorie)) {
                     categories.set(categorie, {
                         nom: categorie,
                         ordre: categories.size + 1,
+                        taux_tva_default: taux_tva,
                     });
                 }
 
@@ -445,7 +488,12 @@ async function migrateProducts(client: Client) {
     // Insert categories
     let catCount = 0;
     for (const [id, cat] of categories) {
-        await client.query('INSERT INTO dc.categorie (id, nom, ordre) VALUES ($1, $2, $3)', [id, cat.nom, cat.ordre]);
+        await client.query('INSERT INTO dc.categorie (id, nom, ordre, taux_tva_default) VALUES ($1, $2, $3, $4)', [
+            id,
+            cat.nom,
+            cat.ordre,
+            cat.taux_tva_default,
+        ]);
         catCount++;
     }
 
