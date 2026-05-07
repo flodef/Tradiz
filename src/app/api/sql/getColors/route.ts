@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
 
 interface ThemeRow {
+    name: string;
     text_light: string;
     text_dark: string;
     gradient_start_light: string;
@@ -24,6 +25,7 @@ export async function GET() {
 
         const query = `
             SELECT
+                name,
                 text_light,
                 text_dark,
                 gradient_start_light,
@@ -49,11 +51,12 @@ export async function GET() {
 
         const allRows = rows as ThemeRow[];
 
-        const data: { values: string[][] } = { values: [] };
+        const data: { values: string[][]; themeName?: string } = { values: [] };
         data.values.push(['Couleur', 'Clair', 'Sombre']);
 
         if (allRows.length > 0) {
             const row = allRows[0];
+            data.themeName = String(row.name);
             data.values.push(
                 ['Texte', String(row.text_light), String(row.text_dark)],
                 ['Fond début dégradé', String(row.gradient_start_light), String(row.gradient_start_dark)],

@@ -10,11 +10,13 @@ export default function ColorsConfig({
     onChange,
     onSave,
     isReadOnly = false,
+    themeName,
 }: {
     config: Color[];
     onChange: (data: Color[]) => void;
-    onSave: (data: Color[]) => void;
+    onSave?: (data: Color[]) => void;
     isReadOnly?: boolean;
+    themeName?: string;
 }) {
     const [colors, setColors] = useState(config || []);
 
@@ -52,7 +54,7 @@ export default function ColorsConfig({
     }
 
     return (
-        <SectionCard title="Thèmes" onSave={isReadOnly ? undefined : () => onSave(colors)}>
+        <SectionCard title="Thèmes" onSave={isReadOnly ? undefined : onSave ? () => onSave(colors) : undefined}>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {themes.map((theme, themeIndex) => (
                     <div
@@ -75,7 +77,7 @@ export default function ColorsConfig({
                             </button>
                         )}
                         <h3 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">
-                            Thème {themeIndex + 1}
+                            {themeName || `Thème ${themeIndex + 1}`}
                         </h3>
                         <div className="overflow-x-auto">
                             <table className="w-full border-collapse">

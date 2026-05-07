@@ -18,7 +18,7 @@ export default function PaymentsConfig({
 }: {
     config: PaymentMethod[];
     onChange: (data: PaymentMethod[]) => void;
-    onSave: (data: PaymentMethod[]) => void;
+    onSave?: (data: PaymentMethod[]) => void;
     currencies: Currency[];
     isReadOnly?: boolean;
 }) {
@@ -181,7 +181,7 @@ export default function PaymentsConfig({
     }
 
     return (
-        <SectionCard title="Paiements" onSave={isReadOnly ? undefined : () => onSave(payments)}>
+        <SectionCard title="Paiements" onSave={isReadOnly ? undefined : onSave ? () => onSave(payments) : undefined}>
             <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                     <thead>

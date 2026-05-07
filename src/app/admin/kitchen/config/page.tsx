@@ -57,6 +57,7 @@ export default function SettingsPage() {
     const [originalCurrencies, setOriginalCurrencies] = useState<Currency[]>([]);
     const [originalPayments, setOriginalPayments] = useState<PaymentMethod[]>([]);
     const [originalColors, setOriginalColors] = useState<Color[]>([]);
+    const [themeName, setThemeName] = useState<string>('');
 
     // Step 1: check DB config once on mount
     useEffect(() => {
@@ -213,6 +214,9 @@ export default function SettingsPage() {
                     }));
                     setColorsConfig(loaded);
                     setOriginalColors(loaded);
+                    if (colorsData.themeName) {
+                        setThemeName(String(colorsData.themeName));
+                    }
                 }
             } catch {
                 if (configColors) {
@@ -426,7 +430,7 @@ export default function SettingsPage() {
             <PaymentsConfig
                 config={paymentsConfig}
                 onChange={setPaymentsConfig}
-                onSave={handlePaymentsSave}
+                onSave={hasPaymentsChanges ? handlePaymentsSave : undefined}
                 currencies={currenciesConfig}
                 isReadOnly={isReadOnly}
             />
@@ -434,8 +438,9 @@ export default function SettingsPage() {
             <ColorsConfig
                 config={colorsConfig}
                 onChange={setColorsConfig}
-                onSave={handleColorsSave}
+                onSave={hasColorsChanges ? handleColorsSave : undefined}
                 isReadOnly={isReadOnly}
+                themeName={themeName}
             />
 
             {!isReadOnly && hasChanges && (
