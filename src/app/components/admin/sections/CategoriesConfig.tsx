@@ -166,57 +166,56 @@ export default function CategoriesConfig({
 
     return (
         <SectionCard title="Catégories" onSave={onSave ? () => onSave(categories) : undefined}>
-            {
-                <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                {!isReadOnly && <th className={adminTextStyle}></th>}
-                                <th
-                                    className={
-                                        adminTextStyle + ' cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }
-                                    onClick={() => handleSort('label')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        Label
-                                        <SortIcon field="label" />
-                                    </div>
-                                </th>
-                                <th
-                                    className={
-                                        adminTextStyle + ' w-24 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }
-                                    onClick={() => handleSort('vat')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        TVA
-                                        <SortIcon field="vat" />
-                                    </div>
-                                </th>
-                                {!isReadOnly && <th className="w-24"></th>}
-                            </tr>
-                        </thead>
-                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                            <SortableContext items={categories.map((_, i) => i)} strategy={verticalListSortingStrategy}>
-                                <tbody>
-                                    {sortedCategories.map((category) => {
-                                        const originalIndex = categories.findIndex((c) => c === category);
-                                        return (
-                                            <SortableRow
-                                                key={originalIndex}
-                                                category={category}
-                                                index={originalIndex}
-                                                isReadOnly={isReadOnly}
-                                            />
-                                        );
-                                    })}
-                                </tbody>
-                            </SortableContext>
-                        </DndContext>
-                    </table>
-                </div>
-            }
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={categories.map((_, i) => i)} strategy={verticalListSortingStrategy}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                            <thead>
+                                <tr className="border-b-2 border-gray-300 dark:border-gray-600">
+                                    {!isReadOnly && <th className={adminTextStyle}></th>}
+                                    <th
+                                        className={
+                                            adminTextStyle + ' cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700'
+                                        }
+                                        onClick={() => handleSort('label')}
+                                    >
+                                        <div className="flex items-center gap-1">
+                                            Label
+                                            <SortIcon field="label" />
+                                        </div>
+                                    </th>
+                                    <th
+                                        className={
+                                            adminTextStyle +
+                                            ' w-24 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700'
+                                        }
+                                        onClick={() => handleSort('vat')}
+                                    >
+                                        <div className="flex items-center gap-1">
+                                            TVA
+                                            <SortIcon field="vat" />
+                                        </div>
+                                    </th>
+                                    {!isReadOnly && <th className="w-24"></th>}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sortedCategories.map((category) => {
+                                    const originalIndex = categories.findIndex((c) => c === category);
+                                    return (
+                                        <SortableRow
+                                            key={originalIndex}
+                                            category={category}
+                                            index={originalIndex}
+                                            isReadOnly={isReadOnly}
+                                        />
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </SortableContext>
+            </DndContext>
             {!isReadOnly && (
                 <AdminButton variant="add" onClick={handleAddCategory}>
                     Ajouter une catégorie

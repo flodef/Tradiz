@@ -132,18 +132,18 @@ export default function DiscountsConfig({
 
     return (
         <SectionCard title="Réductions" onSave={isReadOnly || !hasChanges ? undefined : () => onSave(discounts)}>
-            <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                    <thead>
-                        <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                            {!isReadOnly && <th className={adminTextStyle + ' w-12'}></th>}
-                            <th className={adminTextStyle}>Montant</th>
-                            <th className={adminTextStyle + ' w-32'}>Unité</th>
-                            {!isReadOnly && <th className="w-24"></th>}
-                        </tr>
-                    </thead>
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                        <SortableContext items={discounts.map((_, i) => i)} strategy={verticalListSortingStrategy}>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={discounts.map((_, i) => i)} strategy={verticalListSortingStrategy}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                            <thead>
+                                <tr className="border-b-2 border-gray-300 dark:border-gray-600">
+                                    {!isReadOnly && <th className={adminTextStyle + ' w-12'}></th>}
+                                    <th className={adminTextStyle}>Montant</th>
+                                    <th className={adminTextStyle + ' w-32'}>Unité</th>
+                                    {!isReadOnly && <th className="w-24"></th>}
+                                </tr>
+                            </thead>
                             <tbody>
                                 {discounts.map((discount, index) => (
                                     <SortableRow
@@ -154,10 +154,10 @@ export default function DiscountsConfig({
                                     />
                                 ))}
                             </tbody>
-                        </SortableContext>
-                    </DndContext>
-                </table>
-            </div>
+                        </table>
+                    </div>
+                </SortableContext>
+            </DndContext>
             {!isReadOnly && (
                 <AdminButton variant="add" onClick={handleAddDiscount}>
                     Ajouter une réduction

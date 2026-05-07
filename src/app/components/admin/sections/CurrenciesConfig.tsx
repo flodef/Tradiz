@@ -206,22 +206,22 @@ export default function CurrenciesConfig({
 
     return (
         <SectionCard title="Devises" onSave={isReadOnly || !hasChanges ? undefined : () => onSave(currencies)}>
-            <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                    <thead>
-                        <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                            {!isReadOnly && <th className={adminTextStyle}></th>}
-                            <th className={adminTextStyle}>Label</th>
-                            <th className={adminTextStyle + ' w-24'}>Symbole</th>
-                            <th className={adminTextStyle + ' w-32'}>Max</th>
-                            <th className={adminTextStyle + ' w-24'}>Décimales</th>
-                            <th className={adminTextStyle + ' w-24'}>Taux</th>
-                            <th className={adminTextStyle + ' w-24'}>Frais</th>
-                            {!isReadOnly && <th className="w-24"></th>}
-                        </tr>
-                    </thead>
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                        <SortableContext items={currencies.map((_, i) => i)} strategy={verticalListSortingStrategy}>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={currencies.map((_, i) => i)} strategy={verticalListSortingStrategy}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                            <thead>
+                                <tr className="border-b-2 border-gray-300 dark:border-gray-600">
+                                    {!isReadOnly && <th className={adminTextStyle}></th>}
+                                    <th className={adminTextStyle}>Label</th>
+                                    <th className={adminTextStyle + ' w-24'}>Symbole</th>
+                                    <th className={adminTextStyle + ' w-32'}>Max</th>
+                                    <th className={adminTextStyle + ' w-24'}>Décimales</th>
+                                    <th className={adminTextStyle + ' w-24'}>Taux</th>
+                                    <th className={adminTextStyle + ' w-24'}>Frais</th>
+                                    {!isReadOnly && <th className="w-24"></th>}
+                                </tr>
+                            </thead>
                             <tbody>
                                 {currencies.map((currency, index) => (
                                     <SortableRow
@@ -232,10 +232,10 @@ export default function CurrenciesConfig({
                                     />
                                 ))}
                             </tbody>
-                        </SortableContext>
-                    </DndContext>
-                </table>
-            </div>
+                        </table>
+                    </div>
+                </SortableContext>
+            </DndContext>
             {!isReadOnly && (
                 <AdminButton variant="add" onClick={handleAddCurrency}>
                     Ajouter une devise
