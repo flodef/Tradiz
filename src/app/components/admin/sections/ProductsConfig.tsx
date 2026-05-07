@@ -7,9 +7,9 @@ import { arrayMove, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { IconChevronDown, IconChevronUp, IconGripVertical } from '@tabler/icons-react';
 import React, { useEffect, useMemo, useState } from 'react';
+import AdminSelect from '../AdminSelect';
 import AvailabilityToggle from '../AvailabilityToggle';
 import DeleteButton from '../DeleteButton';
-import SearchableSelect from '../SearchableSelect';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
 
@@ -53,6 +53,8 @@ export default function ProductsConfig({
     config,
     onChange,
     onSave,
+    onCancel,
+    hasChanges = false,
     categories,
     currencies,
     isReadOnly = false,
@@ -60,6 +62,8 @@ export default function ProductsConfig({
     config: AdminProduct[];
     onChange: (data: AdminProduct[]) => void;
     onSave?: (data: AdminProduct[]) => void;
+    onCancel?: () => void;
+    hasChanges?: boolean;
     categories: { label: string; value: string }[];
     currencies: Currency[];
     isReadOnly?: boolean;
@@ -328,92 +332,93 @@ export default function ProductsConfig({
     );
 
     return (
-        <SectionCard title="Produits" onSave={onSave ? () => onSave(products) : undefined} headerExtra={headerControls}>
+        <SectionCard
+            title="Produits"
+            onSave={isReadOnly || !hasChanges || !onSave ? undefined : () => onSave(products)}
+            onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
+            headerExtra={headerControls}
+        >
             {mobileSearchRow}
             {totalFiltered === 0 && hasFilter ? (
                 <p className="text-md opacity-60 py-4 text-center">Aucun produit correspondant</p>
             ) : (
-                <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                {!isReadOnly && <th className="w-12"></th>}
-                                <th
-                                    className={adminSortableHeaderStyle + ' min-w-40'}
-                                    onClick={() => handleSort('name')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        Nom
-                                        <SortIcon field="name" />
-                                    </div>
-                                </th>
-                                <th
-                                    className={adminSortableHeaderStyle + ' min-w-32 w-32'}
-                                    onClick={() => handleSort('category')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        Catégorie
-                                        <SortIcon field="category" />
-                                    </div>
-                                </th>
-                                <th
-                                    className={adminSortableHeaderStyle + ' min-w-20 w-20'}
-                                    onClick={() => handleSort('price')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        Prix {currencies[0] ? `(${currencies[0].symbol})` : ''}
-                                        <SortIcon field="price" />
-                                    </div>
-                                </th>
-                                <th
-                                    className={adminSortableHeaderStyle + ' min-w-20 w-20'}
-                                    onClick={() => handleSort('availability')}
-                                >
-                                    <div className="flex items-center justify-center gap-1">
-                                        Disponibilité
-                                        <SortIcon field="availability" />
-                                    </div>
-                                </th>
-                                {!isReadOnly && <th className="w-8"></th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {categoryOrder
-                                .filter((cat) => categoryGroups[cat] !== undefined)
-                                .map((cat) => (
-                                    <React.Fragment key={cat}>
-                                        <tr
-                                            className="bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700"
-                                            onClick={() => toggleCategory(cat)}
-                                        >
-                                            <td colSpan={isReadOnly ? 5 : 6} className="p-2 font-semibold text-sm">
-                                                <div className="flex items-center gap-2">
-                                                    <svg
-                                                        className={`w-4 h-4 transition-transform duration-200 ${expandedCategories.has(cat) ? 'rotate-90' : ''}`}
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        viewBox="0 0 24 24"
-                                                    >
-                                                        <path
-                                                            strokeLinecap="round"
-                                                            strokeLinejoin="round"
-                                                            strokeWidth={2}
-                                                            d="M9 5l7 7-7 7"
-                                                        />
-                                                    </svg>
-                                                    {cat}{' '}
-                                                    {availFilter === 'all'
-                                                        ? `(${categoryGroups[cat].filter(({ p }) => p.availability).length} / ${categoryGroups[cat].length} produit${categoryGroups[cat].length > 1 ? 's' : ''})`
-                                                        : `(${categoryGroups[cat].length} produit${categoryGroups[cat].length > 1 ? 's' : ''})`}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        {expandedCategories.has(cat) && (
-                                            <DndContext
-                                                sensors={sensors}
-                                                collisionDetection={closestCenter}
-                                                onDragEnd={handleDragEnd}
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                            <thead>
+                                <tr className="border-b-2 border-gray-300 dark:border-gray-600">
+                                    {!isReadOnly && <th className="w-12"></th>}
+                                    <th
+                                        className={adminSortableHeaderStyle + ' min-w-40'}
+                                        onClick={() => handleSort('name')}
+                                    >
+                                        <div className="flex items-center gap-1">
+                                            Nom
+                                            <SortIcon field="name" />
+                                        </div>
+                                    </th>
+                                    <th
+                                        className={adminSortableHeaderStyle + ' min-w-32 w-32'}
+                                        onClick={() => handleSort('category')}
+                                    >
+                                        <div className="flex items-center gap-1">
+                                            Catégorie
+                                            <SortIcon field="category" />
+                                        </div>
+                                    </th>
+                                    <th
+                                        className={adminSortableHeaderStyle + ' min-w-20 w-20'}
+                                        onClick={() => handleSort('price')}
+                                    >
+                                        <div className="flex items-center gap-1">
+                                            Prix {currencies[0] ? `(${currencies[0].symbol})` : ''}
+                                            <SortIcon field="price" />
+                                        </div>
+                                    </th>
+                                    <th
+                                        className={adminSortableHeaderStyle + ' min-w-20 w-20'}
+                                        onClick={() => handleSort('availability')}
+                                    >
+                                        <div className="flex items-center justify-center gap-1">
+                                            Disponibilité
+                                            <SortIcon field="availability" />
+                                        </div>
+                                    </th>
+                                    {!isReadOnly && <th className="w-8"></th>}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {categoryOrder
+                                    .filter((cat) => categoryGroups[cat] !== undefined)
+                                    .map((cat) => (
+                                        <React.Fragment key={cat}>
+                                            <tr
+                                                className="bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700"
+                                                onClick={() => toggleCategory(cat)}
                                             >
+                                                <td colSpan={isReadOnly ? 5 : 6} className="p-2 font-semibold text-sm">
+                                                    <div className="flex items-center gap-2">
+                                                        <svg
+                                                            className={`w-4 h-4 transition-transform duration-200 ${expandedCategories.has(cat) ? 'rotate-90' : ''}`}
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            viewBox="0 0 24 24"
+                                                        >
+                                                            <path
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                strokeWidth={2}
+                                                                d="M9 5l7 7-7 7"
+                                                            />
+                                                        </svg>
+                                                        {cat}{' '}
+                                                        {availFilter === 'all'
+                                                            ? `(${categoryGroups[cat].filter(({ p }) => p.availability).length} / ${categoryGroups[cat].length} produit${categoryGroups[cat].length > 1 ? 's' : ''})`
+                                                            : `(${categoryGroups[cat].length} produit${categoryGroups[cat].length > 1 ? 's' : ''})`}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {expandedCategories.has(cat) && (
                                                 <SortableContext items={categoryGroups[cat].map(({ i }) => String(i))}>
                                                     {categoryGroups[cat].map(({ p, i }) => (
                                                         <SortableRow key={i} id={String(i)} isReadOnly={isReadOnly}>
@@ -432,23 +437,17 @@ export default function ProductsConfig({
                                                                 />
                                                             </td>
                                                             <td className="p-2">
-                                                                {isReadOnly ? (
-                                                                    <div className="text-sm">{p.category}</div>
-                                                                ) : (
-                                                                    <SearchableSelect
-                                                                        options={categories}
-                                                                        value={p.category}
-                                                                        onChange={(val) =>
-                                                                            handleProductChange(i, {
-                                                                                ...p,
-                                                                                category: Array.isArray(val)
-                                                                                    ? val[0]
-                                                                                    : val,
-                                                                            })
-                                                                        }
-                                                                        placeholder="Catégorie"
-                                                                    />
-                                                                )}
+                                                                <AdminSelect
+                                                                    options={categories}
+                                                                    value={p.category}
+                                                                    onChange={(val) =>
+                                                                        handleProductChange(i, {
+                                                                            ...p,
+                                                                            category: Array.isArray(val) ? val[0] : val,
+                                                                        })
+                                                                    }
+                                                                    disabled={isReadOnly}
+                                                                />
                                                             </td>
                                                             <td className="p-2">
                                                                 {isReadOnly ? (
@@ -494,13 +493,13 @@ export default function ProductsConfig({
                                                         </SortableRow>
                                                     ))}
                                                 </SortableContext>
-                                            </DndContext>
-                                        )}
-                                    </React.Fragment>
-                                ))}
-                        </tbody>
-                    </table>
-                </div>
+                                            )}
+                                        </React.Fragment>
+                                    ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </DndContext>
             )}
             {!isReadOnly && !hasFilter && (
                 <button

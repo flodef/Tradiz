@@ -1,9 +1,9 @@
+import { adminTextStyle } from '@/app/utils/constants';
 import { Currency } from '@/app/utils/interfaces';
-import SearchableSelect from '../SearchableSelect';
+import AdminSelect from '../AdminSelect';
+import AvailabilityToggle from '../AvailabilityToggle';
 import { AdminProduct } from '../sections/ProductsConfig';
 import ValidatedInput from '../ValidatedInput';
-import AvailabilityToggle from '../AvailabilityToggle';
-import { adminTextStyle } from '@/app/utils/constants';
 
 interface ProductItemProps {
     product: AdminProduct;
@@ -102,14 +102,13 @@ export default function ProductItem({
                     />
                 </div>
                 <div>
-                    <label className={adminTextStyle}>Catégorie</label>
-                    <SearchableSelect
+                    <AdminSelect
+                        label="Catégorie"
                         options={categories}
                         value={product.category}
                         onChange={(value) =>
                             onChange({ ...product, category: Array.isArray(value) ? value[0] : value })
                         }
-                        placeholder="Catégorie"
                         disabled={isReadOnly}
                     />
                 </div>

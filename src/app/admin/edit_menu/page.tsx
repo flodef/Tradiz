@@ -13,6 +13,8 @@ export default function EditMenuPage() {
     const { inventory, currencies } = useConfig();
     const [products, setProducts] = useState<AdminProduct[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
+    const [originalProducts, setOriginalProducts] = useState<AdminProduct[]>([]);
+    const [originalCategories, setOriginalCategories] = useState<Category[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isReadOnly, setIsReadOnly] = useState(true);
     const [dbConfigChecked, setDbConfigChecked] = useState(false);
@@ -60,6 +62,8 @@ export default function EditMenuPage() {
 
                         setProducts(allProducts);
                         setCategories(allCategories);
+                        setOriginalProducts(allProducts);
+                        setOriginalCategories(allCategories);
                         setIsLoading(false);
                     }
                     // else: wait for inventory/currencies to load (dep array will re-run)
@@ -104,6 +108,8 @@ export default function EditMenuPage() {
 
                 setCategories(loadedCategories);
                 setProducts(loadedProducts);
+                setOriginalCategories(loadedCategories);
+                setOriginalProducts(loadedProducts);
             } catch (error) {
                 console.error('Error fetching menu data:', error);
                 alert('Erreur lors du chargement des données');
@@ -140,6 +146,8 @@ export default function EditMenuPage() {
                 throw new Error('Failed to save products');
             }
 
+            setProducts(data);
+            setOriginalProducts(data);
             alert('Produits enregistrés avec succès !');
             window.location.reload();
         } catch (error) {
@@ -162,11 +170,23 @@ export default function EditMenuPage() {
             }
 
             setCategories(data);
+            setOriginalCategories(data);
             alert('Catégories enregistrées avec succès !');
             window.location.reload();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             alert("Erreur lors de l'enregistrement des catégories.");
+        }
+    };
+
+    const hasProductsChanges = JSON.stringify(products) !== JSON.stringify(originalProducts);
+    const hasCategoriesChanges = JSON.stringify(categories) !== JSON.stringify(originalCategories);
+
+    const handleCancel = (type: 'products' | 'categories') => {
+        if (type === 'products') {
+            setProducts(originalProducts);
+        } else {
+            setCategories(originalCategories);
         }
     };
 
@@ -199,6 +219,8 @@ export default function EditMenuPage() {
                     config={categories}
                     onChange={handleCategoriesChange}
                     onSave={isReadOnly ? undefined : handleCategoriesSave}
+                    onCancel={() => handleCancel('categories')}
+                    hasChanges={hasCategoriesChanges}
                     isReadOnly={isReadOnly}
                 />
 
@@ -206,6 +228,8 @@ export default function EditMenuPage() {
                     config={products}
                     onChange={handleProductsChange}
                     onSave={isReadOnly ? undefined : handleProductsSave}
+                    onCancel={() => handleCancel('products')}
+                    hasChanges={hasProductsChanges}
                     categories={categoryOptions}
                     currencies={currencies}
                     isReadOnly={isReadOnly}

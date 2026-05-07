@@ -16,12 +16,14 @@ export default function CurrenciesConfig({
     config,
     onChange,
     onSave,
+    onCancel,
     hasChanges = false,
     isReadOnly = false,
 }: {
     config: Currency[];
     onChange: (data: Currency[]) => void;
     onSave: (data: Currency[]) => void;
+    onCancel?: () => void;
     hasChanges?: boolean;
     isReadOnly?: boolean;
 }) {
@@ -200,7 +202,11 @@ export default function CurrenciesConfig({
     }
 
     return (
-        <SectionCard title="Devises" onSave={isReadOnly || !hasChanges ? undefined : () => onSave(currencies)}>
+        <SectionCard
+            title="Devises"
+            onSave={isReadOnly || !hasChanges ? undefined : () => onSave(currencies)}
+            onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
+        >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={currencies.map((_, i) => i)} strategy={verticalListSortingStrategy}>
                     <div className="overflow-x-auto">

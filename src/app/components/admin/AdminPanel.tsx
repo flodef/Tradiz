@@ -36,10 +36,38 @@ export default function AdminPanel({ initialConfig, shopName }: AdminPanelProps)
         return newConfig;
     });
 
+    const [originalConfig, setOriginalConfig] = useState(() => {
+        const newConfig = { ...initialConfig };
+        if (!newConfig.Products) newConfig.Products = [];
+        if (!newConfig.Categories) newConfig.Categories = [];
+        if (!newConfig.Discounts) newConfig.Discounts = [];
+        if (!newConfig.Currencies) newConfig.Currencies = [];
+        if (!newConfig.Payments) newConfig.Payments = [];
+        if (!newConfig.Colors) newConfig.Colors = [];
+        if (!newConfig.Users) newConfig.Users = [];
+        if (!newConfig.Printers) newConfig.Printers = [];
+        if (!newConfig.Settings) newConfig.Settings = {};
+        return newConfig;
+    });
+
+    const hasProductsChanges = JSON.stringify(config.Products) !== JSON.stringify(originalConfig.Products);
+    const hasCategoriesChanges = JSON.stringify(config.Categories) !== JSON.stringify(originalConfig.Categories);
+
+    const handleCancel = (theme: string) => {
+        setConfig((prevConfig) => ({
+            ...prevConfig,
+            [theme]: originalConfig[theme as keyof Config],
+        }));
+    };
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleSave = async (theme: string, data: Record<string, any>) => {
         try {
             await updateConfigTheme(shopName, theme, data);
+            setOriginalConfig((prevConfig) => ({
+                ...prevConfig,
+                [theme]: data,
+            }));
             alert(`${theme} enregistré !`);
         } catch (error) {
             console.error(`Erreur lors de l'enregistrement de ${theme}:`, error);
@@ -69,6 +97,8 @@ export default function AdminPanel({ initialConfig, shopName }: AdminPanelProps)
                     config={config.Products as AdminProduct[]}
                     onChange={(data: AdminProduct[]) => handleChange('Products', data)}
                     onSave={(data: AdminProduct[]) => handleSave('Products', data)}
+                    onCancel={() => handleCancel('Products')}
+                    hasChanges={hasProductsChanges}
                     categories={categories}
                     currencies={currencies}
                 />
@@ -76,6 +106,8 @@ export default function AdminPanel({ initialConfig, shopName }: AdminPanelProps)
                     config={config.Categories as Category[]}
                     onChange={(data: Category[]) => handleChange('Categories', data)}
                     onSave={(data: Category[]) => handleSave('Categories', data)}
+                    onCancel={() => handleCancel('Categories')}
+                    hasChanges={hasCategoriesChanges}
                 />
                 <DiscountsConfig
                     config={config.Discounts as Discount[]}

@@ -15,6 +15,7 @@ export default function DiscountsConfig({
     config,
     onChange,
     onSave,
+    onCancel,
     hasChanges = false,
     currencies,
     isReadOnly = false,
@@ -22,6 +23,7 @@ export default function DiscountsConfig({
     config: Discount[];
     onChange: (data: Discount[]) => void;
     onSave: (data: Discount[]) => void;
+    onCancel?: () => void;
     hasChanges?: boolean;
     currencies: Currency[];
     isReadOnly?: boolean;
@@ -120,7 +122,11 @@ export default function DiscountsConfig({
     }
 
     return (
-        <SectionCard title="Réductions" onSave={isReadOnly || !hasChanges ? undefined : () => onSave(discounts)}>
+        <SectionCard
+            title="Réductions"
+            onSave={isReadOnly || !hasChanges ? undefined : () => onSave(discounts)}
+            onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
+        >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={discounts.map((_, i) => i)} strategy={verticalListSortingStrategy}>
                     <div className="overflow-x-auto">

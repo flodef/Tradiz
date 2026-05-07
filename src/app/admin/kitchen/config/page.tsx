@@ -417,6 +417,7 @@ export default function SettingsPage() {
                 config={settings}
                 onChange={setSettings}
                 onSave={handleParametersSave}
+                onCancel={handleCancel}
                 hasChanges={hasSettingsChanges}
                 isReadOnly={isReadOnly}
                 isSiretValid={isSiretValid}
@@ -427,6 +428,7 @@ export default function SettingsPage() {
                 config={discounts}
                 onChange={setDiscounts}
                 onSave={handleDiscountsSave}
+                onCancel={handleCancel}
                 hasChanges={hasDiscountsChanges}
                 currencies={currencies}
                 isReadOnly={isReadOnly}
@@ -436,6 +438,7 @@ export default function SettingsPage() {
                 config={currenciesConfig}
                 onChange={setCurrenciesConfig}
                 onSave={handleCurrenciesSave}
+                onCancel={handleCancel}
                 hasChanges={hasCurrenciesChanges}
                 isReadOnly={isReadOnly}
             />

@@ -14,6 +14,7 @@ interface ParametersConfigProps {
     config: Parameters;
     onChange: (data: Parameters) => void;
     onSave: (data: Parameters) => void;
+    onCancel?: () => void;
     hasChanges?: boolean;
     isReadOnly?: boolean;
     isSiretValid?: boolean;
@@ -39,6 +40,7 @@ export default function ParametersConfig({
     config,
     onChange,
     onSave,
+    onCancel,
     hasChanges = false,
     isReadOnly = false,
     isSiretValid = true,
@@ -89,6 +91,7 @@ export default function ParametersConfig({
         <SectionCard
             title="Paramètres"
             onSave={isReadOnly || !hasChanges ? undefined : () => onSave(config)}
+            onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
             saveDisabled={!isSiretValid}
         >
             {/* Subsection: Commerce */}

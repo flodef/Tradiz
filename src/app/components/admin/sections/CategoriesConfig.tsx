@@ -20,11 +20,15 @@ export default function CategoriesConfig({
     config,
     onChange,
     onSave,
+    onCancel,
+    hasChanges = false,
     isReadOnly = false,
 }: {
     config: Category[];
     onChange: (data: Category[]) => void;
     onSave?: (data: Category[]) => void;
+    onCancel?: () => void;
+    hasChanges?: boolean;
     isReadOnly?: boolean;
 }) {
     const [categories, setCategories] = useState(config || []);
@@ -137,7 +141,6 @@ export default function CategoriesConfig({
                 </td>
                 <td className="p-2">
                     <AdminSelect
-                        label="Taux de TVA"
                         value={String(category.vat)}
                         onChange={(e) =>
                             handleCategoryChange(index, {
@@ -159,7 +162,11 @@ export default function CategoriesConfig({
     }
 
     return (
-        <SectionCard title="Catégories" onSave={onSave ? () => onSave(categories) : undefined}>
+        <SectionCard
+            title="Catégories"
+            onSave={isReadOnly || !hasChanges || !onSave ? undefined : () => onSave(categories)}
+            onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
+        >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={categories.map((_, i) => i)} strategy={verticalListSortingStrategy}>
                     <div className="overflow-x-auto">
