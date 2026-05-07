@@ -11,12 +11,14 @@ export default function ColorsConfig({
     onSave,
     isReadOnly = false,
     themeName,
+    onThemeNameChange,
 }: {
     config: Color[];
     onChange: (data: Color[]) => void;
     onSave?: (data: Color[]) => void;
     isReadOnly?: boolean;
     themeName?: string;
+    onThemeNameChange?: (name: string) => void;
 }) {
     const [colors, setColors] = useState(config || []);
 
@@ -73,9 +75,19 @@ export default function ColorsConfig({
                                 title="Supprimer le thème"
                             />
                         )}
-                        <h3 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">
-                            {themeName || `Thème ${themeIndex + 1}`}
-                        </h3>
+                        {themeIndex === 0 && !isReadOnly ? (
+                            <input
+                                type="text"
+                                value={themeName || 'Thème 1'}
+                                onChange={(e) => onThemeNameChange?.(e.target.value)}
+                                maxLength={50}
+                                className="text-sm font-semibold mb-3 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
+                            />
+                        ) : (
+                            <h3 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">
+                                {themeIndex === 0 ? themeName || 'Thème 1' : `Thème ${themeIndex + 1}`}
+                            </h3>
+                        )}
                         <div className="overflow-x-auto">
                             <table className="w-full border-collapse">
                                 <thead>

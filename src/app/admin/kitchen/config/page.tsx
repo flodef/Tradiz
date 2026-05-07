@@ -271,22 +271,6 @@ export default function SettingsPage() {
         if (hasDiscountsChanges) await handleDiscountsSave(discounts);
         if (hasCurrenciesChanges) await handleCurrenciesSave(currenciesConfig);
         if (hasPaymentsChanges) await handlePaymentsSave(paymentsConfig);
-        if (hasColorsChanges) await handleColorsSave(colorsConfig);
-    };
-
-    const handleDiscountsSave = async (data: Discount[]) => {
-        try {
-            const response = await fetch('/api/sql/updateDiscounts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ discounts: data }),
-            });
-            if (!response.ok) throw new Error('Failed to save discounts');
-            setDiscounts(data);
-        } catch (error) {
-            console.error("Erreur lors de l'enregistrement:", error);
-            openFullscreenPopup("Erreur lors de l'enregistrement des réductions.", ['OK']);
-        }
     };
 
     const handleCurrenciesSave = async (data: Currency[]) => {
@@ -349,10 +333,29 @@ export default function SettingsPage() {
         setOriginalPayments(data);
     };
 
+    const handleDiscountsSave = async (data: Discount[]) => {
+        // Placeholder for discounts save - implement when API is ready
+        console.log('Saving discounts:', data);
+        setOriginalDiscounts(data);
+    };
+
     const handleColorsSave = async (data: Color[]) => {
         // Placeholder for colors save - implement when API is ready
         console.log('Saving colors:', data);
         setOriginalColors(data);
+    };
+
+    const handleThemeNameChange = async (name: string) => {
+        setThemeName(name);
+        try {
+            await fetch('/api/sql/setThemeName', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name }),
+            });
+        } catch (error) {
+            console.error('Error saving theme name:', error);
+        }
     };
 
     const handleCancel = (e?: React.MouseEvent) => {
@@ -441,6 +444,7 @@ export default function SettingsPage() {
                 onSave={hasColorsChanges ? handleColorsSave : undefined}
                 isReadOnly={isReadOnly}
                 themeName={themeName}
+                onThemeNameChange={handleThemeNameChange}
             />
 
             {!isReadOnly && hasChanges && (
