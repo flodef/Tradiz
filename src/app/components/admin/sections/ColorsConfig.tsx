@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import SectionCard from '../SectionCard';
 import ColorPicker from '../ColorPicker';
 import AdminButton from '../AdminButton';
-import { IconTrash } from '@tabler/icons-react';
+import DeleteButton from '../DeleteButton';
 
 export default function ColorsConfig({
     config,
@@ -62,7 +62,7 @@ export default function ColorsConfig({
                         className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 relative min-w-0"
                     >
                         {!isReadOnly && themes.length > 1 && (
-                            <button
+                            <DeleteButton
                                 onClick={() => {
                                     // Remove this theme (7 colors)
                                     const startIdx = themeIndex * 7;
@@ -70,11 +70,8 @@ export default function ColorsConfig({
                                     setColors(newColors);
                                     onChange(newColors);
                                 }}
-                                className="absolute top-2 right-2 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
                                 title="Supprimer le thème"
-                            >
-                                <IconTrash size={18} />
-                            </button>
+                            />
                         )}
                         <h3 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">
                             {themeName || `Thème ${themeIndex + 1}`}

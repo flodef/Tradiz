@@ -2,7 +2,8 @@ import { Currency, PaymentMethod } from '@/app/utils/interfaces';
 import { useEffect, useState } from 'react';
 import SectionCard from '../SectionCard';
 import AdminButton from '../AdminButton';
-import { IconTrash, IconGripVertical } from '@tabler/icons-react';
+import { IconGripVertical } from '@tabler/icons-react';
+import DeleteButton from '../DeleteButton';
 import { PAYMENT_TYPES } from '@/app/utils/constants';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
@@ -167,13 +168,7 @@ export default function PaymentsConfig({
                 </td>
                 {!isReadOnly && (
                     <td className="p-2 text-center">
-                        <button
-                            onClick={() => handleDeletePayment(index)}
-                            className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
-                            title="Supprimer"
-                        >
-                            <IconTrash size={18} />
-                        </button>
+                        <DeleteButton onClick={() => handleDeletePayment(index)} />
                     </td>
                 )}
             </tr>

@@ -7,7 +7,8 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from '@dnd-kit/utilities';
 import SectionCard from '../SectionCard';
 import AdminButton from '../AdminButton';
-import { IconChevronDown, IconChevronUp, IconTrash, IconGripVertical } from '@tabler/icons-react';
+import { IconChevronDown, IconChevronUp, IconGripVertical } from '@tabler/icons-react';
+import DeleteButton from '../DeleteButton';
 
 type SortField = 'order' | 'label' | 'vat';
 type SortDirection = 'asc' | 'desc';
@@ -155,13 +156,7 @@ export default function CategoriesConfig({
                 </td>
                 {!isReadOnly && (
                     <td className="p-2 text-center">
-                        <button
-                            onClick={() => handleDeleteCategory(index)}
-                            className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
-                            title="Supprimer"
-                        >
-                            <IconTrash size={18} />
-                        </button>
+                        <DeleteButton onClick={() => handleDeleteCategory(index)} />
                     </td>
                 )}
             </tr>
