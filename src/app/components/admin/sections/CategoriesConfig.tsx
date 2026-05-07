@@ -1,15 +1,17 @@
 'use client';
 
+import { adminSortableHeaderStyle } from '@/app/utils/constants';
 import { Category } from '@/app/utils/interfaces';
-import { useEffect, useMemo, useState } from 'react';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import SectionCard from '../SectionCard';
-import AdminButton from '../AdminButton';
 import { IconChevronDown, IconChevronUp, IconGripVertical } from '@tabler/icons-react';
+import { useEffect, useMemo, useState } from 'react';
+import AdminButton from '../AdminButton';
+import AdminSelect from '../AdminSelect';
 import DeleteButton from '../DeleteButton';
-import { adminTextStyle } from '@/app/utils/constants';
+import SectionCard from '../SectionCard';
+import ValidatedInput from '../ValidatedInput';
 
 type SortField = 'order' | 'label' | 'vat';
 type SortDirection = 'asc' | 'desc';
@@ -119,41 +121,33 @@ export default function CategoriesConfig({
                     {isReadOnly ? (
                         <div className="text-sm">{category.label}</div>
                     ) : (
-                        <input
+                        <ValidatedInput
                             type="text"
                             value={category.label}
-                            onChange={(e) =>
+                            onChange={(value) =>
                                 handleCategoryChange(index, {
                                     ...category,
-                                    label: e.target.value,
+                                    label: String(value),
                                 })
                             }
                             maxLength={50}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            disabled={isReadOnly}
                         />
                     )}
                 </td>
                 <td className="p-2">
-                    {isReadOnly ? (
-                        <div className="text-sm">{category.vat}%</div>
-                    ) : (
-                        <select
-                            value={Number(category.vat)}
-                            onChange={(e) =>
-                                handleCategoryChange(index, {
-                                    ...category,
-                                    vat: parseFloat(e.target.value),
-                                })
-                            }
-                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            {vatRates.map((rate) => (
-                                <option key={rate} value={rate}>
-                                    {rate}%
-                                </option>
-                            ))}
-                        </select>
-                    )}
+                    <AdminSelect
+                        label="Taux de TVA"
+                        value={String(category.vat)}
+                        onChange={(e) =>
+                            handleCategoryChange(index, {
+                                ...category,
+                                vat: parseFloat(e.target.value),
+                            })
+                        }
+                        options={vatRates.map((rate) => ({ value: String(rate), label: `${rate}%` }))}
+                        disabled={isReadOnly}
+                    />
                 </td>
                 {!isReadOnly && (
                     <td className="p-2 text-center">
@@ -172,11 +166,9 @@ export default function CategoriesConfig({
                         <table className="w-full border-collapse">
                             <thead>
                                 <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                    {!isReadOnly && <th className={adminTextStyle}></th>}
+                                    {!isReadOnly && <th className="w-12"></th>}
                                     <th
-                                        className={
-                                            adminTextStyle + ' cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700'
-                                        }
+                                        className={adminSortableHeaderStyle + ' min-w-32'}
                                         onClick={() => handleSort('label')}
                                     >
                                         <div className="flex items-center gap-1">
@@ -185,10 +177,7 @@ export default function CategoriesConfig({
                                         </div>
                                     </th>
                                     <th
-                                        className={
-                                            adminTextStyle +
-                                            ' w-24 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700'
-                                        }
+                                        className={adminSortableHeaderStyle + ' min-w-20 w-20'}
                                         onClick={() => handleSort('vat')}
                                     >
                                         <div className="flex items-center gap-1">
@@ -196,7 +185,7 @@ export default function CategoriesConfig({
                                             <SortIcon field="vat" />
                                         </div>
                                     </th>
-                                    {!isReadOnly && <th className="w-24"></th>}
+                                    {!isReadOnly && <th className="w-16"></th>}
                                 </tr>
                             </thead>
                             <tbody>

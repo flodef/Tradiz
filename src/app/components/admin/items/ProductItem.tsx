@@ -78,8 +78,8 @@ export default function ProductItem({
             </div>
             <div className="grid grid-cols-2 gap-2">
                 <div>
-                    <label className={adminTextStyle}>Nom</label>
                     <ValidatedInput
+                        label="Nom"
                         value={product.name}
                         onChange={(value) => onChange({ ...product, name: String(value) })}
                         placeholder="Nom du produit"
@@ -88,8 +88,8 @@ export default function ProductItem({
                     />
                 </div>
                 <div>
-                    <label className={adminTextStyle}>Prix {currencies[0] ? `(${currencies[0].symbol})` : ''}</label>
                     <ValidatedInput
+                        label={`Prix ${currencies[0] ? `(${currencies[0].symbol})` : ''}`}
                         type="number"
                         value={product.currencies[0] ?? ''}
                         onChange={(value) => {

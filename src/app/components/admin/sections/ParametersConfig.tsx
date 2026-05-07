@@ -157,7 +157,6 @@ export default function ParametersConfig({
                         label="Mercurial"
                         value={config.mercurial}
                         onChange={(e) => !isReadOnly && handleChange('mercurial', e.target.value as Mercurial)}
-                        disabled={isReadOnly}
                         className="w-32"
                         options={[
                             { label: 'Aucun', value: Mercurial.none },
@@ -165,6 +164,7 @@ export default function ParametersConfig({
                             { label: 'Douce', value: Mercurial.soft },
                             { label: 'Zelet', value: Mercurial.zelet },
                         ]}
+                        disabled={isReadOnly}
                     />
                     <AdminInput
                         label="Heure de clôture"
@@ -177,7 +177,7 @@ export default function ParametersConfig({
                             handleChange('closingHour', Math.max(0, Math.min(23, Number(e.target.value))))
                         }
                         disabled={isReadOnly}
-                        className="w-28"
+                        className="w-30"
                     />
                     <div className="flex flex-col">
                         <label className={adminTextStyle}>Début d&apos;année fiscale</label>
@@ -195,9 +195,9 @@ export default function ParametersConfig({
                             <AdminSelect
                                 value={config.yearStartDate?.month || 1}
                                 onChange={(e) => handleYearStartDateChange('month', Number(e.target.value))}
-                                disabled={isReadOnly}
                                 className="w-28"
                                 options={MONTH_NAMES.map((name, i) => ({ label: name, value: i + 1 }))}
+                                disabled={isReadOnly}
                             />
                         </div>
                     </div>

@@ -1,7 +1,8 @@
-import React from 'react';
-import ValidatedInput from '../ValidatedInput';
-import { Category } from '@/app/utils/interfaces';
 import { adminTextStyle } from '@/app/utils/constants';
+import { Category } from '@/app/utils/interfaces';
+import React from 'react';
+import AdminSelect from '../AdminSelect';
+import ValidatedInput from '../ValidatedInput';
 
 interface CategoryItemProps {
     category: Category;
@@ -70,19 +71,13 @@ export default function CategoryItem({
                     />
                 </div>
                 <div className="w-24 shrink-0">
-                    <label className={adminTextStyle}>TVA</label>
-                    <select
+                    <AdminSelect
+                        label="TVA"
                         value={Number(category.vat)}
-                        onChange={(e) => onChange({ ...category, vat: parseFloat(e.target.value) })}
+                        onChange={(value) => onChange({ ...category, vat: parseFloat(String(value)) })}
+                        options={vatRates.map((rate) => ({ label: `${rate}%`, value: rate }))}
                         disabled={isReadOnly}
-                        className="w-full px-2 py-2 border rounded-md border-gray-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:select-none"
-                    >
-                        {vatRates.map((rate) => (
-                            <option key={rate} value={rate}>
-                                {rate}%
-                            </option>
-                        ))}
-                    </select>
+                    />
                 </div>
             </div>
         </div>

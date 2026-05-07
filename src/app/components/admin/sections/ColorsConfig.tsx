@@ -1,10 +1,11 @@
+import { adminBaseStyle, adminHeaderStyle } from '@/app/utils/constants';
 import { Color } from '@/app/utils/interfaces';
 import { useEffect, useState } from 'react';
-import SectionCard from '../SectionCard';
-import ColorPicker from '../ColorPicker';
 import AdminButton from '../AdminButton';
+import ColorPicker from '../ColorPicker';
 import DeleteButton from '../DeleteButton';
-import { adminTextStyle } from '@/app/utils/constants';
+import SectionCard from '../SectionCard';
+import ValidatedInput from '../ValidatedInput';
 
 export default function ColorsConfig({
     config,
@@ -64,7 +65,7 @@ export default function ColorsConfig({
             onSave={isReadOnly ? undefined : onSave ? () => onSave(colors) : undefined}
             onCancel={onCancel}
         >
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {themes.map((theme, themeIndex) => (
                     <div
                         key={themeIndex}
@@ -83,15 +84,18 @@ export default function ColorsConfig({
                             />
                         )}
                         {themeIndex === 0 && !isReadOnly ? (
-                            <input
-                                type="text"
-                                value={themeName || 'Thème 1'}
-                                onChange={(e) => onThemeNameChange?.(e.target.value)}
-                                maxLength={50}
-                                className="text-sm font-semibold mb-3 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
-                            />
+                            <div>
+                                <ValidatedInput
+                                    label="Thème"
+                                    type="text"
+                                    value={themeName || 'Défaut'}
+                                    onChange={(value) => onThemeNameChange?.(String(value))}
+                                    maxLength={50}
+                                    className={'min-w-40 w-40'}
+                                />
+                            </div>
                         ) : (
-                            <h3 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">
+                            <h3 className={adminBaseStyle}>
                                 {themeIndex === 0 ? themeName || 'Thème 1' : `Thème ${themeIndex + 1}`}
                             </h3>
                         )}
@@ -99,9 +103,9 @@ export default function ColorsConfig({
                             <table className="w-full border-collapse">
                                 <thead>
                                     <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                        <th className={adminTextStyle}>Couleur</th>
-                                        <th className={adminTextStyle}>Clair</th>
-                                        <th className={adminTextStyle}>Sombre</th>
+                                        <th className={adminHeaderStyle + ' py-2'}>Couleur</th>
+                                        <th className={adminHeaderStyle + ' py-2 min-w-20'}>Clair</th>
+                                        <th className={adminHeaderStyle + ' py-2 min-w-20'}>Sombre</th>
                                     </tr>
                                 </thead>
                                 <tbody>

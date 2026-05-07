@@ -1,14 +1,16 @@
+import { adminHeaderStyle, PAYMENT_TYPES } from '@/app/utils/constants';
 import { Currency, PaymentMethod } from '@/app/utils/interfaces';
-import { useEffect, useState } from 'react';
-import SectionCard from '../SectionCard';
-import AdminButton from '../AdminButton';
-import { IconGripVertical } from '@tabler/icons-react';
-import DeleteButton from '../DeleteButton';
-import { adminTextStyle, PAYMENT_TYPES } from '@/app/utils/constants';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { IconGripVertical } from '@tabler/icons-react';
+import { useEffect, useState } from 'react';
+import AdminButton from '../AdminButton';
+import AdminSelect from '../AdminSelect';
 import AvailabilityToggle from '../AvailabilityToggle';
+import DeleteButton from '../DeleteButton';
+import SectionCard from '../SectionCard';
+import ValidatedInput from '../ValidatedInput';
 
 export default function PaymentsConfig({
     config,
@@ -94,65 +96,43 @@ export default function PaymentsConfig({
                     </td>
                 )}
                 <td className="p-2">
-                    {isReadOnly ? (
-                        <div className="text-sm">{payment.type}</div>
-                    ) : (
-                        <select
-                            value={payment.type}
-                            onChange={(e) =>
-                                handlePaymentChange(index, {
-                                    ...payment,
-                                    type: e.target.value,
-                                })
-                            }
-                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            {PAYMENT_TYPES.map((type) => (
-                                <option key={type} value={type}>
-                                    {type}
-                                </option>
-                            ))}
-                        </select>
-                    )}
+                    <AdminSelect
+                        value={payment.type}
+                        onChange={(e) =>
+                            handlePaymentChange(index, {
+                                ...payment,
+                                type: e.target.value,
+                            })
+                        }
+                        options={PAYMENT_TYPES.map((type) => ({ value: type, label: type }))}
+                        disabled={isReadOnly}
+                    />
                 </td>
                 <td className="p-2">
-                    {isReadOnly ? (
-                        <div className="text-sm">{payment.id}</div>
-                    ) : (
-                        <input
-                            type="text"
-                            value={payment.id || ''}
-                            onChange={(e) =>
-                                handlePaymentChange(index, {
-                                    ...payment,
-                                    id: e.target.value,
-                                })
-                            }
-                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    )}
+                    <ValidatedInput
+                        type="text"
+                        value={payment.id || ''}
+                        onChange={(value) =>
+                            handlePaymentChange(index, {
+                                ...payment,
+                                id: String(value),
+                            })
+                        }
+                        disabled={isReadOnly}
+                    />
                 </td>
                 <td className="p-2">
-                    {isReadOnly ? (
-                        <div className="text-sm">{payment.currency}</div>
-                    ) : (
-                        <select
-                            value={payment.currency}
-                            onChange={(e) =>
-                                handlePaymentChange(index, {
-                                    ...payment,
-                                    currency: e.target.value,
-                                })
-                            }
-                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            {currencies.map(({ symbol }) => (
-                                <option key={symbol} value={symbol}>
-                                    {symbol}
-                                </option>
-                            ))}
-                        </select>
-                    )}
+                    <AdminSelect
+                        value={payment.currency}
+                        onChange={(e) =>
+                            handlePaymentChange(index, {
+                                ...payment,
+                                currency: e.target.value,
+                            })
+                        }
+                        options={currencies.map(({ symbol }) => ({ value: symbol, label: symbol }))}
+                        disabled={isReadOnly}
+                    />
                 </td>
                 <td className="p-2 text-center">
                     <div className="flex justify-center">
@@ -189,24 +169,12 @@ export default function PaymentsConfig({
                         <table className="w-full border-collapse">
                             <thead>
                                 <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                    {!isReadOnly && (
-                                        <th className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-12"></th>
-                                    )}
-                                    <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400">
-                                        Type
-                                    </th>
-                                    <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400">
-                                        ID
-                                    </th>
-                                    <th className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-24">
-                                        Devise
-                                    </th>
-                                    <th className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-32">
-                                        Disponibilité
-                                    </th>
-                                    {!isReadOnly && (
-                                        <th className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-12"></th>
-                                    )}
+                                    {!isReadOnly && <th className="w-12"></th>}
+                                    <th className={adminHeaderStyle + ' min-w-40 w-40'}>Type</th>
+                                    <th className={adminHeaderStyle + ' min-w-80 w-80'}>ID</th>
+                                    <th className={adminHeaderStyle + ' min-w-20 w-20'}>Devise</th>
+                                    <th className={adminHeaderStyle + ' min-w-20 w-20'}>Disponibilité</th>
+                                    {!isReadOnly && <th className="w-8"></th>}
                                 </tr>
                             </thead>
                             <tbody>

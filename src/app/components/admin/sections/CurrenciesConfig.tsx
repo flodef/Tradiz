@@ -1,15 +1,16 @@
 'use client';
 
+import { adminHeaderStyle } from '@/app/utils/constants';
 import { Currency } from '@/app/utils/interfaces';
-import { useEffect, useState } from 'react';
-import SectionCard from '../SectionCard';
-import AdminButton from '../AdminButton';
-import { IconGripVertical } from '@tabler/icons-react';
-import DeleteButton from '../DeleteButton';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { adminTextStyle } from '@/app/utils/constants';
+import { IconGripVertical } from '@tabler/icons-react';
+import { useEffect, useState } from 'react';
+import AdminButton from '../AdminButton';
+import DeleteButton from '../DeleteButton';
+import SectionCard from '../SectionCard';
+import ValidatedInput from '../ValidatedInput';
 
 export default function CurrenciesConfig({
     config,
@@ -90,16 +91,15 @@ export default function CurrenciesConfig({
                     {isReadOnly ? (
                         <div className="text-sm">{currency.label}</div>
                     ) : (
-                        <input
+                        <ValidatedInput
                             type="text"
                             value={currency.label}
-                            onChange={(e) =>
+                            onChange={(value) =>
                                 handleCurrencyChange(index, {
                                     ...currency,
-                                    label: e.target.value,
+                                    label: String(value),
                                 })
                             }
-                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     )}
                 </td>
@@ -107,16 +107,15 @@ export default function CurrenciesConfig({
                     {isReadOnly ? (
                         <div className="text-sm">{currency.symbol}</div>
                     ) : (
-                        <input
+                        <ValidatedInput
                             type="text"
                             value={currency.symbol}
-                            onChange={(e) =>
+                            onChange={(value) =>
                                 handleCurrencyChange(index, {
                                     ...currency,
-                                    symbol: e.target.value,
+                                    symbol: String(value),
                                 })
                             }
-                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     )}
                 </td>
@@ -124,17 +123,16 @@ export default function CurrenciesConfig({
                     {isReadOnly ? (
                         <div className="text-sm">{currency.maxValue}</div>
                     ) : (
-                        <input
+                        <ValidatedInput
                             type="number"
                             value={currency.maxValue}
-                            onChange={(e) =>
+                            onChange={(value) =>
                                 handleCurrencyChange(index, {
                                     ...currency,
-                                    maxValue: Number(e.target.value),
+                                    maxValue: Number(value),
                                 })
                             }
                             min={0}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     )}
                 </td>
@@ -142,18 +140,17 @@ export default function CurrenciesConfig({
                     {isReadOnly ? (
                         <div className="text-sm">{currency.decimals}</div>
                     ) : (
-                        <input
+                        <ValidatedInput
                             type="number"
                             value={currency.decimals}
-                            onChange={(e) =>
+                            onChange={(value) =>
                                 handleCurrencyChange(index, {
                                     ...currency,
-                                    decimals: Number(e.target.value),
+                                    decimals: Number(value),
                                 })
                             }
                             min={0}
                             max={8}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     )}
                 </td>
@@ -161,18 +158,17 @@ export default function CurrenciesConfig({
                     {isReadOnly ? (
                         <div className="text-sm">{currency.rate}</div>
                     ) : (
-                        <input
+                        <ValidatedInput
                             type="number"
                             value={currency.rate}
-                            onChange={(e) =>
+                            onChange={(value) =>
                                 handleCurrencyChange(index, {
                                     ...currency,
-                                    rate: Number(e.target.value),
+                                    rate: Number(value),
                                 })
                             }
                             min={0}
                             step={0.01}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     )}
                 </td>
@@ -180,18 +176,17 @@ export default function CurrenciesConfig({
                     {isReadOnly ? (
                         <div className="text-sm">{currency.fee}</div>
                     ) : (
-                        <input
+                        <ValidatedInput
                             type="number"
                             value={currency.fee}
-                            onChange={(e) =>
+                            onChange={(value) =>
                                 handleCurrencyChange(index, {
                                     ...currency,
-                                    fee: Number(e.target.value),
+                                    fee: Number(value),
                                 })
                             }
                             min={0}
                             step={0.01}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     )}
                 </td>
@@ -212,14 +207,14 @@ export default function CurrenciesConfig({
                         <table className="w-full border-collapse">
                             <thead>
                                 <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                    {!isReadOnly && <th className={adminTextStyle}></th>}
-                                    <th className={adminTextStyle}>Label</th>
-                                    <th className={adminTextStyle + ' w-24'}>Symbole</th>
-                                    <th className={adminTextStyle + ' w-32'}>Max</th>
-                                    <th className={adminTextStyle + ' w-24'}>Décimales</th>
-                                    <th className={adminTextStyle + ' w-24'}>Taux</th>
-                                    <th className={adminTextStyle + ' w-24'}>Frais</th>
-                                    {!isReadOnly && <th className="w-24"></th>}
+                                    {!isReadOnly && <th className="w-12"></th>}
+                                    <th className={adminHeaderStyle + ' min-w-24'}>Label</th>
+                                    <th className={adminHeaderStyle + ' min-w-24'}>Symbole</th>
+                                    <th className={adminHeaderStyle + ' min-w-32'}>Max</th>
+                                    <th className={adminHeaderStyle + ' min-w-24'}>Décimales</th>
+                                    <th className={adminHeaderStyle + ' min-w-24'}>Taux</th>
+                                    <th className={adminHeaderStyle + ' min-w-24'}>Frais (%)</th>
+                                    {!isReadOnly && <th className="w-16"></th>}
                                 </tr>
                             </thead>
                             <tbody>

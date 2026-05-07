@@ -1,4 +1,5 @@
 import { Role, User } from '@/app/utils/interfaces';
+import AdminSelect from '../AdminSelect';
 import ValidatedInput from '../ValidatedInput';
 
 interface UserItemProps {
@@ -23,8 +24,8 @@ export default function UserItem({ user, onChange, onDelete, isReadOnly }: UserI
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Clé</label>
                     <ValidatedInput
+                        label="Clé"
                         value={user.key ?? ''}
                         onChange={(value) => onChange({ ...user, key: String(value) })}
                         placeholder="Clé de l'utilisateur"
@@ -32,8 +33,8 @@ export default function UserItem({ user, onChange, onDelete, isReadOnly }: UserI
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom</label>
                     <ValidatedInput
+                        label="Nom"
                         value={user.name}
                         onChange={(value) => onChange({ ...user, name: String(value) })}
                         placeholder="Nom de l'utilisateur"
@@ -41,19 +42,13 @@ export default function UserItem({ user, onChange, onDelete, isReadOnly }: UserI
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rôle</label>
-                    <select
+                    <AdminSelect
+                        label="Rôle"
                         value={user.role}
                         onChange={(e) => onChange({ ...user, role: e.target.value as Role })}
-                        className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
                         disabled={isReadOnly}
-                    >
-                        {roles.map((role) => (
-                            <option key={role} value={role}>
-                                {role}
-                            </option>
-                        ))}
-                    </select>
+                        options={roles.map((role) => ({ value: role, label: role }))}
+                    />
                 </div>
             </div>
         </div>

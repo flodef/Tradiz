@@ -1,14 +1,17 @@
 'use client';
 
+import { adminSortableHeaderStyle } from '@/app/utils/constants';
 import { Currency } from '@/app/utils/interfaces';
 import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { IconChevronDown, IconChevronUp, IconGripVertical, IconTrash } from '@tabler/icons-react';
+import { IconChevronDown, IconChevronUp, IconGripVertical } from '@tabler/icons-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import AvailabilityToggle from '../AvailabilityToggle';
+import DeleteButton from '../DeleteButton';
 import SearchableSelect from '../SearchableSelect';
 import SectionCard from '../SectionCard';
+import ValidatedInput from '../ValidatedInput';
 
 type SortField = 'order' | 'name' | 'category' | 'price' | 'availability';
 type SortDirection = 'asc' | 'desc';
@@ -334,11 +337,9 @@ export default function ProductsConfig({
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                {!isReadOnly && (
-                                    <th className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-12"></th>
-                                )}
+                                {!isReadOnly && <th className="w-12"></th>}
                                 <th
-                                    className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                    className={adminSortableHeaderStyle + ' min-w-40'}
                                     onClick={() => handleSort('name')}
                                 >
                                     <div className="flex items-center gap-1">
@@ -347,7 +348,7 @@ export default function ProductsConfig({
                                     </div>
                                 </th>
                                 <th
-                                    className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-40 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                    className={adminSortableHeaderStyle + ' min-w-32 w-32'}
                                     onClick={() => handleSort('category')}
                                 >
                                     <div className="flex items-center gap-1">
@@ -356,7 +357,7 @@ export default function ProductsConfig({
                                     </div>
                                 </th>
                                 <th
-                                    className="text-left p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-24 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                    className={adminSortableHeaderStyle + ' min-w-20 w-20'}
                                     onClick={() => handleSort('price')}
                                 >
                                     <div className="flex items-center gap-1">
@@ -365,7 +366,7 @@ export default function ProductsConfig({
                                     </div>
                                 </th>
                                 <th
-                                    className="text-center p-2 text-xs uppercase font-bold text-gray-500 dark:text-gray-400 w-24 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                    className={adminSortableHeaderStyle + ' min-w-20 w-20'}
                                     onClick={() => handleSort('availability')}
                                 >
                                     <div className="flex items-center justify-center gap-1">
@@ -373,7 +374,7 @@ export default function ProductsConfig({
                                         <SortIcon field="availability" />
                                     </div>
                                 </th>
-                                {!isReadOnly && <th className="w-24"></th>}
+                                {!isReadOnly && <th className="w-8"></th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -417,22 +418,18 @@ export default function ProductsConfig({
                                                     {categoryGroups[cat].map(({ p, i }) => (
                                                         <SortableRow key={i} id={String(i)} isReadOnly={isReadOnly}>
                                                             <td className="p-2">
-                                                                {isReadOnly ? (
-                                                                    <div className="text-sm">{p.name}</div>
-                                                                ) : (
-                                                                    <input
-                                                                        type="text"
-                                                                        value={p.name}
-                                                                        onChange={(e) =>
-                                                                            handleProductChange(i, {
-                                                                                ...p,
-                                                                                name: e.target.value,
-                                                                            })
-                                                                        }
-                                                                        maxLength={50}
-                                                                        className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                                    />
-                                                                )}
+                                                                <ValidatedInput
+                                                                    disabled={isReadOnly}
+                                                                    type="text"
+                                                                    value={p.name}
+                                                                    onChange={(value) =>
+                                                                        handleProductChange(i, {
+                                                                            ...p,
+                                                                            name: String(value),
+                                                                        })
+                                                                    }
+                                                                    maxLength={50}
+                                                                />
                                                             </td>
                                                             <td className="p-2">
                                                                 {isReadOnly ? (
@@ -459,18 +456,17 @@ export default function ProductsConfig({
                                                                         {formatPrice(p.currencies[0] ?? '0')}
                                                                     </div>
                                                                 ) : (
-                                                                    <input
+                                                                    <ValidatedInput
                                                                         type="number"
                                                                         value={p.currencies[0] ?? ''}
-                                                                        onChange={(e) => {
+                                                                        onChange={(value) => {
                                                                             const updated = [...p.currencies];
-                                                                            updated[0] = e.target.value;
+                                                                            updated[0] = String(value);
                                                                             handleProductChange(i, {
                                                                                 ...p,
                                                                                 currencies: updated,
                                                                             });
                                                                         }}
-                                                                        className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                                                     />
                                                                 )}
                                                             </td>
@@ -490,13 +486,9 @@ export default function ProductsConfig({
                                                             </td>
                                                             {!isReadOnly && (
                                                                 <td className="p-2 text-center">
-                                                                    <button
+                                                                    <DeleteButton
                                                                         onClick={() => handleDeleteProduct(i)}
-                                                                        className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
-                                                                        title="Supprimer"
-                                                                    >
-                                                                        <IconTrash size={18} />
-                                                                    </button>
+                                                                    />
                                                                 </td>
                                                             )}
                                                         </SortableRow>

@@ -14,6 +14,9 @@ interface ValidatedInputProps {
     label?: string;
     className?: string;
     isReadOnly?: boolean;
+    min?: number;
+    max?: number;
+    step?: number;
 }
 
 export default function ValidatedInput({
@@ -26,6 +29,9 @@ export default function ValidatedInput({
     label,
     className,
     disabled = false,
+    min,
+    max,
+    step,
 }: ValidatedInputProps) {
     const [isValid, setIsValid] = useState(true);
 
@@ -48,6 +54,9 @@ export default function ValidatedInput({
             label={label}
             className={className}
             disabled={disabled}
+            min={min}
+            max={max}
+            step={step}
         />
     );
 }

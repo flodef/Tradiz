@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { adminInputStyle } from '@/app/utils/constants';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 interface SearchableSelectProps {
     options: { label: string; value: string }[];
@@ -88,7 +89,7 @@ export default function SearchableSelect({
                     <input
                         type="text"
                         placeholder="Rechercher..."
-                        className="w-full px-3 py-2 border-b border-gray-300 dark:border-gray-600 focus:outline-hidden bg-white dark:bg-gray-700 dark:text-gray-200"
+                        className={adminInputStyle()}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />

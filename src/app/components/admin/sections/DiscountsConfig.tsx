@@ -1,13 +1,15 @@
+import { adminHeaderStyle } from '@/app/utils/constants';
 import { Currency, Discount } from '@/app/utils/interfaces';
-import SectionCard from '../SectionCard';
-import { useState, useEffect } from 'react';
-import AdminButton from '../AdminButton';
-import { IconGripVertical } from '@tabler/icons-react';
-import DeleteButton from '../DeleteButton';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { adminTextStyle } from '@/app/utils/constants';
+import { IconGripVertical } from '@tabler/icons-react';
+import { useEffect, useState } from 'react';
+import AdminButton from '../AdminButton';
+import AdminSelect from '../AdminSelect';
+import DeleteButton from '../DeleteButton';
+import SectionCard from '../SectionCard';
+import ValidatedInput from '../ValidatedInput';
 
 export default function DiscountsConfig({
     config,
@@ -81,45 +83,32 @@ export default function DiscountsConfig({
                     </td>
                 )}
                 <td className="p-2">
-                    {isReadOnly ? (
-                        <div className="text-sm">{discount.amount}</div>
-                    ) : (
-                        <input
-                            type="number"
-                            value={discount.amount}
-                            onChange={(e) =>
-                                handleDiscountChange(index, {
-                                    ...discount,
-                                    amount: Number(e.target.value),
-                                })
-                            }
-                            min={0}
-                            step={discount.unit === '%' ? 0.5 : 0.01}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    )}
+                    <ValidatedInput
+                        type="number"
+                        value={discount.amount}
+                        onChange={(value) =>
+                            handleDiscountChange(index, {
+                                ...discount,
+                                amount: Number(value),
+                            })
+                        }
+                        min={0}
+                        step={discount.unit === '%' ? 0.5 : 0.01}
+                        disabled={isReadOnly}
+                    />
                 </td>
                 <td className="p-2">
-                    {isReadOnly ? (
-                        <div className="text-sm">{discount.unit}</div>
-                    ) : (
-                        <select
-                            value={discount.unit}
-                            onChange={(e) =>
-                                handleDiscountChange(index, {
-                                    ...discount,
-                                    unit: e.target.value,
-                                })
-                            }
-                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            {units.map((u) => (
-                                <option key={u} value={u}>
-                                    {u}
-                                </option>
-                            ))}
-                        </select>
-                    )}
+                    <AdminSelect
+                        value={discount.unit}
+                        onChange={(e) =>
+                            handleDiscountChange(index, {
+                                ...discount,
+                                unit: e.target.value,
+                            })
+                        }
+                        options={units.map((u) => ({ value: u, label: u }))}
+                        disabled={isReadOnly}
+                    />
                 </td>
                 {!isReadOnly && (
                     <td className="p-2 text-center">
@@ -138,10 +127,10 @@ export default function DiscountsConfig({
                         <table className="w-full border-collapse">
                             <thead>
                                 <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                    {!isReadOnly && <th className={adminTextStyle + ' w-12'}></th>}
-                                    <th className={adminTextStyle}>Montant</th>
-                                    <th className={adminTextStyle + ' w-32'}>Unité</th>
-                                    {!isReadOnly && <th className="w-24"></th>}
+                                    {!isReadOnly && <th className="w-12"></th>}
+                                    <th className={adminHeaderStyle + ' min-w-24'}>Montant</th>
+                                    <th className={adminHeaderStyle + ' min-w-16 w-16'}>Unité</th>
+                                    {!isReadOnly && <th className="w-16"></th>}
                                 </tr>
                             </thead>
                             <tbody>
