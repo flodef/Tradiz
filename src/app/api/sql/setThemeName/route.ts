@@ -13,7 +13,7 @@ export async function POST(request: Request) {
 
         const query = `
             UPDATE theme_admin
-            SET name = ?
+            SET name = $1
             WHERE selected = true
         `;
 
