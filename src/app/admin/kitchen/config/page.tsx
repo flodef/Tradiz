@@ -58,6 +58,7 @@ export default function SettingsPage() {
     const [originalPayments, setOriginalPayments] = useState<PaymentMethod[]>([]);
     const [originalColors, setOriginalColors] = useState<Color[]>([]);
     const [themeName, setThemeName] = useState<string>('');
+    const [originalThemeName, setOriginalThemeName] = useState<string>('');
 
     // Step 1: check DB config once on mount
     useEffect(() => {
@@ -189,7 +190,7 @@ export default function SettingsPage() {
                             type: String(row[0]),
                             id: String(row[1]),
                             currency: String(row[2]),
-                            availability: !row[3], // hidden=true means availability=false
+                            availability: Boolean(row[3]),
                         }));
                     setPaymentsConfig(loaded);
                     setOriginalPayments(loaded);
@@ -216,6 +217,7 @@ export default function SettingsPage() {
                     setOriginalColors(loaded);
                     if (colorsData.themeName) {
                         setThemeName(String(colorsData.themeName));
+                        setOriginalThemeName(String(colorsData.themeName));
                     }
                 }
             } catch {
@@ -245,7 +247,8 @@ export default function SettingsPage() {
         const discountsChanged = JSON.stringify(discounts) !== JSON.stringify(originalDiscounts);
         const currenciesChanged = JSON.stringify(currenciesConfig) !== JSON.stringify(originalCurrencies);
         const paymentsChanged = JSON.stringify(paymentsConfig) !== JSON.stringify(originalPayments);
-        const colorsChanged = JSON.stringify(colorsConfig) !== JSON.stringify(originalColors);
+        const colorsChanged =
+            JSON.stringify(colorsConfig) !== JSON.stringify(originalColors) || themeName !== originalThemeName;
         setHasSettingsChanges(settingsChanged);
         setHasDiscountsChanges(discountsChanged);
         setHasCurrenciesChanges(currenciesChanged);
@@ -258,11 +261,13 @@ export default function SettingsPage() {
         currenciesConfig,
         paymentsConfig,
         colorsConfig,
+        themeName,
         originalSettings,
         originalDiscounts,
         originalCurrencies,
         originalPayments,
         originalColors,
+        originalThemeName,
     ]);
 
     const handleSaveAll = async () => {
@@ -340,22 +345,26 @@ export default function SettingsPage() {
     };
 
     const handleColorsSave = async (data: Color[]) => {
-        // Placeholder for colors save - implement when API is ready
-        console.log('Saving colors:', data);
-        setOriginalColors(data);
-    };
-
-    const handleThemeNameChange = async (name: string) => {
-        setThemeName(name);
-        try {
+        // Save colors
+        await fetch('/api/sql/setColors', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ values: data }),
+        });
+        // Save theme name if changed
+        if (themeName !== originalThemeName) {
             await fetch('/api/sql/setThemeName', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name }),
+                body: JSON.stringify({ name: themeName }),
             });
-        } catch (error) {
-            console.error('Error saving theme name:', error);
+            setOriginalThemeName(themeName);
         }
+        setOriginalColors(data);
+    };
+
+    const handleThemeNameChange = (name: string) => {
+        setThemeName(name);
     };
 
     const handleCancel = (e?: React.MouseEvent) => {
@@ -369,6 +378,7 @@ export default function SettingsPage() {
                 setCurrenciesConfig(originalCurrencies);
                 setPaymentsConfig(originalPayments);
                 setColorsConfig(originalColors);
+                setThemeName(originalThemeName);
                 setHasChanges(false);
             }
         });
@@ -436,6 +446,7 @@ export default function SettingsPage() {
                 onSave={hasPaymentsChanges ? handlePaymentsSave : undefined}
                 currencies={currenciesConfig}
                 isReadOnly={isReadOnly}
+                onCancel={hasPaymentsChanges ? handleCancel : undefined}
             />
 
             <ColorsConfig
@@ -445,6 +456,7 @@ export default function SettingsPage() {
                 isReadOnly={isReadOnly}
                 themeName={themeName}
                 onThemeNameChange={handleThemeNameChange}
+                onCancel={hasColorsChanges ? handleCancel : undefined}
             />
 
             {!isReadOnly && hasChanges && (
