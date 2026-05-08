@@ -388,6 +388,68 @@ async function migrateColors(client: Client) {
 }
 
 /**
+ * Migrate discounts
+ */
+async function migrateDiscounts(client: Client) {
+    console.log('💰 Migrating discounts...');
+
+    const data = await fetchSheetData(SHEETS.DISCOUNTS);
+    if (data.error || !data.values || data.values.length < 2) {
+        console.log('ℹ️  No discounts data found');
+        return;
+    }
+
+    // Clear existing discounts
+    await client.query('DELETE FROM dc_pos.discounts');
+
+    // Get all currencies for symbol lookup
+    const currencyResult = await client.query('SELECT id, symbol FROM dc_pos.currency');
+    const currencyMap = new Map<string, number>();
+    for (const row of currencyResult.rows) {
+        currencyMap.set(row.symbol, row.id);
+    }
+
+    // Skip header row and insert discounts
+    let count = 0;
+    for (let i = 1; i < data.values.length; i++) {
+        const row = data.values[i];
+        if (row.length >= 2) {
+            const value = Number(row[0]);
+            const unity = String(row[1]).trim();
+
+            if (!isNaN(value) && unity) {
+                let unity_type: string;
+                let currency_id: number | null;
+
+                if (unity === '%') {
+                    unity_type = '%';
+                    currency_id = null;
+                } else {
+                    // Look up currency by symbol
+                    unity_type = 'currency';
+                    currency_id = currencyMap.get(unity) || null;
+
+                    if (!currency_id) {
+                        console.warn(
+                            `  ⚠️  Currency symbol "${unity}" not found, skipping discount with value ${value}`
+                        );
+                        continue;
+                    }
+                }
+
+                await client.query(
+                    'INSERT INTO dc_pos.discounts (value, unity_type, currency_id) VALUES ($1, $2, $3)',
+                    [value, unity_type, currency_id]
+                );
+                count++;
+            }
+        }
+    }
+
+    console.log(`✅ Migrated ${count} discounts`);
+}
+
+/**
  * Migrate products (categories and articles)
  * Format from spreadsheet: [rate, category, label, unavailable, ...prices]
  */
@@ -546,6 +608,7 @@ async function main() {
         await migratePrinters(client);
         await migrateUsers(client);
         await migrateColors(client);
+        await migrateDiscounts(client);
         await migrateProducts(client);
 
         console.log('\n✨ Migration completed successfully!');
