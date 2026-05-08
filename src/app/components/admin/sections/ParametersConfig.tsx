@@ -19,6 +19,7 @@ interface ParametersConfigProps {
     isReadOnly?: boolean;
     isSiretValid?: boolean;
     onSiretValidation?: (isValid: boolean) => void;
+    isLoading?: boolean;
 }
 
 const MONTH_NAMES = [
@@ -45,6 +46,7 @@ export default function ParametersConfig({
     isReadOnly = false,
     isSiretValid = true,
     onSiretValidation,
+    isLoading = false,
 }: ParametersConfigProps) {
     const maxDaysInMonth = (month: number): number => {
         const days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -93,6 +95,7 @@ export default function ParametersConfig({
             onSave={isReadOnly || !hasChanges ? undefined : () => onSave(config)}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
             saveDisabled={!isSiretValid}
+            isLoading={isLoading}
         >
             {/* Subsection: Commerce */}
             <div className="mb-6">

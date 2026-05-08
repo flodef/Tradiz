@@ -19,6 +19,7 @@ export default function PaymentsConfig({
     currencies,
     isReadOnly = false,
     onCancel,
+    isLoading = false,
 }: {
     config: PaymentMethod[];
     onChange: (data: PaymentMethod[]) => void;
@@ -26,6 +27,7 @@ export default function PaymentsConfig({
     currencies: Currency[];
     isReadOnly?: boolean;
     onCancel?: () => void;
+    isLoading?: boolean;
 }) {
     const [payments, setPayments] = useState(config || []);
 
@@ -162,6 +164,7 @@ export default function PaymentsConfig({
             title="Paiements"
             onSave={isReadOnly ? undefined : onSave ? () => onSave(payments) : undefined}
             onCancel={onCancel}
+            isLoading={isLoading}
         >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={payments.map((_, i) => i)} strategy={verticalListSortingStrategy}>

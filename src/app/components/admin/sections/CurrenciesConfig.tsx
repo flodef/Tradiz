@@ -19,6 +19,7 @@ export default function CurrenciesConfig({
     onCancel,
     hasChanges = false,
     isReadOnly = false,
+    isLoading = false,
 }: {
     config: Currency[];
     onChange: (data: Currency[]) => void;
@@ -26,6 +27,7 @@ export default function CurrenciesConfig({
     onCancel?: () => void;
     hasChanges?: boolean;
     isReadOnly?: boolean;
+    isLoading?: boolean;
 }) {
     const [currencies, setCurrencies] = useState(config || []);
 
@@ -206,6 +208,7 @@ export default function CurrenciesConfig({
             title="Devises"
             onSave={isReadOnly || !hasChanges ? undefined : () => onSave(currencies)}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
+            isLoading={isLoading}
         >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={currencies.map((_, i) => i)} strategy={verticalListSortingStrategy}>

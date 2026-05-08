@@ -42,6 +42,10 @@ export default function SettingsPage() {
     const [paymentsConfig, setPaymentsConfig] = useState<PaymentMethod[]>([]);
     const [colorsConfig, setColorsConfig] = useState<Color[]>([]);
     const [isSaving, setIsSaving] = useState(false);
+    const [isSavingParameters, setIsSavingParameters] = useState(false);
+    const [isSavingDiscounts, setIsSavingDiscounts] = useState(false);
+    const [isSavingCurrencies, setIsSavingCurrencies] = useState(false);
+    const [isSavingColors, setIsSavingColors] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isReadOnly, setIsReadOnly] = useState(true);
     const [dbConfigChecked, setDbConfigChecked] = useState(false);
@@ -270,13 +274,16 @@ export default function SettingsPage() {
 
     const handleSaveAll = async () => {
         // Save all changed sections
+        setIsSaving(true);
         if (hasSettingsChanges) await handleParametersSave(settings);
         if (hasDiscountsChanges) await handleDiscountsSave(discounts);
         if (hasCurrenciesChanges) await handleCurrenciesSave(currenciesConfig);
         if (hasPaymentsChanges) await handlePaymentsSave(paymentsConfig);
+        setIsSaving(false);
     };
 
     const handleCurrenciesSave = async (data: Currency[]) => {
+        setIsSavingCurrencies(true);
         try {
             const response = await fetch('/api/sql/updateCurrencies', {
                 method: 'POST',
@@ -285,9 +292,13 @@ export default function SettingsPage() {
             });
             if (!response.ok) throw new Error('Failed to save currencies');
             setCurrenciesConfig(data);
+            setOriginalCurrencies(data);
+            setHasCurrenciesChanges(false);
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des devises.", ['OK']);
+        } finally {
+            setIsSavingCurrencies(false);
         }
     };
 
@@ -296,7 +307,7 @@ export default function SettingsPage() {
             openFullscreenPopup("Veuillez corriger les erreurs avant d'enregistrer.", ['OK']);
             return;
         }
-        setIsSaving(true);
+        setIsSavingParameters(true);
         try {
             const paramUpdates = [
                 { key: 'name', value: data.shop.name },
@@ -321,12 +332,15 @@ export default function SettingsPage() {
 
             if (!response.ok) throw new Error('Failed to save parameters');
 
-            fetchParameters();
+            // Update local state without refetching
+            setSettings(data);
+            setOriginalSettings(data);
+            setHasSettingsChanges(false);
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des paramètres.", ['OK']);
         } finally {
-            setIsSaving(false);
+            setIsSavingParameters(false);
         }
     };
 
@@ -337,6 +351,7 @@ export default function SettingsPage() {
     };
 
     const handleDiscountsSave = async (data: Discount[]) => {
+        setIsSavingDiscounts(true);
         try {
             const response = await fetch('/api/sql/updateDiscounts', {
                 method: 'POST',
@@ -345,29 +360,41 @@ export default function SettingsPage() {
             });
             if (!response.ok) throw new Error('Failed to save discounts');
             setOriginalDiscounts(data);
+            setHasDiscountsChanges(false);
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des réductions.", ['OK']);
+        } finally {
+            setIsSavingDiscounts(false);
         }
     };
 
     const handleColorsSave = async (data: Color[]) => {
-        // Save colors
-        await fetch('/api/sql/setColors', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ values: data }),
-        });
-        // Save theme name if changed
-        if (themeName !== originalThemeName) {
-            await fetch('/api/sql/setThemeName', {
+        setIsSavingColors(true);
+        try {
+            // Save colors
+            await fetch('/api/sql/setColors', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: themeName }),
+                body: JSON.stringify({ values: data }),
             });
-            setOriginalThemeName(themeName);
+            // Save theme name if changed
+            if (themeName !== originalThemeName) {
+                await fetch('/api/sql/setThemeName', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: themeName }),
+                });
+                setOriginalThemeName(themeName);
+            }
+            setOriginalColors(data);
+            setHasColorsChanges(false);
+        } catch (error) {
+            console.error("Erreur lors de l'enregistrement:", error);
+            openFullscreenPopup("Erreur lors de l'enregistrement des couleurs.", ['OK']);
+        } finally {
+            setIsSavingColors(false);
         }
-        setOriginalColors(data);
     };
 
     const handleThemeNameChange = (name: string) => {
@@ -429,6 +456,7 @@ export default function SettingsPage() {
                 isReadOnly={isReadOnly}
                 isSiretValid={isSiretValid}
                 onSiretValidation={setIsSiretValid}
+                isLoading={isSavingParameters}
             />
 
             <DiscountsConfig
@@ -439,6 +467,7 @@ export default function SettingsPage() {
                 hasChanges={hasDiscountsChanges}
                 currencies={currenciesConfig}
                 isReadOnly={isReadOnly}
+                isLoading={isSavingDiscounts}
             />
 
             <CurrenciesConfig
@@ -448,6 +477,7 @@ export default function SettingsPage() {
                 onCancel={handleCancel}
                 hasChanges={hasCurrenciesChanges}
                 isReadOnly={isReadOnly}
+                isLoading={isSavingCurrencies}
             />
 
             <PaymentsConfig
@@ -467,6 +497,7 @@ export default function SettingsPage() {
                 themeName={themeName}
                 onThemeNameChange={handleThemeNameChange}
                 onCancel={hasColorsChanges ? handleCancel : undefined}
+                isLoading={isSavingColors}
             />
 
             {!isReadOnly && hasChanges && (

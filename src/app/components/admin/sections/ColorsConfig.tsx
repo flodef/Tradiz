@@ -15,6 +15,7 @@ export default function ColorsConfig({
     themeName,
     onThemeNameChange,
     onCancel,
+    isLoading = false,
 }: {
     config: Color[];
     onChange: (data: Color[]) => void;
@@ -23,6 +24,7 @@ export default function ColorsConfig({
     themeName?: string;
     onThemeNameChange?: (name: string) => void;
     onCancel?: () => void;
+    isLoading?: boolean;
 }) {
     const [colors, setColors] = useState(config || []);
 
@@ -64,6 +66,7 @@ export default function ColorsConfig({
             title="Thèmes"
             onSave={isReadOnly ? undefined : onSave ? () => onSave(colors) : undefined}
             onCancel={onCancel}
+            isLoading={isLoading}
         >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {themes.map((theme, themeIndex) => (

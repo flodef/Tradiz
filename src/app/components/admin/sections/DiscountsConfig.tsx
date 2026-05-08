@@ -19,6 +19,7 @@ export default function DiscountsConfig({
     hasChanges = false,
     currencies,
     isReadOnly = false,
+    isLoading = false,
 }: {
     config: Discount[];
     onChange: (data: Discount[]) => void;
@@ -27,6 +28,7 @@ export default function DiscountsConfig({
     hasChanges?: boolean;
     currencies: Currency[];
     isReadOnly?: boolean;
+    isLoading?: boolean;
 }) {
     const [discounts, setDiscounts] = useState(config || []);
 
@@ -126,6 +128,7 @@ export default function DiscountsConfig({
             title="Réductions"
             onSave={isReadOnly || !hasChanges ? undefined : () => onSave(discounts)}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
+            isLoading={isLoading}
         >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={discounts.map((_, i) => i)} strategy={verticalListSortingStrategy}>

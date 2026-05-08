@@ -13,6 +13,7 @@ interface SectionCardProps {
     onCancel?: () => void;
     defaultOpen?: boolean;
     headerExtra?: ReactNode;
+    isLoading?: boolean;
 }
 
 export default function SectionCard({
@@ -23,6 +24,7 @@ export default function SectionCard({
     onCancel,
     defaultOpen = true,
     headerExtra,
+    isLoading = false,
 }: SectionCardProps) {
     const [open, setOpen] = useState(defaultOpen);
     const isMobile = useIsMobile();
@@ -46,7 +48,7 @@ export default function SectionCard({
                         {open && headerExtra}
                         {open && (onSave || onCancel) && (
                             <div className="flex items-center gap-2">
-                                {onCancel && (
+                                {onCancel && !isLoading && (
                                     <AdminButton
                                         variant="secondary"
                                         onClick={(e) => {
@@ -61,7 +63,8 @@ export default function SectionCard({
                                 {onSave && (
                                     <AdminButton
                                         variant="save"
-                                        disabled={saveDisabled}
+                                        disabled={saveDisabled || isLoading}
+                                        isLoading={isLoading}
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             onSave();
