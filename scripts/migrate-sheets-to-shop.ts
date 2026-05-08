@@ -9,6 +9,7 @@
  */
 
 import { Client } from 'pg';
+import { PARAMETER_KEYS } from '../src/app/constants/parameterKeys';
 
 // Environment validation
 const requiredEnvVars = [
@@ -88,6 +89,7 @@ async function fetchSheetData(sheetName: string, isRaw = true): Promise<SheetDat
 
 /**
  * Migrate parameters
+ * Maps spreadsheet indices to specific parameter keys
  */
 async function migrateParameters(client: Client) {
     console.log('📦 Migrating parameters...');
@@ -101,45 +103,57 @@ async function migrateParameters(client: Client) {
     // Clear existing parameters
     await client.query('DELETE FROM dc_pos.parameters');
 
+    // Map spreadsheet indices to parameter keys
+    const parameterKeyMap: Record<number, string> = {
+        0: PARAMETER_KEYS.SHOP_NAME,
+        1: PARAMETER_KEYS.SHOP_ADDRESS,
+        2: PARAMETER_KEYS.SHOP_ZIP_CODE,
+        3: PARAMETER_KEYS.SHOP_CITY,
+        4: PARAMETER_KEYS.SHOP_SERIAL,
+        5: PARAMETER_KEYS.SHOP_ID,
+        6: PARAMETER_KEYS.SHOP_EMAIL,
+        7: PARAMETER_KEYS.THANKS_MESSAGE,
+        8: PARAMETER_KEYS.MERCURIAL,
+        9: PARAMETER_KEYS.CLOSING_HOUR,
+        10: PARAMETER_KEYS.YEAR_START_DATE,
+        11: PARAMETER_KEYS.LAST_MODIFIED,
+    };
+
     // Insert parameters
     let count = 0;
-    let hasShopName = false;
 
     for (let i = 0; i < data.values.length; i++) {
         const row = data.values[i];
-        if (row.length >= 2) {
-            const key = String(row[0]).trim();
+        const index = i; // Row index in spreadsheet
+
+        if (row.length >= 1) {
+            const key = parameterKeyMap[index];
             let value = String(row[1]).trim();
 
-            // Track if shop name exists
-            if (key === 'name' || key === 'Nom du commerce') {
-                hasShopName = true;
-            }
-
-            // Fix closingHour: extract hour (0-23) from datetime or time string
-            if ((key === 'closingHour' || key === 'Heure de fermeture') && value) {
-                // Check if it's an Excel serial date (number > 1000)
-                const numValue = Number(value);
-                if (!isNaN(numValue) && numValue > 1000) {
-                    // Excel serial date - convert to hours (fractional part * 24)
-                    const fractionalDay = numValue - Math.floor(numValue);
-                    value = String(Math.floor(fractionalDay * 24));
-                } else {
-                    // Try to extract hour from time/datetime (e.g., "18:00:00" or "2000-01-01 18:00:00" -> "18")
-                    const hourMatch = value.match(/(\d{1,2}):/);
-                    if (hourMatch) {
-                        value = hourMatch[1];
-                    } else if (!isNaN(numValue) && numValue < 24) {
-                        // If it's already a valid hour number (0-23), keep it
-                        value = String(Math.floor(numValue));
+            if (key) {
+                // Special handling for closingHour
+                if (key === PARAMETER_KEYS.CLOSING_HOUR && value) {
+                    // Check if it's an Excel serial date (number > 1000)
+                    const numValue = Number(value);
+                    if (!isNaN(numValue) && numValue > 1000) {
+                        // Excel serial date - convert to hours (fractional part * 24)
+                        const fractionalDay = numValue - Math.floor(numValue);
+                        value = String(Math.floor(fractionalDay * 24));
                     } else {
-                        // Default to 0 if we can't parse it
-                        value = '0';
+                        // Try to extract hour from time/datetime (e.g., "18:00:00" or "2000-01-01 18:00:00" -> "18")
+                        const hourMatch = value.match(/(\d{1,2}):/);
+                        if (hourMatch) {
+                            value = hourMatch[1];
+                        } else if (!isNaN(numValue) && numValue < 24) {
+                            // If it's already a valid hour number (0-23), keep it
+                            value = String(Math.floor(numValue));
+                        } else {
+                            // Default to 0 if we can't parse it
+                            value = '0';
+                        }
                     }
                 }
-            }
 
-            if (key) {
                 await client.query('INSERT INTO dc_pos.parameters (param_key, param_value) VALUES ($1, $2)', [
                     key,
                     value,
@@ -147,16 +161,6 @@ async function migrateParameters(client: Client) {
                 count++;
             }
         }
-    }
-
-    // Add shop name if not present in spreadsheet
-    if (!hasShopName && SHOP_NAME) {
-        await client.query('INSERT INTO dc_pos.parameters (param_key, param_value) VALUES ($1, $2)', [
-            'Nom du commerce',
-            SHOP_NAME,
-        ]);
-        count++;
-        console.log(`  ℹ️  Added shop name from environment: ${SHOP_NAME}`);
     }
 
     console.log(`✅ Migrated ${count} parameters`);
