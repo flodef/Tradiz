@@ -141,13 +141,11 @@ export default function SettingsPage() {
             try {
                 const discountsResponse = await fetch('/api/sql/getDiscounts');
                 const discountsData = await discountsResponse.json();
-                if (discountsData.values && discountsData.values.length > 1) {
-                    const loaded: Discount[] = discountsData.values
-                        .slice(1)
-                        .map(([amount, unit]: [number, string]) => ({
-                            amount: Number(amount),
-                            unit: String(unit).trim(),
-                        }));
+                if (Array.isArray(discountsData) && discountsData.length > 0) {
+                    const loaded: Discount[] = discountsData.map((d: { amount: number; unit: string }) => ({
+                        amount: Number(d.amount),
+                        unit: String(d.unit).trim(),
+                    }));
                     setDiscounts(loaded);
                     setOriginalDiscounts(loaded);
                 }
@@ -339,9 +337,18 @@ export default function SettingsPage() {
     };
 
     const handleDiscountsSave = async (data: Discount[]) => {
-        // Placeholder for discounts save - implement when API is ready
-        console.log('Saving discounts:', data);
-        setOriginalDiscounts(data);
+        try {
+            const response = await fetch('/api/sql/updateDiscounts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ discounts: data }),
+            });
+            if (!response.ok) throw new Error('Failed to save discounts');
+            setOriginalDiscounts(data);
+        } catch (error) {
+            console.error("Erreur lors de l'enregistrement:", error);
+            openFullscreenPopup("Erreur lors de l'enregistrement des réductions.", ['OK']);
+        }
     };
 
     const handleColorsSave = async (data: Color[]) => {
@@ -430,7 +437,7 @@ export default function SettingsPage() {
                 onSave={handleDiscountsSave}
                 onCancel={handleCancel}
                 hasChanges={hasDiscountsChanges}
-                currencies={currencies}
+                currencies={currenciesConfig}
                 isReadOnly={isReadOnly}
             />
 
