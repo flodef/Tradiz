@@ -40,7 +40,11 @@ export async function GET(request: Request) {
 
         // Filter by date if provided
         if (date && period === 'day') {
-            whereClause += ' AND DATE(f.created_at) = ?';
+            if (connection.isPostgreSQL) {
+                whereClause += ' AND DATE(f.created_at) = $2';
+            } else {
+                whereClause += ' AND DATE(f.created_at) = ?';
+            }
             params.push(date);
         }
 
@@ -51,7 +55,27 @@ export async function GET(request: Request) {
         // (e.g. +3600 for Europe/Paris in winter). This prevents a 1-hour gap that would cause
         // mergeTransactionArrays to treat the same transaction as two distinct entries.
         const mainDb = 'DC';
-        const query = `
+        const query = connection.isPostgreSQL
+            ? `
+            SELECT 
+                f.id,
+                f.panier_id,
+                p.short_num_order,
+                COALESCE(u.name, $1) as validator,
+                pm.label as method,
+                f.amount,
+                f.currency,
+                f.note,
+                (EXTRACT(EPOCH FROM f.created_at) * 1000) as createdDate,
+                (EXTRACT(EPOCH FROM f.updated_at) * 1000) as modifiedDate
+            FROM facturation f
+            LEFT JOIN users u ON u.id = f.user_id
+            LEFT JOIN payment_methods pm ON pm.id = f.payment_method_id
+            LEFT JOIN ${mainDb}.panier p ON p.id = f.panier_id
+            WHERE ${whereClause}
+            ORDER BY f.created_at DESC
+        `
+            : `
             SELECT 
                 f.id,
                 f.panier_id,
@@ -80,12 +104,14 @@ export async function GET(request: Request) {
             // Skip deleted transactions unless explicitly included (for sync)
             if (!includeDeleted && row.method === DELETED_KEYWORD) continue;
 
-            const [productRows] = await connection.execute(
-                `SELECT label, category, amount, quantity, discount_amount, discount_unit, total
+            const productQuery = connection.isPostgreSQL
+                ? `SELECT label, category, amount, quantity, discount_amount, discount_unit, total
                  FROM facturation_article
-                 WHERE facturation_id = ?`,
-                [row.id]
-            );
+                 WHERE facturation_id = $1`
+                : `SELECT label, category, amount, quantity, discount_amount, discount_unit, total
+                 FROM facturation_article
+                 WHERE facturation_id = ?`;
+            const [productRows] = await connection.execute(productQuery, [row.id]);
 
             const products = (productRows as ProductRow[]).map((p) => ({
                 label: p.label || '',

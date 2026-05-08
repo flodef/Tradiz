@@ -19,7 +19,15 @@ export async function GET(request: Request) {
         const connection = await getMainDb();
 
         // Query 1: Get articles
-        const queryArticles = `
+        const queryArticles = connection.isPostgreSQL
+            ? `
+            SELECT a.nom AS label, a.prix as amount, b.quantite as quantity, c.nom AS category
+            FROM article a
+            JOIN rel_panier_article b ON b.article_id = a.id
+            JOIN categorie c ON c.id = a.categorie
+            WHERE b.panier_id = $1
+        `
+            : `
             SELECT a.nom AS label, a.prix as amount, b.quantite as quantity, c.nom AS category
             FROM article a
             JOIN rel_panier_article b ON b.article_id = a.id
@@ -28,7 +36,14 @@ export async function GET(request: Request) {
         `;
 
         // Query 2: Get formules
-        const queryFormules = `
+        const queryFormules = connection.isPostgreSQL
+            ? `
+            SELECT f.nom AS label, f.prix AS amount, a.quantite as quantity, 'Formule' AS category
+            FROM rel_panier_formule a
+            JOIN formule f ON f.id = a.formule_id
+            WHERE a.panier_id = $1
+        `
+            : `
             SELECT f.nom AS label, f.prix AS amount, a.quantite as quantity, 'Formule' AS category
             FROM rel_panier_formule a
             JOIN formule f ON f.id = a.formule_id

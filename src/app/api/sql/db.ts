@@ -11,10 +11,13 @@ export interface DbConnection {
     beginTransaction(): Promise<void>;
     commit(): Promise<void>;
     rollback(): Promise<void>;
+    isPostgreSQL: boolean;
 }
 
 // Wrapper for MySQL connection to match our interface
 class MySQLConnectionWrapper implements DbConnection {
+    isPostgreSQL = false;
+
     constructor(private connection: mysql.Connection) {}
 
     async execute(query: string, params?: unknown[]): Promise<[unknown[], unknown]> {
@@ -48,6 +51,8 @@ class MySQLConnectionWrapper implements DbConnection {
 
 // Wrapper for PostgreSQL pool to match our interface
 class PostgreSQLConnectionWrapper implements DbConnection {
+    isPostgreSQL = true;
+
     constructor(private pool: PgPool) {}
 
     async execute(query: string, params?: unknown[]): Promise<[unknown[], unknown]> {

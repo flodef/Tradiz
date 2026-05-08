@@ -37,13 +37,25 @@ export async function GET(request: Request) {
 
         // Non-paid payment methods
         const nonPaidMethods = ['EFFACÉE', 'REMBOURSEMENT', 'EN COURS', 'EN ATTENTE'];
-        const nonPaidCondition = nonPaidMethods.map(() => 'pm.label != ?').join(' AND ');
+        const nonPaidCondition = nonPaidMethods
+            .map((_, i) => {
+                if (connection.isPostgreSQL) {
+                    return `pm.label != $${i + 1}`;
+                } else {
+                    return 'pm.label != ?';
+                }
+            })
+            .join(' AND ');
 
         let dateFilter = '';
         const params: string[] = [...nonPaidMethods];
 
         if (startDate && endDate) {
-            dateFilter = 'AND DATE(f.created_at) BETWEEN ? AND ?';
+            if (connection.isPostgreSQL) {
+                dateFilter = 'AND DATE(f.created_at) BETWEEN $5 AND $6';
+            } else {
+                dateFilter = 'AND DATE(f.created_at) BETWEEN ? AND ?';
+            }
             params.push(startDate, endDate);
         }
 
@@ -124,7 +136,26 @@ export async function GET(request: Request) {
         const totalOrders = Number((ordersCountRows as { totalOrders: number }[])[0]?.totalOrders) || 0;
 
         // 6. Recent orders (Dernières commandes)
-        const recentOrdersQuery = `
+        const recentOrdersQuery = connection.isPostgreSQL
+            ? `
+            SELECT 
+                f.panier_id,
+                p.short_num_order,
+                f.created_at,
+                pm.label as payment_method,
+                CASE 
+                    WHEN pm.label IN ('EFFACÉE', 'REMBOURSEMENT', 'EN COURS', 'EN ATTENTE') THEN 'Non payé'
+                    ELSE 'Payé'
+                END as status,
+                f.amount
+            FROM facturation f
+            LEFT JOIN payment_methods pm ON pm.id = f.payment_method_id
+            LEFT JOIN ${mainDb}.panier p ON p.id = f.panier_id
+            WHERE 1=1 ${dateFilter}
+            ORDER BY f.created_at DESC
+            LIMIT 20
+        `
+            : `
             SELECT 
                 f.panier_id,
                 p.short_num_order,

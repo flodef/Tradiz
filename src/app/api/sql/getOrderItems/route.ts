@@ -69,7 +69,16 @@ export async function GET(request: Request) {
         const connection = await getMainDb();
 
         // Query 1: Get articles
-        const queryArticles = `
+        const queryArticles = connection.isPostgreSQL
+            ? `
+            SELECT a.nom AS label, a.prix as amount, b.quantite as quantity, c.nom AS category,
+                   b.option AS selected_options, a.options AS all_options
+            FROM article a
+            JOIN rel_panier_article b ON b.article_id = a.id
+            JOIN categorie c ON c.id = a.categorie
+            WHERE b.panier_id = $1
+        `
+            : `
             SELECT a.nom AS label, a.prix as amount, b.quantite as quantity, c.nom AS category,
                    b.option AS selected_options, a.options AS all_options
             FROM article a
@@ -79,7 +88,15 @@ export async function GET(request: Request) {
         `;
 
         // Query 2: Get formule instances with their elements
-        const queryFormules = `
+        const queryFormules = connection.isPostgreSQL
+            ? `
+            SELECT rpf.id AS rpf_id, f.nom AS label, f.prix AS amount, rpf.quantite AS quantity,
+                   rpf.note
+            FROM rel_panier_formule rpf
+            JOIN formule f ON f.id = rpf.formule_id
+            WHERE rpf.panier_id = $1
+        `
+            : `
             SELECT rpf.id AS rpf_id, f.nom AS label, f.prix AS amount, rpf.quantite AS quantity,
                    rpf.note
             FROM rel_panier_formule rpf
@@ -88,7 +105,17 @@ export async function GET(request: Request) {
         `;
 
         // Query 3: Get elements for each formule instance
-        const queryFormuleElements = `
+        const queryFormuleElements = connection.isPostgreSQL
+            ? `
+            SELECT rpf_ef.id_pf, ef.nom AS nom_ef, a.nom AS nom_article,
+                   rpf_ef.nom_categorie, rpf_ef.options AS selected_options, a.options AS all_options
+            FROM rel_pf_ef rpf_ef
+            JOIN element_formule ef ON ef.id = rpf_ef.id_ef
+            JOIN article a ON a.id = rpf_ef.id_article
+            WHERE rpf_ef.id_pf = $1
+            ORDER BY rpf_ef.id
+        `
+            : `
             SELECT rpf_ef.id_pf, ef.nom AS nom_ef, a.nom AS nom_article,
                    rpf_ef.nom_categorie, rpf_ef.options AS selected_options, a.options AS all_options
             FROM rel_pf_ef rpf_ef
@@ -111,7 +138,10 @@ export async function GET(request: Request) {
         );
 
         // Fetch short_num_order
-        const [panierRow] = await connection.execute(`SELECT short_num_order FROM panier WHERE id = ?`, [orderId]);
+        const panierQuery = connection.isPostgreSQL
+            ? 'SELECT short_num_order FROM panier WHERE id = $1'
+            : 'SELECT short_num_order FROM panier WHERE id = ?';
+        const [panierRow] = await connection.execute(panierQuery, [orderId]);
         const shortNumOrder: string = (panierRow as PanierRow[])[0]?.short_num_order ?? '';
 
         await connection.end();

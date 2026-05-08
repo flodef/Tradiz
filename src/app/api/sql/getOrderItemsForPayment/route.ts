@@ -48,10 +48,10 @@ export async function GET(request: NextRequest) {
         connection = await getMainDb();
 
         // Get panier info
-        const [panierRows] = await connection.execute(
-            `SELECT id, short_num_order, service_type FROM panier WHERE id = ?`,
-            [orderId]
-        );
+        const panierQuery = connection.isPostgreSQL
+            ? 'SELECT id, short_num_order, service_type FROM panier WHERE id = $1'
+            : 'SELECT id, short_num_order, service_type FROM panier WHERE id = ?';
+        const [panierRows] = await connection.execute(panierQuery, [orderId]);
 
         if (!Array.isArray(panierRows) || panierRows.length === 0) {
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
@@ -61,8 +61,25 @@ export async function GET(request: NextRequest) {
         const items: OrderItem[] = [];
 
         // Get articles (non-formule items)
-        const [articleRows] = await connection.execute(
-            `SELECT 
+        const articleQuery = connection.isPostgreSQL
+            ? `
+            SELECT 
+                rpa.id,
+                rpa.article_id,
+                a.nom as label,
+                rpa.quantite as quantity,
+                a.prix as price,
+                rpa.nom_categorie as category,
+                rpa.option as options,
+                rpa.paid_at,
+                rpa.kitchen_view
+            FROM rel_panier_article rpa
+            JOIN article a ON a.id = rpa.article_id
+            WHERE rpa.panier_id = $1
+            ORDER BY rpa.id
+        `
+            : `
+            SELECT 
                 rpa.id,
                 rpa.article_id,
                 a.nom as label,
@@ -75,9 +92,9 @@ export async function GET(request: NextRequest) {
             FROM rel_panier_article rpa
             JOIN article a ON a.id = rpa.article_id
             WHERE rpa.panier_id = ?
-            ORDER BY rpa.id`,
-            [orderId]
-        );
+            ORDER BY rpa.id
+        `;
+        const [articleRows] = await connection.execute(articleQuery, [orderId]);
 
         for (const row of articleRows as ArticleRow[]) {
             items.push({
@@ -94,8 +111,22 @@ export async function GET(request: NextRequest) {
         }
 
         // Get formules
-        const [formuleRows] = await connection.execute(
-            `SELECT 
+        const formuleQuery = connection.isPostgreSQL
+            ? `
+            SELECT 
+                rpf.id,
+                f.nom as label,
+                rpf.quantite as quantity,
+                f.prix as price,
+                rpf.note,
+                rpf.paid_at
+            FROM rel_panier_formule rpf
+            JOIN formule f ON f.id = rpf.formule_id
+            WHERE rpf.panier_id = $1
+            ORDER BY rpf.id
+        `
+            : `
+            SELECT 
                 rpf.id,
                 f.nom as label,
                 rpf.quantite as quantity,
@@ -105,23 +136,34 @@ export async function GET(request: NextRequest) {
             FROM rel_panier_formule rpf
             JOIN formule f ON f.id = rpf.formule_id
             WHERE rpf.panier_id = ?
-            ORDER BY rpf.id`,
-            [orderId]
-        );
+            ORDER BY rpf.id
+        `;
+        const [formuleRows] = await connection.execute(formuleQuery, [orderId]);
 
         for (const formule of formuleRows as FormuleRow[]) {
             // Get elements of this formule
-            const [elementRows] = await connection.execute(
-                `SELECT 
+            const elementQuery = connection.isPostgreSQL
+                ? `
+                SELECT 
+                    rpf_ef.nom_categorie as category,
+                    a.nom as choice,
+                    rpf_ef.options
+                FROM rel_pf_ef rpf_ef
+                JOIN article a ON a.id = rpf_ef.id_article
+                WHERE rpf_ef.id_pf = $1
+                ORDER BY rpf_ef.id
+            `
+                : `
+                SELECT 
                     rpf_ef.nom_categorie as category,
                     a.nom as choice,
                     rpf_ef.options
                 FROM rel_pf_ef rpf_ef
                 JOIN article a ON a.id = rpf_ef.id_article
                 WHERE rpf_ef.id_pf = ?
-                ORDER BY rpf_ef.id`,
-                [formule.id]
-            );
+                ORDER BY rpf_ef.id
+            `;
+            const [elementRows] = await connection.execute(elementQuery, [formule.id]);
 
             const elements = (elementRows as FormuleElementRow[]).map((el) => ({
                 category: el.category,

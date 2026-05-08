@@ -31,7 +31,11 @@ export async function GET(request: Request) {
         `;
 
         if (hasTableFilter) {
-            query += ' AND rtp.table_id = ?';
+            if (connection.isPostgreSQL) {
+                query += ' AND rtp.table_id = $1';
+            } else {
+                query += ' AND rtp.table_id = ?';
+            }
             params.push(parsedTableId);
         }
 

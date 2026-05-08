@@ -33,27 +33,28 @@ export async function POST(request: NextRequest) {
         // Update paid_at for each item
         for (const item of paidItems) {
             if (item.type === 'article') {
-                await connection.execute(`UPDATE rel_panier_article SET paid_at = ? WHERE id = ?`, [
-                    formattedDate,
-                    item.id,
-                ]);
+                const query = connection.isPostgreSQL
+                    ? 'UPDATE rel_panier_article SET paid_at = $1 WHERE id = $2'
+                    : 'UPDATE rel_panier_article SET paid_at = ? WHERE id = ?';
+                await connection.execute(query, [formattedDate, item.id]);
             } else if (item.type === 'formule') {
-                await connection.execute(`UPDATE rel_panier_formule SET paid_at = ? WHERE id = ?`, [
-                    formattedDate,
-                    item.id,
-                ]);
+                const query = connection.isPostgreSQL
+                    ? 'UPDATE rel_panier_formule SET paid_at = $1 WHERE id = $2'
+                    : 'UPDATE rel_panier_formule SET paid_at = ? WHERE id = ?';
+                await connection.execute(query, [formattedDate, item.id]);
             }
         }
 
         // Check if all items are now paid
-        const [articleCheckRows] = await connection.execute(
-            `SELECT COUNT(*) as unpaid_count FROM rel_panier_article WHERE panier_id = ? AND paid_at IS NULL`,
-            [orderId]
-        );
-        const [formuleCheckRows] = await connection.execute(
-            `SELECT COUNT(*) as unpaid_count FROM rel_panier_formule WHERE panier_id = ? AND paid_at IS NULL`,
-            [orderId]
-        );
+        const articleCheckQuery = connection.isPostgreSQL
+            ? 'SELECT COUNT(*) as unpaid_count FROM rel_panier_article WHERE panier_id = $1 AND paid_at IS NULL'
+            : 'SELECT COUNT(*) as unpaid_count FROM rel_panier_article WHERE panier_id = ? AND paid_at IS NULL';
+        const [articleCheckRows] = await connection.execute(articleCheckQuery, [orderId]);
+
+        const formuleCheckQuery = connection.isPostgreSQL
+            ? 'SELECT COUNT(*) as unpaid_count FROM rel_panier_formule WHERE panier_id = $1 AND paid_at IS NULL'
+            : 'SELECT COUNT(*) as unpaid_count FROM rel_panier_formule WHERE panier_id = ? AND paid_at IS NULL';
+        const [formuleCheckRows] = await connection.execute(formuleCheckQuery, [orderId]);
 
         const articlesUnpaid = (articleCheckRows as CountRow[])[0]?.unpaid_count || 0;
         const formulesUnpaid = (formuleCheckRows as CountRow[])[0]?.unpaid_count || 0;
@@ -62,26 +63,34 @@ export async function POST(request: NextRequest) {
         // If all items are paid, transition to kitchen_view = 1
         if (allPaid) {
             // Update articles to kitchen_view = 1 (En préparation)
-            await connection.execute(
-                `UPDATE rel_panier_article SET kitchen_view = 1 WHERE panier_id = ? AND kitchen_view = 0`,
-                [orderId]
-            );
+            const updateArticlesQuery = connection.isPostgreSQL
+                ? 'UPDATE rel_panier_article SET kitchen_view = 1 WHERE panier_id = $1 AND kitchen_view = 0'
+                : 'UPDATE rel_panier_article SET kitchen_view = 1 WHERE panier_id = ? AND kitchen_view = 0';
+            await connection.execute(updateArticlesQuery, [orderId]);
 
             // Update formule elements to kitchen_view = 1
-            await connection.execute(
-                `UPDATE rel_pf_ef 
-                 SET kitchen_view = 1 
+            const updateFormuleQuery = connection.isPostgreSQL
+                ? `
+                UPDATE rel_pf_ef
+                 SET kitchen_view = 1
+                 WHERE id_pf IN (
+                     SELECT id FROM rel_panier_formule WHERE panier_id = $1
+                 ) AND kitchen_view = 0
+            `
+                : `
+                UPDATE rel_pf_ef
+                 SET kitchen_view = 1
                  WHERE id_pf IN (
                      SELECT id FROM rel_panier_formule WHERE panier_id = ?
-                 ) AND kitchen_view = 0`,
-                [orderId]
-            );
+                 ) AND kitchen_view = 0
+            `;
+            await connection.execute(updateFormuleQuery, [orderId]);
 
             // Update panier to mark as paid and set preparation_started_at
-            await connection.execute(`UPDATE panier SET paid = 1, preparation_started_at = ? WHERE id = ?`, [
-                formattedDate,
-                orderId,
-            ]);
+            const updatePanierQuery = connection.isPostgreSQL
+                ? 'UPDATE panier SET paid = 1, preparation_started_at = $1 WHERE id = $2'
+                : 'UPDATE panier SET paid = 1, preparation_started_at = ? WHERE id = ?';
+            await connection.execute(updatePanierQuery, [formattedDate, orderId]);
         }
 
         await connection.commit();

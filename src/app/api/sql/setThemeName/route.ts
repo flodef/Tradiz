@@ -11,9 +11,15 @@ export async function POST(request: Request) {
 
         const connection = await getMainDb();
 
-        const query = `
+        const query = connection.isPostgreSQL
+            ? `
             UPDATE theme_admin
             SET name = $1
+            WHERE selected = true
+        `
+            : `
+            UPDATE theme_admin
+            SET name = ?
             WHERE selected = true
         `;
 

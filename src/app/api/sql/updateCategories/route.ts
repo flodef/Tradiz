@@ -18,15 +18,19 @@ export async function POST(request: Request) {
 
         // Update each category
         for (const category of categories as Category[]) {
-            // Note: Categories in the DC database don't have a VAT field in the provided schema
-            // If you need to store VAT, you'll need to add a taux_tva column to the categorie table
-            const query = `
-                UPDATE categorie 
-                SET nom = ?
+            const query = connection.isPostgreSQL
+                ? `
+                UPDATE dc.categorie
+                SET taux_tva_default = $1
+                WHERE nom = $2
+            `
+                : `
+                UPDATE dc.categorie
+                SET taux_tva_default = ?
                 WHERE nom = ?
             `;
-            
-            await connection.execute(query, [category.label, category.label]);
+
+            await connection.execute(query, [category.vat, category.label]);
         }
 
         await connection.end();
