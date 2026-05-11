@@ -45,6 +45,7 @@ export default function SettingsPage() {
     const [isSavingParameters, setIsSavingParameters] = useState(false);
     const [isSavingDiscounts, setIsSavingDiscounts] = useState(false);
     const [isSavingCurrencies, setIsSavingCurrencies] = useState(false);
+    const [isSavingPayments, setIsSavingPayments] = useState(false);
     const [isSavingColors, setIsSavingColors] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isReadOnly, setIsReadOnly] = useState(true);
@@ -345,9 +346,22 @@ export default function SettingsPage() {
     };
 
     const handlePaymentsSave = async (data: PaymentMethod[]) => {
-        // Placeholder for payments save - implement when API is ready
-        console.log('Saving payments:', data);
-        setOriginalPayments(data);
+        setIsSavingPayments(true);
+        try {
+            const response = await fetch('/api/sql/updatePaymentMethods', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ paymentMethods: data }),
+            });
+            if (!response.ok) throw new Error('Failed to save payment methods');
+            setOriginalPayments(data);
+            setHasPaymentsChanges(false);
+        } catch (error) {
+            console.error("Erreur lors de l'enregistrement:", error);
+            openFullscreenPopup("Erreur lors de l'enregistrement des moyens de paiement.", ['OK']);
+        } finally {
+            setIsSavingPayments(false);
+        }
     };
 
     const handleDiscountsSave = async (data: Discount[]) => {
@@ -487,6 +501,7 @@ export default function SettingsPage() {
                 currencies={currenciesConfig}
                 isReadOnly={isReadOnly}
                 onCancel={hasPaymentsChanges ? handleCancel : undefined}
+                isLoading={isSavingPayments}
             />
 
             <ColorsConfig
