@@ -64,14 +64,14 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
         switch (crypto) {
             case Crypto.Solana:
                 return encodeURL({
-                    recipient,
-                    amount,
-                    splToken,
-                    reference,
+                    recipient: recipient.toBase58() as any,
+                    amount: amount.toNumber() as any,
+                    splToken: splToken?.toBase58() as any,
+                    reference: reference?.toBase58() as any,
                     label: parameters.shop.name,
                     message: parameters.thanksMessage,
                     memo,
-                });
+                } as any);
             case Crypto.June:
                 const url = new URL('june://' + recipient.toBase58());
 
@@ -123,10 +123,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
         const interval = setInterval(async () => {
             try {
                 if (crypto === Crypto.Solana && reference) {
-                    const signature = await findReference(
-                        connection.current as unknown as Parameters<typeof findReference>[0],
-                        reference
-                    );
+                    const signature = await findReference(connection.current as any, reference.toBase58() as any);
 
                     if (!changed) {
                         watchDog.current = 0;
@@ -186,14 +183,14 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
         const run = async () => {
             try {
                 await validateTransfer(
-                    connection.current,
+                    connection.current as any,
                     signature,
                     {
-                        recipient,
-                        amount,
-                        splToken,
-                        reference,
-                    },
+                        recipient: recipient.toBase58() as any,
+                        amount: amount.toNumber() as any,
+                        splToken: splToken?.toBase58() as any,
+                        reference: reference?.toBase58() as any,
+                    } as any,
                     { maxSupportedTransactionVersion: 0 }
                 );
                 if (!changed) {

@@ -10,6 +10,7 @@ import {
     Connection,
     GetVersionedTransactionConfig,
     LAMPORTS_PER_SOL,
+    PublicKey,
     SIGNATURE_LENGTH_IN_BYTES,
     SystemInstruction,
     Transaction,
@@ -69,9 +70,12 @@ export async function validateTransfer(
     if (!meta) throw new ValidateTransferError('missing meta');
     if (meta.err) throw meta.err;
 
-    if (reference && !Array.isArray(reference)) {
-        reference = [reference];
-    }
+    // Normalize reference to array
+    const referenceArray: Reference[] | undefined = reference
+        ? Array.isArray(reference)
+            ? reference
+            : [reference]
+        : undefined;
 
     // Deserialize the transaction and make a copy of the instructions we're going to mutate it.
     const transaction = populate(message, signatures);
@@ -83,8 +87,8 @@ export async function validateTransfer(
     if (instruction.keys[0].pubkey === instruction.keys[1].pubkey)
         throw new ValidateTransferError('sender is also recipient');
     const [preAmount, postAmount] = splToken
-        ? await validateSPLTokenTransfer(instruction, message, meta, recipient, splToken, reference)
-        : await validateSystemTransfer(instruction, message, meta, recipient, reference);
+        ? await validateSPLTokenTransfer(instruction, message, meta, recipient as any, splToken as any, referenceArray)
+        : await validateSystemTransfer(instruction, message, meta, recipient as any, referenceArray);
     if (postAmount.minus(preAmount).lt(amount)) throw new ValidateTransferError('amount not transferred');
 
     if (memo !== undefined) {
@@ -111,7 +115,9 @@ async function validateSystemTransfer(
     recipient: Recipient,
     references?: Reference[]
 ): Promise<[BigNumber, BigNumber]> {
-    const accountIndex = message.staticAccountKeys.findIndex((pubkey) => pubkey.equals(recipient));
+    // Convert branded recipient type to PublicKey for comparison
+    const recipientPubkey = new PublicKey(String(recipient));
+    const accountIndex = message.staticAccountKeys.findIndex((pubkey) => pubkey.equals(recipientPubkey));
     if (accountIndex === -1) throw new ValidateTransferError('recipient not found');
 
     if (references) {
@@ -119,12 +125,13 @@ async function validateSystemTransfer(
         SystemInstruction.decodeTransfer(instruction);
 
         // Check that the expected reference keys exactly match the extra keys provided to the instruction.
-        const [_from, _to, ...extraKeys] = instruction.keys;
+        const [, , ...extraKeys] = instruction.keys;
         const length = extraKeys.length;
         // if (length !== references.length) throw new ValidateTransferError('invalid references');
 
         for (let i = 0; i < length; i++) {
-            if (!extraKeys[i].pubkey.equals(references[i])) throw new ValidateTransferError(`invalid reference ${i}`);
+            const refPubkey = new PublicKey(String(references[i]));
+            if (!extraKeys[i].pubkey.equals(refPubkey)) throw new ValidateTransferError(`invalid reference ${i}`);
         }
     }
 
@@ -142,7 +149,10 @@ async function validateSPLTokenTransfer(
     splToken: SPLToken,
     references?: Reference[]
 ): Promise<[BigNumber, BigNumber]> {
-    const recipientATA = await getAssociatedTokenAddress(splToken, recipient);
+    // Convert branded types to PublicKey
+    const splTokenPubkey = new PublicKey(String(splToken));
+    const recipientPubkey = new PublicKey(String(recipient));
+    const recipientATA = await getAssociatedTokenAddress(splTokenPubkey, recipientPubkey);
     const accountIndex = message.staticAccountKeys.findIndex((pubkey) => pubkey.equals(recipientATA));
     if (accountIndex === -1) throw new ValidateTransferError('recipient not found');
 
@@ -158,7 +168,8 @@ async function validateSPLTokenTransfer(
         // if (length !== references.length) throw new ValidateTransferError('invalid references');
 
         for (let i = 0; i < length; i++) {
-            if (!extraKeys[i].pubkey.equals(references[i])) throw new ValidateTransferError(`invalid reference ${i}`);
+            const refPubkey = new PublicKey(String(references[i]));
+            if (!extraKeys[i].pubkey.equals(refPubkey)) throw new ValidateTransferError(`invalid reference ${i}`);
         }
     }
 
