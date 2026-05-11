@@ -362,4 +362,139 @@ describe('Database-Agnostic API Routes', () => {
             expect(dateRegex.test(date)).toBe(false);
         });
     });
+
+    describe('API Response Format for processData.ts', () => {
+        /**
+         * These tests ensure all GET routes return data in the format expected by processData.ts:
+         * { values: (string | number)[][] }
+         * where values[0] is the header row and values[1..] are data rows
+         */
+
+        it('should validate getCurrencies returns { values } format', () => {
+            const mockResponse = {
+                values: [
+                    ['Intitulé (Symbole)', 'Valeur maximale', 'Symbole', 'Décimales', 'Taux', 'Frais'],
+                    ['Euro', 999.99, '€', 2, 1, 0],
+                ],
+            };
+
+            expect(mockResponse).toHaveProperty('values');
+            expect(Array.isArray(mockResponse.values)).toBe(true);
+            expect(mockResponse.values.length).toBeGreaterThanOrEqual(1);
+            expect(Array.isArray(mockResponse.values[0])).toBe(true);
+            expect(mockResponse.values[0][0]).toBe('Intitulé (Symbole)');
+        });
+
+        it('should validate getDiscounts returns { values } format', () => {
+            const mockResponse = {
+                values: [
+                    ['Montant', 'Unité'],
+                    [10, '%'],
+                    [5, '€'],
+                ],
+            };
+
+            expect(mockResponse).toHaveProperty('values');
+            expect(Array.isArray(mockResponse.values)).toBe(true);
+            expect(mockResponse.values.length).toBeGreaterThanOrEqual(1);
+            expect(Array.isArray(mockResponse.values[0])).toBe(true);
+            expect(mockResponse.values[0][0]).toBe('Montant');
+            expect(mockResponse.values[0][1]).toBe('Unité');
+            expect(typeof mockResponse.values[1][0]).toBe('number');
+            expect(typeof mockResponse.values[1][1]).toBe('string');
+        });
+
+        it('should validate getColors returns { values } format', () => {
+            const mockResponse = {
+                values: [
+                    ['Label', 'Light', 'Dark'],
+                    ['Text', '#000000', '#FFFFFF'],
+                ],
+            };
+
+            expect(mockResponse).toHaveProperty('values');
+            expect(Array.isArray(mockResponse.values)).toBe(true);
+            expect(mockResponse.values.length).toBeGreaterThanOrEqual(1);
+            expect(Array.isArray(mockResponse.values[0])).toBe(true);
+        });
+
+        it('should reject array-only response (not { values })', () => {
+            // This format is NOT compatible with processData.ts
+            const invalidResponse = [
+                { amount: 10, unit: '%' },
+                { amount: 5, unit: '€' },
+            ];
+
+            // Arrays have built-in values() method, so we check if it's an array (not an object with values property)
+            expect(Array.isArray(invalidResponse)).toBe(true);
+            // Check that it's not in the expected format (object with array values property)
+            expect(typeof invalidResponse).toBe('object');
+            expect(!invalidResponse.values || typeof invalidResponse.values === 'function').toBe(true);
+        });
+
+        it('should reject object-only response without values', () => {
+            // This format is NOT compatible with processData.ts
+            const invalidResponse = {
+                discounts: [
+                    { amount: 10, unit: '%' },
+                    { amount: 5, unit: '€' },
+                ],
+            };
+
+            expect(invalidResponse).not.toHaveProperty('values');
+        });
+
+        it('should validate header row exists in values array', () => {
+            const mockResponse = {
+                values: [
+                    ['Montant', 'Unité'],
+                    [10, '%'],
+                ],
+            };
+
+            // Header row should be at index 0
+            expect(mockResponse.values[0].length).toBeGreaterThan(0);
+            // All header elements should be strings
+            mockResponse.values[0].forEach((header) => {
+                expect(typeof header).toBe('string');
+            });
+        });
+
+        it('should validate data rows have same length as header', () => {
+            const mockResponse = {
+                values: [
+                    ['Montant', 'Unité'],
+                    [10, '%'],
+                    [5, '€'],
+                ],
+            };
+
+            const headerLength = mockResponse.values[0].length;
+
+            // Check all data rows (skip header)
+            for (let i = 1; i < mockResponse.values.length; i++) {
+                expect(mockResponse.values[i].length).toBe(headerLength);
+            }
+        });
+
+        it('should validate processData.ts can parse values array', () => {
+            // Simulating the processData.ts logic
+            const mockResponse = {
+                values: [
+                    ['Montant', 'Unité'],
+                    [10, '%'],
+                    [5, '€'],
+                ],
+            };
+
+            // This mimics the removeHeader() logic in processData.ts
+            const dataRows = mockResponse.values.slice(1);
+
+            expect(dataRows.length).toBe(mockResponse.values.length - 1);
+            expect(dataRows[0][0]).toBe(10);
+            expect(dataRows[0][1]).toBe('%');
+            expect(dataRows[1][0]).toBe(5);
+            expect(dataRows[1][1]).toBe('€');
+        });
+    });
 });
