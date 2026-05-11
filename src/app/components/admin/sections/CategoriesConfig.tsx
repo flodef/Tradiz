@@ -23,6 +23,7 @@ export default function CategoriesConfig({
     onCancel,
     hasChanges = false,
     isReadOnly = false,
+    isLoading = false,
 }: {
     config: Category[];
     onChange: (data: Category[]) => void;
@@ -30,6 +31,7 @@ export default function CategoriesConfig({
     onCancel?: () => void;
     hasChanges?: boolean;
     isReadOnly?: boolean;
+    isLoading?: boolean;
 }) {
     const [categories, setCategories] = useState(config || []);
     const [sortField, setSortField] = useState<SortField>('order');
@@ -166,6 +168,7 @@ export default function CategoriesConfig({
             title="Catégories"
             onSave={isReadOnly || !hasChanges || !onSave ? undefined : () => onSave(categories)}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
+            isLoading={isLoading}
         >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={categories.map((_, i) => i)} strategy={verticalListSortingStrategy}>

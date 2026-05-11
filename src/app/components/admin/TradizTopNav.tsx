@@ -1,10 +1,11 @@
 'use client';
 
 import { useConfig } from '@/app/hooks/useConfig';
+import { usePopup } from '@/app/hooks/usePopup';
 import { IconChevronLeft, IconChevronRight, IconPencil, IconChartPie, IconSettings } from '@tabler/icons-react';
 import { USE_DIGICARTE } from '@/app/utils/constants';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode, useMemo, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 
@@ -20,12 +21,20 @@ interface TradizTopNavProps {
     inline?: boolean;
     className?: string;
     onCollapsedChange?: (collapsed: boolean) => void;
+    hasChanges?: boolean;
 }
 
-export default function TradizTopNav({ inline = false, className, onCollapsedChange }: TradizTopNavProps) {
+export default function TradizTopNav({
+    inline = false,
+    className,
+    onCollapsedChange,
+    hasChanges = false,
+}: TradizTopNavProps) {
     const [collapsed, setCollapsed] = useState(true);
     const { isGrafanaAccessEnabled } = useConfig();
+    const { openFullscreenPopup } = usePopup();
     const pathname = usePathname();
+    const router = useRouter();
 
     const navItems = useMemo<NavItem[]>(
         () => [
@@ -83,11 +92,32 @@ export default function TradizTopNav({ inline = false, className, onCollapsedCha
                                     </span>
                                 );
                             }
+                            const handleClick = (e: React.MouseEvent) => {
+                                if (hasChanges) {
+                                    e.preventDefault();
+                                    openFullscreenPopup(
+                                        'Des modifications non enregistrées vont être perdues. Que souhaitez-vous faire ?',
+                                        ['Enregistrer', 'Annuler', 'Quitter sans enregistrer'],
+                                        (index) => {
+                                            if (index === 0) {
+                                                // Save - navigate after save handled by parent
+                                                router.push(item.href);
+                                            } else if (index === 2) {
+                                                // Leave without saving
+                                                router.push(item.href);
+                                            }
+                                            // index 1 = Cancel, do nothing
+                                        }
+                                    );
+                                }
+                            };
+
                             return (
                                 <Link
                                     id={item.id}
                                     key={item.id}
                                     href={item.href}
+                                    onClick={handleClick}
                                     className="flex h-12 w-12 items-center justify-center rounded-xl transition hover:bg-black/5 dark:hover:bg-white/10"
                                     aria-label={item.label}
                                     title={item.label}

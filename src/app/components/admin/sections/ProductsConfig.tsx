@@ -58,6 +58,7 @@ export default function ProductsConfig({
     categories,
     currencies,
     isReadOnly = false,
+    isLoading = false,
 }: {
     config: AdminProduct[];
     onChange: (data: AdminProduct[]) => void;
@@ -67,6 +68,7 @@ export default function ProductsConfig({
     categories: { label: string; value: string }[];
     currencies: Currency[];
     isReadOnly?: boolean;
+    isLoading?: boolean;
 }) {
     const [products, setProducts] = useState(config || []);
     const [search, setSearch] = useState('');
@@ -337,6 +339,7 @@ export default function ProductsConfig({
             onSave={isReadOnly || !hasChanges || !onSave ? undefined : () => onSave(products)}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
             headerExtra={headerControls}
+            isLoading={isLoading}
         >
             {mobileSearchRow}
             {totalFiltered === 0 && hasFilter ? (

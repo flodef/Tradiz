@@ -69,6 +69,17 @@ export default function SettingsPage() {
     const [customThemeNames, setCustomThemeNames] = useState<Record<number, string>>({});
     const [originalCustomThemeNames, setOriginalCustomThemeNames] = useState<Record<number, string>>({});
 
+    // Warn about unsaved changes when leaving page
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (hasChanges) {
+                e.preventDefault();
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [hasChanges]);
+
     // Step 1: check DB config once on mount
     useEffect(() => {
         fetch('/api/sql/getDbConfig')
@@ -296,6 +307,7 @@ export default function SettingsPage() {
 
     const handleCurrenciesSave = async (data: Currency[]) => {
         setIsSavingCurrencies(true);
+        setIsSaving(true);
         try {
             const response = await fetch('/api/sql/updateCurrencies', {
                 method: 'POST',
@@ -311,6 +323,7 @@ export default function SettingsPage() {
             openFullscreenPopup("Erreur lors de l'enregistrement des devises.", ['OK']);
         } finally {
             setIsSavingCurrencies(false);
+            setIsSaving(false);
         }
     };
 
@@ -320,6 +333,7 @@ export default function SettingsPage() {
             return;
         }
         setIsSavingParameters(true);
+        setIsSaving(true);
         try {
             const paramUpdates = [
                 { key: 'name', value: data.shop.name },
@@ -353,11 +367,13 @@ export default function SettingsPage() {
             openFullscreenPopup("Erreur lors de l'enregistrement des paramètres.", ['OK']);
         } finally {
             setIsSavingParameters(false);
+            setIsSaving(false);
         }
     };
 
     const handlePaymentsSave = async (data: PaymentMethod[]) => {
         setIsSavingPayments(true);
+        setIsSaving(true);
         try {
             const response = await fetch('/api/sql/updatePaymentMethods', {
                 method: 'POST',
@@ -372,11 +388,13 @@ export default function SettingsPage() {
             openFullscreenPopup("Erreur lors de l'enregistrement des moyens de paiement.", ['OK']);
         } finally {
             setIsSavingPayments(false);
+            setIsSaving(false);
         }
     };
 
     const handleDiscountsSave = async (data: Discount[]) => {
         setIsSavingDiscounts(true);
+        setIsSaving(true);
         try {
             const response = await fetch('/api/sql/updateDiscounts', {
                 method: 'POST',
@@ -391,11 +409,13 @@ export default function SettingsPage() {
             openFullscreenPopup("Erreur lors de l'enregistrement des réductions.", ['OK']);
         } finally {
             setIsSavingDiscounts(false);
+            setIsSaving(false);
         }
     };
 
     const handleColorsSave = async (data: Color[]) => {
         setIsSavingColors(true);
+        setIsSaving(true);
         try {
             // Save all themes (colors, names, and selected index)
             await fetch('/api/sql/updateColors', {
@@ -418,6 +438,7 @@ export default function SettingsPage() {
             openFullscreenPopup("Erreur lors de l'enregistrement des couleurs.", ['OK']);
         } finally {
             setIsSavingColors(false);
+            setIsSaving(false);
         }
     };
 
@@ -456,7 +477,7 @@ export default function SettingsPage() {
 
     if (isLoading) {
         return (
-            <AdminPageLayout title="Configuration">
+            <AdminPageLayout title="Configuration" hasChanges={false}>
                 <p>Chargement...</p>
             </AdminPageLayout>
         );
@@ -464,14 +485,14 @@ export default function SettingsPage() {
 
     if (!settings || !settings.shop) {
         return (
-            <AdminPageLayout title="Configuration">
+            <AdminPageLayout title="Configuration" hasChanges={false}>
                 <p>Erreur de chargement des données</p>
             </AdminPageLayout>
         );
     }
 
     return (
-        <AdminPageLayout title="Configuration">
+        <AdminPageLayout title="Configuration" hasChanges={hasChanges}>
             {isReadOnly && (
                 <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 dark:border-yellow-600 rounded-lg">
                     <p className="text-sm text-yellow-800 dark:text-yellow-200">
@@ -541,13 +562,15 @@ export default function SettingsPage() {
 
             {!isReadOnly && hasChanges && (
                 <div className="mt-6 flex justify-end gap-4">
-                    <AdminButton onClick={handleCancel} variant="secondary">
-                        Annuler
-                    </AdminButton>
+                    {!isSaving && (
+                        <AdminButton onClick={handleCancel} variant="secondary">
+                            Annuler
+                        </AdminButton>
+                    )}
                     <AdminButton
                         onClick={handleSaveAll}
                         isLoading={isSaving}
-                        disabled={!isSiretValid}
+                        disabled={!isSiretValid || isSaving}
                         variant="save"
                         className={isMobile ? 'px-3 py-2' : ''}
                     >

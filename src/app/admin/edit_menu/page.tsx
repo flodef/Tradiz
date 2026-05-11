@@ -18,6 +18,8 @@ export default function EditMenuPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isReadOnly, setIsReadOnly] = useState(true);
     const [dbConfigChecked, setDbConfigChecked] = useState(false);
+    const [isSavingCategories, setIsSavingCategories] = useState(false);
+    const [isSavingProducts, setIsSavingProducts] = useState(false);
 
     // Step 1: check DB config once on mount
     useEffect(() => {
@@ -134,6 +136,7 @@ export default function EditMenuPage() {
     };
 
     const handleProductsSave = async (data: AdminProduct[]) => {
+        setIsSavingProducts(true);
         try {
             // Save products to database via API
             const response = await fetch('/api/sql/updateArticles', {
@@ -153,10 +156,13 @@ export default function EditMenuPage() {
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             alert("Erreur lors de l'enregistrement des produits.");
+        } finally {
+            setIsSavingProducts(false);
         }
     };
 
     const handleCategoriesSave = async (data: Category[]) => {
+        setIsSavingCategories(true);
         try {
             // Save categories to database via API
             const response = await fetch('/api/sql/updateCategories', {
@@ -176,11 +182,25 @@ export default function EditMenuPage() {
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             alert("Erreur lors de l'enregistrement des catégories.");
+        } finally {
+            setIsSavingCategories(false);
         }
     };
 
     const hasProductsChanges = JSON.stringify(products) !== JSON.stringify(originalProducts);
     const hasCategoriesChanges = JSON.stringify(categories) !== JSON.stringify(originalCategories);
+    const hasChanges = hasProductsChanges || hasCategoriesChanges;
+
+    // Warn about unsaved changes when leaving page
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (hasChanges) {
+                e.preventDefault();
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [hasChanges]);
 
     const handleCancel = (type: 'products' | 'categories') => {
         if (type === 'products') {
@@ -197,14 +217,14 @@ export default function EditMenuPage() {
 
     if (isLoading) {
         return (
-            <AdminPageLayout title="Édition des produits">
+            <AdminPageLayout title="Édition des produits" hasChanges={false}>
                 <p>Chargement...</p>
             </AdminPageLayout>
         );
     }
 
     return (
-        <AdminPageLayout title="Édition des produits">
+        <AdminPageLayout title="Édition des produits" hasChanges={hasChanges}>
             {isReadOnly && (
                 <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 dark:border-yellow-600 rounded-lg">
                     <p className="text-sm text-yellow-800 dark:text-yellow-200">
@@ -222,6 +242,7 @@ export default function EditMenuPage() {
                     onCancel={() => handleCancel('categories')}
                     hasChanges={hasCategoriesChanges}
                     isReadOnly={isReadOnly}
+                    isLoading={isSavingCategories}
                 />
 
                 <ProductsConfig
@@ -233,6 +254,7 @@ export default function EditMenuPage() {
                     categories={categoryOptions}
                     currencies={currencies}
                     isReadOnly={isReadOnly}
+                    isLoading={isSavingProducts}
                 />
             </div>
         </AdminPageLayout>
