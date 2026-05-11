@@ -16,6 +16,10 @@ export default function ColorsConfig({
     onThemeNameChange,
     onCancel,
     isLoading = false,
+    selectedThemeIndex: externalSelectedIndex,
+    onThemeSelect,
+    customThemeNames: externalCustomNames,
+    onCustomThemeNamesChange,
 }: {
     config: Color[];
     onChange: (data: Color[]) => void;
@@ -25,12 +29,35 @@ export default function ColorsConfig({
     onThemeNameChange?: (name: string) => void;
     onCancel?: () => void;
     isLoading?: boolean;
+    selectedThemeIndex?: number;
+    onThemeSelect?: (index: number) => void;
+    customThemeNames?: Record<number, string>;
+    onCustomThemeNamesChange?: (names: Record<number, string>) => void;
 }) {
     const [colors, setColors] = useState(config || []);
+    const [internalSelectedIndex, setInternalSelectedIndex] = useState(0);
+    const [internalCustomNames, setInternalCustomNames] = useState<Record<number, string>>({});
+
+    // Use external state if provided, otherwise internal
+    const selectedThemeIndex = externalSelectedIndex !== undefined ? externalSelectedIndex : internalSelectedIndex;
+    const customThemeNames = externalCustomNames !== undefined ? externalCustomNames : internalCustomNames;
 
     useEffect(() => {
         setColors(config || []);
     }, [config]);
+
+    // Notify parent of selection change to trigger save/cancel buttons
+    const handleThemeSelect = (index: number) => {
+        if (onThemeSelect) {
+            onThemeSelect(index);
+        } else {
+            setInternalSelectedIndex(index);
+        }
+        // Create a new colors array reference to trigger change detection in parent
+        const newColors = [...colors];
+        setColors(newColors);
+        onChange(newColors);
+    };
 
     const handleColorChange = (index: number, updatedColor: Color) => {
         const newColors = [...colors];
@@ -61,6 +88,30 @@ export default function ColorsConfig({
         themes.push(colors.slice(i, i + 7));
     }
 
+    // Generate theme names for all themes
+    const getThemeName = (index: number) => {
+        if (index === 0) return themeName || 'Défaut';
+        return customThemeNames[index] || `Thème ${index + 1}`;
+    };
+
+    const handleThemeNameChange = (index: number, value: string) => {
+        if (index === 0) {
+            onThemeNameChange?.(value);
+        } else {
+            // Update custom theme names
+            const newNames = { ...customThemeNames, [index]: value };
+            if (onCustomThemeNamesChange) {
+                onCustomThemeNamesChange(newNames);
+            } else {
+                setInternalCustomNames(newNames);
+            }
+        }
+        // Always trigger change detection
+        const newColors = [...colors];
+        setColors(newColors);
+        onChange(newColors);
+    };
+
     return (
         <SectionCard
             title="Thèmes"
@@ -72,36 +123,76 @@ export default function ColorsConfig({
                 {themes.map((theme, themeIndex) => (
                     <div
                         key={themeIndex}
-                        className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 relative min-w-0"
+                        onClick={() => handleThemeSelect(themeIndex)}
+                        className={`border rounded-lg p-4 relative min-w-0 cursor-pointer transition-all ${
+                            selectedThemeIndex === themeIndex
+                                ? 'border-3 border-blue-500 dark:border-blue-400 shadow-md'
+                                : 'border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        }`}
                     >
-                        {!isReadOnly && themes.length > 1 && (
-                            <DeleteButton
-                                onClick={() => {
-                                    // Remove this theme (7 colors)
-                                    const startIdx = themeIndex * 7;
-                                    const newColors = colors.filter((_, i) => i < startIdx || i >= startIdx + 7);
-                                    setColors(newColors);
-                                    onChange(newColors);
-                                }}
-                                title="Supprimer le thème"
-                            />
-                        )}
-                        {themeIndex === 0 && !isReadOnly ? (
-                            <div>
-                                <ValidatedInput
-                                    label="Thème"
-                                    type="text"
-                                    value={themeName || 'Défaut'}
-                                    onChange={(value) => onThemeNameChange?.(String(value))}
-                                    maxLength={50}
-                                    className={'min-w-40 w-40'}
-                                />
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="flex-1">
+                                {!isReadOnly ? (
+                                    <ValidatedInput
+                                        label="Thème"
+                                        type="text"
+                                        value={getThemeName(themeIndex)}
+                                        onChange={(value) => handleThemeNameChange(themeIndex, String(value))}
+                                        maxLength={30}
+                                        className="min-w-48 w-48"
+                                    />
+                                ) : (
+                                    <h3 className={adminBaseStyle}>Thème: {getThemeName(themeIndex)}</h3>
+                                )}
                             </div>
-                        ) : (
-                            <h3 className={adminBaseStyle}>
-                                {themeIndex === 0 ? themeName || 'Thème 1' : `Thème ${themeIndex + 1}`}
-                            </h3>
-                        )}
+                            {!isReadOnly && themes.length > 1 && (
+                                <div onClick={(e) => e.stopPropagation()} className="mb-auto">
+                                    <DeleteButton
+                                        onClick={() => {
+                                            // Remove this theme (7 colors)
+                                            const startIdx = themeIndex * 7;
+                                            const newColors = colors.filter(
+                                                (_, i) => i < startIdx || i >= startIdx + 7
+                                            );
+                                            setColors(newColors);
+                                            onChange(newColors);
+                                            // Clean up custom theme name for deleted theme and reindex
+                                            const newNames: Record<number, string> = {};
+                                            for (let i = 1; i < themes.length; i++) {
+                                                if (i < themeIndex) {
+                                                    newNames[i] = customThemeNames[i] || `Thème ${i + 1}`;
+                                                } else if (i > themeIndex) {
+                                                    newNames[i - 1] = customThemeNames[i] || `Thème ${i + 1}`;
+                                                }
+                                                // i === themeIndex is skipped (deleted)
+                                            }
+                                            if (onCustomThemeNamesChange) {
+                                                onCustomThemeNamesChange(newNames);
+                                            } else {
+                                                setInternalCustomNames(newNames);
+                                            }
+                                            // Adjust selected index if needed
+                                            let newSelectedIndex = selectedThemeIndex;
+                                            if (selectedThemeIndex >= themes.length - 1) {
+                                                newSelectedIndex = Math.max(0, themes.length - 2);
+                                            } else if (selectedThemeIndex === themeIndex) {
+                                                // If deleted the selected theme, select the previous one
+                                                newSelectedIndex = Math.max(0, themeIndex - 1);
+                                            } else if (selectedThemeIndex > themeIndex) {
+                                                // If selected theme was after deleted one, adjust index
+                                                newSelectedIndex = selectedThemeIndex - 1;
+                                            }
+                                            if (onThemeSelect) {
+                                                onThemeSelect(newSelectedIndex);
+                                            } else {
+                                                setInternalSelectedIndex(newSelectedIndex);
+                                            }
+                                        }}
+                                        title="Supprimer le thème"
+                                    />
+                                </div>
+                            )}
+                        </div>
                         <div className="overflow-x-auto">
                             <table className="w-full border-collapse">
                                 <thead>

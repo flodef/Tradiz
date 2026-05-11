@@ -64,6 +64,10 @@ export default function SettingsPage() {
     const [originalColors, setOriginalColors] = useState<Color[]>([]);
     const [themeName, setThemeName] = useState<string>('');
     const [originalThemeName, setOriginalThemeName] = useState<string>('');
+    const [selectedThemeIndex, setSelectedThemeIndex] = useState<number>(0);
+    const [originalSelectedThemeIndex, setOriginalSelectedThemeIndex] = useState<number>(0);
+    const [customThemeNames, setCustomThemeNames] = useState<Record<number, string>>({});
+    const [originalCustomThemeNames, setOriginalCustomThemeNames] = useState<Record<number, string>>({});
 
     // Step 1: check DB config once on mount
     useEffect(() => {
@@ -251,7 +255,10 @@ export default function SettingsPage() {
         const currenciesChanged = JSON.stringify(currenciesConfig) !== JSON.stringify(originalCurrencies);
         const paymentsChanged = JSON.stringify(paymentsConfig) !== JSON.stringify(originalPayments);
         const colorsChanged =
-            JSON.stringify(colorsConfig) !== JSON.stringify(originalColors) || themeName !== originalThemeName;
+            JSON.stringify(colorsConfig) !== JSON.stringify(originalColors) ||
+            themeName !== originalThemeName ||
+            selectedThemeIndex !== originalSelectedThemeIndex ||
+            JSON.stringify(customThemeNames) !== JSON.stringify(originalCustomThemeNames);
         setHasSettingsChanges(settingsChanged);
         setHasDiscountsChanges(discountsChanged);
         setHasCurrenciesChanges(currenciesChanged);
@@ -265,12 +272,16 @@ export default function SettingsPage() {
         paymentsConfig,
         colorsConfig,
         themeName,
+        selectedThemeIndex,
+        customThemeNames,
         originalSettings,
         originalDiscounts,
         originalCurrencies,
         originalPayments,
         originalColors,
         originalThemeName,
+        originalSelectedThemeIndex,
+        originalCustomThemeNames,
     ]);
 
     const handleSaveAll = async () => {
@@ -386,22 +397,21 @@ export default function SettingsPage() {
     const handleColorsSave = async (data: Color[]) => {
         setIsSavingColors(true);
         try {
-            // Save colors
-            await fetch('/api/sql/setColors', {
+            // Save all themes (colors, names, and selected index)
+            await fetch('/api/sql/updateColors', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ values: data }),
+                body: JSON.stringify({
+                    colors: data,
+                    themeName,
+                    selectedThemeIndex,
+                    customThemeNames,
+                }),
             });
-            // Save theme name if changed
-            if (themeName !== originalThemeName) {
-                await fetch('/api/sql/setThemeName', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: themeName }),
-                });
-                setOriginalThemeName(themeName);
-            }
             setOriginalColors(data);
+            setOriginalThemeName(themeName);
+            setOriginalSelectedThemeIndex(selectedThemeIndex);
+            setOriginalCustomThemeNames(customThemeNames);
             setHasColorsChanges(false);
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
@@ -413,6 +423,14 @@ export default function SettingsPage() {
 
     const handleThemeNameChange = (name: string) => {
         setThemeName(name);
+    };
+
+    const handleThemeSelect = (index: number) => {
+        setSelectedThemeIndex(index);
+    };
+
+    const handleCustomThemeNamesChange = (names: Record<number, string>) => {
+        setCustomThemeNames(names);
     };
 
     const handleCancel = (e?: React.MouseEvent) => {
@@ -427,6 +445,8 @@ export default function SettingsPage() {
                 setPaymentsConfig(originalPayments);
                 setColorsConfig(originalColors);
                 setThemeName(originalThemeName);
+                setSelectedThemeIndex(originalSelectedThemeIndex);
+                setCustomThemeNames(originalCustomThemeNames);
                 setHasChanges(false);
             }
         });
@@ -513,6 +533,10 @@ export default function SettingsPage() {
                 onThemeNameChange={handleThemeNameChange}
                 onCancel={hasColorsChanges ? handleCancel : undefined}
                 isLoading={isSavingColors}
+                selectedThemeIndex={selectedThemeIndex}
+                onThemeSelect={handleThemeSelect}
+                customThemeNames={customThemeNames}
+                onCustomThemeNamesChange={handleCustomThemeNamesChange}
             />
 
             {!isReadOnly && hasChanges && (
