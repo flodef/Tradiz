@@ -31,13 +31,13 @@ export async function GET() {
 
         const discountRows = rows as DiscountRow[];
 
-        // Format discounts to match expected structure
-        const discounts = discountRows.map((row) => ({
-            amount: Number(row.value),
-            unit: row.unity_type === '%' ? '%' : row.symbol || '%',
-        }));
+        // Return header row + data rows: [amount, unit]
+        const values = [
+            ['Montant', 'Unité'],
+            ...discountRows.map((row) => [Number(row.value), row.unity_type === '%' ? '%' : row.symbol || '%']),
+        ];
 
-        return NextResponse.json(discounts, { status: 200 });
+        return NextResponse.json({ values }, { status: 200 });
     } catch (error) {
         console.error('Error fetching discounts:', error);
         return NextResponse.json({ error: 'An error occurred while fetching data' }, { status: 500 });

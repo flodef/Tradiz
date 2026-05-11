@@ -145,10 +145,10 @@ export default function SettingsPage() {
             try {
                 const discountsResponse = await fetch('/api/sql/getDiscounts');
                 const discountsData = await discountsResponse.json();
-                if (Array.isArray(discountsData) && discountsData.length > 0) {
-                    const loaded: Discount[] = discountsData.map((d: { amount: number; unit: string }) => ({
-                        amount: Number(d.amount),
-                        unit: String(d.unit).trim(),
+                if (discountsData.values && discountsData.values.length > 1) {
+                    const loaded: Discount[] = discountsData.values.slice(1).map((row: (string | number)[]) => ({
+                        amount: Number(row[0]),
+                        unit: String(row[1]).trim(),
                     }));
                     setDiscounts(loaded);
                     setOriginalDiscounts(loaded);
