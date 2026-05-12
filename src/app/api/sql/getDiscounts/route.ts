@@ -3,28 +3,17 @@ import { getPosDb } from '../db';
 
 interface DiscountRow {
     value: number;
-    unity_type: string;
-    symbol: string | null;
+    unity: string;
 }
 
 export async function GET() {
     try {
         const connection = await getPosDb();
 
-        // Fetch discounts with currency symbol if applicable
+        // Fetch discounts: unity column contains either '%' or currency symbol
         const query = connection.isPostgreSQL
-            ? `
-            SELECT d.value, d.unity_type, c.symbol
-            FROM discounts d
-            LEFT JOIN currency c ON d.currency_id = c.id
-            ORDER BY d.id
-        `
-            : `
-            SELECT d.value, d.unity_type, c.symbol
-            FROM discounts d
-            LEFT JOIN currency c ON d.currency_id = c.id
-            ORDER BY d.id
-        `;
+            ? 'SELECT value, unity FROM discounts ORDER BY id'
+            : 'SELECT value, unity FROM discounts ORDER BY id';
 
         const [rows] = await connection.execute(query);
         await connection.end();
@@ -32,10 +21,7 @@ export async function GET() {
         const discountRows = rows as DiscountRow[];
 
         // Return header row + data rows: [amount, unit]
-        const values = [
-            ['Montant', 'Unité'],
-            ...discountRows.map((row) => [Number(row.value), row.unity_type === '%' ? '%' : row.symbol || '%']),
-        ];
+        const values = [['Montant', 'Unité'], ...discountRows.map((row) => [Number(row.value), row.unity])];
 
         return NextResponse.json({ values }, { status: 200 });
     } catch (error) {

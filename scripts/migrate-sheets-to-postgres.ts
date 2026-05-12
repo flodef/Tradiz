@@ -422,14 +422,8 @@ async function migrateDiscounts(client: Client) {
         return;
     }
 
-    // Get all currencies for symbol lookup
-    const currencyResult = await client.query('SELECT id, symbol FROM dc_pos.currencies');
-    const currencyMap = new Map<string, number>();
-    for (const row of currencyResult.rows) {
-        currencyMap.set(row.symbol, row.id);
-    }
-
     // Skip header row and insert discounts
+    // unity column stores either '%' or currency symbol (€, $, etc.)
     let count = 0;
     for (let i = 1; i < data.values.length; i++) {
         const row = data.values[i];
@@ -438,29 +432,7 @@ async function migrateDiscounts(client: Client) {
             const unity = String(row[1]).trim();
 
             if (!isNaN(value) && unity) {
-                let unity_type: string;
-                let currency_id: number | null;
-
-                if (unity === '%') {
-                    unity_type = '%';
-                    currency_id = null;
-                } else {
-                    // Look up currency by symbol
-                    unity_type = 'currency';
-                    currency_id = currencyMap.get(unity) || null;
-
-                    if (!currency_id) {
-                        console.warn(
-                            `  ⚠️  Currency symbol "${unity}" not found, skipping discount with value ${value}`
-                        );
-                        continue;
-                    }
-                }
-
-                await client.query(
-                    'INSERT INTO dc_pos.discounts (value, unity_type, currency_id) VALUES ($1, $2, $3)',
-                    [value, unity_type, currency_id]
-                );
+                await client.query('INSERT INTO dc_pos.discounts (value, unity) VALUES ($1, $2)', [value, unity]);
                 count++;
             }
         }

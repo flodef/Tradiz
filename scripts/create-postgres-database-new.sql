@@ -300,9 +300,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.printers (
 CREATE TABLE IF NOT EXISTS dc_pos.discounts (
     id SERIAL PRIMARY KEY,
     value DECIMAL(10,2) NOT NULL,
-    unity_type VARCHAR(10) NOT NULL, -- '%' or 'currency'
-    currency_id INTEGER,
-    FOREIGN KEY (currency_id) REFERENCES dc_pos.currencies(id) ON DELETE SET NULL
+    unity VARCHAR(10) NOT NULL -- '%' or 'currency'
 );
 
 -- ============================================================

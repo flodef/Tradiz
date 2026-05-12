@@ -312,11 +312,9 @@ CREATE TABLE IF NOT EXISTS `printers` (
 CREATE TABLE IF NOT EXISTS `discounts` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `value` decimal(10,2) NOT NULL,
-  `unity_type` varchar(10) NOT NULL, -- '%' or 'currency'
-  `currency_id` int(11) DEFAULT NULL,
+  `unity` varchar(10) NOT NULL, -- '%' or 'currency'
   PRIMARY KEY (`id`),
-  KEY `currency_id` (`currency_id`),
-  CONSTRAINT `discounts_ibfk_1` FOREIGN KEY (`currency_id`) REFERENCES `currencies` (`id`) ON DELETE SET NULL
+  UNIQUE KEY `value_unity` (`value`, `unity`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Users (default name is 'Comptoir' - handled in app code)
