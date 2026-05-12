@@ -30,7 +30,7 @@ CREATE SCHEMA IF NOT EXISTS dc_sys;
 -- ============================================================
 
 -- Establishment Config (was: config_etablissement)
-CREATE TABLE dc.establishment_config (
+CREATE TABLE IF NOT EXISTS dc.establishment_config (
     id SERIAL PRIMARY KEY,
     mode_fonctionnement VARCHAR(50) NOT NULL DEFAULT 'restaurant',
     kitchen_view_enabled BOOLEAN NOT NULL DEFAULT true,
@@ -38,22 +38,23 @@ CREATE TABLE dc.establishment_config (
 );
 
 -- Categories (was: categorie)
-CREATE TABLE dc.categories (
+CREATE TABLE IF NOT EXISTS dc.categories (
     id VARCHAR(10) NOT NULL,
     nom VARCHAR(50) NOT NULL,
     ordre INTEGER NOT NULL,
     taux_tva_default DECIMAL(5,2) DEFAULT 10.00
 );
-CREATE INDEX idx_categories_id ON dc.categories(id);
+CREATE INDEX IF NOT EXISTS idx_categories_id ON dc.categories(id);
 
 -- Products (was: article)
-CREATE TABLE dc.products (
+CREATE TABLE IF NOT EXISTS dc.products (
     id SERIAL PRIMARY KEY,
     ordre INTEGER NOT NULL,
     nom VARCHAR(50) NOT NULL DEFAULT '',
     prix NUMERIC(8,2) NOT NULL DEFAULT 0.00,
     photo VARCHAR(50) NOT NULL DEFAULT '',
     disponible INTEGER NOT NULL,
+    stock INTEGER NOT NULL DEFAULT 0,
     categorie VARCHAR(50) NOT NULL DEFAULT '',
     description VARCHAR(300) DEFAULT '',
     options VARCHAR(1000) DEFAULT '',
@@ -62,7 +63,7 @@ CREATE TABLE dc.products (
 );
 
 -- Formulas (was: formule)
-CREATE TABLE dc.formulas (
+CREATE TABLE IF NOT EXISTS dc.formulas (
     id SERIAL PRIMARY KEY,
     nom VARCHAR(255) NOT NULL,
     prix NUMERIC(10,2) NOT NULL DEFAULT 0,
@@ -70,13 +71,13 @@ CREATE TABLE dc.formulas (
 );
 
 -- Formula Elements (was: element_formule)
-CREATE TABLE dc.formula_elements (
+CREATE TABLE IF NOT EXISTS dc.formula_elements (
     id SERIAL PRIMARY KEY,
     nom VARCHAR(255) NOT NULL
 );
 
 -- Relation: formula_element ↔ formula (was: rel_ef_formule)
-CREATE TABLE dc.rel_formula_element_formula (
+CREATE TABLE IF NOT EXISTS dc.rel_formula_element_formula (
     id SERIAL PRIMARY KEY,
     id_formula INTEGER NOT NULL,
     id_formula_element INTEGER NOT NULL,
@@ -86,7 +87,7 @@ CREATE TABLE dc.rel_formula_element_formula (
 );
 
 -- Relation: formula_element ↔ product (was: rel_ef_article)
-CREATE TABLE dc.rel_formula_element_product (
+CREATE TABLE IF NOT EXISTS dc.rel_formula_element_product (
     id SERIAL PRIMARY KEY,
     id_formula_element INTEGER NOT NULL,
     id_product INTEGER NOT NULL,
@@ -96,7 +97,7 @@ CREATE TABLE dc.rel_formula_element_product (
 );
 
 -- Orders (was: panier)
-CREATE TABLE dc.orders (
+CREATE TABLE IF NOT EXISTS dc.orders (
     id SERIAL PRIMARY KEY,
     short_num_order VARCHAR(50),
     service_type VARCHAR(20) DEFAULT 'sur_place',
@@ -106,7 +107,7 @@ CREATE TABLE dc.orders (
 );
 
 -- Relation: order ↔ product (was: rel_panier_article)
-CREATE TABLE dc.rel_order_product (
+CREATE TABLE IF NOT EXISTS dc.rel_order_product (
     id SERIAL PRIMARY KEY,
     order_id INTEGER NOT NULL,
     product_id INTEGER NOT NULL,
@@ -120,7 +121,7 @@ CREATE TABLE dc.rel_order_product (
 );
 
 -- Relation: order ↔ formula (was: rel_panier_formule)
-CREATE TABLE dc.rel_order_formula (
+CREATE TABLE IF NOT EXISTS dc.rel_order_formula (
     id SERIAL PRIMARY KEY,
     order_id INTEGER NOT NULL,
     formula_id INTEGER NOT NULL,
@@ -132,7 +133,7 @@ CREATE TABLE dc.rel_order_formula (
 );
 
 -- Relation: order_formula ↔ elements (was: rel_pf_ef)
-CREATE TABLE dc.rel_order_formula_element (
+CREATE TABLE IF NOT EXISTS dc.rel_order_formula_element (
     id SERIAL PRIMARY KEY,
     id_order_formula INTEGER NOT NULL,
     id_formula_element INTEGER NOT NULL,
@@ -146,7 +147,7 @@ CREATE TABLE dc.rel_order_formula_element (
 );
 
 -- Walls (was: mur)
-CREATE TABLE dc.walls (
+CREATE TABLE IF NOT EXISTS dc.walls (
     id SERIAL PRIMARY KEY,
     x1 INTEGER NOT NULL,
     y1 INTEGER NOT NULL,
@@ -156,7 +157,7 @@ CREATE TABLE dc.walls (
 );
 
 -- Tables (was: table - reserved keyword)
-CREATE TABLE dc.tables (
+CREATE TABLE IF NOT EXISTS dc.tables (
     id INTEGER PRIMARY KEY,
     state VARCHAR(50) DEFAULT 'ready',
     visible INTEGER DEFAULT 0,
@@ -173,14 +174,14 @@ CREATE TABLE dc.tables (
 );
 
 -- Relation: table ↔ order (was: rel_table_panier)
-CREATE TABLE dc.rel_table_order (
+CREATE TABLE IF NOT EXISTS dc.rel_table_order (
     table_id VARCHAR(16) NOT NULL,
     order_id INTEGER NOT NULL DEFAULT 0
 );
-CREATE INDEX idx_rel_table_order ON dc.rel_table_order(order_id, table_id);
+CREATE INDEX IF NOT EXISTS idx_rel_table_order ON dc.rel_table_order(order_id, table_id);
 
 -- Admin Themes
-CREATE TABLE dc.theme_admin (
+CREATE TABLE IF NOT EXISTS dc.theme_admin (
     id SERIAL PRIMARY KEY,
     selected BOOLEAN NOT NULL DEFAULT false,
     name VARCHAR(50) NOT NULL DEFAULT 'unnamed',
@@ -201,7 +202,7 @@ CREATE TABLE dc.theme_admin (
 );
 
 -- Client Themes
-CREATE TABLE dc.theme_client (
+CREATE TABLE IF NOT EXISTS dc.theme_client (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL DEFAULT 'unnamed',
     primary_text VARCHAR(9) NOT NULL,
@@ -220,8 +221,8 @@ CREATE TABLE dc.theme_client (
 -- ============================================================
 
 -- Users (cashiers) - default name is 'Comptoir' (handled in app code)
-CREATE TABLE dc_pos.users (
-    id VARCHAR(255) PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS dc_pos.users (
+    id SERIAL PRIMARY KEY,
     key VARCHAR(255),
     name VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'Cashier',
@@ -229,14 +230,14 @@ CREATE TABLE dc_pos.users (
 );
 
 -- Parameters
-CREATE TABLE dc_pos.parameters (
+CREATE TABLE IF NOT EXISTS dc_pos.parameters (
     id SERIAL PRIMARY KEY,
     param_key VARCHAR(255) NOT NULL,
     param_value TEXT
 );
 
 -- Currencies (was: currency)
-CREATE TABLE dc_pos.currencies (
+CREATE TABLE IF NOT EXISTS dc_pos.currencies (
     id SERIAL PRIMARY KEY,
     label VARCHAR(255) NOT NULL,
     symbol VARCHAR(10) NOT NULL,
@@ -248,7 +249,7 @@ CREATE TABLE dc_pos.currencies (
 );
 
 -- Payment Methods
-CREATE TABLE dc_pos.payment_methods (
+CREATE TABLE IF NOT EXISTS dc_pos.payment_methods (
     id SERIAL PRIMARY KEY,
     label VARCHAR(255) NOT NULL,
     address VARCHAR(255) DEFAULT '0',
@@ -258,25 +259,24 @@ CREATE TABLE dc_pos.payment_methods (
 );
 
 -- Transactions (was: facturation) - with payment_method and currency as strings + hash
-CREATE TABLE dc_pos.transactions (
+CREATE TABLE IF NOT EXISTS dc_pos.transactions (
     id SERIAL PRIMARY KEY,
     panier_id VARCHAR(255),
-    user_id VARCHAR(255),
+    user_name VARCHAR(255) NOT NULL DEFAULT 'Cashier',
     payment_method VARCHAR(50) NOT NULL DEFAULT '',
     amount NUMERIC(10,2) NOT NULL DEFAULT 0,
     currency VARCHAR(10) NOT NULL DEFAULT '',
     note TEXT,
     hash VARCHAR(64) UNIQUE,
     created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES dc_pos.users(id) ON DELETE SET NULL
+    updated_at TIMESTAMP NOT NULL
 );
-CREATE INDEX idx_transactions_payment_method ON dc_pos.transactions(payment_method);
-CREATE INDEX idx_transactions_currency ON dc_pos.transactions(currency);
-CREATE INDEX idx_transactions_hash ON dc_pos.transactions(hash);
+CREATE INDEX IF NOT EXISTS idx_transactions_payment_method ON dc_pos.transactions(payment_method);
+CREATE INDEX IF NOT EXISTS idx_transactions_currency ON dc_pos.transactions(currency);
+CREATE INDEX IF NOT EXISTS idx_transactions_hash ON dc_pos.transactions(hash);
 
 -- Transaction Items (was: facturation_article) - with DECIMAL quantity support
-CREATE TABLE dc_pos.transaction_items (
+CREATE TABLE IF NOT EXISTS dc_pos.transaction_items (
     id SERIAL PRIMARY KEY,
     transaction_id INTEGER NOT NULL,
     label VARCHAR(255) NOT NULL,
@@ -290,14 +290,14 @@ CREATE TABLE dc_pos.transaction_items (
 );
 
 -- Printers
-CREATE TABLE dc_pos.printers (
+CREATE TABLE IF NOT EXISTS dc_pos.printers (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     ip_address VARCHAR(45)
 );
 
 -- Discounts
-CREATE TABLE dc_pos.discounts (
+CREATE TABLE IF NOT EXISTS dc_pos.discounts (
     id SERIAL PRIMARY KEY,
     value DECIMAL(10,2) NOT NULL,
     unity_type VARCHAR(10) NOT NULL, -- '%' or 'currency'
@@ -310,7 +310,7 @@ CREATE TABLE dc_pos.discounts (
 -- ============================================================
 
 -- Logs (was: log)
-CREATE TABLE dc_sys.logs (
+CREATE TABLE IF NOT EXISTS dc_sys.logs (
     id SERIAL PRIMARY KEY,
     level VARCHAR(20) NOT NULL,
     message TEXT NOT NULL,
@@ -319,7 +319,7 @@ CREATE TABLE dc_sys.logs (
 );
 
 -- OTA (Over-the-air updates) (was: ota)
-CREATE TABLE dc_sys.ota_updates (
+CREATE TABLE IF NOT EXISTS dc_sys.ota_updates (
     id SERIAL PRIMARY KEY,
     version VARCHAR(50) NOT NULL,
     url TEXT NOT NULL,
@@ -328,7 +328,7 @@ CREATE TABLE dc_sys.ota_updates (
 );
 
 -- Web Tokens (was: web_token)
-CREATE TABLE dc_sys.web_tokens (
+CREATE TABLE IF NOT EXISTS dc_sys.web_tokens (
     id SERIAL PRIMARY KEY,
     token VARCHAR(255) NOT NULL UNIQUE,
     user_id VARCHAR(255),

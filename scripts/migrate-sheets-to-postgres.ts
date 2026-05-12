@@ -9,7 +9,8 @@
  */
 
 import { Client } from 'pg';
-import { PARAMETER_KEYS } from '../src/app/constants/parameterKeys';
+import { PARAMETER_KEYS } from '@/app/constants/parameterKeys';
+import { generateSimpleId } from '@/app/utils/id';
 
 // Environment validation
 const requiredEnvVars = [
@@ -173,7 +174,7 @@ async function migrateCurrencies(client: Client) {
     console.log('💱 Migrating currencies...');
 
     // Clear existing currencies
-    await client.query('DELETE FROM dc_pos.currency');
+    await client.query('DELETE FROM dc_pos.currencies');
 
     const data = await fetchSheetData(SHEETS.CURRENCIES);
     if (data.error || !data.values || data.values.length < 2) {
@@ -204,7 +205,7 @@ async function migrateCurrencies(client: Client) {
 
             if (label && symbol) {
                 await client.query(
-                    'INSERT INTO dc_pos.currency (label, symbol, max_value, decimals, rate, fee) VALUES ($1, $2, $3, $4, $5, $6)',
+                    'INSERT INTO dc_pos.currencies (label, symbol, max_value, decimals, rate, fee) VALUES ($1, $2, $3, $4, $5, $6)',
                     [label, symbol, max_value, decimals, rate, fee]
                 );
                 count++;
@@ -297,28 +298,47 @@ async function migrateUsers(client: Client) {
     await client.query('DELETE FROM dc_pos.users');
 
     const data = await fetchSheetData(SHEETS.USERS);
-    if (data.error || !data.values || data.values.length < 2) {
-        console.log('ℹ️  No users data found in spreadsheet - keeping existing users');
-        return;
-    }
+    const migratedUsers: { key: string; name: string; role: string }[] = [];
 
-    // Skip header row and insert users
-    let count = 0;
-    for (let i = 1; i < data.values.length; i++) {
-        const row = data.values[i];
-        if (row.length >= 3) {
-            const key = String(row[0]).trim();
-            const name = String(row[1]).trim();
-            const role = String(row[2]).trim();
+    if (!data.error && data.values && data.values.length >= 2) {
+        // Skip header row and insert users
+        for (let i = 1; i < data.values.length; i++) {
+            const row = data.values[i];
+            if (row.length >= 3) {
+                const key = String(row[0]).trim();
+                const name = String(row[1]).trim();
+                const role = String(row[2]).trim();
 
-            if (key && name && role) {
-                await client.query('INSERT INTO dc_pos.users (key, name, role) VALUES ($1, $2, $3)', [key, name, role]);
-                count++;
+                if (key && name && role) {
+                    await client.query('INSERT INTO dc_pos.users (key, name, role) VALUES ($1, $2, $3)', [
+                        key,
+                        name,
+                        role,
+                    ]);
+                    migratedUsers.push({ key, name, role });
+                }
             }
         }
     }
 
-    console.log(`✅ Migrated ${count} users`);
+    // Check if any admin user exists
+    const hasAdmin = migratedUsers.some((u) => u.role === 'Admin');
+
+    // If no admin exists, create one with a generated key
+    if (!hasAdmin) {
+        const adminKey = generateSimpleId();
+        const adminName = 'Administrateur';
+        const adminRole = 'Admin';
+        await client.query('INSERT INTO dc_pos.users (key, name, role) VALUES ($1, $2, $3)', [
+            adminKey,
+            adminName,
+            adminRole,
+        ]);
+        migratedUsers.push({ key: adminKey, name: adminName, role: adminRole });
+        console.log(`🔑 Created default admin user with key: ${adminKey}`);
+    }
+
+    console.log(`✅ Migrated ${migratedUsers.length} users`);
 }
 
 /**
@@ -403,7 +423,7 @@ async function migrateDiscounts(client: Client) {
     }
 
     // Get all currencies for symbol lookup
-    const currencyResult = await client.query('SELECT id, symbol FROM dc_pos.currency');
+    const currencyResult = await client.query('SELECT id, symbol FROM dc_pos.currencies');
     const currencyMap = new Map<string, number>();
     for (const row of currencyResult.rows) {
         currencyMap.set(row.symbol, row.id);
@@ -457,8 +477,8 @@ async function migrateProducts(client: Client) {
     console.log('📦 Migrating products...');
 
     // Clear existing data
-    await client.query('DELETE FROM dc.article');
-    await client.query('DELETE FROM dc.categorie');
+    await client.query('DELETE FROM dc.products');
+    await client.query('DELETE FROM dc.categories');
 
     const data = await fetchSheetData(SHEETS.PRODUCTS);
     if (data.error || !data.values || data.values.length < 2) {
@@ -467,7 +487,7 @@ async function migrateProducts(client: Client) {
     }
 
     const categories = new Map<string, { nom: string; ordre: number; taux_tva_default: number }>();
-    const articles: Array<{
+    const products: Array<{
         ordre: number;
         nom: string;
         prix: number;
@@ -536,7 +556,7 @@ async function migrateProducts(client: Client) {
                 }
 
                 // Add article
-                articles.push({
+                products.push({
                     ordre: ++ordre,
                     nom,
                     prix,
@@ -554,7 +574,7 @@ async function migrateProducts(client: Client) {
     // Insert categories
     let catCount = 0;
     for (const [id, cat] of categories) {
-        await client.query('INSERT INTO dc.categorie (id, nom, ordre, taux_tva_default) VALUES ($1, $2, $3, $4)', [
+        await client.query('INSERT INTO dc.categories (id, nom, ordre, taux_tva_default) VALUES ($1, $2, $3, $4)', [
             id,
             cat.nom,
             cat.ordre,
@@ -563,23 +583,23 @@ async function migrateProducts(client: Client) {
         catCount++;
     }
 
-    // Insert articles
+    // Insert products
     let artCount = 0;
-    for (const article of articles) {
+    for (const product of products) {
         await client.query(
-            `INSERT INTO dc.article (
+            `INSERT INTO dc.products (
                 ordre, nom, prix, photo, disponible, categorie, taux_tva, description, options
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
             [
-                article.ordre,
-                article.nom,
-                article.prix,
-                article.photo,
-                article.disponible,
-                article.categorie,
-                article.taux_tva,
-                article.description,
-                article.options,
+                product.ordre,
+                product.nom,
+                product.prix,
+                product.photo,
+                product.disponible,
+                product.categorie,
+                product.taux_tva,
+                product.description,
+                product.options,
             ]
         );
         artCount++;

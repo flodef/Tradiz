@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS `products` (
   `prix` decimal(8,2) NOT NULL DEFAULT 0.00,
   `photo` varchar(50) NOT NULL DEFAULT '',
   `disponible` int(2) NOT NULL,
+  `stock` int(11) NOT NULL DEFAULT 0,
   `categorie` varchar(50) NOT NULL DEFAULT '',
   `description` varchar(300) DEFAULT '',
   `options` varchar(1000) DEFAULT '',
@@ -243,7 +244,7 @@ CREATE TABLE IF NOT EXISTS `currencies` (
 CREATE TABLE IF NOT EXISTS `transactions` (
   `id` int(16) NOT NULL AUTO_INCREMENT,
   `panier_id` varchar(50) NOT NULL,
-  `user_id` int(11) DEFAULT NULL,
+  `user_name` VARCHAR(255) NOT NULL DEFAULT 'Cashier',
   `payment_method` varchar(50) NOT NULL DEFAULT '',
   `amount` float NOT NULL,
   `currency` varchar(10) NOT NULL DEFAULT '',
@@ -253,10 +254,8 @@ CREATE TABLE IF NOT EXISTS `transactions` (
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `hash` (`hash`),
-  KEY `user_id` (`user_id`),
   KEY `payment_method` (`payment_method`),
   KEY `currency` (`currency`),
-  CONSTRAINT `transactions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=209 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Transaction Items (was: facturation_article)
