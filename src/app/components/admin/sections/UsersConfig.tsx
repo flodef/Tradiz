@@ -104,11 +104,25 @@ export default function UsersConfig({
     // Store original config to track changes against (not the live-updating config prop)
     const [originalConfig, setOriginalConfig] = useState<User[]>(config || []);
 
+    // On mount: capture initial state
     useEffect(() => {
         setUsers(config || []);
         setOriginalConfig(config || []);
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally only run on mount to capture initial state
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally only run on mount
     }, []);
+
+    // Listen for external config changes (e.g., when parent confirms cancel and sends back original data)
+    // Compare against current users state to detect external changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally only react to config prop changes, not users
+    useEffect(() => {
+        const configJson = JSON.stringify(config || []);
+        const usersJson = JSON.stringify(users);
+        if (configJson !== usersJson) {
+            const newConfig = config || [];
+            setUsers(newConfig);
+            setOriginalConfig(newConfig);
+        }
+    }, [config]);
 
     // Filter out admin users from display
     const nonAdminUsers = useMemo(() => users.filter((user) => user.role !== Role.admin), [users]);
@@ -156,12 +170,6 @@ export default function UsersConfig({
         setOriginalConfig(users); // Update original to current on save
     };
 
-    const handleCancel = () => {
-        setUsers(originalConfig);
-        onChange(originalConfig);
-        onCancel?.();
-    };
-
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         if (!over || active.id === over.id) return;
@@ -183,7 +191,7 @@ export default function UsersConfig({
         <SectionCard
             title="Utilisateurs"
             onSave={onSave ? handleSave : undefined}
-            onCancel={handleCancel}
+            onCancel={hasChanges && onCancel ? () => onCancel() : undefined}
             saveDisabled={!hasChanges || !isValid || isReadOnly || isLoading}
             isLoading={isLoading}
         >
