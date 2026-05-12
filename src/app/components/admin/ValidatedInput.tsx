@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, ChangeEvent } from 'react';
+import { useState, ChangeEvent, useEffect } from 'react';
 import AdminInput from './AdminInput';
 
 interface ValidatedInputProps {
@@ -33,7 +33,18 @@ export default function ValidatedInput({
     max,
     step,
 }: ValidatedInputProps) {
-    const [isValid, setIsValid] = useState(true);
+    // Initialize validation state based on current value
+    const [isValid, setIsValid] = useState(() => {
+        if (!validation) return true;
+        return validation(value);
+    });
+
+    // Re-validate when value changes externally
+    useEffect(() => {
+        if (validation) {
+            setIsValid(validation(value));
+        }
+    }, [value, validation]);
 
     const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
         if (disabled) return;

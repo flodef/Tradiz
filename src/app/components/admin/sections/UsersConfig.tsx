@@ -1,8 +1,96 @@
+'use client';
+
 import { Role, User } from '@/app/utils/interfaces';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { IconGripVertical } from '@tabler/icons-react';
 import SectionCard from '../SectionCard';
-import UserItem from '../items/UserItem';
 import AdminButton from '../AdminButton';
+import DeleteButton from '../DeleteButton';
+import ValidatedInput from '../ValidatedInput';
+import AdminSelect from '../AdminSelect';
+
+interface UsersConfigProps {
+    config: User[];
+    onChange: (data: User[]) => void;
+    onSave?: (data: User[]) => void;
+    onCancel?: () => void;
+    isReadOnly?: boolean;
+    isLoading?: boolean;
+}
+
+function SortableRow({
+    user,
+    index,
+    isReadOnly,
+    onChange,
+    onDelete,
+}: {
+    user: User;
+    index: number;
+    isReadOnly: boolean;
+    onChange: (user: User) => void;
+    onDelete: () => void;
+}) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: index });
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    const roles = Object.values(Role).filter((role) => role !== Role.admin);
+
+    return (
+        <tr ref={setNodeRef} style={style} className="border-b border-gray-200 dark:border-gray-700">
+            {!isReadOnly && (
+                <td className="p-2 w-10">
+                    <span
+                        {...attributes}
+                        {...listeners}
+                        className="cursor-grab text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 touch-none"
+                        title="Déplacer"
+                    >
+                        <IconGripVertical size={20} />
+                    </span>
+                </td>
+            )}
+            <td className="p-2">
+                <ValidatedInput
+                    value={user.key ?? ''}
+                    onChange={(value) => onChange({ ...user, key: String(value) })}
+                    placeholder="Clé de l'utilisateur"
+                    isReadOnly={isReadOnly}
+                    validation={(value) => String(value).trim().length > 0}
+                />
+            </td>
+            <td className="p-2">
+                <ValidatedInput
+                    value={user.name}
+                    onChange={(value) => onChange({ ...user, name: String(value) })}
+                    placeholder="Nom de l'utilisateur"
+                    isReadOnly={isReadOnly}
+                    validation={(value) => String(value).trim().length > 0}
+                />
+            </td>
+            <td className="p-2">
+                <AdminSelect
+                    value={user.role}
+                    onChange={(e) => onChange({ ...user, role: e.target.value as Role })}
+                    disabled={isReadOnly}
+                    options={roles.map((role) => ({ value: role, label: role }))}
+                />
+            </td>
+            {!isReadOnly && (
+                <td className="p-2 w-10 text-center">
+                    <DeleteButton onClick={onDelete} title="Supprimer l'utilisateur" />
+                </td>
+            )}
+        </tr>
+    );
+}
 
 export default function UsersConfig({
     config,
@@ -11,23 +99,34 @@ export default function UsersConfig({
     onCancel,
     isReadOnly = false,
     isLoading = false,
-}: {
-    config: User[];
-    onChange: (data: User[]) => void;
-    onSave?: (data: User[]) => void;
-    onCancel?: () => void;
-    isReadOnly?: boolean;
-    isLoading?: boolean;
-}) {
-    const [users, setUsers] = useState(config || []);
+}: UsersConfigProps) {
+    const [users, setUsers] = useState<User[]>(config || []);
+    // Store original config to track changes against (not the live-updating config prop)
+    const [originalConfig, setOriginalConfig] = useState<User[]>(config || []);
 
     useEffect(() => {
         setUsers(config || []);
-    }, [config]);
+        setOriginalConfig(config || []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally only run on mount to capture initial state
+    }, []);
+
+    // Filter out admin users from display
+    const nonAdminUsers = useMemo(() => users.filter((user) => user.role !== Role.admin), [users]);
+    const nonAdminOriginal = useMemo(() => originalConfig.filter((user) => user.role !== Role.admin), [originalConfig]);
+
+    const hasChanges = JSON.stringify(nonAdminUsers) !== JSON.stringify(nonAdminOriginal);
+
+    // Check if all non-admin users have valid key and name
+    const isValid = useMemo(() => {
+        return nonAdminUsers.every((user) => user.key?.trim() && user.name?.trim());
+    }, [nonAdminUsers]);
 
     const handleUserChange = (index: number, updatedUser: User) => {
+        // Find the actual index in the full users array (accounting for filtered admin)
+        const visibleIndex = nonAdminUsers[index];
+        const actualIndex = users.findIndex((u) => u === visibleIndex);
         const newUsers = [...users];
-        newUsers[index] = updatedUser;
+        newUsers[actualIndex] = updatedUser;
         setUsers(newUsers);
         onChange(newUsers);
     };
@@ -44,18 +143,48 @@ export default function UsersConfig({
     };
 
     const handleDeleteUser = (index: number) => {
-        const newUsers = users.filter((_, i) => i !== index);
+        // Find the actual index in the full users array (accounting for filtered admin)
+        const visibleUser = nonAdminUsers[index];
+        const actualIndex = users.findIndex((u) => u === visibleUser);
+        const newUsers = users.filter((_, i) => i !== actualIndex);
         setUsers(newUsers);
         onChange(newUsers);
     };
 
-    const hasNoUsers = users.length === 0;
+    const handleSave = () => {
+        onSave?.(users);
+        setOriginalConfig(users); // Update original to current on save
+    };
+
+    const handleCancel = () => {
+        setUsers(originalConfig);
+        onChange(originalConfig);
+        onCancel?.();
+    };
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+        const oldIndex = Number(active.id);
+        const newIndex = Number(over.id);
+        // Reorder within the non-admin users, then reconstruct full array
+        const reorderedNonAdmin = arrayMove(nonAdminUsers, oldIndex, newIndex);
+        const adminUsers = users.filter((user) => user.role === Role.admin);
+        const updated = [...adminUsers, ...reorderedNonAdmin];
+        setUsers(updated);
+        onChange(updated);
+    };
+
+    const sensors = useSensors(useSensor(PointerSensor));
+
+    const hasNoUsers = nonAdminUsers.length === 0;
 
     return (
         <SectionCard
             title="Utilisateurs"
-            onSave={isReadOnly ? undefined : onSave ? () => onSave(users) : undefined}
-            onCancel={onCancel}
+            onSave={onSave ? handleSave : undefined}
+            onCancel={handleCancel}
+            saveDisabled={!hasChanges || !isValid || isReadOnly || isLoading}
             isLoading={isLoading}
         >
             {hasNoUsers && (
@@ -67,19 +196,39 @@ export default function UsersConfig({
                     </p>
                 </div>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {users.map((user, index) => (
-                    <UserItem
-                        key={index}
-                        user={user}
-                        onChange={(updatedUser) => handleUserChange(index, updatedUser)}
-                        onDelete={() => handleDeleteUser(index)}
-                        isReadOnly={isReadOnly}
-                    />
-                ))}
-            </div>
+
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={users.map((_, i) => i)} strategy={verticalListSortingStrategy}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                            <thead>
+                                <tr className="border-b border-gray-300 dark:border-gray-600">
+                                    {!isReadOnly && <th className="p-2 w-10"></th>}
+                                    <th className="p-2 text-left">Clé</th>
+                                    <th className="p-2 text-left">Nom</th>
+                                    <th className="p-2 text-left">Rôle</th>
+                                    {!isReadOnly && <th className="p-2 w-10"></th>}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {nonAdminUsers.map((user, index) => (
+                                    <SortableRow
+                                        key={index}
+                                        user={user}
+                                        index={index}
+                                        isReadOnly={isReadOnly}
+                                        onChange={(updated) => handleUserChange(index, updated)}
+                                        onDelete={() => handleDeleteUser(index)}
+                                    />
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </SortableContext>
+            </DndContext>
+
             {!isReadOnly && (
-                <AdminButton variant="add" onClick={handleAddUser}>
+                <AdminButton variant="add" onClick={handleAddUser} disabled={!isValid || isLoading}>
                     Ajouter un utilisateur
                 </AdminButton>
             )}

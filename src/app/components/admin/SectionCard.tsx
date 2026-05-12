@@ -46,9 +46,9 @@ export default function SectionCard({
                     </div>
                     <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                         {open && headerExtra}
-                        {open && (onSave || onCancel) && (
+                        {open && !isLoading && (onSave || onCancel) && (
                             <div className="flex items-center gap-2">
-                                {onCancel && !isLoading && (
+                                {onCancel && (
                                     <AdminButton
                                         variant="secondary"
                                         onClick={(e) => {
@@ -63,8 +63,7 @@ export default function SectionCard({
                                 {onSave && (
                                     <AdminButton
                                         variant="save"
-                                        disabled={saveDisabled || isLoading}
-                                        isLoading={isLoading}
+                                        disabled={saveDisabled}
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             onSave();
