@@ -14,7 +14,7 @@ interface TransactionProduct {
 
 interface TransactionData {
     panier_id: string;
-    user_id: string;
+    user_name: string;
     payment_method: string;
     amount: number;
     currency: string;
@@ -81,7 +81,7 @@ function generateTransactionHash(transaction: TransactionData, transactionId?: s
     const data = [
         transactionId || 'new',
         transaction.panier_id,
-        transaction.user_id,
+        transaction.user_name,
         transaction.payment_method,
         transaction.amount,
         transaction.currency,
@@ -112,27 +112,27 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
         return;
     }
 
-    // First, ensure the user exists in the users table
-    const userId = await ensureUserExists(connection, transaction.user_id);
+    // Use provided user name or default
+    const userName = transaction.user_name || DEFAULT_USER;
 
     // Generate hash for the transaction
     const hash = generateTransactionHash(transaction);
 
-    // Insert into transactions table (payment_method and currency are now strings)
+    // Insert into transactions table (payment_method, currency, and user_name are strings)
     const insertTransactionQuery = connection.isPostgreSQL
         ? `
-        INSERT INTO transactions (panier_id, user_id, payment_method, amount, currency, note, hash, created_at, updated_at)
+        INSERT INTO transactions (panier_id, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING id
     `
         : `
-        INSERT INTO transactions (panier_id, user_id, payment_method, amount, currency, note, hash, created_at, updated_at)
+        INSERT INTO transactions (panier_id, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const params = [
         transaction.panier_id,
-        userId,
+        userName,
         transaction.payment_method,
         transaction.amount,
         transaction.currency,
@@ -229,26 +229,26 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
 
     const transactionId = existingRows[0].id;
 
-    // Ensure user exists
-    const userId = await ensureUserExists(connection, transaction.user_id);
+    // Use provided user name or default
+    const userName = transaction.user_name || DEFAULT_USER;
 
     // Generate new hash for updated transaction
     const hash = generateTransactionHash(transaction, transactionId);
 
-    // Update the transaction row (payment_method and currency are strings)
+    // Update the transaction row (payment_method, currency, and user_name are strings)
     const updateQuery = connection.isPostgreSQL
         ? `
         UPDATE transactions
-         SET user_id = $1, payment_method = $2, amount = $3, currency = $4, note = $5, hash = $6, updated_at = $7
+         SET user_name = $1, payment_method = $2, amount = $3, currency = $4, note = $5, hash = $6, updated_at = $7
          WHERE id = $8
     `
         : `
         UPDATE transactions
-         SET user_id = ?, payment_method = ?, amount = ?, currency = ?, note = ?, hash = ?, updated_at = ?
+         SET user_name = ?, payment_method = ?, amount = ?, currency = ?, note = ?, hash = ?, updated_at = ?
          WHERE id = ?
     `;
     await connection.execute(updateQuery, [
-        userId,
+        userName,
         transaction.payment_method,
         transaction.amount,
         transaction.currency,
@@ -287,45 +287,4 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
             ]);
         }
     }
-}
-
-async function ensureUserExists(connection: Connection, userName: string): Promise<string> {
-    // If no userName provided, use DEFAULT_USER
-    const actualUserName = userName || DEFAULT_USER;
-
-    // Check if user exists
-    const checkQuery = connection.isPostgreSQL
-        ? 'SELECT id FROM users WHERE name = $1'
-        : 'SELECT id FROM users WHERE name = ?';
-    const [rows] = await connection.execute(checkQuery, [actualUserName]);
-
-    const userRows = rows as IdRow[];
-    if (userRows.length > 0) return String(userRows[0].id);
-
-    // User doesn't exist, create with default role 'Cashier'
-    const insertUserQuery = connection.isPostgreSQL
-        ? `
-        INSERT INTO users ("key", name, role)
-        VALUES ($1, $2, 'Cashier')
-        RETURNING id
-    `
-        : `
-        INSERT INTO users (\`key\`, name, role)
-        VALUES (?, ?, 'Cashier')
-    `;
-
-    // Generate a key for the user
-    const userKey = actualUserName.toLowerCase().replace(/\s+/g, '_');
-
-    let insertedId: number | string;
-    if (connection.isPostgreSQL) {
-        const [insertResult] = await connection.execute(insertUserQuery, [userKey, actualUserName]);
-        insertedId = (insertResult as IdRow[])[0].id;
-    } else {
-        await connection.execute(insertUserQuery, [userKey, actualUserName]);
-        const [insertResult] = await connection.execute('SELECT LAST_INSERT_ID() as id');
-        insertedId = (insertResult as IdRow[])[0].id;
-    }
-
-    return String(insertedId);
 }

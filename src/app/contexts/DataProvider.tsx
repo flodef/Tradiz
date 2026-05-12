@@ -589,8 +589,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     transaction: {
                         id: transaction.createdDate,
                         panier_id: String(transaction.createdDate),
-                        user_id: transaction.validator,
-                        payment_method_id: transaction.method,
+                        user_name: transaction.validator,
+                        payment_method: transaction.method,
                         amount: transaction.amount,
                         currency: transaction.currency,
                         note: '',

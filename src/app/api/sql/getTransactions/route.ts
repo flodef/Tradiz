@@ -58,11 +58,11 @@ export async function GET(request: Request) {
         const mainDb = 'DC';
         const query = connection.isPostgreSQL
             ? `
-            SELECT 
+            SELECT
                 t.id,
                 t.panier_id,
                 o.short_num_order,
-                COALESCE(u.name, $1) as validator,
+                COALESCE(t.user_name, $1) as validator,
                 t.payment_method as method,
                 t.amount,
                 t.currency,
@@ -70,17 +70,16 @@ export async function GET(request: Request) {
                 (EXTRACT(EPOCH FROM t.created_at) * 1000) as createdDate,
                 (EXTRACT(EPOCH FROM t.updated_at) * 1000) as modifiedDate
             FROM transactions t
-            LEFT JOIN users u ON u.id = t.user_id
             LEFT JOIN ${mainDb}.orders o ON o.id = t.panier_id
             WHERE ${whereClause}
             ORDER BY t.created_at DESC
         `
             : `
-            SELECT 
+            SELECT
                 t.id,
                 t.panier_id,
                 o.short_num_order,
-                COALESCE(u.name, ?) as validator,
+                COALESCE(t.user_name, ?) as validator,
                 t.payment_method as method,
                 t.amount,
                 t.currency,
@@ -88,7 +87,6 @@ export async function GET(request: Request) {
                 (UNIX_TIMESTAMP(t.created_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as createdDate,
                 (UNIX_TIMESTAMP(t.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate
             FROM transactions t
-            LEFT JOIN users u ON u.id = t.user_id
             LEFT JOIN \`${mainDb}\`.orders o ON o.id = t.panier_id
             WHERE ${whereClause}
             ORDER BY t.created_at DESC
