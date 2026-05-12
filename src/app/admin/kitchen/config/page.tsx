@@ -7,11 +7,12 @@ import DiscountsConfig from '@/app/components/admin/sections/DiscountsConfig';
 import ParametersConfig from '@/app/components/admin/sections/ParametersConfig';
 import PaymentsConfig from '@/app/components/admin/sections/PaymentsConfig';
 import ColorsConfig from '@/app/components/admin/sections/ColorsConfig';
+import UsersConfig from '@/app/components/admin/sections/UsersConfig';
 import { Parameters } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
 import { USE_DIGICARTE, INTERNAL_PAYMENT_METHODS } from '@/app/utils/constants';
-import { Currency, Discount, Mercurial, PaymentMethod, Color } from '@/app/utils/interfaces';
+import { Currency, Discount, Mercurial, PaymentMethod, Color, User, Role } from '@/app/utils/interfaces';
 import { useIsMobile } from '@/app/utils/mobile';
 import { defaultParameters } from '@/app/utils/processData';
 import { useCallback, useEffect, useState } from 'react';
@@ -41,7 +42,9 @@ export default function SettingsPage() {
     const [currenciesConfig, setCurrenciesConfig] = useState<Currency[]>([]);
     const [paymentsConfig, setPaymentsConfig] = useState<PaymentMethod[]>([]);
     const [colorsConfig, setColorsConfig] = useState<Color[]>([]);
+    const [usersConfig, setUsersConfig] = useState<User[]>([]);
     const [isSaving, setIsSaving] = useState(false);
+    const [isSavingUsers, setIsSavingUsers] = useState(false);
     const [isSavingParameters, setIsSavingParameters] = useState(false);
     const [isSavingDiscounts, setIsSavingDiscounts] = useState(false);
     const [isSavingCurrencies, setIsSavingCurrencies] = useState(false);
@@ -57,11 +60,13 @@ export default function SettingsPage() {
     const [hasCurrenciesChanges, setHasCurrenciesChanges] = useState(false);
     const [hasPaymentsChanges, setHasPaymentsChanges] = useState(false);
     const [hasColorsChanges, setHasColorsChanges] = useState(false);
+    const [hasUsersChanges, setHasUsersChanges] = useState(false);
     const [originalSettings, setOriginalSettings] = useState<Parameters>(defaultParameters);
     const [originalDiscounts, setOriginalDiscounts] = useState<Discount[]>([]);
     const [originalCurrencies, setOriginalCurrencies] = useState<Currency[]>([]);
     const [originalPayments, setOriginalPayments] = useState<PaymentMethod[]>([]);
     const [originalColors, setOriginalColors] = useState<Color[]>([]);
+    const [originalUsers, setOriginalUsers] = useState<User[]>([]);
     const [themeName, setThemeName] = useState<string>('');
     const [originalThemeName, setOriginalThemeName] = useState<string>('');
     const [selectedThemeIndex, setSelectedThemeIndex] = useState<number>(0);
@@ -244,6 +249,25 @@ export default function SettingsPage() {
                     setOriginalColors(configColors);
                 }
             }
+
+            // Load users from DB
+            try {
+                const usersResponse = await fetch('/api/sql/getUsers');
+                const usersData = await usersResponse.json();
+                if (usersData.values && usersData.values.length > 1) {
+                    const loaded: User[] = usersData.values.slice(1).map((row: string[]) => ({
+                        key: String(row[0]),
+                        name: String(row[1]),
+                        role: String(row[2]) as Role,
+                    }));
+                    setUsersConfig(loaded);
+                    setOriginalUsers(loaded);
+                }
+            } catch {
+                // No fallback for users - start with empty list
+                setUsersConfig([]);
+                setOriginalUsers([]);
+            }
         } catch (error) {
             console.error('Error fetching parameters:', error);
             if (parameters) setSettings(parameters);
@@ -270,18 +294,23 @@ export default function SettingsPage() {
             themeName !== originalThemeName ||
             selectedThemeIndex !== originalSelectedThemeIndex ||
             JSON.stringify(customThemeNames) !== JSON.stringify(originalCustomThemeNames);
+        const usersChanged = JSON.stringify(usersConfig) !== JSON.stringify(originalUsers);
         setHasSettingsChanges(settingsChanged);
         setHasDiscountsChanges(discountsChanged);
         setHasCurrenciesChanges(currenciesChanged);
         setHasPaymentsChanges(paymentsChanged);
         setHasColorsChanges(colorsChanged);
-        setHasChanges(settingsChanged || discountsChanged || currenciesChanged || paymentsChanged || colorsChanged);
+        setHasUsersChanges(usersChanged);
+        setHasChanges(
+            settingsChanged || discountsChanged || currenciesChanged || paymentsChanged || colorsChanged || usersChanged
+        );
     }, [
         settings,
         discounts,
         currenciesConfig,
         paymentsConfig,
         colorsConfig,
+        usersConfig,
         themeName,
         selectedThemeIndex,
         customThemeNames,
@@ -290,6 +319,7 @@ export default function SettingsPage() {
         originalCurrencies,
         originalPayments,
         originalColors,
+        originalUsers,
         originalThemeName,
         originalSelectedThemeIndex,
         originalCustomThemeNames,
@@ -302,7 +332,29 @@ export default function SettingsPage() {
         if (hasDiscountsChanges) await handleDiscountsSave(discounts);
         if (hasCurrenciesChanges) await handleCurrenciesSave(currenciesConfig);
         if (hasPaymentsChanges) await handlePaymentsSave(paymentsConfig);
+        if (hasUsersChanges) await handleUsersSave(usersConfig);
         setIsSaving(false);
+    };
+
+    const handleUsersSave = async (data: User[]) => {
+        setIsSavingUsers(true);
+        setIsSaving(true);
+        try {
+            const response = await fetch('/api/sql/updateUsers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ users: data }),
+            });
+            if (!response.ok) throw new Error('Failed to save users');
+            setOriginalUsers(data);
+            setHasUsersChanges(false);
+        } catch (error) {
+            console.error("Erreur lors de l'enregistrement:", error);
+            openFullscreenPopup("Erreur lors de l'enregistrement des utilisateurs.", ['OK']);
+        } finally {
+            setIsSavingUsers(false);
+            setIsSaving(false);
+        }
     };
 
     const handleCurrenciesSave = async (data: Currency[]) => {
@@ -465,6 +517,7 @@ export default function SettingsPage() {
                 setCurrenciesConfig(originalCurrencies);
                 setPaymentsConfig(originalPayments);
                 setColorsConfig(originalColors);
+                setUsersConfig(originalUsers);
                 setThemeName(originalThemeName);
                 setSelectedThemeIndex(originalSelectedThemeIndex);
                 setCustomThemeNames(originalCustomThemeNames);
@@ -543,6 +596,15 @@ export default function SettingsPage() {
                 isReadOnly={isReadOnly}
                 onCancel={hasPaymentsChanges ? handleCancel : undefined}
                 isLoading={isSavingPayments}
+            />
+
+            <UsersConfig
+                config={usersConfig}
+                onChange={setUsersConfig}
+                onSave={hasUsersChanges ? handleUsersSave : undefined}
+                onCancel={hasUsersChanges ? handleCancel : undefined}
+                isReadOnly={isReadOnly}
+                isLoading={isSavingUsers}
             />
 
             <ColorsConfig

@@ -49,6 +49,7 @@ interface ProductData {
         prices: number[];
         options?: string | null;
         availability: boolean;
+        stock?: number;
         order: number;
     }[];
     currencies: string[];
@@ -170,7 +171,8 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
     const publicKey = users?.length ? getPublicKey() : undefined;
     const foundUser = users?.length ? users.filter(({ key }) => key === publicKey).at(0) : undefined;
     const user = foundUser || { name: DEFAULT_USER, role: Role.cashier };
-    if (!foundUser && users?.length) throw new UserNotFoundError(param.values.at(1));
+    if (!foundUser && users?.filter(({ role }) => role !== Role.admin).length)
+        throw new UserNotFoundError(param.values.at(1));
 
     // Helper function: lookup by key first, then by index
     const getParamValue = (key: string, fallbackIndex: number): string => {
@@ -236,6 +238,7 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
                 prices: item.prices,
                 options: item.options,
                 availability: item.availability,
+                stock: item.stock ?? 0,
                 order: item.order,
             });
         } else {
@@ -249,6 +252,7 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
                         prices: item.prices,
                         options: item.options,
                         availability: item.availability,
+                        stock: item.stock ?? 0,
                         order: item.order,
                     },
                 ],
