@@ -5,10 +5,10 @@ import { useEffect, useState, useMemo } from 'react';
 import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { IconGripVertical } from '@tabler/icons-react';
 import SectionCard from '../SectionCard';
 import AdminButton from '../AdminButton';
-import DeleteButton from '../DeleteButton';
+import DeleteButtonCell from '../DeleteButtonCell';
+import DragHandleCell from '../DragHandleCell';
 import ValidatedInput from '../ValidatedInput';
 import AdminSelect from '../AdminSelect';
 
@@ -45,18 +45,7 @@ function SortableRow({
 
     return (
         <tr ref={setNodeRef} style={style} className="border-b border-gray-200 dark:border-gray-700">
-            {!isReadOnly && (
-                <td className="p-2 w-10">
-                    <span
-                        {...attributes}
-                        {...listeners}
-                        className="cursor-grab text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 touch-none"
-                        title="Déplacer"
-                    >
-                        <IconGripVertical size={20} />
-                    </span>
-                </td>
-            )}
+            <DragHandleCell isReadOnly={isReadOnly} attributes={attributes} listeners={listeners} />
             <td className="p-2">
                 <ValidatedInput
                     value={user.key ?? ''}
@@ -83,11 +72,7 @@ function SortableRow({
                     options={roles.map((role) => ({ value: role, label: role }))}
                 />
             </td>
-            {!isReadOnly && (
-                <td className="p-2 w-10 text-center">
-                    <DeleteButton onClick={onDelete} title="Supprimer l'utilisateur" />
-                </td>
-            )}
+            <DeleteButtonCell isReadOnly={isReadOnly} onDelete={onDelete} title="Supprimer l'utilisateur" />
         </tr>
     );
 }
@@ -113,7 +98,6 @@ export default function UsersConfig({
 
     // Listen for external config changes (e.g., when parent confirms cancel and sends back original data)
     // Compare against current users state to detect external changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally only react to config prop changes, not users
     useEffect(() => {
         const configJson = JSON.stringify(config || []);
         const usersJson = JSON.stringify(users);
@@ -122,7 +106,7 @@ export default function UsersConfig({
             setUsers(newConfig);
             setOriginalConfig(newConfig);
         }
-    }, [config]);
+    }, [config, users]);
 
     // Filter out admin users from display
     const nonAdminUsers = useMemo(() => users.filter((user) => user.role !== Role.admin), [users]);

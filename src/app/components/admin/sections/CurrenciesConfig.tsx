@@ -5,10 +5,10 @@ import { Currency } from '@/app/utils/interfaces';
 import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { IconGripVertical } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import AdminButton from '../AdminButton';
-import DeleteButton from '../DeleteButton';
+import DeleteButtonCell from '../DeleteButtonCell';
+import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
 
@@ -86,11 +86,7 @@ export default function CurrenciesConfig({
 
         return (
             <tr ref={setNodeRef} style={style} className="border-b border-gray-200 dark:border-gray-700">
-                {!isReadOnly && (
-                    <td className="p-2 text-center cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
-                        <IconGripVertical size={18} className="mx-auto text-gray-400" />
-                    </td>
-                )}
+                <DragHandleCell isReadOnly={isReadOnly} attributes={attributes} listeners={listeners} />
                 <td className="p-2">
                     {isReadOnly ? (
                         <div className="text-sm">{currency.label}</div>
@@ -194,11 +190,11 @@ export default function CurrenciesConfig({
                         />
                     )}
                 </td>
-                {!isReadOnly && (
-                    <td className="p-2 text-center">
-                        {currencies.length > 1 && <DeleteButton onClick={() => handleDeleteCurrency(index)} />}
-                    </td>
-                )}
+                <DeleteButtonCell
+                    isReadOnly={isReadOnly}
+                    onDelete={() => handleDeleteCurrency(index)}
+                    canDelete={currencies.length > 1}
+                />
             </tr>
         );
     }
