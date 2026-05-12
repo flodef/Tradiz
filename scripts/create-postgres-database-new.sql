@@ -223,7 +223,7 @@ CREATE TABLE IF NOT EXISTS dc.theme_client (
 -- Users (cashiers) - default name is 'Comptoir' (handled in app code)
 CREATE TABLE IF NOT EXISTS dc_pos.users (
     id SERIAL PRIMARY KEY,
-    key VARCHAR(255),
+    key VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'Cashier',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
