@@ -409,12 +409,12 @@ describe('Multi-device sync scenarios', () => {
             const sqlFinal = [deletedTx1, deletedTx2];
 
             const finalA = simulateDeviceSync(deviceALocal, sqlFinal);
-            expect(finalA.updatedLocal.filter((t: Transaction) => t.method === DELETED_KEYWORD)).toHaveLength(2);
+            expect(finalA.updatedLocal.filter(isDeletedTransaction)).toHaveLength(2);
             expect(finalA.toSyncToSQL).toHaveLength(0);
             expect(finalA.toAddToSQL).toHaveLength(0);
 
             const finalB = simulateDeviceSync(deviceBLocal, sqlFinal);
-            expect(finalB.updatedLocal.filter((t: Transaction) => t.method === DELETED_KEYWORD)).toHaveLength(2);
+            expect(finalB.updatedLocal.filter(isDeletedTransaction)).toHaveLength(2);
             expect(finalB.toSyncToSQL).toHaveLength(0);
             expect(finalB.toAddToSQL).toHaveLength(0);
         });

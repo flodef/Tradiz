@@ -1,4 +1,5 @@
-import { DEFAULT_USER, DELETED_KEYWORD } from '@/app/utils/constants';
+import { isDeletedTransaction } from '@/app/contexts/dataProvider/transactionHelpers';
+import { DEFAULT_USER } from '@/app/utils/constants';
 import { Transaction } from '@/app/utils/interfaces';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
@@ -102,7 +103,7 @@ export async function GET(request: Request) {
 
         for (const row of rows as TransactionRow[]) {
             // Skip deleted transactions unless explicitly included (for sync)
-            if (!includeDeleted && row.method === DELETED_KEYWORD) continue;
+            if (!includeDeleted && isDeletedTransaction({ method: row.method } as Transaction)) continue;
 
             const productQuery = connection.isPostgreSQL
                 ? `SELECT label, category, amount, quantity, discount_amount, discount_unit, total

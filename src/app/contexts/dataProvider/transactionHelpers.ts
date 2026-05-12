@@ -1,4 +1,10 @@
-import { DELETED_KEYWORD, PROCESSING_KEYWORD, UPDATING_KEYWORD, WAITING_KEYWORD } from '../../utils/constants';
+import {
+    DELETED_KEYWORD,
+    PROCESSING_KEYWORD,
+    REFUND_KEYWORD,
+    UPDATING_KEYWORD,
+    WAITING_KEYWORD,
+} from '../../utils/constants';
 import { Transaction } from '../../utils/interfaces';
 
 export const isWaitingTransaction = (transaction?: Transaction) =>
@@ -12,6 +18,9 @@ export const isProcessingTransaction = (transaction?: Transaction) =>
 
 export const isDeletedTransaction = (transaction?: Transaction) =>
     Boolean(transaction && transaction.method === DELETED_KEYWORD);
+
+export const isRefundTransaction = (transaction?: Transaction) =>
+    Boolean(transaction && transaction.method === REFUND_KEYWORD);
 
 export const isConfirmedTransaction = (transaction?: Transaction) =>
     Boolean(transaction && !isWaitingTransaction(transaction) && !isDeletedTransaction(transaction));

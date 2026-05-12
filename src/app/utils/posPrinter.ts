@@ -3,13 +3,13 @@
 import { CharacterSet, PrinterTypes, ThermalPrinter } from 'node-thermal-printer';
 import { networkInterfaces } from 'os';
 import { Shop } from '../contexts/ConfigProvider';
+import { isProcessingTransaction, isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
 import { ReceiptData } from '../hooks/usePay';
 import { SummaryData } from '../hooks/useSummary';
-import { IS_DEV, PROCESSING_KEYWORD, WAITING_KEYWORD } from './constants';
-import { SERVICE_TYPE_LABELS } from './interfaces';
+import { IS_DEV } from './constants';
 import { formatFrenchDate, generateReceiptNumber } from './date';
+import { Currency, SERVICE_TYPE_LABELS } from './interfaces';
 import { createMockPrinter } from './mockPrinter';
-import { Currency } from './interfaces';
 
 type PrintResponse = {
     success?: boolean;
@@ -128,7 +128,7 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
         const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
 
         const paymentMethod =
-            receiptData.transaction.method !== WAITING_KEYWORD && receiptData.transaction.method !== PROCESSING_KEYWORD
+            !isWaitingTransaction(receiptData.transaction) && !isProcessingTransaction(receiptData.transaction)
                 ? receiptData.transaction.method
                 : undefined;
         const currency = receiptData.currency;

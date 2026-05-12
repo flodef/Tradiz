@@ -5,6 +5,7 @@ import { twMerge } from 'tailwind-merge';
 import {
     isConfirmedTransaction,
     isDeletedTransaction,
+    isRefundTransaction,
     isUpdatingTransaction,
     isWaitingTransaction,
 } from '../contexts/dataProvider/transactionHelpers';
@@ -15,13 +16,13 @@ import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
 import Loading, { LoadingType } from '../loading';
-import { BACK_KEYWORD, REFUND_KEYWORD, UPDATING_KEYWORD, USE_DIGICARTE, WAITING_KEYWORD } from '../utils/constants';
+import { BACK_KEYWORD, UPDATING_KEYWORD, USE_DIGICARTE, WAITING_KEYWORD } from '../utils/constants';
 import { OrderItem, State, Transaction } from '../utils/interfaces';
 import { CLOSE, postMessageToParent } from '../utils/message';
 import { isMobileSize, useIsMobile, useIsMobileDevice } from '../utils/mobile';
+import TradizTopNav from './admin/TradizTopNav';
 import { Amount } from './Amount';
 import { CloseButton } from './CloseButton';
-import TradizTopNav from './admin/TradizTopNav';
 import { OrderItemsSelector } from './OrderItemsSelector';
 import { useAddPopupClass } from './Popup';
 
@@ -124,7 +125,7 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
             if (!transaction) return;
 
             // If it's a refund transaction, reverse it first
-            if (transaction.method === REFUND_KEYWORD) {
+            if (isRefundTransaction(transaction)) {
                 const reversedTransaction = reverseTransaction(transaction);
                 // Replace the transaction in the array with the reversed one
                 transactions.splice(index, 1, reversedTransaction);
