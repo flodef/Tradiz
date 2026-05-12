@@ -41,6 +41,73 @@ export class UserNotFoundError extends Error {
     }
 }
 
+/**
+ * Resolves user from public key and users list.
+ * Returns the found user or a default service user.
+ * Throws UserNotFoundError if no matching user and non-admin users exist.
+ */
+export function resolveUserFromKey(
+    users: User[] | undefined,
+    publicKey: string | undefined,
+    defaultUserName: string = DEFAULT_USER
+): { user: User; foundUser: User | undefined } {
+    const foundUser = users?.length ? users.filter(({ key }) => key === publicKey).at(0) : undefined;
+    const user: User = foundUser || { name: defaultUserName, role: Role.service };
+
+    if (!foundUser && users?.filter(({ role }) => role !== Role.admin).length) {
+        throw new UserNotFoundError(undefined);
+    }
+
+    return { user, foundUser };
+}
+
+interface RawParameters {
+    keys: (string | undefined)[];
+    values: (string | undefined)[];
+}
+
+/**
+ * Builds Parameters object from raw parameter data.
+ */
+export function buildParameters(param: RawParameters, user: User, devEmail: string = DEV_EMAIL): Parameters {
+    // Helper function: lookup by key first, then by index
+    const getParamValue = (key: string, fallbackIndex: number): string => {
+        const keyIndex = param.keys.findIndex((k) => k === key);
+        return keyIndex !== -1 ? param.values.at(keyIndex) ?? '' : param.values.at(fallbackIndex) ?? '';
+    };
+
+    return {
+        shop: {
+            name: getParamValue('name', 0),
+            address: getParamValue('address', 1),
+            zipCode: getParamValue('zipCode', 2),
+            city: getParamValue('city', 3),
+            serial: getParamValue('serial', 4),
+            id: getParamValue('id', 5),
+            email: getParamValue('email', 6) || devEmail,
+        },
+        thanksMessage: getParamValue('thanksMessage', 7) || 'Merci de votre visite !',
+        mercurial: (getParamValue('mercurial', 8) || Mercurial.none) as Mercurial,
+        closingHour: Math.max(0, Math.min(23, Number(getParamValue('closingHour', 9)) || 0)),
+        yearStartDate: (() => {
+            try {
+                const value = getParamValue('yearStartDate', 10);
+                if (value) {
+                    const parsed = JSON.parse(value);
+                    if (parsed && typeof parsed.month === 'number' && typeof parsed.day === 'number') {
+                        return parsed;
+                    }
+                }
+            } catch {
+                // Invalid JSON, use default
+            }
+            return { month: 1, day: 1 }; // Default to January 1st
+        })(),
+        lastModified: getParamValue('lastModified', 11) || new Date().toLocaleString(),
+        user: user,
+    };
+}
+
 interface ProductData {
     products: {
         rate: number;
@@ -79,7 +146,7 @@ export const defaultParameters: Parameters = {
     lastModified: new Date().toLocaleString(),
     closingHour: 0,
     yearStartDate: { month: 1, day: 1 }, // January 1st by default
-    user: { name: '', role: Role.cashier },
+    user: { name: '', role: Role.service },
 };
 
 export const defaultCurrencies: Currency[] = [
@@ -169,47 +236,9 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
 
     const users = await fetchData(dataNames.users, id, false).then(convertUsersData);
     const publicKey = users?.length ? getPublicKey() : undefined;
-    const foundUser = users?.length ? users.filter(({ key }) => key === publicKey).at(0) : undefined;
-    const user = foundUser || { name: DEFAULT_USER, role: Role.cashier };
-    if (!foundUser && users?.filter(({ role }) => role !== Role.admin).length)
-        throw new UserNotFoundError(param.values.at(1));
+    const { user } = resolveUserFromKey(users, publicKey);
 
-    // Helper function: lookup by key first, then by index
-    const getParamValue = (key: string, fallbackIndex: number): string => {
-        const keyIndex = param.keys.findIndex((k) => k === key);
-        return keyIndex !== -1 ? param.values.at(keyIndex) ?? '' : param.values.at(fallbackIndex) ?? '';
-    };
-
-    const parameters: Parameters = {
-        shop: {
-            name: getParamValue('name', 0),
-            address: getParamValue('address', 1),
-            zipCode: getParamValue('zipCode', 2),
-            city: getParamValue('city', 3),
-            serial: getParamValue('serial', 4),
-            id: getParamValue('id', 5),
-            email: getParamValue('email', 6) || DEV_EMAIL,
-        },
-        thanksMessage: getParamValue('thanksMessage', 7) || 'Merci de votre visite !',
-        mercurial: (getParamValue('mercurial', 8) || Mercurial.none) as Mercurial,
-        closingHour: Math.max(0, Math.min(23, Number(getParamValue('closingHour', 9)) || 0)),
-        yearStartDate: (() => {
-            try {
-                const value = getParamValue('yearStartDate', 10);
-                if (value) {
-                    const parsed = JSON.parse(value);
-                    if (parsed && typeof parsed.month === 'number' && typeof parsed.day === 'number') {
-                        return parsed;
-                    }
-                }
-            } catch {
-                // Invalid JSON, use default
-            }
-            return { month: 1, day: 1 }; // Default to January 1st
-        })(),
-        lastModified: getParamValue('lastModified', 11) || new Date().toLocaleString(),
-        user: user,
-    };
+    const parameters = buildParameters(param, user);
 
     const paymentMethods = await fetchData(dataNames.paymentMethods, id).then(convertPaymentMethodsData);
     const allCurrencies = await fetchData(dataNames.currencies, id).then(convertCurrenciesData);
@@ -382,7 +411,7 @@ async function convertUsersData(response: void | Response): Promise<User[]> {
                 return {
                     key: String(item.at(0)).trim(),
                     name: String(item.at(1)).trim(),
-                    role: (String(item.at(2)).trim() ?? Role.cashier) as Role,
+                    role: (String(item.at(2)).trim() ?? Role.service) as Role,
                 };
             });
         });
