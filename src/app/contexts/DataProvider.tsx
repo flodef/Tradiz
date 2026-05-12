@@ -23,10 +23,8 @@ import {
     IS_DEV,
     OTHER_KEYWORD,
     PROCESSING_KEYWORD,
-    REFUND_KEYWORD,
     TRANSACTIONS_KEYWORD,
     UPDATING_KEYWORD,
-    WAITING_KEYWORD,
     USE_DIGICARTE,
 } from '../utils/constants';
 import { getFormattedDate, getTransactionFileName, toSQLDateTime } from '../utils/date';
@@ -43,13 +41,19 @@ import {
     TransactionSet,
 } from '../utils/interfaces';
 import {
-    idbGetTransactions,
-    idbSetTransactions,
     idbGetAllTransactionSets,
+    idbGetTransactions,
     idbRemoveTransactions,
+    idbSetTransactions,
 } from '../utils/transactionStore';
 import { mergeTransactionArrays } from './dataProvider/syncUtils';
-import { isProcessingTransaction, isWaitingTransaction } from './dataProvider/transactionHelpers';
+import {
+    isDeletedTransaction,
+    isProcessingTransaction,
+    isRefundTransaction,
+    isUpdatingTransaction,
+    isWaitingTransaction,
+} from './dataProvider/transactionHelpers';
 import { useMercurial } from './dataProvider/useMercurial';
 
 enum DatabaseAction {
@@ -613,13 +617,17 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, []);
 
     const processSyncFromSQL = useCallback(
-        async (syncPeriod: SyncPeriod): Promise<number> => {
+        async (syncPeriod: SyncPeriod, onProgress?: (percent: number) => void): Promise<number> => {
             try {
                 console.log('[SQL Sync] Starting sync with shopId:', shopId);
+                onProgress?.(10);
+
                 // Include deleted transactions so deletions propagate across devices
                 const response = await fetch(
                     `/api/sql/getTransactions?period=${syncPeriod === SyncPeriod.day ? 'day' : 'full'}&date=${new Date().toISOString().split('T')[0]}&includeDeleted=true`
                 );
+                onProgress?.(30);
+
                 if (!response.ok) {
                     console.error('SQL DB sync error:', await response.json());
                     return 0;
@@ -649,7 +657,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 );
 
                 // Sync each day's transactions separately
-                for (const dateKey of Array.from(groupedByDate.keys())) {
+                const dateKeys = Array.from(groupedByDate.keys());
+                const totalDays = dateKeys.length;
+                let syncedDays = 0;
+
+                for (const dateKey of dateKeys) {
                     const dayTransactions = groupedByDate.get(dateKey)!;
                     const cloudTransactionSets: TransactionSet[] = [
                         {
@@ -658,13 +670,20 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         },
                     ];
                     await fullSync(cloudTransactionSets, syncPeriod);
+                    syncedDays++;
+                    // Progress from 40% to 70% based on days synced
+                    onProgress?.(40 + Math.floor((syncedDays / totalDays) * 30));
                     console.log(`[SQL Sync] Synced ${dayTransactions.length} transactions for ${dateKey}`);
                 }
 
                 // Local→SQL push: reconcile local transactions with SQL for current day only
+                onProgress?.(70);
                 const localTransactions = await idbGetTransactions(transactionsFilename);
                 if (localTransactions.length) {
+                    const totalLocal = localTransactions.length;
+                    let processedLocal = 0;
                     for (const localTx of localTransactions) {
+                        processedLocal++;
                         if (isProcessingTransaction(localTx)) continue;
                         const sqlTx = sqlTransactions.find((s) => s.createdDate === localTx.createdDate);
                         if (!sqlTx) {
@@ -676,9 +695,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             console.log('Updating SQL with newer local transaction:', localTx.createdDate);
                             await pushTransactionToSQL(localTx, 'sync');
                         }
+                        // Progress from 70% to 90% based on local transactions processed
+                        onProgress?.(70 + Math.floor((processedLocal / totalLocal) * 20));
                     }
                 }
 
+                onProgress?.(100);
                 console.log('SQL DB sync completed:', sqlTransactions.length, 'SQL transactions');
                 return sqlTransactions.length;
             } catch (error) {
@@ -722,11 +744,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const syncTransactions = useCallback(
-        async (period: SyncPeriod, filename = transactionsFilename): Promise<number> => {
+        async (
+            period: SyncPeriod,
+            filename = transactionsFilename,
+            onProgress?: (percent: number) => void
+        ): Promise<number> => {
             // For SQL DB, directly use processSync which handles SQL logic
             if (USE_DIGICARTE) {
                 if (!filename || (await convertTransactionsData(ConvertAction.local))) return 0;
-                return await processSyncFromSQL(period);
+                return await processSyncFromSQL(period, onProgress);
             }
 
             if (!firestore || !filename || (await convertTransactionsData(ConvertAction.local))) return 0;
@@ -846,20 +872,27 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const processTransactions = useCallback(
-        async (syncAction: SyncAction, date?: Date, event?: ChangeEvent<HTMLInputElement>): Promise<number> => {
+        async (
+            syncAction: SyncAction,
+            date?: Date,
+            event?: ChangeEvent<HTMLInputElement>,
+            onProgress?: (percent: number) => void
+        ): Promise<number> => {
             // Allow processing with SQL DB or Firebase
             if (!firestore && !USE_DIGICARTE) return 0;
 
             const filename = date ? getTransactionFileName(shopId, date) : transactionsFilename;
             switch (syncAction) {
                 case SyncAction.fullsync:
-                    return await syncTransactions(SyncPeriod.full);
+                    return await syncTransactions(SyncPeriod.full, undefined, onProgress);
                 case SyncAction.daysync:
-                    return await syncTransactions(SyncPeriod.day, filename);
+                    return await syncTransactions(SyncPeriod.day, filename, onProgress);
                 case SyncAction.resync:
-                    return await syncTransactions(SyncPeriod.day, filename);
+                    return await syncTransactions(SyncPeriod.day, filename, onProgress);
                 case SyncAction.export:
+                    onProgress?.(50);
                     await exportTransactions();
+                    onProgress?.(100);
                     return 0;
                 case SyncAction.import:
                     importTransactions(event);
@@ -968,11 +1001,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     // Notify WebSocket server that the order is complete
                     // Only send notification for actual payments (not for EN ATTENTE or REMBOURSEMENT)
                     const isActualPayment =
-                        transaction.method !== WAITING_KEYWORD &&
-                        transaction.method !== REFUND_KEYWORD &&
-                        transaction.method !== DELETED_KEYWORD &&
-                        transaction.method !== PROCESSING_KEYWORD &&
-                        transaction.method !== UPDATING_KEYWORD;
+                        !isWaitingTransaction(transaction) &&
+                        !isRefundTransaction(transaction) &&
+                        !isDeletedTransaction(transaction) &&
+                        !isProcessingTransaction(transaction) &&
+                        !isUpdatingTransaction(transaction);
 
                     if (orderId && isActualPayment) {
                         try {
