@@ -7,10 +7,12 @@ import { Category } from '@/app/utils/interfaces';
 import { AdminProduct } from '@/app/components/admin/sections/ProductsConfig';
 import { USE_DIGICARTE } from '@/app/utils/constants';
 import { useConfig } from '@/app/hooks/useConfig';
+import { useUserRole } from '@/app/hooks/useUserRole';
 import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
 
 export default function EditMenuPage() {
     const { inventory, currencies } = useConfig();
+    const { isCashier } = useUserRole();
     const [products, setProducts] = useState<AdminProduct[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [originalProducts, setOriginalProducts] = useState<AdminProduct[]>([]);
@@ -57,6 +59,7 @@ export default function EditMenuPage() {
                                     name: product.label,
                                     category: item.category,
                                     availability: product.availability,
+                                    stock: product.stock ?? 0,
                                     currencies: product.prices.map(String),
                                 });
                             });
@@ -98,11 +101,12 @@ export default function EditMenuPage() {
                 const loadedProducts: AdminProduct[] = [];
                 if (productsData.values && productsData.values.length > 1) {
                     for (let i = 1; i < productsData.values.length; i++) {
-                        const [, category, name, unavailable, price] = productsData.values[i];
+                        const [, category, name, unavailable, price, stock] = productsData.values[i];
                         loadedProducts.push({
                             name: String(name),
                             category: String(category),
                             availability: !unavailable, // unavailable is boolean, so availability is opposite
+                            stock: Number(stock) || 0,
                             currencies: [String(price)], // Single currency for now
                         });
                     }
@@ -219,6 +223,19 @@ export default function EditMenuPage() {
         return (
             <AdminPageLayout title="Édition des produits" hasChanges={false}>
                 <p>Chargement...</p>
+            </AdminPageLayout>
+        );
+    }
+
+    // Check access - admin and cashier only
+    if (!isCashier) {
+        return (
+            <AdminPageLayout title="Édition des produits" hasChanges={false}>
+                <div className="p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-lg">
+                    <p className="text-red-800 dark:text-red-200">
+                        <strong>Accès refusé :</strong> Cette page est réservée aux administrateurs et caissiers.
+                    </p>
+                </div>
             </AdminPageLayout>
         );
     }

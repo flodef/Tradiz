@@ -5,6 +5,7 @@ interface Product {
     name: string;
     category: string;
     availability: boolean;
+    stock: number;
     currencies: string[];
 }
 
@@ -35,37 +36,41 @@ export async function POST(request: Request) {
             const categoryId = rows[0].id;
             const price = parseFloat(product.currencies[0]) || 0;
             const disponible = product.availability ? 1 : 0;
+            const stock = product.stock ?? 0;
 
-            // Update or insert the article
+            // Update or insert the product
             if (connection.isPostgreSQL) {
-                // PostgreSQL: Check if article exists, then update or insert
-                const [existing] = await connection.execute('SELECT id FROM article WHERE nom = $1', [product.name]);
-                const articleRows = existing as { id: string }[];
+                // PostgreSQL: Check if product exists, then update or insert
+                const [existing] = await connection.execute('SELECT id FROM dc.products WHERE nom = $1', [
+                    product.name,
+                ]);
+                const productRows = existing as { id: string }[];
 
-                if (articleRows.length > 0) {
+                if (productRows.length > 0) {
                     // Update existing
                     await connection.execute(
-                        'UPDATE article SET prix = $1, categorie = $2, disponible = $3 WHERE nom = $4',
-                        [price, categoryId, disponible, product.name]
+                        'UPDATE dc.products SET prix = $1, categorie = $2, disponible = $3, stock = $4 WHERE nom = $5',
+                        [price, categoryId, disponible, stock, product.name]
                     );
                 } else {
                     // Insert new
                     await connection.execute(
-                        'INSERT INTO article (nom, prix, categorie, disponible, ordre) VALUES ($1, $2, $3, $4, 999)',
-                        [product.name, price, categoryId, disponible]
+                        'INSERT INTO dc.products (nom, prix, categorie, disponible, stock, ordre) VALUES ($1, $2, $3, $4, $5, 999)',
+                        [product.name, price, categoryId, disponible, stock]
                     );
                 }
             } else {
                 // MariaDB: Use ON DUPLICATE KEY UPDATE
                 const query = `
-                    INSERT INTO article (nom, prix, categorie, disponible, ordre)
-                    VALUES (?, ?, ?, ?, 999)
+                    INSERT INTO products (nom, prix, categorie, disponible, stock, ordre)
+                    VALUES (?, ?, ?, ?, ?, 999)
                     ON DUPLICATE KEY UPDATE
                         prix = VALUES(prix),
                         categorie = VALUES(categorie),
-                        disponible = VALUES(disponible)
+                        disponible = VALUES(disponible),
+                        stock = VALUES(stock)
                 `;
-                await connection.execute(query, [product.name, price, categoryId, disponible]);
+                await connection.execute(query, [product.name, price, categoryId, disponible, stock]);
             }
         }
 

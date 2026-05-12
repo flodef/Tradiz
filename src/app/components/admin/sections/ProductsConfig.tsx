@@ -20,6 +20,7 @@ export interface AdminProduct {
     name: string;
     category: string;
     availability: boolean;
+    stock: number;
     currencies: string[];
 }
 
@@ -164,7 +165,7 @@ export default function ProductsConfig({
     };
 
     const handleAddProduct = (category = '') => {
-        const newProduct: AdminProduct = { name: '', category, availability: false, currencies: [] };
+        const newProduct: AdminProduct = { name: '', category, availability: false, stock: 0, currencies: [] };
         const updated = [...products, newProduct];
         setProducts(updated);
         onChange(updated);
@@ -378,6 +379,9 @@ export default function ProductsConfig({
                                             <SortIcon field="price" />
                                         </div>
                                     </th>
+                                    <th className={adminSortableHeaderStyle + ' min-w-20 w-20'}>
+                                        <div className="flex items-center justify-center gap-1">Stock</div>
+                                    </th>
                                     <th
                                         className={adminSortableHeaderStyle + ' min-w-20 w-20'}
                                         onClick={() => handleSort('availability')}
@@ -399,7 +403,7 @@ export default function ProductsConfig({
                                                 className="bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700"
                                                 onClick={() => toggleCategory(cat)}
                                             >
-                                                <td colSpan={isReadOnly ? 5 : 6} className="p-2 font-semibold text-sm">
+                                                <td colSpan={isReadOnly ? 6 : 7} className="p-2 font-semibold text-sm">
                                                     <div className="flex items-center gap-2">
                                                         <svg
                                                             className={`w-4 h-4 transition-transform duration-200 ${expandedCategories.has(cat) ? 'rotate-90' : ''}`}
@@ -469,6 +473,22 @@ export default function ProductsConfig({
                                                                                 currencies: updated,
                                                                             });
                                                                         }}
+                                                                    />
+                                                                )}
+                                                            </td>
+                                                            <td className="p-2">
+                                                                {isReadOnly ? (
+                                                                    <div className="text-sm text-center">{p.stock}</div>
+                                                                ) : (
+                                                                    <ValidatedInput
+                                                                        type="number"
+                                                                        value={String(p.stock)}
+                                                                        onChange={(value) =>
+                                                                            handleProductChange(i, {
+                                                                                ...p,
+                                                                                stock: Number(value) || 0,
+                                                                            })
+                                                                        }
                                                                     />
                                                                 )}
                                                             </td>

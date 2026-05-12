@@ -1,28 +1,29 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import {
-    LineChart,
-    Line,
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    Legend,
-    ResponsiveContainer,
-} from 'recharts';
+import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
+import { useUserRole } from '@/app/hooks/useUserRole';
 import {
     DELETED_KEYWORD,
-    REFUND_KEYWORD,
-    WAITING_KEYWORD,
     PROCESSING_KEYWORD,
+    REFUND_KEYWORD,
     USE_DIGICARTE,
+    WAITING_KEYWORD,
 } from '@/app/utils/constants';
-import { idbGetAllTransactionSets } from '@/app/utils/transactionStore';
 import type { Transaction } from '@/app/utils/interfaces';
-import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
+import { idbGetAllTransactionSets } from '@/app/utils/transactionStore';
+import { useCallback, useEffect, useState } from 'react';
+import {
+    Bar,
+    BarChart,
+    CartesianGrid,
+    Legend,
+    Line,
+    LineChart,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis,
+} from 'recharts';
 
 interface DailySale {
     date: string;
@@ -59,6 +60,7 @@ interface StatisticsData {
 }
 
 export default function StatsPage() {
+    const { isCashier } = useUserRole();
     const [stats, setStats] = useState<StatisticsData | null>(null);
     const [loading, setLoading] = useState(true);
     const [startDate, setStartDate] = useState('');
@@ -205,6 +207,19 @@ export default function StatsPage() {
         if (typeof window !== 'undefined') window.location.href = '/stats/d/vue-dc-1/vue-dc';
 
         return null;
+    }
+
+    // Check access - admin and cashier only
+    if (!isCashier) {
+        return (
+            <AdminPageLayout title="Statistiques">
+                <div className="p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-lg">
+                    <p className="text-red-800 dark:text-red-200">
+                        <strong>Accès refusé :</strong> Cette page est réservée aux administrateurs et caissiers.
+                    </p>
+                </div>
+            </AdminPageLayout>
+        );
     }
 
     if (loading) {

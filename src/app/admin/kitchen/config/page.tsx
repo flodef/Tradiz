@@ -13,6 +13,7 @@ import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
 import { USE_DIGICARTE, INTERNAL_PAYMENT_METHODS } from '@/app/utils/constants';
 import { Currency, Discount, Mercurial, PaymentMethod, Color, User, Role } from '@/app/utils/interfaces';
+import { useUserRole } from '@/app/hooks/useUserRole';
 import { useIsMobile } from '@/app/utils/mobile';
 import { defaultParameters } from '@/app/utils/processData';
 import { useCallback, useEffect, useState } from 'react';
@@ -37,6 +38,7 @@ export default function SettingsPage() {
         colors: configColors,
     } = useConfig();
     const { openFullscreenPopup } = usePopup();
+    const { isAdmin } = useUserRole();
     const [settings, setSettings] = useState<Parameters>(defaultParameters);
     const [discounts, setDiscounts] = useState<Discount[]>([]);
     const [currenciesConfig, setCurrenciesConfig] = useState<Currency[]>([]);
@@ -540,6 +542,19 @@ export default function SettingsPage() {
         return (
             <AdminPageLayout title="Configuration" hasChanges={false}>
                 <p>Erreur de chargement des données</p>
+            </AdminPageLayout>
+        );
+    }
+
+    // Check admin access
+    if (!isAdmin) {
+        return (
+            <AdminPageLayout title="Configuration" hasChanges={false}>
+                <div className="p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-lg">
+                    <p className="text-red-800 dark:text-red-200">
+                        <strong>Accès refusé :</strong> Cette page est réservée aux administrateurs.
+                    </p>
+                </div>
             </AdminPageLayout>
         );
     }

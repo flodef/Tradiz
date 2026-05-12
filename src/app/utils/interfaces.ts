@@ -53,7 +53,14 @@ export interface InventoryItem {
     category: string;
     rate: number;
     order: number;
-    products: { label: string; prices: number[]; options?: string | null; availability: boolean; order: number }[];
+    products: {
+        label: string;
+        prices: number[];
+        options?: string | null;
+        availability: boolean;
+        stock: number;
+        order: number;
+    }[];
 }
 
 export interface Discount {
