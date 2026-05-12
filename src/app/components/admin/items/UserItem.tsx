@@ -10,7 +10,7 @@ interface UserItemProps {
 }
 
 export default function UserItem({ user, onChange, onDelete, isReadOnly }: UserItemProps) {
-    const roles = ['Cashier', 'Service', 'Kitchen'];
+    const roles = Object.values(Role).filter((role) => role !== Role.admin);
 
     return (
         <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4 mb-4">

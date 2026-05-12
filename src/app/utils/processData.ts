@@ -78,7 +78,7 @@ export const defaultParameters: Parameters = {
     lastModified: new Date().toLocaleString(),
     closingHour: 0,
     yearStartDate: { month: 1, day: 1 }, // January 1st by default
-    user: { name: '', role: Role.none },
+    user: { name: '', role: Role.cashier },
 };
 
 export const defaultCurrencies: Currency[] = [
@@ -170,7 +170,7 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
     const publicKey = users?.length ? getPublicKey() : undefined;
     const foundUser = users?.length ? users.filter(({ key }) => key === publicKey).at(0) : undefined;
     const user = foundUser || { name: DEFAULT_USER, role: Role.cashier };
-    if (!user || user.role === Role.none) throw new UserNotFoundError(param.values.at(1));
+    if (!foundUser && users?.length) throw new UserNotFoundError(param.values.at(1));
 
     // Helper function: lookup by key first, then by index
     const getParamValue = (key: string, fallbackIndex: number): string => {

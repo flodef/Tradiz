@@ -259,7 +259,7 @@ export const Category: FC = () => {
                     ['Rafraîchir la page'].concat(
                         !hasSentEmail
                             ? Object.values(Role)
-                                  .filter((role) => role !== Role.none)
+                                  .filter((role) => role !== Role.admin)
                                   .map((role) => `Demande d'accès ${role}`)
                             : []
                     ),

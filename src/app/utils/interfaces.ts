@@ -1,8 +1,8 @@
 export enum Role {
-    none = 'Aucun',
-    cashier = 'Caisse',
+    cashier = 'Cashier',
     service = 'Service',
-    kitchen = 'Cuisine',
+    kitchen = 'Kitchen',
+    admin = 'Admin',
 }
 
 export enum State {

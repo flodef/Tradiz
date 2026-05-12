@@ -1,4 +1,5 @@
 import { PublicKey, clusterApiUrl } from '@solana/web3.js';
+import { Role } from './interfaces';
 
 // UI
 export const DEV_EMAIL = 'flo@tradiz.fr';
@@ -39,7 +40,7 @@ export const PAYMENT_TYPES = [
 
 export const DC = 'DC';
 export const DC_POS = 'DC_POS';
-export const DEFAULT_USER = 'Cashier';
+export const DEFAULT_USER = String(Role.cashier);
 export const SEPARATOR = ' : ';
 export const CATEGORY_SEPARATOR = '>';
 export const TRANSACTION_TIME_OUT = 60; // Time out in seconds
