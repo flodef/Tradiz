@@ -3,7 +3,7 @@ import { Role } from '../utils/interfaces';
 
 export function useUserRole() {
     const { parameters } = useConfig();
-    const userRole = parameters?.user?.role || Role.cashier;
+    const userRole = parameters?.user?.role || Role.service;
 
     const isAdmin = userRole === Role.admin;
     const isCashier = userRole === Role.cashier || userRole === Role.admin;

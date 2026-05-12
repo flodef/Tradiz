@@ -36,7 +36,7 @@ export default function UsersConfig({
         const newUser: User = {
             key: '',
             name: '',
-            role: Role.cashier,
+            role: Role.service,
         };
         const updated = [...users, newUser];
         setUsers(updated);
