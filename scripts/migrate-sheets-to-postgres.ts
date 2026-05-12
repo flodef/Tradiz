@@ -94,14 +94,14 @@ async function fetchSheetData(sheetName: string, isRaw = true): Promise<SheetDat
 async function migrateParameters(client: Client) {
     console.log('📦 Migrating parameters...');
 
+    // Clear existing parameters
+    await client.query('DELETE FROM dc_pos.parameters');
+
     const data = await fetchSheetData(SHEETS.PARAMETERS);
     if (data.error || !data.values || data.values.length < 2) {
         console.log('ℹ️  No parameters data found');
         return;
     }
-
-    // Clear existing parameters
-    await client.query('DELETE FROM dc_pos.parameters');
 
     // Map spreadsheet indices to parameter keys
     const parameterKeyMap: Record<number, string> = {
@@ -172,14 +172,14 @@ async function migrateParameters(client: Client) {
 async function migrateCurrencies(client: Client) {
     console.log('💱 Migrating currencies...');
 
+    // Clear existing currencies
+    await client.query('DELETE FROM dc_pos.currency');
+
     const data = await fetchSheetData(SHEETS.CURRENCIES);
     if (data.error || !data.values || data.values.length < 2) {
         console.log('ℹ️  No currencies data found');
         return;
     }
-
-    // Clear existing currencies
-    await client.query('DELETE FROM dc_pos.currency');
 
     // Skip header row and insert currencies
     let count = 0;
@@ -221,14 +221,14 @@ async function migrateCurrencies(client: Client) {
 async function migratePaymentMethods(client: Client) {
     console.log('💳 Migrating payment methods...');
 
+    // Clear existing payment methods
+    await client.query('DELETE FROM dc_pos.payment_methods');
+
     const data = await fetchSheetData(SHEETS.PAYMENT_METHODS);
     if (data.error || !data.values || data.values.length < 2) {
         console.log('ℹ️  No payment methods data found');
         return;
     }
-
-    // Clear existing payment methods
-    await client.query('DELETE FROM dc_pos.payment_methods');
 
     // Skip header row and insert payment methods
     let count = 0;
@@ -260,14 +260,14 @@ async function migratePaymentMethods(client: Client) {
 async function migratePrinters(client: Client) {
     console.log('🖨️  Migrating printers...');
 
+    // Clear existing printers
+    await client.query('DELETE FROM dc_pos.printers');
+
     const data = await fetchSheetData(SHEETS.PRINTERS);
     if (data.error || !data.values || data.values.length < 2) {
         console.log('ℹ️  No printers data found (optional)');
         return;
     }
-
-    // Clear existing printers
-    await client.query('DELETE FROM dc_pos.printers');
 
     // Skip header row and insert printers
     let count = 0;
@@ -293,14 +293,14 @@ async function migratePrinters(client: Client) {
 async function migrateUsers(client: Client) {
     console.log('👥 Migrating users...');
 
+    // Clear existing users
+    await client.query('DELETE FROM dc_pos.users');
+
     const data = await fetchSheetData(SHEETS.USERS);
     if (data.error || !data.values || data.values.length < 2) {
         console.log('ℹ️  No users data found in spreadsheet - keeping existing users');
         return;
     }
-
-    // Clear existing users
-    await client.query('DELETE FROM dc_pos.users');
 
     // Skip header row and insert users
     let count = 0;
@@ -327,14 +327,14 @@ async function migrateUsers(client: Client) {
 async function migrateColors(client: Client) {
     console.log('🎨 Migrating colors/theme...');
 
+    // Clear existing theme
+    await client.query('DELETE FROM dc.theme_admin');
+
     const data = await fetchSheetData(SHEETS.COLORS);
     if (data.error || !data.values || data.values.length < 2) {
         console.log('ℹ️  No colors data found');
         return;
     }
-
-    // Clear existing theme
-    await client.query('DELETE FROM dc.theme_admin');
 
     // Parse color data (assuming format: [Label, Light, Dark])
     const colorMap: Record<string, { light: string; dark: string }> = {};
@@ -393,14 +393,14 @@ async function migrateColors(client: Client) {
 async function migrateDiscounts(client: Client) {
     console.log('💰 Migrating discounts...');
 
+    // Clear existing discounts
+    await client.query('DELETE FROM dc_pos.discounts');
+
     const data = await fetchSheetData(SHEETS.DISCOUNTS);
     if (data.error || !data.values || data.values.length < 2) {
         console.log('ℹ️  No discounts data found');
         return;
     }
-
-    // Clear existing discounts
-    await client.query('DELETE FROM dc_pos.discounts');
 
     // Get all currencies for symbol lookup
     const currencyResult = await client.query('SELECT id, symbol FROM dc_pos.currency');
@@ -437,12 +437,9 @@ async function migrateDiscounts(client: Client) {
                     }
                 }
 
-                // Use row index as display_order to preserve sheet order
-                const display_order = i - 1;
-
                 await client.query(
-                    'INSERT INTO dc_pos.discounts (value, unity_type, currency_id, display_order) VALUES ($1, $2, $3, $4)',
-                    [value, unity_type, currency_id, display_order]
+                    'INSERT INTO dc_pos.discounts (value, unity_type, currency_id) VALUES ($1, $2, $3)',
+                    [value, unity_type, currency_id]
                 );
                 count++;
             }
@@ -459,15 +456,15 @@ async function migrateDiscounts(client: Client) {
 async function migrateProducts(client: Client) {
     console.log('📦 Migrating products...');
 
+    // Clear existing data
+    await client.query('DELETE FROM dc.article');
+    await client.query('DELETE FROM dc.categorie');
+
     const data = await fetchSheetData(SHEETS.PRODUCTS);
     if (data.error || !data.values || data.values.length < 2) {
         console.log('ℹ️  No products data found');
         return;
     }
-
-    // Clear existing data
-    await client.query('DELETE FROM dc.article');
-    await client.query('DELETE FROM dc.categorie');
 
     const categories = new Map<string, { nom: string; ordre: number; taux_tva_default: number }>();
     const articles: Array<{
