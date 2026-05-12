@@ -59,41 +59,39 @@ export async function GET(request: Request) {
         const query = connection.isPostgreSQL
             ? `
             SELECT 
-                f.id,
-                f.panier_id,
-                p.short_num_order,
+                t.id,
+                t.panier_id,
+                o.short_num_order,
                 COALESCE(u.name, $1) as validator,
-                pm.label as method,
-                f.amount,
-                f.currency,
-                f.note,
-                (EXTRACT(EPOCH FROM f.created_at) * 1000) as createdDate,
-                (EXTRACT(EPOCH FROM f.updated_at) * 1000) as modifiedDate
-            FROM facturation f
-            LEFT JOIN users u ON u.id = f.user_id
-            LEFT JOIN payment_methods pm ON pm.id = f.payment_method_id
-            LEFT JOIN ${mainDb}.panier p ON p.id = f.panier_id
+                t.payment_method as method,
+                t.amount,
+                t.currency,
+                t.note,
+                (EXTRACT(EPOCH FROM t.created_at) * 1000) as createdDate,
+                (EXTRACT(EPOCH FROM t.updated_at) * 1000) as modifiedDate
+            FROM transactions t
+            LEFT JOIN users u ON u.id = t.user_id
+            LEFT JOIN ${mainDb}.orders o ON o.id = t.panier_id
             WHERE ${whereClause}
-            ORDER BY f.created_at DESC
+            ORDER BY t.created_at DESC
         `
             : `
             SELECT 
-                f.id,
-                f.panier_id,
-                p.short_num_order,
+                t.id,
+                t.panier_id,
+                o.short_num_order,
                 COALESCE(u.name, ?) as validator,
-                pm.label as method,
-                f.amount,
-                f.currency,
-                f.note,
-                (UNIX_TIMESTAMP(f.created_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as createdDate,
-                (UNIX_TIMESTAMP(f.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate
-            FROM facturation f
-            LEFT JOIN users u ON u.id = f.user_id
-            LEFT JOIN payment_methods pm ON pm.id = f.payment_method_id
-            LEFT JOIN \`${mainDb}\`.panier p ON p.id = f.panier_id
+                t.payment_method as method,
+                t.amount,
+                t.currency,
+                t.note,
+                (UNIX_TIMESTAMP(t.created_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as createdDate,
+                (UNIX_TIMESTAMP(t.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate
+            FROM transactions t
+            LEFT JOIN users u ON u.id = t.user_id
+            LEFT JOIN \`${mainDb}\`.orders o ON o.id = t.panier_id
             WHERE ${whereClause}
-            ORDER BY f.created_at DESC
+            ORDER BY t.created_at DESC
         `;
 
         const [rows] = await connection.execute(query, params);
@@ -107,11 +105,11 @@ export async function GET(request: Request) {
 
             const productQuery = connection.isPostgreSQL
                 ? `SELECT label, category, amount, quantity, discount_amount, discount_unit, total
-                 FROM facturation_article
-                 WHERE facturation_id = $1`
+                 FROM transaction_items
+                 WHERE transaction_id = $1`
                 : `SELECT label, category, amount, quantity, discount_amount, discount_unit, total
-                 FROM facturation_article
-                 WHERE facturation_id = ?`;
+                 FROM transaction_items
+                 WHERE transaction_id = ?`;
             const [productRows] = await connection.execute(productQuery, [row.id]);
 
             const products = (productRows as ProductRow[]).map((p) => ({

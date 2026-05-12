@@ -19,10 +19,10 @@ export async function GET() {
         // If it fails, fall back to basic columns (PostgreSQL schema)
         let rows;
         try {
-            [rows] = await connection.execute('SELECT label, symbol, max_value, decimals, rate, fee FROM currency');
+            [rows] = await connection.execute('SELECT label, symbol, max_value, decimals, rate, fee FROM currencies');
         } catch {
             // PostgreSQL schema only has label and symbol
-            [rows] = await connection.execute('SELECT label, symbol FROM currency');
+            [rows] = await connection.execute('SELECT label, symbol FROM currencies');
         }
         await connection.end();
 

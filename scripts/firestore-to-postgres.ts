@@ -1,7 +1,7 @@
 /**
  * Firestore → PostgreSQL importer for Tradiz
  *
- * Imports transaction data into the PostgreSQL `facturation` + `facturation_article` tables.
+ * Imports transaction data into the PostgreSQL `transactions` + `transaction_items` tables.
  * Data can be fetched directly from Firestore or read from a JSON dump file.
  *
  * Usage:
@@ -29,6 +29,7 @@
  */
 
 import 'dotenv/config';
+import { createHash } from 'crypto';
 import { Pool, type PoolClient } from 'pg';
 import { fetchFromFirestore, loadFromFile } from './import/firestore';
 import { parseArgs, PAYMENT_METHOD_MAP, SKIP_METHODS, msToDatetime } from './import/types';
@@ -442,10 +443,6 @@ async function main() {
                 continue;
             }
 
-            // Map currency symbol to ID
-            const currencySymbol = (tx.currency || '€').toLowerCase();
-            const currencyId = currencyMap.get(currencySymbol) || Array.from(currencyMap.values())[0] || null;
-
             const createdAt = msToDatetime(tx.createdDate);
             const updatedAt = msToDatetime(tx.modifiedDate);
 
@@ -468,9 +465,13 @@ async function main() {
 
                     let facturationId: number;
 
+                    // Generate hash for transaction integrity
+                    const hashData = `${tx.createdDate}|${userId}|${methodLabel}|${tx.amount}|${tx.currency || 'EUR'}|${createdAt}`;
+                    const hash = createHash('sha256').update(hashData).digest('hex').substring(0, 64);
+
                     // Check if transaction already exists (by created_at timestamp)
                     const existingResult = await client.query<{ id: number }>(
-                        `SELECT id FROM dc_pos.facturation WHERE created_at = $1`,
+                        `SELECT id FROM dc_pos.transactions WHERE created_at = $1`,
                         [createdAt]
                     );
 
@@ -480,19 +481,29 @@ async function main() {
                             success = true; // Skip duplicate, don't retry
                             break;
                         }
-                        // Overwrite mode: delete existing transaction and its articles
+                        // Overwrite mode: delete existing transaction and its items
                         facturationId = existingResult.rows[0].id;
-                        await client.query(`DELETE FROM dc_pos.facturation_article WHERE facturation_id = $1`, [
+                        await client.query(`DELETE FROM dc_pos.transaction_items WHERE transaction_id = $1`, [
                             facturationId,
                         ]);
-                        await client.query(`DELETE FROM dc_pos.facturation WHERE id = $1`, [facturationId]);
+                        await client.query(`DELETE FROM dc_pos.transactions WHERE id = $1`, [facturationId]);
                     }
 
                     // Use transaction.createdDate as panier_id (integer timestamp)
                     const factResult = await client.query<{ id: number }>(
-                        `INSERT INTO dc_pos.facturation (panier_id, user_id, payment_method_id, amount, currency_id, note, created_at, updated_at)
-                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-                        [tx.createdDate, userId, paymentMethodId, tx.amount, currencyId, note, createdAt, updatedAt]
+                        `INSERT INTO dc_pos.transactions (panier_id, user_id, payment_method, amount, currency, note, hash, created_at, updated_at)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+                        [
+                            tx.createdDate,
+                            userId,
+                            methodLabel,
+                            tx.amount,
+                            tx.currency || 'EUR',
+                            note,
+                            hash,
+                            createdAt,
+                            updatedAt,
+                        ]
                     );
                     facturationId = factResult.rows[0].id;
 
@@ -501,7 +512,7 @@ async function main() {
                         const discountUnit = p.discount?.unity ?? p.discount?.unit ?? '%';
 
                         await client.query(
-                            `INSERT INTO dc_pos.facturation_article (facturation_id, label, category, amount, quantity, discount_amount, discount_unit, total)
+                            `INSERT INTO dc_pos.transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total)
                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
                             [
                                 facturationId,

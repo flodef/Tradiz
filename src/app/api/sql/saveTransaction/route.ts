@@ -15,7 +15,7 @@ interface TransactionProduct {
 interface TransactionData {
     panier_id: string;
     user_id: string;
-    payment_method_id: string;
+    payment_method: string;
     amount: number;
     currency: string;
     note?: string;
@@ -76,11 +76,34 @@ export async function POST(request: Request) {
     }
 }
 
+function generateTransactionHash(transaction: TransactionData, transactionId?: string | number): string {
+    // Generate a hash from transaction data for integrity verification
+    const data = [
+        transactionId || 'new',
+        transaction.panier_id,
+        transaction.user_id,
+        transaction.payment_method,
+        transaction.amount,
+        transaction.currency,
+        transaction.created_at,
+        transaction.note || '',
+    ].join('|');
+
+    // Simple hash function for demo - in production use crypto
+    let hash = 0;
+    for (let i = 0; i < data.length; i++) {
+        const char = data.charCodeAt(i);
+        hash = (hash << 5) - hash + char;
+        hash = hash & hash;
+    }
+    return Math.abs(hash).toString(16).padStart(16, '0') + Date.now().toString(16);
+}
+
 async function handleAddTransaction(connection: Connection, transaction: TransactionData) {
     // Check if transaction already exists (by created_at timestamp to avoid duplicates)
     const checkQuery = connection.isPostgreSQL
-        ? 'SELECT id FROM facturation WHERE created_at = $1'
-        : 'SELECT id FROM facturation WHERE created_at = ?';
+        ? 'SELECT id FROM transactions WHERE created_at = $1'
+        : 'SELECT id FROM transactions WHERE created_at = ?';
     const [existing] = await connection.execute(checkQuery, [transaction.created_at]);
     const existingRows = existing as IdRow[];
 
@@ -92,61 +115,58 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
     // First, ensure the user exists in the users table
     const userId = await ensureUserExists(connection, transaction.user_id);
 
-    // Ensure the payment method exists in the payment_methods table
-    const paymentMethodId = await ensurePaymentMethodExists(
-        connection,
-        transaction.payment_method_id,
-        transaction.currency
-    );
+    // Generate hash for the transaction
+    const hash = generateTransactionHash(transaction);
 
-    // Insert into facturation table
-    const insertFacturationQuery = connection.isPostgreSQL
+    // Insert into transactions table (payment_method and currency are now strings)
+    const insertTransactionQuery = connection.isPostgreSQL
         ? `
-        INSERT INTO facturation (panier_id, user_id, payment_method_id, amount, currency, note, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO transactions (panier_id, user_id, payment_method, amount, currency, note, hash, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING id
     `
         : `
-        INSERT INTO facturation (panier_id, user_id, payment_method_id, amount, currency, note, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO transactions (panier_id, user_id, payment_method, amount, currency, note, hash, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const params = [
         transaction.panier_id,
         userId,
-        paymentMethodId,
+        transaction.payment_method,
         transaction.amount,
         transaction.currency,
         transaction.note || '',
+        hash,
         transaction.created_at,
         transaction.updated_at,
     ];
 
-    let facturationId: number | string;
+    let transactionId: number | string;
     if (connection.isPostgreSQL) {
-        const [rows] = await connection.execute(insertFacturationQuery, params);
-        facturationId = (rows as IdRow[])[0].id;
+        const [rows] = await connection.execute(insertTransactionQuery, params);
+        transactionId = (rows as IdRow[])[0].id;
     } else {
-        await connection.execute(insertFacturationQuery, params);
+        await connection.execute(insertTransactionQuery, params);
         const [rows] = await connection.execute('SELECT LAST_INSERT_ID() as id');
-        facturationId = (rows as IdRow[])[0].id;
+        transactionId = (rows as IdRow[])[0].id;
     }
 
-    // Insert products into facturation_article table
+    // Insert products into transaction_items table
     if (transaction.products && transaction.products.length > 0) {
         for (const product of transaction.products) {
-            const insertArticleQuery = connection.isPostgreSQL
+            const insertItemQuery = connection.isPostgreSQL
                 ? `
-                INSERT INTO facturation_article (facturation_id, label, category, amount, quantity, discount_amount, discount_unit, total)
+                INSERT INTO transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             `
                 : `
-                INSERT INTO facturation_article (facturation_id, label, category, amount, quantity, discount_amount, discount_unit, total)
+                INSERT INTO transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
-            await connection.execute(insertArticleQuery, [
-                facturationId,
+            await connection.execute(insertItemQuery, [
+                transactionId,
                 product.label,
                 product.category,
                 product.amount,
@@ -160,50 +180,44 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
 }
 
 async function handleUpdateTransaction(connection: Connection, transaction: TransactionData) {
-    // Update the facturation record to mark it as processing
+    // Update the transaction record to mark it as processing
     const updateQuery = connection.isPostgreSQL
         ? `
-        UPDATE facturation
-        SET payment_method_id = $1, updated_at = $2
+        UPDATE transactions
+        SET payment_method = $1, updated_at = $2
         WHERE panier_id = $3
     `
         : `
-        UPDATE facturation
-        SET payment_method_id = ?, updated_at = ?
+        UPDATE transactions
+        SET payment_method = ?, updated_at = ?
         WHERE panier_id = ?
     `;
 
-    // Get the payment method ID for PROCESSING_KEYWORD
-    const paymentMethodId = await ensurePaymentMethodExists(connection, PROCESSING_KEYWORD, transaction.currency);
-
-    await connection.execute(updateQuery, [paymentMethodId, transaction.updated_at, transaction.panier_id]);
+    await connection.execute(updateQuery, [PROCESSING_KEYWORD, transaction.updated_at, transaction.panier_id]);
 }
 
 async function handleDeleteTransaction(connection: Connection, transaction: TransactionData) {
-    // Update the facturation record to mark it as deleted
+    // Update the transaction record to mark it as deleted
     const updateQuery = connection.isPostgreSQL
         ? `
-        UPDATE facturation
-        SET payment_method_id = $1, updated_at = $2
+        UPDATE transactions
+        SET payment_method = $1, updated_at = $2
         WHERE panier_id = $3
     `
         : `
-        UPDATE facturation
-        SET payment_method_id = ?, updated_at = ?
+        UPDATE transactions
+        SET payment_method = ?, updated_at = ?
         WHERE panier_id = ?
     `;
 
-    // Get the payment method ID for DELETED_KEYWORD
-    const paymentMethodId = await ensurePaymentMethodExists(connection, DELETED_KEYWORD, transaction.currency);
-
-    await connection.execute(updateQuery, [paymentMethodId, transaction.updated_at, transaction.panier_id]);
+    await connection.execute(updateQuery, [DELETED_KEYWORD, transaction.updated_at, transaction.panier_id]);
 }
 
 async function handleSyncTransaction(connection: Connection, transaction: TransactionData) {
-    // Find existing facturation by created_at
+    // Find existing transaction by created_at
     const checkQuery = connection.isPostgreSQL
-        ? 'SELECT id FROM facturation WHERE created_at = $1'
-        : 'SELECT id FROM facturation WHERE created_at = ?';
+        ? 'SELECT id FROM transactions WHERE created_at = $1'
+        : 'SELECT id FROM transactions WHERE created_at = ?';
     const [existing] = await connection.execute(checkQuery, [transaction.created_at]);
     const existingRows = existing as IdRow[];
 
@@ -213,57 +227,56 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
         return;
     }
 
-    const facturationId = existingRows[0].id;
+    const transactionId = existingRows[0].id;
 
-    // Ensure user and payment method exist
+    // Ensure user exists
     const userId = await ensureUserExists(connection, transaction.user_id);
-    const paymentMethodId = await ensurePaymentMethodExists(
-        connection,
-        transaction.payment_method_id,
-        transaction.currency
-    );
 
-    // Update the facturation row
+    // Generate new hash for updated transaction
+    const hash = generateTransactionHash(transaction, transactionId);
+
+    // Update the transaction row (payment_method and currency are strings)
     const updateQuery = connection.isPostgreSQL
         ? `
-        UPDATE facturation
-         SET user_id = $1, payment_method_id = $2, amount = $3, currency = $4, note = $5, updated_at = $6
-         WHERE id = $7
+        UPDATE transactions
+         SET user_id = $1, payment_method = $2, amount = $3, currency = $4, note = $5, hash = $6, updated_at = $7
+         WHERE id = $8
     `
         : `
-        UPDATE facturation
-         SET user_id = ?, payment_method_id = ?, amount = ?, currency = ?, note = ?, updated_at = ?
+        UPDATE transactions
+         SET user_id = ?, payment_method = ?, amount = ?, currency = ?, note = ?, hash = ?, updated_at = ?
          WHERE id = ?
     `;
     await connection.execute(updateQuery, [
         userId,
-        paymentMethodId,
+        transaction.payment_method,
         transaction.amount,
         transaction.currency,
         transaction.note || '',
+        hash,
         transaction.updated_at,
-        facturationId,
+        transactionId,
     ]);
 
-    // Delete old articles and re-insert
+    // Delete old items and re-insert
     const deleteQuery = connection.isPostgreSQL
-        ? 'DELETE FROM facturation_article WHERE facturation_id = $1'
-        : 'DELETE FROM facturation_article WHERE facturation_id = ?';
-    await connection.execute(deleteQuery, [facturationId]);
+        ? 'DELETE FROM transaction_items WHERE transaction_id = $1'
+        : 'DELETE FROM transaction_items WHERE transaction_id = ?';
+    await connection.execute(deleteQuery, [transactionId]);
 
     if (transaction.products && transaction.products.length > 0) {
         for (const product of transaction.products) {
             const insertQuery = connection.isPostgreSQL
                 ? `
-                INSERT INTO facturation_article (facturation_id, label, category, amount, quantity, discount_amount, discount_unit, total)
+                INSERT INTO transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             `
                 : `
-                INSERT INTO facturation_article (facturation_id, label, category, amount, quantity, discount_amount, discount_unit, total)
+                INSERT INTO transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `;
             await connection.execute(insertQuery, [
-                facturationId,
+                transactionId,
                 product.label,
                 product.category,
                 product.amount,
@@ -315,45 +328,4 @@ async function ensureUserExists(connection: Connection, userName: string): Promi
     }
 
     return String(insertedId);
-}
-
-async function ensurePaymentMethodExists(
-    connection: Connection,
-    methodLabel: string,
-    currency: string
-): Promise<number> {
-    // Check if payment method exists
-    const checkQuery = connection.isPostgreSQL
-        ? 'SELECT id FROM payment_methods WHERE label = $1'
-        : 'SELECT id FROM payment_methods WHERE label = ?';
-    const [rows] = await connection.execute(checkQuery, [methodLabel]);
-
-    const methodRows = rows as IdRow[];
-    if (methodRows.length > 0) {
-        return Number(methodRows[0].id);
-    }
-
-    // Payment method doesn't exist, create it
-    const insertPaymentMethodQuery = connection.isPostgreSQL
-        ? `
-        INSERT INTO payment_methods (label, address, currency, hidden, created_at)
-        VALUES ($1, 0, $2, 0, NOW())
-        RETURNING id
-    `
-        : `
-        INSERT INTO payment_methods (label, address, currency, hidden, created_at)
-        VALUES (?, 0, ?, 0, NOW())
-    `;
-
-    let insertedId: number | string;
-    if (connection.isPostgreSQL) {
-        const [newRows] = await connection.execute(insertPaymentMethodQuery, [methodLabel, currency]);
-        insertedId = (newRows as IdRow[])[0].id;
-    } else {
-        await connection.execute(insertPaymentMethodQuery, [methodLabel, currency]);
-        const [newRows] = await connection.execute('SELECT LAST_INSERT_ID() as id');
-        insertedId = (newRows as IdRow[])[0].id;
-    }
-
-    return Number(insertedId);
 }

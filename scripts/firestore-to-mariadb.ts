@@ -1,7 +1,7 @@
 /**
  * Firestore → MariaDB importer for Tradiz
  *
- * Imports transaction data into the MariaDB `facturation` + `facturation_article` tables.
+ * Imports transaction data into the MariaDB `transactions` + `transaction_items` tables.
  * Data can be fetched directly from Firestore or read from a JSON dump file.
  *
  * Usage:
@@ -29,6 +29,7 @@
  */
 
 import 'dotenv/config';
+import * as crypto from 'crypto';
 import * as mysql from 'mysql2/promise';
 import { fetchFromFirestore, loadFromFile } from './import/firestore';
 import { parseArgs, PAYMENT_METHOD_MAP, SKIP_METHODS, msToDatetime } from './import/types';
@@ -440,9 +441,13 @@ async function main() {
 
                     let facturationId: number;
 
+                    // Generate hash for transaction integrity
+                    const hashData = `${tx.createdDate}|${userId}|${methodLabel}|${tx.amount}|EUR|${createdAt}`;
+                    const hash = crypto.createHash('sha256').update(hashData).digest('hex').substring(0, 64);
+
                     // Check if transaction already exists (by created_at timestamp)
                     const [existing] = await conn.execute<mysql.RowDataPacket[]>(
-                        `SELECT id FROM facturation WHERE created_at = ?`,
+                        `SELECT id FROM transactions WHERE created_at = ?`,
                         [createdAt]
                     );
 
@@ -452,17 +457,27 @@ async function main() {
                             success = true; // Skip duplicate, don't retry
                             break;
                         }
-                        // Overwrite mode: delete existing transaction and its articles
+                        // Overwrite mode: delete existing transaction and its items
                         facturationId = existing[0].id as number;
-                        await conn.execute(`DELETE FROM facturation_article WHERE facturation_id = ?`, [facturationId]);
-                        await conn.execute(`DELETE FROM facturation WHERE id = ?`, [facturationId]);
+                        await conn.execute(`DELETE FROM transaction_items WHERE transaction_id = ?`, [facturationId]);
+                        await conn.execute(`DELETE FROM transactions WHERE id = ?`, [facturationId]);
                     }
 
                     // Use transaction.createdDate as panier_id (integer timestamp)
                     const [factResult] = await conn.execute<mysql.ResultSetHeader>(
-                        `INSERT INTO facturation (panier_id, user_id, payment_method_id, amount, currency, note, created_at, updated_at)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                        [tx.createdDate, userId, paymentMethodId, tx.amount, 'EUR', note, createdAt, updatedAt]
+                        `INSERT INTO transactions (panier_id, user_id, payment_method, amount, currency, note, hash, created_at, updated_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [
+                            tx.createdDate,
+                            userId,
+                            methodLabel,
+                            tx.amount,
+                            tx.currency || 'EUR',
+                            note,
+                            hash,
+                            createdAt,
+                            updatedAt,
+                        ]
                     );
                     facturationId = factResult.insertId;
 
@@ -471,7 +486,7 @@ async function main() {
                         const discountUnit = p.discount?.unity ?? p.discount?.unit ?? '%';
 
                         await conn.execute(
-                            `INSERT INTO facturation_article (facturation_id, label, category, amount, quantity, discount_amount, discount_unit, total)
+                            `INSERT INTO transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total)
                              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                             [
                                 facturationId,

@@ -40,9 +40,9 @@ export async function GET(request: Request) {
         const nonPaidCondition = nonPaidMethods
             .map((_, i) => {
                 if (connection.isPostgreSQL) {
-                    return `pm.label != $${i + 1}`;
+                    return `t.payment_method != $${i + 1}`;
                 } else {
-                    return 'pm.label != ?';
+                    return 't.payment_method != ?';
                 }
             })
             .join(' AND ');
@@ -52,9 +52,9 @@ export async function GET(request: Request) {
 
         if (startDate && endDate) {
             if (connection.isPostgreSQL) {
-                dateFilter = 'AND DATE(f.created_at) BETWEEN $5 AND $6';
+                dateFilter = 'AND DATE(t.created_at) BETWEEN $5 AND $6';
             } else {
-                dateFilter = 'AND DATE(f.created_at) BETWEEN ? AND ?';
+                dateFilter = 'AND DATE(t.created_at) BETWEEN ? AND ?';
             }
             params.push(startDate, endDate);
         }
@@ -62,12 +62,11 @@ export async function GET(request: Request) {
         // 1. Daily revenue (Chiffre d'affaires par jour)
         const dailySalesQuery = `
             SELECT 
-                DATE(f.created_at) as date,
-                SUM(f.amount) as revenue
-            FROM facturation f
-            LEFT JOIN payment_methods pm ON pm.id = f.payment_method_id
+                DATE(t.created_at) as date,
+                SUM(t.amount) as revenue
+            FROM transactions t
             WHERE ${nonPaidCondition} ${dateFilter}
-            GROUP BY DATE(f.created_at)
+            GROUP BY DATE(t.created_at)
             ORDER BY date ASC
         `;
         const [dailySalesRows] = await connection.execute(dailySalesQuery, params);
@@ -79,14 +78,13 @@ export async function GET(request: Request) {
         // 2. Top 10 products (Top 10 produits vendus)
         const topProductsQuery = `
             SELECT 
-                fa.label,
-                fa.category,
-                SUM(fa.quantity) as quantity
-            FROM facturation_article fa
-            JOIN facturation f ON f.id = fa.facturation_id
-            LEFT JOIN payment_methods pm ON pm.id = f.payment_method_id
+                ti.label,
+                ti.category,
+                SUM(ti.quantity) as quantity
+            FROM transaction_items ti
+            JOIN transactions t ON t.id = ti.transaction_id
             WHERE ${nonPaidCondition} ${dateFilter}
-            GROUP BY fa.label, fa.category
+            GROUP BY ti.label, ti.category
             ORDER BY quantity DESC
             LIMIT 10
         `;
@@ -99,9 +97,8 @@ export async function GET(request: Request) {
 
         // 3. Average basket (Panier moyen)
         const avgBasketQuery = `
-            SELECT AVG(f.amount) as avgBasket
-            FROM facturation f
-            LEFT JOIN payment_methods pm ON pm.id = f.payment_method_id
+            SELECT AVG(t.amount) as avgBasket
+            FROM transactions t
             WHERE ${nonPaidCondition} ${dateFilter}
         `;
         const [avgBasketRows] = await connection.execute(avgBasketQuery, params);
@@ -110,13 +107,12 @@ export async function GET(request: Request) {
         // 4. Sales by category (Ventes par catégorie)
         const categorySalesQuery = `
             SELECT 
-                fa.category,
+                ti.category,
                 COUNT(*) as count
-            FROM facturation_article fa
-            JOIN facturation f ON f.id = fa.facturation_id
-            LEFT JOIN payment_methods pm ON pm.id = f.payment_method_id
+            FROM transaction_items ti
+            JOIN transactions t ON t.id = ti.transaction_id
             WHERE ${nonPaidCondition} ${dateFilter}
-            GROUP BY fa.category
+            GROUP BY ti.category
             ORDER BY count DESC
         `;
         const [categorySalesRows] = await connection.execute(categorySalesQuery, params);
@@ -128,8 +124,7 @@ export async function GET(request: Request) {
         // 5. Total orders count (Nombre de commandes)
         const ordersCountQuery = `
             SELECT COUNT(*) as totalOrders
-            FROM facturation f
-            LEFT JOIN payment_methods pm ON pm.id = f.payment_method_id
+            FROM transactions t
             WHERE ${nonPaidCondition} ${dateFilter}
         `;
         const [ordersCountRows] = await connection.execute(ordersCountQuery, params);
@@ -139,38 +134,36 @@ export async function GET(request: Request) {
         const recentOrdersQuery = connection.isPostgreSQL
             ? `
             SELECT 
-                f.panier_id,
-                p.short_num_order,
-                f.created_at,
-                pm.label as payment_method,
+                t.panier_id,
+                o.short_num_order,
+                t.created_at,
+                t.payment_method,
                 CASE 
-                    WHEN pm.label IN ('EFFACÉE', 'REMBOURSEMENT', 'EN COURS', 'EN ATTENTE') THEN 'Non payé'
+                    WHEN t.payment_method IN ('EFFACÉE', 'REMBOURSEMENT', 'EN COURS', 'EN ATTENTE') THEN 'Non payé'
                     ELSE 'Payé'
                 END as status,
-                f.amount
-            FROM facturation f
-            LEFT JOIN payment_methods pm ON pm.id = f.payment_method_id
-            LEFT JOIN ${mainDb}.panier p ON p.id = f.panier_id
+                t.amount
+            FROM transactions t
+            LEFT JOIN ${mainDb}.orders o ON o.id = t.panier_id
             WHERE 1=1 ${dateFilter}
-            ORDER BY f.created_at DESC
+            ORDER BY t.created_at DESC
             LIMIT 20
         `
             : `
             SELECT 
-                f.panier_id,
-                p.short_num_order,
-                f.created_at,
-                pm.label as payment_method,
+                t.panier_id,
+                o.short_num_order,
+                t.created_at,
+                t.payment_method,
                 CASE 
-                    WHEN pm.label IN ('EFFACÉE', 'REMBOURSEMENT', 'EN COURS', 'EN ATTENTE') THEN 'Non payé'
+                    WHEN t.payment_method IN ('EFFACÉE', 'REMBOURSEMENT', 'EN COURS', 'EN ATTENTE') THEN 'Non payé'
                     ELSE 'Payé'
                 END as status,
-                f.amount
-            FROM facturation f
-            LEFT JOIN payment_methods pm ON pm.id = f.payment_method_id
-            LEFT JOIN \`${mainDb}\`.panier p ON p.id = f.panier_id
+                t.amount
+            FROM transactions t
+            LEFT JOIN \`${mainDb}\`.orders o ON o.id = t.panier_id
             WHERE 1=1 ${dateFilter}
-            ORDER BY f.created_at DESC
+            ORDER BY t.created_at DESC
             LIMIT 20
         `;
         const recentParams = startDate && endDate ? [startDate, endDate] : [];
