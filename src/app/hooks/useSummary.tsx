@@ -2,7 +2,8 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { sendSummaryEmail } from '../actions/email';
 import { Shop } from '../contexts/ConfigProvider';
-import { BACK_KEYWORD, DELETED_KEYWORD, PRINT_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
+import { isDeletedTransaction, isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
+import { BACK_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
 import { formatFrenchDate, getFormattedDate } from '../utils/date';
 import { Currency, DataElement, SyncAction, Transaction } from '../utils/interfaces';
 import { printSummary } from '../utils/posPrinter';
@@ -73,8 +74,8 @@ export const useSummary = () => {
             (transaction) =>
                 transaction.currency === currencies[currencyIndex].label &&
                 !!transaction.products.length &&
-                transaction.method !== DELETED_KEYWORD &&
-                transaction.method !== WAITING_KEYWORD
+                !isDeletedTransaction(transaction) &&
+                !isWaitingTransaction(transaction)
         );
     }, [currencies, currencyIndex, transactions]);
 
@@ -280,14 +281,28 @@ export const useSummary = () => {
                             Exporter: SyncAction.export,
                         }[option];
                         if (action) {
-                            openPopup('Synchronisation', ['Synchronisation en cours...'], () => {}, true);
-                            processTransactions(action).then((count) => {
+                            const isExport = action === SyncAction.export;
+                            openPopup(
+                                'Synchronisation',
+                                [isExport ? 'Export en cours...' : 'Synchronisation 0%'],
+                                () => {},
+                                true
+                            );
+                            processTransactions(action, undefined, undefined, (percent) => {
+                                if (!isExport) {
+                                    updatePopup('Synchronisation', [`Synchronisation ${percent}%`]);
+                                }
+                            }).then((count) => {
                                 refreshHistoricalKeys();
-                                openPopup('Synchronisation', [
-                                    count > 0
-                                        ? `${count} transaction(s) synchronisée(s)`
-                                        : 'Aucune transaction à synchroniser',
-                                ]);
+                                if (isExport) {
+                                    openPopup('Synchronisation', ['Fichier exporté']);
+                                } else {
+                                    openPopup('Synchronisation', [
+                                        count > 0
+                                            ? `${count} transaction(s) synchronisée(s)`
+                                            : 'Aucune transaction à synchroniser',
+                                    ]);
+                                }
                             });
                         } else if (option === 'Stockage') {
                             getStorageUsage().then((usage) => {
@@ -352,6 +367,7 @@ export const useSummary = () => {
             transactionsFilename,
             refreshHistoricalKeys,
             closePopup,
+            updatePopup,
         ]
     );
 
@@ -414,51 +430,76 @@ export const useSummary = () => {
                                 .sort()
                                 .reverse();
 
-                            const dayEntries = daysInMonth.map((dayKey) => {
-                                return new Date(dayKey).toLocaleDateString(undefined, {
-                                    weekday: 'short',
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric',
-                                });
-                            });
-                            dayEntries.push('', BACK_KEYWORD);
+                            // Filter out days with only deleted transactions
+                            (async () => {
+                                const shopIdPrefix = transactionsFilename.split('_')[0];
+                                const validDays: string[] = [];
+                                for (const dayKey of daysInMonth) {
+                                    const key = `${shopIdPrefix}_${dayKey}`;
+                                    const txs = await idbGetTransactions(key);
+                                    // Only include days with at least one non-deleted transaction
+                                    if (!txs.every(isDeletedTransaction)) {
+                                        validDays.push(dayKey);
+                                    }
+                                }
 
-                            updatePopup(
-                                `${new Date(selectedMonth).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}`,
-                                dayEntries,
-                                (dayIndex: number) => {
-                                    if (dayIndex < 0) {
-                                        fallback();
-                                        return;
-                                    }
-                                    if (dayIndex >= daysInMonth.length) {
-                                        // Back button - return to month list
-                                        showHistoricalTransactions(
-                                            HistoricalPeriod.day,
-                                            menu,
-                                            showTransactionsCallback,
-                                            fallback
-                                        );
-                                        return;
-                                    }
-                                    // Load transactions for selected day
-                                    (async () => {
-                                        const key = transactionsFilename.split('_')[0] + '_' + daysInMonth[dayIndex];
-                                        const txs = await idbGetTransactions(key);
-                                        if (!txs.length) return;
-                                        tempTransactions.current = txs;
-                                        showTransactionsCallback(menu, () =>
+                                if (!validDays.length) {
+                                    // No valid days - go back to month selection
+                                    showHistoricalTransactions(
+                                        HistoricalPeriod.month,
+                                        menu,
+                                        showTransactionsCallback,
+                                        fallback
+                                    );
+                                    return;
+                                }
+
+                                const dayEntries = validDays.map((dayKey) => {
+                                    return new Date(dayKey).toLocaleDateString(undefined, {
+                                        weekday: 'short',
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric',
+                                    });
+                                });
+                                dayEntries.push('', BACK_KEYWORD);
+
+                                updatePopup(
+                                    `${new Date(selectedMonth).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}`,
+                                    dayEntries,
+                                    (dayIndex: number) => {
+                                        if (dayIndex < 0) {
+                                            fallback();
+                                            return;
+                                        }
+                                        if (dayIndex >= validDays.length) {
+                                            // Back button - return to month list
                                             showHistoricalTransactions(
                                                 HistoricalPeriod.day,
                                                 menu,
                                                 showTransactionsCallback,
                                                 fallback
-                                            )
-                                        );
-                                    })();
-                                }
-                            );
+                                            );
+                                            return;
+                                        }
+                                        // Load transactions for selected day
+                                        (async () => {
+                                            const key = transactionsFilename.split('_')[0] + '_' + validDays[dayIndex];
+                                            const txs = await idbGetTransactions(key);
+                                            if (!txs.length) return;
+                                            tempTransactions.current = txs;
+                                            showTransactionsCallback(menu, () =>
+                                                showHistoricalTransactions(
+                                                    HistoricalPeriod.day,
+                                                    menu,
+                                                    showTransactionsCallback,
+                                                    fallback
+                                                )
+                                            );
+                                        })();
+                                    }
+                                );
+                            })();
                         }
                     },
                     true
