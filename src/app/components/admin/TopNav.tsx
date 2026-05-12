@@ -2,6 +2,7 @@
 
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
+import { useUserRole } from '@/app/hooks/useUserRole';
 import { IconChevronLeft, IconChevronRight, IconPencil, IconChartPie, IconSettings } from '@tabler/icons-react';
 import { USE_DIGICARTE } from '@/app/utils/constants';
 import Link from 'next/link';
@@ -17,21 +18,17 @@ type NavItem = {
     hidden?: boolean;
 };
 
-interface TradizTopNavProps {
+interface TopNavProps {
     inline?: boolean;
     className?: string;
     onCollapsedChange?: (collapsed: boolean) => void;
     hasChanges?: boolean;
 }
 
-export default function TradizTopNav({
-    inline = false,
-    className,
-    onCollapsedChange,
-    hasChanges = false,
-}: TradizTopNavProps) {
+export default function TopNav({ inline = false, className, onCollapsedChange, hasChanges = false }: TopNavProps) {
     const [collapsed, setCollapsed] = useState(true);
     const { isGrafanaAccessEnabled } = useConfig();
+    const { isAdmin, isCashier } = useUserRole();
     const { openFullscreenPopup } = usePopup();
     const pathname = usePathname();
     const router = useRouter();
@@ -43,22 +40,24 @@ export default function TradizTopNav({
                 href: '/admin/kitchen/config/',
                 label: 'Configuration',
                 icon: <IconSettings size={28} />,
+                hidden: !isAdmin, // Admin only
             },
             {
                 id: 'edit_menu',
                 href: '/admin/edit_menu/',
                 label: 'Edition menu',
                 icon: <IconPencil size={28} />,
+                hidden: !isCashier, // Admin and Cashier
             },
             {
                 id: 'kpi',
                 href: USE_DIGICARTE ? '/stats/d/vue-dc-1/vue-dc' : '/stats',
                 label: 'Statistiques',
                 icon: <IconChartPie size={28} />,
-                hidden: !isGrafanaAccessEnabled,
+                hidden: !isCashier || !isGrafanaAccessEnabled, // Admin and Cashier
             },
         ],
-        [isGrafanaAccessEnabled]
+        [isGrafanaAccessEnabled, isAdmin, isCashier]
     );
 
     const handleToggle = () => {

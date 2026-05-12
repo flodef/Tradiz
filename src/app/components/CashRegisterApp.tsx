@@ -1,15 +1,24 @@
 'use client';
 
+import TopNav from '@/app/components/admin/TopNav';
+import { useUserRole } from '@/app/hooks/useUserRole';
 import { useEffect } from 'react';
-import { MainContent } from './MainContent';
-import { OfflineBanner } from './OfflineBanner';
-import { Popup } from './Popup';
-import TradizTopNav from './admin/TradizTopNav';
 import { ConfigProvider } from '../contexts/ConfigProvider';
 import { CryptoProvider } from '../contexts/CryptoProvider';
 import { DataProvider } from '../contexts/DataProvider';
 import { PopupProvider } from '../contexts/PopupProvider';
 import {} from '../utils/extensions';
+import { MainContent } from './MainContent';
+import { OfflineBanner } from './OfflineBanner';
+import { Popup } from './Popup';
+
+// Component to conditionally render TopNav based on user role
+function TopNavController({ className, showLightAdminNav }: { className?: string; showLightAdminNav?: boolean }) {
+    const { isCashier } = useUserRole();
+    // Only show TopNav if user has admin or cashier access (they have accessible admin pages)
+    if (!showLightAdminNav || !isCashier) return null;
+    return <TopNav className={className} />;
+}
 
 type CashRegisterAppProps = {
     shop: string;
@@ -50,7 +59,7 @@ export function CashRegisterApp({ shop, showLightAdminNav = false }: CashRegiste
                 <DataProvider>
                     <PopupProvider>
                         <CryptoProvider>
-                            {showLightAdminNav ? <TradizTopNav className="hidden md:flex" /> : null}
+                            <TopNavController className="hidden md:flex" showLightAdminNav={showLightAdminNav} />
                             <MainContent showLightAdminNav={showLightAdminNav} />
                             <Popup />
                         </CryptoProvider>

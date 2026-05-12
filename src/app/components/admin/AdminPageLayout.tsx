@@ -1,10 +1,10 @@
 'use client';
 
-import { ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import TradizTopNav from './TradizTopNav';
+import TopNav from '@/app/components/admin/TopNav';
 import { CloseButton } from '@/app/components/CloseButton';
 import { usePopup } from '@/app/hooks/usePopup';
+import { useRouter } from 'next/navigation';
+import { ReactNode } from 'react';
 
 interface AdminPageLayoutProps {
     title: string;
@@ -45,7 +45,7 @@ export default function AdminPageLayout({ title, children, action, hasChanges = 
                 style={{ position: 'sticky' }}
             >
                 <div className="shrink-0 z-10">
-                    <TradizTopNav inline hasChanges={hasChanges} />
+                    <TopNav inline hasChanges={hasChanges} />
                 </div>
                 <h1 className="absolute inset-x-0 text-center text-3xl font-bold leading-tight wrap-break-word line-clamp-2 px-16 pointer-events-none">
                     {title}

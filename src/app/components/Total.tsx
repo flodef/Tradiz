@@ -1,5 +1,7 @@
 'use client';
 
+import TopNav from '@/app/components/admin/TopNav';
+import { useUserRole } from '@/app/hooks/useUserRole';
 import { FC, MouseEventHandler, useCallback, useMemo, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 import {
@@ -20,11 +22,32 @@ import { BACK_KEYWORD, UPDATING_KEYWORD, USE_DIGICARTE, WAITING_KEYWORD } from '
 import { OrderItem, State, Transaction } from '../utils/interfaces';
 import { CLOSE, postMessageToParent } from '../utils/message';
 import { isMobileSize, useIsMobile, useIsMobileDevice } from '../utils/mobile';
-import TradizTopNav from './admin/TradizTopNav';
 import { Amount } from './Amount';
 import { CloseButton } from './CloseButton';
 import { OrderItemsSelector } from './OrderItemsSelector';
 import { useAddPopupClass } from './Popup';
+
+// Wrapper component to conditionally render TopNav based on user role
+function TopNavWithRoleCheck({
+    inline,
+    showLightAdminNav,
+    isMobile,
+    onCollapsedChange,
+}: {
+    inline?: boolean;
+    showLightAdminNav?: boolean;
+    isMobile?: boolean;
+    onCollapsedChange?: (collapsed: boolean) => void;
+}) {
+    const { isCashier } = useUserRole();
+    // Only show TopNav if user has admin or cashier access (they have accessible admin pages)
+    if (!showLightAdminNav || !isMobile || !isCashier) return null;
+    return (
+        <div onClick={(e) => e.stopPropagation()}>
+            <TopNav inline={inline} onCollapsedChange={onCollapsedChange} />
+        </div>
+    );
+}
 
 const payLabel = 'PAYER';
 const totalLabel = 'TOTAL';
@@ -573,11 +596,12 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
                 )}
             >
                 <div className="flex items-center gap-0 w-full">
-                    {showLightAdminNav && isMobile && (
-                        <div onClick={(e) => e.stopPropagation()}>
-                            <TradizTopNav inline onCollapsedChange={(c) => setNavExpanded(!c)} />
-                        </div>
-                    )}
+                    <TopNavWithRoleCheck
+                        inline
+                        showLightAdminNav={showLightAdminNav}
+                        isMobile={isMobile}
+                        onCollapsedChange={(c) => setNavExpanded(!c)}
+                    />
                     <div
                         className={twMerge(
                             'flex-1 text-center overflow-hidden',
