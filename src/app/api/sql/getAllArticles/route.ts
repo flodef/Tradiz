@@ -53,15 +53,15 @@ export async function GET() {
             values: [],
             options: [],
         };
-        data.values.push(['Taux', 'Catégorie', 'Nom', 'Indisponible', 'Euro (€)', 'Stock']);
+        data.values.push(['Taux', 'Catégorie', 'Nom', 'Indisponible', 'Stock', 'Euro (€)']);
         data.values.push(
             ...allRows.map((row): (number | string | boolean)[] => [
                 Number(row.rate) / 100,
                 String(row.category),
                 String(row.label),
                 !row.disponible, // disponible=1 means available, so Indisponible=!disponible
-                Number(Number(row.amount).toFixed(2)),
                 Number(row.stock),
+                Number(Number(row.amount).toFixed(2)),
             ])
         );
         data.options = allRows.map((row) => row.options || null);

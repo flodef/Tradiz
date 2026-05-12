@@ -16,7 +16,10 @@ import { generateSimpleId } from './id';
 
 class MissingDataError extends Error {
     name = 'MissingDataError';
-    message = 'Données manquantes';
+    constructor(dataName?: string) {
+        super(dataName ? `Données manquantes: ${dataName}` : 'Données manquantes');
+        this.message = dataName ? `Données manquantes: ${dataName}` : 'Données manquantes';
+    }
 }
 class EmptyDataError extends Error {
     name = 'EmptyDataError';
@@ -350,7 +353,7 @@ function checkData(
 ) {
     if (!data) throw new Error('data not fetched');
     if (data.error?.message) throw new Error(data.error.message);
-    if (!data.values?.length) throw new MissingDataError();
+    if (!data.values?.length) throw new MissingDataError(dataName);
     if (
         data.values &&
         (data.values.length < minRow ||
@@ -579,18 +582,19 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
 
                     return {
                         products: filtered.map(({ item, origIdx }, rowOrder) => {
-                            checkColumn(item, 'Produits', 4);
+                            checkColumn(item, 'Produits', 5);
                             return {
                                 rate: Number(item.at(0)) * 100,
                                 category: normalizedString(item.at(1)),
                                 label: normalizedString(item.at(2)),
                                 availability: !item[3],
+                                stock: Number(item.at(4)) || 0,
                                 order: rowOrder,
-                                prices: item.filter((_, i) => i >= 4).map((price) => Number(price)),
+                                prices: item.filter((_, i) => i >= 5).map((price) => Number(price)),
                                 options: optionsArr[origIdx] ?? null,
                             };
                         }),
-                        currencies: data.values[0].filter((_, i) => i >= 4).map((currency) => String(currency).trim()),
+                        currencies: data.values[0].filter((_, i) => i >= 5).map((currency) => String(currency).trim()),
                     };
                 }
             );
