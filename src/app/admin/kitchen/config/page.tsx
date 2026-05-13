@@ -17,6 +17,7 @@ import { useUserRole } from '@/app/hooks/useUserRole';
 import { useIsMobile } from '@/app/utils/mobile';
 import { defaultParameters } from '@/app/utils/processData';
 import { useCallback, useEffect, useState } from 'react';
+import { LoadingDot } from '@/app/loading';
 
 // Type for currency row from DB
 interface CurrencyRow {
@@ -75,6 +76,7 @@ export default function SettingsPage() {
     const [originalSelectedThemeIndex, setOriginalSelectedThemeIndex] = useState<number>(0);
     const [customThemeNames, setCustomThemeNames] = useState<Record<number, string>>({});
     const [originalCustomThemeNames, setOriginalCustomThemeNames] = useState<Record<number, string>>({});
+    const [openSection, setOpenSection] = useState<string | null>(null);
 
     // Warn about unsaved changes when leaving page
     useEffect(() => {
@@ -554,7 +556,7 @@ export default function SettingsPage() {
     if (isLoading) {
         return (
             <AdminPageLayout title="Configuration" hasChanges={false}>
-                <p>Chargement...</p>
+                <LoadingDot fullscreen={false} />
             </AdminPageLayout>
         );
     }
@@ -601,6 +603,8 @@ export default function SettingsPage() {
                 isSiretValid={isSiretValid}
                 onSiretValidation={setIsSiretValid}
                 isLoading={isSavingParameters}
+                isOpen={openSection === 'parameters'}
+                onToggle={() => setOpenSection((prev) => (prev === 'parameters' ? null : 'parameters'))}
             />
 
             <DiscountsConfig
@@ -612,6 +616,8 @@ export default function SettingsPage() {
                 currencies={currenciesConfig}
                 isReadOnly={isReadOnly}
                 isLoading={isSavingDiscounts}
+                isOpen={openSection === 'discounts'}
+                onToggle={() => setOpenSection((prev) => (prev === 'discounts' ? null : 'discounts'))}
             />
 
             <CurrenciesConfig
@@ -622,6 +628,8 @@ export default function SettingsPage() {
                 hasChanges={hasCurrenciesChanges}
                 isReadOnly={isReadOnly}
                 isLoading={isSavingCurrencies}
+                isOpen={openSection === 'currencies'}
+                onToggle={() => setOpenSection((prev) => (prev === 'currencies' ? null : 'currencies'))}
             />
 
             <PaymentsConfig
@@ -632,6 +640,8 @@ export default function SettingsPage() {
                 isReadOnly={isReadOnly}
                 onCancel={hasPaymentsChanges ? handleCancel : undefined}
                 isLoading={isSavingPayments}
+                isOpen={openSection === 'payments'}
+                onToggle={() => setOpenSection((prev) => (prev === 'payments' ? null : 'payments'))}
             />
 
             <UsersConfig
@@ -641,6 +651,8 @@ export default function SettingsPage() {
                 onCancel={hasUsersChanges ? handleCancel : undefined}
                 isReadOnly={isReadOnly}
                 isLoading={isSavingUsers}
+                isOpen={openSection === 'users'}
+                onToggle={() => setOpenSection((prev) => (prev === 'users' ? null : 'users'))}
             />
 
             <ColorsConfig
@@ -656,6 +668,8 @@ export default function SettingsPage() {
                 onThemeSelect={handleThemeSelect}
                 customThemeNames={customThemeNames}
                 onCustomThemeNamesChange={handleCustomThemeNamesChange}
+                isOpen={openSection === 'colors'}
+                onToggle={() => setOpenSection((prev) => (prev === 'colors' ? null : 'colors'))}
             />
 
             {!isReadOnly && hasChanges && (

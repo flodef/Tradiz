@@ -10,6 +10,7 @@ import { useConfig } from '@/app/hooks/useConfig';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { usePopup } from '@/app/hooks/usePopup';
 import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
+import { LoadingDot } from '@/app/loading';
 
 export default function EditMenuPage() {
     const { inventory, currencies } = useConfig();
@@ -24,6 +25,7 @@ export default function EditMenuPage() {
     const [dbConfigChecked, setDbConfigChecked] = useState(false);
     const [isSavingCategories, setIsSavingCategories] = useState(false);
     const [isSavingProducts, setIsSavingProducts] = useState(false);
+    const [openSection, setOpenSection] = useState<string | null>(null);
 
     // Step 1: check DB config once on mount
     useEffect(() => {
@@ -227,7 +229,7 @@ export default function EditMenuPage() {
     if (isLoading) {
         return (
             <AdminPageLayout title="Édition des produits" hasChanges={false}>
-                <p>Chargement...</p>
+                <LoadingDot fullscreen={false} />
             </AdminPageLayout>
         );
     }
@@ -265,6 +267,8 @@ export default function EditMenuPage() {
                     hasChanges={hasCategoriesChanges}
                     isReadOnly={isReadOnly}
                     isLoading={isSavingCategories}
+                    isOpen={openSection === 'categories'}
+                    onToggle={() => setOpenSection((prev) => (prev === 'categories' ? null : 'categories'))}
                 />
 
                 <ProductsConfig
@@ -277,6 +281,8 @@ export default function EditMenuPage() {
                     currencies={currencies}
                     isReadOnly={isReadOnly}
                     isLoading={isSavingProducts}
+                    isOpen={openSection === 'products'}
+                    onToggle={() => setOpenSection((prev) => (prev === 'products' ? null : 'products'))}
                 />
             </div>
         </AdminPageLayout>

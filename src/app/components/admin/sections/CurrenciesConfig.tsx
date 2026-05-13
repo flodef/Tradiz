@@ -129,6 +129,8 @@ export default function CurrenciesConfig({
     hasChanges = false,
     isReadOnly = false,
     isLoading = false,
+    isOpen,
+    onToggle,
 }: {
     config: Currency[];
     onChange: (data: Currency[]) => void;
@@ -137,6 +139,8 @@ export default function CurrenciesConfig({
     hasChanges?: boolean;
     isReadOnly?: boolean;
     isLoading?: boolean;
+    isOpen?: boolean;
+    onToggle?: () => void;
 }) {
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
@@ -223,6 +227,8 @@ export default function CurrenciesConfig({
             onSave={isReadOnly || !hasChanges ? undefined : () => onSave(strip(currencies))}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
             isLoading={isLoading}
+            isOpen={isOpen}
+            onToggle={onToggle}
         >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={currencies.map((c) => c._id)} strategy={verticalListSortingStrategy}>

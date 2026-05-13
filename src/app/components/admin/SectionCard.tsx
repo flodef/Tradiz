@@ -14,6 +14,8 @@ interface SectionCardProps {
     defaultOpen?: boolean;
     headerExtra?: ReactNode;
     isLoading?: boolean;
+    isOpen?: boolean;
+    onToggle?: () => void;
 }
 
 export default function SectionCard({
@@ -25,13 +27,19 @@ export default function SectionCard({
     defaultOpen = true,
     headerExtra,
     isLoading = false,
+    isOpen,
+    onToggle,
 }: SectionCardProps) {
-    const [open, setOpen] = useState(defaultOpen);
+    const [internalOpen, setInternalOpen] = useState(defaultOpen);
+    const open = isOpen !== undefined ? isOpen : internalOpen;
     const isMobile = useIsMobile();
 
     return (
         <div className="bg-white/30 dark:bg-black/20 shadow-lg rounded-lg mb-6 border border-black/10 dark:border-white/10 backdrop-blur overflow-hidden">
-            <div className="cursor-pointer select-none" onClick={() => setOpen((o) => !o)}>
+            <div
+                className="cursor-pointer select-none"
+                onClick={() => (onToggle ? onToggle() : setInternalOpen((o) => !o))}
+            >
                 <div className="flex justify-between items-start px-6 py-4 gap-4">
                     <div className="flex items-center gap-2">
                         <svg

@@ -56,6 +56,8 @@ export default function ProductsConfig({
     isReadOnly = false,
     isLoading = false,
     productsSettings,
+    isOpen,
+    onToggle,
 }: {
     config: AdminProduct[];
     onChange: (data: AdminProduct[]) => void;
@@ -66,6 +68,8 @@ export default function ProductsConfig({
     currencies: Currency[];
     isReadOnly?: boolean;
     isLoading?: boolean;
+    isOpen?: boolean;
+    onToggle?: () => void;
     productsSettings?: {
         useVatPerProduct: boolean;
         useReference: boolean;
@@ -361,15 +365,17 @@ export default function ProductsConfig({
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
             headerExtra={headerControls}
             isLoading={isLoading}
+            isOpen={isOpen}
+            onToggle={onToggle}
         >
             {mobileSearchRow}
             {totalFiltered === 0 && hasFilter ? (
                 <p className="text-md opacity-60 py-4 text-center">Aucun produit correspondant</p>
             ) : (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-auto max-h-[calc(100vh-16rem)]">
                         <table className="w-full border-collapse">
-                            <thead>
+                            <thead className="sticky top-0 z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur">
                                 <tr className="border-b-2 border-gray-300 dark:border-gray-600">
                                     {!isReadOnly && <th className="w-12"></th>}
                                     <th

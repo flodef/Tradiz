@@ -21,6 +21,8 @@ interface ParametersConfigProps {
     isSiretValid?: boolean;
     onSiretValidation?: (isValid: boolean) => void;
     isLoading?: boolean;
+    isOpen?: boolean;
+    onToggle?: () => void;
 }
 
 const MONTH_NAMES = [
@@ -48,6 +50,8 @@ export default function ParametersConfig({
     isSiretValid = true,
     onSiretValidation,
     isLoading = false,
+    isOpen,
+    onToggle,
 }: ParametersConfigProps) {
     const maxDaysInMonth = (month: number): number => {
         const days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -97,6 +101,8 @@ export default function ParametersConfig({
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
             saveDisabled={!isSiretValid}
             isLoading={isLoading}
+            isOpen={isOpen}
+            onToggle={onToggle}
         >
             {/* Subsection: Commerce */}
             <div className="mb-6">

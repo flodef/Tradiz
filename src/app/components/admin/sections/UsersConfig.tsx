@@ -19,6 +19,8 @@ interface UsersConfigProps {
     onCancel?: () => void;
     isReadOnly?: boolean;
     isLoading?: boolean;
+    isOpen?: boolean;
+    onToggle?: () => void;
 }
 
 interface InternalUser extends User {
@@ -96,6 +98,8 @@ export default function UsersConfig({
     onCancel,
     isReadOnly = false,
     isLoading = false,
+    isOpen,
+    onToggle,
 }: UsersConfigProps) {
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
@@ -208,6 +212,8 @@ export default function UsersConfig({
             onCancel={hasChanges && onCancel ? () => onCancel() : undefined}
             saveDisabled={!hasChanges || !isValid || isReadOnly || isLoading}
             isLoading={isLoading}
+            isOpen={isOpen}
+            onToggle={onToggle}
         >
             {hasNoUsers && (
                 <div className="mb-4 p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-lg">

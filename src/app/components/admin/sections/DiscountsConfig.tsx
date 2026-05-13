@@ -76,6 +76,8 @@ export default function DiscountsConfig({
     currencies,
     isReadOnly = false,
     isLoading = false,
+    isOpen,
+    onToggle,
 }: {
     config: Discount[];
     onChange: (data: Discount[]) => void;
@@ -85,6 +87,8 @@ export default function DiscountsConfig({
     currencies: Currency[];
     isReadOnly?: boolean;
     isLoading?: boolean;
+    isOpen?: boolean;
+    onToggle?: () => void;
 }) {
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
@@ -178,6 +182,8 @@ export default function DiscountsConfig({
             onSave={isReadOnly || !hasChanges ? undefined : () => onSave(discounts.map(({ _id: _, ...rest }) => rest))}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
             isLoading={isLoading}
+            isOpen={isOpen}
+            onToggle={onToggle}
         >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={discounts.map((d) => d._id)} strategy={verticalListSortingStrategy}>

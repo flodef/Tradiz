@@ -20,6 +20,8 @@ export default function ColorsConfig({
     onThemeSelect,
     customThemeNames: externalCustomNames,
     onCustomThemeNamesChange,
+    isOpen,
+    onToggle,
 }: {
     config: Color[];
     onChange: (data: Color[]) => void;
@@ -33,6 +35,8 @@ export default function ColorsConfig({
     onThemeSelect?: (index: number) => void;
     customThemeNames?: Record<number, string>;
     onCustomThemeNamesChange?: (names: Record<number, string>) => void;
+    isOpen?: boolean;
+    onToggle?: () => void;
 }) {
     const [colors, setColors] = useState(config || []);
     const [internalSelectedIndex, setInternalSelectedIndex] = useState(0);
@@ -118,6 +122,8 @@ export default function ColorsConfig({
             onSave={isReadOnly ? undefined : onSave ? () => onSave(colors) : undefined}
             onCancel={onCancel}
             isLoading={isLoading}
+            isOpen={isOpen}
+            onToggle={onToggle}
         >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {themes.map((theme, themeIndex) => (
