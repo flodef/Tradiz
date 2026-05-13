@@ -43,6 +43,14 @@ export interface Shop {
     id: string;
 }
 
+export interface ProductsSettings {
+    useVatPerProduct: boolean;
+    useReference: boolean;
+    useStock: boolean;
+    usePhoto: boolean;
+    useDescription: boolean;
+}
+
 export interface Parameters {
     shop: Shop;
     thanksMessage: string;
@@ -51,6 +59,7 @@ export interface Parameters {
     closingHour: number;
     yearStartDate?: { month: number; day: number }; // Optional, defaults to { month: 1, day: 1 } (January 1st)
     user: User;
+    products?: ProductsSettings;
     error?: string;
 }
 

@@ -158,6 +158,26 @@ export default function SettingsPage() {
                     })(),
                     lastModified: getParam('lastModified', 'Dernière modification') || new Date().toLocaleString(),
                     user: parameters?.user || { name: '', role: 0 },
+                    products: (() => {
+                        try {
+                            const value = getParam('productsSettings', 'Paramètres produits');
+                            if (value) {
+                                const parsed = JSON.parse(value);
+                                if (parsed && typeof parsed === 'object') {
+                                    return {
+                                        useVatPerProduct: parsed.useVatPerProduct ?? false,
+                                        useReference: parsed.useReference ?? false,
+                                        useStock: parsed.useStock ?? false,
+                                        usePhoto: parsed.usePhoto ?? false,
+                                        useDescription: parsed.useDescription ?? false,
+                                    };
+                                }
+                            }
+                        } catch {
+                            // Invalid JSON
+                        }
+                        return undefined;
+                    })(),
                 };
 
                 setSettings(loadedSettings);
@@ -402,6 +422,7 @@ export default function SettingsPage() {
                 { key: 'closingHour', value: String(data.closingHour) },
                 { key: 'yearStartDate', value: JSON.stringify(data.yearStartDate) },
                 { key: 'lastModified', value: new Date().toLocaleString() },
+                { key: 'productsSettings', value: JSON.stringify(data.products ?? {}) },
             ];
 
             const response = await fetch('/api/sql/updateParameters', {

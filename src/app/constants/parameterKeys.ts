@@ -16,8 +16,9 @@ export const PARAMETER_KEYS = {
     CLOSING_HOUR: 'closingHour',
     YEAR_START_DATE: 'yearStartDate',
     LAST_MODIFIED: 'lastModified',
+    PRODUCTS_SETTINGS: 'productsSettings',
 } as const;
 
 export const PARAMETER_KEY_LIST = Object.values(PARAMETER_KEYS);
 
-export type ParameterKey = typeof PARAMETER_KEYS[keyof typeof PARAMETER_KEYS];
+export type ParameterKey = (typeof PARAMETER_KEYS)[keyof typeof PARAMETER_KEYS];

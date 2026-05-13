@@ -3,9 +3,9 @@ import { getMainDb } from '../db';
 
 interface CategoryRow {
     id: string;
-    nom: string;
-    ordre: number;
-    taux_tva_default: number | null;
+    name: string;
+    sort_order: number;
+    default_vat_rate: number | null;
 }
 
 export async function GET() {
@@ -13,9 +13,9 @@ export async function GET() {
         const connection = await getMainDb();
 
         const query = `
-            SELECT id, nom, ordre, taux_tva_default
-            FROM categorie
-            ORDER BY ordre
+            SELECT id, name, sort_order, default_vat_rate
+            FROM categories
+            ORDER BY sort_order
         `;
 
         const [rows] = await connection.execute(query);
@@ -25,8 +25,8 @@ export async function GET() {
         data.values.push(['Catégorie', 'TVA']);
         data.values.push(
             ...(rows as CategoryRow[]).map((row): string[] => [
-                String(row.nom),
-                String(row.taux_tva_default ?? 20), // Use taux_tva_default from DB, default to 20
+                String(row.name),
+                String(row.default_vat_rate ?? 20), // Use default_vat_rate from DB, default to 20
             ])
         );
 

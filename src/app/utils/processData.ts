@@ -108,6 +108,26 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
         })(),
         lastModified: getParamValue('lastModified', 11) || new Date().toLocaleString(),
         user: user,
+        products: (() => {
+            try {
+                const value = getParamValue('productsSettings', 12);
+                if (value) {
+                    const parsed = JSON.parse(value);
+                    if (parsed && typeof parsed === 'object') {
+                        return {
+                            useVatPerProduct: parsed.useVatPerProduct ?? false,
+                            useReference: parsed.useReference ?? false,
+                            useStock: parsed.useStock ?? false,
+                            usePhoto: parsed.usePhoto ?? false,
+                            useDescription: parsed.useDescription ?? false,
+                        };
+                    }
+                }
+            } catch {
+                // Invalid JSON, use default
+            }
+            return undefined;
+        })(),
     };
 }
 
@@ -430,7 +450,7 @@ async function convertParametersData(
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-            checkData(data, 'Paramètres', 1, 2, 6, 12);
+            checkData(data, 'Paramètres', 1, 2, 6, 13);
 
             return {
                 keys: data.values.map((item) => {
@@ -582,19 +602,22 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
 
                     return {
                         products: filtered.map(({ item, origIdx }, rowOrder) => {
-                            checkColumn(item, 'Produits', 5);
+                            checkColumn(item, 'Produits', 8);
                             return {
                                 rate: Number(item.at(0)) * 100,
                                 category: normalizedString(item.at(1)),
                                 label: normalizedString(item.at(2)),
                                 availability: !item[3],
                                 stock: Number(item.at(4)) || 0,
+                                reference: item[5] != null ? String(item[5]).trim() : null,
+                                photo: item[6] != null ? String(item[6]).trim() : null,
+                                description: item[7] != null ? String(item[7]).trim() : null,
                                 order: rowOrder,
-                                prices: item.filter((_, i) => i >= 5).map((price) => Number(price)),
+                                prices: item.filter((_, i) => i >= 8).map((price) => Number(price)),
                                 options: optionsArr[origIdx] ?? null,
                             };
                         }),
-                        currencies: data.values[0].filter((_, i) => i >= 5).map((currency) => String(currency).trim()),
+                        currencies: data.values[0].filter((_, i) => i >= 8).map((currency) => String(currency).trim()),
                     };
                 }
             );

@@ -23,6 +23,10 @@ export interface AdminProduct {
     availability: boolean;
     stock: number;
     currencies: string[];
+    vat?: number;
+    reference?: string;
+    photo?: string;
+    description?: string;
 }
 
 type AvailabilityFilter = 'all' | 'available' | 'unavailable';
@@ -52,6 +56,7 @@ export default function ProductsConfig({
     currencies,
     isReadOnly = false,
     isLoading = false,
+    productsSettings,
 }: {
     config: AdminProduct[];
     onChange: (data: AdminProduct[]) => void;
@@ -62,6 +67,13 @@ export default function ProductsConfig({
     currencies: Currency[];
     isReadOnly?: boolean;
     isLoading?: boolean;
+    productsSettings?: {
+        useVatPerProduct: boolean;
+        useReference: boolean;
+        useStock: boolean;
+        usePhoto: boolean;
+        useDescription: boolean;
+    };
 }) {
     const [products, setProducts] = useState(config || []);
     const [search, setSearch] = useState('');
@@ -362,6 +374,11 @@ export default function ProductsConfig({
                                             <SortIcon field="category" />
                                         </div>
                                     </th>
+                                    {productsSettings?.useReference && (
+                                        <th className={adminSortableHeaderStyle + ' min-w-24 w-24'}>
+                                            <div className="flex items-center gap-1">Référence</div>
+                                        </th>
+                                    )}
                                     <th
                                         className={adminSortableHeaderStyle + ' min-w-20 w-20'}
                                         onClick={() => handleSort('price')}
@@ -371,9 +388,26 @@ export default function ProductsConfig({
                                             <SortIcon field="price" />
                                         </div>
                                     </th>
-                                    <th className={adminSortableHeaderStyle + ' min-w-20 w-20'}>
-                                        <div className="flex items-center justify-center gap-1">Stock</div>
-                                    </th>
+                                    {productsSettings?.useVatPerProduct && (
+                                        <th className={adminSortableHeaderStyle + ' min-w-16 w-16'}>
+                                            <div className="flex items-center gap-1">TVA (%)</div>
+                                        </th>
+                                    )}
+                                    {productsSettings?.useStock && (
+                                        <th className={adminSortableHeaderStyle + ' min-w-20 w-20'}>
+                                            <div className="flex items-center justify-center gap-1">Stock</div>
+                                        </th>
+                                    )}
+                                    {productsSettings?.usePhoto && (
+                                        <th className={adminSortableHeaderStyle + ' min-w-20 w-20'}>
+                                            <div className="flex items-center gap-1">Photo</div>
+                                        </th>
+                                    )}
+                                    {productsSettings?.useDescription && (
+                                        <th className={adminSortableHeaderStyle + ' min-w-32 w-32'}>
+                                            <div className="flex items-center gap-1">Description</div>
+                                        </th>
+                                    )}
                                     <th
                                         className={adminSortableHeaderStyle + ' min-w-20 w-20'}
                                         onClick={() => handleSort('availability')}
@@ -395,7 +429,17 @@ export default function ProductsConfig({
                                                 className="bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700"
                                                 onClick={() => toggleCategory(cat)}
                                             >
-                                                <td colSpan={isReadOnly ? 6 : 7} className="p-2 font-semibold text-sm">
+                                                <td
+                                                    colSpan={(() => {
+                                                        let count = isReadOnly ? 5 : 6;
+                                                        if (productsSettings?.useReference) count++;
+                                                        if (productsSettings?.useVatPerProduct) count++;
+                                                        if (productsSettings?.usePhoto) count++;
+                                                        if (productsSettings?.useDescription) count++;
+                                                        return count;
+                                                    })()}
+                                                    className="p-2 font-semibold text-sm"
+                                                >
                                                     <div className="flex items-center gap-2">
                                                         <svg
                                                             className={`w-4 h-4 transition-transform duration-200 ${expandedCategories.has(cat) ? 'rotate-90' : ''}`}
@@ -448,6 +492,22 @@ export default function ProductsConfig({
                                                                     disabled={isReadOnly}
                                                                 />
                                                             </td>
+                                                            {productsSettings?.useReference && (
+                                                                <td className="p-2">
+                                                                    <ValidatedInput
+                                                                        disabled={isReadOnly}
+                                                                        type="text"
+                                                                        value={p.reference ?? ''}
+                                                                        onChange={(value) =>
+                                                                            handleProductChange(i, {
+                                                                                ...p,
+                                                                                reference: String(value),
+                                                                            })
+                                                                        }
+                                                                        maxLength={50}
+                                                                    />
+                                                                </td>
+                                                            )}
                                                             <td className="p-2">
                                                                 {isReadOnly ? (
                                                                     <div className="text-sm">
@@ -468,22 +528,78 @@ export default function ProductsConfig({
                                                                     />
                                                                 )}
                                                             </td>
-                                                            <td className="p-2">
-                                                                {isReadOnly ? (
-                                                                    <div className="text-sm text-center">{p.stock}</div>
-                                                                ) : (
+                                                            {productsSettings?.useVatPerProduct && (
+                                                                <td className="p-2">
+                                                                    {isReadOnly ? (
+                                                                        <div className="text-sm text-center">
+                                                                            {p.vat ?? 0}%
+                                                                        </div>
+                                                                    ) : (
+                                                                        <ValidatedInput
+                                                                            type="number"
+                                                                            value={String(p.vat ?? 0)}
+                                                                            onChange={(value) =>
+                                                                                handleProductChange(i, {
+                                                                                    ...p,
+                                                                                    vat: Number(value) || 0,
+                                                                                })
+                                                                            }
+                                                                        />
+                                                                    )}
+                                                                </td>
+                                                            )}
+                                                            {productsSettings?.useStock && (
+                                                                <td className="p-2">
+                                                                    {isReadOnly ? (
+                                                                        <div className="text-sm text-center">
+                                                                            {p.stock}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <ValidatedInput
+                                                                            type="number"
+                                                                            value={String(p.stock)}
+                                                                            onChange={(value) =>
+                                                                                handleProductChange(i, {
+                                                                                    ...p,
+                                                                                    stock: Number(value) || 0,
+                                                                                })
+                                                                            }
+                                                                        />
+                                                                    )}
+                                                                </td>
+                                                            )}
+                                                            {productsSettings?.usePhoto && (
+                                                                <td className="p-2">
                                                                     <ValidatedInput
-                                                                        type="number"
-                                                                        value={String(p.stock)}
+                                                                        disabled={isReadOnly}
+                                                                        type="text"
+                                                                        value={p.photo ?? ''}
                                                                         onChange={(value) =>
                                                                             handleProductChange(i, {
                                                                                 ...p,
-                                                                                stock: Number(value) || 0,
+                                                                                photo: String(value),
                                                                             })
                                                                         }
+                                                                        maxLength={50}
                                                                     />
-                                                                )}
-                                                            </td>
+                                                                </td>
+                                                            )}
+                                                            {productsSettings?.useDescription && (
+                                                                <td className="p-2">
+                                                                    <ValidatedInput
+                                                                        disabled={isReadOnly}
+                                                                        type="text"
+                                                                        value={p.description ?? ''}
+                                                                        onChange={(value) =>
+                                                                            handleProductChange(i, {
+                                                                                ...p,
+                                                                                description: String(value),
+                                                                            })
+                                                                        }
+                                                                        maxLength={300}
+                                                                    />
+                                                                </td>
+                                                            )}
                                                             <td className="p-2 text-center">
                                                                 <div className="flex justify-center">
                                                                     <AvailabilityToggle
