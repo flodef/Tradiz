@@ -19,60 +19,62 @@
 
 USE `DC`;
 
--- Migrate article → products
-INSERT INTO `products` (`id`, `ordre`, `nom`, `prix`, `photo`, `disponible`, `categorie`, `description`, `options`, `nbr_commandes`, `taux_tva`)
-SELECT `id`, `ordre`, `nom`, `prix`, `photo`, `disponible`, `categorie`, `description`, `options`, `nbr_commandes`, `taux_tva` FROM `article`;
+-- Migrate article → products (with reference column added)
+INSERT INTO `products` (`id`, `sort_order`, `name`, `price`, `photo`, `available`, `stock`, `reference`, `category_id`, `description`, `options`, `order_count`, `vat_rate`)
+SELECT `id`, `ordre`, `nom`, `prix`, `photo`, `disponible`, `stock`, NULL, `categorie`, `description`, `options`, `nbr_commandes`, `taux_tva` FROM `article`;
 
 -- Migrate categorie → categories
-INSERT INTO `categories` (`id`, `nom`, `ordre`, `taux_tva_default`)
+INSERT INTO `categories` (`id`, `name`, `sort_order`, `default_vat_rate`)
 SELECT `id`, `nom`, `ordre`, `taux_tva_default` FROM `categorie`;
 
 -- Migrate config_etablissement → establishment_config
-INSERT INTO `establishment_config` (`id`, `mode_fonctionnement`, `delai_orange_minutes`, `delai_rouge_minutes`, `updated_at`, `last_order_short_number`, `auto_print_kitchen_ticket`, `kitchen_printer_id`, `kitchen_view_enabled`, `grafana_access_enabled`, `note_printer_id`)
+INSERT INTO `establishment_config` (`id`, `operation_mode`, `orange_delay_minutes`, `red_delay_minutes`, `updated_at`, `last_order_short_number`, `auto_print_kitchen_ticket`, `kitchen_printer_id`, `kitchen_view_enabled`, `grafana_access_enabled`, `note_printer_id`)
 SELECT `id`, `mode_fonctionnement`, `delai_orange_minutes`, `delai_rouge_minutes`, `updated_at`, `last_order_short_number`, `auto_print_kitchen_ticket`, `kitchen_printer_id`, `kitchen_view_enabled`, `grafana_access_enabled`, `note_printer_id` FROM `config_etablissement`;
 
 -- Migrate element_formule → formula_elements
-INSERT INTO `formula_elements` (`id`, `nom`, `id_categorie`)
+INSERT INTO `formula_elements` (`id`, `name`, `category_id`)
 SELECT `id`, `nom`, `id_categorie` FROM `element_formule`;
 
 -- Migrate formule → formulas
-INSERT INTO `formulas` (`id`, `nom`, `prix`, `ordre`, `nbr_commandes`)
+INSERT INTO `formulas` (`id`, `name`, `price`, `sort_order`, `order_count`)
 SELECT `id`, `nom`, `prix`, `ordre`, `nbr_commandes` FROM `formule`;
 
 -- Migrate mur → walls
 INSERT INTO `walls` (`id`, `x1`, `y1`, `x2`, `y2`, `color`)
 SELECT `id`, `x1`, `y1`, `x2`, `y2`, `color` FROM `mur`;
 
--- Migrate panier → orders
-INSERT INTO `orders` (`id`, `short_num_order`, `date`, `token_notif`, `service_type`, `done`, `paid`, `given_at`, `preparation_started_at`)
-SELECT `id`, `short_num_order`, `date`, `token_notif`, `service_type`, `done`, `paid`, `given_at`, `preparation_started_at` FROM `panier`;
+-- Migrate panier → orders (with new English field names and enum values)
+INSERT INTO `orders` (`id`, `short_order_number`, `created_at`, `notification_token`, `service_type`, `done`, `paid`, `given_at`, `preparation_started_at`)
+SELECT `id`, `short_num_order`, `date`, `token_notif`, 
+  CASE WHEN `service_type` = 'emporter' THEN 'takeaway' ELSE 'on_site' END,
+  `done`, `paid`, `given_at`, `preparation_started_at` FROM `panier`;
 
 -- Migrate rel_ef_article → rel_formula_element_product
-INSERT INTO `rel_formula_element_product` (`id_element_formule`, `id_article`, `ordre`)
+INSERT INTO `rel_formula_element_product` (`formula_element_id`, `product_id`, `sort_order`)
 SELECT `id_element_formule`, `id_article`, `ordre` FROM `rel_ef_article`;
 
 -- Migrate rel_ef_formule → rel_formula_element_formula
-INSERT INTO `rel_formula_element_formula` (`id_formule`, `id_element_formule`, `ordre`)
+INSERT INTO `rel_formula_element_formula` (`formula_id`, `formula_element_id`, `sort_order`)
 SELECT `id_formule`, `id_element_formule`, `ordre` FROM `rel_ef_formule`;
 
 -- Migrate rel_panier_article → rel_order_product
-INSERT INTO `rel_order_product` (`panier_id`, `article_id`, `quantite`, `option`, `checked`, `kitchen_view`, `nom_categorie`, `id`, `paid_at`)
+INSERT INTO `rel_order_product` (`order_id`, `product_id`, `quantity`, `options`, `checked`, `kitchen_view`, `category_name`, `item_id`, `paid_at`)
 SELECT `panier_id`, `article_id`, `quantite`, `option`, `checked`, `kitchen_view`, `nom_categorie`, `id`, `paid_at` FROM `rel_panier_article`;
 
 -- Migrate rel_panier_formule → rel_order_formula
-INSERT INTO `rel_order_formula` (`id`, `panier_id`, `formule_id`, `quantite`, `note`, `paid_at`)
+INSERT INTO `rel_order_formula` (`id`, `order_id`, `formula_id`, `quantity`, `note`, `paid_at`)
 SELECT `id`, `panier_id`, `formule_id`, `quantite`, `note`, `paid_at` FROM `rel_panier_formule`;
 
 -- Migrate rel_pf_ef → rel_order_formula_element
-INSERT INTO `rel_order_formula_element` (`id_pf`, `id_ef`, `id_article`, `options`, `checked`, `kitchen_view`, `nom_categorie`, `id`, `created_at`, `preparation_started_at`)
+INSERT INTO `rel_order_formula_element` (`order_formula_id`, `formula_element_id`, `product_id`, `options`, `checked`, `kitchen_view`, `category_name`, `item_id`, `created_at`, `preparation_started_at`)
 SELECT `id_pf`, `id_ef`, `id_article`, `options`, `checked`, `kitchen_view`, `nom_categorie`, `id`, `created_at`, `preparation_started_at` FROM `rel_pf_ef`;
 
 -- Migrate rel_table_panier → rel_table_order
-INSERT INTO `rel_table_order` (`table_id`, `panier_id`)
+INSERT INTO `rel_table_order` (`table_id`, `order_id`)
 SELECT `table_id`, `panier_id` FROM `rel_table_panier`;
 
 -- Migrate `table` → tables
-INSERT INTO `tables` (`id`, `state`, `visible`, `demande_serv`, `new_order_notification`, `qr_data`, `password3D`, `x`, `y`, `nbr_flash`, `nbr_commandes`, `nbr_couverts`, `code_updated_at`)
+INSERT INTO `tables` (`id`, `state`, `visible`, `service_request`, `new_order_notification`, `qr_data`, `password3d`, `x`, `y`, `flash_count`, `order_count`, `guest_count`, `code_updated_at`)
 SELECT `id`, `state`, `visible`, `demande_serv`, `new_order_notification`, `qr_data`, `password3D`, `x`, `y`, `nbr_flash`, `nbr_commandes`, `nbr_couverts`, `code_updated_at` FROM `table`;
 
 -- Migrate theme_admin and theme_client (same structure, just copy)
@@ -88,23 +90,24 @@ USE `DC_POS`;
 INSERT INTO `currencies` (`id`, `label`, `symbol`, `max_value`, `decimals`, `rate`, `fee`)
 SELECT `id`, `label`, `symbol`, `max_value`, `decimals`, `rate`, `fee` FROM `currency`;
 
--- Migrate facturation → transactions (with payment_method and currency as strings + hash)
+-- Migrate facturation → transactions (with payment_method and currency as strings + hash, panier_id -> order_id)
 -- Join with payment_methods and users to get the string values
-INSERT INTO `transactions` (`id`, `panier_id`, `user_id`, `payment_method`, `amount`, `currency`, `note`, `hash`, `created_at`, `updated_at`)
+INSERT INTO `transactions` (`id`, `order_id`, `user_name`, `payment_method`, `amount`, `currency`, `note`, `hash`, `created_at`, `updated_at`)
 SELECT 
     f.`id`,
     f.`panier_id`,
-    f.`user_id`,
+    COALESCE(u.`name`, 'Cashier'),  -- Use user name as string, default to 'Cashier'
     COALESCE(pm.`label`, ''),  -- Use payment method label as string
     f.`amount`,
     COALESCE(c.`label`, '€'),    -- Use currency label as string, default to €
     f.`note`,
-    SHA2(CONCAT(f.`id`, f.`panier_id`, f.`user_id`, COALESCE(pm.`label`, ''), f.`amount`, COALESCE(c.`label`, '€'), f.`created_at`), 256), -- Generate hash
+    SHA2(CONCAT(f.`id`, f.`panier_id`, COALESCE(u.`name`, 'Cashier'), COALESCE(pm.`label`, ''), f.`amount`, COALESCE(c.`label`, '€'), f.`created_at`), 256), -- Generate hash
     f.`created_at`,
     f.`updated_at`
 FROM `facturation` f
 LEFT JOIN `payment_methods` pm ON pm.`id` = f.`payment_method_id`
-LEFT JOIN `currency` c ON c.`id` = f.`currency_id`;
+LEFT JOIN `currency` c ON c.`id` = f.`currency_id`
+LEFT JOIN `users` u ON u.`id` = f.`user_id`;
 
 -- Migrate facturation_article → transaction_items (transaction_id instead of facturation_id)
 INSERT INTO `transaction_items` (`id`, `transaction_id`, `product_id`, `label`, `category`, `amount`, `quantity`, `discount_amount`, `discount_unit`, `total`)
@@ -121,9 +124,9 @@ SELECT
     fa.`total`
 FROM `facturation_article` fa;
 
--- Migrate parameters (same structure)
-INSERT INTO `parameters` (`id`, `param_key`, `param_value`, `updated_at`)
-SELECT `id`, `param_key`, `param_value`, `updated_at` FROM `parameters`;
+-- Migrate parameters (with reference column added)
+INSERT INTO `parameters` (`id`, `param_key`, `param_value`, `reference`, `updated_at`)
+SELECT `id`, `param_key`, `param_value`, NULL, `updated_at` FROM `parameters`;
 
 -- Migrate payment_methods (same structure)
 INSERT INTO `payment_methods` (`id`, `label`, `address`, `currency`, `hidden`, `created_at`)

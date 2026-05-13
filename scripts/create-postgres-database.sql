@@ -1,5 +1,5 @@
 -- ============================================================
--- Create Shop Database with Schema Structure
+-- Create Shop Database with Schema Structure (English Table Names)
 -- 
 -- This script creates a new shop database with the proper schema structure.
 -- It does NOT migrate data - use migrate-to-shop-structure.sh for that.
@@ -29,124 +29,178 @@ CREATE SCHEMA IF NOT EXISTS dc_sys;
 -- STEP 3: Create tables in dc schema (Restaurant Catalog)
 -- ============================================================
 
--- Config établissement
-CREATE TABLE dc.config_etablissement (
+-- Establishment Config (was: config_etablissement)
+CREATE TABLE IF NOT EXISTS dc.establishment_config (
     id SERIAL PRIMARY KEY,
-    mode_fonctionnement VARCHAR(50) NOT NULL DEFAULT 'restaurant',
+    operation_mode VARCHAR(50) NOT NULL DEFAULT 'restaurant',
+    orange_delay_minutes INTEGER DEFAULT 5,
+    red_delay_minutes INTEGER DEFAULT 10,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_order_short_number CHAR(3) DEFAULT '0',
+    auto_print_kitchen_ticket INTEGER DEFAULT 0,
+    kitchen_printer_id INTEGER DEFAULT NULL,
     kitchen_view_enabled BOOLEAN NOT NULL DEFAULT true,
-    grafana_access_enabled BOOLEAN NOT NULL DEFAULT true
+    grafana_access_enabled BOOLEAN NOT NULL DEFAULT true,
+    note_printer_id INTEGER DEFAULT NULL
 );
 
--- Catégories d'articles
-CREATE TABLE dc.categorie (
+-- Categories (was: categorie)
+CREATE TABLE IF NOT EXISTS dc.categories (
     id VARCHAR(10) NOT NULL,
-    nom VARCHAR(50) NOT NULL,
-    ordre INTEGER NOT NULL,
-    taux_tva_default DECIMAL(5,2) DEFAULT 10.00
+    name VARCHAR(50) NOT NULL,
+    sort_order INTEGER NOT NULL,
+    default_vat_rate DECIMAL(5,2) DEFAULT 10.00
 );
-CREATE INDEX idx_categorie_id ON dc.categorie(id);
+CREATE INDEX IF NOT EXISTS idx_categories_id ON dc.categories(id);
 
--- Articles
-CREATE TABLE dc.article (
+-- Products (was: article)
+CREATE TABLE IF NOT EXISTS dc.products (
     id SERIAL PRIMARY KEY,
-    ordre INTEGER NOT NULL,
-    nom VARCHAR(50) NOT NULL DEFAULT '',
-    prix NUMERIC(8,2) NOT NULL DEFAULT 0.00,
+    sort_order INTEGER NOT NULL,
+    name VARCHAR(50) NOT NULL DEFAULT '',
+    price NUMERIC(8,2) NOT NULL DEFAULT 0.00,
     photo VARCHAR(50) NOT NULL DEFAULT '',
-    disponible INTEGER NOT NULL,
-    categorie VARCHAR(50) NOT NULL DEFAULT '',
+    available INTEGER NOT NULL,
+    stock INTEGER NOT NULL DEFAULT 0,
+    reference VARCHAR(255) DEFAULT NULL,
+    category_id VARCHAR(50) NOT NULL DEFAULT '',
     description VARCHAR(300) DEFAULT '',
     options VARCHAR(1000) DEFAULT '',
-    nbr_commandes INTEGER NOT NULL DEFAULT 0,
-    taux_tva NUMERIC(5,2) DEFAULT NULL
+    order_count INTEGER NOT NULL DEFAULT 0,
+    vat_rate NUMERIC(5,2) DEFAULT NULL
 );
 
--- Formules
-CREATE TABLE dc.formule (
+-- Formulas (was: formule)
+CREATE TABLE IF NOT EXISTS dc.formulas (
     id SERIAL PRIMARY KEY,
-    nom VARCHAR(255) NOT NULL,
-    prix NUMERIC(10,2) NOT NULL DEFAULT 0,
-    ordre INTEGER NOT NULL DEFAULT 0
+    name VARCHAR(255) NOT NULL,
+    price NUMERIC(10,2) NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    order_count INTEGER NOT NULL DEFAULT 0
 );
 
--- Éléments de formule
-CREATE TABLE dc.element_formule (
+-- Formula Elements (was: element_formule)
+CREATE TABLE IF NOT EXISTS dc.formula_elements (
     id SERIAL PRIMARY KEY,
-    nom VARCHAR(255) NOT NULL
+    name VARCHAR(255) NOT NULL,
+    category_id VARCHAR(50) DEFAULT NULL
 );
 
--- Relation: élément_formule ↔ formule
-CREATE TABLE dc.rel_ef_formule (
+-- Relation: formula_element ↔ formula (was: rel_ef_formule)
+CREATE TABLE IF NOT EXISTS dc.rel_formula_element_formula (
     id SERIAL PRIMARY KEY,
-    id_formule INTEGER NOT NULL,
-    id_element_formule INTEGER NOT NULL,
-    ordre INTEGER NOT NULL DEFAULT 0,
-    FOREIGN KEY (id_formule) REFERENCES dc.formule(id) ON DELETE CASCADE,
-    FOREIGN KEY (id_element_formule) REFERENCES dc.element_formule(id) ON DELETE CASCADE
+    formula_id INTEGER NOT NULL,
+    formula_element_id INTEGER NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (formula_id) REFERENCES dc.formulas(id) ON DELETE CASCADE,
+    FOREIGN KEY (formula_element_id) REFERENCES dc.formula_elements(id) ON DELETE CASCADE
 );
 
--- Relation: élément_formule ↔ article
-CREATE TABLE dc.rel_ef_article (
+-- Relation: formula_element ↔ product (was: rel_ef_article)
+CREATE TABLE IF NOT EXISTS dc.rel_formula_element_product (
     id SERIAL PRIMARY KEY,
-    id_element_formule INTEGER NOT NULL,
-    id_article INTEGER NOT NULL,
-    ordre INTEGER NOT NULL DEFAULT 0,
-    FOREIGN KEY (id_element_formule) REFERENCES dc.element_formule(id) ON DELETE CASCADE,
-    FOREIGN KEY (id_article) REFERENCES dc.article(id) ON DELETE CASCADE
+    formula_element_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (formula_element_id) REFERENCES dc.formula_elements(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES dc.products(id) ON DELETE CASCADE
 );
 
--- Panier (orders)
-CREATE TABLE dc.panier (
+-- Orders (was: panier)
+CREATE TABLE IF NOT EXISTS dc.orders (
     id SERIAL PRIMARY KEY,
-    short_num_order VARCHAR(50),
-    service_type VARCHAR(20) DEFAULT 'sur_place',
+    short_order_number VARCHAR(50),
+    service_type VARCHAR(20) DEFAULT 'on_site',
+    done BOOLEAN NOT NULL DEFAULT false,
     paid BOOLEAN NOT NULL DEFAULT false,
+    given_at TIMESTAMP,
     preparation_started_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    notification_token VARCHAR(200)
 );
 
--- Relation: panier ↔ article
-CREATE TABLE dc.rel_panier_article (
+-- Relation: order ↔ product (was: rel_panier_article)
+CREATE TABLE IF NOT EXISTS dc.rel_order_product (
     id SERIAL PRIMARY KEY,
-    panier_id INTEGER NOT NULL,
-    article_id INTEGER NOT NULL,
-    quantite INTEGER NOT NULL DEFAULT 1,
-    nom_categorie VARCHAR(255),
-    option TEXT,
+    order_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    category_name VARCHAR(255),
+    options TEXT,
     paid_at TIMESTAMP,
     kitchen_view BOOLEAN NOT NULL DEFAULT false,
-    FOREIGN KEY (panier_id) REFERENCES dc.panier(id) ON DELETE CASCADE,
-    FOREIGN KEY (article_id) REFERENCES dc.article(id) ON DELETE CASCADE
+    checked BOOLEAN NOT NULL DEFAULT false,
+    item_id VARCHAR(32),
+    FOREIGN KEY (order_id) REFERENCES dc.orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES dc.products(id) ON DELETE CASCADE
 );
 
--- Relation: panier ↔ formule
-CREATE TABLE dc.rel_panier_formule (
+-- Relation: order ↔ formula (was: rel_panier_formule)
+CREATE TABLE IF NOT EXISTS dc.rel_order_formula (
     id SERIAL PRIMARY KEY,
-    panier_id INTEGER NOT NULL,
-    formule_id INTEGER NOT NULL,
-    quantite INTEGER NOT NULL DEFAULT 1,
+    order_id INTEGER NOT NULL,
+    formula_id INTEGER NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
     note TEXT,
     paid_at TIMESTAMP,
-    FOREIGN KEY (panier_id) REFERENCES dc.panier(id) ON DELETE CASCADE,
-    FOREIGN KEY (formule_id) REFERENCES dc.formule(id) ON DELETE CASCADE
+    FOREIGN KEY (order_id) REFERENCES dc.orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (formula_id) REFERENCES dc.formulas(id) ON DELETE CASCADE
 );
 
--- Relation: panier_formule ↔ éléments
-CREATE TABLE dc.rel_pf_ef (
+-- Relation: order_formula ↔ elements (was: rel_pf_ef)
+CREATE TABLE IF NOT EXISTS dc.rel_order_formula_element (
     id SERIAL PRIMARY KEY,
-    id_pf INTEGER NOT NULL,
-    id_ef INTEGER NOT NULL,
-    id_article INTEGER NOT NULL,
-    nom_categorie VARCHAR(255),
+    order_formula_id INTEGER NOT NULL,
+    formula_element_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    category_name VARCHAR(255),
     options TEXT,
     kitchen_view BOOLEAN NOT NULL DEFAULT false,
-    FOREIGN KEY (id_pf) REFERENCES dc.rel_panier_formule(id) ON DELETE CASCADE,
-    FOREIGN KEY (id_ef) REFERENCES dc.element_formule(id) ON DELETE CASCADE,
-    FOREIGN KEY (id_article) REFERENCES dc.article(id) ON DELETE CASCADE
+    checked BOOLEAN NOT NULL DEFAULT false,
+    item_id VARCHAR(32),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    preparation_started_at TIMESTAMP,
+    FOREIGN KEY (order_formula_id) REFERENCES dc.rel_order_formula(id) ON DELETE CASCADE,
+    FOREIGN KEY (formula_element_id) REFERENCES dc.formula_elements(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES dc.products(id) ON DELETE CASCADE
 );
 
--- Thème admin
-CREATE TABLE dc.theme_admin (
+-- Walls (was: mur)
+CREATE TABLE IF NOT EXISTS dc.walls (
+    id SERIAL PRIMARY KEY,
+    x1 INTEGER NOT NULL,
+    y1 INTEGER NOT NULL,
+    x2 INTEGER NOT NULL,
+    y2 INTEGER NOT NULL,
+    color VARCHAR(50) DEFAULT '#252535'
+);
+
+-- Relation: table ↔ order (was: rel_table_panier)
+CREATE TABLE IF NOT EXISTS dc.rel_table_order (
+    table_id VARCHAR(16) NOT NULL,
+    order_id INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_rel_table_order ON dc.rel_table_order(order_id, table_id);
+
+-- Tables (was: table - reserved keyword)
+CREATE TABLE IF NOT EXISTS dc.tables (
+    id INTEGER PRIMARY KEY,
+    state VARCHAR(50) DEFAULT 'ready',
+    visible INTEGER DEFAULT 0,
+    service_request INTEGER DEFAULT 0,
+    new_order_notification INTEGER DEFAULT 0,
+    qr_data VARCHAR(64) DEFAULT '',
+    password3d VARCHAR(3) DEFAULT NULL,
+    x INTEGER DEFAULT 0,
+    y INTEGER DEFAULT 0,
+    flash_count INTEGER DEFAULT 0,
+    order_count INTEGER DEFAULT 0,
+    guest_count INTEGER DEFAULT NULL,
+    code_updated_at TIMESTAMP DEFAULT NULL
+);
+
+-- Admin Themes
+CREATE TABLE IF NOT EXISTS dc.theme_admin (
     id SERIAL PRIMARY KEY,
     selected BOOLEAN NOT NULL DEFAULT false,
     name VARCHAR(50) NOT NULL DEFAULT 'unnamed',
@@ -166,8 +220,8 @@ CREATE TABLE dc.theme_admin (
     secondary_activated_dark VARCHAR(9) DEFAULT '#4A90D9'
 );
 
--- Thème client
-CREATE TABLE dc.theme_client (
+-- Client Themes
+CREATE TABLE IF NOT EXISTS dc.theme_client (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL DEFAULT 'unnamed',
     primary_text VARCHAR(9) NOT NULL,
@@ -185,24 +239,26 @@ CREATE TABLE dc.theme_client (
 -- STEP 4: Create tables in dc_pos schema (POS/Transactions)
 -- ============================================================
 
--- Users (caissiers)
-CREATE TABLE dc_pos.users (
-    id VARCHAR(255) PRIMARY KEY,
-    key VARCHAR(255),
+-- Users (cashiers) - default name is 'Comptoir' (handled in app code)
+CREATE TABLE IF NOT EXISTS dc_pos.users (
+    id SERIAL PRIMARY KEY,
+    key VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'Cashier',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Parameters
-CREATE TABLE dc_pos.parameters (
+CREATE TABLE IF NOT EXISTS dc_pos.parameters (
     id SERIAL PRIMARY KEY,
     param_key VARCHAR(255) NOT NULL,
-    param_value TEXT
+    param_value TEXT,
+    reference VARCHAR(255) DEFAULT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Currency
-CREATE TABLE dc_pos.currency (
+-- Currencies (was: currency)
+CREATE TABLE IF NOT EXISTS dc_pos.currencies (
     id SERIAL PRIMARY KEY,
     label VARCHAR(255) NOT NULL,
     symbol VARCHAR(10) NOT NULL,
@@ -213,8 +269,8 @@ CREATE TABLE dc_pos.currency (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Payment methods
-CREATE TABLE dc_pos.payment_methods (
+-- Payment Methods
+CREATE TABLE IF NOT EXISTS dc_pos.payment_methods (
     id SERIAL PRIMARY KEY,
     label VARCHAR(255) NOT NULL,
     address VARCHAR(255) DEFAULT '0',
@@ -223,25 +279,27 @@ CREATE TABLE dc_pos.payment_methods (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Facturation (transactions)
-CREATE TABLE dc_pos.facturation (
+-- Transactions (was: facturation) - with payment_method and currency as strings + hash
+CREATE TABLE IF NOT EXISTS dc_pos.transactions (
     id SERIAL PRIMARY KEY,
-    panier_id VARCHAR(255),
-    user_id VARCHAR(255),
-    payment_method_id INTEGER,
+    order_id VARCHAR(255),
+    user_name VARCHAR(255) NOT NULL DEFAULT 'Cashier',
+    payment_method VARCHAR(50) NOT NULL DEFAULT '',
     amount NUMERIC(10,2) NOT NULL DEFAULT 0,
-    currency_id INTEGER,
+    currency VARCHAR(10) NOT NULL DEFAULT '',
     note TEXT,
+    hash VARCHAR(64) UNIQUE,
     created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
-    FOREIGN KEY (payment_method_id) REFERENCES dc_pos.payment_methods(id) ON DELETE SET NULL,
-    FOREIGN KEY (currency_id) REFERENCES dc_pos.currency(id) ON DELETE SET NULL
+    updated_at TIMESTAMP NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_transactions_payment_method ON dc_pos.transactions(payment_method);
+CREATE INDEX IF NOT EXISTS idx_transactions_currency ON dc_pos.transactions(currency);
+CREATE INDEX IF NOT EXISTS idx_transactions_hash ON dc_pos.transactions(hash);
 
--- Facturation articles (with DECIMAL quantity support)
-CREATE TABLE dc_pos.facturation_article (
+-- Transaction Items (was: facturation_article) - with DECIMAL quantity support
+CREATE TABLE IF NOT EXISTS dc_pos.transaction_items (
     id SERIAL PRIMARY KEY,
-    facturation_id INTEGER NOT NULL,
+    transaction_id INTEGER NOT NULL,
     label VARCHAR(255) NOT NULL,
     category VARCHAR(255),
     amount NUMERIC(10,2) NOT NULL DEFAULT 0,
@@ -249,31 +307,38 @@ CREATE TABLE dc_pos.facturation_article (
     discount_amount NUMERIC(10,2) DEFAULT 0,
     discount_unit VARCHAR(10) DEFAULT '%',
     total NUMERIC(10,2) NOT NULL DEFAULT 0,
-    FOREIGN KEY (facturation_id) REFERENCES dc_pos.facturation(id) ON DELETE CASCADE
+    FOREIGN KEY (transaction_id) REFERENCES dc_pos.transactions(id) ON DELETE CASCADE
 );
 
 -- Printers
-CREATE TABLE dc_pos.printers (
+CREATE TABLE IF NOT EXISTS dc_pos.printers (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     ip_address VARCHAR(45)
 );
 
 -- Discounts
-CREATE TABLE dc_pos.discounts (
+CREATE TABLE IF NOT EXISTS dc_pos.discounts (
     id SERIAL PRIMARY KEY,
     value DECIMAL(10,2) NOT NULL,
-    unity_type VARCHAR(10) NOT NULL, -- '%' or 'currency'
-    currency_id INTEGER,
-    FOREIGN KEY (currency_id) REFERENCES dc_pos.currency(id) ON DELETE SET NULL
+    unity VARCHAR(10) NOT NULL -- '%' or 'currency'
+);
+
+-- Users (default name is 'Comptoir' - handled in app code)
+CREATE TABLE IF NOT EXISTS dc_pos.users (
+    id SERIAL PRIMARY KEY,
+    key VARCHAR(50) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    role VARCHAR(50) NOT NULL DEFAULT 'Cashier',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================================
 -- STEP 5: Create tables in dc_sys schema (System)
 -- ============================================================
 
--- Logs
-CREATE TABLE dc_sys.logs (
+-- Logs (was: log)
+CREATE TABLE IF NOT EXISTS dc_sys.logs (
     id SERIAL PRIMARY KEY,
     level VARCHAR(20) NOT NULL,
     message TEXT NOT NULL,
@@ -281,8 +346,8 @@ CREATE TABLE dc_sys.logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- OTA (Over-the-air updates)
-CREATE TABLE dc_sys.ota (
+-- OTA (Over-the-air updates) (was: ota)
+CREATE TABLE IF NOT EXISTS dc_sys.ota_updates (
     id SERIAL PRIMARY KEY,
     version VARCHAR(50) NOT NULL,
     url TEXT NOT NULL,
@@ -290,57 +355,11 @@ CREATE TABLE dc_sys.ota (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Web tokens
-CREATE TABLE dc_sys.web_token (
+-- Web Tokens (was: web_token)
+CREATE TABLE IF NOT EXISTS dc_sys.web_tokens (
     id SERIAL PRIMARY KEY,
     token VARCHAR(255) NOT NULL UNIQUE,
     user_id VARCHAR(255),
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
--- ============================================================
--- STEP 6: Set default search path
--- ============================================================
-
--- This allows you to query tables without schema prefix
-ALTER DATABASE annette SET search_path TO dc_pos, dc, dc_sys, public;
-
--- ============================================================
--- STEP 7: Verification
--- ============================================================
-
-SELECT '✅ Database "annette" created with schemas: dc, dc_pos, dc_sys' AS result;
-
--- Show empty table structure
-SELECT 'dc_pos Schema' as schema_name, '' as table_name
-UNION ALL
-SELECT '', 'users'
-UNION ALL
-SELECT '', 'payment_methods'
-UNION ALL
-SELECT '', 'facturation'
-UNION ALL
-SELECT '', 'facturation_article'
-UNION ALL
-SELECT '', ''
-UNION ALL
-SELECT 'dc Schema', ''
-UNION ALL
-SELECT '', 'article'
-UNION ALL
-SELECT '', 'categorie'
-UNION ALL
-SELECT '', 'panier'
-UNION ALL
-SELECT '', ''
-UNION ALL
-SELECT 'dc_sys Schema', ''
-UNION ALL
-SELECT '', 'logs'
-UNION ALL
-SELECT '', 'ota'
-UNION ALL
-SELECT '', 'web_token';
-
-SELECT '📝 Next: Import your Firestore data using firestore-to-postgres.ts' AS next_step;

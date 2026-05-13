@@ -458,16 +458,18 @@ async function migrateProducts(client: Client) {
         return;
     }
 
-    const categories = new Map<string, { nom: string; ordre: number; taux_tva_default: number }>();
+    const categories = new Map<string, { name: string; sort_order: number; default_vat_rate: number }>();
     const products: Array<{
-        ordre: number;
-        nom: string;
-        prix: number;
+        sort_order: number;
+        name: string;
+        price: number;
         photo: string;
-        disponible: number;
-        categorie: string;
-        taux_tva: number;
+        available: number;
+        category_id: string;
         description: string;
+        vat_rate: number;
+        stock: number;
+        reference: string | null;
         options: string;
     }> = [];
 
@@ -510,32 +512,34 @@ async function migrateProducts(client: Client) {
                     }
                 }
             }
-            const categorie = String(row[1]).trim();
-            const nom = String(row[2]).trim();
+            const category_id = String(row[1]).trim();
+            const name = String(row[2]).trim();
             const unavailable = row[3]; // true/false or 1/0
-            const disponible = unavailable ? 0 : 1; // Invert: unavailable -> disponible
-            const prix = Number(row[4]) || 0; // First price (Euro)
+            const available = unavailable ? 0 : 1; // Invert: unavailable -> available
+            const price = Number(row[4]) || 0; // First price (Euro)
             const options = optionsArr[origIdx] ?? '';
 
-            if (nom && categorie) {
+            if (name && category_id) {
                 // Track category with its VAT rate
-                if (!categories.has(categorie)) {
-                    categories.set(categorie, {
-                        nom: categorie,
-                        ordre: categories.size + 1,
-                        taux_tva_default: taux_tva,
+                if (!categories.has(category_id)) {
+                    categories.set(category_id, {
+                        name: category_id,
+                        sort_order: categories.size + 1,
+                        default_vat_rate: taux_tva,
                     });
                 }
 
-                // Add article
+                // Add product
                 products.push({
-                    ordre: ++ordre,
-                    nom,
-                    prix,
+                    sort_order: ++ordre,
+                    name,
+                    price,
                     photo: '', // No photo in spreadsheet
-                    disponible,
-                    categorie,
-                    taux_tva,
+                    available,
+                    stock: 0,
+                    reference: null,
+                    category_id,
+                    vat_rate: taux_tva,
                     description: '', // No description in spreadsheet
                     options: String(options || ''),
                 });
@@ -546,12 +550,10 @@ async function migrateProducts(client: Client) {
     // Insert categories
     let catCount = 0;
     for (const [id, cat] of categories) {
-        await client.query('INSERT INTO dc.categories (id, nom, ordre, taux_tva_default) VALUES ($1, $2, $3, $4)', [
-            id,
-            cat.nom,
-            cat.ordre,
-            cat.taux_tva_default,
-        ]);
+        await client.query(
+            'INSERT INTO dc.categories (id, name, sort_order, default_vat_rate) VALUES ($1, $2, $3, $4)',
+            [id, cat.name, cat.sort_order, cat.default_vat_rate]
+        );
         catCount++;
     }
 
@@ -560,16 +562,18 @@ async function migrateProducts(client: Client) {
     for (const product of products) {
         await client.query(
             `INSERT INTO dc.products (
-                ordre, nom, prix, photo, disponible, categorie, taux_tva, description, options
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                sort_order, name, price, photo, available, stock, reference, category_id, vat_rate, description, options
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
             [
-                product.ordre,
-                product.nom,
-                product.prix,
+                product.sort_order,
+                product.name,
+                product.price,
                 product.photo,
-                product.disponible,
-                product.categorie,
-                product.taux_tva,
+                product.available,
+                product.stock,
+                product.reference,
+                product.category_id,
+                product.vat_rate,
                 product.description,
                 product.options,
             ]
@@ -577,7 +581,7 @@ async function migrateProducts(client: Client) {
         artCount++;
     }
 
-    console.log(`✅ Migrated ${catCount} categories and ${artCount} articles`);
+    console.log(`✅ Migrated ${catCount} categories and ${artCount} products`);
 }
 
 /**
