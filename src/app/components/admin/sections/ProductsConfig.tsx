@@ -76,6 +76,7 @@ export default function ProductsConfig({
         useStock: boolean;
         usePhoto: boolean;
         useDescription: boolean;
+        useOptions: boolean;
     };
 }) {
     const [products, setProducts] = useState(config || []);

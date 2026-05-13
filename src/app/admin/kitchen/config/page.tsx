@@ -172,6 +172,7 @@ export default function SettingsPage() {
                                         useStock: parsed.useStock ?? false,
                                         usePhoto: parsed.usePhoto ?? false,
                                         useDescription: parsed.useDescription ?? false,
+                                        useOptions: parsed.useOptions ?? false,
                                     };
                                 }
                             }
@@ -556,7 +557,7 @@ export default function SettingsPage() {
     if (isLoading) {
         return (
             <AdminPageLayout title="Configuration" hasChanges={false}>
-                <LoadingDot fullscreen={false} />
+                <LoadingDot fullscreen />
             </AdminPageLayout>
         );
     }

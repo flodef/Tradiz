@@ -120,6 +120,7 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
                             useStock: parsed.useStock ?? false,
                             usePhoto: parsed.usePhoto ?? false,
                             useDescription: parsed.useDescription ?? false,
+                            useOptions: parsed.useOptions ?? false,
                         };
                     }
                 }

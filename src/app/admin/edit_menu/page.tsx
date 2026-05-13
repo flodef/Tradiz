@@ -13,7 +13,7 @@ import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
 import { LoadingDot } from '@/app/loading';
 
 export default function EditMenuPage() {
-    const { inventory, currencies } = useConfig();
+    const { inventory, currencies, parameters } = useConfig();
     const { isCashier } = useUserRole();
     const { openFullscreenPopup } = usePopup();
     const [products, setProducts] = useState<AdminProduct[]>([]);
@@ -101,11 +101,11 @@ export default function EditMenuPage() {
                 }
 
                 // Parse products (skip header row)
-                // Column order: Taux, Catégorie, Nom, Indisponible, Stock, Reference, Photo, Description, Euro (€), ...
+                // Column order: Taux, Catégorie, Nom, Stock, Reference, Photo, Description, Euro (€), ...
                 const loadedProducts: AdminProduct[] = [];
                 if (productsData.values && productsData.values.length > 1) {
                     for (let i = 1; i < productsData.values.length; i++) {
-                        const [, category, name, , stock, reference, photo, description, ...prices] =
+                        const [, category, name, stock, reference, photo, description, ...prices] =
                             productsData.values[i];
                         const stockNum = Number(stock);
                         loadedProducts.push({
@@ -229,7 +229,7 @@ export default function EditMenuPage() {
     if (isLoading) {
         return (
             <AdminPageLayout title="Édition des produits" hasChanges={false}>
-                <LoadingDot fullscreen={false} />
+                <LoadingDot fullscreen />
             </AdminPageLayout>
         );
     }
@@ -283,6 +283,7 @@ export default function EditMenuPage() {
                     isLoading={isSavingProducts}
                     isOpen={openSection === 'products'}
                     onToggle={() => setOpenSection((prev) => (prev === 'products' ? null : 'products'))}
+                    productsSettings={parameters?.products}
                 />
             </div>
         </AdminPageLayout>

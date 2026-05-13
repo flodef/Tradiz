@@ -49,6 +49,7 @@ export interface ProductsSettings {
     useStock: boolean;
     usePhoto: boolean;
     useDescription: boolean;
+    useOptions: boolean;
 }
 
 export interface Parameters {

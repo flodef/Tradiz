@@ -234,6 +234,7 @@ export default function ParametersConfig({
                                         useStock: false,
                                         usePhoto: false,
                                         useDescription: false,
+                                        useOptions: false,
                                     }),
                                     useVatPerProduct: checked,
                                 } as ProductsSettings)
@@ -253,6 +254,7 @@ export default function ParametersConfig({
                                         useStock: false,
                                         usePhoto: false,
                                         useDescription: false,
+                                        useOptions: false,
                                     }),
                                     useReference: checked,
                                 } as ProductsSettings)
@@ -272,6 +274,7 @@ export default function ParametersConfig({
                                         useStock: false,
                                         usePhoto: false,
                                         useDescription: false,
+                                        useOptions: false,
                                     }),
                                     useStock: checked,
                                 } as ProductsSettings)
@@ -291,6 +294,7 @@ export default function ParametersConfig({
                                         useStock: false,
                                         usePhoto: false,
                                         useDescription: false,
+                                        useOptions: false,
                                     }),
                                     usePhoto: checked,
                                 } as ProductsSettings)
@@ -310,6 +314,7 @@ export default function ParametersConfig({
                                         useStock: false,
                                         usePhoto: false,
                                         useDescription: false,
+                                        useOptions: false,
                                     }),
                                     useDescription: checked,
                                 } as ProductsSettings)
@@ -317,6 +322,26 @@ export default function ParametersConfig({
                             disabled={isReadOnly}
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser description</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.products?.useOptions ?? false}
+                            onChange={(checked) =>
+                                handleChange('products', {
+                                    ...(config.products ?? {
+                                        useVatPerProduct: false,
+                                        useReference: false,
+                                        useStock: false,
+                                        usePhoto: false,
+                                        useDescription: false,
+                                        useOptions: false,
+                                    }),
+                                    useOptions: checked,
+                                } as ProductsSettings)
+                            }
+                            disabled={isReadOnly}
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser options</span>
                     </div>
                 </div>
             </div>
