@@ -464,7 +464,6 @@ async function migrateProducts(client: Client) {
         name: string;
         price: number;
         photo: string;
-        available: number;
         category_id: string;
         description: string;
         vat_rate: number;
@@ -515,7 +514,8 @@ async function migrateProducts(client: Client) {
             const category_id = String(row[1]).trim();
             const name = String(row[2]).trim();
             const unavailable = row[3]; // true/false or 1/0
-            const available = unavailable ? 0 : 1; // Invert: unavailable -> available
+            // stock = -1 means infinite (available), stock = 0 means out of stock (unavailable)
+            const stock = unavailable ? 0 : -1;
             const price = Number(row[4]) || 0; // First price (Euro)
             const options = optionsArr[origIdx] ?? '';
 
@@ -535,8 +535,7 @@ async function migrateProducts(client: Client) {
                     name,
                     price,
                     photo: '', // No photo in spreadsheet
-                    available,
-                    stock: 0,
+                    stock,
                     reference: null,
                     category_id,
                     vat_rate: taux_tva,
@@ -549,11 +548,12 @@ async function migrateProducts(client: Client) {
 
     // Insert categories
     let catCount = 0;
-    for (const [id, cat] of categories) {
-        await client.query(
-            'INSERT INTO dc.categories (id, name, sort_order, default_vat_rate) VALUES ($1, $2, $3, $4)',
-            [id, cat.name, cat.sort_order, cat.default_vat_rate]
-        );
+    for (const [, cat] of categories) {
+        await client.query('INSERT INTO dc.categories (name, sort_order, default_vat_rate) VALUES ($1, $2, $3)', [
+            cat.name,
+            cat.sort_order,
+            cat.default_vat_rate,
+        ]);
         catCount++;
     }
 
@@ -562,14 +562,13 @@ async function migrateProducts(client: Client) {
     for (const product of products) {
         await client.query(
             `INSERT INTO dc.products (
-                sort_order, name, price, photo, available, stock, reference, category_id, vat_rate, description, options
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                sort_order, name, price, photo, stock, reference, category_id, vat_rate, description, options
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
             [
                 product.sort_order,
                 product.name,
                 product.price,
                 product.photo,
-                product.available,
                 product.stock,
                 product.reference,
                 product.category_id,

@@ -22,8 +22,7 @@ CREATE TABLE IF NOT EXISTS `products` (
   `name` varchar(50) NOT NULL DEFAULT '',
   `price` decimal(8,2) NOT NULL DEFAULT 0.00,
   `photo` varchar(50) NOT NULL DEFAULT '',
-  `available` int(2) NOT NULL,
-  `stock` int(11) NOT NULL DEFAULT 0,
+  `stock` int(11) NOT NULL DEFAULT -1,
   `reference` varchar(255) DEFAULT NULL,
   `category_id` varchar(50) NOT NULL DEFAULT '',
   `description` varchar(300) DEFAULT '',
@@ -35,12 +34,13 @@ CREATE TABLE IF NOT EXISTS `products` (
 
 -- Categories (was: categorie)
 CREATE TABLE IF NOT EXISTS `categories` (
-  `id` varchar(10) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL,
   `sort_order` int(3) NOT NULL,
   `default_vat_rate` decimal(5,2) DEFAULT 10.00,
-  KEY `Index 1` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Establishment Config (was: config_etablissement)
 CREATE TABLE IF NOT EXISTS `establishment_config` (

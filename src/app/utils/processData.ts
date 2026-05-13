@@ -138,7 +138,6 @@ interface ProductData {
         label: string;
         prices: number[];
         options?: string | null;
-        availability: boolean;
         stock?: number;
         order: number;
     }[];
@@ -289,7 +288,6 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
                 label: item.label,
                 prices: item.prices,
                 options: item.options,
-                availability: item.availability,
                 stock: item.stock ?? 0,
                 order: item.order,
             });
@@ -303,7 +301,6 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
                         label: item.label,
                         prices: item.prices,
                         options: item.options,
-                        availability: item.availability,
                         stock: item.stock ?? 0,
                         order: item.order,
                     },
@@ -607,17 +604,16 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
                                 rate: Number(item.at(0)) * 100,
                                 category: normalizedString(item.at(1)),
                                 label: normalizedString(item.at(2)),
-                                availability: !item[3],
-                                stock: Number(item.at(4)) || 0,
-                                reference: item[5] != null ? String(item[5]).trim() : null,
-                                photo: item[6] != null ? String(item[6]).trim() : null,
-                                description: item[7] != null ? String(item[7]).trim() : null,
+                                stock: Number(item.at(3)) === -1 ? 0 : Number(item.at(4)) || 0,
+                                reference: String(item[4]).trim(),
+                                photo: String(item[5]).trim(),
+                                description: String(item[6]).trim(),
                                 order: rowOrder,
-                                prices: item.filter((_, i) => i >= 8).map((price) => Number(price)),
+                                prices: item.filter((_, i) => i >= 7).map((price) => Number(price)),
                                 options: optionsArr[origIdx] ?? null,
                             };
                         }),
-                        currencies: data.values[0].filter((_, i) => i >= 8).map((currency) => String(currency).trim()),
+                        currencies: data.values[0].filter((_, i) => i >= 7).map((currency) => String(currency).trim()),
                     };
                 }
             );

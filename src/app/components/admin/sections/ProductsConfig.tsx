@@ -20,7 +20,6 @@ type SortDirection = 'asc' | 'desc';
 export interface AdminProduct {
     name: string;
     category: string;
-    availability: boolean;
     stock: number;
     currencies: string[];
     vat?: number;
@@ -169,7 +168,7 @@ export default function ProductsConfig({
     };
 
     const handleAddProduct = (category = '') => {
-        const newProduct: AdminProduct = { name: '', category, availability: false, stock: 0, currencies: [] };
+        const newProduct: AdminProduct = { name: '', category, stock: 0, currencies: [] };
         const updated = [...products, newProduct];
         setProducts(updated);
         onChange(updated);
@@ -181,8 +180,8 @@ export default function ProductsConfig({
         return products
             .map((p, i) => ({ p, i }))
             .filter(({ p }) => {
-                if (availFilter === 'available' && !p.availability) return false;
-                if (availFilter === 'unavailable' && p.availability) return false;
+                if (availFilter === 'available' && p.stock === 0) return false;
+                if (availFilter === 'unavailable' && p.stock !== 0) return false;
                 if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
                 return true;
             });
@@ -211,7 +210,7 @@ export default function ProductsConfig({
                     const priceB = parseFloat(b.p.currencies[0] || '0');
                     comparison = priceA - priceB;
                 } else if (sortField === 'availability') {
-                    comparison = (a.p.availability ? 1 : 0) - (b.p.availability ? 1 : 0);
+                    comparison = (a.p.stock === 0 ? 1 : 0) - (b.p.stock === 0 ? 1 : 0);
                 }
                 return sortDirection === 'asc' ? comparison : -comparison;
             });
@@ -456,7 +455,7 @@ export default function ProductsConfig({
                                                         </svg>
                                                         {cat}{' '}
                                                         {availFilter === 'all'
-                                                            ? `(${categoryGroups[cat].filter(({ p }) => p.availability).length} / ${categoryGroups[cat].length} produit${categoryGroups[cat].length > 1 ? 's' : ''})`
+                                                            ? `(${categoryGroups[cat].filter(({ p }) => p.stock !== 0).length} / ${categoryGroups[cat].length} produit${categoryGroups[cat].length > 1 ? 's' : ''})`
                                                             : `(${categoryGroups[cat].length} produit${categoryGroups[cat].length > 1 ? 's' : ''})`}
                                                     </div>
                                                 </td>
@@ -603,12 +602,12 @@ export default function ProductsConfig({
                                                             <td className="p-2 text-center">
                                                                 <div className="flex justify-center">
                                                                     <AvailabilityToggle
-                                                                        availability={p.availability}
+                                                                        availability={p.stock !== 0}
                                                                         isReadOnly={isReadOnly}
                                                                         onChange={(newValue) =>
                                                                             handleProductChange(i, {
                                                                                 ...p,
-                                                                                availability: newValue,
+                                                                                stock: newValue ? 1 : 0,
                                                                             })
                                                                         }
                                                                     />

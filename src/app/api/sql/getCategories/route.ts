@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
 
 interface CategoryRow {
-    id: string;
+    id: number;
     name: string;
     sort_order: number;
     default_vat_rate: number | null;

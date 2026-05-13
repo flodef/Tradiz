@@ -480,7 +480,7 @@ export const Category: FC = () => {
                 .sort((a, b) => a.order - b.order)
                 .map((item) => ({
                     ...item,
-                    products: item.products.filter((p) => p.availability).sort((a, b) => a.order - b.order),
+                    products: item.products.filter((p) => p.stock !== 0).sort((a, b) => a.order - b.order),
                 }))
                 .filter((item) => item.products.length > 0 || true), // keep category even if empty (for OTHER_KEYWORD)
         [inventory]

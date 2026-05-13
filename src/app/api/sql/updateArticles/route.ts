@@ -24,75 +24,51 @@ export async function POST(request: Request) {
         const connection = await getMainDb();
 
         // Update each product
-        for (const product of products as Product[]) {
-            // First, get the category ID
-            const categoryQuery = connection.isPostgreSQL
-                ? 'SELECT id FROM dc.categories WHERE name = $1'
-                : 'SELECT id FROM categories WHERE name = ?';
-            const [categoryRows] = await connection.execute(categoryQuery, [product.category]);
-
-            const rows = categoryRows as { id: string }[];
-            if (rows.length === 0) {
-                console.warn(`Category not found: ${product.category}`);
-                continue;
-            }
-
-            const categoryId = rows[0].id;
+        for (let i = 0; i < (products as Product[]).length; i++) {
+            const product = (products as Product[])[i];
+            const sortOrder = i + 1;
             const price = parseFloat(product.currencies[0]) || 0;
-            const available = product.availability ? 1 : 0;
-            const stock = product.stock ?? 0;
+            // stock=-1 means infinite (available), stock=0 means unavailable
+            const stock = product.availability ? (product.stock === 0 ? -1 : product.stock) : 0;
             const vatRate = product.vat ?? null;
             const reference = product.reference ?? null;
             const photo = product.photo ?? '';
             const description = product.description ?? '';
+            const categoryId = product.category; // category_id stores the category name
 
             // Update or insert the product
             if (connection.isPostgreSQL) {
-                // PostgreSQL: Check if product exists, then update or insert
                 const [existing] = await connection.execute('SELECT id FROM dc.products WHERE name = $1', [
                     product.name,
                 ]);
-                const productRows = existing as { id: string }[];
+                const productRows = existing as { id: number }[];
 
                 if (productRows.length > 0) {
-                    // Update existing
                     await connection.execute(
-                        'UPDATE dc.products SET price = $1, category_id = $2, available = $3, stock = $4, vat_rate = $5, reference = $6, photo = $7, description = $8 WHERE name = $9',
-                        [price, categoryId, available, stock, vatRate, reference, photo, description, product.name]
+                        'UPDATE dc.products SET price = $1, category_id = $2, stock = $3, vat_rate = $4, reference = $5, photo = $6, description = $7, sort_order = $8 WHERE name = $9',
+                        [price, categoryId, stock, vatRate, reference, photo, description, sortOrder, product.name]
                     );
                 } else {
-                    // Insert new
                     await connection.execute(
-                        'INSERT INTO dc.products (name, price, category_id, available, stock, reference, photo, description, sort_order, vat_rate) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 999, $9)',
-                        [product.name, price, categoryId, available, stock, reference, photo, description, vatRate]
+                        'INSERT INTO dc.products (name, price, category_id, stock, reference, photo, description, sort_order, vat_rate) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+                        [product.name, price, categoryId, stock, reference, photo, description, sortOrder, vatRate]
                     );
                 }
             } else {
-                // MariaDB: Use ON DUPLICATE KEY UPDATE
-                const query = `
-                    INSERT INTO products (name, price, category_id, available, stock, reference, photo, description, sort_order, vat_rate)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 999, ?)
-                    ON DUPLICATE KEY UPDATE
-                        price = VALUES(price),
-                        category_id = VALUES(category_id),
-                        available = VALUES(available),
-                        stock = VALUES(stock),
-                        reference = VALUES(reference),
-                        photo = VALUES(photo),
-                        description = VALUES(description),
-                        vat_rate = VALUES(vat_rate)
-                `;
-                await connection.execute(query, [
-                    product.name,
-                    price,
-                    categoryId,
-                    available,
-                    stock,
-                    reference,
-                    photo,
-                    description,
-                    vatRate,
-                ]);
+                const [existing] = await connection.execute('SELECT id FROM products WHERE name = ?', [product.name]);
+                const productRows = existing as { id: number }[];
+
+                if (productRows.length > 0) {
+                    await connection.execute(
+                        'UPDATE products SET price = ?, category_id = ?, stock = ?, vat_rate = ?, reference = ?, photo = ?, description = ?, sort_order = ? WHERE name = ?',
+                        [price, categoryId, stock, vatRate, reference, photo, description, sortOrder, product.name]
+                    );
+                } else {
+                    await connection.execute(
+                        'INSERT INTO products (name, price, category_id, stock, reference, photo, description, sort_order, vat_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                        [product.name, price, categoryId, stock, reference, photo, description, sortOrder, vatRate]
+                    );
+                }
             }
         }
 

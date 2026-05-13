@@ -48,7 +48,7 @@ export default function ProductItem({
                     </div>
                     <div>
                         <label className={adminTextStyle}>Disponibilité</label>
-                        <AvailabilityToggle availability={product.availability} isReadOnly={true} />
+                        <AvailabilityToggle availability={product.stock !== 0} isReadOnly={true} />
                     </div>
                 </div>
             </div>
@@ -115,9 +115,9 @@ export default function ProductItem({
                 <div className="flex flex-col">
                     <label className={adminTextStyle}>Disponibilité</label>
                     <AvailabilityToggle
-                        availability={product.availability}
+                        availability={product.stock !== 0}
                         isReadOnly={isReadOnly}
-                        onChange={(newValue) => onChange({ ...product, availability: newValue })}
+                        onChange={(newValue) => onChange({ ...product, stock: newValue ? 1 : 0 })}
                     />
                 </div>
             </div>

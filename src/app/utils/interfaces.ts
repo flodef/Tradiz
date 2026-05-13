@@ -57,7 +57,6 @@ export interface InventoryItem {
         label: string;
         prices: number[];
         options?: string | null;
-        availability: boolean;
         stock: number;
         order: number;
     }[];

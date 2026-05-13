@@ -8,7 +8,6 @@ interface ArticleRow {
     rate: string;
     category: string;
     options: string;
-    disponible: number;
     stock: number;
     reference: string;
     photo: string;
@@ -22,24 +21,24 @@ export async function GET() {
         // Query 1: Get all products
         const queryProducts = connection.isPostgreSQL
             ? `
-            SELECT a.name as label, a.price as amount, a.vat_rate as rate, b.name as category, a.options as options, a.available as disponible, a.stock as stock, a.reference as reference, a.photo as photo, a.description as description
+            SELECT a.name as label, a.price as amount, a.vat_rate as rate, b.name as category, a.options as options, a.stock as stock, a.reference as reference, a.photo as photo, a.description as description
             FROM dc.products a
-            JOIN dc.categories b on b.id = a.category_id
+            JOIN dc.categories b on b.name = a.category_id
         `
             : `
-            SELECT a.name as label, a.price as amount, a.vat_rate as rate, b.name as category, a.options as options, a.available as disponible, a.stock as stock, a.reference as reference, a.photo as photo, a.description as description
+            SELECT a.name as label, a.price as amount, a.vat_rate as rate, b.name as category, a.options as options, a.stock as stock, a.reference as reference, a.photo as photo, a.description as description
             FROM products a
-            JOIN categories b on b.id = a.category_id
+            JOIN categories b on b.name = a.category_id
         `;
 
         // Query 2: Get all formulas
         const queryFormulas = connection.isPostgreSQL
             ? `
-            SELECT name as label, price as amount, '0.1' as rate, 'Formule' as category, '' as options, 1 as disponible, 0 as stock, '' as reference, '' as photo, '' as description
+            SELECT name as label, price as amount, '0.1' as rate, 'Formule' as category, '' as options, -1 as stock, '' as reference, '' as photo, '' as description
             FROM dc.formulas
         `
             : `
-            SELECT name as label, price as amount, '0.1' as rate, 'Formule' as category, '' as options, 1 as disponible, 0 as stock, '' as reference, '' as photo, '' as description
+            SELECT name as label, price as amount, '0.1' as rate, 'Formule' as category, '' as options, -1 as stock, '' as reference, '' as photo, '' as description
             FROM formulas
         `;
 
@@ -56,23 +55,12 @@ export async function GET() {
             values: [],
             options: [],
         };
-        data.values.push([
-            'Taux',
-            'Catégorie',
-            'Nom',
-            'Indisponible',
-            'Stock',
-            'Reference',
-            'Photo',
-            'Description',
-            'Euro (€)',
-        ]);
+        data.values.push(['Taux', 'Catégorie', 'Nom', 'Stock', 'Reference', 'Photo', 'Description', 'Euro (€)']);
         data.values.push(
             ...allRows.map((row): (number | string | boolean)[] => [
                 Number(row.rate) / 100,
                 String(row.category),
                 String(row.label),
-                !row.disponible, // disponible=1 means available, so Indisponible=!disponible
                 Number(row.stock),
                 String(row.reference || ''),
                 String(row.photo || ''),

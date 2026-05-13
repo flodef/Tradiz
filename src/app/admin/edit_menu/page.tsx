@@ -8,11 +8,13 @@ import { AdminProduct } from '@/app/components/admin/sections/ProductsConfig';
 import { USE_DIGICARTE } from '@/app/utils/constants';
 import { useConfig } from '@/app/hooks/useConfig';
 import { useUserRole } from '@/app/hooks/useUserRole';
+import { usePopup } from '@/app/hooks/usePopup';
 import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
 
 export default function EditMenuPage() {
     const { inventory, currencies } = useConfig();
     const { isCashier } = useUserRole();
+    const { openFullscreenPopup } = usePopup();
     const [products, setProducts] = useState<AdminProduct[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [originalProducts, setOriginalProducts] = useState<AdminProduct[]>([]);
@@ -58,7 +60,6 @@ export default function EditMenuPage() {
                                 allProducts.push({
                                     name: product.label,
                                     category: item.category,
-                                    availability: product.availability,
                                     stock: product.stock ?? 0,
                                     currencies: product.prices.map(String),
                                 });
@@ -98,16 +99,21 @@ export default function EditMenuPage() {
                 }
 
                 // Parse products (skip header row)
+                // Column order: Taux, Catégorie, Nom, Indisponible, Stock, Reference, Photo, Description, Euro (€), ...
                 const loadedProducts: AdminProduct[] = [];
                 if (productsData.values && productsData.values.length > 1) {
                     for (let i = 1; i < productsData.values.length; i++) {
-                        const [, category, name, unavailable, price, stock] = productsData.values[i];
+                        const [, category, name, , stock, reference, photo, description, ...prices] =
+                            productsData.values[i];
+                        const stockNum = Number(stock);
                         loadedProducts.push({
                             name: String(name),
                             category: String(category),
-                            availability: !unavailable, // unavailable is boolean, so availability is opposite
-                            stock: Number(stock) || 0,
-                            currencies: [String(price)], // Single currency for now
+                            stock: stockNum === -1 ? 0 : stockNum, // Display: -1 (infinite) shows as 0
+                            reference: reference ? String(reference) : undefined,
+                            photo: photo ? String(photo) : undefined,
+                            description: description ? String(description) : undefined,
+                            currencies: prices.map(String), // All price columns
                         });
                     }
                 }
@@ -118,14 +124,14 @@ export default function EditMenuPage() {
                 setOriginalProducts(loadedProducts);
             } catch (error) {
                 console.error('Error fetching menu data:', error);
-                alert('Erreur lors du chargement des données');
+                openFullscreenPopup('Erreur lors du chargement des données', ['OK']);
             } finally {
                 setIsLoading(false);
             }
         };
 
         fetchData();
-    }, [dbConfigChecked, isReadOnly, inventory, currencies]);
+    }, [dbConfigChecked, isReadOnly, inventory, currencies, openFullscreenPopup]);
 
     const handleProductsChange = (data: AdminProduct[]) => {
         if (!isReadOnly) {
@@ -155,11 +161,10 @@ export default function EditMenuPage() {
 
             setProducts(data);
             setOriginalProducts(data);
-            alert('Produits enregistrés avec succès !');
             window.location.reload();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
-            alert("Erreur lors de l'enregistrement des produits.");
+            openFullscreenPopup("Erreur lors de l'enregistrement des produits.", ['OK']);
         } finally {
             setIsSavingProducts(false);
         }
@@ -172,7 +177,7 @@ export default function EditMenuPage() {
             const response = await fetch('/api/sql/updateCategories', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ categories: data }),
+                body: JSON.stringify({ categories: data, originalCategories }),
             });
 
             if (!response.ok) {
@@ -181,11 +186,9 @@ export default function EditMenuPage() {
 
             setCategories(data);
             setOriginalCategories(data);
-            alert('Catégories enregistrées avec succès !');
-            window.location.reload();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
-            alert("Erreur lors de l'enregistrement des catégories.");
+            openFullscreenPopup("Erreur lors de l'enregistrement des catégories.", ['OK']);
         } finally {
             setIsSavingCategories(false);
         }

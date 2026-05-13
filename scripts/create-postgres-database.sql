@@ -46,12 +46,11 @@ CREATE TABLE IF NOT EXISTS dc.establishment_config (
 
 -- Categories (was: categorie)
 CREATE TABLE IF NOT EXISTS dc.categories (
-    id VARCHAR(10) NOT NULL,
-    name VARCHAR(50) NOT NULL,
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
     sort_order INTEGER NOT NULL,
     default_vat_rate DECIMAL(5,2) DEFAULT 10.00
 );
-CREATE INDEX IF NOT EXISTS idx_categories_id ON dc.categories(id);
 
 -- Products (was: article)
 CREATE TABLE IF NOT EXISTS dc.products (
@@ -60,8 +59,7 @@ CREATE TABLE IF NOT EXISTS dc.products (
     name VARCHAR(50) NOT NULL DEFAULT '',
     price NUMERIC(8,2) NOT NULL DEFAULT 0.00,
     photo VARCHAR(50) NOT NULL DEFAULT '',
-    available INTEGER NOT NULL,
-    stock INTEGER NOT NULL DEFAULT 0,
+    stock INTEGER NOT NULL DEFAULT -1,
     reference VARCHAR(255) DEFAULT NULL,
     category_id VARCHAR(50) NOT NULL DEFAULT '',
     description VARCHAR(300) DEFAULT '',
