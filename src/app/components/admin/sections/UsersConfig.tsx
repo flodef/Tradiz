@@ -43,18 +43,16 @@ function SortableRow({
 
     const roles = Object.values(Role).filter((role) => role !== Role.admin);
 
+    const roleLabels: Record<Role, string> = {
+        [Role.cashier]: 'Caisse',
+        [Role.service]: 'Service',
+        [Role.kitchen]: 'Cuisine',
+        [Role.admin]: 'Administrateur',
+    };
+
     return (
         <tr ref={setNodeRef} style={style} className="border-b border-gray-200 dark:border-gray-700">
             <DragHandleCell isReadOnly={isReadOnly} attributes={attributes} listeners={listeners} />
-            <td className="p-2">
-                <ValidatedInput
-                    value={user.key ?? ''}
-                    onChange={(value) => onChange({ ...user, key: String(value) })}
-                    placeholder="Clé de l'utilisateur"
-                    isReadOnly={isReadOnly}
-                    validation={(value) => String(value).trim().length > 0}
-                />
-            </td>
             <td className="p-2">
                 <ValidatedInput
                     value={user.name}
@@ -62,6 +60,17 @@ function SortableRow({
                     placeholder="Nom de l'utilisateur"
                     isReadOnly={isReadOnly}
                     validation={(value) => String(value).trim().length > 0}
+                    className="min-w-40"
+                />
+            </td>
+            <td className="p-2">
+                <ValidatedInput
+                    value={user.key ?? ''}
+                    onChange={(value) => onChange({ ...user, key: String(value) })}
+                    placeholder="Clé de l'utilisateur"
+                    isReadOnly={isReadOnly}
+                    validation={(value) => String(value).trim().length > 0}
+                    className="min-w-40"
                 />
             </td>
             <td className="p-2">
@@ -69,7 +78,8 @@ function SortableRow({
                     value={user.role}
                     onChange={(e) => onChange({ ...user, role: e.target.value as Role })}
                     disabled={isReadOnly}
-                    options={roles.map((role) => ({ value: role, label: role }))}
+                    options={roles.map((role) => ({ value: role, label: roleLabels[role] }))}
+                    className="min-w-20 w-20"
                 />
             </td>
             <DeleteButtonCell isReadOnly={isReadOnly} onDelete={onDelete} title="Supprimer l'utilisateur" />
@@ -193,15 +203,17 @@ export default function UsersConfig({
                 <SortableContext items={users.map((_, i) => i)} strategy={verticalListSortingStrategy}>
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse">
-                            <thead>
-                                <tr className="border-b border-gray-300 dark:border-gray-600">
-                                    {!isReadOnly && <th className="p-2 w-10"></th>}
-                                    <th className="p-2 text-left">Clé</th>
-                                    <th className="p-2 text-left">Nom</th>
-                                    <th className="p-2 text-left">Rôle</th>
-                                    {!isReadOnly && <th className="p-2 w-10"></th>}
-                                </tr>
-                            </thead>
+                            {nonAdminUsers.length > 0 && (
+                                <thead>
+                                    <tr className="border-b border-gray-300 dark:border-gray-600">
+                                        {!isReadOnly && <th className="p-2 w-10"></th>}
+                                        <th className="p-2 text-left">Clé</th>
+                                        <th className="p-2 text-left">Nom</th>
+                                        <th className="p-2 text-left w-20">Rôle</th>
+                                        {!isReadOnly && <th className="p-2 w-10"></th>}
+                                    </tr>
+                                </thead>
+                            )}
                             <tbody>
                                 {nonAdminUsers.map((user, index) => (
                                     <SortableRow
