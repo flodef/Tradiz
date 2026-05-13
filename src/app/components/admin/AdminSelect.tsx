@@ -26,8 +26,8 @@ export default function AdminSelect({
         <div className={`flex flex-col ${containerClassName || className}`}>
             {label && <label className={adminTextStyle}>{label}</label>}
             <select disabled={disabled} className={twMerge(adminInputStyle(error), inputClassName)} {...props}>
-                {options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
+                {options.map((opt, idx) => (
+                    <option key={`${opt.value}-${idx}`} value={opt.value}>
                         {opt.label}
                     </option>
                 ))}

@@ -1,7 +1,7 @@
 'use client';
 
 import { Role, User } from '@/app/utils/interfaces';
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -21,20 +21,22 @@ interface UsersConfigProps {
     isLoading?: boolean;
 }
 
+interface InternalUser extends User {
+    _id: number;
+}
+
 function SortableRow({
     user,
-    index,
     isReadOnly,
     onChange,
     onDelete,
 }: {
-    user: User;
-    index: number;
+    user: InternalUser;
     isReadOnly: boolean;
-    onChange: (user: User) => void;
+    onChange: (user: InternalUser) => void;
     onDelete: () => void;
 }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: index });
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: user._id });
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
@@ -95,87 +97,105 @@ export default function UsersConfig({
     isReadOnly = false,
     isLoading = false,
 }: UsersConfigProps) {
-    const [users, setUsers] = useState<User[]>(config || []);
+    const nextIdRef = useRef(0);
+    const selfUpdateRef = useRef(false);
+    const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const [users, setUsers] = useState<InternalUser[]>(() =>
+        (config || []).map((u) => ({ ...u, _id: nextIdRef.current++ }))
+    );
     // Store original config to track changes against (not the live-updating config prop)
     const [originalConfig, setOriginalConfig] = useState<User[]>(config || []);
 
-    // On mount: capture initial state
     useEffect(() => {
-        setUsers(config || []);
-        setOriginalConfig(config || []);
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally only run on mount
-    }, []);
-
-    // Listen for external config changes (e.g., when parent confirms cancel and sends back original data)
-    // Compare against current users state to detect external changes
-    useEffect(() => {
-        const configJson = JSON.stringify(config || []);
-        const usersJson = JSON.stringify(users);
-        if (configJson !== usersJson) {
-            const newConfig = config || [];
-            setUsers(newConfig);
-            setOriginalConfig(newConfig);
+        if (selfUpdateRef.current) {
+            selfUpdateRef.current = false;
+            return;
         }
-    }, [config, users]);
+        const incoming = config || [];
+        setUsers(incoming.map((u) => ({ ...u, _id: nextIdRef.current++ })));
+        setOriginalConfig(incoming);
+    }, [config]);
+
+    const strip = (items: InternalUser[]): User[] => items.map(({ _id: _, ...rest }) => rest);
+
+    const notifyParent = useCallback(
+        (items: InternalUser[]) => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            debounceRef.current = setTimeout(() => {
+                selfUpdateRef.current = true;
+                onChange(strip(items));
+            }, 300);
+        },
+        [onChange]
+    );
 
     // Filter out admin users from display
     const nonAdminUsers = useMemo(() => users.filter((user) => user.role !== Role.admin), [users]);
     const nonAdminOriginal = useMemo(() => originalConfig.filter((user) => user.role !== Role.admin), [originalConfig]);
 
-    const hasChanges = JSON.stringify(nonAdminUsers) !== JSON.stringify(nonAdminOriginal);
+    const hasChanges = JSON.stringify(strip(nonAdminUsers)) !== JSON.stringify(nonAdminOriginal);
 
     // Check if all non-admin users have valid key and name
     const isValid = useMemo(() => {
         return nonAdminUsers.every((user) => user.key?.trim() && user.name?.trim());
     }, [nonAdminUsers]);
 
-    const handleUserChange = (index: number, updatedUser: User) => {
-        // Find the actual index in the full users array (accounting for filtered admin)
-        const visibleIndex = nonAdminUsers[index];
-        const actualIndex = users.findIndex((u) => u === visibleIndex);
-        const newUsers = [...users];
-        newUsers[actualIndex] = updatedUser;
-        setUsers(newUsers);
-        onChange(newUsers);
-    };
+    const handleUserChange = useCallback(
+        (id: number, updatedUser: InternalUser) => {
+            setUsers((prev) => {
+                const updated = prev.map((u) => (u._id === id ? updatedUser : u));
+                notifyParent(updated);
+                return updated;
+            });
+        },
+        [notifyParent]
+    );
 
-    const handleAddUser = () => {
-        const newUser: User = {
-            key: '',
-            name: '',
-            role: Role.service,
-        };
-        const updated = [...users, newUser];
-        setUsers(updated);
-        onChange(updated);
-    };
+    const handleAddUser = useCallback(() => {
+        setUsers((prev) => {
+            const updated = [
+                ...prev,
+                { key: '', name: '', role: Role.service, _id: nextIdRef.current++ } as InternalUser,
+            ];
+            notifyParent(updated);
+            return updated;
+        });
+    }, [notifyParent]);
 
-    const handleDeleteUser = (index: number) => {
-        // Find the actual index in the full users array (accounting for filtered admin)
-        const visibleUser = nonAdminUsers[index];
-        const actualIndex = users.findIndex((u) => u === visibleUser);
-        const newUsers = users.filter((_, i) => i !== actualIndex);
-        setUsers(newUsers);
-        onChange(newUsers);
-    };
+    const handleDeleteUser = useCallback(
+        (id: number) => {
+            setUsers((prev) => {
+                const updated = prev.filter((u) => u._id !== id);
+                notifyParent(updated);
+                return updated;
+            });
+        },
+        [notifyParent]
+    );
 
     const handleSave = () => {
-        onSave?.(users);
-        setOriginalConfig(users); // Update original to current on save
+        onSave?.(strip(users));
+        setOriginalConfig(strip(users));
     };
 
-    const handleDragEnd = (event: DragEndEvent) => {
-        const { active, over } = event;
-        if (!over || active.id === over.id) return;
-        const oldIndex = Number(active.id);
-        const newIndex = Number(over.id);
-        // Reorder within the non-admin users, then reconstruct full array
-        const reorderedNonAdmin = arrayMove(nonAdminUsers, oldIndex, newIndex);
-        const adminUsers = users.filter((user) => user.role === Role.admin);
-        const updated = [...adminUsers, ...reorderedNonAdmin];
-        setUsers(updated);
-        onChange(updated);
-    };
+    const handleDragEnd = useCallback(
+        (event: DragEndEvent) => {
+            const { active, over } = event;
+            if (!over || active.id === over.id) return;
+            setUsers((prev) => {
+                const nonAdmin = prev.filter((u) => u.role !== Role.admin);
+                const oldIdx = nonAdmin.findIndex((u) => u._id === active.id);
+                const newIdx = nonAdmin.findIndex((u) => u._id === over.id);
+                if (oldIdx === -1 || newIdx === -1) return prev;
+                const reorderedNonAdmin = arrayMove(nonAdmin, oldIdx, newIdx);
+                const adminUsers = prev.filter((u) => u.role === Role.admin);
+                const updated = [...adminUsers, ...reorderedNonAdmin];
+                notifyParent(updated);
+                return updated;
+            });
+        },
+        [notifyParent]
+    );
 
     const sensors = useSensors(useSensor(PointerSensor));
 
@@ -200,7 +220,7 @@ export default function UsersConfig({
             )}
 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={users.map((_, i) => i)} strategy={verticalListSortingStrategy}>
+                <SortableContext items={nonAdminUsers.map((u) => u._id)} strategy={verticalListSortingStrategy}>
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse">
                             {nonAdminUsers.length > 0 && (
@@ -215,14 +235,13 @@ export default function UsersConfig({
                                 </thead>
                             )}
                             <tbody>
-                                {nonAdminUsers.map((user, index) => (
+                                {nonAdminUsers.map((user) => (
                                     <SortableRow
-                                        key={index}
+                                        key={user._id}
                                         user={user}
-                                        index={index}
                                         isReadOnly={isReadOnly}
-                                        onChange={(updated) => handleUserChange(index, updated)}
-                                        onDelete={() => handleDeleteUser(index)}
+                                        onChange={(updated) => handleUserChange(user._id, updated)}
+                                        onDelete={() => handleDeleteUser(user._id)}
                                     />
                                 ))}
                             </tbody>

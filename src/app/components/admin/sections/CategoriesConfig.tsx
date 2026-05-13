@@ -6,7 +6,7 @@ import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useS
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
-import { useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AdminButton from '../AdminButton';
 import AdminSelect from '../AdminSelect';
 import DeleteButtonCell from '../DeleteButtonCell';
@@ -16,6 +16,89 @@ import ValidatedInput from '../ValidatedInput';
 
 type SortField = 'order' | 'label' | 'vat';
 type SortDirection = 'asc' | 'desc';
+
+// Internal category with a stable _id for React keys and originalLabel for rename tracking
+interface InternalCategory extends Category {
+    _id: number;
+    _originalLabel: string;
+}
+
+// SortableRow is defined outside and memoized to prevent re-creation on every render
+interface SortableRowProps {
+    category: InternalCategory;
+    isReadOnly: boolean;
+    isInvalid: boolean;
+    vatRates: number[];
+    onLabelChange: (id: number, label: string) => void;
+    onVatChange: (id: number, vat: number) => void;
+    onDelete: (id: number) => void;
+}
+
+const SortableRow = memo(function SortableRow({
+    category,
+    isReadOnly,
+    isInvalid,
+    vatRates,
+    onLabelChange,
+    onVatChange,
+    onDelete,
+}: SortableRowProps) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+        id: category._id,
+    });
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    const handleLabelChange = useCallback(
+        (value: string | number | boolean) => {
+            onLabelChange(category._id, String(value));
+        },
+        [category._id, onLabelChange]
+    );
+
+    const handleVatChange = useCallback(
+        (e: React.ChangeEvent<HTMLSelectElement>) => {
+            onVatChange(category._id, parseFloat(e.target.value));
+        },
+        [category._id, onVatChange]
+    );
+
+    const handleDelete = useCallback(() => {
+        onDelete(category._id);
+    }, [category._id, onDelete]);
+
+    return (
+        <tr ref={setNodeRef} style={style} className="border-b border-gray-200 dark:border-gray-700">
+            <DragHandleCell isReadOnly={isReadOnly} attributes={attributes} listeners={listeners} />
+            <td className="p-2">
+                {isReadOnly ? (
+                    <div className="text-sm">{category.label}</div>
+                ) : (
+                    <ValidatedInput
+                        type="text"
+                        value={category.label}
+                        onChange={handleLabelChange}
+                        validation={() => !isInvalid}
+                        maxLength={50}
+                        disabled={isReadOnly}
+                    />
+                )}
+            </td>
+            <td className="p-2">
+                <AdminSelect
+                    value={String(category.vat)}
+                    onChange={handleVatChange}
+                    options={vatRates.map((rate) => ({ value: String(rate), label: `${rate}%` }))}
+                    disabled={isReadOnly}
+                />
+            </td>
+            <DeleteButtonCell isReadOnly={isReadOnly} onDelete={handleDelete} />
+        </tr>
+    );
+});
 
 export default function CategoriesConfig({
     config,
@@ -34,45 +117,121 @@ export default function CategoriesConfig({
     isReadOnly?: boolean;
     isLoading?: boolean;
 }) {
-    const [categories, setCategories] = useState(config || []);
+    const nextIdRef = useRef(0);
+    const selfUpdateRef = useRef(false);
+    const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const [categories, setCategories] = useState<InternalCategory[]>(() =>
+        (config || []).map((c) => ({ ...c, _id: nextIdRef.current++, _originalLabel: c.label }))
+    );
     const [sortField, setSortField] = useState<SortField>('order');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
     const sensors = useSensors(useSensor(PointerSensor));
-    const vatRates = [20, 10, 5.5, 2.1, 0];
+    const vatRates = useMemo(() => [20, 10, 5.5, 2.1, 0], []);
 
+    // Sync from parent config only when the change comes from outside (e.g. cancel or initial load)
     useEffect(() => {
-        setCategories(config || []);
+        if (selfUpdateRef.current) {
+            selfUpdateRef.current = false;
+            return;
+        }
+        const incoming = config || [];
+        setCategories(incoming.map((c) => ({ ...c, _id: nextIdRef.current++, _originalLabel: c.label })));
     }, [config]);
 
-    const handleCategoryChange = (index: number, updatedCategory: Category) => {
-        const newCategories = [...categories];
-        newCategories[index] = updatedCategory;
-        setCategories(newCategories);
-        onChange(newCategories);
-    };
+    // Strip _id before notifying parent, mark as self-update to avoid useEffect re-sync
+    // Debounced to avoid full page re-render on every keystroke
+    const notifyParent = useCallback(
+        (cats: InternalCategory[]) => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            debounceRef.current = setTimeout(() => {
+                selfUpdateRef.current = true;
+                onChange(cats.map(({ _id: _, _originalLabel: __, ...rest }) => rest));
+            }, 300);
+        },
+        [onChange]
+    );
 
-    const handleAddCategory = () => {
-        const newCategory: Category = { label: '', vat: 20 };
-        const updated = [...categories, newCategory];
-        setCategories(updated);
-        onChange(updated);
-    };
+    // Compute invalid set: empty labels or duplicate labels
+    const invalidIds = useMemo(() => {
+        const ids = new Set<number>();
+        const labelCount = new Map<string, number[]>();
+        for (const cat of categories) {
+            const trimmed = cat.label.trim().toLowerCase();
+            if (!trimmed) {
+                ids.add(cat._id);
+            } else {
+                const existing = labelCount.get(trimmed) || [];
+                existing.push(cat._id);
+                labelCount.set(trimmed, existing);
+            }
+        }
+        for (const group of labelCount.values()) {
+            if (group.length > 1) {
+                for (const id of group) ids.add(id);
+            }
+        }
+        return ids;
+    }, [categories]);
 
-    const handleDeleteCategory = (index: number) => {
-        const newCategories = categories.filter((_, i) => i !== index);
-        setCategories(newCategories);
-        onChange(newCategories);
-    };
+    const hasInvalidCategories = invalidIds.size > 0;
 
-    const handleDragEnd = (event: DragEndEvent) => {
-        const { active, over } = event;
-        if (!over || active.id === over.id) return;
-        const oldIdx = categories.findIndex((_, i) => String(i) === String(active.id));
-        const newIdx = categories.findIndex((_, i) => String(i) === String(over.id));
-        const reordered = arrayMove(categories, oldIdx, newIdx);
-        setCategories(reordered);
-        onChange(reordered);
-    };
+    // Handlers use _id for stable identity
+    const handleLabelChange = useCallback(
+        (id: number, label: string) => {
+            setCategories((prev) => {
+                const updated = prev.map((c) => (c._id === id ? { ...c, label } : c));
+                notifyParent(updated);
+                return updated;
+            });
+        },
+        [notifyParent]
+    );
+
+    const handleVatChange = useCallback(
+        (id: number, vat: number) => {
+            setCategories((prev) => {
+                const updated = prev.map((c) => (c._id === id ? { ...c, vat } : c));
+                notifyParent(updated);
+                return updated;
+            });
+        },
+        [notifyParent]
+    );
+
+    const handleAddCategory = useCallback(() => {
+        setCategories((prev) => {
+            const updated = [...prev, { label: '', vat: 20, _id: nextIdRef.current++, _originalLabel: '' }];
+            notifyParent(updated);
+            return updated;
+        });
+    }, [notifyParent]);
+
+    const handleDeleteCategory = useCallback(
+        (id: number) => {
+            setCategories((prev) => {
+                const updated = prev.filter((c) => c._id !== id);
+                notifyParent(updated);
+                return updated;
+            });
+        },
+        [notifyParent]
+    );
+
+    const handleDragEnd = useCallback(
+        (event: DragEndEvent) => {
+            const { active, over } = event;
+            if (!over || active.id === over.id) return;
+            setCategories((prev) => {
+                const oldIdx = prev.findIndex((c) => c._id === active.id);
+                const newIdx = prev.findIndex((c) => c._id === over.id);
+                if (oldIdx === -1 || newIdx === -1) return prev;
+                const reordered = arrayMove(prev, oldIdx, newIdx);
+                notifyParent(reordered);
+                return reordered;
+            });
+        },
+        [notifyParent]
+    );
 
     const sortedCategories = useMemo(() => {
         const sorted = [...categories];
@@ -94,12 +253,14 @@ export default function CategoriesConfig({
     }, [categories, sortField, sortDirection]);
 
     const handleSort = (field: SortField) => {
-        if (sortField === field) {
-            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortField(field);
+        setSortField((prev) => {
+            if (prev === field) {
+                setSortDirection((dir) => (dir === 'asc' ? 'desc' : 'asc'));
+                return prev;
+            }
             setSortDirection('asc');
-        }
+            return field;
+        });
     };
 
     const SortIcon = ({ field }: { field: SortField }) => {
@@ -107,64 +268,20 @@ export default function CategoriesConfig({
         return sortDirection === 'asc' ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />;
     };
 
-    function SortableRow({ category, index, isReadOnly }: { category: Category; index: number; isReadOnly: boolean }) {
-        const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-            id: index,
-        });
-        const style = {
-            transform: CSS.Transform.toString(transform),
-            transition,
-            opacity: isDragging ? 0.5 : 1,
-        };
-
-        return (
-            <tr ref={setNodeRef} style={style} className="border-b border-gray-200 dark:border-gray-700">
-                <DragHandleCell isReadOnly={isReadOnly} attributes={attributes} listeners={listeners} />
-                <td className="p-2">
-                    {isReadOnly ? (
-                        <div className="text-sm">{category.label}</div>
-                    ) : (
-                        <ValidatedInput
-                            type="text"
-                            value={category.label}
-                            onChange={(value) =>
-                                handleCategoryChange(index, {
-                                    ...category,
-                                    label: String(value),
-                                })
-                            }
-                            maxLength={50}
-                            disabled={isReadOnly}
-                        />
-                    )}
-                </td>
-                <td className="p-2">
-                    <AdminSelect
-                        value={String(category.vat)}
-                        onChange={(e) =>
-                            handleCategoryChange(index, {
-                                ...category,
-                                vat: parseFloat(e.target.value),
-                            })
-                        }
-                        options={vatRates.map((rate) => ({ value: String(rate), label: `${rate}%` }))}
-                        disabled={isReadOnly}
-                    />
-                </td>
-                <DeleteButtonCell isReadOnly={isReadOnly} onDelete={() => handleDeleteCategory(index)} />
-            </tr>
-        );
-    }
+    // Strip _id, keep _originalLabel for rename tracking
+    const handleSave = onSave
+        ? () => onSave(categories.map(({ _id: _, _originalLabel, ...rest }) => ({ ...rest, _originalLabel })))
+        : undefined;
 
     return (
         <SectionCard
             title="Catégories"
-            onSave={isReadOnly || !hasChanges || !onSave ? undefined : () => onSave(categories)}
+            onSave={isReadOnly || !hasChanges || hasInvalidCategories || !handleSave ? undefined : handleSave}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
             isLoading={isLoading}
         >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={categories.map((_, i) => i)} strategy={verticalListSortingStrategy}>
+                <SortableContext items={categories.map((c) => c._id)} strategy={verticalListSortingStrategy}>
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse">
                             <thead>
@@ -192,17 +309,18 @@ export default function CategoriesConfig({
                                 </tr>
                             </thead>
                             <tbody>
-                                {sortedCategories.map((category) => {
-                                    const originalIndex = categories.findIndex((c) => c === category);
-                                    return (
-                                        <SortableRow
-                                            key={originalIndex}
-                                            category={category}
-                                            index={originalIndex}
-                                            isReadOnly={isReadOnly}
-                                        />
-                                    );
-                                })}
+                                {sortedCategories.map((category) => (
+                                    <SortableRow
+                                        key={category._id}
+                                        category={category}
+                                        isReadOnly={isReadOnly}
+                                        isInvalid={invalidIds.has(category._id)}
+                                        vatRates={vatRates}
+                                        onLabelChange={handleLabelChange}
+                                        onVatChange={handleVatChange}
+                                        onDelete={handleDeleteCategory}
+                                    />
+                                ))}
                             </tbody>
                         </table>
                     </div>

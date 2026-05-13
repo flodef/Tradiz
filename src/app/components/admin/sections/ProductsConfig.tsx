@@ -6,7 +6,7 @@ import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useS
 import { arrayMove, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AdminSelect from '../AdminSelect';
 import AvailabilityToggle from '../AvailabilityToggle';
 import DeleteButtonCell from '../DeleteButtonCell';
@@ -79,6 +79,8 @@ export default function ProductsConfig({
     const [availFilter, setAvailFilter] = useState<AvailabilityFilter>('all');
     const [sortField, setSortField] = useState<SortField>('order');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+    const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const selfUpdateRef = useRef(false);
 
     const sensors = useSensors(useSensor(PointerSensor));
 
@@ -93,6 +95,10 @@ export default function ProductsConfig({
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(categoryOrder));
 
     useEffect(() => {
+        if (selfUpdateRef.current) {
+            selfUpdateRef.current = false;
+            return;
+        }
         setProducts(config || []);
     }, [config]);
 
@@ -113,22 +119,33 @@ export default function ProductsConfig({
         });
     };
 
+    const notifyParent = useCallback(
+        (data: AdminProduct[]) => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            debounceRef.current = setTimeout(() => {
+                selfUpdateRef.current = true;
+                onChange(data);
+            }, 300);
+        },
+        [onChange]
+    );
+
     const handleProductChange = (index: number, updatedProduct: AdminProduct) => {
         const newProducts = [...products];
         newProducts[index] = updatedProduct;
         setProducts(newProducts);
-        onChange(newProducts);
+        notifyParent(newProducts);
     };
 
     const handleDeleteProduct = (index: number) => {
         const newProducts = products.filter((_, i) => i !== index);
         setProducts(newProducts);
-        onChange(newProducts);
+        notifyParent(newProducts);
     };
 
     const handleReorder = (updated: AdminProduct[]) => {
         setProducts(updated);
-        onChange(updated);
+        notifyParent(updated);
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
@@ -171,7 +188,7 @@ export default function ProductsConfig({
         const newProduct: AdminProduct = { name: '', category, stock: 0, currencies: [] };
         const updated = [...products, newProduct];
         setProducts(updated);
-        onChange(updated);
+        notifyParent(updated);
     };
 
     const hasFilter = !!(search || availFilter !== 'all');
@@ -422,8 +439,8 @@ export default function ProductsConfig({
                             <tbody>
                                 {categoryOrder
                                     .filter((cat) => categoryGroups[cat] !== undefined)
-                                    .map((cat) => (
-                                        <React.Fragment key={cat}>
+                                    .map((cat, catIdx) => (
+                                        <React.Fragment key={`${cat}-${catIdx}`}>
                                             <tr
                                                 className="bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700"
                                                 onClick={() => toggleCategory(cat)}

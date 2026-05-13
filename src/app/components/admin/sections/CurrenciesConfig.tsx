@@ -5,12 +5,121 @@ import { Currency } from '@/app/utils/interfaces';
 import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import AdminButton from '../AdminButton';
 import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
+
+interface InternalCurrency extends Currency {
+    _id: number;
+}
+
+interface SortableRowProps {
+    currency: InternalCurrency;
+    isReadOnly: boolean;
+    canDelete: boolean;
+    onFieldChange: (id: number, field: keyof Currency, value: string | number) => void;
+    onDelete: (id: number) => void;
+}
+
+const SortableRow = memo(function SortableRow({
+    currency,
+    isReadOnly,
+    canDelete,
+    onFieldChange,
+    onDelete,
+}: SortableRowProps) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+        id: currency._id,
+    });
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+        <tr ref={setNodeRef} style={style} className="border-b border-gray-200 dark:border-gray-700">
+            <DragHandleCell isReadOnly={isReadOnly} attributes={attributes} listeners={listeners} />
+            <td className="p-2">
+                {isReadOnly ? (
+                    <div className="text-sm">{currency.label}</div>
+                ) : (
+                    <ValidatedInput
+                        type="text"
+                        value={currency.label}
+                        onChange={(value) => onFieldChange(currency._id, 'label', String(value))}
+                    />
+                )}
+            </td>
+            <td className="p-2">
+                {isReadOnly ? (
+                    <div className="text-sm">{currency.symbol}</div>
+                ) : (
+                    <ValidatedInput
+                        type="text"
+                        value={currency.symbol}
+                        onChange={(value) => onFieldChange(currency._id, 'symbol', String(value))}
+                    />
+                )}
+            </td>
+            <td className="p-2">
+                {isReadOnly ? (
+                    <div className="text-sm">{currency.maxValue}</div>
+                ) : (
+                    <ValidatedInput
+                        type="number"
+                        value={currency.maxValue}
+                        onChange={(value) => onFieldChange(currency._id, 'maxValue', Number(value))}
+                        min={0}
+                    />
+                )}
+            </td>
+            <td className="p-2">
+                {isReadOnly ? (
+                    <div className="text-sm">{currency.decimals}</div>
+                ) : (
+                    <ValidatedInput
+                        type="number"
+                        value={currency.decimals}
+                        onChange={(value) => onFieldChange(currency._id, 'decimals', Number(value))}
+                        min={0}
+                        max={8}
+                    />
+                )}
+            </td>
+            <td className="p-2">
+                {isReadOnly ? (
+                    <div className="text-sm">{currency.rate}</div>
+                ) : (
+                    <ValidatedInput
+                        type="number"
+                        value={currency.rate}
+                        onChange={(value) => onFieldChange(currency._id, 'rate', Number(value))}
+                        min={0}
+                        step={0.01}
+                    />
+                )}
+            </td>
+            <td className="p-2">
+                {isReadOnly ? (
+                    <div className="text-sm">{currency.fee}</div>
+                ) : (
+                    <ValidatedInput
+                        type="number"
+                        value={currency.fee}
+                        onChange={(value) => onFieldChange(currency._id, 'fee', Number(value))}
+                        min={0}
+                        step={0.01}
+                    />
+                )}
+            </td>
+            <DeleteButtonCell isReadOnly={isReadOnly} onDelete={() => onDelete(currency._id)} canDelete={canDelete} />
+        </tr>
+    );
+});
 
 export default function CurrenciesConfig({
     config,
@@ -29,185 +138,94 @@ export default function CurrenciesConfig({
     isReadOnly?: boolean;
     isLoading?: boolean;
 }) {
-    const [currencies, setCurrencies] = useState(config || []);
+    const nextIdRef = useRef(0);
+    const selfUpdateRef = useRef(false);
+    const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const [currencies, setCurrencies] = useState<InternalCurrency[]>(() =>
+        (config || []).map((c) => ({ ...c, _id: nextIdRef.current++ }))
+    );
 
     useEffect(() => {
-        setCurrencies(config || []);
+        if (selfUpdateRef.current) {
+            selfUpdateRef.current = false;
+            return;
+        }
+        setCurrencies((config || []).map((c) => ({ ...c, _id: nextIdRef.current++ })));
     }, [config]);
 
-    const handleCurrencyChange = (index: number, updatedCurrency: Currency) => {
-        const newCurrencies = [...currencies];
-        newCurrencies[index] = updatedCurrency;
-        setCurrencies(newCurrencies);
-        onChange(newCurrencies);
-    };
+    const strip = (items: InternalCurrency[]): Currency[] => items.map(({ _id: _, ...rest }) => rest);
 
-    const handleAddCurrency = () => {
-        const newCurrency: Currency = {
-            label: '',
-            maxValue: 1000,
-            symbol: '',
-            decimals: 2,
-            rate: 1,
-            fee: 0,
-        };
-        const updated = [...currencies, newCurrency];
-        setCurrencies(updated);
-        onChange(updated);
-    };
+    const notifyParent = useCallback(
+        (items: InternalCurrency[]) => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            debounceRef.current = setTimeout(() => {
+                selfUpdateRef.current = true;
+                onChange(strip(items));
+            }, 300);
+        },
+        [onChange]
+    );
 
-    const handleDeleteCurrency = (index: number) => {
-        const updated = currencies.filter((_, i) => i !== index);
-        setCurrencies(updated);
-        onChange(updated);
-    };
+    const handleFieldChange = useCallback(
+        (id: number, field: keyof Currency, value: string | number) => {
+            setCurrencies((prev) => {
+                const updated = prev.map((c) => (c._id === id ? { ...c, [field]: value } : c));
+                notifyParent(updated);
+                return updated;
+            });
+        },
+        [notifyParent]
+    );
 
-    const handleDragEnd = (event: DragEndEvent) => {
-        const { active, over } = event;
-        if (!over || active.id === over.id) return;
-        const oldIndex = currencies.findIndex((_, i) => i === Number(active.id));
-        const newIndex = currencies.findIndex((_, i) => i === Number(over.id));
-        const reordered = arrayMove(currencies, oldIndex, newIndex);
-        setCurrencies(reordered);
-        onChange(reordered);
-    };
+    const handleAddCurrency = useCallback(() => {
+        setCurrencies((prev) => {
+            const updated = [
+                ...prev,
+                { label: '', maxValue: 1000, symbol: '', decimals: 2, rate: 1, fee: 0, _id: nextIdRef.current++ },
+            ];
+            notifyParent(updated);
+            return updated;
+        });
+    }, [notifyParent]);
+
+    const handleDeleteCurrency = useCallback(
+        (id: number) => {
+            setCurrencies((prev) => {
+                const updated = prev.filter((c) => c._id !== id);
+                notifyParent(updated);
+                return updated;
+            });
+        },
+        [notifyParent]
+    );
+
+    const handleDragEnd = useCallback(
+        (event: DragEndEvent) => {
+            const { active, over } = event;
+            if (!over || active.id === over.id) return;
+            setCurrencies((prev) => {
+                const oldIdx = prev.findIndex((c) => c._id === active.id);
+                const newIdx = prev.findIndex((c) => c._id === over.id);
+                if (oldIdx === -1 || newIdx === -1) return prev;
+                const reordered = arrayMove(prev, oldIdx, newIdx);
+                notifyParent(reordered);
+                return reordered;
+            });
+        },
+        [notifyParent]
+    );
 
     const sensors = useSensors(useSensor(PointerSensor));
-
-    function SortableRow({ currency, index, isReadOnly }: { currency: Currency; index: number; isReadOnly: boolean }) {
-        const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-            id: index,
-        });
-        const style = {
-            transform: CSS.Transform.toString(transform),
-            transition,
-            opacity: isDragging ? 0.5 : 1,
-        };
-
-        return (
-            <tr ref={setNodeRef} style={style} className="border-b border-gray-200 dark:border-gray-700">
-                <DragHandleCell isReadOnly={isReadOnly} attributes={attributes} listeners={listeners} />
-                <td className="p-2">
-                    {isReadOnly ? (
-                        <div className="text-sm">{currency.label}</div>
-                    ) : (
-                        <ValidatedInput
-                            type="text"
-                            value={currency.label}
-                            onChange={(value) =>
-                                handleCurrencyChange(index, {
-                                    ...currency,
-                                    label: String(value),
-                                })
-                            }
-                        />
-                    )}
-                </td>
-                <td className="p-2">
-                    {isReadOnly ? (
-                        <div className="text-sm">{currency.symbol}</div>
-                    ) : (
-                        <ValidatedInput
-                            type="text"
-                            value={currency.symbol}
-                            onChange={(value) =>
-                                handleCurrencyChange(index, {
-                                    ...currency,
-                                    symbol: String(value),
-                                })
-                            }
-                        />
-                    )}
-                </td>
-                <td className="p-2">
-                    {isReadOnly ? (
-                        <div className="text-sm">{currency.maxValue}</div>
-                    ) : (
-                        <ValidatedInput
-                            type="number"
-                            value={currency.maxValue}
-                            onChange={(value) =>
-                                handleCurrencyChange(index, {
-                                    ...currency,
-                                    maxValue: Number(value),
-                                })
-                            }
-                            min={0}
-                        />
-                    )}
-                </td>
-                <td className="p-2">
-                    {isReadOnly ? (
-                        <div className="text-sm">{currency.decimals}</div>
-                    ) : (
-                        <ValidatedInput
-                            type="number"
-                            value={currency.decimals}
-                            onChange={(value) =>
-                                handleCurrencyChange(index, {
-                                    ...currency,
-                                    decimals: Number(value),
-                                })
-                            }
-                            min={0}
-                            max={8}
-                        />
-                    )}
-                </td>
-                <td className="p-2">
-                    {isReadOnly ? (
-                        <div className="text-sm">{currency.rate}</div>
-                    ) : (
-                        <ValidatedInput
-                            type="number"
-                            value={currency.rate}
-                            onChange={(value) =>
-                                handleCurrencyChange(index, {
-                                    ...currency,
-                                    rate: Number(value),
-                                })
-                            }
-                            min={0}
-                            step={0.01}
-                        />
-                    )}
-                </td>
-                <td className="p-2">
-                    {isReadOnly ? (
-                        <div className="text-sm">{currency.fee}</div>
-                    ) : (
-                        <ValidatedInput
-                            type="number"
-                            value={currency.fee}
-                            onChange={(value) =>
-                                handleCurrencyChange(index, {
-                                    ...currency,
-                                    fee: Number(value),
-                                })
-                            }
-                            min={0}
-                            step={0.01}
-                        />
-                    )}
-                </td>
-                <DeleteButtonCell
-                    isReadOnly={isReadOnly}
-                    onDelete={() => handleDeleteCurrency(index)}
-                    canDelete={currencies.length > 1}
-                />
-            </tr>
-        );
-    }
 
     return (
         <SectionCard
             title="Devises"
-            onSave={isReadOnly || !hasChanges ? undefined : () => onSave(currencies)}
+            onSave={isReadOnly || !hasChanges ? undefined : () => onSave(strip(currencies))}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
             isLoading={isLoading}
         >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={currencies.map((_, i) => i)} strategy={verticalListSortingStrategy}>
+                <SortableContext items={currencies.map((c) => c._id)} strategy={verticalListSortingStrategy}>
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse">
                             <thead>
@@ -223,12 +241,14 @@ export default function CurrenciesConfig({
                                 </tr>
                             </thead>
                             <tbody>
-                                {currencies.map((currency, index) => (
+                                {currencies.map((currency) => (
                                     <SortableRow
-                                        key={index}
+                                        key={currency._id}
                                         currency={currency}
-                                        index={index}
                                         isReadOnly={isReadOnly}
+                                        canDelete={currencies.length > 1}
+                                        onFieldChange={handleFieldChange}
+                                        onDelete={handleDeleteCurrency}
                                     />
                                 ))}
                             </tbody>

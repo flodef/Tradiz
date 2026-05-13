@@ -173,7 +173,7 @@ export default function EditMenuPage() {
     const handleCategoriesSave = async (data: Category[]) => {
         setIsSavingCategories(true);
         try {
-            // Save categories to database via API
+            // Save categories to database via API (data includes _originalLabel from CategoriesConfig)
             const response = await fetch('/api/sql/updateCategories', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -184,8 +184,10 @@ export default function EditMenuPage() {
                 throw new Error('Failed to save categories');
             }
 
-            setCategories(data);
-            setOriginalCategories(data);
+            // Strip _originalLabel before updating local state
+            const cleanData = data.map(({ _originalLabel, ...rest }: Category & { _originalLabel?: string }) => rest);
+            setCategories(cleanData);
+            setOriginalCategories(cleanData);
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des catégories.", ['OK']);
