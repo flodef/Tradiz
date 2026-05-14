@@ -177,14 +177,16 @@ export default function EditMenuPage() {
                 });
 
                 if (!response.ok) {
-                    throw new Error('Failed to save products');
+                    const body = await response.json().catch(() => ({}));
+                    throw new Error(body.error || 'Failed to save products');
                 }
 
                 setProducts(data);
                 setOriginalProducts(data);
             } catch (error) {
                 console.error("Erreur lors de l'enregistrement:", error);
-                openFullscreenPopup("Erreur lors de l'enregistrement des produits.", ['OK']);
+                const msg = error instanceof Error ? error.message : "Erreur lors de l'enregistrement des produits.";
+                openFullscreenPopup(msg, ['OK']);
             } finally {
                 setIsSavingProducts(false);
             }

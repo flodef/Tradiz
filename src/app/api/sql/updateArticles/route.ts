@@ -23,12 +23,22 @@ export async function POST(request: Request) {
 
         const connection = await getMainDb();
 
+        // Check for duplicate product names before writing
+        const names = (products as Product[]).map((p) => p.name.trim().toLowerCase());
+        const duplicates = names.filter((n, i) => names.indexOf(n) !== i);
+        if (duplicates.length > 0) {
+            await connection.end();
+            return NextResponse.json(
+                { error: `Noms de produits en double : ${[...new Set(duplicates)].join(', ')}` },
+                { status: 409 }
+            );
+        }
+
         // Delete all products and re-insert in a transaction to handle renames, deletions, and duplicates
         if (connection.isPostgreSQL) {
             await connection.execute('BEGIN');
             try {
-                await connection.execute('DELETE FROM dc.products');
-                await connection.execute("SELECT setval(pg_get_serial_sequence('dc.products', 'id'), 1, false)");
+                await connection.execute('TRUNCATE dc.products RESTART IDENTITY');
                 for (let i = 0; i < (products as Product[]).length; i++) {
                     const product = (products as Product[])[i];
                     const sortOrder = i + 1;
@@ -65,8 +75,7 @@ export async function POST(request: Request) {
         } else {
             await connection.execute('START TRANSACTION');
             try {
-                await connection.execute('DELETE FROM products');
-                await connection.execute('ALTER TABLE products AUTO_INCREMENT = 1');
+                await connection.execute('TRUNCATE TABLE products');
                 for (let i = 0; i < (products as Product[]).length; i++) {
                     const product = (products as Product[])[i];
                     const sortOrder = i + 1;
