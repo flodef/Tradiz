@@ -19,9 +19,9 @@
 
 USE `DC`;
 
--- Migrate article → products (available removed, stock=-1 means infinite/available, stock=0 means unavailable)
+-- Migrate article → products (stock=NULL means unlimited/available, stock=0 means unavailable)
 INSERT INTO `products` (`id`, `sort_order`, `name`, `price`, `photo`, `stock`, `reference`, `category_id`, `description`, `options`, `order_count`, `vat_rate`)
-SELECT `id`, `ordre`, `nom`, `prix`, `photo`, CASE WHEN `disponible` = 1 THEN -1 ELSE 0 END, NULL, `categorie`, `description`, `options`, `nbr_commandes`, `taux_tva` FROM `article`;
+SELECT `id`, `ordre`, `nom`, `prix`, `photo`, CASE WHEN `disponible` = 1 THEN NULL ELSE 0 END, NULL, `categorie`, `description`, `options`, `nbr_commandes`, `taux_tva` FROM `article`;
 
 -- Migrate categorie → categories (id is now auto-increment)
 INSERT INTO `categories` (`name`, `sort_order`, `default_vat_rate`)

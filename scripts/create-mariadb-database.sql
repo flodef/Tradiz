@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS `products` (
   `name` varchar(50) NOT NULL DEFAULT '',
   `price` decimal(8,2) NOT NULL DEFAULT 0.00,
   `photo` varchar(50) NOT NULL DEFAULT '',
-  `stock` int(11) NOT NULL DEFAULT -1,
+  `stock` int(11) DEFAULT NULL,
   `reference` varchar(255) DEFAULT NULL,
   `category_id` varchar(50) NOT NULL DEFAULT '',
   `description` varchar(300) DEFAULT '',

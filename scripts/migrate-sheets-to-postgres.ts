@@ -467,7 +467,7 @@ async function migrateProducts(client: Client) {
         category_id: string;
         description: string;
         vat_rate: number;
-        stock: number;
+        stock: number | null;
         reference: string | null;
         options: string;
     }> = [];
@@ -514,8 +514,8 @@ async function migrateProducts(client: Client) {
             const category_id = String(row[1]).trim();
             const name = String(row[2]).trim();
             const unavailable = row[3]; // true/false or 1/0
-            // stock = -1 means infinite (available), stock = 0 means out of stock (unavailable)
-            const stock = unavailable ? 0 : -1;
+            // stock = null means unlimited (available), stock = 0 means out of stock (unavailable)
+            const stock = unavailable ? 0 : null;
             const price = Number(row[4]) || 0; // First price (Euro)
             const options = optionsArr[origIdx] ?? '';
 

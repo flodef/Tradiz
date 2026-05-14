@@ -31,7 +31,7 @@ type SortDirection = 'asc' | 'desc' | 'none';
 export interface AdminProduct {
     name: string;
     category: string;
-    stock: number;
+    stock: number | null;
     currencies: string[];
     vat?: number;
     reference?: string;
@@ -204,7 +204,7 @@ export default function ProductsConfig({
     };
 
     const handleAddProduct = (category = '') => {
-        const newProduct: AdminProduct = { name: '', category, stock: -1, currencies: [] };
+        const newProduct: AdminProduct = { name: '', category, stock: null, currencies: [] };
         const updated = [...products, newProduct];
         setProducts(updated);
         notifyParent(updated);
@@ -248,8 +248,8 @@ export default function ProductsConfig({
                 } else if (sortField === 'vat') {
                     comparison = (a.p.vat ?? 0) - (b.p.vat ?? 0);
                 } else if (sortField === 'stock') {
-                    const stockA = a.p.stock === -1 ? Infinity : a.p.stock;
-                    const stockB = b.p.stock === -1 ? Infinity : b.p.stock;
+                    const stockA = a.p.stock === null ? Infinity : a.p.stock;
+                    const stockB = b.p.stock === null ? Infinity : b.p.stock;
                     comparison = stockA - stockB;
                 } else if (sortField === 'photo') {
                     comparison = (a.p.photo ?? '').localeCompare(b.p.photo ?? '');
@@ -258,9 +258,9 @@ export default function ProductsConfig({
                 } else if (sortField === 'options') {
                     comparison = (a.p.options ?? '').localeCompare(b.p.options ?? '');
                 } else if (sortField === 'availability') {
-                    comparison = (a.p.stock === 0 ? 1 : 0) - (b.p.stock === 0 ? 1 : 0);
+                    comparison = (a.p.stock === 0 ? 1 : 0) - (b.p.stock === 0 ? 1 : 0); // null = available, 0 = unavailable
                 }
-                return sortDirection === 'asc' ? comparison : -comparison;
+                return sortDirection === 'desc' ? -comparison : comparison;
             });
         });
 
@@ -675,19 +675,21 @@ export default function ProductsConfig({
                                                                 <td className="p-2">
                                                                     {isReadOnly ? (
                                                                         <div className="text-sm text-center">
-                                                                            {p.stock === -1 ? '∞' : p.stock}
+                                                                            {p.stock === null ? '∞' : p.stock}
                                                                         </div>
                                                                     ) : (
                                                                         <ValidatedInput
                                                                             type="number"
                                                                             value={
-                                                                                p.stock === -1 ? '' : String(p.stock)
+                                                                                p.stock === null ? '' : String(p.stock)
                                                                             }
                                                                             onChange={(value) => {
-                                                                                const num = Number(value);
                                                                                 handleProductChange(i, {
                                                                                     ...p,
-                                                                                    stock: value === '' ? -1 : num,
+                                                                                    stock:
+                                                                                        value === ''
+                                                                                            ? null
+                                                                                            : Number(value),
                                                                                 });
                                                                             }}
                                                                             placeholder="∞"
@@ -752,7 +754,7 @@ export default function ProductsConfig({
                                                                             onChange={(newValue) =>
                                                                                 handleProductChange(i, {
                                                                                     ...p,
-                                                                                    stock: newValue ? -1 : 0,
+                                                                                    stock: newValue ? null : 0,
                                                                                 })
                                                                             }
                                                                         />

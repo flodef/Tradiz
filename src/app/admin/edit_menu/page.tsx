@@ -64,7 +64,7 @@ export default function EditMenuPage() {
                                 allProducts.push({
                                     name: product.label,
                                     category: item.category,
-                                    stock: product.stock ?? 0,
+                                    stock: product.stock ?? null,
                                     currencies: product.prices.map(String),
                                 });
                             });
@@ -138,7 +138,7 @@ export default function EditMenuPage() {
                         loadedProducts.push({
                             name: String(name),
                             category: String(category),
-                            stock: Number(stock),
+                            stock: stock === null || stock === undefined ? null : Number(stock),
                             reference: reference ? String(reference) : undefined,
                             photo: photo ? String(photo) : undefined,
                             description: description ? String(description) : undefined,

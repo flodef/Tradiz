@@ -139,7 +139,7 @@ interface ProductData {
         label: string;
         prices: number[];
         options?: string | null;
-        stock?: number;
+        stock?: number | null;
         order: number;
     }[];
     currencies: string[];
@@ -289,7 +289,7 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
                 label: item.label,
                 prices: item.prices,
                 options: item.options,
-                stock: item.stock ?? 0,
+                stock: item.stock ?? null,
                 order: item.order,
             });
         } else {
@@ -302,7 +302,7 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
                         label: item.label,
                         prices: item.prices,
                         options: item.options,
-                        stock: item.stock ?? 0,
+                        stock: item.stock ?? null,
                         order: item.order,
                     },
                 ],
@@ -605,7 +605,10 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
                                 rate: Number(item.at(0)) * 100,
                                 category: normalizedString(item.at(1)),
                                 label: normalizedString(item.at(2)),
-                                stock: Number(item.at(3)) || 0,
+                                stock:
+                                    item.at(3) === null || item.at(3) === undefined || item.at(3) === ''
+                                        ? null
+                                        : Number(item.at(3)) || 0,
                                 reference: String(item[4]).trim(),
                                 photo: String(item[5]).trim(),
                                 description: String(item[6]).trim(),

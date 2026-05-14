@@ -117,7 +117,7 @@ export default function ProductItem({
                     <AvailabilityToggle
                         availability={product.stock !== 0}
                         isReadOnly={isReadOnly}
-                        onChange={(newValue) => onChange({ ...product, stock: newValue ? 1 : 0 })}
+                        onChange={(newValue) => onChange({ ...product, stock: newValue ? null : 0 })}
                     />
                 </div>
             </div>

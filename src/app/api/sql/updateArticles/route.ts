@@ -4,13 +4,13 @@ import { getMainDb } from '../db';
 interface Product {
     name: string;
     category: string;
-    availability: boolean;
-    stock: number;
+    stock: number | null;
     currencies: string[];
     vat?: number;
     reference?: string;
     photo?: string;
     description?: string;
+    options?: string;
 }
 
 export async function POST(request: Request) {
@@ -28,12 +28,13 @@ export async function POST(request: Request) {
             const product = (products as Product[])[i];
             const sortOrder = i + 1;
             const price = parseFloat(product.currencies[0]) || 0;
-            // stock=-1 means infinite (available), stock=0 means unavailable
-            const stock = product.availability ? (product.stock === 0 ? -1 : product.stock) : 0;
+            // stock=null means unlimited, stock=0 means unavailable, stock>0 means specific quantity
+            const stock = product.stock;
             const vatRate = product.vat ?? null;
             const reference = product.reference ?? null;
             const photo = product.photo ?? '';
             const description = product.description ?? '';
+            const options = product.options ?? '';
             const categoryId = product.category; // category_id stores the category name
 
             // Update or insert the product
@@ -45,13 +46,35 @@ export async function POST(request: Request) {
 
                 if (productRows.length > 0) {
                     await connection.execute(
-                        'UPDATE dc.products SET price = $1, category_id = $2, stock = $3, vat_rate = $4, reference = $5, photo = $6, description = $7, sort_order = $8 WHERE name = $9',
-                        [price, categoryId, stock, vatRate, reference, photo, description, sortOrder, product.name]
+                        'UPDATE dc.products SET price = $1, category_id = $2, stock = $3, vat_rate = $4, reference = $5, photo = $6, description = $7, sort_order = $8, options = $9 WHERE name = $10',
+                        [
+                            price,
+                            categoryId,
+                            stock,
+                            vatRate,
+                            reference,
+                            photo,
+                            description,
+                            sortOrder,
+                            options,
+                            product.name,
+                        ]
                     );
                 } else {
                     await connection.execute(
-                        'INSERT INTO dc.products (name, price, category_id, stock, reference, photo, description, sort_order, vat_rate) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
-                        [product.name, price, categoryId, stock, reference, photo, description, sortOrder, vatRate]
+                        'INSERT INTO dc.products (name, price, category_id, stock, reference, photo, description, sort_order, vat_rate, options) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+                        [
+                            product.name,
+                            price,
+                            categoryId,
+                            stock,
+                            reference,
+                            photo,
+                            description,
+                            sortOrder,
+                            vatRate,
+                            options,
+                        ]
                     );
                 }
             } else {
@@ -60,13 +83,35 @@ export async function POST(request: Request) {
 
                 if (productRows.length > 0) {
                     await connection.execute(
-                        'UPDATE products SET price = ?, category_id = ?, stock = ?, vat_rate = ?, reference = ?, photo = ?, description = ?, sort_order = ? WHERE name = ?',
-                        [price, categoryId, stock, vatRate, reference, photo, description, sortOrder, product.name]
+                        'UPDATE products SET price = ?, category_id = ?, stock = ?, vat_rate = ?, reference = ?, photo = ?, description = ?, sort_order = ?, options = ? WHERE name = ?',
+                        [
+                            price,
+                            categoryId,
+                            stock,
+                            vatRate,
+                            reference,
+                            photo,
+                            description,
+                            sortOrder,
+                            options,
+                            product.name,
+                        ]
                     );
                 } else {
                     await connection.execute(
-                        'INSERT INTO products (name, price, category_id, stock, reference, photo, description, sort_order, vat_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                        [product.name, price, categoryId, stock, reference, photo, description, sortOrder, vatRate]
+                        'INSERT INTO products (name, price, category_id, stock, reference, photo, description, sort_order, vat_rate, options) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                        [
+                            product.name,
+                            price,
+                            categoryId,
+                            stock,
+                            reference,
+                            photo,
+                            description,
+                            sortOrder,
+                            vatRate,
+                            options,
+                        ]
                     );
                 }
             }

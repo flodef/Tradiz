@@ -8,7 +8,7 @@ interface ArticleRow {
     rate: string;
     category: string;
     options: string;
-    stock: number;
+    stock: number | null;
     reference: string;
     photo: string;
     description: string;
@@ -24,21 +24,23 @@ export async function GET() {
             SELECT a.name as label, a.price as amount, a.vat_rate as rate, b.name as category, a.options as options, a.stock as stock, a.reference as reference, a.photo as photo, a.description as description
             FROM dc.products a
             JOIN dc.categories b on b.name = a.category_id
+            ORDER BY a.sort_order ASC
         `
             : `
             SELECT a.name as label, a.price as amount, a.vat_rate as rate, b.name as category, a.options as options, a.stock as stock, a.reference as reference, a.photo as photo, a.description as description
             FROM products a
             JOIN categories b on b.name = a.category_id
+            ORDER BY a.sort_order ASC
         `;
 
         // Query 2: Get all formulas
         const queryFormulas = connection.isPostgreSQL
             ? `
-            SELECT name as label, price as amount, '0.1' as rate, 'Formule' as category, '' as options, -1 as stock, '' as reference, '' as photo, '' as description
+            SELECT name as label, price as amount, '0.1' as rate, 'Formule' as category, '' as options, NULL as stock, '' as reference, '' as photo, '' as description
             FROM dc.formulas
         `
             : `
-            SELECT name as label, price as amount, '0.1' as rate, 'Formule' as category, '' as options, -1 as stock, '' as reference, '' as photo, '' as description
+            SELECT name as label, price as amount, '0.1' as rate, 'Formule' as category, '' as options, NULL as stock, '' as reference, '' as photo, '' as description
             FROM formulas
         `;
 
@@ -51,17 +53,17 @@ export async function GET() {
         // Combine all rows
         const allRows = [...(productsRows as ArticleRow[]), ...(formulasRows as ArticleRow[])];
 
-        const data: { values: (number | string | boolean)[][]; options: (string | null)[] } = {
+        const data: { values: (number | string | boolean | null)[][]; options: (string | null)[] } = {
             values: [],
             options: [],
         };
         data.values.push(['Taux', 'Catégorie', 'Nom', 'Stock', 'Reference', 'Photo', 'Description', 'Euro (€)']);
         data.values.push(
-            ...allRows.map((row): (number | string | boolean)[] => [
+            ...allRows.map((row): (number | string | boolean | null)[] => [
                 Number(row.rate) / 100,
                 String(row.category),
                 String(row.label),
-                Number(row.stock),
+                row.stock === null ? null : Number(row.stock),
                 String(row.reference || ''),
                 String(row.photo || ''),
                 String(row.description || ''),
