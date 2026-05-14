@@ -17,6 +17,7 @@ interface ValidatedInputProps {
     min?: number;
     max?: number;
     step?: number;
+    ref?: (el: HTMLInputElement | null) => void;
 }
 
 export default function ValidatedInput({
@@ -32,6 +33,7 @@ export default function ValidatedInput({
     min,
     max,
     step,
+    ref,
 }: ValidatedInputProps) {
     // Initialize validation state based on current value
     const [isValid, setIsValid] = useState(() => {
@@ -68,6 +70,7 @@ export default function ValidatedInput({
             min={min}
             max={max}
             step={step}
+            ref={ref}
         />
     );
 }

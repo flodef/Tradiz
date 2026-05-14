@@ -7,6 +7,7 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { CSS } from '@dnd-kit/utilities';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePopup } from '@/app/hooks/usePopup';
 import AdminButton from '../AdminButton';
 import AdminSelect from '../AdminSelect';
 import DeleteButtonCell from '../DeleteButtonCell';
@@ -32,6 +33,7 @@ interface SortableRowProps {
     onLabelChange: (id: number, label: string) => void;
     onVatChange: (id: number, vat: number) => void;
     onDelete: (id: number) => void;
+    inputRef?: (el: HTMLInputElement | null) => void;
 }
 
 const SortableRow = memo(function SortableRow({
@@ -42,6 +44,7 @@ const SortableRow = memo(function SortableRow({
     onLabelChange,
     onVatChange,
     onDelete,
+    inputRef,
 }: SortableRowProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: category._id,
@@ -78,6 +81,7 @@ const SortableRow = memo(function SortableRow({
                     <div className="text-sm">{category.label}</div>
                 ) : (
                     <ValidatedInput
+                        ref={inputRef}
                         type="text"
                         value={category.label}
                         onChange={handleLabelChange}
@@ -110,6 +114,8 @@ export default function CategoriesConfig({
     isLoading = false,
     isOpen,
     onToggle,
+    productCategories,
+    onDeleteCategoryProducts,
 }: {
     config: Category[];
     onChange: (data: Category[]) => void;
@@ -120,7 +126,10 @@ export default function CategoriesConfig({
     isLoading?: boolean;
     isOpen?: boolean;
     onToggle?: () => void;
+    productCategories?: string[];
+    onDeleteCategoryProducts?: (categoryLabel: string, moveToEmpty: boolean) => void;
 }) {
+    const { openFullscreenPopup } = usePopup();
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
@@ -210,15 +219,60 @@ export default function CategoriesConfig({
         });
     }, [notifyParent]);
 
+    const inputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
+
     const handleDeleteCategory = useCallback(
         (id: number) => {
-            setCategories((prev) => {
-                const updated = prev.filter((c) => c._id !== id);
-                notifyParent(updated);
-                return updated;
-            });
+            const category = categories.find((c) => c._id === id);
+            if (!category) return;
+
+            const categoryLabel = category._originalLabel || category.label;
+            const hasProducts = productCategories?.includes(categoryLabel);
+
+            if (hasProducts) {
+                openFullscreenPopup(
+                    `La catégorie "${category.label}" contient des produits`,
+                    [
+                        'Supprimer tous les produits de la catégorie',
+                        'Déplacer les produits sans catégorie',
+                        'Renommer la catégorie',
+                    ],
+                    (index) => {
+                        if (index === 0) {
+                            // Delete all products in this category
+                            onDeleteCategoryProducts?.(categoryLabel, false);
+                            setCategories((prev) => {
+                                const updated = prev.filter((c) => c._id !== id);
+                                notifyParent(updated);
+                                return updated;
+                            });
+                        } else if (index === 1) {
+                            // Move products to empty category
+                            onDeleteCategoryProducts?.(categoryLabel, true);
+                            setCategories((prev) => {
+                                const updated = prev.filter((c) => c._id !== id);
+                                notifyParent(updated);
+                                return updated;
+                            });
+                        } else if (index === 2) {
+                            // Focus on the category name input
+                            const input = inputRefs.current.get(id);
+                            if (input) {
+                                input.focus();
+                                input.select();
+                            }
+                        }
+                    }
+                );
+            } else {
+                setCategories((prev) => {
+                    const updated = prev.filter((c) => c._id !== id);
+                    notifyParent(updated);
+                    return updated;
+                });
+            }
         },
-        [notifyParent]
+        [categories, notifyParent, productCategories, onDeleteCategoryProducts, openFullscreenPopup]
     );
 
     const handleDragEnd = useCallback(
@@ -325,6 +379,10 @@ export default function CategoriesConfig({
                                         onLabelChange={handleLabelChange}
                                         onVatChange={handleVatChange}
                                         onDelete={handleDeleteCategory}
+                                        inputRef={(el) => {
+                                            if (el) inputRefs.current.set(category._id, el);
+                                            else inputRefs.current.delete(category._id);
+                                        }}
                                     />
                                 ))}
                             </tbody>

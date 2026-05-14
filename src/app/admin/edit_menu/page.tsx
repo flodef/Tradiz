@@ -296,6 +296,16 @@ export default function EditMenuPage() {
                     isLoading={isSavingCategories}
                     isOpen={openSection === 'categories'}
                     onToggle={() => setOpenSection((prev) => (prev === 'categories' ? null : 'categories'))}
+                    productCategories={[...new Set(products.map((p) => p.category).filter(Boolean))]}
+                    onDeleteCategoryProducts={(categoryLabel, moveToEmpty) => {
+                        if (moveToEmpty) {
+                            setProducts((prev) =>
+                                prev.map((p) => (p.category === categoryLabel ? { ...p, category: '' } : p))
+                            );
+                        } else {
+                            setProducts((prev) => prev.filter((p) => p.category !== categoryLabel));
+                        }
+                    }}
                 />
 
                 <ProductsConfig

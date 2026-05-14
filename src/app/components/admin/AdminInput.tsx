@@ -9,6 +9,7 @@ interface AdminInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
     error?: boolean;
     containerClassName?: string;
     inputClassName?: string;
+    ref?: (el: HTMLInputElement | null) => void;
 }
 
 export default function AdminInput({
@@ -18,6 +19,7 @@ export default function AdminInput({
     containerClassName = '',
     inputClassName = '',
     disabled = false,
+    ref,
     ...props
 }: AdminInputProps) {
     return (
@@ -26,6 +28,7 @@ export default function AdminInput({
             <input
                 disabled={disabled}
                 className={twMerge(adminInputStyle(error), inputClassName || 'w-full')}
+                ref={ref}
                 {...props}
             />
         </div>
