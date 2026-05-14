@@ -13,9 +13,26 @@ interface Product {
     options?: string;
 }
 
+// Compute encoded sort_order: (categoryIndex + 1) * 10000 + (positionWithinCategory + 1)
+// Category order is derived from first appearance in the products array.
+// Max 9999 products per category.
+function computeSortOrders(products: Product[]): number[] {
+    const categoryOrder: string[] = [];
+    for (const p of products) {
+        if (!categoryOrder.includes(p.category)) categoryOrder.push(p.category);
+    }
+    const positionInCat: Record<string, number> = {};
+    return products.map((p) => {
+        const catIdx = categoryOrder.indexOf(p.category);
+        const pos = positionInCat[p.category] ?? 0;
+        positionInCat[p.category] = pos + 1;
+        return (catIdx + 1) * 10000 + (pos + 1);
+    });
+}
+
 export async function POST(request: Request) {
     try {
-        const { products } = await request.json();
+        const { products, category } = await request.json();
 
         if (!products || !Array.isArray(products)) {
             return NextResponse.json({ error: 'Invalid products format' }, { status: 400 });
@@ -29,19 +46,33 @@ export async function POST(request: Request) {
         if (duplicates.length > 0) {
             await connection.end();
             return NextResponse.json(
-                { error: `Noms de produits en double : ${[...new Set(duplicates)].join(', ')}` },
+                { error: `Noms de produits en double : "${[...new Set(duplicates)].join(', ')}"` },
                 { status: 409 }
             );
         }
 
-        // Delete all products and re-insert in a transaction to handle renames, deletions, and duplicates
+        const sortOrders = computeSortOrders(products as Product[]);
+
+        // When a category is provided, scope the delete to that category only.
+        // Otherwise do a full truncate+reinsert.
+        const scopedCategory = typeof category === 'string' ? category : null;
+
         if (connection.isPostgreSQL) {
             await connection.execute('BEGIN');
             try {
-                await connection.execute('TRUNCATE dc.products RESTART IDENTITY');
-                for (let i = 0; i < (products as Product[]).length; i++) {
-                    const product = (products as Product[])[i];
-                    const sortOrder = i + 1;
+                if (scopedCategory !== null) {
+                    await connection.execute('DELETE FROM dc.products WHERE category_id = $1', [scopedCategory]);
+                } else {
+                    await connection.execute('TRUNCATE dc.products RESTART IDENTITY');
+                }
+                const productsToInsert =
+                    scopedCategory !== null
+                        ? (products as Product[]).filter((p) => p.category === scopedCategory)
+                        : (products as Product[]);
+                for (let i = 0; i < productsToInsert.length; i++) {
+                    const product = productsToInsert[i];
+                    const globalIdx = (products as Product[]).indexOf(product);
+                    const sortOrder = sortOrders[globalIdx];
                     const price = parseFloat(product.currencies[0]) || 0;
                     const stock = product.stock;
                     const vatRate = product.vat ?? 20;
@@ -49,14 +80,13 @@ export async function POST(request: Request) {
                     const photo = product.photo ?? '';
                     const description = product.description ?? '';
                     const options = product.options ?? '';
-                    const categoryId = product.category;
 
                     await connection.execute(
                         'INSERT INTO dc.products (name, price, category_id, stock, reference, photo, description, sort_order, vat_rate, options) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
                         [
                             product.name,
                             price,
-                            categoryId,
+                            product.category,
                             stock,
                             reference,
                             photo,
@@ -75,10 +105,19 @@ export async function POST(request: Request) {
         } else {
             await connection.execute('START TRANSACTION');
             try {
-                await connection.execute('TRUNCATE TABLE products');
-                for (let i = 0; i < (products as Product[]).length; i++) {
-                    const product = (products as Product[])[i];
-                    const sortOrder = i + 1;
+                if (scopedCategory !== null) {
+                    await connection.execute('DELETE FROM products WHERE category_id = ?', [scopedCategory]);
+                } else {
+                    await connection.execute('TRUNCATE TABLE products');
+                }
+                const productsToInsert =
+                    scopedCategory !== null
+                        ? (products as Product[]).filter((p) => p.category === scopedCategory)
+                        : (products as Product[]);
+                for (let i = 0; i < productsToInsert.length; i++) {
+                    const product = productsToInsert[i];
+                    const globalIdx = (products as Product[]).indexOf(product);
+                    const sortOrder = sortOrders[globalIdx];
                     const price = parseFloat(product.currencies[0]) || 0;
                     const stock = product.stock;
                     const vatRate = product.vat ?? 20;
@@ -86,14 +125,13 @@ export async function POST(request: Request) {
                     const photo = product.photo ?? '';
                     const description = product.description ?? '';
                     const options = product.options ?? '';
-                    const categoryId = product.category;
 
                     await connection.execute(
                         'INSERT INTO products (name, price, category_id, stock, reference, photo, description, sort_order, vat_rate, options) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                         [
                             product.name,
                             price,
-                            categoryId,
+                            product.category,
                             stock,
                             reference,
                             photo,
@@ -116,6 +154,10 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true }, { status: 200 });
     } catch (error) {
         console.error('Database update error:', error);
-        return NextResponse.json({ error: 'An error occurred while updating articles' }, { status: 500 });
+        const msg =
+            error instanceof Error && error.message.toLowerCase().includes('timeout')
+                ? 'La connexion à la base de données a expiré. Veuillez réessayer.'
+                : 'Une erreur est survenue lors de la mise à jour des produits.';
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
 }

@@ -6,7 +6,8 @@ import CategoriesConfig from '@/app/components/admin/sections/CategoriesConfig';
 import { Category } from '@/app/utils/interfaces';
 import { ProductsSettings } from '@/app/contexts/ConfigProvider';
 import { AdminProduct } from '@/app/components/admin/sections/ProductsConfig';
-import { USE_DIGICARTE } from '@/app/utils/constants';
+import { CONFIG_KEYWORD, USE_DIGICARTE } from '@/app/utils/constants';
+import { clearLoadDataCache } from '@/app/utils/processData';
 import { useConfig } from '@/app/hooks/useConfig';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { usePopup } from '@/app/hooks/usePopup';
@@ -171,14 +172,13 @@ export default function EditMenuPage() {
     );
 
     const handleProductsSave = useCallback(
-        async (data: AdminProduct[]) => {
+        async (data: AdminProduct[], category?: string) => {
             setIsSavingProducts(true);
             try {
-                // Save products to database via API
                 const response = await fetch('/api/sql/updateArticles', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ products: data }),
+                    body: JSON.stringify({ products: data, category }),
                 });
 
                 if (!response.ok) {
@@ -188,10 +188,14 @@ export default function EditMenuPage() {
 
                 setProducts(data);
                 setOriginalProducts(data);
+                localStorage.removeItem(CONFIG_KEYWORD);
+                clearLoadDataCache();
             } catch (error) {
                 console.error("Erreur lors de l'enregistrement:", error);
                 const msg = error instanceof Error ? error.message : "Erreur lors de l'enregistrement des produits.";
-                openFullscreenPopup(msg, ['OK']);
+                openFullscreenPopup(`${msg}\nVoulez-vous réessayer ?`, ['Réessayer', 'Annuler'], (index) => {
+                    if (index === 0) handleProductsSave(data, category);
+                });
             } finally {
                 setIsSavingProducts(false);
             }
@@ -206,7 +210,7 @@ export default function EditMenuPage() {
             const oldKey = oldLabel === 'Sans catégorie' ? '' : oldLabel;
             setProducts((prev) => {
                 const updated = prev.map((p) => (p.category === oldKey ? { ...p, category: newLabel } : p));
-                setTimeout(() => handleProductsSave(updated), 0);
+                setTimeout(() => handleProductsSave(updated, newLabel), 0);
                 return updated;
             });
         },
@@ -229,7 +233,7 @@ export default function EditMenuPage() {
             const key = categoryLabel === 'Sans catégorie' ? '' : categoryLabel;
             setProducts((prev) => {
                 const updated = prev.map((p) => (p.category === key ? { ...p, vat } : p));
-                setTimeout(() => handleProductsSave(updated), 0);
+                setTimeout(() => handleProductsSave(updated, categoryLabel), 0);
                 return updated;
             });
         },

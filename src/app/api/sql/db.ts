@@ -1,6 +1,5 @@
 import { DC, DC_POS, USE_DIGICARTE } from '@/app/utils/constants';
 import mysql from 'mysql2/promise';
-import { Pool as PgPool } from 'pg';
 import { getMainPgDb, getPosPgDb, isPgConfigured } from './pg-db';
 
 // Unified database connection interface
@@ -49,24 +48,26 @@ class MySQLConnectionWrapper implements DbConnection {
     }
 }
 
-// Wrapper for PostgreSQL pool to match our interface
+// Minimal interface matching both pg.Pool and @neondatabase/serverless Pool
+interface PgPoolLike {
+    query(text: string, values?: unknown[]): Promise<{ rows: unknown[] }>;
+}
+
+// Wrapper for Neon/pg Pool to match our DbConnection interface
 class PostgreSQLConnectionWrapper implements DbConnection {
     isPostgreSQL = true;
 
-    constructor(private pool: PgPool) {}
+    constructor(private pool: PgPoolLike) {}
 
     async execute(query: string, params?: unknown[]): Promise<[unknown[], unknown]> {
-        // Set search path before each query (Neon doesn't support it in connection options)
         await this.pool.query('SET search_path TO dc_pos, dc, dc_sys, public');
         const result = await this.pool.query(query, params);
         return [result.rows, {}];
     }
 
     async query(query: string, params?: unknown[]): Promise<{ rows: unknown[] }> {
-        // Set search path before each query (Neon doesn't support it in connection options)
         await this.pool.query('SET search_path TO dc_pos, dc, dc_sys, public');
-        const result = await this.pool.query(query, params);
-        return { rows: result.rows };
+        return this.pool.query(query, params);
     }
 
     async beginTransaction(): Promise<void> {
@@ -82,8 +83,6 @@ class PostgreSQLConnectionWrapper implements DbConnection {
     }
 
     async end(): Promise<void> {
-        // For PostgreSQL pool, we don't end it (it's reused)
-        // Just return immediately
         return Promise.resolve();
     }
 }

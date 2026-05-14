@@ -480,7 +480,16 @@ async function migrateProducts(client: Client) {
         .filter(({ item }) => item[1] != null && String(item[1]).trim() !== '') // category not empty
         .filter(({ item }) => item[2] != null && String(item[2]).trim() !== ''); // label not empty
 
-    let ordre = 0;
+    // Build category order from first appearance to compute encoded sort_order
+    const categoryOrder: string[] = [];
+    for (const { item: row } of filtered) {
+        if (row.length >= 4) {
+            const cat = String(row[1]).trim();
+            if (cat && !categoryOrder.includes(cat)) categoryOrder.push(cat);
+        }
+    }
+    const positionInCat: Record<string, number> = {};
+
     for (const { item: row, origIdx } of filtered) {
         if (row.length >= 4) {
             // Parse VAT rate - handle both formatted strings ("5,5%") and raw numbers (5.5 or 0.055)
@@ -518,9 +527,14 @@ async function migrateProducts(client: Client) {
             const options = optionsArr[origIdx] ?? '';
 
             if (name && category_id) {
-                // Add product
+                // Compute encoded sort_order: (catIdx + 1) * 10000 + (posInCat + 1)
+                const catIdx = categoryOrder.indexOf(category_id);
+                const pos = positionInCat[category_id] ?? 0;
+                positionInCat[category_id] = pos + 1;
+                const sort_order = (catIdx + 1) * 10000 + (pos + 1);
+
                 products.push({
-                    sort_order: ++ordre,
+                    sort_order,
                     name,
                     price,
                     photo: '', // No photo in spreadsheet

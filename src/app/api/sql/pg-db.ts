@@ -1,31 +1,31 @@
-import { Pool } from 'pg';
+import { Pool, neonConfig } from '@neondatabase/serverless';
 
-// PostgreSQL connection pool for Neon
+// Use fetch for HTTP-based queries (no TCP cold start on Neon serverless)
+if (typeof WebSocket === 'undefined') {
+    // Node.js environment: use ws for WebSocket (needed for transactions)
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    neonConfig.webSocketConstructor = require('ws');
+}
+
+// Neon Pool instances (lazily created, reused across requests)
 let mainPool: Pool | null = null;
 let posPool: Pool | null = null;
 
-const pgConfig = {
-    host: process.env.PG_HOST,
-    user: process.env.PG_USER,
-    password: process.env.PG_PASSWORD,
-    // Use NEXT_PUBLIC_SHOP_ID as database name, fallback to PG_DATABASE for backwards compatibility
-    database: process.env.NEXT_PUBLIC_SHOP_ID || process.env.PG_DATABASE,
-    ssl: { rejectUnauthorized: false }, // Required for Neon
-    max: 20, // Maximum pool size
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
-    // Note: Neon doesn't support search_path in connection options
-    // We'll set it per query instead
-};
+function buildConnectionString(): string {
+    const host = process.env.PG_HOST;
+    const user = process.env.PG_USER;
+    const password = process.env.PG_PASSWORD;
+    const database = process.env.NEXT_PUBLIC_SHOP_ID || process.env.PG_DATABASE;
+    return `postgresql://${user}:${password}@${host}/${database}?sslmode=require`;
+}
 
-export function getMainPgDb() {
-    if (!mainPool) mainPool = new Pool(pgConfig);
-
+export function getMainPgDb(): Pool {
+    if (!mainPool) mainPool = new Pool({ connectionString: buildConnectionString() });
     return mainPool;
 }
 
-export function getPosPgDb() {
-    if (!posPool) posPool = new Pool(pgConfig);
+export function getPosPgDb(): Pool {
+    if (!posPool) posPool = new Pool({ connectionString: buildConnectionString() });
     return posPool;
 }
 
