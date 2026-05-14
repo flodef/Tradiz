@@ -5,7 +5,7 @@ import { Currency } from '@/app/utils/interfaces';
 import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
+import { IconChevronDown, IconChevronUp, IconInfoCircle, IconSelector } from '@tabler/icons-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AdminSelect from '../AdminSelect';
 import AvailabilityToggle from '../AvailabilityToggle';
@@ -14,8 +14,19 @@ import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
 
-type SortField = 'order' | 'name' | 'category' | 'price' | 'availability';
-type SortDirection = 'asc' | 'desc';
+type SortField =
+    | 'order'
+    | 'name'
+    | 'category'
+    | 'reference'
+    | 'price'
+    | 'vat'
+    | 'stock'
+    | 'photo'
+    | 'description'
+    | 'options'
+    | 'availability';
+type SortDirection = 'asc' | 'desc' | 'none';
 
 export interface AdminProduct {
     name: string;
@@ -26,6 +37,7 @@ export interface AdminProduct {
     reference?: string;
     photo?: string;
     description?: string;
+    options?: string;
 }
 
 type AvailabilityFilter = 'all' | 'available' | 'unavailable';
@@ -82,21 +94,23 @@ export default function ProductsConfig({
     const [products, setProducts] = useState(config || []);
     const [search, setSearch] = useState('');
     const [availFilter, setAvailFilter] = useState<AvailabilityFilter>('all');
-    const [sortField, setSortField] = useState<SortField>('order');
-    const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+    const [sortField, setSortField] = useState<SortField | null>(null);
+    const [sortDirection, setSortDirection] = useState<SortDirection>('none');
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
     const selfUpdateRef = useRef(false);
 
     const sensors = useSensors(useSensor(PointerSensor));
 
     const categoryOrder = useMemo(() => {
-        const seen: string[] = [];
+        // Use categories prop order as the stable base order
+        const order = categories.map((c) => c.label);
+        // Add any categories from products that aren't in the prop (e.g. "Sans catégorie")
         for (const p of products) {
             const key = p.category || 'Sans catégorie';
-            if (!seen.includes(key)) seen.push(key);
+            if (!order.includes(key)) order.push(key);
         }
-        return seen;
-    }, [products]);
+        return order;
+    }, [categories, products]);
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(categoryOrder));
 
     useEffect(() => {
@@ -190,7 +204,7 @@ export default function ProductsConfig({
     };
 
     const handleAddProduct = (category = '') => {
-        const newProduct: AdminProduct = { name: '', category, stock: 0, currencies: [] };
+        const newProduct: AdminProduct = { name: '', category, stock: -1, currencies: [] };
         const updated = [...products, newProduct];
         setProducts(updated);
         notifyParent(updated);
@@ -217,20 +231,32 @@ export default function ProductsConfig({
             groups[key].push(item);
         }
 
-        // Sort within each category if grouping is enabled
+        // Sort within each category
         Object.keys(groups).forEach((cat) => {
             groups[cat].sort((a, b) => {
                 let comparison = 0;
-                if (sortField === 'order') {
+                if (!sortField || sortField === 'category' || sortDirection === 'none') {
                     comparison = a.i - b.i;
                 } else if (sortField === 'name') {
                     comparison = a.p.name.localeCompare(b.p.name);
-                } else if (sortField === 'category') {
-                    comparison = a.p.category.localeCompare(b.p.category);
+                } else if (sortField === 'reference') {
+                    comparison = (a.p.reference ?? '').localeCompare(b.p.reference ?? '');
                 } else if (sortField === 'price') {
                     const priceA = parseFloat(a.p.currencies[0] || '0');
                     const priceB = parseFloat(b.p.currencies[0] || '0');
                     comparison = priceA - priceB;
+                } else if (sortField === 'vat') {
+                    comparison = (a.p.vat ?? 0) - (b.p.vat ?? 0);
+                } else if (sortField === 'stock') {
+                    const stockA = a.p.stock === -1 ? Infinity : a.p.stock;
+                    const stockB = b.p.stock === -1 ? Infinity : b.p.stock;
+                    comparison = stockA - stockB;
+                } else if (sortField === 'photo') {
+                    comparison = (a.p.photo ?? '').localeCompare(b.p.photo ?? '');
+                } else if (sortField === 'description') {
+                    comparison = (a.p.description ?? '').localeCompare(b.p.description ?? '');
+                } else if (sortField === 'options') {
+                    comparison = (a.p.options ?? '').localeCompare(b.p.options ?? '');
                 } else if (sortField === 'availability') {
                     comparison = (a.p.stock === 0 ? 1 : 0) - (b.p.stock === 0 ? 1 : 0);
                 }
@@ -241,9 +267,20 @@ export default function ProductsConfig({
         return groups;
     }, [filteredProducts, sortField, sortDirection]);
 
+    const sortedCategoryOrder = useMemo(() => {
+        if (sortField !== 'category' || sortDirection === 'none') return categoryOrder;
+        const sorted = [...categoryOrder].sort((a, b) => a.localeCompare(b));
+        return sortDirection === 'asc' ? sorted : sorted.reverse();
+    }, [categoryOrder, sortField, sortDirection]);
+
     const handleSort = (field: SortField) => {
         if (sortField === field) {
-            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+            if (sortDirection === 'asc') {
+                setSortDirection('desc');
+            } else if (sortDirection === 'desc') {
+                setSortDirection('none');
+                setSortField(null);
+            }
         } else {
             setSortField(field);
             setSortDirection('asc');
@@ -251,11 +288,21 @@ export default function ProductsConfig({
     };
 
     const SortIcon = ({ field }: { field: SortField }) => {
-        if (sortField !== field) return null;
+        if (sortField !== field) return <IconSelector size={14} className="opacity-30" />;
+        if (sortDirection === 'none') return <IconSelector size={14} className="opacity-30" />;
         return sortDirection === 'asc' ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />;
     };
 
     const totalFiltered = filteredProducts.length;
+
+    const duplicateNames = useMemo(() => {
+        const counts: Record<string, number> = {};
+        for (const p of products) {
+            const key = p.name.trim().toLowerCase();
+            if (key) counts[key] = (counts[key] || 0) + 1;
+        }
+        return new Set(Object.keys(counts).filter((k) => counts[k] > 1));
+    }, [products]);
 
     const formatPrice = (price: string, currencyIndex = 0) => {
         if (!price || price === '' || price === '0') return '';
@@ -363,6 +410,7 @@ export default function ProductsConfig({
         <SectionCard
             title="Produits"
             onSave={isReadOnly || !hasChanges || !onSave ? undefined : () => onSave(products)}
+            saveDisabled={duplicateNames.size > 0}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
             headerExtra={headerControls}
             isLoading={isLoading}
@@ -398,8 +446,14 @@ export default function ProductsConfig({
                                         </div>
                                     </th>
                                     {productsSettings?.useReference && (
-                                        <th className={adminSortableHeaderStyle + ' min-w-24 w-24'}>
-                                            <div className="flex items-center gap-1">Référence</div>
+                                        <th
+                                            className={adminSortableHeaderStyle + ' min-w-24 w-24'}
+                                            onClick={() => handleSort('reference')}
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                Référence
+                                                <SortIcon field="reference" />
+                                            </div>
                                         </th>
                                     )}
                                     <th
@@ -412,39 +466,79 @@ export default function ProductsConfig({
                                         </div>
                                     </th>
                                     {productsSettings?.useVatPerProduct && (
-                                        <th className={adminSortableHeaderStyle + ' min-w-16 w-16'}>
-                                            <div className="flex items-center gap-1">TVA (%)</div>
+                                        <th
+                                            className={adminSortableHeaderStyle + ' min-w-16 w-16'}
+                                            onClick={() => handleSort('vat')}
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                TVA (%)
+                                                <SortIcon field="vat" />
+                                            </div>
                                         </th>
                                     )}
                                     {productsSettings?.useStock && (
-                                        <th className={adminSortableHeaderStyle + ' min-w-20 w-20'}>
-                                            <div className="flex items-center justify-center gap-1">Stock</div>
+                                        <th
+                                            className={adminSortableHeaderStyle + ' min-w-20 w-20'}
+                                            onClick={() => handleSort('stock')}
+                                        >
+                                            <div className="flex items-center justify-center gap-1">
+                                                Stock
+                                                <SortIcon field="stock" />
+                                                <span title="Un stock vide signifie un stock infini">
+                                                    <IconInfoCircle size={14} className="opacity-50" />
+                                                </span>
+                                            </div>
                                         </th>
                                     )}
                                     {productsSettings?.usePhoto && (
-                                        <th className={adminSortableHeaderStyle + ' min-w-20 w-20'}>
-                                            <div className="flex items-center gap-1">Photo</div>
+                                        <th
+                                            className={adminSortableHeaderStyle + ' min-w-20 w-20'}
+                                            onClick={() => handleSort('photo')}
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                Photo
+                                                <SortIcon field="photo" />
+                                            </div>
                                         </th>
                                     )}
                                     {productsSettings?.useDescription && (
-                                        <th className={adminSortableHeaderStyle + ' min-w-32 w-32'}>
-                                            <div className="flex items-center gap-1">Description</div>
+                                        <th
+                                            className={adminSortableHeaderStyle + ' min-w-32 w-32'}
+                                            onClick={() => handleSort('description')}
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                Description
+                                                <SortIcon field="description" />
+                                            </div>
                                         </th>
                                     )}
-                                    <th
-                                        className={adminSortableHeaderStyle + ' min-w-20 w-20'}
-                                        onClick={() => handleSort('availability')}
-                                    >
-                                        <div className="flex items-center justify-center gap-1">
-                                            Disponibilité
-                                            <SortIcon field="availability" />
-                                        </div>
-                                    </th>
+                                    {productsSettings?.useOptions && (
+                                        <th
+                                            className={adminSortableHeaderStyle + ' min-w-32 w-32'}
+                                            onClick={() => handleSort('options')}
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                Options
+                                                <SortIcon field="options" />
+                                            </div>
+                                        </th>
+                                    )}
+                                    {!productsSettings?.useStock && (
+                                        <th
+                                            className={adminSortableHeaderStyle + ' min-w-20 w-20'}
+                                            onClick={() => handleSort('availability')}
+                                        >
+                                            <div className="flex items-center justify-center gap-1">
+                                                Disponibilité
+                                                <SortIcon field="availability" />
+                                            </div>
+                                        </th>
+                                    )}
                                     {!isReadOnly && <th className="w-8"></th>}
                                 </tr>
                             </thead>
                             <tbody>
-                                {categoryOrder
+                                {sortedCategoryOrder
                                     .filter((cat) => categoryGroups[cat] !== undefined)
                                     .map((cat, catIdx) => (
                                         <React.Fragment key={`${cat}-${catIdx}`}>
@@ -454,11 +548,12 @@ export default function ProductsConfig({
                                             >
                                                 <td
                                                     colSpan={(() => {
-                                                        let count = isReadOnly ? 5 : 6;
+                                                        let count = isReadOnly ? 5 : 6; // base: drag + name + category + price + stock/availability + delete
                                                         if (productsSettings?.useReference) count++;
                                                         if (productsSettings?.useVatPerProduct) count++;
                                                         if (productsSettings?.usePhoto) count++;
                                                         if (productsSettings?.useDescription) count++;
+                                                        if (productsSettings?.useOptions) count++;
                                                         return count;
                                                     })()}
                                                     className="p-2 font-semibold text-sm"
@@ -500,16 +595,21 @@ export default function ProductsConfig({
                                                                         })
                                                                     }
                                                                     maxLength={50}
+                                                                    validation={(v) =>
+                                                                        !duplicateNames.has(
+                                                                            String(v).trim().toLowerCase()
+                                                                        )
+                                                                    }
                                                                 />
                                                             </td>
                                                             <td className="p-2">
                                                                 <AdminSelect
                                                                     options={categories}
                                                                     value={p.category}
-                                                                    onChange={(val) =>
+                                                                    onChange={(e) =>
                                                                         handleProductChange(i, {
                                                                             ...p,
-                                                                            category: Array.isArray(val) ? val[0] : val,
+                                                                            category: e.target.value,
                                                                         })
                                                                     }
                                                                     disabled={isReadOnly}
@@ -575,18 +675,22 @@ export default function ProductsConfig({
                                                                 <td className="p-2">
                                                                     {isReadOnly ? (
                                                                         <div className="text-sm text-center">
-                                                                            {p.stock}
+                                                                            {p.stock === -1 ? '∞' : p.stock}
                                                                         </div>
                                                                     ) : (
                                                                         <ValidatedInput
                                                                             type="number"
-                                                                            value={String(p.stock)}
-                                                                            onChange={(value) =>
+                                                                            value={
+                                                                                p.stock === -1 ? '' : String(p.stock)
+                                                                            }
+                                                                            onChange={(value) => {
+                                                                                const num = Number(value);
                                                                                 handleProductChange(i, {
                                                                                     ...p,
-                                                                                    stock: Number(value) || 0,
-                                                                                })
-                                                                            }
+                                                                                    stock: value === '' ? -1 : num,
+                                                                                });
+                                                                            }}
+                                                                            placeholder="∞"
                                                                         />
                                                                     )}
                                                                 </td>
@@ -623,20 +727,38 @@ export default function ProductsConfig({
                                                                     />
                                                                 </td>
                                                             )}
-                                                            <td className="p-2 text-center">
-                                                                <div className="flex justify-center">
-                                                                    <AvailabilityToggle
-                                                                        availability={p.stock !== 0}
-                                                                        isReadOnly={isReadOnly}
-                                                                        onChange={(newValue) =>
+                                                            {productsSettings?.useOptions && (
+                                                                <td className="p-2">
+                                                                    <ValidatedInput
+                                                                        disabled={isReadOnly}
+                                                                        type="text"
+                                                                        value={p.options ?? ''}
+                                                                        onChange={(value) =>
                                                                             handleProductChange(i, {
                                                                                 ...p,
-                                                                                stock: newValue ? 1 : 0,
+                                                                                options: String(value),
                                                                             })
                                                                         }
+                                                                        maxLength={300}
                                                                     />
-                                                                </div>
-                                                            </td>
+                                                                </td>
+                                                            )}
+                                                            {!productsSettings?.useStock && (
+                                                                <td className="p-2 text-center">
+                                                                    <div className="flex justify-center">
+                                                                        <AvailabilityToggle
+                                                                            availability={p.stock !== 0}
+                                                                            isReadOnly={isReadOnly}
+                                                                            onChange={(newValue) =>
+                                                                                handleProductChange(i, {
+                                                                                    ...p,
+                                                                                    stock: newValue ? -1 : 0,
+                                                                                })
+                                                                            }
+                                                                        />
+                                                                    </div>
+                                                                </td>
+                                                            )}
                                                             <DeleteButtonCell
                                                                 isReadOnly={isReadOnly}
                                                                 onDelete={() => handleDeleteProduct(i)}

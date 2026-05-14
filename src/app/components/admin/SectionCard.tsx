@@ -4,6 +4,7 @@ import { ReactNode, useState } from 'react';
 import { IconCheck, IconX } from '@tabler/icons-react';
 import { useIsMobile } from '@/app/utils/mobile';
 import AdminButton from './AdminButton';
+import { twMerge } from 'tailwind-merge';
 
 interface SectionCardProps {
     title: string;
@@ -63,7 +64,7 @@ export default function SectionCard({
                                             e.stopPropagation();
                                             onCancel();
                                         }}
-                                        className={isMobile ? 'px-3 py-1.5' : 'px-3 py-1'}
+                                        className={twMerge('cursor-pointer', isMobile ? 'px-3 py-1.5' : 'px-3 py-1')}
                                     >
                                         {isMobile ? <IconX size={20} stroke={3} /> : 'Annuler'}
                                     </AdminButton>
@@ -77,7 +78,7 @@ export default function SectionCard({
                                             e.stopPropagation();
                                             onSave();
                                         }}
-                                        className={isMobile ? 'px-3 py-1.5' : 'px-3 py-1'}
+                                        className={twMerge('cursor-pointer', isMobile ? 'px-3 py-1.5' : 'px-3 py-1')}
                                     >
                                         {isMobile ? <IconCheck size={20} stroke={3} /> : 'Enregistrer'}
                                     </AdminButton>

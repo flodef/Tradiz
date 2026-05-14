@@ -605,7 +605,7 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
                                 rate: Number(item.at(0)) * 100,
                                 category: normalizedString(item.at(1)),
                                 label: normalizedString(item.at(2)),
-                                stock: Number(item.at(3)) === -1 ? 0 : Number(item.at(4)) || 0,
+                                stock: Number(item.at(3)) || 0,
                                 reference: String(item[4]).trim(),
                                 photo: String(item[5]).trim(),
                                 description: String(item[6]).trim(),

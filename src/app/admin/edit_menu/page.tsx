@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import ProductsConfig from '@/app/components/admin/sections/ProductsConfig';
 import CategoriesConfig from '@/app/components/admin/sections/CategoriesConfig';
 import { Category } from '@/app/utils/interfaces';
+import { ProductsSettings } from '@/app/contexts/ConfigProvider';
 import { AdminProduct } from '@/app/components/admin/sections/ProductsConfig';
 import { USE_DIGICARTE } from '@/app/utils/constants';
 import { useConfig } from '@/app/hooks/useConfig';
@@ -25,6 +26,7 @@ export default function EditMenuPage() {
     const [dbConfigChecked, setDbConfigChecked] = useState(false);
     const [isSavingCategories, setIsSavingCategories] = useState(false);
     const [isSavingProducts, setIsSavingProducts] = useState(false);
+    const [productsSettings, setProductsSettings] = useState<ProductsSettings | undefined>(parameters?.products);
     const [openSection, setOpenSection] = useState<string | null>(null);
 
     // Step 1: check DB config once on mount
@@ -78,15 +80,41 @@ export default function EditMenuPage() {
                     return;
                 }
 
-                // Fetch categories
-                const categoriesResponse = await fetch('/api/sql/getCategories');
+                // Fetch categories, products, and parameters in parallel
+                const [categoriesResponse, productsResponse, parametersResponse] = await Promise.all([
+                    fetch('/api/sql/getCategories'),
+                    fetch('/api/sql/getAllArticles'),
+                    fetch('/api/sql/getParameters'),
+                ]);
                 const categoriesData = await categoriesResponse.json();
-                console.log('Categories API response:', categoriesData);
-
-                // Fetch products
-                const productsResponse = await fetch('/api/sql/getAllArticles');
                 const productsData = await productsResponse.json();
-                console.log('Products API response:', productsData);
+                const parametersData = await parametersResponse.json();
+
+                // Parse productsSettings from parameters
+                if (parametersData.values) {
+                    const paramMap = new Map<string, string>();
+                    parametersData.values.forEach(([key, value]: [string, string]) => {
+                        paramMap.set(key, value);
+                    });
+                    const raw = paramMap.get('productsSettings');
+                    if (raw) {
+                        try {
+                            const parsed = JSON.parse(raw);
+                            if (parsed && typeof parsed === 'object') {
+                                setProductsSettings({
+                                    useVatPerProduct: parsed.useVatPerProduct ?? false,
+                                    useReference: parsed.useReference ?? false,
+                                    useStock: parsed.useStock ?? false,
+                                    usePhoto: parsed.usePhoto ?? false,
+                                    useDescription: parsed.useDescription ?? false,
+                                    useOptions: parsed.useOptions ?? false,
+                                });
+                            }
+                        } catch {
+                            // Invalid JSON, keep default
+                        }
+                    }
+                }
 
                 // Parse categories (skip header row)
                 const loadedCategories: Category[] = [];
@@ -107,15 +135,15 @@ export default function EditMenuPage() {
                     for (let i = 1; i < productsData.values.length; i++) {
                         const [, category, name, stock, reference, photo, description, ...prices] =
                             productsData.values[i];
-                        const stockNum = Number(stock);
                         loadedProducts.push({
                             name: String(name),
                             category: String(category),
-                            stock: stockNum === -1 ? 0 : stockNum, // Display: -1 (infinite) shows as 0
+                            stock: Number(stock),
                             reference: reference ? String(reference) : undefined,
                             photo: photo ? String(photo) : undefined,
                             description: description ? String(description) : undefined,
-                            currencies: prices.map(String), // All price columns
+                            options: productsData.options?.[i - 1] ? String(productsData.options[i - 1]) : undefined,
+                            currencies: prices.map(String),
                         });
                     }
                 }
@@ -163,7 +191,6 @@ export default function EditMenuPage() {
 
             setProducts(data);
             setOriginalProducts(data);
-            window.location.reload();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des produits.", ['OK']);
@@ -283,7 +310,7 @@ export default function EditMenuPage() {
                     isLoading={isSavingProducts}
                     isOpen={openSection === 'products'}
                     onToggle={() => setOpenSection((prev) => (prev === 'products' ? null : 'products'))}
-                    productsSettings={parameters?.products}
+                    productsSettings={productsSettings}
                 />
             </div>
         </AdminPageLayout>
