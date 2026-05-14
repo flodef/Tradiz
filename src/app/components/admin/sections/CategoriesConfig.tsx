@@ -1,11 +1,9 @@
 'use client';
 
-import { adminSortableHeaderStyle } from '@/app/utils/constants';
 import { Category } from '@/app/utils/interfaces';
 import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePopup } from '@/app/hooks/usePopup';
 import AdminButton from '../AdminButton';
@@ -14,9 +12,7 @@ import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
-
-type SortField = 'order' | 'label' | 'vat';
-type SortDirection = 'asc' | 'desc';
+import { adminHeaderStyle } from '@/app/utils/constants';
 
 // Internal category with a stable _id for React keys and originalLabel for rename tracking
 interface InternalCategory extends Category {
@@ -32,6 +28,7 @@ interface SortableRowProps {
     vatRates: number[];
     productCount: { total: number; available: number };
     onLabelChange: (id: number, label: string) => void;
+    onLabelBlur: (id: number) => void;
     onVatChange: (id: number, vat: number) => void;
     onDelete: (id: number) => void;
     inputRef?: (el: HTMLInputElement | null) => void;
@@ -44,6 +41,7 @@ const SortableRow = memo(function SortableRow({
     vatRates,
     productCount,
     onLabelChange,
+    onLabelBlur,
     onVatChange,
     onDelete,
     inputRef,
@@ -63,6 +61,10 @@ const SortableRow = memo(function SortableRow({
         },
         [category._id, onLabelChange]
     );
+
+    const handleLabelBlur = useCallback(() => {
+        onLabelBlur(category._id);
+    }, [category._id, onLabelBlur]);
 
     const handleVatChange = useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -88,6 +90,7 @@ const SortableRow = memo(function SortableRow({
                         type="text"
                         value={category.label}
                         onChange={handleLabelChange}
+                        onBlur={handleLabelBlur}
                         validation={() => !isInvalid}
                         maxLength={50}
                         disabled={isReadOnly}
@@ -131,6 +134,7 @@ export default function CategoriesConfig({
     onDeleteCategoryProducts,
     onRenameCategory,
     onCategoryVatChange,
+    onReorderCategories,
 }: {
     config: Category[];
     isReadOnly?: boolean;
@@ -140,14 +144,13 @@ export default function CategoriesConfig({
     onDeleteCategoryProducts?: (categoryLabel: string, moveToEmpty: boolean) => void;
     onRenameCategory?: (oldLabel: string, newLabel: string) => void;
     onCategoryVatChange?: (categoryLabel: string, vat: number) => void;
+    onReorderCategories?: (orderedLabels: string[]) => void;
 }) {
     const { openFullscreenPopup } = usePopup();
     const nextIdRef = useRef(0);
     const [categories, setCategories] = useState<InternalCategory[]>(() =>
         (config || []).map((c) => ({ ...c, _id: nextIdRef.current++, _originalLabel: c.label }))
     );
-    const [sortField, setSortField] = useState<SortField>('order');
-    const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
     const sensors = useSensors(useSensor(PointerSensor));
     const vatRates = useMemo(() => [20, 10, 5.5, 2.1, 0], []);
 
@@ -222,17 +225,31 @@ export default function CategoriesConfig({
     }, [categories]);
 
     // Handlers use _id for stable identity
-    const handleLabelChange = useCallback(
-        (id: number, label: string) => {
-            setCategories((prev) => {
-                const cat = prev.find((c) => c._id === id);
-                if (cat && cat._originalLabel && cat._originalLabel !== label) {
-                    onRenameCategory?.(cat._originalLabel, label);
+    const handleLabelChange = useCallback((id: number, label: string) => {
+        setCategories((prev) => prev.map((c) => (c._id === id ? { ...c, label } : c)));
+    }, []);
+
+    const handleLabelBlur = useCallback(
+        (id: number) => {
+            const cat = categories.find((c) => c._id === id);
+            if (!cat || !cat._originalLabel || cat._originalLabel === cat.label) return;
+            const oldLabel = cat._originalLabel;
+            const newLabel = cat.label;
+            openFullscreenPopup(
+                `Renommer "${oldLabel}" en "${newLabel}" pour tous les produits ?`,
+                ['Confirmer', 'Annuler'],
+                (index) => {
+                    if (index === 0) {
+                        onRenameCategory?.(oldLabel, newLabel);
+                        setCategories((p) => p.map((c) => (c._id === id ? { ...c, _originalLabel: newLabel } : c)));
+                    } else {
+                        // Restore original label
+                        setCategories((p) => p.map((c) => (c._id === id ? { ...c, label: oldLabel } : c)));
+                    }
                 }
-                return prev.map((c) => (c._id === id ? { ...c, label } : c));
-            });
+            );
         },
-        [onRenameCategory]
+        [categories, onRenameCategory, openFullscreenPopup]
     );
 
     const handleVatChange = useCallback(
@@ -300,51 +317,37 @@ export default function CategoriesConfig({
         [categories, productCategories, onDeleteCategoryProducts, openFullscreenPopup]
     );
 
-    const handleDragEnd = useCallback((event: DragEndEvent) => {
-        const { active, over } = event;
-        if (!over || active.id === over.id) return;
-        setCategories((prev) => {
-            const oldIdx = prev.findIndex((c) => c._id === active.id);
-            const newIdx = prev.findIndex((c) => c._id === over.id);
-            if (oldIdx === -1 || newIdx === -1) return prev;
-            return arrayMove(prev, oldIdx, newIdx);
-        });
-    }, []);
+    const handleDragEnd = useCallback(
+        (event: DragEndEvent) => {
+            const { active, over } = event;
+            if (!over || active.id === over.id) return;
 
-    const sortedCategories = useMemo(() => {
-        const sorted = [...categories];
-        sorted.sort((a, b) => {
-            let comparison = 0;
-            const indexA = categories.indexOf(a);
-            const indexB = categories.indexOf(b);
+            const oldIdx = categories.findIndex((c) => c._id === active.id);
+            const newIdx = categories.findIndex((c) => c._id === over.id);
+            if (oldIdx === -1 || newIdx === -1) return;
 
-            if (sortField === 'order') {
-                comparison = indexA - indexB;
-            } else if (sortField === 'label') {
-                comparison = a.label.localeCompare(b.label);
-            } else if (sortField === 'vat') {
-                comparison = (a.vat ?? -1) - (b.vat ?? -1);
+            const reordered = arrayMove(categories, oldIdx, newIdx);
+
+            // Apply visually immediately
+            setCategories(reordered);
+
+            if (onReorderCategories) {
+                openFullscreenPopup(
+                    'Réorganiser les catégories',
+                    ["Appliquer et sauvegarder l'ordre des produits", 'Annuler'],
+                    (index) => {
+                        if (index === 0) {
+                            onReorderCategories(reordered.map((c) => c._originalLabel || c.label));
+                        } else {
+                            // Rollback to original order
+                            setCategories(categories);
+                        }
+                    }
+                );
             }
-            return sortDirection === 'asc' ? comparison : -comparison;
-        });
-        return sorted;
-    }, [categories, sortField, sortDirection]);
-
-    const handleSort = (field: SortField) => {
-        setSortField((prev) => {
-            if (prev === field) {
-                setSortDirection((dir) => (dir === 'asc' ? 'desc' : 'asc'));
-                return prev;
-            }
-            setSortDirection('asc');
-            return field;
-        });
-    };
-
-    const SortIcon = ({ field }: { field: SortField }) => {
-        if (sortField !== field) return null;
-        return sortDirection === 'asc' ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />;
-    };
+        },
+        [categories, onReorderCategories, openFullscreenPopup]
+    );
 
     return (
         <SectionCard title="Catégories" isOpen={isOpen} onToggle={onToggle}>
@@ -355,30 +358,14 @@ export default function CategoriesConfig({
                             <thead>
                                 <tr className="border-b-2 border-gray-300 dark:border-gray-600">
                                     {!isReadOnly && <th className="w-12"></th>}
-                                    <th
-                                        className={adminSortableHeaderStyle + ' min-w-32'}
-                                        onClick={() => handleSort('label')}
-                                    >
-                                        <div className="flex items-center gap-1">
-                                            Label
-                                            <SortIcon field="label" />
-                                        </div>
-                                    </th>
-                                    <th
-                                        className={adminSortableHeaderStyle + ' min-w-20 w-20'}
-                                        onClick={() => handleSort('vat')}
-                                    >
-                                        <div className="flex items-center gap-1">
-                                            TVA
-                                            <SortIcon field="vat" />
-                                        </div>
-                                    </th>
-                                    <th className={adminSortableHeaderStyle + ' min-w-16 w-16'}>Produits</th>
+                                    <th className={adminHeaderStyle + ' min-w-32'}>Label</th>
+                                    <th className={adminHeaderStyle + ' min-w-20 w-20'}>TVA</th>
+                                    <th className={adminHeaderStyle + ' min-w-16 w-16'}>Produits</th>
                                     {!isReadOnly && <th className="w-16"></th>}
                                 </tr>
                             </thead>
                             <tbody>
-                                {sortedCategories.map((category) => (
+                                {categories.map((category) => (
                                     <SortableRow
                                         key={category._id}
                                         category={category}
@@ -392,6 +379,7 @@ export default function CategoriesConfig({
                                             }
                                         }
                                         onLabelChange={handleLabelChange}
+                                        onLabelBlur={handleLabelBlur}
                                         onVatChange={handleVatChange}
                                         onDelete={handleDeleteCategory}
                                         inputRef={(el) => {

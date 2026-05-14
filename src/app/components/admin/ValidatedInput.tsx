@@ -17,6 +17,7 @@ interface ValidatedInputProps {
     min?: number;
     max?: number;
     step?: number;
+    onBlur?: () => void;
     ref?: (el: HTMLInputElement | null) => void;
 }
 
@@ -33,6 +34,7 @@ export default function ValidatedInput({
     min,
     max,
     step,
+    onBlur,
     ref,
 }: ValidatedInputProps) {
     // Initialize validation state based on current value
@@ -70,6 +72,7 @@ export default function ValidatedInput({
             min={min}
             max={max}
             step={step}
+            onBlur={onBlur}
             ref={ref}
         />
     );

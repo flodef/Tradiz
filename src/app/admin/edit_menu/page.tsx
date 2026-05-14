@@ -28,11 +28,11 @@ export default function EditMenuPage() {
 
     // Derive categories from products — categories are local-only, not stored in DB
     // If all products in a category have the same VAT, use it; otherwise null (divers)
+    // Products with empty category appear as 'Sans catégorie'
     const categories = useMemo(() => {
         const catVats = new Map<string, Set<number>>();
         for (const p of products) {
-            const cat = p.category || '';
-            if (!cat) continue;
+            const cat = p.category || 'Sans catégorie';
             if (!catVats.has(cat)) catVats.set(cat, new Set());
             catVats.get(cat)!.add(p.vat ?? 20);
         }
@@ -165,48 +165,79 @@ export default function EditMenuPage() {
         [isReadOnly]
     );
 
-    const handleProductsSave = async (data: AdminProduct[]) => {
-        setIsSavingProducts(true);
-        try {
-            // Save products to database via API
-            const response = await fetch('/api/sql/updateArticles', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ products: data }),
-            });
+    const handleProductsSave = useCallback(
+        async (data: AdminProduct[]) => {
+            setIsSavingProducts(true);
+            try {
+                // Save products to database via API
+                const response = await fetch('/api/sql/updateArticles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ products: data }),
+                });
 
-            if (!response.ok) {
-                throw new Error('Failed to save products');
+                if (!response.ok) {
+                    throw new Error('Failed to save products');
+                }
+
+                setProducts(data);
+                setOriginalProducts(data);
+            } catch (error) {
+                console.error("Erreur lors de l'enregistrement:", error);
+                openFullscreenPopup("Erreur lors de l'enregistrement des produits.", ['OK']);
+            } finally {
+                setIsSavingProducts(false);
             }
+        },
+        [openFullscreenPopup]
+    );
 
-            setProducts(data);
-            setOriginalProducts(data);
-        } catch (error) {
-            console.error("Erreur lors de l'enregistrement:", error);
-            openFullscreenPopup("Erreur lors de l'enregistrement des produits.", ['OK']);
-        } finally {
-            setIsSavingProducts(false);
-        }
-    };
-
-    // Category rename: update all products with the old category name
-    const handleCategoryRename = useCallback((oldLabel: string, newLabel: string) => {
-        setProducts((prev) => prev.map((p) => (p.category === oldLabel ? { ...p, category: newLabel } : p)));
-    }, []);
+    // Category rename: update all products with the old category name and save to DB
+    // 'Sans catégorie' maps to products with category === ''
+    const handleCategoryRename = useCallback(
+        (oldLabel: string, newLabel: string) => {
+            const oldKey = oldLabel === 'Sans catégorie' ? '' : oldLabel;
+            setProducts((prev) => {
+                const updated = prev.map((p) => (p.category === oldKey ? { ...p, category: newLabel } : p));
+                setTimeout(() => handleProductsSave(updated), 0);
+                return updated;
+            });
+        },
+        [handleProductsSave]
+    );
 
     // Category delete: either remove products or move them to empty category
     const handleDeleteCategoryProducts = useCallback((categoryLabel: string, moveToEmpty: boolean) => {
+        const key = categoryLabel === 'Sans catégorie' ? '' : categoryLabel;
         if (moveToEmpty) {
-            setProducts((prev) => prev.map((p) => (p.category === categoryLabel ? { ...p, category: '' } : p)));
+            setProducts((prev) => prev.map((p) => (p.category === key ? { ...p, category: '' } : p)));
         } else {
-            setProducts((prev) => prev.filter((p) => p.category !== categoryLabel));
+            setProducts((prev) => prev.filter((p) => p.category !== key));
         }
     }, []);
 
     // Category VAT change: apply new VAT to all products in the category
     const handleCategoryVatChange = useCallback((categoryLabel: string, vat: number) => {
-        setProducts((prev) => prev.map((p) => (p.category === categoryLabel ? { ...p, vat } : p)));
+        const key = categoryLabel === 'Sans catégorie' ? '' : categoryLabel;
+        setProducts((prev) => prev.map((p) => (p.category === key ? { ...p, vat } : p)));
     }, []);
+
+    // Category reorder: reorder all products so they follow the new category order, then save
+    const handleCategoryReorder = useCallback(
+        (orderedLabels: string[]) => {
+            setProducts((prev) => {
+                const labelToKey = (l: string) => (l === 'Sans catégorie' ? '' : l);
+                const sorted = [
+                    ...orderedLabels.flatMap((label) => prev.filter((p) => p.category === labelToKey(label))),
+                    ...prev.filter((p) => !orderedLabels.map(labelToKey).includes(p.category)),
+                ];
+                // Schedule save after state settles
+                setTimeout(() => handleProductsSave(sorted), 0);
+                return sorted;
+            });
+        },
+        [handleProductsSave]
+    );
 
     const hasProductsChanges = JSON.stringify(products) !== JSON.stringify(originalProducts);
     const hasChanges = hasProductsChanges;
@@ -267,12 +298,14 @@ export default function EditMenuPage() {
                     isReadOnly={isReadOnly}
                     isOpen={openSection === 'categories'}
                     onToggle={() => setOpenSection((prev) => (prev === 'categories' ? null : 'categories'))}
-                    productCategories={products
-                        .filter((p) => p.category)
-                        .map((p) => ({ category: p.category, available: p.stock !== 0 }))}
+                    productCategories={products.map((p) => ({
+                        category: p.category || 'Sans catégorie',
+                        available: p.stock !== 0,
+                    }))}
                     onDeleteCategoryProducts={handleDeleteCategoryProducts}
                     onRenameCategory={handleCategoryRename}
                     onCategoryVatChange={handleCategoryVatChange}
+                    onReorderCategories={isReadOnly ? undefined : handleCategoryReorder}
                 />
 
                 <ProductsConfig

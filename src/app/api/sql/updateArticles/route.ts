@@ -28,6 +28,7 @@ export async function POST(request: Request) {
             await connection.execute('BEGIN');
             try {
                 await connection.execute('DELETE FROM dc.products');
+                await connection.execute("SELECT setval(pg_get_serial_sequence('dc.products', 'id'), 1, false)");
                 for (let i = 0; i < (products as Product[]).length; i++) {
                     const product = (products as Product[])[i];
                     const sortOrder = i + 1;
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
             await connection.execute('START TRANSACTION');
             try {
                 await connection.execute('DELETE FROM products');
+                await connection.execute('ALTER TABLE products AUTO_INCREMENT = 1');
                 for (let i = 0; i < (products as Product[]).length; i++) {
                     const product = (products as Product[])[i];
                     const sortOrder = i + 1;
