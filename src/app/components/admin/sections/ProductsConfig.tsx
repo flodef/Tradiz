@@ -313,9 +313,11 @@ export default function ProductsConfig({
         return new Set(Object.keys(counts).filter((k) => counts[k] > 1));
     }, [products]);
 
-    const formatPrice = (price: string, currencyIndex = 0) => {
+    const mainCurrency = currencies.find((c) => c.rate === 1) ?? currencies[0];
+
+    const formatPrice = (price: string) => {
         if (!price || price === '' || price === '0') return '';
-        const decimals = currencies[currencyIndex]?.decimals ?? 2;
+        const decimals = mainCurrency?.decimals ?? 2;
         const numPrice = parseFloat(price);
         return numPrice.toFixed(decimals);
     };
@@ -470,7 +472,7 @@ export default function ProductsConfig({
                                         onClick={() => handleSort('price')}
                                     >
                                         <div className="flex items-center gap-1">
-                                            Prix {currencies[0] ? `(${currencies[0].symbol})` : ''}
+                                            Prix {mainCurrency ? `(${mainCurrency.symbol})` : ''}
                                             <SortIcon field="price" />
                                         </div>
                                     </th>
@@ -660,6 +662,7 @@ export default function ProductsConfig({
                                                                     <ValidatedInput
                                                                         type="number"
                                                                         value={p.currencies[0] ?? ''}
+                                                                        step={0.1}
                                                                         onChange={(value) => {
                                                                             const updated = [...p.currencies];
                                                                             updated[0] = String(value);
