@@ -23,10 +23,6 @@ USE `DC`;
 INSERT INTO `products` (`id`, `sort_order`, `name`, `price`, `photo`, `stock`, `reference`, `category_id`, `description`, `options`, `order_count`, `vat_rate`)
 SELECT `id`, `ordre`, `nom`, `prix`, `photo`, CASE WHEN `disponible` = 1 THEN NULL ELSE 0 END, NULL, `categorie`, `description`, `options`, `nbr_commandes`, `taux_tva` FROM `article`;
 
--- Migrate categorie → categories (id is now auto-increment)
-INSERT INTO `categories` (`name`, `sort_order`, `default_vat_rate`)
-SELECT `nom`, `ordre`, `taux_tva_default` FROM `categorie`;
-
 -- Migrate config_etablissement → establishment_config
 INSERT INTO `establishment_config` (`id`, `operation_mode`, `orange_delay_minutes`, `red_delay_minutes`, `updated_at`, `last_order_short_number`, `auto_print_kitchen_ticket`, `kitchen_printer_id`, `kitchen_view_enabled`, `grafana_access_enabled`, `note_printer_id`)
 SELECT `id`, `mode_fonctionnement`, `delai_orange_minutes`, `delai_rouge_minutes`, `updated_at`, `last_order_short_number`, `auto_print_kitchen_ticket`, `kitchen_printer_id`, `kitchen_view_enabled`, `grafana_access_enabled`, `note_printer_id` FROM `config_etablissement`;

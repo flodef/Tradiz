@@ -3,7 +3,7 @@
 import { Config, updateConfigTheme } from '@/app/actions/config';
 import { Parameters } from '@/app/contexts/ConfigProvider';
 import { Category, Color, Currency, Discount, PaymentMethod, Printer, User } from '@/app/utils/interfaces';
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import CategoriesConfig from './sections/CategoriesConfig';
 import ColorsConfig from './sections/ColorsConfig';
 import CurrenciesConfig from './sections/CurrenciesConfig';
@@ -24,7 +24,6 @@ export default function AdminPanel({ initialConfig, shopName }: AdminPanelProps)
         const newConfig = { ...initialConfig };
         // Ensure array types are initialized as arrays if they are null/undefined
         if (!newConfig.Products) newConfig.Products = [];
-        if (!newConfig.Categories) newConfig.Categories = [];
         if (!newConfig.Discounts) newConfig.Discounts = [];
         if (!newConfig.Currencies) newConfig.Currencies = [];
         if (!newConfig.Payments) newConfig.Payments = [];
@@ -39,7 +38,6 @@ export default function AdminPanel({ initialConfig, shopName }: AdminPanelProps)
     const [originalConfig, setOriginalConfig] = useState(() => {
         const newConfig = { ...initialConfig };
         if (!newConfig.Products) newConfig.Products = [];
-        if (!newConfig.Categories) newConfig.Categories = [];
         if (!newConfig.Discounts) newConfig.Discounts = [];
         if (!newConfig.Currencies) newConfig.Currencies = [];
         if (!newConfig.Payments) newConfig.Payments = [];
@@ -51,7 +49,6 @@ export default function AdminPanel({ initialConfig, shopName }: AdminPanelProps)
     });
 
     const hasProductsChanges = JSON.stringify(config.Products) !== JSON.stringify(originalConfig.Products);
-    const hasCategoriesChanges = JSON.stringify(config.Categories) !== JSON.stringify(originalConfig.Categories);
 
     const handleCancel = (theme: string) => {
         setConfig((prevConfig) => ({
@@ -83,9 +80,55 @@ export default function AdminPanel({ initialConfig, shopName }: AdminPanelProps)
         }));
     };
 
-    const categories = config.Categories
-        ? Object.values(config.Categories as Category[]).map((cat) => ({ label: cat.label, value: cat.label }))
-        : [];
+    // Derive categories from products
+    const derivedCategories = useMemo(() => {
+        const products = config.Products ? Object.values(config.Products as AdminProduct[]) : [];
+        const catVats = new Map<string, Set<number>>();
+        for (const p of products) {
+            const cat = p.category || '';
+            if (!cat) continue;
+            if (!catVats.has(cat)) catVats.set(cat, new Set());
+            catVats.get(cat)!.add(p.vat ?? 20);
+        }
+        const result: Category[] = [];
+        for (const [label, vats] of catVats) {
+            result.push({ label, vat: vats.size === 1 ? [...vats][0] : null });
+        }
+        return result;
+    }, [config.Products]);
+
+    const categories = useMemo(
+        () => derivedCategories.map((cat) => ({ label: cat.label, value: cat.label })),
+        [derivedCategories]
+    );
+
+    const handleCategoryRename = useCallback((oldLabel: string, newLabel: string) => {
+        setConfig((prev) => ({
+            ...prev,
+            Products: (prev.Products as AdminProduct[]).map((p) =>
+                p.category === oldLabel ? { ...p, category: newLabel } : p
+            ),
+        }));
+    }, []);
+
+    const handleDeleteCategoryProducts = useCallback((categoryLabel: string, moveToEmpty: boolean) => {
+        setConfig((prev) => ({
+            ...prev,
+            Products: moveToEmpty
+                ? (prev.Products as AdminProduct[]).map((p) =>
+                      p.category === categoryLabel ? { ...p, category: '' } : p
+                  )
+                : (prev.Products as AdminProduct[]).filter((p) => p.category !== categoryLabel),
+        }));
+    }, []);
+
+    const handleCategoryVatChange = useCallback((categoryLabel: string, vat: number) => {
+        setConfig((prev) => ({
+            ...prev,
+            Products: (prev.Products as AdminProduct[]).map((p) => (p.category === categoryLabel ? { ...p, vat } : p)),
+        }));
+    }, []);
+
     const currencies = config.Currencies ? Object.values(config.Currencies as Currency[]) : [];
     const currencySymbols = config.Currencies ? Object.values(config.Currencies as Currency[]) : [];
 
@@ -103,11 +146,13 @@ export default function AdminPanel({ initialConfig, shopName }: AdminPanelProps)
                     currencies={currencies}
                 />
                 <CategoriesConfig
-                    config={config.Categories as Category[]}
-                    onChange={(data: Category[]) => handleChange('Categories', data)}
-                    onSave={(data: Category[]) => handleSave('Categories', data)}
-                    onCancel={() => handleCancel('Categories')}
-                    hasChanges={hasCategoriesChanges}
+                    config={derivedCategories}
+                    productCategories={(config.Products as AdminProduct[])
+                        .filter((p) => p.category)
+                        .map((p) => ({ category: p.category, available: p.stock !== 0 }))}
+                    onDeleteCategoryProducts={handleDeleteCategoryProducts}
+                    onRenameCategory={handleCategoryRename}
+                    onCategoryVatChange={handleCategoryVatChange}
                 />
                 <DiscountsConfig
                     config={config.Discounts as Discount[]}

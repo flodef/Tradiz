@@ -44,14 +44,6 @@ CREATE TABLE IF NOT EXISTS dc.establishment_config (
     note_printer_id INTEGER DEFAULT NULL
 );
 
--- Categories (was: categorie)
-CREATE TABLE IF NOT EXISTS dc.categories (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL UNIQUE,
-    sort_order INTEGER NOT NULL,
-    default_vat_rate DECIMAL(5,2) DEFAULT 10.00
-);
-
 -- Products (was: article)
 CREATE TABLE IF NOT EXISTS dc.products (
     id SERIAL PRIMARY KEY,
@@ -65,7 +57,7 @@ CREATE TABLE IF NOT EXISTS dc.products (
     description VARCHAR(300) DEFAULT '',
     options VARCHAR(1000) DEFAULT '',
     order_count INTEGER NOT NULL DEFAULT 0,
-    vat_rate NUMERIC(5,2) DEFAULT NULL
+    vat_rate NUMERIC(5,2) NOT NULL DEFAULT 20.00
 );
 
 -- Formulas (was: formule)

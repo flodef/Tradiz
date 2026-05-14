@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import ProductsConfig from '@/app/components/admin/sections/ProductsConfig';
 import CategoriesConfig from '@/app/components/admin/sections/CategoriesConfig';
 import { Category } from '@/app/utils/interfaces';
@@ -18,16 +18,32 @@ export default function EditMenuPage() {
     const { isCashier } = useUserRole();
     const { openFullscreenPopup } = usePopup();
     const [products, setProducts] = useState<AdminProduct[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
     const [originalProducts, setOriginalProducts] = useState<AdminProduct[]>([]);
-    const [originalCategories, setOriginalCategories] = useState<Category[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isReadOnly, setIsReadOnly] = useState(true);
     const [dbConfigChecked, setDbConfigChecked] = useState(false);
-    const [isSavingCategories, setIsSavingCategories] = useState(false);
     const [isSavingProducts, setIsSavingProducts] = useState(false);
     const [productsSettings, setProductsSettings] = useState<ProductsSettings | undefined>(parameters?.products);
     const [openSection, setOpenSection] = useState<string | null>(null);
+
+    // Derive categories from products — categories are local-only, not stored in DB
+    // If all products in a category have the same VAT, use it; otherwise null (divers)
+    const categories = useMemo(() => {
+        const catVats = new Map<string, Set<number>>();
+        for (const p of products) {
+            const cat = p.category || '';
+            if (!cat) continue;
+            if (!catVats.has(cat)) catVats.set(cat, new Set());
+            catVats.get(cat)!.add(p.vat ?? 20);
+        }
+        const result: Category[] = [];
+        for (const [label, vats] of catVats) {
+            result.push({ label, vat: vats.size === 1 ? [...vats][0] : null });
+        }
+        return result;
+    }, [products]);
+
+    const categoryOptions = useMemo(() => categories.map((c) => ({ label: c.label, value: c.label })), [categories]);
 
     // Step 1: check DB config once on mount
     useEffect(() => {
@@ -51,42 +67,32 @@ export default function EditMenuPage() {
                     // No DB — use spreadsheet data from useConfig
                     if (inventory?.length && currencies?.length) {
                         const allProducts: AdminProduct[] = [];
-                        const allCategories: Category[] = [];
 
                         inventory.forEach((item) => {
-                            if (!allCategories.find((c) => c.label === item.category)) {
-                                allCategories.push({
-                                    label: item.category,
-                                    vat: item.rate,
-                                });
-                            }
                             item.products.forEach((product) => {
                                 allProducts.push({
                                     name: product.label,
                                     category: item.category,
                                     stock: product.stock ?? null,
                                     currencies: product.prices.map(String),
+                                    vat: item.rate >= 1 ? item.rate : item.rate * 100,
                                 });
                             });
                         });
 
                         setProducts(allProducts);
-                        setCategories(allCategories);
                         setOriginalProducts(allProducts);
-                        setOriginalCategories(allCategories);
                         setIsLoading(false);
                     }
                     // else: wait for inventory/currencies to load (dep array will re-run)
                     return;
                 }
 
-                // Fetch categories, products, and parameters in parallel
-                const [categoriesResponse, productsResponse, parametersResponse] = await Promise.all([
-                    fetch('/api/sql/getCategories'),
+                // Fetch products and parameters in parallel
+                const [productsResponse, parametersResponse] = await Promise.all([
                     fetch('/api/sql/getAllArticles'),
                     fetch('/api/sql/getParameters'),
                 ]);
-                const categoriesData = await categoriesResponse.json();
                 const productsData = await productsResponse.json();
                 const parametersData = await parametersResponse.json();
 
@@ -116,29 +122,18 @@ export default function EditMenuPage() {
                     }
                 }
 
-                // Parse categories (skip header row)
-                const loadedCategories: Category[] = [];
-                if (categoriesData.values && categoriesData.values.length > 1) {
-                    for (let i = 1; i < categoriesData.values.length; i++) {
-                        const [label, vat] = categoriesData.values[i];
-                        loadedCategories.push({
-                            label: String(label),
-                            vat: Number(vat),
-                        });
-                    }
-                }
-
                 // Parse products (skip header row)
                 // Column order: Taux, Catégorie, Nom, Stock, Reference, Photo, Description, Euro (€), ...
                 const loadedProducts: AdminProduct[] = [];
                 if (productsData.values && productsData.values.length > 1) {
                     for (let i = 1; i < productsData.values.length; i++) {
-                        const [, category, name, stock, reference, photo, description, ...prices] =
+                        const [vat, category, name, stock, reference, photo, description, ...prices] =
                             productsData.values[i];
                         loadedProducts.push({
                             name: String(name),
                             category: String(category),
                             stock: stock === null || stock === undefined ? null : Number(stock),
+                            vat: vat != null ? Number(vat) * 100 : undefined,
                             reference: reference ? String(reference) : undefined,
                             photo: photo ? String(photo) : undefined,
                             description: description ? String(description) : undefined,
@@ -148,9 +143,7 @@ export default function EditMenuPage() {
                     }
                 }
 
-                setCategories(loadedCategories);
                 setProducts(loadedProducts);
-                setOriginalCategories(loadedCategories);
                 setOriginalProducts(loadedProducts);
             } catch (error) {
                 console.error('Error fetching menu data:', error);
@@ -163,17 +156,14 @@ export default function EditMenuPage() {
         fetchData();
     }, [dbConfigChecked, isReadOnly, inventory, currencies, openFullscreenPopup]);
 
-    const handleProductsChange = (data: AdminProduct[]) => {
-        if (!isReadOnly) {
-            setProducts(data);
-        }
-    };
-
-    const handleCategoriesChange = (data: Category[]) => {
-        if (!isReadOnly) {
-            setCategories(data);
-        }
-    };
+    const handleProductsChange = useCallback(
+        (data: AdminProduct[]) => {
+            if (!isReadOnly) {
+                setProducts(data);
+            }
+        },
+        [isReadOnly]
+    );
 
     const handleProductsSave = async (data: AdminProduct[]) => {
         setIsSavingProducts(true);
@@ -199,35 +189,27 @@ export default function EditMenuPage() {
         }
     };
 
-    const handleCategoriesSave = async (data: Category[]) => {
-        setIsSavingCategories(true);
-        try {
-            // Save categories to database via API (data includes _originalLabel from CategoriesConfig)
-            const response = await fetch('/api/sql/updateCategories', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ categories: data, originalCategories }),
-            });
+    // Category rename: update all products with the old category name
+    const handleCategoryRename = useCallback((oldLabel: string, newLabel: string) => {
+        setProducts((prev) => prev.map((p) => (p.category === oldLabel ? { ...p, category: newLabel } : p)));
+    }, []);
 
-            if (!response.ok) {
-                throw new Error('Failed to save categories');
-            }
-
-            // Strip _originalLabel before updating local state
-            const cleanData = data.map(({ _originalLabel, ...rest }: Category & { _originalLabel?: string }) => rest);
-            setCategories(cleanData);
-            setOriginalCategories(cleanData);
-        } catch (error) {
-            console.error("Erreur lors de l'enregistrement:", error);
-            openFullscreenPopup("Erreur lors de l'enregistrement des catégories.", ['OK']);
-        } finally {
-            setIsSavingCategories(false);
+    // Category delete: either remove products or move them to empty category
+    const handleDeleteCategoryProducts = useCallback((categoryLabel: string, moveToEmpty: boolean) => {
+        if (moveToEmpty) {
+            setProducts((prev) => prev.map((p) => (p.category === categoryLabel ? { ...p, category: '' } : p)));
+        } else {
+            setProducts((prev) => prev.filter((p) => p.category !== categoryLabel));
         }
-    };
+    }, []);
+
+    // Category VAT change: apply new VAT to all products in the category
+    const handleCategoryVatChange = useCallback((categoryLabel: string, vat: number) => {
+        setProducts((prev) => prev.map((p) => (p.category === categoryLabel ? { ...p, vat } : p)));
+    }, []);
 
     const hasProductsChanges = JSON.stringify(products) !== JSON.stringify(originalProducts);
-    const hasCategoriesChanges = JSON.stringify(categories) !== JSON.stringify(originalCategories);
-    const hasChanges = hasProductsChanges || hasCategoriesChanges;
+    const hasChanges = hasProductsChanges;
 
     // Warn about unsaved changes when leaving page
     useEffect(() => {
@@ -240,15 +222,9 @@ export default function EditMenuPage() {
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [hasChanges]);
 
-    const handleCancel = (type: 'products' | 'categories') => {
-        if (type === 'products') {
-            setProducts(originalProducts);
-        } else {
-            setCategories(originalCategories);
-        }
+    const handleCancel = () => {
+        setProducts(originalProducts);
     };
-
-    const categoryOptions = categories.map((c) => ({ label: c.label, value: c.label }));
 
     // Redirect if using Digicarte
     if (USE_DIGICARTE) return null;
@@ -288,31 +264,22 @@ export default function EditMenuPage() {
             <div className="space-y-6">
                 <CategoriesConfig
                     config={categories}
-                    onChange={handleCategoriesChange}
-                    onSave={isReadOnly ? undefined : handleCategoriesSave}
-                    onCancel={() => handleCancel('categories')}
-                    hasChanges={hasCategoriesChanges}
                     isReadOnly={isReadOnly}
-                    isLoading={isSavingCategories}
                     isOpen={openSection === 'categories'}
                     onToggle={() => setOpenSection((prev) => (prev === 'categories' ? null : 'categories'))}
-                    productCategories={[...new Set(products.map((p) => p.category).filter(Boolean))]}
-                    onDeleteCategoryProducts={(categoryLabel, moveToEmpty) => {
-                        if (moveToEmpty) {
-                            setProducts((prev) =>
-                                prev.map((p) => (p.category === categoryLabel ? { ...p, category: '' } : p))
-                            );
-                        } else {
-                            setProducts((prev) => prev.filter((p) => p.category !== categoryLabel));
-                        }
-                    }}
+                    productCategories={products
+                        .filter((p) => p.category)
+                        .map((p) => ({ category: p.category, available: p.stock !== 0 }))}
+                    onDeleteCategoryProducts={handleDeleteCategoryProducts}
+                    onRenameCategory={handleCategoryRename}
+                    onCategoryVatChange={handleCategoryVatChange}
                 />
 
                 <ProductsConfig
                     config={products}
                     onChange={handleProductsChange}
                     onSave={isReadOnly ? undefined : handleProductsSave}
-                    onCancel={() => handleCancel('products')}
+                    onCancel={handleCancel}
                     hasChanges={hasProductsChanges}
                     categories={categoryOptions}
                     currencies={currencies}

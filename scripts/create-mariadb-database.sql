@@ -28,19 +28,9 @@ CREATE TABLE IF NOT EXISTS `products` (
   `description` varchar(300) DEFAULT '',
   `options` varchar(1000) DEFAULT '',
   `order_count` int(11) NOT NULL DEFAULT 0,
-  `vat_rate` decimal(5,2) DEFAULT NULL,
+  `vat_rate` decimal(5,2) NOT NULL DEFAULT 20.00,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1018 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Categories (was: categorie)
-CREATE TABLE IF NOT EXISTS `categories` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `name` varchar(50) NOT NULL,
-  `sort_order` int(3) NOT NULL,
-  `default_vat_rate` decimal(5,2) DEFAULT 10.00,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `name` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Establishment Config (was: config_etablissement)
 CREATE TABLE IF NOT EXISTS `establishment_config` (

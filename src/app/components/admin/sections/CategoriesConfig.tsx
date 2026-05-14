@@ -30,6 +30,7 @@ interface SortableRowProps {
     isReadOnly: boolean;
     isInvalid: boolean;
     vatRates: number[];
+    productCount: { total: number; available: number };
     onLabelChange: (id: number, label: string) => void;
     onVatChange: (id: number, vat: number) => void;
     onDelete: (id: number) => void;
@@ -41,6 +42,7 @@ const SortableRow = memo(function SortableRow({
     isReadOnly,
     isInvalid,
     vatRates,
+    productCount,
     onLabelChange,
     onVatChange,
     onDelete,
@@ -64,7 +66,8 @@ const SortableRow = memo(function SortableRow({
 
     const handleVatChange = useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
-            onVatChange(category._id, parseFloat(e.target.value));
+            const val = parseFloat(e.target.value);
+            if (!isNaN(val)) onVatChange(category._id, val);
         },
         [category._id, onVatChange]
     );
@@ -92,12 +95,27 @@ const SortableRow = memo(function SortableRow({
                 )}
             </td>
             <td className="p-2">
-                <AdminSelect
-                    value={String(category.vat)}
-                    onChange={handleVatChange}
-                    options={vatRates.map((rate) => ({ value: String(rate), label: `${rate}%` }))}
-                    disabled={isReadOnly}
-                />
+                {category.vat === null ? (
+                    <AdminSelect
+                        value="divers"
+                        onChange={handleVatChange}
+                        options={[
+                            { value: 'divers', label: 'Divers' },
+                            ...vatRates.map((rate) => ({ value: String(rate), label: `${rate}%` })),
+                        ]}
+                        disabled={isReadOnly}
+                    />
+                ) : (
+                    <AdminSelect
+                        value={String(category.vat)}
+                        onChange={handleVatChange}
+                        options={vatRates.map((rate) => ({ value: String(rate), label: `${rate}%` }))}
+                        disabled={isReadOnly}
+                    />
+                )}
+            </td>
+            <td className="p-2 text-center text-sm">
+                {productCount.available} / {productCount.total}
             </td>
             <DeleteButtonCell isReadOnly={isReadOnly} onDelete={handleDelete} />
         </tr>
@@ -106,33 +124,25 @@ const SortableRow = memo(function SortableRow({
 
 export default function CategoriesConfig({
     config,
-    onChange,
-    onSave,
-    onCancel,
-    hasChanges = false,
     isReadOnly = false,
-    isLoading = false,
     isOpen,
     onToggle,
     productCategories,
     onDeleteCategoryProducts,
+    onRenameCategory,
+    onCategoryVatChange,
 }: {
     config: Category[];
-    onChange: (data: Category[]) => void;
-    onSave?: (data: Category[]) => void;
-    onCancel?: () => void;
-    hasChanges?: boolean;
     isReadOnly?: boolean;
-    isLoading?: boolean;
     isOpen?: boolean;
     onToggle?: () => void;
-    productCategories?: string[];
+    productCategories?: { category: string; available: boolean }[];
     onDeleteCategoryProducts?: (categoryLabel: string, moveToEmpty: boolean) => void;
+    onRenameCategory?: (oldLabel: string, newLabel: string) => void;
+    onCategoryVatChange?: (categoryLabel: string, vat: number) => void;
 }) {
     const { openFullscreenPopup } = usePopup();
     const nextIdRef = useRef(0);
-    const selfUpdateRef = useRef(false);
-    const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
     const [categories, setCategories] = useState<InternalCategory[]>(() =>
         (config || []).map((c) => ({ ...c, _id: nextIdRef.current++, _originalLabel: c.label }))
     );
@@ -141,28 +151,53 @@ export default function CategoriesConfig({
     const sensors = useSensors(useSensor(PointerSensor));
     const vatRates = useMemo(() => [20, 10, 5.5, 2.1, 0], []);
 
-    // Sync from parent config only when the change comes from outside (e.g. cancel or initial load)
-    useEffect(() => {
-        if (selfUpdateRef.current) {
-            selfUpdateRef.current = false;
-            return;
+    // Compute product count per category: { total, available }
+    const productCountMap = useMemo(() => {
+        const map = new Map<string, { total: number; available: number }>();
+        if (productCategories) {
+            for (const { category: cat, available } of productCategories) {
+                const entry = map.get(cat) ?? { total: 0, available: 0 };
+                entry.total++;
+                if (available) entry.available++;
+                map.set(cat, entry);
+            }
         }
-        const incoming = config || [];
-        setCategories(incoming.map((c) => ({ ...c, _id: nextIdRef.current++, _originalLabel: c.label })));
-    }, [config]);
+        return map;
+    }, [productCategories]);
 
-    // Strip _id before notifying parent, mark as self-update to avoid useEffect re-sync
-    // Debounced to avoid full page re-render on every keystroke
-    const notifyParent = useCallback(
-        (cats: InternalCategory[]) => {
-            if (debounceRef.current) clearTimeout(debounceRef.current);
-            debounceRef.current = setTimeout(() => {
-                selfUpdateRef.current = true;
-                onChange(cats.map(({ _id: _, _originalLabel: __, ...rest }) => rest));
-            }, 300);
-        },
-        [onChange]
-    );
+    const handleAddCategory = useCallback(() => {
+        const newCat: InternalCategory = {
+            label: '',
+            vat: 20,
+            _id: nextIdRef.current++,
+            _originalLabel: '',
+        };
+        setCategories((prev) => [...prev, newCat]);
+    }, []);
+
+    // Sync from parent config (categories derived from products)
+    useEffect(() => {
+        const incoming = config || [];
+        setCategories((prev) => {
+            // Preserve existing _id for categories that still exist, assign new _id for new ones
+            const result: InternalCategory[] = [];
+            for (const c of incoming) {
+                const existing = prev.find((p) => p._originalLabel === c.label || p.label === c.label);
+                if (existing) {
+                    result.push({ ...existing, label: c.label, vat: c.vat, _originalLabel: c.label });
+                } else {
+                    result.push({ ...c, _id: nextIdRef.current++, _originalLabel: c.label });
+                }
+            }
+            // Preserve locally-added categories not yet linked to any product
+            for (const p of prev) {
+                if (!p._originalLabel && !result.find((r) => r._id === p._id)) {
+                    result.push(p);
+                }
+            }
+            return result;
+        });
+    }, [config]);
 
     // Compute invalid set: empty labels or duplicate labels
     const invalidIds = useMemo(() => {
@@ -186,38 +221,41 @@ export default function CategoriesConfig({
         return ids;
     }, [categories]);
 
-    const hasInvalidCategories = invalidIds.size > 0;
-
     // Handlers use _id for stable identity
     const handleLabelChange = useCallback(
         (id: number, label: string) => {
             setCategories((prev) => {
-                const updated = prev.map((c) => (c._id === id ? { ...c, label } : c));
-                notifyParent(updated);
-                return updated;
+                const cat = prev.find((c) => c._id === id);
+                if (cat && cat._originalLabel && cat._originalLabel !== label) {
+                    onRenameCategory?.(cat._originalLabel, label);
+                }
+                return prev.map((c) => (c._id === id ? { ...c, label } : c));
             });
         },
-        [notifyParent]
+        [onRenameCategory]
     );
 
     const handleVatChange = useCallback(
         (id: number, vat: number) => {
-            setCategories((prev) => {
-                const updated = prev.map((c) => (c._id === id ? { ...c, vat } : c));
-                notifyParent(updated);
-                return updated;
-            });
-        },
-        [notifyParent]
-    );
+            const category = categories.find((c) => c._id === id);
+            if (!category) return;
+            const categoryLabel = category._originalLabel || category.label;
 
-    const handleAddCategory = useCallback(() => {
-        setCategories((prev) => {
-            const updated = [...prev, { label: '', vat: 20, _id: nextIdRef.current++, _originalLabel: '' }];
-            notifyParent(updated);
-            return updated;
-        });
-    }, [notifyParent]);
+            openFullscreenPopup(
+                `Changer la TVA de "${category.label}" à ${vat}%`,
+                ['Appliquer à tous les produits de la catégorie', 'Utiliser comme TVA par défaut uniquement'],
+                (index) => {
+                    if (index === 0) {
+                        // Apply to all products in this category
+                        onCategoryVatChange?.(categoryLabel, vat);
+                    }
+                    // Both options update the local category display
+                    setCategories((prev) => prev.map((c) => (c._id === id ? { ...c, vat } : c)));
+                }
+            );
+        },
+        [categories, openFullscreenPopup, onCategoryVatChange]
+    );
 
     const inputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
 
@@ -227,7 +265,7 @@ export default function CategoriesConfig({
             if (!category) return;
 
             const categoryLabel = category._originalLabel || category.label;
-            const hasProducts = productCategories?.includes(categoryLabel);
+            const hasProducts = productCategories?.some((p) => p.category === categoryLabel);
 
             if (hasProducts) {
                 openFullscreenPopup(
@@ -241,19 +279,9 @@ export default function CategoriesConfig({
                         if (index === 0) {
                             // Delete all products in this category
                             onDeleteCategoryProducts?.(categoryLabel, false);
-                            setCategories((prev) => {
-                                const updated = prev.filter((c) => c._id !== id);
-                                notifyParent(updated);
-                                return updated;
-                            });
                         } else if (index === 1) {
                             // Move products to empty category
                             onDeleteCategoryProducts?.(categoryLabel, true);
-                            setCategories((prev) => {
-                                const updated = prev.filter((c) => c._id !== id);
-                                notifyParent(updated);
-                                return updated;
-                            });
                         } else if (index === 2) {
                             // Focus on the category name input
                             const input = inputRefs.current.get(id);
@@ -265,31 +293,23 @@ export default function CategoriesConfig({
                     }
                 );
             } else {
-                setCategories((prev) => {
-                    const updated = prev.filter((c) => c._id !== id);
-                    notifyParent(updated);
-                    return updated;
-                });
+                // No products — just remove locally (it will disappear from derived categories)
+                setCategories((prev) => prev.filter((c) => c._id !== id));
             }
         },
-        [categories, notifyParent, productCategories, onDeleteCategoryProducts, openFullscreenPopup]
+        [categories, productCategories, onDeleteCategoryProducts, openFullscreenPopup]
     );
 
-    const handleDragEnd = useCallback(
-        (event: DragEndEvent) => {
-            const { active, over } = event;
-            if (!over || active.id === over.id) return;
-            setCategories((prev) => {
-                const oldIdx = prev.findIndex((c) => c._id === active.id);
-                const newIdx = prev.findIndex((c) => c._id === over.id);
-                if (oldIdx === -1 || newIdx === -1) return prev;
-                const reordered = arrayMove(prev, oldIdx, newIdx);
-                notifyParent(reordered);
-                return reordered;
-            });
-        },
-        [notifyParent]
-    );
+    const handleDragEnd = useCallback((event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+        setCategories((prev) => {
+            const oldIdx = prev.findIndex((c) => c._id === active.id);
+            const newIdx = prev.findIndex((c) => c._id === over.id);
+            if (oldIdx === -1 || newIdx === -1) return prev;
+            return arrayMove(prev, oldIdx, newIdx);
+        });
+    }, []);
 
     const sortedCategories = useMemo(() => {
         const sorted = [...categories];
@@ -303,7 +323,7 @@ export default function CategoriesConfig({
             } else if (sortField === 'label') {
                 comparison = a.label.localeCompare(b.label);
             } else if (sortField === 'vat') {
-                comparison = a.vat - b.vat;
+                comparison = (a.vat ?? -1) - (b.vat ?? -1);
             }
             return sortDirection === 'asc' ? comparison : -comparison;
         });
@@ -326,20 +346,8 @@ export default function CategoriesConfig({
         return sortDirection === 'asc' ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />;
     };
 
-    // Strip _id, keep _originalLabel for rename tracking
-    const handleSave = onSave
-        ? () => onSave(categories.map(({ _id: _, _originalLabel, ...rest }) => ({ ...rest, _originalLabel })))
-        : undefined;
-
     return (
-        <SectionCard
-            title="Catégories"
-            onSave={isReadOnly || !hasChanges || hasInvalidCategories || !handleSave ? undefined : handleSave}
-            onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
-            isLoading={isLoading}
-            isOpen={isOpen}
-            onToggle={onToggle}
-        >
+        <SectionCard title="Catégories" isOpen={isOpen} onToggle={onToggle}>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={categories.map((c) => c._id)} strategy={verticalListSortingStrategy}>
                     <div className="overflow-x-auto">
@@ -365,6 +373,7 @@ export default function CategoriesConfig({
                                             <SortIcon field="vat" />
                                         </div>
                                     </th>
+                                    <th className={adminSortableHeaderStyle + ' min-w-16 w-16'}>Produits</th>
                                     {!isReadOnly && <th className="w-16"></th>}
                                 </tr>
                             </thead>
@@ -376,6 +385,12 @@ export default function CategoriesConfig({
                                         isReadOnly={isReadOnly}
                                         isInvalid={invalidIds.has(category._id)}
                                         vatRates={vatRates}
+                                        productCount={
+                                            productCountMap.get(category._originalLabel || category.label) ?? {
+                                                total: 0,
+                                                available: 0,
+                                            }
+                                        }
                                         onLabelChange={handleLabelChange}
                                         onVatChange={handleVatChange}
                                         onDelete={handleDeleteCategory}

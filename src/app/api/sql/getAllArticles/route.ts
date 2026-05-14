@@ -21,16 +21,14 @@ export async function GET() {
         // Query 1: Get all products
         const queryProducts = connection.isPostgreSQL
             ? `
-            SELECT a.name as label, a.price as amount, a.vat_rate as rate, b.name as category, a.options as options, a.stock as stock, a.reference as reference, a.photo as photo, a.description as description
-            FROM dc.products a
-            JOIN dc.categories b on b.name = a.category_id
-            ORDER BY a.sort_order ASC
+            SELECT name as label, price as amount, vat_rate as rate, category_id as category, options, stock, reference, photo, description
+            FROM dc.products
+            ORDER BY sort_order ASC
         `
             : `
-            SELECT a.name as label, a.price as amount, a.vat_rate as rate, b.name as category, a.options as options, a.stock as stock, a.reference as reference, a.photo as photo, a.description as description
-            FROM products a
-            JOIN categories b on b.name = a.category_id
-            ORDER BY a.sort_order ASC
+            SELECT name as label, price as amount, vat_rate as rate, category_id as category, options, stock, reference, photo, description
+            FROM products
+            ORDER BY sort_order ASC
         `;
 
         // Query 2: Get all formulas
@@ -60,7 +58,7 @@ export async function GET() {
         data.values.push(['Taux', 'Catégorie', 'Nom', 'Stock', 'Reference', 'Photo', 'Description', 'Euro (€)']);
         data.values.push(
             ...allRows.map((row): (number | string | boolean | null)[] => [
-                Number(row.rate) / 100,
+                row.rate != null ? Number(row.rate) / 100 : null,
                 String(row.category),
                 String(row.label),
                 row.stock === null ? null : Number(row.stock),

@@ -442,7 +442,7 @@ async function migrateDiscounts(client: Client) {
 }
 
 /**
- * Migrate products (categories and articles)
+ * Migrate products
  * Format from spreadsheet: [rate, category, label, unavailable, ...prices]
  */
 async function migrateProducts(client: Client) {
@@ -450,7 +450,6 @@ async function migrateProducts(client: Client) {
 
     // Clear existing data
     await client.query('DELETE FROM dc.products');
-    await client.query('DELETE FROM dc.categories');
 
     const data = await fetchSheetData(SHEETS.PRODUCTS);
     if (data.error || !data.values || data.values.length < 2) {
@@ -458,7 +457,6 @@ async function migrateProducts(client: Client) {
         return;
     }
 
-    const categories = new Map<string, { name: string; sort_order: number; default_vat_rate: number }>();
     const products: Array<{
         sort_order: number;
         name: string;
@@ -520,15 +518,6 @@ async function migrateProducts(client: Client) {
             const options = optionsArr[origIdx] ?? '';
 
             if (name && category_id) {
-                // Track category with its VAT rate
-                if (!categories.has(category_id)) {
-                    categories.set(category_id, {
-                        name: category_id,
-                        sort_order: categories.size + 1,
-                        default_vat_rate: taux_tva,
-                    });
-                }
-
                 // Add product
                 products.push({
                     sort_order: ++ordre,
@@ -544,17 +533,6 @@ async function migrateProducts(client: Client) {
                 });
             }
         }
-    }
-
-    // Insert categories
-    let catCount = 0;
-    for (const [, cat] of categories) {
-        await client.query('INSERT INTO dc.categories (name, sort_order, default_vat_rate) VALUES ($1, $2, $3)', [
-            cat.name,
-            cat.sort_order,
-            cat.default_vat_rate,
-        ]);
-        catCount++;
     }
 
     // Insert products
@@ -580,7 +558,7 @@ async function migrateProducts(client: Client) {
         artCount++;
     }
 
-    console.log(`✅ Migrated ${catCount} categories and ${artCount} products`);
+    console.log(`✅ Migrated ${artCount} products`);
 }
 
 /**

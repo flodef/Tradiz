@@ -24,7 +24,7 @@ export enum Mercurial {
 
 export interface Category {
     label: string;
-    vat: number;
+    vat: number | null;
 }
 
 export interface User {

@@ -33,7 +33,7 @@ export async function POST(request: Request) {
                     const sortOrder = i + 1;
                     const price = parseFloat(product.currencies[0]) || 0;
                     const stock = product.stock;
-                    const vatRate = product.vat ?? null;
+                    const vatRate = product.vat ?? 20;
                     const reference = product.reference ?? null;
                     const photo = product.photo ?? '';
                     const description = product.description ?? '';
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
                     const sortOrder = i + 1;
                     const price = parseFloat(product.currencies[0]) || 0;
                     const stock = product.stock;
-                    const vatRate = product.vat ?? null;
+                    const vatRate = product.vat ?? 20;
                     const reference = product.reference ?? null;
                     const photo = product.photo ?? '';
                     const description = product.description ?? '';
