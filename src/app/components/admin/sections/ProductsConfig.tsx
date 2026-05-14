@@ -98,6 +98,10 @@ export default function ProductsConfig({
     const [sortDirection, setSortDirection] = useState<SortDirection>('none');
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
     const selfUpdateRef = useRef(false);
+    const lastAddedIndexRef = useRef<number | null>(null);
+    const nameInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
+    const priceInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
+    const focusPriceIndexRef = useRef<number | null>(null);
 
     const sensors = useSensors(useSensor(PointerSensor));
 
@@ -150,6 +154,10 @@ export default function ProductsConfig({
     );
 
     const handleProductChange = (index: number, updatedProduct: AdminProduct) => {
+        const prev = products[index];
+        if (prev && prev.category !== updatedProduct.category) {
+            focusPriceIndexRef.current = index;
+        }
         const newProducts = [...products];
         newProducts[index] = updatedProduct;
         setProducts(newProducts);
@@ -203,9 +211,10 @@ export default function ProductsConfig({
         handleReorder(result);
     };
 
-    const handleAddProduct = (category = '') => {
+    const handleAddProduct = (category = 'Sans catégorie') => {
         const newProduct: AdminProduct = { name: '', category, stock: null, currencies: [] };
         const updated = [...products, newProduct];
+        lastAddedIndexRef.current = updated.length - 1;
         setProducts(updated);
         notifyParent(updated);
     };
@@ -600,6 +609,17 @@ export default function ProductsConfig({
                                                                             String(v).trim().toLowerCase()
                                                                         )
                                                                     }
+                                                                    ref={(el) => {
+                                                                        if (el) {
+                                                                            nameInputRefs.current.set(i, el);
+                                                                            if (lastAddedIndexRef.current === i) {
+                                                                                el.focus();
+                                                                                lastAddedIndexRef.current = null;
+                                                                            }
+                                                                        } else {
+                                                                            nameInputRefs.current.delete(i);
+                                                                        }
+                                                                    }}
                                                                 />
                                                             </td>
                                                             <td className="p-2">
@@ -647,6 +667,17 @@ export default function ProductsConfig({
                                                                                 ...p,
                                                                                 currencies: updated,
                                                                             });
+                                                                        }}
+                                                                        ref={(el) => {
+                                                                            if (el) {
+                                                                                priceInputRefs.current.set(i, el);
+                                                                                if (focusPriceIndexRef.current === i) {
+                                                                                    el.focus();
+                                                                                    focusPriceIndexRef.current = null;
+                                                                                }
+                                                                            } else {
+                                                                                priceInputRefs.current.delete(i);
+                                                                            }
                                                                         }}
                                                                     />
                                                                 )}

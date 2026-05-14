@@ -135,6 +135,7 @@ export default function CategoriesConfig({
     onRenameCategory,
     onCategoryVatChange,
     onReorderCategories,
+    onLocalCategoriesChange,
 }: {
     config: Category[];
     isReadOnly?: boolean;
@@ -145,6 +146,7 @@ export default function CategoriesConfig({
     onRenameCategory?: (oldLabel: string, newLabel: string) => void;
     onCategoryVatChange?: (categoryLabel: string, vat: number) => void;
     onReorderCategories?: (orderedLabels: string[]) => void;
+    onLocalCategoriesChange?: (labels: string[]) => void;
 }) {
     const { openFullscreenPopup } = usePopup();
     const nextIdRef = useRef(0);
@@ -167,6 +169,11 @@ export default function CategoriesConfig({
         }
         return map;
     }, [productCategories]);
+
+    // Notify parent whenever local categories change (for new locally-added ones)
+    useEffect(() => {
+        onLocalCategoriesChange?.(categories.map((c) => c.label).filter(Boolean));
+    }, [categories, onLocalCategoriesChange]);
 
     const handleAddCategory = useCallback(() => {
         const newCat: InternalCategory = {
@@ -235,6 +242,12 @@ export default function CategoriesConfig({
             if (!cat || !cat._originalLabel || cat._originalLabel === cat.label) return;
             const oldLabel = cat._originalLabel;
             const newLabel = cat.label;
+            const hasProducts = productCategories?.some((p) => p.category === oldLabel);
+            if (!hasProducts) {
+                // No products — just update the label silently
+                setCategories((p) => p.map((c) => (c._id === id ? { ...c, _originalLabel: newLabel } : c)));
+                return;
+            }
             openFullscreenPopup(
                 `Renommer "${oldLabel}" en "${newLabel}" pour tous les produits ?`,
                 ['Confirmer', 'Annuler'],
@@ -243,13 +256,12 @@ export default function CategoriesConfig({
                         onRenameCategory?.(oldLabel, newLabel);
                         setCategories((p) => p.map((c) => (c._id === id ? { ...c, _originalLabel: newLabel } : c)));
                     } else {
-                        // Restore original label
                         setCategories((p) => p.map((c) => (c._id === id ? { ...c, label: oldLabel } : c)));
                     }
                 }
             );
         },
-        [categories, onRenameCategory, openFullscreenPopup]
+        [categories, productCategories, onRenameCategory, openFullscreenPopup]
     );
 
     const handleVatChange = useCallback(
@@ -257,21 +269,26 @@ export default function CategoriesConfig({
             const category = categories.find((c) => c._id === id);
             if (!category) return;
             const categoryLabel = category._originalLabel || category.label;
+            const hasProducts = productCategories?.some((p) => p.category === categoryLabel);
+
+            if (!hasProducts) {
+                // No products — just update the local display silently
+                setCategories((prev) => prev.map((c) => (c._id === id ? { ...c, vat } : c)));
+                return;
+            }
 
             openFullscreenPopup(
                 `Changer la TVA de "${category.label}" à ${vat}%`,
                 ['Appliquer à tous les produits de la catégorie', 'Utiliser comme TVA par défaut uniquement'],
                 (index) => {
                     if (index === 0) {
-                        // Apply to all products in this category
                         onCategoryVatChange?.(categoryLabel, vat);
                     }
-                    // Both options update the local category display
                     setCategories((prev) => prev.map((c) => (c._id === id ? { ...c, vat } : c)));
                 }
             );
         },
-        [categories, openFullscreenPopup, onCategoryVatChange]
+        [categories, productCategories, openFullscreenPopup, onCategoryVatChange]
     );
 
     const inputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
@@ -285,30 +302,27 @@ export default function CategoriesConfig({
             const hasProducts = productCategories?.some((p) => p.category === categoryLabel);
 
             if (hasProducts) {
-                openFullscreenPopup(
-                    `La catégorie "${category.label}" contient des produits`,
-                    [
-                        'Supprimer tous les produits de la catégorie',
-                        'Déplacer les produits sans catégorie',
-                        'Renommer la catégorie',
-                    ],
-                    (index) => {
-                        if (index === 0) {
-                            // Delete all products in this category
-                            onDeleteCategoryProducts?.(categoryLabel, false);
-                        } else if (index === 1) {
-                            // Move products to empty category
-                            onDeleteCategoryProducts?.(categoryLabel, true);
-                        } else if (index === 2) {
-                            // Focus on the category name input
-                            const input = inputRefs.current.get(id);
-                            if (input) {
-                                input.focus();
-                                input.select();
-                            }
+                const isSansCategorie = categoryLabel === 'Sans catégorie';
+                const options = isSansCategorie
+                    ? ['Supprimer tous les produits de la catégorie', 'Renommer la catégorie']
+                    : [
+                          'Supprimer tous les produits de la catégorie',
+                          'Déplacer les produits sans catégorie',
+                          'Renommer la catégorie',
+                      ];
+                openFullscreenPopup(`La catégorie "${category.label}" contient des produits`, options, (index) => {
+                    if (index === 0) {
+                        onDeleteCategoryProducts?.(categoryLabel, false);
+                    } else if (!isSansCategorie && index === 1) {
+                        onDeleteCategoryProducts?.(categoryLabel, true);
+                    } else {
+                        const input = inputRefs.current.get(id);
+                        if (input) {
+                            input.focus();
+                            input.select();
                         }
                     }
-                );
+                });
             } else {
                 // No products — just remove locally (it will disappear from derived categories)
                 setCategories((prev) => prev.filter((c) => c._id !== id));

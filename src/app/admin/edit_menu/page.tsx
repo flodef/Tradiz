@@ -43,7 +43,12 @@ export default function EditMenuPage() {
         return result;
     }, [products]);
 
-    const categoryOptions = useMemo(() => categories.map((c) => ({ label: c.label, value: c.label })), [categories]);
+    const [localCategoryLabels, setLocalCategoryLabels] = useState<string[]>([]);
+    const categoryOptions = useMemo(() => {
+        const base = categories.map((c) => c.label);
+        const extras = localCategoryLabels.filter((l) => l && !base.includes(l));
+        return [...base, ...extras].map((l) => ({ label: l, value: l }));
+    }, [categories, localCategoryLabels]);
 
     // Step 1: check DB config once on mount
     useEffect(() => {
@@ -218,11 +223,18 @@ export default function EditMenuPage() {
         }
     }, []);
 
-    // Category VAT change: apply new VAT to all products in the category
-    const handleCategoryVatChange = useCallback((categoryLabel: string, vat: number) => {
-        const key = categoryLabel === 'Sans catégorie' ? '' : categoryLabel;
-        setProducts((prev) => prev.map((p) => (p.category === key ? { ...p, vat } : p)));
-    }, []);
+    // Category VAT change: apply new VAT to all products in the category and save to DB
+    const handleCategoryVatChange = useCallback(
+        (categoryLabel: string, vat: number) => {
+            const key = categoryLabel === 'Sans catégorie' ? '' : categoryLabel;
+            setProducts((prev) => {
+                const updated = prev.map((p) => (p.category === key ? { ...p, vat } : p));
+                setTimeout(() => handleProductsSave(updated), 0);
+                return updated;
+            });
+        },
+        [handleProductsSave]
+    );
 
     // Category reorder: reorder all products so they follow the new category order, then save
     const handleCategoryReorder = useCallback(
@@ -308,6 +320,7 @@ export default function EditMenuPage() {
                     onRenameCategory={handleCategoryRename}
                     onCategoryVatChange={handleCategoryVatChange}
                     onReorderCategories={isReadOnly ? undefined : handleCategoryReorder}
+                    onLocalCategoriesChange={setLocalCategoryLabels}
                 />
 
                 <ProductsConfig
