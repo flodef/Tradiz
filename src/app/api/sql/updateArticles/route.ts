@@ -23,44 +23,23 @@ export async function POST(request: Request) {
 
         const connection = await getMainDb();
 
-        // Update each product
-        for (let i = 0; i < (products as Product[]).length; i++) {
-            const product = (products as Product[])[i];
-            const sortOrder = i + 1;
-            const price = parseFloat(product.currencies[0]) || 0;
-            // stock=null means unlimited, stock=0 means unavailable, stock>0 means specific quantity
-            const stock = product.stock;
-            const vatRate = product.vat ?? null;
-            const reference = product.reference ?? null;
-            const photo = product.photo ?? '';
-            const description = product.description ?? '';
-            const options = product.options ?? '';
-            const categoryId = product.category; // category_id stores the category name
+        // Delete all products and re-insert in a transaction to handle renames, deletions, and duplicates
+        if (connection.isPostgreSQL) {
+            await connection.execute('BEGIN');
+            try {
+                await connection.execute('DELETE FROM dc.products');
+                for (let i = 0; i < (products as Product[]).length; i++) {
+                    const product = (products as Product[])[i];
+                    const sortOrder = i + 1;
+                    const price = parseFloat(product.currencies[0]) || 0;
+                    const stock = product.stock;
+                    const vatRate = product.vat ?? null;
+                    const reference = product.reference ?? null;
+                    const photo = product.photo ?? '';
+                    const description = product.description ?? '';
+                    const options = product.options ?? '';
+                    const categoryId = product.category;
 
-            // Update or insert the product
-            if (connection.isPostgreSQL) {
-                const [existing] = await connection.execute('SELECT id FROM dc.products WHERE name = $1', [
-                    product.name,
-                ]);
-                const productRows = existing as { id: number }[];
-
-                if (productRows.length > 0) {
-                    await connection.execute(
-                        'UPDATE dc.products SET price = $1, category_id = $2, stock = $3, vat_rate = $4, reference = $5, photo = $6, description = $7, sort_order = $8, options = $9 WHERE name = $10',
-                        [
-                            price,
-                            categoryId,
-                            stock,
-                            vatRate,
-                            reference,
-                            photo,
-                            description,
-                            sortOrder,
-                            options,
-                            product.name,
-                        ]
-                    );
-                } else {
                     await connection.execute(
                         'INSERT INTO dc.products (name, price, category_id, stock, reference, photo, description, sort_order, vat_rate, options) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
                         [
@@ -77,27 +56,27 @@ export async function POST(request: Request) {
                         ]
                     );
                 }
-            } else {
-                const [existing] = await connection.execute('SELECT id FROM products WHERE name = ?', [product.name]);
-                const productRows = existing as { id: number }[];
+                await connection.execute('COMMIT');
+            } catch (e) {
+                await connection.execute('ROLLBACK');
+                throw e;
+            }
+        } else {
+            await connection.execute('START TRANSACTION');
+            try {
+                await connection.execute('DELETE FROM products');
+                for (let i = 0; i < (products as Product[]).length; i++) {
+                    const product = (products as Product[])[i];
+                    const sortOrder = i + 1;
+                    const price = parseFloat(product.currencies[0]) || 0;
+                    const stock = product.stock;
+                    const vatRate = product.vat ?? null;
+                    const reference = product.reference ?? null;
+                    const photo = product.photo ?? '';
+                    const description = product.description ?? '';
+                    const options = product.options ?? '';
+                    const categoryId = product.category;
 
-                if (productRows.length > 0) {
-                    await connection.execute(
-                        'UPDATE products SET price = ?, category_id = ?, stock = ?, vat_rate = ?, reference = ?, photo = ?, description = ?, sort_order = ?, options = ? WHERE name = ?',
-                        [
-                            price,
-                            categoryId,
-                            stock,
-                            vatRate,
-                            reference,
-                            photo,
-                            description,
-                            sortOrder,
-                            options,
-                            product.name,
-                        ]
-                    );
-                } else {
                     await connection.execute(
                         'INSERT INTO products (name, price, category_id, stock, reference, photo, description, sort_order, vat_rate, options) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                         [
@@ -114,6 +93,10 @@ export async function POST(request: Request) {
                         ]
                     );
                 }
+                await connection.execute('COMMIT');
+            } catch (e) {
+                await connection.execute('ROLLBACK');
+                throw e;
             }
         }
 
