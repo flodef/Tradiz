@@ -48,38 +48,58 @@ class MySQLConnectionWrapper implements DbConnection {
     }
 }
 
-// Minimal interface matching both pg.Pool and @neondatabase/serverless Pool
-interface PgPoolLike {
-    query(text: string, values?: unknown[]): Promise<{ rows: unknown[] }>;
-}
+type NeonHttpClient = ReturnType<typeof import('./pg-db').getMainPgDb>;
 
-// Wrapper for Neon/pg Pool to match our DbConnection interface
+// Wrapper for Neon HTTP client to match our DbConnection interface.
+// Single queries go directly over HTTP (one round-trip, no handshake).
+// Transactions are buffered and flushed as a single HTTP batch on COMMIT.
 class PostgreSQLConnectionWrapper implements DbConnection {
     isPostgreSQL = true;
+    private txStatements: Array<{ query: string; params: unknown[] }> = [];
+    private inTransaction = false;
 
-    constructor(private pool: PgPoolLike) {}
+    constructor(private sql: NeonHttpClient) {}
+
+    private async runQuery(query: string, params: unknown[] = []): Promise<unknown[]> {
+        const withPath = `SET search_path TO dc_pos, dc, dc_sys, public; ${query}`;
+        const rows = await this.sql.query(withPath, params);
+        return Array.isArray(rows) ? rows : [];
+    }
 
     async execute(query: string, params?: unknown[]): Promise<[unknown[], unknown]> {
-        await this.pool.query('SET search_path TO dc_pos, dc, dc_sys, public');
-        const result = await this.pool.query(query, params);
-        return [result.rows, {}];
+        if (this.inTransaction) {
+            this.txStatements.push({ query, params: params ?? [] });
+            return [[], {}];
+        }
+        const rows = await this.runQuery(query, params);
+        return [rows, {}];
     }
 
     async query(query: string, params?: unknown[]): Promise<{ rows: unknown[] }> {
-        await this.pool.query('SET search_path TO dc_pos, dc, dc_sys, public');
-        return this.pool.query(query, params);
+        if (this.inTransaction) {
+            this.txStatements.push({ query, params: params ?? [] });
+            return { rows: [] };
+        }
+        const rows = await this.runQuery(query, params);
+        return { rows };
     }
 
     async beginTransaction(): Promise<void> {
-        await this.pool.query('BEGIN');
+        this.inTransaction = true;
+        this.txStatements = [{ query: 'SET search_path TO dc_pos, dc, dc_sys, public', params: [] }];
     }
 
     async commit(): Promise<void> {
-        await this.pool.query('COMMIT');
+        if (!this.inTransaction) return;
+        const statements = this.txStatements;
+        this.txStatements = [];
+        this.inTransaction = false;
+        await this.sql.transaction(statements.map(({ query, params }) => this.sql.query(query, params)));
     }
 
     async rollback(): Promise<void> {
-        await this.pool.query('ROLLBACK');
+        this.txStatements = [];
+        this.inTransaction = false;
     }
 
     async end(): Promise<void> {

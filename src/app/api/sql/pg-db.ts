@@ -1,15 +1,4 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-
-// Use fetch for HTTP-based queries (no TCP cold start on Neon serverless)
-if (typeof WebSocket === 'undefined') {
-    // Node.js environment: use ws for WebSocket (needed for transactions)
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    neonConfig.webSocketConstructor = require('ws');
-}
-
-// Neon Pool instances (lazily created, reused across requests)
-let mainPool: Pool | null = null;
-let posPool: Pool | null = null;
+import { neon } from '@neondatabase/serverless';
 
 function buildConnectionString(): string {
     const host = process.env.PG_HOST;
@@ -19,14 +8,13 @@ function buildConnectionString(): string {
     return `postgresql://${user}:${password}@${host}/${database}?sslmode=require`;
 }
 
-export function getMainPgDb(): Pool {
-    if (!mainPool) mainPool = new Pool({ connectionString: buildConnectionString() });
-    return mainPool;
+// Each call creates a fresh neon HTTP client — no persistent connection, no cold-start penalty
+export function getMainPgDb() {
+    return neon(buildConnectionString());
 }
 
-export function getPosPgDb(): Pool {
-    if (!posPool) posPool = new Pool({ connectionString: buildConnectionString() });
-    return posPool;
+export function getPosPgDb() {
+    return neon(buildConnectionString());
 }
 
 // Helper to check if PostgreSQL is configured

@@ -57,96 +57,61 @@ export async function POST(request: Request) {
         // Otherwise do a full truncate+reinsert.
         const scopedCategory = typeof category === 'string' ? category : null;
 
-        if (connection.isPostgreSQL) {
-            await connection.execute('BEGIN');
-            try {
-                if (scopedCategory !== null) {
-                    await connection.execute('DELETE FROM dc.products WHERE category_id = $1', [scopedCategory]);
-                } else {
-                    await connection.execute('TRUNCATE dc.products RESTART IDENTITY');
-                }
-                const productsToInsert =
-                    scopedCategory !== null
-                        ? (products as Product[]).filter((p) => p.category === scopedCategory)
-                        : (products as Product[]);
-                for (let i = 0; i < productsToInsert.length; i++) {
-                    const product = productsToInsert[i];
-                    const globalIdx = (products as Product[]).indexOf(product);
-                    const sortOrder = sortOrders[globalIdx];
-                    const price = parseFloat(product.currencies[0]) || 0;
-                    const stock = product.stock;
-                    const vatRate = product.vat ?? 20;
-                    const reference = product.reference ?? null;
-                    const photo = product.photo ?? '';
-                    const description = product.description ?? '';
-                    const options = product.options ?? '';
+        const pgTable = connection.isPostgreSQL ? 'dc.products' : 'products';
 
-                    await connection.execute(
-                        'INSERT INTO dc.products (name, price, category_id, stock, reference, photo, description, sort_order, vat_rate, options) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
-                        [
-                            product.name,
-                            price,
-                            product.category,
-                            stock,
-                            reference,
-                            photo,
-                            description,
-                            sortOrder,
-                            vatRate,
-                            options,
-                        ]
-                    );
-                }
-                await connection.execute('COMMIT');
-            } catch (e) {
-                await connection.execute('ROLLBACK');
-                throw e;
+        await connection.beginTransaction();
+        try {
+            if (scopedCategory !== null) {
+                await connection.execute(
+                    `DELETE FROM ${pgTable} WHERE category_id = ${connection.isPostgreSQL ? '$1' : '?'}`,
+                    [scopedCategory]
+                );
+            } else {
+                await connection.execute(
+                    connection.isPostgreSQL ? 'TRUNCATE dc.products RESTART IDENTITY' : 'TRUNCATE TABLE products'
+                );
             }
-        } else {
-            await connection.execute('START TRANSACTION');
-            try {
-                if (scopedCategory !== null) {
-                    await connection.execute('DELETE FROM products WHERE category_id = ?', [scopedCategory]);
-                } else {
-                    await connection.execute('TRUNCATE TABLE products');
-                }
-                const productsToInsert =
-                    scopedCategory !== null
-                        ? (products as Product[]).filter((p) => p.category === scopedCategory)
-                        : (products as Product[]);
-                for (let i = 0; i < productsToInsert.length; i++) {
-                    const product = productsToInsert[i];
-                    const globalIdx = (products as Product[]).indexOf(product);
-                    const sortOrder = sortOrders[globalIdx];
-                    const price = parseFloat(product.currencies[0]) || 0;
-                    const stock = product.stock;
-                    const vatRate = product.vat ?? 20;
-                    const reference = product.reference ?? null;
-                    const photo = product.photo ?? '';
-                    const description = product.description ?? '';
-                    const options = product.options ?? '';
 
-                    await connection.execute(
-                        'INSERT INTO products (name, price, category_id, stock, reference, photo, description, sort_order, vat_rate, options) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                        [
-                            product.name,
-                            price,
-                            product.category,
-                            stock,
-                            reference,
-                            photo,
-                            description,
-                            sortOrder,
-                            vatRate,
-                            options,
-                        ]
-                    );
-                }
-                await connection.execute('COMMIT');
-            } catch (e) {
-                await connection.execute('ROLLBACK');
-                throw e;
+            const productsToInsert =
+                scopedCategory !== null
+                    ? (products as Product[]).filter((p) => p.category === scopedCategory)
+                    : (products as Product[]);
+
+            for (let i = 0; i < productsToInsert.length; i++) {
+                const product = productsToInsert[i];
+                const globalIdx = (products as Product[]).indexOf(product);
+                const sortOrder = sortOrders[globalIdx];
+                const price = parseFloat(product.currencies[0]) || 0;
+                const stock = product.stock;
+                const vatRate = product.vat ?? 20;
+                const reference = product.reference ?? null;
+                const photo = product.photo ?? '';
+                const description = product.description ?? '';
+                const options = product.options ?? '';
+
+                const cols =
+                    'name, price, category_id, stock, reference, photo, description, sort_order, vat_rate, options';
+                const vals = connection.isPostgreSQL
+                    ? '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10'
+                    : '?, ?, ?, ?, ?, ?, ?, ?, ?, ?';
+                await connection.execute(`INSERT INTO ${pgTable} (${cols}) VALUES (${vals})`, [
+                    product.name,
+                    price,
+                    product.category,
+                    stock,
+                    reference,
+                    photo,
+                    description,
+                    sortOrder,
+                    vatRate,
+                    options,
+                ]);
             }
+
+            await connection.commit();
+        } catch (e) {
+            await connection.rollback();
+            throw e;
         }
 
         await connection.end();
