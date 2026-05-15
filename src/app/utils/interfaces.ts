@@ -161,7 +161,7 @@ export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
 };
 
 export interface OrderData {
-    panier_id: number;
+    order_id: number;
     short_num_order: string;
     service_type: ServiceType;
     items: OrderItem[];

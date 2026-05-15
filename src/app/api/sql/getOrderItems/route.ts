@@ -139,8 +139,8 @@ export async function GET(request: Request) {
 
         // Fetch short_num_order
         const panierQuery = connection.isPostgreSQL
-            ? 'SELECT short_num_order FROM panier WHERE id = $1'
-            : 'SELECT short_num_order FROM panier WHERE id = ?';
+            ? 'SELECT short_order_number AS short_num_order FROM orders WHERE id = $1'
+            : 'SELECT short_order_number AS short_num_order FROM orders WHERE id = ?';
         const [panierRow] = await connection.execute(panierQuery, [orderId]);
         const shortNumOrder: string = (panierRow as PanierRow[])[0]?.short_num_order ?? '';
 

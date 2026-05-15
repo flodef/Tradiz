@@ -30,7 +30,11 @@ export async function POST(req: NextRequest) {
     } catch (error) {
         console.error('counter-order proxy error:', error);
         // For development: return success even if upstream service is unavailable
-        if (error instanceof Error && error.message.includes('ECONNREFUSED')) {
+        const cause = error instanceof Error ? (error.cause as Error | undefined) : undefined;
+        if (
+            error instanceof Error &&
+            (error.message.includes('ECONNREFUSED') || cause?.message?.includes('ECONNREFUSED'))
+        ) {
             console.warn('Counter-order service unavailable, continuing without kitchen integration');
             return NextResponse.json({
                 short_num_order: Math.floor(Math.random() * 1000).toString(),

@@ -13,7 +13,7 @@ interface TransactionProduct {
 }
 
 interface TransactionData {
-    panier_id: string;
+    order_id: string;
     user_name: string;
     payment_method: string;
     amount: number;
@@ -80,7 +80,7 @@ function generateTransactionHash(transaction: TransactionData, transactionId?: s
     // Generate a hash from transaction data for integrity verification
     const data = [
         transactionId || 'new',
-        transaction.panier_id,
+        transaction.order_id,
         transaction.user_name,
         transaction.payment_method,
         transaction.amount,
@@ -121,17 +121,17 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
     // Insert into transactions table (payment_method, currency, and user_name are strings)
     const insertTransactionQuery = connection.isPostgreSQL
         ? `
-        INSERT INTO transactions (panier_id, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
+        INSERT INTO transactions (order_id, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING id
     `
         : `
-        INSERT INTO transactions (panier_id, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
+        INSERT INTO transactions (order_id, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const params = [
-        transaction.panier_id,
+        transaction.order_id,
         userName,
         transaction.payment_method,
         transaction.amount,
@@ -185,15 +185,15 @@ async function handleUpdateTransaction(connection: Connection, transaction: Tran
         ? `
         UPDATE transactions
         SET payment_method = $1, updated_at = $2
-        WHERE panier_id = $3
+        WHERE order_id = $3
     `
         : `
         UPDATE transactions
         SET payment_method = ?, updated_at = ?
-        WHERE panier_id = ?
+        WHERE order_id = ?
     `;
 
-    await connection.execute(updateQuery, [PROCESSING_KEYWORD, transaction.updated_at, transaction.panier_id]);
+    await connection.execute(updateQuery, [PROCESSING_KEYWORD, transaction.updated_at, transaction.order_id]);
 }
 
 async function handleDeleteTransaction(connection: Connection, transaction: TransactionData) {
@@ -202,15 +202,15 @@ async function handleDeleteTransaction(connection: Connection, transaction: Tran
         ? `
         UPDATE transactions
         SET payment_method = $1, updated_at = $2
-        WHERE panier_id = $3
+        WHERE order_id = $3
     `
         : `
         UPDATE transactions
         SET payment_method = ?, updated_at = ?
-        WHERE panier_id = ?
+        WHERE order_id = ?
     `;
 
-    await connection.execute(updateQuery, [DELETED_KEYWORD, transaction.updated_at, transaction.panier_id]);
+    await connection.execute(updateQuery, [DELETED_KEYWORD, transaction.updated_at, transaction.order_id]);
 }
 
 async function handleSyncTransaction(connection: Connection, transaction: TransactionData) {

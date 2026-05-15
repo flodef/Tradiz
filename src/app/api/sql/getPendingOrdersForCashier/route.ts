@@ -19,29 +19,41 @@ export async function GET(request: Request) {
         const hasTableFilter = Number.isFinite(parsedTableId) && parsedTableId > 0;
 
         const params: number[] = [];
-        let query = `
+        let query = connection.isPostgreSQL
+            ? `
+            SELECT
+                o.id AS order_id,
+                o.short_order_number AS short_num_order,
+                o.created_at,
+                MIN(rto.table_id) AS table_id
+            FROM dc.orders o
+            LEFT JOIN dc.rel_table_order rto ON rto.order_id = o.id
+            WHERE o.paid = false
+        `
+            : `
             SELECT
                 p.id AS order_id,
-                p.short_num_order,
-                p.date AS created_at,
+                p.short_order_number AS short_num_order,
+                p.created_at,
                 MIN(rtp.table_id) AS table_id
-            FROM panier p
-            LEFT JOIN rel_table_panier rtp ON rtp.panier_id = p.id
+            FROM orders p
+            LEFT JOIN rel_table_order rtp ON rtp.order_id = p.id
             WHERE p.paid = 0
         `;
 
         if (hasTableFilter) {
             if (connection.isPostgreSQL) {
-                query += ' AND rtp.table_id = $1';
+                query += ' AND rto.table_id = $1';
             } else {
                 query += ' AND rtp.table_id = ?';
             }
             params.push(parsedTableId);
         }
 
+        const groupCol = connection.isPostgreSQL ? 'o' : 'p';
         query += `
-            GROUP BY p.id, p.short_num_order, p.date
-            ORDER BY p.date ASC, p.id ASC
+            GROUP BY ${groupCol}.id, ${groupCol}.short_order_number, ${groupCol}.created_at
+            ORDER BY ${groupCol}.created_at ASC, ${groupCol}.id ASC
         `;
 
         const [rows] = await connection.execute(query, params);

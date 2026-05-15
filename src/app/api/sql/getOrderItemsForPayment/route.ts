@@ -49,8 +49,8 @@ export async function GET(request: NextRequest) {
 
         // Get panier info
         const panierQuery = connection.isPostgreSQL
-            ? 'SELECT id, short_num_order, service_type FROM panier WHERE id = $1'
-            : 'SELECT id, short_num_order, service_type FROM panier WHERE id = ?';
+            ? 'SELECT id, short_order_number AS short_num_order, service_type FROM orders WHERE id = $1'
+            : 'SELECT id, short_order_number AS short_num_order, service_type FROM orders WHERE id = ?';
         const [panierRows] = await connection.execute(panierQuery, [orderId]);
 
         if (!Array.isArray(panierRows) || panierRows.length === 0) {
@@ -191,7 +191,7 @@ export async function GET(request: NextRequest) {
         const remaining_amount = total_amount - paid_amount;
 
         const orderData: OrderData = {
-            panier_id: panier.id,
+            order_id: panier.id,
             short_num_order: panier.short_num_order,
             service_type: panier.service_type,
             items,

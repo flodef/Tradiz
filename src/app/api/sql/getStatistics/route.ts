@@ -18,7 +18,7 @@ interface CategorySalesRow {
 }
 
 interface RecentOrderRow {
-    panier_id: string;
+    order_id: string;
     short_num_order: string | null;
     created_at: string;
     payment_method: string;
@@ -33,7 +33,6 @@ export async function GET(request: Request) {
 
     try {
         const connection = await getPosDb();
-        const mainDb = 'DC';
 
         // Non-paid payment methods
         const nonPaidMethods = ['EFFACÉE', 'REMBOURSEMENT', 'EN COURS', 'EN ATTENTE'];
@@ -134,8 +133,8 @@ export async function GET(request: Request) {
         const recentOrdersQuery = connection.isPostgreSQL
             ? `
             SELECT 
-                t.panier_id,
-                o.short_num_order,
+                t.order_id,
+                o.short_order_number AS short_num_order,
                 t.created_at,
                 t.payment_method,
                 CASE 
@@ -144,15 +143,15 @@ export async function GET(request: Request) {
                 END as status,
                 t.amount
             FROM transactions t
-            LEFT JOIN ${mainDb}.orders o ON o.id = t.panier_id
+            LEFT JOIN dc.orders o ON o.id::text = t.order_id
             WHERE 1=1 ${dateFilter}
             ORDER BY t.created_at DESC
             LIMIT 20
         `
             : `
             SELECT 
-                t.panier_id,
-                o.short_num_order,
+                t.order_id,
+                o.short_order_number AS short_num_order,
                 t.created_at,
                 t.payment_method,
                 CASE 
@@ -161,7 +160,7 @@ export async function GET(request: Request) {
                 END as status,
                 t.amount
             FROM transactions t
-            LEFT JOIN \`${mainDb}\`.orders o ON o.id = t.panier_id
+            LEFT JOIN \`DC\`.orders o ON o.id = t.order_id
             WHERE 1=1 ${dateFilter}
             ORDER BY t.created_at DESC
             LIMIT 20
@@ -169,7 +168,7 @@ export async function GET(request: Request) {
         const recentParams = startDate && endDate ? [startDate, endDate] : [];
         const [recentOrdersRows] = await connection.execute(recentOrdersQuery, recentParams);
         const recentOrders = (recentOrdersRows as RecentOrderRow[]).map((row) => ({
-            orderId: row.panier_id,
+            orderId: row.order_id,
             shortOrderNumber: row.short_num_order || '-',
             timestamp: row.created_at ? new Date(row.created_at).getTime() : 0,
             paymentMethod: row.payment_method || 'Inconnu',

@@ -228,7 +228,7 @@ describe('Database-Agnostic API Routes', () => {
     describe('saveTransaction', () => {
         it('should validate transaction structure', () => {
             const transaction = {
-                panier_id: '123',
+                order_id: '123',
                 user_id: 'user1',
                 payment_method_id: 'method1',
                 amount: 100,
@@ -236,7 +236,7 @@ describe('Database-Agnostic API Routes', () => {
                 created_at: '2024-01-01T00:00:00Z',
                 updated_at: '2024-01-01T00:00:00Z',
             };
-            expect(transaction).toHaveProperty('panier_id');
+            expect(transaction).toHaveProperty('order_id');
             expect(transaction).toHaveProperty('amount');
             expect(transaction).toHaveProperty('currency');
             expect(typeof transaction.amount).toBe('number');

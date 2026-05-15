@@ -6,7 +6,7 @@ import { getPosDb } from '../db';
 
 interface TransactionRow {
     id: number;
-    panier_id: string;
+    order_id: string;
     short_num_order: string | null;
     validator: string;
     method: string;
@@ -42,9 +42,9 @@ export async function GET(request: Request) {
         // Filter by date if provided
         if (date && period === 'day') {
             if (connection.isPostgreSQL) {
-                whereClause += ' AND DATE(f.created_at) = $2';
+                whereClause += ' AND DATE(t.created_at) = $2';
             } else {
-                whereClause += ' AND DATE(f.created_at) = ?';
+                whereClause += ' AND DATE(t.created_at) = ?';
             }
             params.push(date);
         }
@@ -55,13 +55,12 @@ export async function GET(request: Request) {
         // TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) which equals the server UTC offset
         // (e.g. +3600 for Europe/Paris in winter). This prevents a 1-hour gap that would cause
         // mergeTransactionArrays to treat the same transaction as two distinct entries.
-        const mainDb = 'DC';
         const query = connection.isPostgreSQL
             ? `
             SELECT
                 t.id,
-                t.panier_id,
-                o.short_num_order,
+                t.order_id,
+                o.short_order_number AS short_num_order,
                 COALESCE(t.user_name, $1) as validator,
                 t.payment_method as method,
                 t.amount,
@@ -70,15 +69,15 @@ export async function GET(request: Request) {
                 (EXTRACT(EPOCH FROM t.created_at) * 1000) as createdDate,
                 (EXTRACT(EPOCH FROM t.updated_at) * 1000) as modifiedDate
             FROM transactions t
-            LEFT JOIN ${mainDb}.orders o ON o.id = t.panier_id
+            LEFT JOIN dc.orders o ON o.id::text = t.order_id
             WHERE ${whereClause}
             ORDER BY t.created_at DESC
         `
             : `
             SELECT
                 t.id,
-                t.panier_id,
-                o.short_num_order,
+                t.order_id,
+                o.short_order_number AS short_num_order,
                 COALESCE(t.user_name, ?) as validator,
                 t.payment_method as method,
                 t.amount,
@@ -87,7 +86,7 @@ export async function GET(request: Request) {
                 (UNIX_TIMESTAMP(t.created_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as createdDate,
                 (UNIX_TIMESTAMP(t.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate
             FROM transactions t
-            LEFT JOIN \`${mainDb}\`.orders o ON o.id = t.panier_id
+            LEFT JOIN \`DC\`.orders o ON o.id = t.order_id
             WHERE ${whereClause}
             ORDER BY t.created_at DESC
         `;
