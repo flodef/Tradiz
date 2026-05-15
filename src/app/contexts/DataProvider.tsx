@@ -47,7 +47,7 @@ export interface DataProviderProps {
 }
 
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
-    const { currencies, currencyIndex, setCurrency, parameters } = useConfig();
+    const { currencies, currencyIndex, setCurrency, parameters, isKitchenViewEnabled } = useConfig();
     const { isOnline } = useWindowParam();
 
     const [transactionsFilename, setTransactionsFilename] = useState('');
@@ -430,7 +430,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     action,
                     transaction: {
                         id: transaction.createdDate,
-                        panier_id: String(transaction.createdDate),
+                        order_id: String(transaction.createdDate),
                         user_name: transaction.validator,
                         payment_method: transaction.method,
                         amount: transaction.amount,
@@ -689,7 +689,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         action: DatabaseAction[action],
                         transaction: {
                             id: index,
-                            panier_id: orderId || String(transaction.createdDate),
+                            order_id: orderId || String(transaction.createdDate),
                             user_name: transaction.validator,
                             payment_method: transaction.method,
                             amount: transaction.amount,
@@ -746,7 +746,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             console.error('Failed to notify WebSocket server:', wsError);
                             // Don't throw - this is not critical to the transaction
                         }
-                    } else if (!orderId && isActualPayment && transaction.products.length > 0) {
+                    } else if (!orderId && isActualPayment && isKitchenViewEnabled && transaction.products.length > 0) {
                         // Counter order: create panier in DB with short_num_order + broadcast to kitchen
                         // NOTE: use transaction.products (captured before clearTotal empties products.current)
                         try {
@@ -798,6 +798,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             contextTableId,
             setShortNumOrder,
             storeTransaction,
+            isKitchenViewEnabled,
         ]
     );
 
