@@ -51,16 +51,21 @@ class MySQLConnectionWrapper implements DbConnection {
 type NeonHttpClient = ReturnType<typeof import('./pg-db').getMainPgDb>;
 
 // Wrapper for Neon HTTP client to match our DbConnection interface.
-// Single queries go directly over HTTP (one round-trip, no handshake).
-// Transactions are buffered and flushed as a single HTTP batch on COMMIT.
+// Outside a transaction: SET search_path + query are batched in one sql.transaction() call.
+// Inside a transaction (after BEGIN): queries run directly via sql.query() — no nested transaction.
 class PostgreSQLConnectionWrapper implements DbConnection {
     isPostgreSQL = true;
-    private txStatements: Array<{ query: string; params: unknown[] }> = [];
     private inTransaction = false;
 
     constructor(private sql: NeonHttpClient) {}
 
     private async runQuery(query: string, params: unknown[] = []): Promise<unknown[]> {
+        if (this.inTransaction) {
+            // Inside BEGIN…COMMIT: run directly, search_path already set
+            const rows = await this.sql.query(query, params);
+            return Array.isArray(rows) ? rows : [];
+        }
+        // Outside transaction: batch search_path + query in one HTTP round-trip
         const [, rows] = await this.sql.transaction([
             this.sql.query('SET search_path TO dc_pos, dc, dc_sys, public'),
             this.sql.query(query, params),
@@ -69,39 +74,31 @@ class PostgreSQLConnectionWrapper implements DbConnection {
     }
 
     async execute(query: string, params?: unknown[]): Promise<[unknown[], unknown]> {
-        if (this.inTransaction) {
-            this.txStatements.push({ query, params: params ?? [] });
-            return [[], {}];
-        }
         const rows = await this.runQuery(query, params);
         return [rows, {}];
     }
 
     async query(query: string, params?: unknown[]): Promise<{ rows: unknown[] }> {
-        if (this.inTransaction) {
-            this.txStatements.push({ query, params: params ?? [] });
-            return { rows: [] };
-        }
         const rows = await this.runQuery(query, params);
         return { rows };
     }
 
     async beginTransaction(): Promise<void> {
+        await this.sql.transaction([
+            this.sql.query('SET search_path TO dc_pos, dc, dc_sys, public'),
+            this.sql.query('BEGIN'),
+        ]);
         this.inTransaction = true;
-        this.txStatements = [{ query: 'SET search_path TO dc_pos, dc, dc_sys, public', params: [] }];
     }
 
     async commit(): Promise<void> {
-        if (!this.inTransaction) return;
-        const statements = this.txStatements;
-        this.txStatements = [];
         this.inTransaction = false;
-        await this.sql.transaction(statements.map(({ query, params }) => this.sql.query(query, params)));
+        await this.sql.query('COMMIT');
     }
 
     async rollback(): Promise<void> {
-        this.txStatements = [];
         this.inTransaction = false;
+        await this.sql.query('ROLLBACK');
     }
 
     async end(): Promise<void> {
