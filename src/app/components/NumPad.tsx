@@ -1,5 +1,6 @@
 'use client';
 
+import { IconBackspace, IconCalculator, IconShoppingCart, IconWallet } from '@tabler/icons-react';
 import { FC, MouseEventHandler, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { isDeletedTransaction } from '../contexts/dataProvider/transactionHelpers';
@@ -9,8 +10,7 @@ import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
-import { IconBackspace, IconShoppingCart, IconCalculator, IconWallet } from '@tabler/icons-react';
-import Loading, { LoadingType } from '../loading';
+import { LoadingDot } from '../loading';
 import { getButtonSizeConfig } from '../utils/buttonSizeConfig';
 import { WAITING_KEYWORD } from '../utils/constants';
 import { EmptyDiscount, Mercurial, State } from '../utils/interfaces';
@@ -428,7 +428,7 @@ export const NumPad: FC = () => {
                     justifyContent: 'center',
                 }}
             >
-                {Loading(LoadingType.Dot, false)}
+                <LoadingDot />
             </div>
         );
     }

@@ -7,7 +7,7 @@ import { useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { useWindowParam } from '../hooks/useWindowParam';
-import Loading, { LoadingType } from '../loading';
+import { LoadingDot } from '../loading';
 import { getButtonSizeConfig } from '../utils/buttonSizeConfig';
 import { BACK_KEYWORD, CONFIG_KEYWORD, DEV_EMAIL, OTHER_KEYWORD, USE_DIGICARTE } from '../utils/constants';
 import { Catalog, CatalogFormula, EmptyDiscount, InventoryItem, Role, State } from '../utils/interfaces';
@@ -508,7 +508,7 @@ export const Category: FC = () => {
         >
             {(state === State.init || state === State.loading || state === State.error) && (
                 <div className="flex items-center justify-center" style={{ height: gridHeight }}>
-                    {Loading(LoadingType.Dot, false)}
+                    <LoadingDot />
                 </div>
             )}
             {(state === State.preloaded || state === State.loaded) && (

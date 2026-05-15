@@ -129,7 +129,10 @@ export enum LoadingType {
     Spinner,
 }
 
-export default function Loading(type = LoadingType.Dot, fullscreen = true) {
+export default function Loading({
+    type = LoadingType.Dot,
+    fullscreen = true,
+}: { type?: LoadingType; fullscreen?: boolean } = {}) {
     // You can add any UI inside Loading, including a Skeleton.
     switch (type) {
         case LoadingType.Text:
@@ -139,6 +142,6 @@ export default function Loading(type = LoadingType.Dot, fullscreen = true) {
         case LoadingType.Spinner:
             return <LoadingSpinner fullscreen={fullscreen} />;
         default:
-            return <LoadingSpinner fullscreen={fullscreen} />;
+            return <LoadingDot fullscreen={fullscreen} />;
     }
 }

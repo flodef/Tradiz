@@ -385,8 +385,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         transactions: [...localTransactionSet.transactions],
                     };
                     for (const cloudTransaction of cloudTransactionSet.transactions) {
+                        const cloudTs = Math.floor(cloudTransaction.createdDate / 1000) * 1000;
                         const index = localTransactionSet.transactions.findIndex(
-                            (localTransaction) => localTransaction.createdDate === cloudTransaction.createdDate
+                            (localTransaction) => Math.floor(localTransaction.createdDate / 1000) * 1000 === cloudTs
                         );
 
                         if (index === -1) {
@@ -527,7 +528,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     for (const localTx of localTransactions) {
                         processedLocal++;
                         if (isProcessingTransaction(localTx)) continue;
-                        const sqlTx = sqlTransactions.find((s) => s.createdDate === localTx.createdDate);
+                        const localTs = Math.floor(localTx.createdDate / 1000) * 1000;
+                        const sqlTx = sqlTransactions.find(
+                            (s) => s.createdDate === localTs || s.createdDate === localTx.createdDate
+                        );
                         if (!sqlTx) {
                             // Local-only → push to SQL
                             console.log('Pushing local transaction to SQL:', localTx.createdDate);
@@ -1038,7 +1042,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         (item: string | Transaction) => {
             if (!item || (typeof item === 'string' && !products.current.length)) return;
 
-            const currentTime = new Date().getTime();
+            const currentTime = Math.floor(new Date().getTime() / 1000) * 1000; // floor to seconds to match SQL TIMESTAMP precision
             const transaction: Transaction =
                 typeof item === 'object'
                     ? item

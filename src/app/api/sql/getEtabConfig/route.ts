@@ -12,9 +12,9 @@ interface EtabConfigRow extends RowDataPacket {
 }
 
 const SAFE_DEFAULTS = {
-    mode_fonctionnement: 'restaurant' as OperationMode,
+    mode_fonctionnement: 'lite' as OperationMode,
     kitchen_view_enabled: false,
-    grafana_access_enabled: false,
+    grafana_access_enabled: true,
 };
 
 export async function GET() {

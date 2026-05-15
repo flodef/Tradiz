@@ -24,6 +24,7 @@ import {
     XAxis,
     YAxis,
 } from 'recharts';
+import { LoadingDot } from '../loading';
 
 interface DailySale {
     date: string;
@@ -225,7 +226,7 @@ export default function StatsPage() {
     if (loading) {
         return (
             <AdminPageLayout title="Statistiques">
-                <p>Chargement...</p>
+                <LoadingDot fullscreen />
             </AdminPageLayout>
         );
     }

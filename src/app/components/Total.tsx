@@ -17,7 +17,7 @@ import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
-import Loading, { LoadingType } from '../loading';
+import { LoadingDot } from '../loading';
 import { BACK_KEYWORD, UPDATING_KEYWORD, USE_DIGICARTE, WAITING_KEYWORD } from '../utils/constants';
 import { OrderItem, State, Transaction } from '../utils/interfaces';
 import { CLOSE, postMessageToParent } from '../utils/message';
@@ -552,7 +552,7 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
     if (state === State.init || state === State.loading || state === State.error) {
         return (
             <div className={popupClass} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {Loading(LoadingType.Dot, false)}
+                <LoadingDot />
             </div>
         );
     }
