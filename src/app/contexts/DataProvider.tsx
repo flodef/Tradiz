@@ -196,8 +196,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             // Load from IndexedDB
             const localTransactions = await idbGetTransactions(filename);
 
-            // If SQL DB is enabled, merge SQL data into local (latest modifiedDate wins)
-            if (USE_DIGICARTE) {
+            // If SQL DB is enabled (MariaDB or PostgreSQL), merge SQL data into local (latest modifiedDate wins)
+            if (USE_DIGICARTE || (await checkDbConfig())) {
                 const sqlTransactions = await loadTransactionsFromSQL();
                 if (sqlTransactions?.length) {
                     const merged = mergeTransactionArrays(localTransactions, sqlTransactions);

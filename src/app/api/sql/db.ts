@@ -60,17 +60,20 @@ class PostgreSQLConnectionWrapper implements DbConnection {
     constructor(private sql: NeonHttpClient) {}
 
     private async runQuery(query: string, params: unknown[] = []): Promise<unknown[]> {
+        type QueryResult = { rows: unknown[] };
         if (this.inTransaction) {
             // Inside BEGIN…COMMIT: run directly, search_path already set
-            const rows = await this.sql.query(query, params);
-            return Array.isArray(rows) ? rows : [];
+            // sql.query() returns a NeonQueryResult with a .rows array
+            const result = (await this.sql.query(query, params)) as unknown as QueryResult;
+            return result.rows ?? [];
         }
         // Outside transaction: batch search_path + query in one HTTP round-trip
-        const [, rows] = await this.sql.transaction([
+        // sql.transaction() returns an array of NeonQueryResult objects
+        const [, result] = (await this.sql.transaction([
             this.sql.query('SET search_path TO dc_pos, dc, dc_sys, public'),
             this.sql.query(query, params),
-        ]);
-        return Array.isArray(rows) ? rows : [];
+        ])) as unknown as QueryResult[];
+        return result.rows ?? [];
     }
 
     async execute(query: string, params?: unknown[]): Promise<[unknown[], unknown]> {
