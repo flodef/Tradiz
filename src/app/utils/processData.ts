@@ -330,7 +330,7 @@ export function clearDbConfigCache() {
     hasDbConfigPromise = null;
 }
 
-async function checkDbConfig(): Promise<boolean> {
+export async function checkDbConfig(): Promise<boolean> {
     if (hasDbConfigCache !== null) return hasDbConfigCache;
     if (hasDbConfigPromise !== null) return hasDbConfigPromise;
 

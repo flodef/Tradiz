@@ -46,6 +46,7 @@ import {
     idbRemoveTransactions,
     idbSetTransactions,
 } from '../utils/transactionStore';
+import { checkDbConfig } from '../utils/processData';
 import { mergeTransactionArrays } from './dataProvider/syncUtils';
 import {
     isDeletedTransaction,
@@ -956,7 +957,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }
             }
 
-            if (USE_DIGICARTE) {
+            if (USE_DIGICARTE || (await checkDbConfig())) {
                 try {
                     // Prepare the transaction data for SQL DB
                     const sqlTransactionData = {
@@ -964,7 +965,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         transaction: {
                             id: index,
                             panier_id: orderId || String(transaction.createdDate),
-                            user_id: transaction.validator,
+                            user_name: transaction.validator,
                             payment_method: transaction.method,
                             amount: transaction.amount,
                             currency: transaction.currency,
