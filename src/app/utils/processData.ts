@@ -323,25 +323,36 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
 
 // Cache for DB config check to avoid repeated API calls
 let hasDbConfigCache: boolean | null = null;
+let hasDbConfigCacheTime: number = 0;
 let hasDbConfigPromise: Promise<boolean> | null = null;
+const DB_CONFIG_CACHE_TTL = 30_000; // 30 seconds — re-check if previously false
 
 export function clearDbConfigCache() {
     hasDbConfigCache = null;
+    hasDbConfigCacheTime = 0;
     hasDbConfigPromise = null;
 }
 
 export async function checkDbConfig(): Promise<boolean> {
-    if (hasDbConfigCache !== null) return hasDbConfigCache;
+    const now = Date.now();
+    // Use cache only if it's true (stable) or still within TTL
+    if (hasDbConfigCache !== null && (hasDbConfigCache === true || now - hasDbConfigCacheTime < DB_CONFIG_CACHE_TTL)) {
+        return hasDbConfigCache;
+    }
     if (hasDbConfigPromise !== null) return hasDbConfigPromise;
 
     hasDbConfigPromise = fetch('/api/sql/getDbConfig')
         .then((r) => r.json())
         .then(({ hasDbConfig }) => {
             hasDbConfigCache = hasDbConfig;
-            return hasDbConfig;
+            hasDbConfigCacheTime = Date.now();
+            hasDbConfigPromise = null;
+            return hasDbConfig as boolean;
         })
         .catch(() => {
             hasDbConfigCache = false;
+            hasDbConfigCacheTime = Date.now();
+            hasDbConfigPromise = null;
             return false;
         });
 
