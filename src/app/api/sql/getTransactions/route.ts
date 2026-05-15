@@ -13,8 +13,10 @@ interface TransactionRow {
     amount: number;
     currency: string;
     note: string;
-    createdDate: number;
-    modifiedDate: number;
+    createddate?: number; // PostgreSQL lowercases unquoted aliases
+    modifieddate?: number;
+    createdDate?: number; // MariaDB preserves case
+    modifiedDate?: number;
 }
 
 interface ProductRow {
@@ -66,8 +68,8 @@ export async function GET(request: Request) {
                 t.amount,
                 t.currency,
                 t.note,
-                (EXTRACT(EPOCH FROM t.created_at) * 1000)::bigint as createdDate,
-                (EXTRACT(EPOCH FROM t.updated_at) * 1000)::bigint as modifiedDate
+                (EXTRACT(EPOCH FROM t.created_at) * 1000)::bigint as createddate,
+                (EXTRACT(EPOCH FROM t.updated_at) * 1000)::bigint as modifieddate
             FROM transactions t
             LEFT JOIN dc.orders o ON o.id::text = t.order_id
             WHERE ${whereClause}
@@ -121,7 +123,7 @@ export async function GET(request: Request) {
                 total: Number(p.total),
             }));
 
-            const createdDate = Number(row.createdDate);
+            const createdDate = Number(row.createddate ?? row.createdDate);
             if (!createdDate) continue; // skip rows with null/invalid created_at
 
             transactions.push({
@@ -130,7 +132,7 @@ export async function GET(request: Request) {
                 amount: Number(row.amount),
                 currency: row.currency || '',
                 createdDate,
-                modifiedDate: Number(row.modifiedDate) || createdDate,
+                modifiedDate: Number(row.modifieddate ?? row.modifiedDate) || createdDate,
                 products,
                 ...(row.short_num_order ? { shortNumOrder: String(row.short_num_order) } : {}),
             });

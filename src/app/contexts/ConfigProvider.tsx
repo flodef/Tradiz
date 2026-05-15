@@ -99,8 +99,8 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
     const [state, setState] = useState(State.init);
     const [modeFonctionnement, setModeFonctionnement] = useState<OperationMode>(USE_DIGICARTE ? 'restaurant' : 'lite');
     const [isFastFood, setIsFastFood] = useState(!USE_DIGICARTE);
-    const [isKitchenViewEnabled, setIsKitchenViewEnabled] = useState(true);
-    const [isGrafanaAccessEnabled, setIsGrafanaAccessEnabled] = useState(true);
+    const [isKitchenViewEnabled, setIsKitchenViewEnabled] = useState(false);
+    const [isGrafanaAccessEnabled, setIsGrafanaAccessEnabled] = useState(false);
 
     const [config, setConfig] = useLocalStorage<Config | undefined>(CONFIG_KEYWORD, undefined);
     const [parameters, setParameters] = useState<Parameters>(defaultParameters);
@@ -115,8 +115,6 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
     const isStateReady = useMemo(() => state === State.preloaded || state === State.loaded, [state]);
 
     useEffect(() => {
-        if (!USE_DIGICARTE) return;
-
         type EtabConfigResponse = {
             mode_fonctionnement?: OperationMode;
             kitchen_view_enabled?: boolean;
@@ -134,14 +132,14 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
                           : 'restaurant';
                 setModeFonctionnement(mode);
                 setIsFastFood(mode === 'fastfood' || mode === 'lite');
-                setIsKitchenViewEnabled(data?.kitchen_view_enabled ?? true);
-                setIsGrafanaAccessEnabled(data?.grafana_access_enabled ?? true);
+                setIsKitchenViewEnabled(data?.kitchen_view_enabled ?? false);
+                setIsGrafanaAccessEnabled(data?.grafana_access_enabled ?? false);
             })
             .catch(() => {
                 setModeFonctionnement('restaurant');
                 setIsFastFood(false);
-                setIsKitchenViewEnabled(true);
-                setIsGrafanaAccessEnabled(true);
+                setIsKitchenViewEnabled(false);
+                setIsGrafanaAccessEnabled(false);
             });
     }, []);
 

@@ -51,29 +51,20 @@ class MySQLConnectionWrapper implements DbConnection {
 type NeonHttpClient = ReturnType<typeof import('./pg-db').getMainPgDb>;
 
 // Wrapper for Neon HTTP client to match our DbConnection interface.
-// Outside a transaction: SET search_path + query are batched in one sql.transaction() call.
-// Inside a transaction (after BEGIN): queries run directly via sql.query() — no nested transaction.
+// Neon HTTP is stateless — each execute() batches SET search_path + query in one sql.transaction() call.
 class PostgreSQLConnectionWrapper implements DbConnection {
     isPostgreSQL = true;
-    private inTransaction = false;
 
     constructor(private sql: NeonHttpClient) {}
 
     private async runQuery(query: string, params: unknown[] = []): Promise<unknown[]> {
-        type QueryResult = { rows: unknown[] };
-        if (this.inTransaction) {
-            // Inside BEGIN…COMMIT: run directly, search_path already set
-            // sql.query() returns a NeonQueryResult with a .rows array
-            const result = (await this.sql.query(query, params)) as unknown as QueryResult;
-            return result.rows ?? [];
-        }
-        // Outside transaction: batch search_path + query in one HTTP round-trip
-        // sql.transaction() returns an array of NeonQueryResult objects
-        const [, result] = (await this.sql.transaction([
+        // Neon HTTP is stateless — always batch SET search_path with the query
+        // sql.transaction() returns an array of raw row arrays: [setPathRows, queryRows]
+        const [, rows] = await this.sql.transaction([
             this.sql.query('SET search_path TO dc_pos, dc, dc_sys, public'),
             this.sql.query(query, params),
-        ])) as unknown as QueryResult[];
-        return result.rows ?? [];
+        ]);
+        return (rows as unknown as unknown[]) ?? [];
     }
 
     async execute(query: string, params?: unknown[]): Promise<[unknown[], unknown]> {
@@ -87,21 +78,15 @@ class PostgreSQLConnectionWrapper implements DbConnection {
     }
 
     async beginTransaction(): Promise<void> {
-        await this.sql.transaction([
-            this.sql.query('SET search_path TO dc_pos, dc, dc_sys, public'),
-            this.sql.query('BEGIN'),
-        ]);
-        this.inTransaction = true;
+        // No-op: Neon HTTP has no persistent session; each sql.transaction() is already atomic
     }
 
     async commit(): Promise<void> {
-        this.inTransaction = false;
-        await this.sql.query('COMMIT');
+        // No-op: see beginTransaction
     }
 
     async rollback(): Promise<void> {
-        this.inTransaction = false;
-        await this.sql.query('ROLLBACK');
+        // No-op: see beginTransaction
     }
 
     async end(): Promise<void> {

@@ -108,7 +108,8 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
     const existingRows = existing as IdRow[];
 
     if (existingRows.length > 0) {
-        // Transaction already exists, skip insert
+        // Transaction already exists — sync it instead of skipping
+        await handleSyncTransaction(connection, transaction);
         return;
     }
 
@@ -180,37 +181,37 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
 }
 
 async function handleUpdateTransaction(connection: Connection, transaction: TransactionData) {
-    // Update the transaction record to mark it as processing
+    // Update the transaction record to mark it as processing (lookup by created_at for reliability)
     const updateQuery = connection.isPostgreSQL
         ? `
         UPDATE transactions
         SET payment_method = $1, updated_at = $2
-        WHERE order_id = $3
+        WHERE created_at = $3
     `
         : `
         UPDATE transactions
         SET payment_method = ?, updated_at = ?
-        WHERE order_id = ?
+        WHERE created_at = ?
     `;
 
-    await connection.execute(updateQuery, [PROCESSING_KEYWORD, transaction.updated_at, transaction.order_id]);
+    await connection.execute(updateQuery, [PROCESSING_KEYWORD, transaction.updated_at, transaction.created_at]);
 }
 
 async function handleDeleteTransaction(connection: Connection, transaction: TransactionData) {
-    // Update the transaction record to mark it as deleted
+    // Update the transaction record to mark it as deleted (lookup by created_at for reliability)
     const updateQuery = connection.isPostgreSQL
         ? `
         UPDATE transactions
         SET payment_method = $1, updated_at = $2
-        WHERE order_id = $3
+        WHERE created_at = $3
     `
         : `
         UPDATE transactions
         SET payment_method = ?, updated_at = ?
-        WHERE order_id = ?
+        WHERE created_at = ?
     `;
 
-    await connection.execute(updateQuery, [DELETED_KEYWORD, transaction.updated_at, transaction.order_id]);
+    await connection.execute(updateQuery, [DELETED_KEYWORD, transaction.updated_at, transaction.created_at]);
 }
 
 async function handleSyncTransaction(connection: Connection, transaction: TransactionData) {

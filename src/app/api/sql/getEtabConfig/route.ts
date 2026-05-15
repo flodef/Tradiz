@@ -5,25 +5,36 @@ import { getMainDb } from '../db';
 type OperationMode = 'restaurant' | 'fastfood' | 'lite';
 
 interface EtabConfigRow extends RowDataPacket {
-    mode_fonctionnement: OperationMode | null;
-    kitchen_view_enabled: number | null;
-    grafana_access_enabled: number | null;
+    operation_mode: OperationMode | null; // PostgreSQL
+    mode_fonctionnement: OperationMode | null; // MariaDB
+    kitchen_view_enabled: number | boolean | null;
+    grafana_access_enabled: number | boolean | null;
 }
+
+const SAFE_DEFAULTS = {
+    mode_fonctionnement: 'restaurant' as OperationMode,
+    kitchen_view_enabled: false,
+    grafana_access_enabled: false,
+};
 
 export async function GET() {
     try {
         const connection = await getMainDb();
 
-        const [rows] = await connection.execute(
-            'SELECT mode_fonctionnement, kitchen_view_enabled, grafana_access_enabled FROM config_etablissement ORDER BY id DESC LIMIT 1'
-        );
+        const query = connection.isPostgreSQL
+            ? 'SELECT operation_mode, kitchen_view_enabled, grafana_access_enabled FROM establishment_config ORDER BY id DESC LIMIT 1'
+            : 'SELECT mode_fonctionnement, kitchen_view_enabled, grafana_access_enabled FROM config_etablissement ORDER BY id DESC LIMIT 1';
+
+        const [rows] = await connection.execute(query);
         await connection.end();
 
         const row = (rows as EtabConfigRow[])[0];
-        const rawMode = row?.mode_fonctionnement;
+        if (!row) return NextResponse.json(SAFE_DEFAULTS, { status: 200 });
+
+        const rawMode = row.operation_mode ?? row.mode_fonctionnement;
         const mode: OperationMode = rawMode === 'fastfood' || rawMode === 'lite' ? rawMode : 'restaurant';
-        const kitchenViewEnabled = mode === 'lite' ? false : Number(row?.kitchen_view_enabled ?? 1) === 1;
-        const grafanaAccessEnabled = Number(row?.grafana_access_enabled ?? 1) === 1;
+        const kitchenViewEnabled = mode === 'lite' ? false : Number(row.kitchen_view_enabled ?? 0) === 1;
+        const grafanaAccessEnabled = Number(row.grafana_access_enabled ?? 0) === 1;
 
         return NextResponse.json(
             {
@@ -35,6 +46,6 @@ export async function GET() {
         );
     } catch (error) {
         console.error('getEtabConfig error:', error);
-        return NextResponse.json({ error: 'An error occurred' }, { status: 500 });
+        return NextResponse.json(SAFE_DEFAULTS, { status: 200 });
     }
 }
