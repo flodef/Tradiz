@@ -164,7 +164,7 @@ export interface StorageUsage {
     percentUsed: number;
 }
 
-function formatBytes(bytes: number): string {
+export function formatBytes(bytes: number): string {
     if (bytes < 1024) return bytes + ' o';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' Ko';
     if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';

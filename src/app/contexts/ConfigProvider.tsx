@@ -84,12 +84,32 @@ export interface ConfigProviderProps {
  * e.g. annette.tradiz.fr → "annette", localhost → ""
  * Must only be called client-side (requires window).
  */
-function getShopFromSubdomain(): string {
+export function getShopFromSubdomain(): string {
     if (typeof window === 'undefined') return '';
     const parts = window.location.hostname.split('.');
     // Only treat the first label as a shop if there are at least 3 parts (subdomain.domain.tld)
     if (parts.length < 3) return '';
     return parts[0];
+}
+
+/**
+ * Validates config data to ensure required fields are present.
+ * This prevents infinite spinner and error states when config is incomplete.
+ *
+ * @param data - The config data to validate
+ * @throws Error if required fields are missing or empty
+ */
+export function validateConfigData(data: Config): void {
+    if (
+        !(
+            data.currencies?.length &&
+            data.paymentMethods?.length &&
+            data.inventory?.length &&
+            data.colors?.length &&
+            data.parameters?.shop
+        )
+    )
+        throw new Error('Empty config data');
 }
 
 export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopProp }) => {
@@ -197,16 +217,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
 
     const storeData = useCallback(
         (data: Config) => {
-            if (
-                !(
-                    data.currencies.length &&
-                    data.paymentMethods.length &&
-                    data.inventory.length &&
-                    data.colors.length &&
-                    data.parameters
-                )
-            )
-                throw new Error('Empty config data');
+            validateConfigData(data);
 
             setConfig(data);
             loadConfig(data);

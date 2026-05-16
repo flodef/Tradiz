@@ -2,81 +2,10 @@ import { Inter } from 'next/font/google';
 import { ReactNode } from 'react';
 import { twMerge } from 'tailwind-merge';
 import './globals.css';
-import { CONFIG_KEYWORD } from './utils/constants';
+import { USE_DIGICARTE } from './utils/constants';
+import { conditionalManifestScript, preloadedThemeScript } from './utils/scriptUtils';
 
 const inter = Inter({ subsets: ['latin'] });
-
-const preloadedThemeScript = `(function () {
-    var root = document.documentElement;
-    var applied = false;
-
-    try {
-        var raw = window.localStorage.getItem('${CONFIG_KEYWORD}');
-        if (!raw) return;
-
-        var parsed = JSON.parse(raw);
-        var colors = parsed && Array.isArray(parsed.colors) ? parsed.colors : null;
-        if (!colors || colors.length < 7) return;
-
-        var slots = [
-            ['writing', 0],
-            ['main-from', 1],
-            ['main-to', 2],
-            ['popup', 3],
-            ['active', 4],
-            ['secondary', 5],
-            ['secondary-active', 6]
-        ];
-
-        for (var i = 0; i < slots.length; i++) {
-            var name = slots[i][0];
-            var index = slots[i][1];
-            var light = colors[index] && colors[index].light;
-            var dark = colors[index] && colors[index].dark;
-
-            if (typeof light === 'string' && light) {
-                root.style.setProperty('--' + name + '-light-color', light);
-            }
-            if (typeof dark === 'string' && dark) {
-                root.style.setProperty('--' + name + '-dark-color', dark);
-            }
-        }
-        applied = true;
-    } catch (_) {
-        // Ignore invalid cached config.
-    } finally {
-        if (applied) {
-            root.setAttribute('data-theme-ready', '1');
-        } else {
-            setTimeout(function () {
-                root.setAttribute('data-theme-ready', '1');
-            }, 2000);
-        }
-    }
-})();`;
-
-const useDigicarte = process.env.NEXT_PUBLIC_USE_DIGICARTE?.toLowerCase() === 'true';
-
-const conditionalManifestScript = useDigicarte
-    ? ''
-    : `(function () {
-    try {
-        var path = window.location.pathname || '';
-        var pattern1 = new RegExp('/admin/tradiz/?$');
-        var pattern2 = new RegExp('^/[^/]+/admin/tradiz/?$');
-        var isLiteRoute = pattern1.test(path) || pattern2.test(path);
-        if (isLiteRoute) return;
-
-        if (!document.querySelector('link[rel="manifest"]')) {
-            var link = document.createElement('link');
-            link.rel = 'manifest';
-            link.href = '/manifest.webmanifest';
-            document.head.appendChild(link);
-        }
-    } catch (_) {
-        // Ignore manifest injection failures.
-    }
-})();`;
 
 export const metadata = {
     title: 'Tradiz',
@@ -92,8 +21,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     return (
         <html lang="fr" data-theme-ready="0" suppressHydrationWarning>
             <head>
-                <script dangerouslySetInnerHTML={{ __html: preloadedThemeScript }} />
-                <script dangerouslySetInnerHTML={{ __html: conditionalManifestScript }} />
+                <script dangerouslySetInnerHTML={{ __html: preloadedThemeScript() }} />
+                <script dangerouslySetInnerHTML={{ __html: conditionalManifestScript(USE_DIGICARTE) }} />
                 <noscript>
                     <style>{`html[data-theme-ready="0"] body { visibility: visible; }`}</style>
                 </noscript>

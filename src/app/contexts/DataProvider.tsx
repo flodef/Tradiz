@@ -46,6 +46,35 @@ export interface DataProviderProps {
     children: ReactNode;
 }
 
+/**
+ * Floors a timestamp to second precision by removing milliseconds.
+ * This matches the SQL TIMESTAMP precision which stores only seconds.
+ * @param timestamp - The timestamp in milliseconds
+ * @returns The timestamp floored to second precision
+ */
+export function floorToSeconds(timestamp: number): number {
+    return Math.floor(timestamp / 1000) * 1000;
+}
+
+export function computeResetTimes(closingHour: number, now?: Date) {
+    const currentTime = now ?? new Date();
+    const reset = new Date(currentTime);
+    reset.setHours(closingHour, 0, 0, 0);
+
+    // Get the LAST occurrence of closing hour (in the past) - this is the cutoff for current day's transactions
+    const lastReset = new Date(reset);
+    if (currentTime < lastReset) lastReset.setDate(lastReset.getDate() - 1);
+
+    // Compute NEXT reset timestamp (in the future) for scheduling the reset
+    const nextReset = new Date(reset);
+    if (currentTime >= nextReset) nextReset.setDate(nextReset.getDate() + 1);
+
+    return {
+        last: lastReset.getTime(),
+        next: nextReset.getTime(),
+    };
+}
+
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const { currencies, currencyIndex, setCurrency, parameters, isKitchenViewEnabled } = useConfig();
     const { isOnline } = useWindowParam();
@@ -110,24 +139,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         await idbSetTransactions(key, transactions);
     }, []);
 
-    // Get the LAST occurrence of closing hour (in the past) - this is the cutoff for current day's transactions
-    const getLastResetTime = useCallback(() => {
-        const now = new Date();
-        const reset = new Date();
-        reset.setHours(parameters.closingHour, 0, 0, 0);
-        // If we haven't reached today's closing hour yet, use yesterday's
-        if (now < reset) reset.setDate(reset.getDate() - 1);
-        return reset.getTime();
-    }, [parameters.closingHour]);
-
-    // Compute NEXT reset timestamp (in the future) for scheduling the reset
-    const getNextResetTime = useCallback(() => {
-        const now = new Date();
-        const reset = new Date();
-        reset.setHours(parameters.closingHour, 0, 0, 0);
-        // If we're already past today's closing hour, schedule for tomorrow
-        if (now >= reset) reset.setDate(reset.getDate() + 1);
-        return reset.getTime();
+    // Compute both last and next reset timestamps
+    const getResetTimes = useCallback(() => {
+        return computeResetTimes(parameters.closingHour);
     }, [parameters.closingHour]);
 
     useEffect(() => {
@@ -203,7 +217,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     const merged = mergeTransactionArrays(localTransactions, sqlTransactions);
 
                     // Filter transactions: only keep those after the last reset time
-                    const lastResetTime = getLastResetTime();
+                    const { last: lastResetTime } = getResetTimes();
                     const currentDayTransactions = merged.filter((tx) => tx.createdDate >= lastResetTime);
                     const oldTransactions = merged.filter((tx) => tx.createdDate < lastResetTime);
 
@@ -252,7 +266,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             }
 
             // Filter local transactions by last reset time
-            const lastResetTime = getLastResetTime();
+            const { last: lastResetTime } = getResetTimes();
             const currentDayTransactions = localTransactions.filter((tx) => tx.createdDate >= lastResetTime);
             setTransactions(currentDayTransactions);
             areTransactionLoaded.current = true;
@@ -266,15 +280,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         transactionsFilename,
         loadTransactionsFromSQL,
         setLocalStorageItem,
-        getLastResetTime,
+        getResetTimes,
     ]);
 
     const performDayReset = useCallback(() => {
         console.log('[DayReset] Performing day reset...');
         areTransactionLoaded.current = false;
         setTransactionsFilename('');
-        nextResetTime.current = getNextResetTime();
-    }, [getNextResetTime]);
+        nextResetTime.current = getResetTimes().next;
+    }, [getResetTimes]);
 
     // Check if reset should happen and perform it
     const checkAndPerformDayReset = useCallback(() => {
@@ -291,7 +305,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     useEffect(() => {
         if (!parameters.shop.name) return;
 
-        nextResetTime.current = getNextResetTime();
+        nextResetTime.current = getResetTimes().next;
 
         // Primary: setTimeout to the next reset time
         const msUntilReset = nextResetTime.current - Date.now();
@@ -315,7 +329,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             clearInterval(interval);
             document.removeEventListener('visibilitychange', onVisibilityChange);
         };
-    }, [parameters.shop.name, getNextResetTime, performDayReset]);
+    }, [parameters.shop.name, getResetTimes, performDayReset]);
 
     const storeTransaction = useCallback(
         (transaction: Transaction) => {
@@ -345,12 +359,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             // Update React state if this is the current day's transaction set
             if (transactionSet.id === transactionsFilename) {
-                const lastResetTime = getLastResetTime();
+                const { last: lastResetTime } = getResetTimes();
                 const currentDayTransactions = txToUpdate.filter((tx) => tx.createdDate >= lastResetTime);
                 setTransactions(currentDayTransactions);
             }
         },
-        [setLocalStorageItem, transactionsFilename, getLastResetTime]
+        [setLocalStorageItem, transactionsFilename, getResetTimes]
     );
 
     // Check if the "transaction set" in the cloud exists in local (check by "id").
@@ -385,9 +399,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         transactions: [...localTransactionSet.transactions],
                     };
                     for (const cloudTransaction of cloudTransactionSet.transactions) {
-                        const cloudTs = Math.floor(cloudTransaction.createdDate / 1000) * 1000;
+                        const cloudTs = floorToSeconds(cloudTransaction.createdDate);
                         const index = localTransactionSet.transactions.findIndex(
-                            (localTransaction) => Math.floor(localTransaction.createdDate / 1000) * 1000 === cloudTs
+                            (localTransaction) => floorToSeconds(localTransaction.createdDate) === cloudTs
                         );
 
                         if (index === -1) {
@@ -528,7 +542,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     for (const localTx of localTransactions) {
                         processedLocal++;
                         if (isProcessingTransaction(localTx)) continue;
-                        const localTs = Math.floor(localTx.createdDate / 1000) * 1000;
+                        const localTs = floorToSeconds(localTx.createdDate);
                         const sqlTx = sqlTransactions.find(
                             (s) => s.createdDate === localTs || s.createdDate === localTx.createdDate
                         );
@@ -1042,7 +1056,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         (item: string | Transaction) => {
             if (!item || (typeof item === 'string' && !products.current.length)) return;
 
-            const currentTime = Math.floor(new Date().getTime() / 1000) * 1000; // floor to seconds to match SQL TIMESTAMP precision
+            const currentTime = floorToSeconds(new Date().getTime()); // floor to seconds to match SQL TIMESTAMP precision
             const transaction: Transaction =
                 typeof item === 'object'
                     ? item

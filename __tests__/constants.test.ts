@@ -1,0 +1,87 @@
+import { describe, it, expect } from 'vitest';
+import {
+    DEV_EMAIL,
+    CONFIG_KEYWORD,
+    OTHER_KEYWORD,
+    TRANSACTIONS_KEYWORD,
+    WAITING_KEYWORD,
+    REFUND_KEYWORD,
+    UPDATING_KEYWORD,
+    PROCESSING_KEYWORD,
+    DELETED_KEYWORD,
+    INTERNAL_PAYMENT_METHODS,
+    PAYMENT_TYPES,
+    DC,
+    DC_POS,
+    TRANSACTION_TIME_OUT,
+    BACK_KEYWORD,
+} from '../src/app/utils/constants';
+
+describe('Constants', () => {
+    describe('Keywords', () => {
+        it('has correct keyword values', () => {
+            expect(DEV_EMAIL).toBe('flo@tradiz.fr');
+            expect(CONFIG_KEYWORD).toBe('Config');
+            expect(OTHER_KEYWORD).toBe('Autres');
+            expect(TRANSACTIONS_KEYWORD).toBe('Transactions');
+            expect(BACK_KEYWORD).toBe('RETOUR');
+        });
+
+        it('has correct transaction status keywords', () => {
+            expect(WAITING_KEYWORD).toBe('EN ATTENTE');
+            expect(REFUND_KEYWORD).toBe('REMBOURSEMENT');
+            expect(UPDATING_KEYWORD).toBe('EN MODIF');
+            expect(PROCESSING_KEYWORD).toBe('EN COURS');
+            expect(DELETED_KEYWORD).toBe('EFFACÉE');
+        });
+    });
+
+    describe('Payment methods', () => {
+        it('has correct internal payment methods list', () => {
+            expect(INTERNAL_PAYMENT_METHODS).toContain(WAITING_KEYWORD);
+            expect(INTERNAL_PAYMENT_METHODS).toContain(REFUND_KEYWORD);
+            expect(INTERNAL_PAYMENT_METHODS).toContain(UPDATING_KEYWORD);
+            expect(INTERNAL_PAYMENT_METHODS).toContain(PROCESSING_KEYWORD);
+            expect(INTERNAL_PAYMENT_METHODS).toContain(DELETED_KEYWORD);
+        });
+
+        it('has correct payment types', () => {
+            expect(PAYMENT_TYPES).toContain('Carte Bancaire');
+            expect(PAYMENT_TYPES).toContain('Espèce');
+            expect(PAYMENT_TYPES).toContain('Chèque');
+            expect(PAYMENT_TYPES).toContain('Ticket Restaurant');
+            expect(PAYMENT_TYPES).toContain('Chèque Vacances');
+            expect(PAYMENT_TYPES).toContain('Solana');
+            expect(PAYMENT_TYPES).toContain('Ğ1 June');
+            expect(PAYMENT_TYPES).toContain('Virement');
+        });
+
+        it('payment types array is not empty', () => {
+            expect(PAYMENT_TYPES.length).toBeGreaterThan(0);
+        });
+    });
+
+    describe('Database constants', () => {
+        it('has correct database names', () => {
+            expect(DC).toBe('DC');
+            expect(DC_POS).toBe('DC_POS');
+        });
+    });
+
+    describe('Configuration constants', () => {
+        it('has correct transaction timeout', () => {
+            expect(TRANSACTION_TIME_OUT).toBe(60);
+            expect(typeof TRANSACTION_TIME_OUT).toBe('number');
+        });
+    });
+
+    describe('Internal payment methods include all status keywords', () => {
+        it('includes all transaction status keywords in internal payment methods', () => {
+            expect(INTERNAL_PAYMENT_METHODS).toContain(WAITING_KEYWORD);
+            expect(INTERNAL_PAYMENT_METHODS).toContain(REFUND_KEYWORD);
+            expect(INTERNAL_PAYMENT_METHODS).toContain(UPDATING_KEYWORD);
+            expect(INTERNAL_PAYMENT_METHODS).toContain(PROCESSING_KEYWORD);
+            expect(INTERNAL_PAYMENT_METHODS).toContain(DELETED_KEYWORD);
+        });
+    });
+});

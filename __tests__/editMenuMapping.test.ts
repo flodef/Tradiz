@@ -1,4 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { AdminProduct } from '@/app/components/admin/sections/ProductsConfig';
+import { Category, InventoryItem } from '@/app/utils/interfaces';
+import { describe, expect, it } from 'vitest';
 
 /**
  * Non-regression tests for edit_menu/page.tsx inventory → admin data mapping.
@@ -6,36 +8,9 @@ import { describe, it, expect } from 'vitest';
  * Bugs fixed:
  * 1. Category TVA was divided by 100 (vat: item.rate / 100) producing 0.055 instead of 5.5.
  *    Fix: use item.rate directly — it is already stored as a percentage value (5.5, 10, 20…).
- * 2. Product availability was hardcoded to `true` instead of reading product.availability.
- *    Fix: use product.availability directly.
+ * 2. Product availability was hardcoded to `true` instead of reading product.stock.
+ *    Fix: use product.stock !== 0 (stock=null means available, stock=0 means unavailable).
  */
-
-interface InventoryProduct {
-    label: string;
-    prices: number[];
-    options?: string | null;
-    availability: boolean;
-    order: number;
-}
-
-interface InventoryItem {
-    category: string;
-    rate: number;
-    order: number;
-    products: InventoryProduct[];
-}
-
-interface AdminProduct {
-    name: string;
-    category: string;
-    availability: boolean;
-    currencies: string[];
-}
-
-interface Category {
-    label: string;
-    vat: number;
-}
 
 function mapInventoryToAdminData(inventory: InventoryItem[]): {
     categories: Category[];
@@ -55,7 +30,7 @@ function mapInventoryToAdminData(inventory: InventoryItem[]): {
             allProducts.push({
                 name: product.label,
                 category: item.category,
-                availability: product.availability, // FIX: was hardcoded `true`
+                stock: product.stock,
                 currencies: product.prices.map(String),
             });
         });
@@ -66,7 +41,7 @@ function mapInventoryToAdminData(inventory: InventoryItem[]): {
 
 // ── Sample inventory matching the shape from processData.ts ─────────────────
 // rate = raw percentage (5.5, 10, 20, 0) — already multiplied by 100 in convertProductsData
-// availability = !item[3] (false means "Indisponible" column is false → available)
+// stock = null means available (unknown/infinite stock), stock = 0 means unavailable (no stock)
 
 const sampleInventory: InventoryItem[] = [
     {
@@ -74,33 +49,27 @@ const sampleInventory: InventoryItem[] = [
         rate: 5.5,
         order: 0,
         products: [
-            { label: 'Baguette', prices: [1.3], availability: true, order: 0 },
-            { label: 'Seigle Sarrasin', prices: [3.5], availability: false, order: 1 },
+            { label: 'Baguette', prices: [1.3], stock: null, order: 0 },
+            { label: 'Seigle Sarrasin', prices: [3.5], stock: 0, order: 1 },
         ],
     },
     {
         category: 'Salon Thé',
         rate: 10,
         order: 1,
-        products: [
-            { label: 'Café court / moyen', prices: [1.5], availability: true, order: 0 },
-        ],
+        products: [{ label: 'Café court / moyen', prices: [1.5], stock: null, order: 0 }],
     },
     {
         category: 'Alcool',
         rate: 20,
         order: 2,
-        products: [
-            { label: 'Cidre', prices: [0], availability: true, order: 0 },
-        ],
+        products: [{ label: 'Cidre', prices: [0], stock: null, order: 0 }],
     },
     {
         category: 'Autres',
         rate: 0,
         order: 3,
-        products: [
-            { label: 'Journal', prices: [1.3], availability: true, order: 0 },
-        ],
+        products: [{ label: 'Journal', prices: [1.3], stock: null, order: 0 }],
     },
 ];
 
@@ -157,36 +126,36 @@ describe('Category TVA mapping', () => {
 // ── Bug 2: Product availability ──────────────────────────────────────────────
 
 describe('Product availability mapping', () => {
-    it('available product (availability=true) should be marked available', () => {
+    it('available product (stock=null) should have stock=null', () => {
         const { products } = mapInventoryToAdminData(sampleInventory);
         const baguette = products.find((p) => p.name === 'Baguette');
         expect(baguette).toBeDefined();
-        expect(baguette!.availability).toBe(true);
+        expect(baguette!.stock).toBe(null);
     });
 
-    it('unavailable product (availability=false) should NOT be marked available', () => {
+    it('unavailable product (stock=0) should have stock=0', () => {
         const { products } = mapInventoryToAdminData(sampleInventory);
         const seigle = products.find((p) => p.name === 'Seigle Sarrasin');
         expect(seigle).toBeDefined();
-        expect(seigle!.availability).toBe(false);
+        expect(seigle!.stock).toBe(0);
     });
 
-    it('availability is not hardcoded to true — different values are preserved', () => {
+    it('stock values are preserved from inventory', () => {
         const { products } = mapInventoryToAdminData(sampleInventory);
-        const availabilities = products.map((p) => p.availability);
-        // Must contain at least one false (Seigle Sarrasin)
-        expect(availabilities).toContain(false);
-        // Must also contain at least one true
-        expect(availabilities).toContain(true);
+        const stocks = products.map((p) => p.stock);
+        // Must contain at least one 0 (Seigle Sarrasin with stock=0)
+        expect(stocks).toContain(0);
+        // Must also contain at least one null (products with stock=null)
+        expect(stocks).toContain(null);
     });
 
-    it('all products with availability=true are preserved as available', () => {
+    it('all products with stock=null are preserved as null', () => {
         const { products } = mapInventoryToAdminData(sampleInventory);
         const availableProducts = ['Baguette', 'Café court / moyen', 'Cidre', 'Journal'];
         for (const name of availableProducts) {
             const p = products.find((x) => x.name === name);
             expect(p, `Product "${name}" should exist`).toBeDefined();
-            expect(p!.availability, `Product "${name}" should be available`).toBe(true);
+            expect(p!.stock, `Product "${name}" should have stock=null`).toBe(null);
         }
     });
 });

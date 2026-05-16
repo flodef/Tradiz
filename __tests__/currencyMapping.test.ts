@@ -1,3 +1,4 @@
+import { Currency } from '@/app/utils/interfaces';
 import { describe, it, expect } from 'vitest';
 
 /**
@@ -7,9 +8,9 @@ import { describe, it, expect } from 'vitest';
  *      Also validates that the values[][] shape and column ordering is correct so that
  *      convertCurrenciesData maps them properly to the Currency interface.
  *
- * DB table: currency { id, label, symbol, max_value, decimals }
- * Expected values[][] shape: [header, ...rows] where each row = [label, maxValue, symbol, decimals]
- * Currency interface: { label, maxValue, symbol, decimals }
+ * DB table: currency { id, label, symbol, max_value, decimals, rate, fee }
+ * Expected values[][] shape: [header, ...rows] where each row = [label, maxValue, symbol, decimals, rate, fee]
+ * Currency interface: { label, maxValue, symbol, decimals, rate, fee }
  */
 
 interface CurrencyRow {
@@ -17,20 +18,22 @@ interface CurrencyRow {
     symbol: string;
     max_value: number | null;
     decimals: number | null;
-}
-
-interface Currency {
-    label: string;
-    maxValue: number;
-    symbol: string;
-    decimals: number;
+    rate: number | null;
+    fee: number | null;
 }
 
 // Replicates the mapping logic from getCurrencies/route.ts
 function buildCurrencyValues(rows: CurrencyRow[]): (string | number)[][] {
     return [
-        ['Intitulé (Symbole)', 'Valeur maximale', 'Symbole', 'Décimales'],
-        ...rows.map((row) => [row.label, row.max_value ?? 999.99, row.symbol, row.decimals ?? 2]),
+        ['Intitulé (Symbole)', 'Valeur maximale', 'Symbole', 'Décimales', 'Taux', 'Frais'],
+        ...rows.map((row) => [
+            row.label,
+            row.max_value ?? 999.99,
+            row.symbol,
+            row.decimals ?? 2,
+            row.rate ?? 1,
+            row.fee ?? 0,
+        ]),
     ];
 }
 
@@ -41,6 +44,8 @@ function convertCurrenciesValues(values: (string | number)[][]): Currency[] {
         maxValue: Number(item[1]),
         symbol: String(item[2]),
         decimals: Number(item[3]),
+        rate: item.length > 4 ? Number(item[4]) : 1,
+        fee: item.length > 5 ? Number(item[5]) : 0,
     }));
 }
 
@@ -52,16 +57,16 @@ function dbRowsToCurrencies(rows: CurrencyRow[]): Currency[] {
 // ── Column mapping ─────────────────────────────────────────────────────────────
 
 describe('getCurrencies: values[][] column ordering', () => {
-    const rows: CurrencyRow[] = [{ label: 'Euro', symbol: '€', max_value: 999.99, decimals: 2 }];
+    const rows: CurrencyRow[] = [{ label: 'Euro', symbol: '€', max_value: 999.99, decimals: 2, rate: 1, fee: 0 }];
 
-    it('header row has 4 columns', () => {
+    it('header row has 6 columns', () => {
         const values = buildCurrencyValues(rows);
-        expect(values[0]).toHaveLength(4);
+        expect(values[0]).toHaveLength(6);
     });
 
-    it('data row has 4 columns', () => {
+    it('data row has 6 columns', () => {
         const values = buildCurrencyValues(rows);
-        expect(values[1]).toHaveLength(4);
+        expect(values[1]).toHaveLength(6);
     });
 
     it('column 0 is label', () => {
@@ -83,25 +88,57 @@ describe('getCurrencies: values[][] column ordering', () => {
         const values = buildCurrencyValues(rows);
         expect(values[1][3]).toBe(2);
     });
+
+    it('column 4 is rate', () => {
+        const values = buildCurrencyValues(rows);
+        expect(values[1][4]).toBe(1);
+    });
+
+    it('column 5 is fee', () => {
+        const values = buildCurrencyValues(rows);
+        expect(values[1][5]).toBe(0);
+    });
 });
 
 // ── Null / missing value defaults ──────────────────────────────────────────────
 
 describe('getCurrencies: null DB values use sensible defaults', () => {
     it('null max_value defaults to 999.99', () => {
-        const [result] = dbRowsToCurrencies([{ label: 'Test', symbol: 'T', max_value: null, decimals: 2 }]);
+        const [result] = dbRowsToCurrencies([
+            { label: 'Test', symbol: 'T', max_value: null, decimals: 2, rate: null, fee: null },
+        ]);
         expect(result.maxValue).toBe(999.99);
     });
 
     it('null decimals defaults to 2', () => {
-        const [result] = dbRowsToCurrencies([{ label: 'Test', symbol: 'T', max_value: 100, decimals: null }]);
+        const [result] = dbRowsToCurrencies([
+            { label: 'Test', symbol: 'T', max_value: 100, decimals: null, rate: null, fee: null },
+        ]);
         expect(result.decimals).toBe(2);
     });
 
+    it('null rate defaults to 1', () => {
+        const [result] = dbRowsToCurrencies([
+            { label: 'Test', symbol: 'T', max_value: 100, decimals: 2, rate: null, fee: null },
+        ]);
+        expect(result.rate).toBe(1);
+    });
+
+    it('null fee defaults to 0', () => {
+        const [result] = dbRowsToCurrencies([
+            { label: 'Test', symbol: 'T', max_value: 100, decimals: 2, rate: null, fee: null },
+        ]);
+        expect(result.fee).toBe(0);
+    });
+
     it('both null fields use defaults', () => {
-        const [result] = dbRowsToCurrencies([{ label: 'Test', symbol: 'T', max_value: null, decimals: null }]);
+        const [result] = dbRowsToCurrencies([
+            { label: 'Test', symbol: 'T', max_value: null, decimals: null, rate: null, fee: null },
+        ]);
         expect(result.maxValue).toBe(999.99);
         expect(result.decimals).toBe(2);
+        expect(result.rate).toBe(1);
+        expect(result.fee).toBe(0);
     });
 });
 
@@ -109,8 +146,8 @@ describe('getCurrencies: null DB values use sensible defaults', () => {
 
 describe('getCurrencies: full DB → Currency[] pipeline', () => {
     const dbRows: CurrencyRow[] = [
-        { label: 'Euro', symbol: '€', max_value: 999.99, decimals: 2 },
-        { label: 'Bitcoin', symbol: '₿', max_value: 0.01, decimals: 8 },
+        { label: 'Euro', symbol: '€', max_value: 999.99, decimals: 2, rate: 1, fee: 0 },
+        { label: 'Bitcoin', symbol: '₿', max_value: 0.01, decimals: 8, rate: 0.0001, fee: 0.01 },
     ];
 
     it('returns one Currency per DB row', () => {
@@ -125,12 +162,12 @@ describe('getCurrencies: full DB → Currency[] pipeline', () => {
 
     it('maps Euro row correctly', () => {
         const [euro] = dbRowsToCurrencies(dbRows);
-        expect(euro).toEqual({ label: 'Euro', maxValue: 999.99, symbol: '€', decimals: 2 });
+        expect(euro).toEqual({ label: 'Euro', maxValue: 999.99, symbol: '€', decimals: 2, rate: 1, fee: 0 });
     });
 
     it('maps Bitcoin row correctly', () => {
         const [, btc] = dbRowsToCurrencies(dbRows);
-        expect(btc).toEqual({ label: 'Bitcoin', maxValue: 0.01, symbol: '₿', decimals: 8 });
+        expect(btc).toEqual({ label: 'Bitcoin', maxValue: 0.01, symbol: '₿', decimals: 8, rate: 0.0001, fee: 0.01 });
     });
 
     it('empty DB rows returns empty array', () => {
@@ -142,18 +179,24 @@ describe('getCurrencies: full DB → Currency[] pipeline', () => {
 
 describe('payment method currency: symbol is used as currency identifier', () => {
     it('Euro symbol is €', () => {
-        const [euro] = dbRowsToCurrencies([{ label: 'Euro', symbol: '€', max_value: 999.99, decimals: 2 }]);
+        const [euro] = dbRowsToCurrencies([
+            { label: 'Euro', symbol: '€', max_value: 999.99, decimals: 2, rate: 1, fee: 0 },
+        ]);
         expect(euro.symbol).toBe('€');
     });
 
     it('currency with 0 decimals has step of 1', () => {
-        const [result] = dbRowsToCurrencies([{ label: 'Points', symbol: 'pts', max_value: 9999, decimals: 0 }]);
+        const [result] = dbRowsToCurrencies([
+            { label: 'Points', symbol: 'pts', max_value: 9999, decimals: 0, rate: 1, fee: 0 },
+        ]);
         const step = result.decimals > 0 ? Math.pow(10, -result.decimals) : 1;
         expect(step).toBe(1);
     });
 
     it('currency with 2 decimals has step of 0.01', () => {
-        const [result] = dbRowsToCurrencies([{ label: 'Euro', symbol: '€', max_value: 999.99, decimals: 2 }]);
+        const [result] = dbRowsToCurrencies([
+            { label: 'Euro', symbol: '€', max_value: 999.99, decimals: 2, rate: 1, fee: 0 },
+        ]);
         const step = result.decimals > 0 ? Math.pow(10, -result.decimals) : 1;
         expect(step).toBe(0.01);
     });

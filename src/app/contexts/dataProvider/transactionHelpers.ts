@@ -23,4 +23,12 @@ export const isRefundTransaction = (transaction?: Transaction) =>
     Boolean(transaction && transaction.method === REFUND_KEYWORD);
 
 export const isConfirmedTransaction = (transaction?: Transaction) =>
-    Boolean(transaction && !isWaitingTransaction(transaction) && !isDeletedTransaction(transaction));
+    Boolean(
+        transaction &&
+            transaction.method !== undefined &&
+            transaction.method !== null &&
+            !isWaitingTransaction(transaction) &&
+            !isDeletedTransaction(transaction) &&
+            !isProcessingTransaction(transaction) &&
+            !isUpdatingTransaction(transaction)
+    );
