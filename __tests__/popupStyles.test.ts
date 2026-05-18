@@ -1,11 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-    defaultPopupStyles,
     adminPopupStyles,
-    getPopupStyles,
+    defaultPopupStyles,
     getDesktopContainerStyles,
     getOptionHoverStyles,
-    type PopupStyles,
+    getPopupStyles,
 } from '../src/app/utils/popupStyles';
 
 describe('popupStyles', () => {

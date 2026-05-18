@@ -1,11 +1,11 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-    generateSimpleId,
-    formatId,
     containsId,
-    isNewDevice,
+    formatId,
+    generateSimpleId,
     getConnectedDevices,
     getDevices,
+    isNewDevice,
 } from '../src/app/utils/id';
 
 describe('generateSimpleId', () => {

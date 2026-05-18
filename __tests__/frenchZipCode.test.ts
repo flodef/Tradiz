@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { VALID_ZIP_REGEX, ZIP_REGEX } from '@/app/components/admin/ZipCityRow';
+import { describe, expect, it } from 'vitest';
 
 /**
  * Non-regression tests for French ZIP code validation (Code postal).
@@ -13,16 +14,8 @@ import { describe, it, expect } from 'vitest';
  * and validates completeness with /^\d{5}$/.
  */
 
-const INPUT_REGEX = /^\d{0,5}$/;    // allows partial while typing
-const VALID_REGEX = /^\d{5}$/;       // complete valid ZIP
-
-function isValidInput(value: string): boolean {
-    return INPUT_REGEX.test(value);
-}
-
-function isValidZip(value: string): boolean {
-    return VALID_REGEX.test(value);
-}
+const isValidInput = (value: string) => ZIP_REGEX.test(value);
+const isValidZip = (value: string) => VALID_ZIP_REGEX.test(value);
 
 describe('French ZIP code: input guard (partial allowed while typing)', () => {
     it('allows empty string', () => expect(isValidInput('')).toBe(true));

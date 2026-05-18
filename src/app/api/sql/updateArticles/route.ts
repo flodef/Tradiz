@@ -16,7 +16,7 @@ interface Product {
 // Compute encoded sort_order: (categoryIndex + 1) * 10000 + (positionWithinCategory + 1)
 // Category order is derived from first appearance in the products array.
 // Max 9999 products per category.
-function computeSortOrders(products: Product[]): number[] {
+export function computeSortOrders(products: Product[]): number[] {
     const categoryOrder: string[] = [];
     for (const p of products) {
         if (!categoryOrder.includes(p.category)) categoryOrder.push(p.category);

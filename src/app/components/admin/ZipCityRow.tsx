@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import AdminInput from './AdminInput';
 import AdminSelect from './AdminSelect';
 
-const ZIP_REGEX = /^\d{0,5}$/;
-const VALID_ZIP_REGEX = /^\d{5}$/;
+export const ZIP_REGEX = /^\d{0,5}$/;
+export const VALID_ZIP_REGEX = /^\d{5}$/;
 
 interface ZipCityRowProps {
     zipCode: string;

@@ -9,9 +9,9 @@ import AdminInput from './AdminInput';
  * - Validated by the Luhn algorithm (same as used by INSEE)
  */
 
-const SIRET_REGEX = /^\d{0,14}$/;
+export const SIRET_REGEX = /^\d{0,14}$/;
 
-function luhnCheck(value: string): boolean {
+export function luhnCheck(value: string): boolean {
     if (value.length !== 14) return false;
     let sum = 0;
     for (let i = 0; i < 14; i++) {

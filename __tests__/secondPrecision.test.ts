@@ -46,4 +46,23 @@ describe('second-precision comparison logic', () => {
         const ts2 = 1778864850999;
         expect(floorToSeconds(ts1)).toBe(floorToSeconds(ts2));
     });
+
+    it('handles timestamps at second boundary', () => {
+        expect(floorToSeconds(1778864854999)).toBe(1778864854000);
+        expect(floorToSeconds(1778864855000)).toBe(1778864855000);
+        expect(floorToSeconds(1778864855001)).toBe(1778864855000);
+    });
+
+    it('handles large timestamps', () => {
+        const largeTs = 9999999999999;
+        const floored = floorToSeconds(largeTs);
+        expect(floored).toBeLessThan(largeTs);
+        expect(floored % 1000).toBe(0);
+    });
+
+    it('handles duplicate detection for transactions', () => {
+        const localTx = { createdDate: 1778864850963 };
+        const sqlTx = { createdDate: 1778864850000 }; // SQL second precision
+        expect(floorToSeconds(localTx.createdDate)).toBe(sqlTx.createdDate);
+    });
 });

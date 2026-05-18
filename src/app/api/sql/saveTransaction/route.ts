@@ -76,7 +76,7 @@ export async function POST(request: Request) {
     }
 }
 
-function generateTransactionHash(transaction: TransactionData, transactionId?: string | number): string {
+export function generateTransactionHash(transaction: TransactionData, transactionId?: string | number): string {
     // Generate a hash from transaction data for integrity verification
     const data = [
         transactionId || 'new',

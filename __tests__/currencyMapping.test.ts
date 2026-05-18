@@ -1,5 +1,6 @@
+import { CurrencyRow } from '@/app/api/sql/getCurrencies/route';
 import { Currency } from '@/app/utils/interfaces';
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 /**
  * Non-regression tests for currency fetching and mapping.
@@ -12,15 +13,6 @@ import { describe, it, expect } from 'vitest';
  * Expected values[][] shape: [header, ...rows] where each row = [label, maxValue, symbol, decimals, rate, fee]
  * Currency interface: { label, maxValue, symbol, decimals, rate, fee }
  */
-
-interface CurrencyRow {
-    label: string;
-    symbol: string;
-    max_value: number | null;
-    decimals: number | null;
-    rate: number | null;
-    fee: number | null;
-}
 
 // Replicates the mapping logic from getCurrencies/route.ts
 function buildCurrencyValues(rows: CurrencyRow[]): (string | number)[][] {

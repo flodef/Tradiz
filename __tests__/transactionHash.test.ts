@@ -1,26 +1,5 @@
+import { generateTransactionHash } from '@/app/api/sql/saveTransaction/route';
 import { describe, it, expect } from 'vitest';
-
-// Copy the function from saveTransaction/route.ts for testing
-function generateTransactionHash(transaction: any, transactionId?: string | number): string {
-    const data = [
-        transactionId || 'new',
-        transaction.order_id,
-        transaction.user_name,
-        transaction.payment_method,
-        transaction.amount,
-        transaction.currency,
-        transaction.created_at,
-        transaction.note || '',
-    ].join('|');
-
-    let hash = 0;
-    for (let i = 0; i < data.length; i++) {
-        const char = data.charCodeAt(i);
-        hash = (hash << 5) - hash + char;
-        hash = hash & hash;
-    }
-    return hash.toString(16);
-}
 
 describe('generateTransactionHash', () => {
     it('generates a hash string', () => {
@@ -31,6 +10,7 @@ describe('generateTransactionHash', () => {
             amount: 10.5,
             currency: 'EUR',
             created_at: '2026-05-16 12:00:00',
+            updated_at: '2026-05-16 12:00:00',
             note: '',
         };
         const hash = generateTransactionHash(transaction);
@@ -46,6 +26,7 @@ describe('generateTransactionHash', () => {
             amount: 10.5,
             currency: 'EUR',
             created_at: '2026-05-16 12:00:00',
+            updated_at: '2026-05-16 12:00:00',
             note: '',
         };
         const tx2 = {
@@ -55,6 +36,7 @@ describe('generateTransactionHash', () => {
             amount: 20.5,
             currency: 'EUR',
             created_at: '2026-05-16 12:00:00',
+            updated_at: '2026-05-16 12:00:00',
             note: '',
         };
         expect(generateTransactionHash(tx1)).not.toBe(generateTransactionHash(tx2));
@@ -68,6 +50,7 @@ describe('generateTransactionHash', () => {
             amount: 10.5,
             currency: 'EUR',
             created_at: '2026-05-16 12:00:00',
+            updated_at: '2026-05-16 12:00:00',
             note: '',
         };
         expect(generateTransactionHash(tx)).toBe(generateTransactionHash(tx));
@@ -81,6 +64,7 @@ describe('generateTransactionHash', () => {
             amount: 10.5,
             currency: 'EUR',
             created_at: '2026-05-16 12:00:00',
+            updated_at: '2026-05-16 12:00:00',
             note: '',
         };
         const hash1 = generateTransactionHash(tx, 'id1');
@@ -96,6 +80,7 @@ describe('generateTransactionHash', () => {
             amount: 10.5,
             currency: 'EUR',
             created_at: '2026-05-16 12:00:00',
+            updated_at: '2026-05-16 12:00:00',
         };
         const hash = generateTransactionHash(tx);
         expect(hash).toBeTruthy();
@@ -109,6 +94,7 @@ describe('generateTransactionHash', () => {
             amount: 10.5,
             currency: 'EUR',
             created_at: '2026-05-16 12:00:00',
+            updated_at: '2026-05-16 12:00:00',
             note: '',
         };
         const hash = generateTransactionHash(tx);
@@ -123,6 +109,7 @@ describe('generateTransactionHash', () => {
             amount: 10.5,
             currency: 'EUR',
             created_at: '2026-05-16 12:00:00',
+            updated_at: '2026-05-16 12:00:00',
             note: 'Test note',
         };
         const tx2 = {
@@ -132,6 +119,7 @@ describe('generateTransactionHash', () => {
             amount: 10.5,
             currency: 'EUR',
             created_at: '2026-05-16 12:00:00',
+            updated_at: '2026-05-16 12:00:00',
             note: 'Different note',
         };
         expect(generateTransactionHash(tx1)).not.toBe(generateTransactionHash(tx2));

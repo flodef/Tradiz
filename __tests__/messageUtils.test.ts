@@ -1,11 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CLOSE, postMessageToParent, REFRESH } from '../src/app/utils/message';
 
 // Mock USE_DIGICARTE to be true for all tests
 vi.mock('../src/app/utils/constants', () => ({
     USE_DIGICARTE: true,
 }));
-
-import { postMessageToParent, CLOSE, REFRESH } from '../src/app/utils/message';
 
 describe('postMessageToParent', () => {
     const originalWindow = global.window;

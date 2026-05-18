@@ -1,101 +1,121 @@
-import { Role, User, Mercurial } from './interfaces';
-import { DEFAULT_USER } from './constants';
-import { resolveUserFromKey, buildParameters, UserNotFoundError } from './processData';
+import { Role, User, Mercurial } from '../src/app/utils/interfaces';
+import { DEFAULT_USER } from '../src/app/utils/constants';
+import { resolveUserFromKey, buildParameters } from '../src/app/utils/processData';
+import { vi } from 'vitest';
 
-// Test cases for resolveUserFromKey
-export function runResolveUserTests(): void {
+// Mock fetch for testing
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
+
+// Test cases for resolveUserFromKey (now async and server-side)
+export async function runResolveUserTests(): Promise<void> {
     console.log('Running resolveUserFromKey tests...\n');
 
-    // Test 1: No users configured (undefined) - should return default service user, no error
-    console.log('Test 1: No users configured (undefined)');
-    const result1 = resolveUserFromKey(undefined, '123456');
+    // Test 1: No public key provided - should return default service user
+    console.log('Test 1: No public key provided');
+    const result1 = await resolveUserFromKey(undefined);
     console.log('  Result:', result1);
     console.assert(result1.foundUser === undefined, 'Should not find any user');
     console.assert(result1.user.name === DEFAULT_USER, 'User name should be DEFAULT_USER');
     console.assert(result1.user.role === Role.service, 'User role should be service');
     console.log('  ✓ PASSED\n');
 
-    // Test 2: Empty users array - should return default service user, no error
-    console.log('Test 2: Empty users array');
-    const result2 = resolveUserFromKey([], '123456');
+    // Test 2: API returns found user
+    console.log('Test 2: API returns found user');
+    mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ user: { name: 'toto', role: Role.admin, key: '1234' } }),
+    });
+    const result2 = await resolveUserFromKey('1234');
     console.log('  Result:', result2);
-    console.assert(result2.foundUser === undefined, 'Should not find any user');
-    console.assert(result2.user.name === DEFAULT_USER, 'User name should be DEFAULT_USER');
+    console.assert(result2.foundUser?.name === 'toto', 'Should find toto');
+    console.assert(result2.foundUser?.role === Role.admin, 'User should be admin');
+    console.assert(result2.user.name === 'toto', 'Returned user should be toto');
+    console.assert(mockFetch.mock.calls.length === 1, 'Should call API');
+    console.assert(mockFetch.mock.calls[0][0] === '/api/sql/resolveUser', 'Should call correct endpoint');
     console.log('  ✓ PASSED\n');
 
-    // Test 3: Users exist, correct key provided - should find the user
-    console.log('Test 3: Users exist, correct key provided');
-    const test3Users: User[] = [
-        { name: 'toto', key: '1234', role: Role.admin },
-        { name: 'tata', key: '12345', role: Role.cashier },
-    ];
-    const result3 = resolveUserFromKey(test3Users, '1234');
+    // Test 3: API returns null (user not found) - should return default service user
+    console.log('Test 3: API returns null (user not found)');
+    mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ user: null }),
+    });
+    const result3 = await resolveUserFromKey('wrong_key');
     console.log('  Result:', result3);
-    console.assert(result3.foundUser?.name === 'toto', 'Should find toto');
-    console.assert(result3.foundUser?.role === Role.admin, 'User should be admin');
-    console.assert(result3.user.name === 'toto', 'Returned user should be toto');
+    console.assert(result3.foundUser === undefined, 'Should not find any user');
+    console.assert(result3.user.name === DEFAULT_USER, 'Should return default service user');
+    console.assert(result3.user.role === Role.service, 'User role should be service');
     console.log('  ✓ PASSED\n');
 
-    // Test 4: Users exist, wrong key provided, non-admin users exist - should throw UserNotFoundError
-    console.log('Test 4: Users exist, wrong key provided, non-admin users exist (should throw)');
-    const test4Users: User[] = [
-        { name: 'toto', key: '1234', role: Role.admin },
-        { name: 'tata', key: '12345', role: Role.cashier },
-    ];
-    try {
-        resolveUserFromKey(test4Users, 'wrong_key');
-        console.error('  ✗ FAILED - Should have thrown UserNotFoundError');
-    } catch (e) {
-        console.assert(e instanceof UserNotFoundError, 'Should throw UserNotFoundError');
-        console.log('  Result: UserNotFoundError thrown correctly');
-        console.log('  ✓ PASSED\n');
-    }
+    // Test 4: API returns error response - should return default service user
+    console.log('Test 4: API returns error response');
+    mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+    });
+    const result4 = await resolveUserFromKey('any_key');
+    console.log('  Result:', result4);
+    console.assert(result4.foundUser === undefined, 'Should not find any user on error');
+    console.assert(result4.user.name === DEFAULT_USER, 'Should return default service user on error');
+    console.log('  ✓ PASSED\n');
 
-    // Test 5: Only admin users, wrong key provided - should NOT throw (everyone is admin)
-    console.log('Test 5: Only admin users, wrong key provided (should NOT throw)');
-    const test5Users: User[] = [{ name: 'admin', key: 'admin123', role: Role.admin }];
-    const result5 = resolveUserFromKey(test5Users, 'wrong_key');
+    // Test 5: Network error - should return default service user
+    console.log('Test 5: Network error');
+    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+    const result5 = await resolveUserFromKey('any_key');
     console.log('  Result:', result5);
-    console.assert(result5.foundUser === undefined, 'Should not find user with wrong key');
-    console.assert(result5.user.role === Role.service, 'Should return default service user');
+    console.assert(result5.foundUser === undefined, 'Should not find any user on network error');
+    console.assert(result5.user.name === DEFAULT_USER, 'Should return default service user on network error');
     console.log('  ✓ PASSED\n');
 
-    // Test 6: Cashier role user with correct key
-    console.log('Test 6: Cashier user with correct key');
-    const test6Users: User[] = [
-        { name: 'toto', key: '1234', role: Role.admin },
-        { name: 'tata', key: '12345', role: Role.cashier },
-    ];
-    const result6 = resolveUserFromKey(test6Users, '12345');
+    // Test 6: Cashier role user from API
+    console.log('Test 6: Cashier user from API');
+    mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ user: { name: 'tata', role: Role.cashier, key: '12345' } }),
+    });
+    const result6 = await resolveUserFromKey('12345');
     console.log('  Result:', result6);
     console.assert(result6.foundUser?.name === 'tata', 'Should find tata');
     console.assert(result6.foundUser?.role === Role.cashier, 'User should be cashier');
     console.log('  ✓ PASSED\n');
 
-    // Test 7: Service role user with correct key
-    console.log('Test 7: Service role user with correct key');
-    const test7Users: User[] = [{ name: 'server', key: 'svc123', role: Role.service }];
-    const result7 = resolveUserFromKey(test7Users, 'svc123');
+    // Test 7: Service role user from API
+    console.log('Test 7: Service role user from API');
+    mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ user: { name: 'server', role: Role.service, key: 'svc123' } }),
+    });
+    const result7 = await resolveUserFromKey('svc123');
     console.log('  Result:', result7);
     console.assert(result7.foundUser?.role === Role.service, 'User should be service');
     console.assert(result7.user.name === 'server', 'User name should be server');
     console.log('  ✓ PASSED\n');
 
-    // Test 8: Kitchen role user with correct key
-    console.log('Test 8: Kitchen role user with correct key');
-    const test8Users: User[] = [{ name: 'cook', key: 'cook123', role: Role.kitchen }];
-    const result8 = resolveUserFromKey(test8Users, 'cook123');
+    // Test 8: Kitchen role user from API
+    console.log('Test 8: Kitchen role user from API');
+    mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ user: { name: 'cook', role: Role.kitchen, key: 'cook123' } }),
+    });
+    const result8 = await resolveUserFromKey('cook123');
     console.log('  Result:', result8);
     console.assert(result8.foundUser?.role === Role.kitchen, 'User should be kitchen');
     console.log('  ✓ PASSED\n');
 
     // Test 9: Custom default user name
     console.log('Test 9: Custom default user name');
-    const result9 = resolveUserFromKey(undefined, 'key', 'CustomDefault');
+    mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ user: null }),
+    });
+    const result9 = await resolveUserFromKey('key', 'CustomDefault');
     console.log('  Result:', result9);
     console.assert(result9.user.name === 'CustomDefault', 'Should use custom default name');
     console.log('  ✓ PASSED\n');
 
+    mockFetch.mockClear();
     console.log('All resolveUserFromKey tests passed! ✓\n');
 }
 

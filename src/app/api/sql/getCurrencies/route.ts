@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import currencies from '../../data/currencies.json';
 import { getPosDb } from '../db';
 
-interface CurrencyRow {
+export interface CurrencyRow {
     label: string;
     symbol: string;
     max_value: number | null;

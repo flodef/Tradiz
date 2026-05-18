@@ -28,6 +28,13 @@ interface NumPadButtonProps {
     className?: string;
 }
 
+export const MIN_QUANTITY = 0.125;
+export const quantityHalving = (quantity: number, key: Digits | string): number =>
+    ({
+        '½': Math.max(0.125, (quantity > 0 && quantity < 1 ? quantity : 1) / 2),
+        '¼': Math.max(0.125, (quantity > 0 && quantity < 1 ? quantity : 1) / 4),
+    })[key.toString()] ?? parseInt(quantity >= 1 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString());
+
 const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
     const { isStateReady } = useConfig();
     const isMobileDevice = useIsMobileDevice();
@@ -180,12 +187,7 @@ export const NumPad: FC = () => {
                     }
                 }
             } else {
-                const newQuantity =
-                    {
-                        '½': Math.max(0.125, (quantity > 0 && quantity < 1 ? quantity : 1) / 2),
-                        '¼': Math.max(0.125, (quantity > 0 && quantity < 1 ? quantity : 1) / 4),
-                    }[key.toString()] ??
-                    parseInt(quantity >= 1 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString());
+                const newQuantity = quantityHalving(quantity, key);
                 if (selectedProduct) {
                     computeQuantity(selectedProduct, newQuantity);
                 } else {

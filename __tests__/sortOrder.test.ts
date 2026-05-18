@@ -1,41 +1,31 @@
+import { computeSortOrders } from '@/app/api/sql/updateArticles/route';
 import { describe, it, expect } from 'vitest';
-
-// Inline the function under test (it's not exported from the route)
-function computeSortOrders(products: { category: string }[]): number[] {
-    const categoryOrder: string[] = [];
-    for (const p of products) {
-        if (!categoryOrder.includes(p.category)) categoryOrder.push(p.category);
-    }
-    const positionInCat: Record<string, number> = {};
-    return products.map((p) => {
-        const catIdx = categoryOrder.indexOf(p.category);
-        const pos = positionInCat[p.category] ?? 0;
-        positionInCat[p.category] = pos + 1;
-        return (catIdx + 1) * 10000 + (pos + 1);
-    });
-}
 
 describe('computeSortOrders', () => {
     it('assigns encoded sort_order per category and position', () => {
         const products = [
-            { category: 'Boissons' },
-            { category: 'Boissons' },
-            { category: 'Plats' },
+            { category: 'Boissons', name: 'Test', stock: 0, currencies: [] },
+            { category: 'Boissons', name: 'Test', stock: 0, currencies: [] },
+            { category: 'Plats', name: 'Test', stock: 0, currencies: [] },
         ];
         expect(computeSortOrders(products)).toEqual([10001, 10002, 20001]);
     });
 
     it('handles a single category', () => {
-        const products = [{ category: 'A' }, { category: 'A' }, { category: 'A' }];
+        const products = [
+            { category: 'A', name: 'Test', stock: 0, currencies: [] },
+            { category: 'A', name: 'Test', stock: 0, currencies: [] },
+            { category: 'A', name: 'Test', stock: 0, currencies: [] },
+        ];
         expect(computeSortOrders(products)).toEqual([10001, 10002, 10003]);
     });
 
     it('preserves category order from first appearance', () => {
         const products = [
-            { category: 'C' },
-            { category: 'A' },
-            { category: 'B' },
-            { category: 'A' },
+            { category: 'C', name: 'Test', stock: 0, currencies: [] },
+            { category: 'A', name: 'Test', stock: 0, currencies: [] },
+            { category: 'B', name: 'Test', stock: 0, currencies: [] },
+            { category: 'A', name: 'Test', stock: 0, currencies: [] },
         ];
         expect(computeSortOrders(products)).toEqual([10001, 20001, 30001, 20002]);
     });
@@ -45,12 +35,21 @@ describe('computeSortOrders', () => {
     });
 
     it('handles "Sans catégorie" (empty string category)', () => {
-        const products = [{ category: '' }, { category: '' }, { category: 'Plats' }];
+        const products = [
+            { category: '', name: 'Test', stock: 0, currencies: [] },
+            { category: '', name: 'Test', stock: 0, currencies: [] },
+            { category: 'Plats', name: 'Test', stock: 0, currencies: [] },
+        ];
         expect(computeSortOrders(products)).toEqual([10001, 10002, 20001]);
     });
 
     it('supports up to 9999 products per category without collision', () => {
-        const products = Array.from({ length: 9999 }, () => ({ category: 'X' }));
+        const products = Array.from({ length: 9999 }, () => ({
+            category: 'X',
+            name: 'Test',
+            stock: 0,
+            currencies: [],
+        }));
         const orders = computeSortOrders(products);
         expect(orders[0]).toBe(10001);
         expect(orders[9998]).toBe(19999);
