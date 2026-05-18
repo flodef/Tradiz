@@ -45,23 +45,43 @@ export class UserNotFoundError extends Error {
 }
 
 /**
- * Resolves user from public key and users list.
+ * Resolves user from public key by calling server-side API.
  * Returns the found user or a default service user.
- * Throws UserNotFoundError if no matching user and non-admin users exist.
+ * Never exposes full user list - authentication happens server-side.
  */
-export function resolveUserFromKey(
-    users: User[] | undefined,
+export async function resolveUserFromKey(
     publicKey: string | undefined,
     defaultUserName: string = DEFAULT_USER
-): { user: User; foundUser: User | undefined } {
-    const foundUser = users?.length ? users.filter(({ key }) => key === publicKey).at(0) : undefined;
-    const user: User = foundUser || { name: defaultUserName, role: Role.service };
-
-    if (!foundUser && users?.filter(({ role }) => role !== Role.admin).length) {
-        throw new UserNotFoundError(undefined);
+): Promise<{ user: User; foundUser: User | undefined }> {
+    if (!publicKey) {
+        return {
+            user: { name: defaultUserName, role: Role.service },
+            foundUser: undefined,
+        };
     }
 
-    return { user, foundUser };
+    try {
+        const resolveResponse = await fetch('/api/sql/resolveUser', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ publicKey }),
+        });
+
+        if (resolveResponse.ok) {
+            const { user: resolvedUser } = await resolveResponse.json();
+            const foundUser = resolvedUser || undefined;
+            const user: User = foundUser || { name: defaultUserName, role: Role.service };
+            return { user, foundUser };
+        }
+    } catch {
+        // Network error - fall through to default
+    }
+
+    // Fallback to default service user
+    return {
+        user: { name: defaultUserName, role: Role.service },
+        foundUser: undefined,
+    };
 }
 
 interface RawParameters {
@@ -159,7 +179,6 @@ const dataNames: { [key: string]: DataName } = {
     colors: { json: 'colors', sheet: 'Couleurs', sql: 'getColors' },
     printers: { json: 'printers', sheet: 'Imprimantes', sql: 'getPrinters' },
     products: { json: 'products', sheet: '_Produits', sql: 'getAllArticles' },
-    users: { json: 'users', sheet: 'Utilisateurs', sql: 'getUsers' },
 };
 
 export const defaultParameters: Parameters = {
@@ -257,9 +276,9 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
     const param = await fetchData(dataNames.parameters, id, false).then(convertParametersData);
     if (!param?.values?.length) return;
 
-    const users = await fetchData(dataNames.users, id, false).then(convertUsersData);
-    const publicKey = users?.length ? getPublicKey() : undefined;
-    const { user } = resolveUserFromKey(users, publicKey);
+    // Resolve user server-side using the public key (never exposes full user list)
+    const publicKey = getPublicKey();
+    const { user } = await resolveUserFromKey(publicKey);
 
     const parameters = buildParameters(param, user);
 
@@ -421,29 +440,6 @@ async function convertIndexData(response: void | Response) {
                 return {
                     shop: String(item.at(0)).trim(),
                     id: String(item.at(1)).trim(),
-                };
-            });
-        });
-    } catch (error) {
-        console.error(error);
-        return [];
-    }
-}
-
-async function convertUsersData(response: void | Response): Promise<User[]> {
-    try {
-        if (typeof response === 'undefined') throw new EmptyDataError();
-        return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-            if (!data?.values) return []; // That's fine if there is no user data
-
-            checkData(data, 'Utilisateurs', 3);
-
-            return data.values.removeHeader().map((item) => {
-                checkColumn(item, 'Utilisateurs', 3);
-                return {
-                    key: String(item.at(0)).trim(),
-                    name: String(item.at(1)).trim(),
-                    role: (String(item.at(2)).trim() ?? Role.service) as Role,
                 };
             });
         });
