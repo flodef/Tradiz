@@ -1,41 +1,34 @@
-import { describe, it, expect } from 'vitest';
+import { computeHasDbConfig, type DbConfigEnv } from '@/app/api/sql/getDbConfig/route';
+import { describe, expect, it } from 'vitest';
 
 /**
  * Tests for DB configuration detection via /api/sql/getDbConfig
  *
  * These tests verify:
- * 1. hasDbConfig is true when all four DB env vars are set
- * 2. hasDbConfig is false when any one of the four DB env vars is missing or empty
+ * 1. hasDbConfig is true when all required DB env vars are set
+ * 2. hasDbConfig is false when any required env var is missing or empty
  * 3. hasDbConfig is false when vars are whitespace-only
  */
 
-function computeHasDbConfig(env: {
-    DB_HOST?: string;
-    DB_USER?: string;
-    DB_PASSWORD?: string;
-    DB_NAME?: string;
-}): boolean {
-    return !!(env.DB_HOST?.trim() && env.DB_USER?.trim() && env.DB_PASSWORD?.trim() && env.DB_NAME?.trim());
-}
+describe('hasDbConfig (MariaDB mode)', () => {
+    const mariaDbEnv: DbConfigEnv = {
+        NEXT_PUBLIC_USE_DIGICARTE: 'true',
+        DB_HOST: 'localhost',
+        DB_USER: 'tradiz',
+        DB_PASSWORD: 'secret',
+        DB_NAME: 'DC',
+    };
 
-describe('hasDbConfig', () => {
-    it('returns true when all four DB env vars are set', () => {
-        expect(
-            computeHasDbConfig({
-                DB_HOST: 'localhost',
-                DB_USER: 'tradiz',
-                DB_PASSWORD: 'secret',
-                DB_NAME: 'DC',
-            })
-        ).toBe(true);
+    it('returns true when all MariaDB env vars are set', () => {
+        expect(computeHasDbConfig(mariaDbEnv)).toBe(true);
     });
 
     it('returns false when DB_HOST is missing', () => {
         expect(
             computeHasDbConfig({
+                NEXT_PUBLIC_USE_DIGICARTE: 'true',
                 DB_USER: 'tradiz',
                 DB_PASSWORD: 'secret',
-                DB_NAME: 'DC',
             })
         ).toBe(false);
     });
@@ -43,9 +36,9 @@ describe('hasDbConfig', () => {
     it('returns false when DB_USER is missing', () => {
         expect(
             computeHasDbConfig({
+                NEXT_PUBLIC_USE_DIGICARTE: 'true',
                 DB_HOST: 'localhost',
                 DB_PASSWORD: 'secret',
-                DB_NAME: 'DC',
             })
         ).toBe(false);
     });
@@ -53,19 +46,9 @@ describe('hasDbConfig', () => {
     it('returns false when DB_PASSWORD is missing', () => {
         expect(
             computeHasDbConfig({
+                NEXT_PUBLIC_USE_DIGICARTE: 'true',
                 DB_HOST: 'localhost',
                 DB_USER: 'tradiz',
-                DB_NAME: 'DC',
-            })
-        ).toBe(false);
-    });
-
-    it('returns false when DB_NAME is missing', () => {
-        expect(
-            computeHasDbConfig({
-                DB_HOST: 'localhost',
-                DB_USER: 'tradiz',
-                DB_PASSWORD: 'secret',
             })
         ).toBe(false);
     });
@@ -73,10 +56,10 @@ describe('hasDbConfig', () => {
     it('returns false when DB_HOST is an empty string', () => {
         expect(
             computeHasDbConfig({
+                NEXT_PUBLIC_USE_DIGICARTE: 'true',
                 DB_HOST: '',
                 DB_USER: 'tradiz',
                 DB_PASSWORD: 'secret',
-                DB_NAME: 'DC',
             })
         ).toBe(false);
     });
@@ -84,10 +67,10 @@ describe('hasDbConfig', () => {
     it('returns false when DB_HOST is whitespace only', () => {
         expect(
             computeHasDbConfig({
+                NEXT_PUBLIC_USE_DIGICARTE: 'true',
                 DB_HOST: '   ',
                 DB_USER: 'tradiz',
                 DB_PASSWORD: 'secret',
-                DB_NAME: 'DC',
             })
         ).toBe(false);
     });
@@ -95,10 +78,10 @@ describe('hasDbConfig', () => {
     it('returns false when DB_PASSWORD is an empty string', () => {
         expect(
             computeHasDbConfig({
+                NEXT_PUBLIC_USE_DIGICARTE: 'true',
                 DB_HOST: 'localhost',
                 DB_USER: 'tradiz',
                 DB_PASSWORD: '',
-                DB_NAME: 'DC',
             })
         ).toBe(false);
     });
@@ -108,28 +91,49 @@ describe('hasDbConfig', () => {
     });
 });
 
-describe('getDbConfig API route logic', () => {
-    it('returns { hasDbConfig: true } when all env vars are present', () => {
-        const env = {
-            DB_HOST: 'localhost',
-            DB_USER: 'tradiz',
-            DB_PASSWORD: 'secret',
-            DB_NAME: 'DC',
-        };
-        const result = { hasDbConfig: computeHasDbConfig(env) };
-        expect(result).toEqual({ hasDbConfig: true });
+describe('hasDbConfig (PostgreSQL mode)', () => {
+    const pgEnv: DbConfigEnv = {
+        NEXT_PUBLIC_USE_DIGICARTE: 'false',
+        PG_HOST: 'localhost',
+        PG_USER: 'tradiz',
+        PG_PASSWORD: 'secret',
+        PG_DATABASE: 'dc',
+    };
+
+    it('returns true when all PostgreSQL env vars are set', () => {
+        expect(computeHasDbConfig(pgEnv)).toBe(true);
     });
 
-    it('returns { hasDbConfig: false } when any env var is absent', () => {
-        const cases = [
-            { DB_HOST: 'localhost', DB_USER: 'tradiz', DB_PASSWORD: '', DB_NAME: 'DC' },
-            { DB_HOST: '', DB_USER: 'tradiz', DB_PASSWORD: 'secret', DB_NAME: 'DC' },
-            { DB_HOST: 'localhost', DB_USER: '', DB_PASSWORD: 'secret', DB_NAME: 'DC' },
-            { DB_HOST: 'localhost', DB_USER: 'tradiz', DB_PASSWORD: 'secret', DB_NAME: '' },
-        ];
+    it('returns true with NEXT_PUBLIC_SHOP_ID instead of PG_DATABASE', () => {
+        expect(
+            computeHasDbConfig({
+                NEXT_PUBLIC_USE_DIGICARTE: 'false',
+                PG_HOST: 'localhost',
+                PG_USER: 'tradiz',
+                PG_PASSWORD: 'secret',
+                NEXT_PUBLIC_SHOP_ID: 'myshop',
+            })
+        ).toBe(true);
+    });
 
-        for (const env of cases) {
-            expect(computeHasDbConfig(env)).toBe(false);
-        }
+    it('returns false when PG_HOST is missing', () => {
+        expect(
+            computeHasDbConfig({
+                NEXT_PUBLIC_USE_DIGICARTE: 'false',
+                PG_USER: 'tradiz',
+                PG_PASSWORD: 'secret',
+            })
+        ).toBe(false);
+    });
+
+    it('returns false when both PG_DATABASE and NEXT_PUBLIC_SHOP_ID are missing', () => {
+        expect(
+            computeHasDbConfig({
+                NEXT_PUBLIC_USE_DIGICARTE: 'false',
+                PG_HOST: 'localhost',
+                PG_USER: 'tradiz',
+                PG_PASSWORD: 'secret',
+            })
+        ).toBe(false);
     });
 });

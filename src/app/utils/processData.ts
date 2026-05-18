@@ -344,7 +344,31 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
 let hasDbConfigCache: boolean | null = null;
 let hasDbConfigCacheTime: number = 0;
 let hasDbConfigPromise: Promise<boolean> | null = null;
-const DB_CONFIG_CACHE_TTL = 30_000; // 30 seconds — re-check if previously false
+export const DB_CONFIG_CACHE_TTL = 30_000; // 30 seconds — re-check if previously false
+
+/**
+ * Get the current cache state for testing purposes.
+ */
+export function getDbConfigCacheState(): {
+    cache: boolean | null;
+    cacheTime: number;
+    promise: Promise<boolean> | null;
+} {
+    return { cache: hasDbConfigCache, cacheTime: hasDbConfigCacheTime, promise: hasDbConfigPromise };
+}
+
+/**
+ * Set the cache state for testing purposes.
+ */
+export function setDbConfigCacheState(state: {
+    cache?: boolean | null;
+    cacheTime?: number;
+    promise?: Promise<boolean> | null;
+}): void {
+    if (state.cache !== undefined) hasDbConfigCache = state.cache;
+    if (state.cacheTime !== undefined) hasDbConfigCacheTime = state.cacheTime;
+    if (state.promise !== undefined) hasDbConfigPromise = state.promise;
+}
 
 export function clearDbConfigCache() {
     hasDbConfigCache = null;
@@ -352,7 +376,11 @@ export function clearDbConfigCache() {
     hasDbConfigPromise = null;
 }
 
-export async function checkDbConfig(): Promise<boolean> {
+/**
+ * Internal implementation of checkDbConfig that accepts a custom fetcher.
+ * Exported for testing purposes - allows injecting mock fetchers while testing real cache logic.
+ */
+export async function checkDbConfigWithFetcher(fetcher: () => Promise<boolean>): Promise<boolean> {
     const now = Date.now();
     // Use cache only if it's true (stable) or still within TTL
     if (hasDbConfigCache !== null && (hasDbConfigCache === true || now - hasDbConfigCacheTime < DB_CONFIG_CACHE_TTL)) {
@@ -360,13 +388,12 @@ export async function checkDbConfig(): Promise<boolean> {
     }
     if (hasDbConfigPromise !== null) return hasDbConfigPromise;
 
-    hasDbConfigPromise = fetch('/api/sql/getDbConfig')
-        .then((r) => r.json())
-        .then(({ hasDbConfig }) => {
+    hasDbConfigPromise = fetcher()
+        .then((hasDbConfig) => {
             hasDbConfigCache = hasDbConfig;
             hasDbConfigCacheTime = Date.now();
             hasDbConfigPromise = null;
-            return hasDbConfig as boolean;
+            return hasDbConfig;
         })
         .catch(() => {
             hasDbConfigCache = false;
@@ -376,6 +403,14 @@ export async function checkDbConfig(): Promise<boolean> {
         });
 
     return hasDbConfigPromise;
+}
+
+export async function checkDbConfig(): Promise<boolean> {
+    return checkDbConfigWithFetcher(async () => {
+        const response = await fetch('/api/sql/getDbConfig');
+        const data = await response.json();
+        return data.hasDbConfig as boolean;
+    });
 }
 
 async function fetchData(dataName: DataName, id: string | undefined, isRaw = true) {

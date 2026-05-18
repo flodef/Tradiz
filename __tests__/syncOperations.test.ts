@@ -1,4 +1,18 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import {
+    cloudToLocalMerge,
+    filterTransactionsForDay,
+    findLocalOnlyTransactions,
+    findNewerLocalTransactions,
+    generateTransactionKey,
+    getFormattedDateKey,
+    groupTransactionsByDate,
+    mergeTransactionArrays,
+    reconcileLocalWithSQL,
+    splitTransactionsByResetTime,
+} from '@/app/contexts/dataProvider/syncUtils';
+import { TRANSACTIONS_KEYWORD } from '@/app/utils/constants';
+import { Transaction } from '@/app/utils/interfaces';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('Sync Operations', () => {
     beforeEach(() => {
@@ -15,14 +29,8 @@ describe('Sync Operations', () => {
                 { createdDate: new Date('2026-03-23T09:00:00').getTime(), amount: 40 },
             ];
 
-            // Group by creation date
-            const groupedByDate = new Map<string, typeof sqlTransactions>();
-            sqlTransactions.forEach((tx) => {
-                const date = new Date(tx.createdDate);
-                const dateKey = `${shopId}_${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                if (!groupedByDate.has(dateKey)) groupedByDate.set(dateKey, []);
-                groupedByDate.get(dateKey)!.push(tx);
-            });
+            // Use the real groupTransactionsByDate function
+            const groupedByDate = groupTransactionsByDate(sqlTransactions, shopId);
 
             expect(groupedByDate.size).toBe(3);
             expect(groupedByDate.has('testshop_2026-03-21')).toBe(true);
@@ -33,7 +41,7 @@ describe('Sync Operations', () => {
             expect(groupedByDate.get('testshop_2026-03-23')).toHaveLength(1);
         });
 
-        it('should merge SQL transactions with local transactions', () => {
+        it('should merge SQL transactions with local transactions using mergeTransactionArrays', () => {
             const localTransactions = [
                 { createdDate: 1000, modifiedDate: 2000, amount: 10, method: 'cash' },
                 { createdDate: 2000, modifiedDate: 3000, amount: 20, method: 'card' },
@@ -44,18 +52,8 @@ describe('Sync Operations', () => {
                 { createdDate: 3000, modifiedDate: 4000, amount: 30, method: 'cash' }, // New transaction
             ];
 
-            // Merge logic: latest modifiedDate wins
-            const merged = [...localTransactions];
-            sqlTransactions.forEach((sqlTx) => {
-                const localIndex = merged.findIndex((tx) => tx.createdDate === sqlTx.createdDate);
-                if (localIndex === -1) {
-                    // New transaction from SQL
-                    merged.push(sqlTx);
-                } else if (sqlTx.modifiedDate > merged[localIndex].modifiedDate) {
-                    // SQL version is newer
-                    merged[localIndex] = sqlTx;
-                }
-            });
+            // Use the real mergeTransactionArrays function
+            const merged = mergeTransactionArrays(localTransactions as Transaction[], sqlTransactions as Transaction[]);
 
             expect(merged).toHaveLength(3);
             expect(merged.find((tx) => tx.createdDate === 1000)?.amount).toBe(15); // SQL version won
@@ -63,7 +61,31 @@ describe('Sync Operations', () => {
             expect(merged.find((tx) => tx.createdDate === 3000)?.amount).toBe(30); // New from SQL
         });
 
-        it('should archive old transactions to IndexedDB by day', async () => {
+        it('should use cloudToLocalMerge for full sync with toPushToCloud tracking', () => {
+            const localTransactions = [
+                { createdDate: 1000, modifiedDate: 2000, amount: 10 },
+                { createdDate: 2000, modifiedDate: 3000, amount: 20 }, // Local is newer
+            ];
+
+            const sqlTransactions = [
+                { createdDate: 1000, modifiedDate: 2000, amount: 10 }, // Same
+                { createdDate: 2000, modifiedDate: 2500, amount: 25 }, // SQL is older
+                { createdDate: 3000, modifiedDate: 3500, amount: 30 }, // Cloud-only
+            ];
+
+            const { mergedLocal, toPushToCloud } = cloudToLocalMerge(
+                localTransactions as Transaction[],
+                sqlTransactions as Transaction[]
+            );
+
+            expect(mergedLocal).toHaveLength(3);
+            expect(mergedLocal.find((tx) => tx.createdDate === 2000)?.amount).toBe(20); // Local kept (newer)
+            expect(mergedLocal.find((tx) => tx.createdDate === 3000)?.amount).toBe(30); // Cloud added
+            expect(toPushToCloud).toHaveLength(1);
+            expect(toPushToCloud[0].createdDate).toBe(2000); // Local is newer, needs push
+        });
+
+        it('should archive old transactions to IndexedDB by day using splitTransactionsByResetTime', () => {
             const shopId = 'testshop';
             const lastResetTime = new Date('2026-03-23T03:00:00').getTime();
 
@@ -73,21 +95,14 @@ describe('Sync Operations', () => {
                 { createdDate: new Date('2026-03-23T09:00:00').getTime(), amount: 30 }, // Current day
             ];
 
-            const currentDayTransactions = mergedTransactions.filter((tx) => tx.createdDate >= lastResetTime);
-            const oldTransactions = mergedTransactions.filter((tx) => tx.createdDate < lastResetTime);
+            // Use the real splitTransactionsByResetTime function
+            const { currentDay, old } = splitTransactionsByResetTime(mergedTransactions, lastResetTime);
 
-            expect(currentDayTransactions).toHaveLength(1);
-            expect(oldTransactions).toHaveLength(2);
+            expect(currentDay).toHaveLength(1);
+            expect(old).toHaveLength(2);
 
-            // Group old transactions by day
-            const groupedByDay = new Map<string, typeof oldTransactions>();
-            oldTransactions.forEach((tx) => {
-                const date = new Date(tx.createdDate);
-                const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                const key = `${shopId}_${dateKey}`;
-                if (!groupedByDay.has(key)) groupedByDay.set(key, []);
-                groupedByDay.get(key)!.push(tx);
-            });
+            // Group old transactions by day using the real groupTransactionsByDate function
+            const groupedByDay = groupTransactionsByDate(old, shopId);
 
             expect(groupedByDay.size).toBe(2);
             expect(groupedByDay.has('testshop_2026-03-21')).toBe(true);
@@ -96,12 +111,8 @@ describe('Sync Operations', () => {
     });
 
     describe('Day Sync', () => {
-        it('should only sync transactions for the current day', () => {
+        it('should only sync transactions for the current day using filterTransactionsForDay', () => {
             const today = new Date('2026-03-23');
-            const todayStart = new Date(today);
-            todayStart.setHours(0, 0, 0, 0);
-            const todayEnd = new Date(today);
-            todayEnd.setHours(23, 59, 59, 999);
 
             const transactions = [
                 { createdDate: new Date('2026-03-22T23:00:00').getTime(), amount: 10 },
@@ -110,18 +121,15 @@ describe('Sync Operations', () => {
                 { createdDate: new Date('2026-03-24T01:00:00').getTime(), amount: 40 },
             ];
 
-            // Filter for today only (without reset time consideration)
-            const todayTransactions = transactions.filter((tx) => {
-                const txDate = new Date(tx.createdDate);
-                return txDate >= todayStart && txDate <= todayEnd;
-            });
+            // Use the real filterTransactionsForDay function
+            const todayTransactions = filterTransactionsForDay(transactions, today);
 
             expect(todayTransactions).toHaveLength(2);
             expect(todayTransactions[0].amount).toBe(20);
             expect(todayTransactions[1].amount).toBe(30);
         });
 
-        it('should push local-only transactions to SQL', () => {
+        it('should push local-only transactions to SQL using findLocalOnlyTransactions', () => {
             const localTransactions = [
                 { createdDate: 1000, modifiedDate: 2000, amount: 10 },
                 { createdDate: 2000, modifiedDate: 3000, amount: 20 },
@@ -130,17 +138,15 @@ describe('Sync Operations', () => {
 
             const sqlTransactions = [{ createdDate: 1000, modifiedDate: 2000, amount: 10 }];
 
-            // Find transactions that exist locally but not in SQL
-            const localOnlyTransactions = localTransactions.filter(
-                (localTx) => !sqlTransactions.find((sqlTx) => sqlTx.createdDate === localTx.createdDate)
-            );
+            // Use the real findLocalOnlyTransactions function
+            const localOnlyTransactions = findLocalOnlyTransactions(localTransactions, sqlTransactions);
 
             expect(localOnlyTransactions).toHaveLength(2);
             expect(localOnlyTransactions[0].createdDate).toBe(2000);
             expect(localOnlyTransactions[1].createdDate).toBe(3000);
         });
 
-        it('should update SQL when local transaction is newer', () => {
+        it('should update SQL when local transaction is newer using reconcileLocalWithSQL', () => {
             const localTransactions = [
                 { createdDate: 1000, modifiedDate: 3000, amount: 15 }, // Newer
                 { createdDate: 2000, modifiedDate: 3000, amount: 20 },
@@ -151,43 +157,61 @@ describe('Sync Operations', () => {
                 { createdDate: 2000, modifiedDate: 4000, amount: 25 }, // Newer
             ];
 
-            const transactionsToUpdate = localTransactions.filter((localTx) => {
-                const sqlTx = sqlTransactions.find((s) => s.createdDate === localTx.createdDate);
-                return sqlTx && localTx.modifiedDate > sqlTx.modifiedDate;
-            });
+            // Use the real reconcileLocalWithSQL function
+            const { toAdd, toSync } = reconcileLocalWithSQL(
+                localTransactions as Transaction[],
+                sqlTransactions as Transaction[]
+            );
+
+            expect(toAdd).toHaveLength(0);
+            expect(toSync).toHaveLength(1);
+            expect(toSync[0].createdDate).toBe(1000);
+            expect(toSync[0].amount).toBe(15);
+        });
+
+        it('should use findNewerLocalTransactions to identify updates needed', () => {
+            const localTransactions = [
+                { createdDate: 1000, modifiedDate: 3000, amount: 15 }, // Newer
+                { createdDate: 2000, modifiedDate: 1000, amount: 20 }, // Older
+            ];
+
+            const sqlTransactions = [
+                { createdDate: 1000, modifiedDate: 2000, amount: 10 },
+                { createdDate: 2000, modifiedDate: 2500, amount: 25 },
+            ];
+
+            const transactionsToUpdate = findNewerLocalTransactions(localTransactions, sqlTransactions);
 
             expect(transactionsToUpdate).toHaveLength(1);
             expect(transactionsToUpdate[0].createdDate).toBe(1000);
-            expect(transactionsToUpdate[0].amount).toBe(15);
         });
     });
 
     describe('Transaction Filename Generation', () => {
-        it('should generate correct filename with shopId and date', () => {
+        it('should generate correct filename with shopId and date using generateTransactionKey', () => {
             const shopId = 'myshop';
             const date = new Date('2026-03-23');
 
-            const getFormattedDate = (d: Date) => {
-                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            };
+            const key = generateTransactionKey(shopId, date);
 
-            const filename = `${shopId}_${getFormattedDate(date)}`;
-
-            expect(filename).toBe('myshop_2026-03-23');
+            expect(key).toBe('myshop_2026-03-23');
         });
 
         it('should use TRANSACTIONS_KEYWORD as fallback when shopId is empty', () => {
             const shopId = '';
-            const TRANSACTIONS_KEYWORD = 'Transactions';
             const date = new Date('2026-03-23');
 
-            const getFormattedDate = (d: Date) => {
-                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            };
+            const key = generateTransactionKey(shopId, date);
 
-            const filename = `${shopId || TRANSACTIONS_KEYWORD}_${getFormattedDate(date)}`;
+            expect(key).toBe(`${TRANSACTIONS_KEYWORD}_2026-03-23`);
+        });
 
-            expect(filename).toBe('Transactions_2026-03-23');
+        it('should format date correctly using getFormattedDateKey', () => {
+            const date = new Date('2026-03-05');
+            expect(getFormattedDateKey(date)).toBe('2026-03-05');
+
+            const date2 = new Date('2026-12-31');
+            expect(getFormattedDateKey(date2)).toBe('2026-12-31');
         });
     });
 
