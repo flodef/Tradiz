@@ -207,32 +207,46 @@ export default function EditMenuPage() {
     // 'Sans catégorie' maps to products with category === ''
     const handleCategoryRename = useCallback(
         (oldLabel: string, newLabel: string) => {
-            const oldKey = oldLabel === 'Sans catégorie' ? '' : oldLabel;
+            const oldKey = oldLabel === 'Sans catégorie' ? '' : oldLabel.trim();
+            const trimmedNewLabel = newLabel.trim();
             setProducts((prev) => {
-                const updated = prev.map((p) => (p.category === oldKey ? { ...p, category: newLabel } : p));
-                setTimeout(() => handleProductsSave(updated, newLabel), 0);
+                const updated = prev.map((p) =>
+                    (p.category || '').trim() === oldKey ? { ...p, category: trimmedNewLabel } : p
+                );
+                setTimeout(() => handleProductsSave(updated, trimmedNewLabel), 0);
                 return updated;
             });
         },
         [handleProductsSave]
     );
 
-    // Category delete: either remove products or move them to empty category
-    const handleDeleteCategoryProducts = useCallback((categoryLabel: string, moveToEmpty: boolean) => {
-        const key = categoryLabel === 'Sans catégorie' ? '' : categoryLabel;
-        if (moveToEmpty) {
-            setProducts((prev) => prev.map((p) => (p.category === key ? { ...p, category: '' } : p)));
-        } else {
-            setProducts((prev) => prev.filter((p) => p.category !== key));
-        }
-    }, []);
+    // Category delete: either remove products or move them to empty category, then save
+    const handleDeleteCategoryProducts = useCallback(
+        (categoryLabel: string, moveToEmpty: boolean) => {
+            const key = categoryLabel === 'Sans catégorie' ? '' : categoryLabel.trim();
+            if (moveToEmpty) {
+                setProducts((prev) => {
+                    const updated = prev.map((p) => ((p.category || '').trim() === key ? { ...p, category: '' } : p));
+                    setTimeout(() => handleProductsSave(updated, ''), 0);
+                    return updated;
+                });
+            } else {
+                setProducts((prev) => {
+                    const updated = prev.filter((p) => (p.category || '').trim() !== key);
+                    setTimeout(() => handleProductsSave(updated), 0);
+                    return updated;
+                });
+            }
+        },
+        [handleProductsSave]
+    );
 
     // Category VAT change: apply new VAT to all products in the category and save to DB
     const handleCategoryVatChange = useCallback(
         (categoryLabel: string, vat: number) => {
-            const key = categoryLabel === 'Sans catégorie' ? '' : categoryLabel;
+            const key = categoryLabel === 'Sans catégorie' ? '' : categoryLabel.trim();
             setProducts((prev) => {
-                const updated = prev.map((p) => (p.category === key ? { ...p, vat } : p));
+                const updated = prev.map((p) => ((p.category || '').trim() === key ? { ...p, vat } : p));
                 setTimeout(() => handleProductsSave(updated, categoryLabel), 0);
                 return updated;
             });
