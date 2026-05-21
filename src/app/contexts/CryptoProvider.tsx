@@ -1,7 +1,6 @@
 'use client';
 
 import { encodeURL, findReference, FindReferenceError, ValidateTransferError } from '@solana/pay';
-import { address } from '@solana/kit';
 import { Connection, Keypair, PublicKey, TransactionSignature } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -65,14 +64,14 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
         switch (crypto) {
             case Crypto.Solana:
                 return encodeURL({
-                    recipient: address(recipient.toBase58()),
+                    recipient: recipient.toBase58(),
                     amount: amount.toNumber(),
-                    splToken: splToken ? address(splToken.toBase58()) : undefined,
-                    reference: reference ? [address(reference.toBase58())] : undefined,
+                    splToken: splToken ? splToken.toBase58() : undefined,
+                    reference: reference ? [reference.toBase58()] : undefined,
                     label: parameters.shop.name,
                     message: parameters.thanksMessage,
                     memo,
-                });
+                } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
             case Crypto.June:
                 const url = new URL('june://' + recipient.toBase58());
 
@@ -126,7 +125,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
                 if (crypto === Crypto.Solana && reference) {
                     const signature = await findReference(
                         connection.current as unknown as Parameters<typeof findReference>[0],
-                        address(reference.toBase58())
+                        reference.toBase58() as any // eslint-disable-line @typescript-eslint/no-explicit-any
                     );
 
                     if (!changed) {
@@ -190,10 +189,10 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
                     connection.current,
                     signature,
                     {
-                        recipient: address(recipient.toBase58()),
+                        recipient: recipient.toBase58() as any, // eslint-disable-line @typescript-eslint/no-explicit-any
                         amount: amount.toNumber(),
-                        splToken: splToken ? address(splToken.toBase58()) : undefined,
-                        reference: reference ? [address(reference.toBase58())] : undefined,
+                        splToken: splToken ? (splToken.toBase58() as any) : undefined, // eslint-disable-line @typescript-eslint/no-explicit-any
+                        reference: reference ? [reference.toBase58() as any] : undefined, // eslint-disable-line @typescript-eslint/no-explicit-any
                     },
                     { maxSupportedTransactionVersion: 0 }
                 );
