@@ -1,18 +1,18 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import ProductsConfig from '@/app/components/admin/sections/ProductsConfig';
-import CategoriesConfig from '@/app/components/admin/sections/CategoriesConfig';
-import { Category } from '@/app/utils/interfaces';
-import { ProductsSettings } from '@/app/contexts/ConfigProvider';
-import { AdminProduct } from '@/app/components/admin/sections/ProductsConfig';
-import { CONFIG_KEYWORD, USE_DIGICARTE } from '@/app/utils/constants';
-import { clearLoadDataCache } from '@/app/utils/processData';
-import { useConfig } from '@/app/hooks/useConfig';
-import { useUserRole } from '@/app/hooks/useUserRole';
-import { usePopup } from '@/app/hooks/usePopup';
 import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
+import CategoriesConfig from '@/app/components/admin/sections/CategoriesConfig';
+import OptionsConfig from '@/app/components/admin/sections/OptionsConfig';
+import ProductsConfig, { AdminProduct } from '@/app/components/admin/sections/ProductsConfig';
+import { ProductsSettings } from '@/app/contexts/ConfigProvider';
+import { useConfig } from '@/app/hooks/useConfig';
+import { usePopup } from '@/app/hooks/usePopup';
+import { useUserRole } from '@/app/hooks/useUserRole';
 import { LoadingDot } from '@/app/loading';
+import { CONFIG_KEYWORD, USE_DIGICARTE } from '@/app/utils/constants';
+import { Category } from '@/app/utils/interfaces';
+import { clearLoadDataCache } from '@/app/utils/processData';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export default function EditMenuPage() {
     const { inventory, currencies, parameters } = useConfig();
@@ -340,6 +340,27 @@ export default function EditMenuPage() {
                     onReorderCategories={isReadOnly ? undefined : handleCategoryReorder}
                     onLocalCategoriesChange={setLocalCategoryLabels}
                 />
+
+                {/* Options Configuration Section - only visible when useOptions is enabled and there are categories */}
+                {productsSettings?.useOptions && categories.length > 0 && (
+                    <OptionsConfig
+                        config={[]} // Starts empty, will be populated from products
+                        categories={categories.map((c) => ({ label: c.label, value: c.label }))}
+                        products={products.map((p) => ({ name: p.name, category: p.category }))}
+                        currencies={currencies}
+                        onChange={(newOptions) => {
+                            console.log('Options changed:', newOptions);
+                            // TODO: Map options back to products
+                        }}
+                        onSave={(newOptions) => {
+                            console.log('Options saved:', newOptions);
+                            // TODO: Save options to products
+                        }}
+                        isReadOnly={isReadOnly}
+                        isOpen={openSection === 'options'}
+                        onToggle={() => setOpenSection((prev) => (prev === 'options' ? null : 'options'))}
+                    />
+                )}
 
                 <ProductsConfig
                     config={products}

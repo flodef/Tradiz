@@ -32,6 +32,7 @@ function mapInventoryToAdminData(inventory: InventoryItem[]): {
                 category: item.category,
                 stock: product.stock,
                 currencies: product.prices.map(String),
+                options: product.options ?? undefined,
             });
         });
     });
@@ -187,5 +188,216 @@ describe('Full inventory → admin mapping', () => {
         const { categories, products } = mapInventoryToAdminData([]);
         expect(categories).toHaveLength(0);
         expect(products).toHaveLength(0);
+    });
+});
+
+// ── Options mapping ──────────────────────────────────────────────────────────
+
+interface ProductOption {
+    value: string;
+    price: number;
+}
+
+interface ProductOptionGroup {
+    type: string;
+    options: ProductOption[];
+}
+
+describe('Product options mapping', () => {
+    it('should map options from inventory to admin product options JSON string', () => {
+        // Options are stored as JSON string in the inventory
+        const iceCreamOptions: ProductOptionGroup[] = [
+            {
+                type: 'Scoop',
+                options: [
+                    { value: '1', price: 3 },
+                    { value: '2', price: 5 },
+                    { value: '3', price: 6 },
+                ],
+            },
+        ];
+
+        const inventoryWithOptions: InventoryItem[] = [
+            {
+                category: 'Desserts',
+                rate: 10,
+                order: 0,
+                products: [
+                    {
+                        label: 'Ice Cream',
+                        prices: [3],
+                        options: JSON.stringify(iceCreamOptions),
+                        stock: null,
+                        order: 0,
+                    },
+                ],
+            },
+        ];
+
+        const { products } = mapInventoryToAdminData(inventoryWithOptions);
+        const iceCream = products.find((p) => p.name === 'Ice Cream');
+
+        expect(iceCream).toBeDefined();
+        expect(iceCream!.options).toBeDefined();
+
+        // Parse the JSON string back to verify structure
+        const parsedOptions: ProductOptionGroup[] = JSON.parse(iceCream!.options!);
+        expect(parsedOptions).toHaveLength(1);
+        expect(parsedOptions[0].type).toBe('Scoop');
+        expect(parsedOptions[0].options).toHaveLength(3);
+        expect(parsedOptions[0].options[0]).toEqual({ value: '1', price: 3 });
+        expect(parsedOptions[0].options[1]).toEqual({ value: '2', price: 5 });
+        expect(parsedOptions[0].options[2]).toEqual({ value: '3', price: 6 });
+    });
+
+    it('should handle products with multiple option groups', () => {
+        const pizzaOptions: ProductOptionGroup[] = [
+            {
+                type: 'Size',
+                options: [
+                    { value: 'Small', price: 0 },
+                    { value: 'Large', price: 5 },
+                ],
+            },
+            {
+                type: 'Crust',
+                options: [
+                    { value: 'Thin', price: 0 },
+                    { value: 'Thick', price: 2 },
+                ],
+            },
+        ];
+
+        const inventoryWithMultipleGroups: InventoryItem[] = [
+            {
+                category: 'Pizza',
+                rate: 10,
+                order: 0,
+                products: [
+                    {
+                        label: 'Custom Pizza',
+                        prices: [10],
+                        options: JSON.stringify(pizzaOptions),
+                        stock: null,
+                        order: 0,
+                    },
+                ],
+            },
+        ];
+
+        const { products } = mapInventoryToAdminData(inventoryWithMultipleGroups);
+        const pizza = products.find((p) => p.name === 'Custom Pizza');
+
+        expect(pizza).toBeDefined();
+        const parsedOptions: ProductOptionGroup[] = JSON.parse(pizza!.options!);
+        expect(parsedOptions).toHaveLength(2);
+        expect(parsedOptions[0].type).toBe('Size');
+        expect(parsedOptions[1].type).toBe('Crust');
+    });
+
+    it('should handle products without options (options should be undefined)', () => {
+        const inventoryWithoutOptions: InventoryItem[] = [
+            {
+                category: 'Drinks',
+                rate: 20,
+                order: 0,
+                products: [
+                    {
+                        label: 'Water',
+                        prices: [1.5],
+                        stock: null,
+                        order: 0,
+                    },
+                ],
+            },
+        ];
+
+        const { products } = mapInventoryToAdminData(inventoryWithoutOptions);
+        const water = products.find((p) => p.name === 'Water');
+
+        expect(water).toBeDefined();
+        expect(water!.options).toBeUndefined();
+    });
+
+    it('should handle empty options array', () => {
+        const inventoryWithEmptyOptions: InventoryItem[] = [
+            {
+                category: 'Snacks',
+                rate: 10,
+                order: 0,
+                products: [
+                    {
+                        label: 'Chips',
+                        prices: [2],
+                        options: '[]',
+                        stock: null,
+                        order: 0,
+                    },
+                ],
+            },
+        ];
+
+        const { products } = mapInventoryToAdminData(inventoryWithEmptyOptions);
+        const chips = products.find((p) => p.name === 'Chips');
+
+        expect(chips).toBeDefined();
+        // Empty array should still be preserved
+        expect(chips!.options).toBe('[]');
+    });
+
+    it('should preserve option value as string (can be number, flavor, or size)', () => {
+        const sodaOptions: ProductOptionGroup[] = [
+            {
+                type: 'Flavor',
+                options: [
+                    { value: 'Cola', price: 0 },
+                    { value: 'Orange', price: 0 },
+                    { value: 'Lemon', price: 0.5 },
+                ],
+            },
+            {
+                type: 'Size',
+                options: [
+                    { value: '33cl', price: 0 },
+                    { value: '50cl', price: 1 },
+                    { value: '1L', price: 2 },
+                ],
+            },
+        ];
+
+        const inventoryWithMixedValues: InventoryItem[] = [
+            {
+                category: 'Drinks',
+                rate: 20,
+                order: 0,
+                products: [
+                    {
+                        label: 'Soda',
+                        prices: [2],
+                        options: JSON.stringify(sodaOptions),
+                        stock: null,
+                        order: 0,
+                    },
+                ],
+            },
+        ];
+
+        const { products } = mapInventoryToAdminData(inventoryWithMixedValues);
+        const soda = products.find((p) => p.name === 'Soda');
+
+        expect(soda).toBeDefined();
+        const parsedOptions: ProductOptionGroup[] = JSON.parse(soda!.options!);
+
+        // Verify string values are preserved (flavors)
+        expect(parsedOptions[0].options[0].value).toBe('Cola');
+        expect(parsedOptions[0].options[1].value).toBe('Orange');
+
+        // Verify string values with numbers (sizes)
+        expect(parsedOptions[1].options[0].value).toBe('33cl');
+        expect(parsedOptions[1].options[2].value).toBe('1L');
+
+        // Verify prices are numbers
+        expect(parsedOptions[0].options[2].price).toBe(0.5);
+        expect(parsedOptions[1].options[2].price).toBe(2);
     });
 });

@@ -19,21 +19,15 @@ export async function POST(request: NextRequest) {
         const { publicKey } = await request.json();
 
         if (!publicKey || typeof publicKey !== 'string') {
-            return NextResponse.json(
-                { error: 'Missing or invalid publicKey' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'Missing or invalid publicKey' }, { status: 400 });
         }
 
         const connection = await getPosDb();
 
         // Query for the specific user with matching key
-        const query = `
-            SELECT key, name, role
-            FROM users
-            WHERE key = ?
-            LIMIT 1
-        `;
+        const query = connection.isPostgreSQL
+            ? `SELECT key, name, role FROM users WHERE key = $1 LIMIT 1`
+            : `SELECT key, name, role FROM users WHERE key = ? LIMIT 1`;
 
         const [rows] = await connection.execute(query, [publicKey]);
         await connection.end();
@@ -57,9 +51,6 @@ export async function POST(request: NextRequest) {
         );
     } catch (error) {
         console.error('Error resolving user:', error);
-        return NextResponse.json(
-            { error: 'An error occurred while resolving user' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'An error occurred while resolving user' }, { status: 500 });
     }
 }

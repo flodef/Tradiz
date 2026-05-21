@@ -13,6 +13,7 @@ import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
+import { getMainCurrencyStep } from '@/app/utils/priceStep';
 
 type SortField =
     | 'order'
@@ -662,7 +663,7 @@ export default function ProductsConfig({
                                                                     <ValidatedInput
                                                                         type="number"
                                                                         value={p.currencies[0] ?? ''}
-                                                                        step={0.1}
+                                                                        step={getMainCurrencyStep(currencies)}
                                                                         onChange={(value) => {
                                                                             const updated = [...p.currencies];
                                                                             updated[0] = String(value);
