@@ -96,7 +96,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
         (crypto: Crypto) => {
             setCrypto(crypto);
             setPaymentStatus(PaymentStatus.Pending);
-            setReference(crypto === Crypto.Solana ? Keypair.generate().publicKey : undefined);
+            setReference(crypto === Crypto.Solana ? new Keypair().publicKey : undefined);
             setMemo(undefined);
             setSignature(undefined);
             setError(undefined);
