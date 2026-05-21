@@ -36,6 +36,8 @@ export interface DataContextState {
         date?: Date,
         event?: ChangeEvent<HTMLInputElement>
     ) => Promise<number>;
+    getAvailableDaysFromFirestore: () => Promise<string[]>;
+    syncSpecificDay: (date: string) => Promise<number>;
     updateTransaction: (item: string | Transaction) => void;
     editTransaction: (index: number) => void;
     deleteTransaction: (index: number) => void;

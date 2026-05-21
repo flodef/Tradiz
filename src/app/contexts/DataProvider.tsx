@@ -870,6 +870,50 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [firestore, syncTransactions, exportTransactions, importTransactions, shopId, transactionsFilename]
     );
 
+    const getAvailableDaysFromFirestore = useCallback(async (): Promise<string[]> => {
+        if (!firestore || !shopId) return [];
+        try {
+            const querySnapshot = await getDocs(query(collection(firestore, 'Indexes'), where('shop', '==', shopId)));
+            const days = querySnapshot.docs
+                .map((doc) => doc.id)
+                .map((id) => id.split('_')[1]) // Extract date part from "shopId_date"
+                .filter((date) => date) // Filter out empty strings
+                .sort()
+                .reverse();
+            return days;
+        } catch (error) {
+            console.error('Error fetching available days from Firestore:', error);
+            return [];
+        }
+    }, [firestore, shopId]);
+
+    const syncSpecificDay = useCallback(
+        async (date: string): Promise<number> => {
+            if (!firestore || !shopId) return 0;
+            const filename = `${shopId}_${date}`;
+
+            try {
+                // Delete from IndexedDB
+                await idbRemoveTransactions(filename);
+
+                // Fetch from Firestore
+                const querySnapshot = await getDocs(collection(firestore, filename));
+                const transactions = querySnapshot.docs.map((doc) => doc.data() as Transaction);
+
+                // Store in IndexedDB
+                if (transactions.length) {
+                    await idbSetTransactions(filename, transactions);
+                }
+
+                return transactions.length;
+            } catch (error) {
+                console.error('Error syncing specific day:', error);
+                return 0;
+            }
+        },
+        [firestore, shopId]
+    );
+
     const saveTransactions = useCallback(
         async (action: DatabaseAction, transaction: Transaction) => {
             if (!transaction) return;
@@ -1369,6 +1413,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 products,
                 transactions,
                 processTransactions,
+                getAvailableDaysFromFirestore,
+                syncSpecificDay,
                 updateTransaction,
                 editTransaction,
                 deleteTransaction,
