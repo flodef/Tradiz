@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { IconAlertTriangle } from '@tabler/icons-react';
 import { QRCode } from '../components/QRCode';
 import { Shop } from '../contexts/ConfigProvider';
 import { isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
 import { IS_LOCAL, PRINT_KEYWORD, REFUND_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
 import { Currency, InventoryItem, SERVICE_TYPE_LABELS, ServiceType, Transaction } from '../utils/interfaces';
+import { CLOSE, postMessageToParent, REFRESH } from '../utils/message';
 import { printReceipt } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
 import { useData } from './useData';
 import { usePopup } from './usePopup';
-import { CLOSE, postMessageToParent, REFRESH } from '../utils/message';
 
 export type ReceiptData = {
     shop: Shop;
@@ -246,41 +245,30 @@ export const usePay = () => {
                     printTransaction(option);
                     break;
                 case REFUND_KEYWORD:
-                    openPopup(
-                        'Confirmation',
-                        [
-                            <div key="warning" className="flex items-center gap-2 px-4 py-2">
-                                <IconAlertTriangle className="text-orange-500" size={24} />
-                                <span>Confirmer le remboursement ?</span>
-                            </div>,
-                            'Continuer',
-                            'Annuler',
-                        ],
-                        (index, option) => {
-                            if (option === 'Continuer') {
-                                // Use reverseTransaction to properly reverse quantities using computeQuantity
-                                const currentTransaction: Transaction = {
-                                    validator: parameters.user.name,
-                                    method: option,
-                                    amount: getCurrentTotal(),
-                                    createdDate: new Date().getTime(),
-                                    modifiedDate: 0,
-                                    currency: currencies[currencyIndex].label,
-                                    products: products.current,
-                                };
+                    openPopup('⚠️​ Confirmer le remboursement ?', ['Continuer', 'Annuler'], (index, option) => {
+                        if (option === 'Continuer') {
+                            // Use reverseTransaction to properly reverse quantities using computeQuantity
+                            const currentTransaction: Transaction = {
+                                validator: parameters.user.name,
+                                method: option,
+                                amount: getCurrentTotal(),
+                                createdDate: new Date().getTime(),
+                                modifiedDate: 0,
+                                currency: currencies[currencyIndex].label,
+                                products: products.current,
+                            };
 
-                                const reversedTransaction = reverseTransaction(currentTransaction);
-                                // Replace current products with reversed ones
-                                products.current.length = 0;
-                                reversedTransaction.products.forEach((product) => {
-                                    products.current.push(product);
-                                });
+                            const reversedTransaction = reverseTransaction(currentTransaction);
+                            // Replace current products with reversed ones
+                            products.current.length = 0;
+                            reversedTransaction.products.forEach((product) => {
+                                products.current.push(product);
+                            });
 
-                                updateTransaction(option);
-                                closePopup();
-                            }
+                            updateTransaction(option);
+                            closePopup();
                         }
-                    );
+                    });
                     break;
                 case WAITING_KEYWORD:
                 case 'METTRE ' + WAITING_KEYWORD:
