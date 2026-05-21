@@ -24,7 +24,12 @@ import {
     Transaction,
     TransactionSet,
 } from '../utils/interfaces';
-import { idbGetAllTransactionSets, idbGetTransactions, idbSetTransactions } from '../utils/transactionStore';
+import {
+    idbGetAllTransactionSets,
+    idbGetTransactions,
+    idbRemoveTransactions,
+    idbSetTransactions,
+} from '../utils/transactionStore';
 import { checkDbConfig } from '../utils/processData';
 import { mergeTransactionArrays } from './dataProvider/syncUtils';
 import {
@@ -666,6 +671,55 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [syncTransactions, exportTransactions, importTransactions, shopId, transactionsFilename]
     );
 
+    const getAvailableDaysFromSQL = useCallback(async (): Promise<string[]> => {
+        try {
+            const response = await fetch('/api/sql/getAvailableDates');
+            if (!response.ok) {
+                const error = await response.json();
+                console.error('SQL DB available dates error:', error);
+                return [];
+            }
+            const data = await response.json();
+            return data.dates as string[];
+        } catch (error) {
+            console.error('Error fetching available days from SQL DB:', error);
+            return [];
+        }
+    }, []);
+
+    const syncSpecificDayFromSQL = useCallback(
+        async (date: string): Promise<number> => {
+            if (!shopId) return 0;
+            const filename = `${shopId}_${date}`;
+
+            try {
+                // Delete from IndexedDB
+                await idbRemoveTransactions(filename);
+
+                // Fetch from SQL
+                const response = await fetch(`/api/sql/getTransactions?date=${date}&period=day`);
+                if (!response.ok) {
+                    const error = await response.json();
+                    console.error('SQL DB sync error:', error);
+                    return 0;
+                }
+                const data = await response.json();
+                const transactions = data.transactions as Transaction[];
+
+                // Store in IndexedDB
+                if (transactions.length) {
+                    await idbSetTransactions(filename, transactions);
+                }
+
+                return transactions.length;
+            } catch (error) {
+                console.error('Error syncing specific day from SQL:', error);
+                return 0;
+            }
+        },
+        [shopId]
+    );
+
     const saveTransactions = useCallback(
         async (action: DatabaseAction, transaction: Transaction) => {
             if (!transaction) return;
@@ -1145,6 +1199,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 products,
                 transactions,
                 processTransactions,
+                getAvailableDaysFromSQL,
+                syncSpecificDayFromSQL,
                 updateTransaction,
                 editTransaction,
                 deleteTransaction,

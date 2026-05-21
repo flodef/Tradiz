@@ -29,7 +29,15 @@ enum HistoricalPeriod {
 
 export const useSummary = () => {
     const { currencies, currencyIndex, inventory, parameters, getPrintersNames, getPrinterAddresses } = useConfig();
-    const { transactions, toCurrency, transactionsFilename, isDbConnected, processTransactions } = useData();
+    const {
+        transactions,
+        toCurrency,
+        transactionsFilename,
+        isDbConnected,
+        processTransactions,
+        getAvailableDaysFromSQL,
+        syncSpecificDayFromSQL,
+    } = useData();
     const { openPopup, closePopup, updatePopup } = usePopup();
 
     const ImportOption = useMemo(
@@ -270,17 +278,121 @@ export const useSummary = () => {
                 // Check if there's data to migrate in localStorage
                 openPopup(
                     'Synchronisation',
-                    ['Synchronisation complète', "Synchronisation d'aujourd'hui", ImportOption]
+                    ['Synchronisation complète', 'Synchronisation jour', ImportOption]
                         .concat(getHistoricalTransactions().length ? ['Exporter'] : [])
                         .concat(['Stockage', 'Supprimer données locales'])
                         .concat(['', BACK_KEYWORD]),
                     (_, option) => {
+                        // Handle back button
+                        if (option === BACK_KEYWORD) {
+                            backCallback();
+                            return;
+                        }
+
                         const action = {
                             'Synchronisation complète': SyncAction.fullsync,
-                            "Synchronisation d'aujourd'hui": SyncAction.daysync,
+                            'Synchronisation jour': SyncAction.daysync,
                             Exporter: SyncAction.export,
                         }[option];
-                        if (action) {
+                        if (action === SyncAction.daysync) {
+                            // Show day selection popup
+                            getAvailableDaysFromSQL().then((days) => {
+                                if (!days.length) {
+                                    openPopup('Synchronisation', ['Aucun jour disponible dans la base de données']);
+                                    return;
+                                }
+
+                                // Group days by month
+                                const daysByMonth: Record<string, string[]> = {};
+                                days.forEach((day) => {
+                                    const month = day.substring(0, 7); // YYYY-MM
+                                    if (!daysByMonth[month]) {
+                                        daysByMonth[month] = [];
+                                    }
+                                    daysByMonth[month].push(day);
+                                });
+
+                                // Sort months in descending order
+                                const sortedMonths = Object.keys(daysByMonth).sort().reverse();
+
+                                // Show month selection popup with arrows
+                                const ARROW = ' ▸';
+                                const monthEntries = sortedMonths.map((month) => {
+                                    const date = new Date(month + '-01');
+                                    return `${date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}${ARROW}`;
+                                });
+                                monthEntries.push('', BACK_KEYWORD);
+
+                                // Function to show month selection popup (reusable for back button)
+                                const showMonthSelection = (backCallback = closePopup) => {
+                                    openPopup('Synchronisation jour', monthEntries, (index) => {
+                                        if (index < 0) {
+                                            backCallback();
+                                            return;
+                                        }
+                                        if (index >= sortedMonths.length) {
+                                            // Back button - return to sync menu
+                                            showSyncMenu(backCallback);
+                                            return;
+                                        }
+
+                                        const selectedMonth = sortedMonths[index];
+                                        const daysInMonth = daysByMonth[selectedMonth];
+
+                                        // Show day selection popup
+                                        const dayEntries = daysInMonth.map((day) => {
+                                            const date = new Date(day);
+                                            return date.toLocaleDateString(undefined, {
+                                                weekday: 'short',
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric',
+                                            });
+                                        });
+                                        dayEntries.push('', BACK_KEYWORD);
+
+                                        openPopup(
+                                            `${new Date(selectedMonth + '-01').toLocaleDateString(undefined, {
+                                                month: 'long',
+                                                year: 'numeric',
+                                            })}`,
+                                            dayEntries,
+                                            (dayIndex, _dayOption) => {
+                                                if (dayIndex < 0) {
+                                                    backCallback();
+                                                    return;
+                                                }
+                                                if (dayIndex >= daysInMonth.length) {
+                                                    // Back button - return to month list
+                                                    showMonthSelection(backCallback);
+                                                    return;
+                                                }
+
+                                                const selectedDay = daysInMonth[dayIndex];
+                                                openPopup(
+                                                    'Synchronisation',
+                                                    ['Synchronisation en cours...'],
+                                                    () => {},
+                                                    true
+                                                );
+
+                                                (async () => {
+                                                    const count = await syncSpecificDayFromSQL(selectedDay);
+                                                    refreshHistoricalKeys();
+                                                    openPopup('Synchronisation', [
+                                                        count > 0
+                                                            ? `${count} transaction(s) synchronisée(s)`
+                                                            : 'Aucune transaction trouvée pour ce jour',
+                                                    ]);
+                                                })();
+                                            }
+                                        );
+                                    });
+                                };
+
+                                showMonthSelection(backCallback);
+                            });
+                        } else if (action) {
                             const isExport = action === SyncAction.export;
                             openPopup(
                                 'Synchronisation',
@@ -368,6 +480,8 @@ export const useSummary = () => {
             refreshHistoricalKeys,
             closePopup,
             updatePopup,
+            getAvailableDaysFromSQL,
+            syncSpecificDayFromSQL,
         ]
     );
 
@@ -413,12 +527,12 @@ export const useSummary = () => {
                     monthEntries,
                     (index) => {
                         if (index < 0) {
-                            fallback();
+                            closePopup();
                             return;
                         }
                         if (index >= months.length) {
                             // Back button
-                            fallback();
+                            closePopup();
                             return;
                         }
                         if (index >= 0) {

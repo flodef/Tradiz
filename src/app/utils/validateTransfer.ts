@@ -70,12 +70,8 @@ export async function validateTransfer(
     if (!meta) throw new ValidateTransferError('missing meta');
     if (meta.err) throw meta.err;
 
-    // Normalize reference to array
-    const referenceArray: Reference[] | undefined = reference
-        ? Array.isArray(reference)
-            ? reference
-            : [reference]
-        : undefined;
+    // Convert References (which is Reference | Reference[]) to Reference[]
+    const referenceArray: Reference[] = reference ? (Array.isArray(reference) ? reference : [reference]) : [];
 
     // Deserialize the transaction and make a copy of the instructions we're going to mutate it.
     const transaction = populate(message, signatures);
@@ -86,9 +82,10 @@ export async function validateTransfer(
     if (!instruction) throw new ValidateTransferError('missing transfer instruction');
     if (instruction.keys[0].pubkey === instruction.keys[1].pubkey)
         throw new ValidateTransferError('sender is also recipient');
+
     const [preAmount, postAmount] = splToken
-        ? await validateSPLTokenTransfer(instruction, message, meta, recipient as any, splToken as any, referenceArray)
-        : await validateSystemTransfer(instruction, message, meta, recipient as any, referenceArray);
+        ? await validateSPLTokenTransfer(instruction, message, meta, recipient, splToken, referenceArray)
+        : await validateSystemTransfer(instruction, message, meta, recipient, referenceArray);
     if (postAmount.minus(preAmount).lt(amount)) throw new ValidateTransferError('amount not transferred');
 
     if (memo !== undefined) {
@@ -115,7 +112,6 @@ async function validateSystemTransfer(
     recipient: Recipient,
     references?: Reference[]
 ): Promise<[BigNumber, BigNumber]> {
-    // Convert branded recipient type to PublicKey for comparison
     const recipientPubkey = new PublicKey(String(recipient));
     const accountIndex = message.staticAccountKeys.findIndex((pubkey) => pubkey.equals(recipientPubkey));
     if (accountIndex === -1) throw new ValidateTransferError('recipient not found');
@@ -149,9 +145,8 @@ async function validateSPLTokenTransfer(
     splToken: SPLToken,
     references?: Reference[]
 ): Promise<[BigNumber, BigNumber]> {
-    // Convert branded types to PublicKey
-    const splTokenPubkey = new PublicKey(String(splToken));
     const recipientPubkey = new PublicKey(String(recipient));
+    const splTokenPubkey = new PublicKey(String(splToken));
     const recipientATA = await getAssociatedTokenAddress(splTokenPubkey, recipientPubkey);
     const accountIndex = message.staticAccountKeys.findIndex((pubkey) => pubkey.equals(recipientATA));
     if (accountIndex === -1) throw new ValidateTransferError('recipient not found');

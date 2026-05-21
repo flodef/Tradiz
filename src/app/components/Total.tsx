@@ -592,7 +592,8 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
                 className={twMerge(
                     'md:w-1/2 w-full fixed text-5xl text-center font-bold py-3',
                     'border-b-4 border-active-light dark:border-active-dark',
-                    isMobile ? 'md:hidden' : 'hidden md:block'
+                    isMobile ? 'md:hidden' : 'hidden md:block',
+                    (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length) ? clickClassName : ''
                 )}
             >
                 <div className="flex items-center gap-0 w-full">
@@ -603,12 +604,7 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
                         onCollapsedChange={(c) => setNavExpanded(!c)}
                     />
                     <div
-                        className={twMerge(
-                            'flex-1 text-center overflow-hidden',
-                            (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length)
-                                ? clickClassName
-                                : ''
-                        )}
+                        className={twMerge('flex-1 text-center overflow-hidden')}
                         onClick={handleClick}
                         onContextMenu={handleClick}
                     >

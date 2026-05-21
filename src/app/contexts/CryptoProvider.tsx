@@ -1,6 +1,7 @@
 'use client';
 
 import { encodeURL, findReference, FindReferenceError, ValidateTransferError } from '@solana/pay';
+import { address } from '@solana/kit';
 import { Connection, Keypair, PublicKey, TransactionSignature } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -64,14 +65,14 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
         switch (crypto) {
             case Crypto.Solana:
                 return encodeURL({
-                    recipient: recipient.toBase58() as any,
-                    amount: amount.toNumber() as any,
-                    splToken: splToken?.toBase58() as any,
-                    reference: reference?.toBase58() as any,
+                    recipient: address(recipient.toBase58()),
+                    amount: amount.toNumber(),
+                    splToken: splToken ? address(splToken.toBase58()) : undefined,
+                    reference: reference ? [address(reference.toBase58())] : undefined,
                     label: parameters.shop.name,
                     message: parameters.thanksMessage,
                     memo,
-                } as any);
+                });
             case Crypto.June:
                 const url = new URL('june://' + recipient.toBase58());
 
@@ -123,7 +124,10 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
         const interval = setInterval(async () => {
             try {
                 if (crypto === Crypto.Solana && reference) {
-                    const signature = await findReference(connection.current as any, reference.toBase58() as any);
+                    const signature = await findReference(
+                        connection.current as unknown as Parameters<typeof findReference>[0],
+                        address(reference.toBase58())
+                    );
 
                     if (!changed) {
                         watchDog.current = 0;
@@ -183,14 +187,14 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
         const run = async () => {
             try {
                 await validateTransfer(
-                    connection.current as any,
+                    connection.current,
                     signature,
                     {
-                        recipient: recipient.toBase58() as any,
-                        amount: amount.toNumber() as any,
-                        splToken: splToken?.toBase58() as any,
-                        reference: reference?.toBase58() as any,
-                    } as any,
+                        recipient: address(recipient.toBase58()),
+                        amount: amount.toNumber(),
+                        splToken: splToken ? address(splToken.toBase58()) : undefined,
+                        reference: reference ? [address(reference.toBase58())] : undefined,
+                    },
                     { maxSupportedTransactionVersion: 0 }
                 );
                 if (!changed) {

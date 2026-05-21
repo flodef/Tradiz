@@ -37,6 +37,8 @@ export interface DataContextState {
         event?: ChangeEvent<HTMLInputElement>,
         onProgress?: (percent: number) => void
     ) => Promise<number>;
+    getAvailableDaysFromSQL: () => Promise<string[]>;
+    syncSpecificDayFromSQL: (date: string) => Promise<number>;
     updateTransaction: (item: string | Transaction) => void;
     editTransaction: (index: number) => void;
     deleteTransaction: (index: number) => void;
