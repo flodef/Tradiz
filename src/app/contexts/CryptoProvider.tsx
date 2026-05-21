@@ -190,7 +190,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
                     signature,
                     {
                         recipient: recipient.toBase58() as any, // eslint-disable-line @typescript-eslint/no-explicit-any
-                        amount: amount.toNumber(),
+                        amount: amount as any, // eslint-disable-line @typescript-eslint/no-explicit-any
                         splToken: splToken ? (splToken.toBase58() as any) : undefined, // eslint-disable-line @typescript-eslint/no-explicit-any
                         reference: reference ? [reference.toBase58() as any] : undefined, // eslint-disable-line @typescript-eslint/no-explicit-any
                     },
