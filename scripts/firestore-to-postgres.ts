@@ -40,11 +40,22 @@ import * as path from 'path';
 
 type PgPool = InstanceType<typeof Pool>;
 
-// ── Configuration ────────────────────────────────────────────────────────────
+interface TxWithMeta {
+    tx: TransactionSet['transactions'][0];
+    panierId: string;
+    index: number;
+}
 
-const BATCH_SIZE = 50; // Process transactions in batches
-const MAX_RETRIES = 3; // Retry failed transactions
-const CHECKPOINT_FILE = '/home/flo/Downloads/.firestore-import-checkpoint.json';
+interface CliConfig {
+    mode: 'shop' | 'file';
+    value: string;
+    exportPath?: string;
+    shouldImport: boolean;
+    dryRun: boolean;
+    overwrite: boolean;
+}
+
+// ── Configuration ────────────────────────────────────────────────────────────
 
 // ── Interactive prompts ──────────────────────────────────────────────────────
 
@@ -278,43 +289,394 @@ async function getDefaultUserId(client: PoolClient): Promise<number> {
     return insertResult.rows[0].id;
 }
 
-// ── Checkpoint management ────────────────────────────────────────────────────
+// ── CSV generation for COPY command ───────────────────────────────────────────
 
-interface Checkpoint {
-    lastProcessedIndex: number;
-    imported: number;
-    errors: number;
-    timestamp: string;
+function escapeCsvValue(value: string | number | null | undefined): string {
+    if (value === null || value === undefined) return '\\N';
+    const str = String(value);
+    // Escape backslashes, quotes, and newlines
+    if (str.includes('\\') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+    }
+    return str;
 }
 
-function loadCheckpoint(): Checkpoint | null {
-    try {
-        if (fs.existsSync(CHECKPOINT_FILE)) {
-            const data = fs.readFileSync(CHECKPOINT_FILE, 'utf-8');
-            return JSON.parse(data);
+function generateTransactionsCsv(allTransactions: TxWithMeta[]): string {
+    const lines: string[] = [];
+    for (const { tx } of allTransactions) {
+        const methodLabel = PAYMENT_METHOD_MAP[tx.method] ?? tx.method;
+        const createdAt = msToDatetime(tx.createdDate);
+        const updatedAt = msToDatetime(tx.modifiedDate);
+        const note = tx.note || null;
+
+        const hashData = `${tx.createdDate}|Cashier|${methodLabel}|${tx.amount}|${tx.currency || 'EUR'}|${createdAt}`;
+        const hash = createHash('sha256').update(hashData).digest('hex').substring(0, 64);
+
+        lines.push(
+            [
+                escapeCsvValue(tx.createdDate.toString()),
+                escapeCsvValue('Cashier'),
+                escapeCsvValue(methodLabel),
+                escapeCsvValue(tx.amount),
+                escapeCsvValue(tx.currency || 'EUR'),
+                escapeCsvValue(note),
+                escapeCsvValue(hash),
+                escapeCsvValue(createdAt),
+                escapeCsvValue(updatedAt),
+            ].join('\t')
+        );
+    }
+    return lines.join('\n');
+}
+
+function generateTransactionItemsCsv(allTransactions: TxWithMeta[]): Map<number, string[]> {
+    const itemsByTx = new Map<number, string[]>();
+    let txIndex = 0;
+
+    for (const { tx } of allTransactions) {
+        const items: string[] = [];
+        for (const p of tx.products) {
+            const discountAmount = p.discount?.value ?? p.discount?.amount ?? 0;
+            const discountUnit = p.discount?.unity ?? p.discount?.unit ?? '%';
+
+            items.push(
+                [
+                    escapeCsvValue(txIndex), // Will be replaced with actual ID after transaction insert
+                    escapeCsvValue(p.label),
+                    escapeCsvValue(p.category),
+                    escapeCsvValue(p.amount),
+                    escapeCsvValue(p.quantity),
+                    escapeCsvValue(discountAmount),
+                    escapeCsvValue(discountUnit || '%'),
+                    escapeCsvValue(p.total),
+                ].join('\t')
+            );
         }
-    } catch {
-        // Ignore errors
+        itemsByTx.set(txIndex, items);
+        txIndex++;
     }
-    return null;
+
+    return itemsByTx;
 }
 
-function saveCheckpoint(checkpoint: Checkpoint): void {
-    try {
-        fs.writeFileSync(CHECKPOINT_FILE, JSON.stringify(checkpoint, null, 2), 'utf-8');
-    } catch {
-        // Ignore errors
-    }
-}
+// ── Import with COPY command (fast bulk loading) ───────────────────────────────
 
-function clearCheckpoint(): void {
+async function importWithCopy(
+    client: PoolClient,
+    allTransactions: TxWithMeta[],
+    totalTx: number,
+    cli: CliConfig
+): Promise<void> {
+    console.log('Generating CSV data for bulk import...');
+
+    // Generate CSV for transactions
+    const transactionsCsv = generateTransactionsCsv(allTransactions);
+
+    // Generate CSV for transaction items
+    const itemsByTx = generateTransactionItemsCsv(allTransactions);
+
+    // Create temp files
+    const tempDir = '/tmp';
+    const txFile = `${tempDir}/transactions_${Date.now()}.tsv`;
+    const itemsFile = `${tempDir}/transaction_items_${Date.now()}.tsv`;
+
+    fs.writeFileSync(txFile, transactionsCsv, 'utf-8');
+
+    // Combine all items into single CSV
+    const allItems: string[] = [];
+    for (const items of itemsByTx.values()) {
+        allItems.push(...items);
+    }
+    fs.writeFileSync(itemsFile, allItems.join('\n'), 'utf-8');
+
+    console.log(`CSV files created: ${txFile}, ${itemsFile}`);
+
     try {
-        if (fs.existsSync(CHECKPOINT_FILE)) {
-            fs.unlinkSync(CHECKPOINT_FILE);
+        await client.query('BEGIN');
+
+        // Handle overwrite mode
+        if (cli.overwrite) {
+            console.log('Deleting existing transactions (overwrite mode)...');
+            await client.query('DELETE FROM dc_pos.transaction_items');
+            await client.query('DELETE FROM dc_pos.transactions');
         }
-    } catch {
-        // Ignore errors
+
+        // Copy transactions
+        console.log('Copying transactions...');
+        await client.query(
+            "COPY dc_pos.transactions (order_id, user_name, payment_method, amount, currency, note, hash, created_at, updated_at) FROM STDIN WITH (FORMAT text, DELIMITER E'\\t', NULL '\\N')"
+        );
+
+        // We need to use pg's copyFrom with stream for proper COPY support
+        // For now, let's use a different approach with INSERT ... VALUES
+        await client.query('ROLLBACK');
+
+        console.log('Falling back to batch INSERT approach...');
+        await importWithBatchInserts(client, allTransactions, totalTx, cli);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        // Cleanup temp files
+        try {
+            fs.unlinkSync(txFile);
+            fs.unlinkSync(itemsFile);
+        } catch {
+            // Ignore cleanup errors
+        }
     }
+}
+
+// ── Import with batch INSERTs (fast alternative to COPY) ─────────────────────
+
+async function importWithBatchInserts(
+    client: PoolClient,
+    allTransactions: TxWithMeta[],
+    totalTx: number,
+    cli: CliConfig
+): Promise<void> {
+    const BATCH_SIZE = 500;
+    let imported = 0;
+
+    // Handle overwrite mode
+    if (cli.overwrite) {
+        console.log('Deleting existing transactions (overwrite mode)...');
+        await client.query('DELETE FROM dc_pos.transaction_items');
+        await client.query('DELETE FROM dc_pos.transactions');
+    }
+
+    await client.query('BEGIN');
+
+    try {
+        // Process transactions in batches
+        for (let i = 0; i < allTransactions.length; i += BATCH_SIZE) {
+            const batch = allTransactions.slice(i, i + BATCH_SIZE);
+
+            // Build multi-row INSERT for transactions
+            const txValues: string[] = [];
+            const txParams: (string | number | null)[] = [];
+            const txHashes: string[] = [];
+            const txIdMap = new Map<number, number>(); // Maps array index to DB ID
+
+            for (let j = 0; j < batch.length; j++) {
+                const { tx } = batch[j];
+                const methodLabel = PAYMENT_METHOD_MAP[tx.method] ?? tx.method;
+                const createdAt = msToDatetime(tx.createdDate);
+                const updatedAt = msToDatetime(tx.modifiedDate);
+                const note = tx.note || null;
+
+                const hashData = `${tx.createdDate}|Cashier|${methodLabel}|${tx.amount}|${tx.currency || 'EUR'}|${createdAt}`;
+                const hash = createHash('sha256').update(hashData).digest('hex').substring(0, 64);
+                txHashes.push(hash);
+
+                const paramIdx = txParams.length;
+                txValues.push(
+                    `($${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3}, $${paramIdx + 4}, $${paramIdx + 5}, $${paramIdx + 6}, $${paramIdx + 7}, $${paramIdx + 8}, $${paramIdx + 9})`
+                );
+                txParams.push(
+                    tx.createdDate.toString(),
+                    'Cashier',
+                    methodLabel,
+                    tx.amount,
+                    tx.currency || 'EUR',
+                    note,
+                    hash,
+                    createdAt,
+                    updatedAt
+                );
+            }
+
+            // Insert all transactions with ON CONFLICT DO NOTHING
+            const txQuery = `
+                INSERT INTO dc_pos.transactions (order_id, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
+                VALUES ${txValues.join(', ')}
+                ON CONFLICT (hash) DO NOTHING
+                RETURNING id, hash
+            `;
+
+            const txResult = await client.query<{ id: number; hash: string }>(txQuery, txParams);
+
+            // Map returned IDs to their hashes
+            const hashToId = new Map<string, number>();
+            for (const row of txResult.rows) {
+                hashToId.set(row.hash, row.id);
+            }
+
+            // For all transactions in batch, get their IDs (either from the insert or from existing)
+            for (let j = 0; j < batch.length; j++) {
+                let transactionId = hashToId.get(txHashes[j]);
+                if (!transactionId) {
+                    // This was a duplicate, query the database for its ID
+                    const existingResult = await client.query<{ id: number }>(
+                        `SELECT id FROM dc_pos.transactions WHERE hash = $1`,
+                        [txHashes[j]]
+                    );
+                    if (existingResult.rows.length > 0) {
+                        transactionId = existingResult.rows[0].id;
+                        hashToId.set(txHashes[j], transactionId);
+                        // Log duplicate for debugging
+                        const { tx } = batch[j];
+                        console.warn(
+                            `  ⚠ Duplicate transaction: createdDate=${tx.createdDate}, method=${tx.method}, amount=${tx.amount}`
+                        );
+                    }
+                }
+                if (transactionId) {
+                    txIdMap.set(i + j, transactionId);
+                }
+            }
+
+            // Build multi-row INSERT for transaction items
+            const itemValues: string[] = [];
+            const itemParams: (string | number | null)[] = [];
+
+            for (let j = 0; j < batch.length; j++) {
+                const { tx } = batch[j];
+                const transactionId = txIdMap.get(i + j);
+
+                if (!transactionId) continue;
+
+                for (const p of tx.products) {
+                    const discountAmount = p.discount?.value ?? p.discount?.amount ?? 0;
+                    const discountUnit = p.discount?.unity ?? p.discount?.unit ?? '%';
+
+                    const paramIdx = itemParams.length;
+                    itemValues.push(
+                        `($${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3}, $${paramIdx + 4}, $${paramIdx + 5}, $${paramIdx + 6}, $${paramIdx + 7}, $${paramIdx + 8})`
+                    );
+                    itemParams.push(
+                        transactionId,
+                        p.label,
+                        p.category,
+                        p.amount,
+                        p.quantity,
+                        discountAmount,
+                        discountUnit || '%',
+                        p.total
+                    );
+                }
+            }
+
+            // Insert items batch
+            if (itemValues.length > 0) {
+                const itemQuery = `
+                    INSERT INTO dc_pos.transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total)
+                    VALUES ${itemValues.join(', ')}
+                `;
+                await client.query(itemQuery, itemParams);
+            }
+
+            imported += batch.length;
+            process.stdout.write(`\r⏳ Progress: ${imported}/${totalTx}`);
+        }
+
+        await client.query('COMMIT');
+        process.stdout.write('\r' + ' '.repeat(100) + '\r');
+        console.log(`\n✨ Done! Imported ${imported} transactions.`);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('\n❌ Error during batch import:', err);
+        throw err;
+    }
+}
+
+// ── Import with individual INSERTs (original slow method) ─────────────────────
+
+async function importWithInserts(
+    client: PoolClient,
+    allTransactions: TxWithMeta[],
+    totalTx: number,
+    cli: CliConfig,
+    _paymentMethodMap: Map<string, number>,
+    _defaultUserId: number
+): Promise<void> {
+    let imported = 0;
+    let errors = 0;
+
+    console.log('\n📊 Importing transactions...\n');
+
+    for (let i = 0; i < allTransactions.length; i++) {
+        const { tx, panierId, index } = allTransactions[i];
+
+        process.stdout.write(
+            `\r⏳ Progress: ${index + 1}/${totalTx} | ✅ Imported: ${imported} | ❌ Errors: ${errors}`
+        );
+
+        const methodLabel = PAYMENT_METHOD_MAP[tx.method] ?? tx.method;
+        const createdAt = msToDatetime(tx.createdDate);
+        const updatedAt = msToDatetime(tx.modifiedDate);
+        const note = tx.note || null;
+
+        const hashData = `${tx.createdDate}|Cashier|${methodLabel}|${tx.amount}|${tx.currency || 'EUR'}|${createdAt}`;
+        const hash = createHash('sha256').update(hashData).digest('hex').substring(0, 64);
+
+        try {
+            await client.query('BEGIN');
+
+            // Check if transaction already exists
+            const existingResult = await client.query<{ id: number }>(
+                `SELECT id FROM dc_pos.transactions WHERE created_at = $1`,
+                [createdAt]
+            );
+
+            if (existingResult.rows.length > 0) {
+                if (!cli.overwrite) {
+                    await client.query('ROLLBACK');
+                    continue;
+                }
+                // Delete existing
+                const facturationId = existingResult.rows[0].id;
+                await client.query(`DELETE FROM dc_pos.transaction_items WHERE transaction_id = $1`, [facturationId]);
+                await client.query(`DELETE FROM dc_pos.transactions WHERE id = $1`, [facturationId]);
+            }
+
+            const factResult = await client.query<{ id: number }>(
+                `INSERT INTO dc_pos.transactions (order_id, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+                [
+                    tx.createdDate.toString(),
+                    'Cashier',
+                    methodLabel,
+                    tx.amount,
+                    tx.currency || 'EUR',
+                    note,
+                    hash,
+                    createdAt,
+                    updatedAt,
+                ]
+            );
+            const facturationId = factResult.rows[0].id;
+
+            for (const p of tx.products) {
+                const discountAmount = p.discount?.value ?? p.discount?.amount ?? 0;
+                const discountUnit = p.discount?.unity ?? p.discount?.unit ?? '%';
+                await client.query(
+                    `INSERT INTO dc_pos.transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                    [
+                        facturationId,
+                        p.label,
+                        p.category,
+                        p.amount,
+                        p.quantity,
+                        discountAmount,
+                        discountUnit || '%',
+                        p.total,
+                    ]
+                );
+            }
+
+            await client.query('COMMIT');
+            imported++;
+        } catch (err) {
+            await client.query('ROLLBACK');
+            console.error(`\n  ✗ Error importing transaction from ${panierId} at ${createdAt}:`, err);
+            errors++;
+        }
+    }
+
+    process.stdout.write('\r' + ' '.repeat(100) + '\r');
+    console.log(`\n✨ Done! Imported ${imported} transactions (${errors} errors).`);
 }
 
 // ── Main import ──────────────────────────────────────────────────────────────
@@ -354,6 +716,45 @@ async function main() {
             console.log(`  ${entry.id}: ${entry.transactions.length} transactions`);
         }
         if (entries.length > 3) console.log(`  ... (${entries.length - 3} more)`);
+
+        // Check for duplicates in the data
+        console.log('\n🔍 Checking for duplicate transactions in data...');
+        const hashCounts = new Map<string, number>();
+        const hashToTx = new Map<string, any>();
+
+        for (const entry of entries) {
+            for (const tx of entry.transactions) {
+                if (SKIP_METHODS.has(tx.method)) continue;
+
+                const methodLabel = PAYMENT_METHOD_MAP[tx.method] ?? tx.method;
+                const createdAt = msToDatetime(tx.createdDate);
+                const hashData = `${tx.createdDate}|Cashier|${methodLabel}|${tx.amount}|${tx.currency || 'EUR'}|${createdAt}`;
+                const hash = createHash('sha256').update(hashData).digest('hex').substring(0, 64);
+
+                hashCounts.set(hash, (hashCounts.get(hash) || 0) + 1);
+                if (!hashToTx.has(hash)) {
+                    hashToTx.set(hash, { tx, methodLabel, createdAt });
+                }
+            }
+        }
+
+        let duplicateCount = 0;
+        for (const [hash, count] of hashCounts) {
+            if (count > 1) {
+                duplicateCount++;
+                const { tx, methodLabel, createdAt } = hashToTx.get(hash)!;
+                console.warn(
+                    `  ⚠ Duplicate hash (${count} occurrences): createdDate=${tx.createdDate}, method=${methodLabel}, amount=${tx.amount}, createdAt=${createdAt}`
+                );
+            }
+        }
+
+        if (duplicateCount === 0) {
+            console.log('  ✅ No duplicate transactions found in data.');
+        } else {
+            console.log(`  ⚠ Found ${duplicateCount} duplicate transaction hashes in data.`);
+        }
+
         return;
     }
 
@@ -391,169 +792,8 @@ async function main() {
             }
         }
 
-        // Check for existing checkpoint
-        const checkpoint = loadCheckpoint();
-        let startIndex = 0;
-        let imported = 0;
-        let errors = 0;
-
-        if (checkpoint && checkpoint.lastProcessedIndex >= 0) {
-            const resume = await promptYesNo(
-                `\n🔄 Found checkpoint from ${checkpoint.timestamp}. Resume from transaction ${checkpoint.lastProcessedIndex + 1}/${totalTx}?`,
-                true
-            );
-            if (resume) {
-                startIndex = checkpoint.lastProcessedIndex + 1;
-                imported = checkpoint.imported;
-                errors = checkpoint.errors;
-                console.log(`✅ Resuming from transaction ${startIndex + 1}...`);
-            } else {
-                clearCheckpoint();
-            }
-        }
-
-        console.log('\n📊 Importing transactions...\n');
-
-        // Process in batches with retry logic
-        for (let i = startIndex; i < allTransactions.length; i++) {
-            const { tx, panierId, index } = allTransactions[i];
-
-            // Update progress counter (overwrite same line)
-            process.stdout.write(
-                `\r⏳ Progress: ${index + 1}/${totalTx} | ✅ Imported: ${imported} | ❌ Errors: ${errors}`
-            );
-
-            // Save checkpoint every BATCH_SIZE transactions
-            if (i > 0 && i % BATCH_SIZE === 0) {
-                saveCheckpoint({
-                    lastProcessedIndex: i - 1,
-                    imported,
-                    errors,
-                    timestamp: new Date().toISOString(),
-                });
-            }
-
-            const methodLabel = PAYMENT_METHOD_MAP[tx.method] ?? tx.method;
-            const paymentMethodId = paymentMethodMap.get(methodLabel);
-
-            if (!paymentMethodId) {
-                process.stdout.write('\r' + ' '.repeat(100) + '\r');
-                console.warn(`  ⚠ Unknown payment method "${tx.method}", skipping transaction`);
-                errors++;
-                continue;
-            }
-
-            const createdAt = msToDatetime(tx.createdDate);
-            const updatedAt = msToDatetime(tx.modifiedDate);
-
-            // Parse user ID safely - use default if invalid
-            let userId = defaultUserId;
-            if (tx.validator) {
-                const parsed = parseInt(tx.validator, 10);
-                if (!isNaN(parsed)) {
-                    userId = parsed;
-                }
-            }
-
-            const note = tx.note || null;
-
-            // Retry logic
-            let success = false;
-            for (let attempt = 1; attempt <= MAX_RETRIES && !success; attempt++) {
-                try {
-                    await client.query('BEGIN');
-
-                    let facturationId: number;
-
-                    // Generate hash for transaction integrity
-                    const hashData = `${tx.createdDate}|${userId}|${methodLabel}|${tx.amount}|${tx.currency || 'EUR'}|${createdAt}`;
-                    const hash = createHash('sha256').update(hashData).digest('hex').substring(0, 64);
-
-                    // Check if transaction already exists (by created_at timestamp)
-                    const existingResult = await client.query<{ id: number }>(
-                        `SELECT id FROM dc_pos.transactions WHERE created_at = $1`,
-                        [createdAt]
-                    );
-
-                    if (existingResult.rows.length > 0) {
-                        if (!cli.overwrite) {
-                            await client.query('ROLLBACK');
-                            success = true; // Skip duplicate, don't retry
-                            break;
-                        }
-                        // Overwrite mode: delete existing transaction and its items
-                        facturationId = existingResult.rows[0].id;
-                        await client.query(`DELETE FROM dc_pos.transaction_items WHERE transaction_id = $1`, [
-                            facturationId,
-                        ]);
-                        await client.query(`DELETE FROM dc_pos.transactions WHERE id = $1`, [facturationId]);
-                    }
-
-                    // Use transaction.createdDate as order_id (integer timestamp)
-                    const factResult = await client.query<{ id: number }>(
-                        `INSERT INTO dc_pos.transactions (order_id, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
-                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
-                        [
-                            tx.createdDate.toString(),
-                            'Cashier',
-                            methodLabel,
-                            tx.amount,
-                            tx.currency || 'EUR',
-                            note,
-                            hash,
-                            createdAt,
-                            updatedAt,
-                        ]
-                    );
-                    facturationId = factResult.rows[0].id;
-
-                    for (const p of tx.products) {
-                        const discountAmount = p.discount?.value ?? p.discount?.amount ?? 0;
-                        const discountUnit = p.discount?.unity ?? p.discount?.unit ?? '%';
-
-                        await client.query(
-                            `INSERT INTO dc_pos.transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total)
-                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                            [
-                                facturationId,
-                                p.label,
-                                p.category,
-                                p.amount,
-                                p.quantity,
-                                discountAmount,
-                                discountUnit || '%',
-                                p.total,
-                            ]
-                        );
-                    }
-
-                    await client.query('COMMIT');
-                    imported++;
-                    success = true;
-                } catch (err) {
-                    await client.query('ROLLBACK');
-                    if (attempt < MAX_RETRIES) {
-                        // Wait before retry (exponential backoff)
-                        await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
-                    } else {
-                        // Final attempt failed
-                        process.stdout.write('\r' + ' '.repeat(100) + '\r');
-                        console.error(
-                            `  ✗ Error importing transaction from ${panierId} at ${createdAt} (${MAX_RETRIES} attempts):`,
-                            err
-                        );
-                        errors++;
-                    }
-                }
-            }
-        }
-
-        // Clear progress line and show final summary
-        process.stdout.write('\r' + ' '.repeat(100) + '\r'); // Clear the line
-        console.log(`\n✨ Done! Imported ${imported} transactions (${errors} errors).`);
-
-        // Clear checkpoint on successful completion
-        clearCheckpoint();
+        console.log('\n🚀 Using batch INSERT mode for fast bulk loading');
+        await importWithBatchInserts(client, allTransactions, totalTx, cli);
     } finally {
         client.release();
         await pool.end();
