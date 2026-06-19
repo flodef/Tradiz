@@ -247,7 +247,7 @@ async function loadCurrencies(client: PoolClient): Promise<Map<string, number>> 
     const map = new Map<string, number>();
 
     const { rows } = await client.query<{ id: number; label: string; symbol: string }>(
-        'SELECT id, label, symbol FROM dc_pos.currency'
+        'SELECT id, label, symbol FROM dc_pos.currencies'
     );
 
     for (const row of rows) {
@@ -489,13 +489,13 @@ async function main() {
                         await client.query(`DELETE FROM dc_pos.transactions WHERE id = $1`, [facturationId]);
                     }
 
-                    // Use transaction.createdDate as panier_id (integer timestamp)
+                    // Use transaction.createdDate as order_id (integer timestamp)
                     const factResult = await client.query<{ id: number }>(
-                        `INSERT INTO dc_pos.transactions (panier_id, user_id, payment_method, amount, currency, note, hash, created_at, updated_at)
+                        `INSERT INTO dc_pos.transactions (order_id, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
                          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
                         [
-                            tx.createdDate,
-                            userId,
+                            tx.createdDate.toString(),
+                            'Cashier',
                             methodLabel,
                             tx.amount,
                             tx.currency || 'EUR',
