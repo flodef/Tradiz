@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { twMerge } from 'tailwind-merge';
 import { utils, writeFile } from 'xlsx';
 import { sendSummaryEmail } from '../actions/email';
 import { Shop } from '../contexts/ConfigProvider';
@@ -42,7 +43,11 @@ export const useSummary = () => {
 
     const ImportOption = useMemo(
         () => (
-            <label className="w-full cursor-pointer font-semibold text-xl pl-3 text-left">
+            <label
+                className={twMerge(
+                    'w-full font-semibold text-xl py-2 pl-3 text-left hover:bg-active-light dark:hover:bg-active-dark cursor-pointer'
+                )}
+            >
                 Importer
                 <input
                     className="hidden"

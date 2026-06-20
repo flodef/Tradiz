@@ -112,7 +112,17 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         setCounterServiceTypeState(type);
     }, []);
 
-    const isDbConnected = useMemo(() => (USE_DIGICARTE || IS_DEV) && isOnline, [isOnline]);
+    const [hasDbConfig, setHasDbConfig] = useState(false);
+
+    useEffect(() => {
+        const checkDb = async () => {
+            const hasConfig = await checkDbConfig();
+            setHasDbConfig(hasConfig);
+        };
+        checkDb();
+    }, []);
+
+    const isDbConnected = useMemo(() => hasDbConfig && isOnline, [hasDbConfig, isOnline]);
 
     useEffect(() => {
         setCurrentMercurial(parameters.mercurial);
