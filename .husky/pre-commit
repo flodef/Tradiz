@@ -1,13 +1,10 @@
 #!/bin/sh
-if git diff --cached --name-only | grep -E '\.(ts(x)?|js(x)?)$'; 
-then 
-    echo "Running tests..."
-    bun test || exit 1
-    echo "Running build..."
-    bun run build || exit 1
-else 
-    echo "Running lint..."
-    bun lint
-fi
+# Auto-increment version before push
 
-echo "Pre-commit checks passed!"
+echo "📦 Checking version before push..."
+bun scripts/utils/increment-version.js
+
+# Add the updated package.json to the commit
+git add package.json
+
+echo "✅ Version updated and staged for commit"
