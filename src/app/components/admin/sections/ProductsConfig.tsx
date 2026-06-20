@@ -8,6 +8,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { IconChevronDown, IconChevronUp, IconInfoCircle, IconSelector } from '@tabler/icons-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AdminSelect from '../AdminSelect';
+import AdminButton from '../AdminButton';
 import AvailabilityToggle from '../AvailabilityToggle';
 import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
@@ -812,12 +813,9 @@ export default function ProductsConfig({
                 </DndContext>
             )}
             {!isReadOnly && !hasFilter && (
-                <button
-                    onClick={() => handleAddProduct()}
-                    className="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-sm"
-                >
+                <AdminButton variant="add" onClick={() => handleAddProduct()} className="mt-4">
                     Ajouter un produit
-                </button>
+                </AdminButton>
             )}
         </SectionCard>
     );

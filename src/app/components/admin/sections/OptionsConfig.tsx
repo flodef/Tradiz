@@ -4,7 +4,7 @@ import { adminHeaderStyle } from '@/app/utils/constants';
 import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AdminButton from '../AdminButton';
 import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
@@ -151,7 +151,7 @@ const SortableRow = memo(function SortableRow({
                                         value={option.value}
                                         onChange={(value) => handleOptionChange(index, 'value', value)}
                                         placeholder="Valeur"
-                                        className="w-24"
+                                        className="flex-1 min-w-0"
                                     />
                                     <ValidatedInput
                                         type="number"
@@ -160,7 +160,7 @@ const SortableRow = memo(function SortableRow({
                                         placeholder="Prix"
                                         min={0}
                                         step={priceStep}
-                                        className="w-24"
+                                        className="w-16"
                                     />
                                     {group.options.length > 1 && (
                                         <button
@@ -176,7 +176,7 @@ const SortableRow = memo(function SortableRow({
                         </div>
                     ))}
                     {!isReadOnly && (
-                        <AdminButton variant="add" onClick={handleAddOption} className="text-xs py-1 px-2">
+                        <AdminButton variant="add" onClick={handleAddOption} className="text-xs py-1 px-2 mt-0">
                             + Option
                         </AdminButton>
                     )}
@@ -238,6 +238,22 @@ export default function OptionsConfig({
     }, [config]);
 
     const strip = (items: InternalOptionGroup[]): ProductOptionGroup[] => items.map(({ _id: _, ...rest }) => rest);
+
+    // Validate that each option group has at least 2 options with all fields filled
+    const isValid = useMemo(() => {
+        return groups.every((group) => {
+            // Check that type is filled
+            if (!group.type || group.type.trim() === '') return false;
+            // Check that there are at least 2 options
+            if (group.options.length < 2) return false;
+            // Check that all options have value and price filled
+            return group.options.every((opt) => {
+                const hasValue = opt.value && opt.value.trim() !== '';
+                const hasPrice = opt.price !== undefined && opt.price !== null && opt.price >= 0;
+                return hasValue && hasPrice;
+            });
+        });
+    }, [groups]);
 
     const notifyParent = useCallback(
         (items: InternalOptionGroup[]) => {
@@ -350,6 +366,7 @@ export default function OptionsConfig({
         <SectionCard
             title="Options"
             onSave={isReadOnly || !hasChanges ? undefined : () => onSave(strip(groups))}
+            saveDisabled={!isValid}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
             isLoading={isLoading}
             isOpen={isOpen}
@@ -359,16 +376,18 @@ export default function OptionsConfig({
                 <SortableContext items={groups.map((g) => g._id)} strategy={verticalListSortingStrategy}>
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse">
-                            <thead>
-                                <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                    {!isReadOnly && <th className="w-12"></th>}
-                                    <th className={adminHeaderStyle + ' min-w-32'}>Catégorie</th>
-                                    <th className={adminHeaderStyle + ' min-w-32'}>Produit</th>
-                                    <th className={adminHeaderStyle + ' min-w-32'}>Type</th>
-                                    <th className={adminHeaderStyle + ' min-w-48'}>Options (Valeur / Prix)</th>
-                                    {!isReadOnly && <th className="w-16"></th>}
-                                </tr>
-                            </thead>
+                            {groups.length > 0 && (
+                                <thead>
+                                    <tr className="border-b-2 border-gray-300 dark:border-gray-600">
+                                        {!isReadOnly && <th className="w-12"></th>}
+                                        <th className={adminHeaderStyle + ' min-w-32'}>Catégorie</th>
+                                        <th className={adminHeaderStyle + ' min-w-32'}>Produit</th>
+                                        <th className={adminHeaderStyle + ' min-w-32'}>Type</th>
+                                        <th className={adminHeaderStyle + ' min-w-48'}>Options (Valeur / Prix)</th>
+                                        {!isReadOnly && <th className="w-16"></th>}
+                                    </tr>
+                                </thead>
+                            )}
                             <tbody>
                                 {groups.map((group) => (
                                     <SortableRow
