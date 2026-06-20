@@ -57,16 +57,19 @@ export async function GET() {
         };
         data.values.push(['Taux', 'Catégorie', 'Nom', 'Stock', 'Reference', 'Photo', 'Description', 'Euro (€)']);
         data.values.push(
-            ...allRows.map((row): (number | string | boolean | null)[] => [
-                row.rate != null ? Number(row.rate) / 100 : null,
-                String(row.category),
-                String(row.label),
-                row.stock === null ? null : Number(row.stock),
-                String(row.reference || ''),
-                String(row.photo || ''),
-                String(row.description || ''),
-                Number(Number(row.amount).toFixed(2)),
-            ])
+            ...allRows.map((row): (number | string | boolean | null)[] => {
+                // Ensure we always have exactly 8 columns, even if some data is missing
+                return [
+                    row.rate !== null ? Number(row.rate) / 100 : null,
+                    String(row.category),
+                    String(row.label),
+                    row.stock !== null ? Number(row.stock) : null,
+                    String(row.reference),
+                    String(row.photo),
+                    String(row.description),
+                    Number(Number(row.amount).toFixed(2)),
+                ];
+            })
         );
         data.options = allRows.map((row) => row.options || null);
 

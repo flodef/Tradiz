@@ -61,10 +61,17 @@ export async function resolveUserFromKey(
     }
 
     try {
+        // Collect browser data for logging
+        const browserData = {
+            screenResolution: `${window.screen.width}x${window.screen.height}`,
+            language: navigator.language,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        };
+
         const resolveResponse = await fetch('/api/sql/resolveUser', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ publicKey }),
+            body: JSON.stringify({ publicKey, browserData }),
         });
 
         if (resolveResponse.ok) {
