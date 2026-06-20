@@ -17,7 +17,7 @@ const formatOptions = (optionsStr?: string): string => {
     try {
         const options = JSON.parse(optionsStr);
         if (Array.isArray(options)) {
-            return options.map((opt) => `${opt.type}: ${opt.valeur}`).join(', ');
+            return options.map((opt) => `${opt.type}: ${opt.value}`).join(', ');
         }
         return optionsStr;
     } catch {

@@ -19,8 +19,8 @@ import { useAddPopupClass } from './Popup';
 export const CATEGORY_BUTTON_SIZE: ButtonSize = 'xl';
 
 // Local types for option selection helpers
-type OptionDef = { type: string; options: { valeur: string; prix: number | string }[] };
-type OptionSel = { type: string; valeur: string; prix: number };
+type OptionDef = { type: string; options: { value: string; price: number | string }[] };
+type OptionSel = { type: string; value: string; price: number };
 
 interface CategoryInputButton {
     input: string;
@@ -102,10 +102,14 @@ export const Category: FC = () => {
             return;
         }
         const ot = optionTypes[idx];
+        if (!ot || !ot.options || !Array.isArray(ot.options)) {
+            onDone(selected);
+            return;
+        }
         const choices = ot.options.map((o) => {
-            const p = parseFloat(String(o.prix)) || 0;
-            if (p <= 0) return o.valeur;
-            return basePrice > 0 ? `${o.valeur} (+${p.toFixed(2)}€)` : `${o.valeur} (${p.toFixed(2)}€)`;
+            const p = parseFloat(String(o.price)) || 0;
+            if (p <= 0) return o.value;
+            return basePrice > 0 ? `${o.value} (+${p.toFixed(2)}€)` : `${o.value} (${p.toFixed(2)}€)`;
         });
         choices.push('Passer');
         openPopup(ot.type, choices, (i) => {
@@ -114,8 +118,8 @@ export const Category: FC = () => {
             if (i < ot.options.length) {
                 // not "Passer"
                 const opt = ot.options[i];
-                const prix = parseFloat(String(opt.prix)) || 0;
-                next.push({ type: ot.type, valeur: opt.valeur, prix });
+                const price = parseFloat(String(opt.price)) || 0;
+                next.push({ type: ot.type, value: opt.value, price });
             }
             selectOptionsChain(optionTypes, next, idx + 1, onDone, basePrice);
         });
@@ -141,15 +145,15 @@ export const Category: FC = () => {
                 if (i < 0) return; // X button → abort
                 const art = elem.articles[i];
                 const afterOptions = (optSel: OptionSel[]) => {
-                    const extra = optSel.reduce((s, o) => s + o.prix, 0);
+                    const extra = optSel.reduce((s, o) => s + o.price, 0);
                     const optStr =
                         optSel.length > 0
-                            ? ` [${optSel.map((o) => (o.prix > 0 ? `${o.valeur} (+${o.prix.toFixed(2)}€)` : o.valeur)).join(', ')}]`
+                            ? ` [${optSel.map((o) => (o.price > 0 ? `${o.value} (+${o.price.toFixed(2)}€)` : o.value)).join(', ')}]`
                             : '';
                     selectFormulaElements(
                         formula,
                         elemIdx + 1,
-                        [...elements, { type: 'element', valeur: `${art.nom}${optStr}`, prix: 0 }],
+                        [...elements, { type: 'element', value: `${art.nom}${optStr}`, price: 0 }],
                         extraAmount + extra,
                         onDone
                     );
@@ -198,7 +202,9 @@ export const Category: FC = () => {
                 const article = catalog.articles.find((a) => a.nom === label);
                 if (article?.options) {
                     try {
-                        const ots: OptionDef[] = JSON.parse(article.options);
+                        const parsed = JSON.parse(article.options);
+                        // Handle both formats: single object {type, options} or array of objects
+                        const ots: OptionDef[] = Array.isArray(parsed) ? parsed : [parsed];
                         if (ots.length > 0) {
                             selectOptionsChain(
                                 ots,
@@ -206,7 +212,7 @@ export const Category: FC = () => {
                                 0,
                                 (selected) =>
                                     doAdd(
-                                        selected.reduce((s, o) => s + o.prix, 0),
+                                        selected.reduce((s, o) => s + o.price, 0),
                                         selected
                                     ),
                                 Number(article.prix) || 0
@@ -367,7 +373,9 @@ export const Category: FC = () => {
     ) => {
         let optionTypes: OptionDef[];
         try {
-            optionTypes = JSON.parse(product.options!) as OptionDef[];
+            const parsed = JSON.parse(product.options!);
+            // Handle both formats: single object {type, options} or array of objects
+            optionTypes = Array.isArray(parsed) ? parsed : [parsed];
         } catch {
             handleProductSelection(item, product.label);
             return;
@@ -379,14 +387,19 @@ export const Category: FC = () => {
 
         if (optionTypes.length === 1) {
             const ot = optionTypes[0];
+            if (!ot.options || !Array.isArray(ot.options)) {
+                // Invalid options, just add product without options
+                handleProductSelection(item, product.label);
+                return;
+            }
             const basePrice = product.prices[currencyIndex] ?? 0;
             const isNewPrice = amount && amount !== selectedProduct?.amount;
             const baseAmount = isNewPrice ? amount : basePrice;
 
             const choices: string[] = ot.options.map((o) => {
-                const p = parseFloat(String(o.prix)) || 0;
-                if (p <= 0) return o.valeur;
-                return basePrice > 0 ? `${o.valeur} (+${p.toFixed(2)}€)` : `${o.valeur} (${p.toFixed(2)}€)`;
+                const p = parseFloat(String(o.price)) || 0;
+                if (p <= 0) return o.value;
+                return basePrice > 0 ? `${o.value} (+${p.toFixed(2)}€)` : `${o.value} (${p.toFixed(2)}€)`;
             });
             choices.push('', BACK_KEYWORD);
 
@@ -404,9 +417,9 @@ export const Category: FC = () => {
                     return;
                 }
                 const opt = ot.options[i];
-                const prix = parseFloat(String(opt.prix)) || 0;
-                const finalAmount = basePrice > 0 ? baseAmount + prix : prix > 0 ? prix : baseAmount;
-                const selected: OptionSel[] = [{ type: ot.type, valeur: opt.valeur, prix }];
+                const price = parseFloat(String(opt.price)) || 0;
+                const finalAmount = basePrice > 0 ? baseAmount + price : price > 0 ? price : baseAmount;
+                const selected: OptionSel[] = [{ type: ot.type, value: opt.value, price }];
                 closePopup(() =>
                     addProduct({
                         category: item.category,
@@ -428,7 +441,7 @@ export const Category: FC = () => {
                 [],
                 0,
                 (selected) => {
-                    const extra = selected.reduce((s, o) => s + o.prix, 0);
+                    const extra = selected.reduce((s, o) => s + o.price, 0);
                     addProduct({
                         category: item.category,
                         label: product.label,

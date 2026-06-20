@@ -1037,17 +1037,17 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             if (product.options) {
                 try {
-                    const parsed: { type: string; valeur: string; prix: number }[] = JSON.parse(product.options);
+                    const parsed: { type: string; value: string; price: number }[] = JSON.parse(product.options);
                     // Formula product: elements stored with type === 'element'
                     if (parsed.length > 0 && parsed[0].type === 'element') {
-                        const elementLines = parsed.map((o) => `  · ${o.valeur}`).join('\n');
+                        const elementLines = parsed.map((o) => `  · ${o.value}`).join('\n');
                         return `${name}${priceSuffix}\n${elementLines}`;
                     }
                     // Regular product with paid/free options
                     const parts = parsed.map((o) =>
-                        o.prix > 0 && o.prix !== product.amount
-                            ? `${o.valeur} (+${toCurrency({ amount: o.prix, currency })})`
-                            : o.valeur
+                        o.price > 0 && o.price !== product.amount
+                            ? `${o.value} (+${toCurrency({ amount: o.price, currency })})`
+                            : o.value
                     );
                     if (parts.length > 0) {
                         return `${name} [${parts.join(', ')}]${priceSuffix}`;

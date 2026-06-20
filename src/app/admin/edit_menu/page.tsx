@@ -2,7 +2,7 @@
 
 import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
 import CategoriesConfig from '@/app/components/admin/sections/CategoriesConfig';
-import OptionsConfig from '@/app/components/admin/sections/OptionsConfig';
+import OptionsConfig, { ProductOptionGroup } from '@/app/components/admin/sections/OptionsConfig';
 import ProductsConfig, { AdminProduct } from '@/app/components/admin/sections/ProductsConfig';
 import { ProductsSettings } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
@@ -26,6 +26,9 @@ export default function EditMenuPage() {
     const [isSavingProducts, setIsSavingProducts] = useState(false);
     const [productsSettings, setProductsSettings] = useState<ProductsSettings | undefined>(parameters?.products);
     const [openSection, setOpenSection] = useState<string | null>(null);
+    const [options, setOptions] = useState<ProductOptionGroup[]>([]);
+    const [originalOptions, setOriginalOptions] = useState<ProductOptionGroup[]>([]);
+    const [hasOptionsChanges, setHasOptionsChanges] = useState(false);
 
     // Derive categories from products — categories are local-only, not stored in DB
     // If all products in a category have the same VAT, use it; otherwise null (divers)
@@ -151,6 +154,29 @@ export default function EditMenuPage() {
 
                 setProducts(loadedProducts);
                 setOriginalProducts(loadedProducts);
+
+                // Initialize options from products
+                const loadedOptions: ProductOptionGroup[] = [];
+                loadedProducts.forEach((p) => {
+                    if (p.options) {
+                        try {
+                            const parsed = JSON.parse(p.options);
+                            // Check if it's in the ProductOptionGroup format
+                            if (parsed.type && Array.isArray(parsed.options)) {
+                                loadedOptions.push({
+                                    category: p.category || 'Sans catégorie',
+                                    product: p.name,
+                                    type: parsed.type,
+                                    options: parsed.options,
+                                });
+                            }
+                        } catch {
+                            // Ignore invalid options
+                        }
+                    }
+                });
+                setOptions(loadedOptions);
+                setOriginalOptions(loadedOptions);
             } catch (error) {
                 console.error('Error fetching menu data:', error);
                 openFullscreenPopup('Erreur lors du chargement des données', ['OK']);
@@ -344,19 +370,38 @@ export default function EditMenuPage() {
                 {/* Options Configuration Section - only visible when useOptions is enabled and there are categories */}
                 {productsSettings?.useOptions && categories.length > 0 && (
                     <OptionsConfig
-                        config={[]} // Starts empty, will be populated from products
+                        config={options}
                         categories={categories.map((c) => ({ label: c.label, value: c.label }))}
                         products={products.map((p) => ({ name: p.name, category: p.category }))}
                         currencies={currencies}
                         onChange={(newOptions) => {
-                            console.log('Options changed:', newOptions);
-                            // TODO: Map options back to products
+                            setOptions(newOptions);
+                            setHasOptionsChanges(JSON.stringify(newOptions) !== JSON.stringify(originalOptions));
                         }}
-                        onSave={(newOptions) => {
-                            console.log('Options saved:', newOptions);
-                            // TODO: Save options to products
+                        onSave={async (newOptions) => {
+                            // Map options to products
+                            const updatedProducts = products.map((p) => {
+                                const optionGroup = newOptions.find(
+                                    (o) => o.category === (p.category || 'Sans catégorie') && o.product === p.name
+                                );
+                                return {
+                                    ...p,
+                                    options: optionGroup
+                                        ? JSON.stringify({ type: optionGroup.type, options: optionGroup.options })
+                                        : '',
+                                };
+                            });
+                            await handleProductsSave(updatedProducts);
+                            setOriginalOptions(newOptions);
+                            setHasOptionsChanges(false);
                         }}
+                        onCancel={() => {
+                            setOptions(originalOptions);
+                            setHasOptionsChanges(false);
+                        }}
+                        hasChanges={hasOptionsChanges}
                         isReadOnly={isReadOnly}
+                        isLoading={isSavingProducts}
                         isOpen={openSection === 'options'}
                         onToggle={() => setOpenSection((prev) => (prev === 'options' ? null : 'options'))}
                     />
