@@ -35,17 +35,6 @@ export function computeHasDbConfig(env: DbConfigEnv): boolean {
 }
 
 export async function GET() {
-    // Log environment variables for debugging
-    console.log('[getDbConfig] Environment check:', {
-        PG_HOST: process.env.PG_HOST ? 'SET' : 'NOT SET',
-        PG_USER: process.env.PG_USER ? 'SET' : 'NOT SET',
-        PG_PASSWORD: process.env.PG_PASSWORD ? 'SET' : 'NOT SET',
-        NEXT_PUBLIC_SHOP_ID: process.env.NEXT_PUBLIC_SHOP_ID ? 'SET' : 'NOT SET',
-        PG_DATABASE: process.env.PG_DATABASE ? 'SET' : 'NOT SET',
-        NEXT_PUBLIC_USE_DIGICARTE: process.env.NEXT_PUBLIC_USE_DIGICARTE,
-    });
-
     const hasDbConfig = computeHasDbConfig(process.env as DbConfigEnv);
-    console.log('[getDbConfig] hasDbConfig:', hasDbConfig);
     return NextResponse.json({ hasDbConfig });
 }

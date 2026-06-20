@@ -51,14 +51,6 @@ export async function GET() {
         // Combine all rows
         const allRows = [...(productsRows as ArticleRow[]), ...(formulasRows as ArticleRow[])];
 
-        // Log for debugging
-        console.log(
-            `[getAllArticles] Fetched ${allRows.length} rows (${(productsRows as ArticleRow[]).length} products, ${(formulasRows as ArticleRow[]).length} formulas)`
-        );
-        if (allRows.length > 0) {
-            console.log('[getAllArticles] Sample row:', allRows[0]);
-        }
-
         const data: { values: (number | string | boolean | null)[][]; options: (string | null)[] } = {
             values: [],
             options: [],
@@ -68,14 +60,14 @@ export async function GET() {
             ...allRows.map((row): (number | string | boolean | null)[] => {
                 // Ensure we always have exactly 8 columns, even if some data is missing
                 return [
-                    row.rate != null ? Number(row.rate) / 100 : null,
-                    String(row.category || ''),
-                    String(row.label || ''),
-                    row.stock === null || row.stock === undefined ? null : Number(row.stock),
-                    String(row.reference ?? ''),
-                    String(row.photo ?? ''),
-                    String(row.description ?? ''),
-                    Number(Number(row.amount || 0).toFixed(2)),
+                    row.rate !== null ? Number(row.rate) / 100 : null,
+                    String(row.category),
+                    String(row.label),
+                    row.stock !== null ? Number(row.stock) : null,
+                    String(row.reference),
+                    String(row.photo),
+                    String(row.description),
+                    Number(Number(row.amount).toFixed(2)),
                 ];
             })
         );

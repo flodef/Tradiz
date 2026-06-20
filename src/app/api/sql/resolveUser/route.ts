@@ -184,33 +184,28 @@ export async function POST(request: NextRequest) {
         const userRows = rows as UserRow[];
         const foundUser = userRows.length > 0 ? userRows[0] : null;
 
-        // Log access attempt (don't fail the request if logging fails)
-        try {
-            await logAccessAttempt(
-                connection,
-                publicKey,
-                foundUser?.name || null,
-                foundUser?.role || null,
-                ipAddress,
-                userAgent,
-                browserName,
-                browserVersion,
-                osName,
-                osVersion,
-                deviceType,
-                screenResolution,
-                language,
-                timezone,
-                country,
-                city,
-                latitude,
-                longitude,
-                !!foundUser
-            );
-        } catch (logError) {
-            console.error('Failed to log access attempt:', logError);
-            // Continue with the request even if logging fails
-        }
+        // Log access attempt
+        await logAccessAttempt(
+            connection,
+            publicKey,
+            foundUser?.name || null,
+            foundUser?.role || null,
+            ipAddress,
+            userAgent,
+            browserName,
+            browserVersion,
+            osName,
+            osVersion,
+            deviceType,
+            screenResolution,
+            language,
+            timezone,
+            country,
+            city,
+            latitude,
+            longitude,
+            !!foundUser
+        );
 
         await connection.end();
 
