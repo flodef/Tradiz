@@ -7,6 +7,7 @@ interface UserRow {
     role: string;
 }
 
+const MAX_FAILED_ATTEMPTS = 3;
 export const dynamic = 'force-dynamic';
 
 /**
@@ -79,7 +80,36 @@ function parseUserAgent(userAgent: string): {
 }
 
 /**
+ * Check if an IP is blocked due to too many failed attempts
+ */
+async function isIpBlocked(connection: import('../db').DbConnection, ipAddress: string): Promise<boolean> {
+    try {
+        // Check for failed attempts in the last hour from this IP
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const query = connection.isPostgreSQL
+            ? `SELECT COUNT(*) as count FROM dc_sys.logs 
+               WHERE metadata->>'ip_address' = $1 
+               AND metadata->>'success' = 'false' 
+               AND created_at > $2`
+            : `SELECT COUNT(*) as count FROM dc_sys.logs 
+               WHERE JSON_EXTRACT(metadata, '$.ip_address') = ? 
+               AND JSON_EXTRACT(metadata, '$.success') = 'false' 
+               AND created_at > ?`;
+
+        const [rows] = await connection.execute(query, [ipAddress, oneHourAgo]);
+        const count = (rows as { count: number }[])[0]?.count || 0;
+
+        // Block IP if more than MAX_FAILED_ATTEMPTS failed attempts in the last hour
+        return count >= MAX_FAILED_ATTEMPTS;
+    } catch (error) {
+        console.error('Failed to check IP block status:', error);
+        return false;
+    }
+}
+
+/**
  * Log access attempt to database using the existing logs table
+ * Only logs failed connections from Europe/Paris timezone
  */
 async function logAccessAttempt(
     connection: import('../db').DbConnection,
@@ -103,6 +133,9 @@ async function logAccessAttempt(
     success: boolean
 ): Promise<void> {
     try {
+        // Only log connections from Europe/Paris timezone
+        if (timezone !== 'Europe/Paris') return;
+
         const metadata = {
             type: 'access_attempt',
             public_key: publicKey,
@@ -130,7 +163,7 @@ async function logAccessAttempt(
             : `INSERT INTO dc_sys.logs (level, message, metadata) VALUES (?, ?, ?)`;
 
         await connection.execute(query, [
-            success ? 'info' : 'warning',
+            'warning',
             `User access attempt: ${userName || 'unknown'} (${publicKey})`,
             JSON.stringify(metadata),
         ]);
@@ -174,6 +207,19 @@ export async function POST(request: NextRequest) {
         const longitude = browserData?.longitude || null;
 
         const connection = await getPosDb();
+
+        // Immediately block users not from Europe/Paris timezone
+        if (timezone !== 'Europe/Paris') {
+            await connection.end();
+            return NextResponse.json({ error: 'Access denied: Invalid timezone' }, { status: 403 });
+        }
+
+        // Check if IP is blocked due to too many failed attempts
+        const blocked = await isIpBlocked(connection, ipAddress);
+        if (blocked) {
+            await connection.end();
+            return NextResponse.json({ error: 'Too many failed attempts. Please try again later.' }, { status: 429 });
+        }
 
         // Query for the specific user with matching key
         const query = connection.isPostgreSQL

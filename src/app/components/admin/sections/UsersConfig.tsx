@@ -203,8 +203,6 @@ export default function UsersConfig({
 
     const sensors = useSensors(useSensor(PointerSensor));
 
-    const hasNoUsers = nonAdminUsers.length === 0;
-
     return (
         <SectionCard
             title="Utilisateurs"
@@ -215,16 +213,6 @@ export default function UsersConfig({
             isOpen={isOpen}
             onToggle={onToggle}
         >
-            {hasNoUsers && (
-                <div className="mb-4 p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-lg">
-                    <p className="text-sm text-red-800 dark:text-red-200">
-                        <strong>Attention :</strong> Aucun utilisateur configuré. L'application peut être accessible par
-                        n'importe qui depuis n'importe où. Veuillez ajouter au moins un utilisateur pour sécuriser
-                        l'accès.
-                    </p>
-                </div>
-            )}
-
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={nonAdminUsers.map((u) => u._id)} strategy={verticalListSortingStrategy}>
                     <div className="overflow-x-auto">

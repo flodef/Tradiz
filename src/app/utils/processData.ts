@@ -10,7 +10,7 @@ import {
     Role,
     User,
 } from '../utils/interfaces';
-import { DEFAULT_USER, DEV_EMAIL } from './constants';
+import { DEV_EMAIL } from './constants';
 import './extensions';
 import { generateSimpleId } from './id';
 
@@ -46,16 +46,15 @@ export class UserNotFoundError extends Error {
 
 /**
  * Resolves user from public key by calling server-side API.
- * Returns the found user or a default service user.
+ * Returns the found user or null if not authenticated.
  * Never exposes full user list - authentication happens server-side.
  */
 export async function resolveUserFromKey(
-    publicKey: string | undefined,
-    defaultUserName: string = DEFAULT_USER
-): Promise<{ user: User; foundUser: User | undefined }> {
+    publicKey: string | undefined
+): Promise<{ user: User | null; foundUser: User | undefined }> {
     if (!publicKey) {
         return {
-            user: { name: defaultUserName, role: Role.service },
+            user: null,
             foundUser: undefined,
         };
     }
@@ -77,16 +76,15 @@ export async function resolveUserFromKey(
         if (resolveResponse.ok) {
             const { user: resolvedUser } = await resolveResponse.json();
             const foundUser = resolvedUser || undefined;
-            const user: User = foundUser || { name: defaultUserName, role: Role.service };
+            const user: User | null = foundUser || null;
             return { user, foundUser };
         }
     } catch {
-        // Network error - fall through to default
+        // Network error - return null
     }
 
-    // Fallback to default service user
     return {
-        user: { name: defaultUserName, role: Role.service },
+        user: null,
         foundUser: undefined,
     };
 }
@@ -287,7 +285,10 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
     const publicKey = getPublicKey();
     const { user } = await resolveUserFromKey(publicKey);
 
-    const parameters = buildParameters(param, user);
+    // Require authentication - if no user found, don't load data
+    if (!user) throw new UserNotFoundError(publicKey);
+
+    const parameters = buildParameters(param, user!);
 
     const paymentMethods = await fetchData(dataNames.paymentMethods, id).then(convertPaymentMethodsData);
     const allCurrencies = await fetchData(dataNames.currencies, id).then(convertCurrenciesData);
