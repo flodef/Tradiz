@@ -4,6 +4,7 @@ import { twMerge } from 'tailwind-merge';
 import './globals.css';
 import { USE_DIGICARTE } from './utils/constants';
 import { conditionalManifestScript, preloadedThemeScript } from './utils/scriptUtils';
+import { VersionChecker } from './components/VersionChecker';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 )}
             >
                 {children}
+                <VersionChecker />
             </body>
         </html>
     );
