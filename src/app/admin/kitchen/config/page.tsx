@@ -118,7 +118,6 @@ export default function SettingsPage() {
 
             const response = await fetch('/api/sql/getParameters');
             const data = await response.json();
-            console.log('Parameters API response:', data);
 
             if (data.values && data.values.length > 0) {
                 const paramMap = new Map<string, string>();

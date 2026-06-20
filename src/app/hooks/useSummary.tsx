@@ -77,7 +77,6 @@ export const useSummary = () => {
         const prefix = transactionsFilename.split('_')[0];
         const allKeys = await idbGetAllKeys();
         const matching = allKeys.filter((key) => key.split('_')[0] === prefix);
-        console.log('[useSummary] refreshHistoricalKeys:', { prefix, allKeys, matching });
         setHistoricalKeys(matching);
     }, [transactionsFilename]);
 
@@ -1102,11 +1101,6 @@ export const useSummary = () => {
     const showTransactionsSummaryMenu = useCallback(() => {
         const hasTransactions = transactions.length || tempTransactions.current.length;
         const historicalTransactions = getHistoricalTransactions();
-        console.log('[useSummary] showTransactionsSummaryMenu:', {
-            hasTransactions,
-            historicalTransactions,
-            isDbConnected,
-        });
 
         // If no transactions, nor historical transaction and DB connected, show sync menu directly
         if (!hasTransactions && !historicalTransactions.length && isDbConnected) {

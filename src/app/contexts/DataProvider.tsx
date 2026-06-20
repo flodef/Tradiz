@@ -138,7 +138,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 return null;
             }
             const data = await response.json();
-            console.log('SQL DB transactions loaded successfully:', data.transactions?.length || 0);
             return data.transactions as Transaction[];
         } catch (error) {
             console.error('Error loading transactions from SQL DB:', error);
@@ -175,7 +174,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         }
 
         setShopId(shopId);
-        console.log('[DataProvider] Using shopId:', shopId);
 
         const filename = getTransactionFileName(shopId);
 
@@ -190,9 +188,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             }
 
             if (keysToMigrate.length > 0) {
-                console.log(
-                    `[Migration] Auto-migrating ${keysToMigrate.length} transaction set(s) from localStorage to IndexedDB`
-                );
                 for (const key of keysToMigrate) {
                     const raw = localStorage.getItem(key);
                     if (!raw) continue;
@@ -215,7 +210,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             await idbSetTransactions(key, transactions);
                         }
                         localStorage.removeItem(key);
-                        console.log(`[Migration] Migrated ${key} (${transactions.length} transactions)`);
                     } catch (e) {
                         console.error(`[Migration] Failed to migrate ${key}:`, e);
                     }
@@ -256,9 +250,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             await idbSetTransactions(key, mergedOld);
                         }
 
-                        console.log(
-                            `[DayReset] Archived ${oldTransactions.length} old transactions into ${groupedByDay.size} day(s)`
-                        );
+                        // Save each day's transactions to IndexedDB
                     }
 
                     // Only show current day's transactions
@@ -266,16 +258,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     setTransactions(currentDayTransactions);
                     areTransactionLoaded.current = true;
                     setTransactionsFilename(filename);
-                    console.log(
-                        'Merged transactions: local=',
-                        localTransactions.length,
-                        'sql=',
-                        sqlTransactions.length,
-                        'current day=',
-                        currentDayTransactions.length,
-                        'archived=',
-                        oldTransactions.length
-                    );
                     return;
                 }
             }
@@ -299,7 +281,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     ]);
 
     const performDayReset = useCallback(() => {
-        console.log('[DayReset] Performing day reset...');
         areTransactionLoaded.current = false;
         setTransactionsFilename('');
         nextResetTime.current = getResetTimes().next;
@@ -392,20 +373,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const localTransactionSets = await getLocalTransactions();
             let syncedCount = 0;
 
-            console.log(
-                'syncTransactions',
-                'cloud',
-                cloudTransactionSets.sort((a, b) => a.id.localeCompare(b.id)),
-                'local',
-                localTransactionSets.sort((a, b) => a.id.localeCompare(b.id))
-            );
-
             // Merge cloud → local
             for (const cloudTransactionSet of cloudTransactionSets) {
                 const localTransactionSet = localTransactionSets.find((set) => set.id === cloudTransactionSet.id);
 
                 if (!localTransactionSet) {
-                    console.log('Added set to local', cloudTransactionSet.id);
                     updateLocalTransaction(cloudTransactionSet);
                     syncedCount += cloudTransactionSet.transactions.length;
                 } else {
@@ -420,14 +392,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         );
 
                         if (index === -1) {
-                            console.log('Added transaction to local', cloudTransaction);
                             updateTransactionSet.transactions.push(cloudTransaction);
                             syncedCount++;
                         } else if (localTransactionSet.id === transactionsFilename) {
                             const localTransaction = localTransactionSet.transactions[index];
 
                             if (cloudTransaction.modifiedDate > localTransaction.modifiedDate) {
-                                console.log('Updated transaction in local', cloudTransaction);
                                 updateTransactionSet.transactions.splice(index, 1, cloudTransaction);
                                 syncedCount++;
                             } else if (cloudTransaction.modifiedDate < localTransaction.modifiedDate) {
@@ -491,7 +461,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const processSyncFromSQL = useCallback(
         async (syncPeriod: SyncPeriod, onProgress?: (percent: number) => void): Promise<number> => {
             try {
-                console.log('[SQL Sync] Starting sync with shopId:', shopId);
                 onProgress?.(5);
 
                 // Include deleted transactions so deletions propagate across devices
@@ -528,13 +497,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         batchOffset += BATCH_SIZE;
                         // Progress 5% → 40% during fetch (cap so it keeps moving)
                         onProgress?.(Math.min(40, 5 + Math.floor(sqlTransactions.length / 500)));
-                        console.log(`[SQL Sync] Fetched batch, total so far: ${sqlTransactions.length}`);
                     }
                 }
-                console.log('[SQL Sync] Fetched transactions from SQL:', sqlTransactions.length);
 
                 if (!sqlTransactions.length) {
-                    console.log('[SQL Sync] No transactions to sync');
                     return 0;
                 }
 
@@ -543,15 +509,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 sqlTransactions.forEach((tx) => {
                     const date = new Date(tx.createdDate);
                     const dateKey = getTransactionFileName(shopId, date);
-                    console.log('[SQL Sync] Transaction dateKey:', dateKey, 'for tx:', tx.createdDate);
                     if (!groupedByDate.has(dateKey)) groupedByDate.set(dateKey, []);
                     groupedByDate.get(dateKey)!.push(tx);
                 });
-
-                console.log(
-                    `[SQL Sync] Grouped ${sqlTransactions.length} transactions into ${groupedByDate.size} day(s)`,
-                    Array.from(groupedByDate.keys())
-                );
 
                 // Sync each day's transactions separately
                 const dateKeys = Array.from(groupedByDate.keys());
@@ -570,7 +530,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     syncedDays++;
                     // Progress from 40% to 70% based on days synced
                     onProgress?.(40 + Math.floor((syncedDays / totalDays) * 30));
-                    console.log(`[SQL Sync] Synced ${dayTransactions.length} transactions for ${dateKey}`);
                 }
 
                 // Local→SQL push: reconcile local transactions with SQL for current day only
@@ -588,11 +547,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         );
                         if (!sqlTx) {
                             // Local-only → push to SQL
-                            console.log('Pushing local transaction to SQL:', localTx.createdDate);
                             await pushTransactionToSQL(localTx, 'add');
                         } else if (localTx.modifiedDate > sqlTx.modifiedDate) {
                             // Local is newer → update SQL (full replace)
-                            console.log('Updating SQL with newer local transaction:', localTx.createdDate);
                             await pushTransactionToSQL(localTx, 'sync');
                         }
                         // Progress from 70% to 90% based on local transactions processed
@@ -601,7 +558,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }
 
                 onProgress?.(100);
-                console.log('SQL DB sync completed:', sqlTransactions.length, 'SQL transactions');
                 return sqlTransactions.length;
             } catch (error) {
                 console.error('Error syncing from SQL DB:', error);
