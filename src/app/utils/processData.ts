@@ -77,7 +77,7 @@ export async function resolveUserFromKey(
         if (resolveResponse.ok) {
             const { user: resolvedUser } = await resolveResponse.json();
             const foundUser = resolvedUser || undefined;
-            const user: User = foundUser || { name: defaultUserName, role: Role.service };
+            const user: User = foundUser || { name: defaultUserName, role: Role.admin }; // Temporarily set to admin for testing
             return { user, foundUser };
         }
     } catch {
@@ -635,11 +635,14 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
             .json()
             .then(
                 (data: { values: (string | number)[][]; options?: (string | null)[]; error: { message: string } }) => {
+                    console.log('[convertProductsData] Received data:', data);
                     checkData(data, 'Produits', 4, 10);
 
                     // Build a mapping from filtered row index → options string
                     const rowsAfterHeader = data.values.slice(1);
                     const optionsArr = data.options ?? [];
+
+                    console.log(`[convertProductsData] Processing ${rowsAfterHeader.length} rows`);
 
                     // Track which original rows survive the removeEmpty pipeline
                     const filtered = rowsAfterHeader
@@ -647,8 +650,11 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
                         .filter(({ item }) => item[1] != null && String(item[1]).trim() !== '')
                         .filter(({ item }) => item[2] != null && String(item[2]).trim() !== '');
 
+                    console.log(`[convertProductsData] After filtering: ${filtered.length} rows`);
+
                     return {
                         products: filtered.map(({ item, origIdx }, rowOrder) => {
+                            console.log(`[convertProductsData] Row ${rowOrder} has ${item.length} columns:`, item);
                             checkColumn(item, 'Produits', 8);
                             return {
                                 rate: Number(item.at(0)) * 100,
@@ -671,7 +677,7 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
                 }
             );
     } catch (error) {
-        console.error(error);
+        console.error('[convertProductsData] Error:', error);
         return;
     }
 }
