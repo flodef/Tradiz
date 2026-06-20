@@ -55,7 +55,7 @@ export async function resolveUserFromKey(
 ): Promise<{ user: User; foundUser: User | undefined }> {
     if (!publicKey) {
         return {
-            user: { name: defaultUserName, role: Role.admin }, // Temporarily set to admin for testing
+            user: { name: defaultUserName, role: Role.service },
             foundUser: undefined,
         };
     }
@@ -77,7 +77,7 @@ export async function resolveUserFromKey(
         if (resolveResponse.ok) {
             const { user: resolvedUser } = await resolveResponse.json();
             const foundUser = resolvedUser || undefined;
-            const user: User = foundUser || { name: defaultUserName, role: Role.admin }; // Temporarily set to admin for testing
+            const user: User = foundUser || { name: defaultUserName, role: Role.service };
             return { user, foundUser };
         }
     } catch {
@@ -86,7 +86,7 @@ export async function resolveUserFromKey(
 
     // Fallback to default service user
     return {
-        user: { name: defaultUserName, role: Role.admin },
+        user: { name: defaultUserName, role: Role.service },
         foundUser: undefined,
     };
 }
