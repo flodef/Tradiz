@@ -327,7 +327,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.users (
 -- STEP 5: Create tables in dc_sys schema (System)
 -- ============================================================
 
--- Logs (was: log)
+-- Logs (was: log) - Used for system logs and access tracking
 CREATE TABLE IF NOT EXISTS dc_sys.logs (
     id SERIAL PRIMARY KEY,
     level VARCHAR(20) NOT NULL,
@@ -335,6 +335,11 @@ CREATE TABLE IF NOT EXISTS dc_sys.logs (
     metadata JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Create index on level for filtering by log level
+CREATE INDEX IF NOT EXISTS idx_logs_level ON dc_sys.logs(level);
+-- Create index on created_at for time-based queries
+CREATE INDEX IF NOT EXISTS idx_logs_created_at ON dc_sys.logs(created_at DESC);
 
 -- OTA (Over-the-air updates) (was: ota)
 CREATE TABLE IF NOT EXISTS dc_sys.ota_updates (
