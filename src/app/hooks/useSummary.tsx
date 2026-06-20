@@ -83,9 +83,16 @@ export const useSummary = () => {
 
     const getFilteredTransactions = useCallback(() => {
         const t = tempTransactions.current.length ? tempTransactions.current : transactions.length ? transactions : [];
+        const currency = currencies[currencyIndex];
+        // Match the current currency tolerantly: legacy/migrated transactions store the
+        // currency as "Label (Symbol)" (e.g. "Euro (€)") while new ones store just the label.
+        const matchesCurrency = (txCurrency: string) =>
+            txCurrency === currency.label ||
+            txCurrency === currency.symbol ||
+            txCurrency === `${currency.label} (${currency.symbol})`;
         return t.filter(
             (transaction) =>
-                transaction.currency === currencies[currencyIndex].label &&
+                matchesCurrency(transaction.currency) &&
                 !!transaction.products.length &&
                 !isDeletedTransaction(transaction) &&
                 !isWaitingTransaction(transaction)

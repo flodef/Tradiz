@@ -45,7 +45,7 @@ export default function PaymentItem({ payment, onChange, onDelete, currencies, i
                         value={payment.currency}
                         onChange={(e) => !isReadOnly && onChange({ ...payment, currency: e.target.value })}
                         disabled={isReadOnly}
-                        options={currencies.map((currency) => ({ label: currency.symbol, value: currency.symbol }))}
+                        options={currencies.map((currency) => ({ label: currency.label, value: currency.label }))}
                     />
                 </div>
                 <div>

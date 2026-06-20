@@ -10,7 +10,7 @@ interface PaymentMethod {
 
 export async function POST(request: Request) {
     try {
-        const { paymentMethods } = await request.json() as { paymentMethods: PaymentMethod[] };
+        const { paymentMethods } = (await request.json()) as { paymentMethods: PaymentMethod[] };
 
         if (!Array.isArray(paymentMethods)) {
             return NextResponse.json({ error: 'Invalid payment methods data' }, { status: 400 });
@@ -19,16 +19,14 @@ export async function POST(request: Request) {
         const connection = await getPosDb();
 
         // Delete all existing payment methods
-        const deleteQuery = connection.isPostgreSQL
-            ? 'DELETE FROM payment_methods'
-            : 'DELETE FROM payment_methods';
+        const deleteQuery = connection.isPostgreSQL ? 'DELETE FROM payment_methods' : 'DELETE FROM payment_methods';
         await connection.execute(deleteQuery);
 
         // Insert new payment methods
         for (const method of paymentMethods) {
             const label = method.type;
             const address = method.id || '0';
-            const currency = method.currency || 'EUR';
+            const currency = method.currency || 'Euro';
             const hidden = !method.availability; // availability=true means hidden=false
 
             if (connection.isPostgreSQL) {
@@ -51,9 +49,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true }, { status: 200 });
     } catch (error) {
         console.error('Error updating payment methods:', error);
-        return NextResponse.json(
-            { error: 'An error occurred while updating payment methods' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'An error occurred while updating payment methods' }, { status: 500 });
     }
 }

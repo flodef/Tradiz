@@ -398,7 +398,7 @@ export const usePay = () => {
             const total = partialPaymentAmount;
             if (total && paymentMethods.length) {
                 const paymentMethodsLabels = paymentMethods
-                    .filter((item) => item.currency === currencies[currencyIndex].symbol)
+                    .filter((item) => item.currency === currencies[currencyIndex].label)
                     .map((item) => item.type);
 
                 if (paymentMethodsLabels.length === 1) {
@@ -460,7 +460,7 @@ export const usePay = () => {
                 }
 
                 const paymentMethodsLabels = paymentMethods
-                    .filter((item) => item.currency === currencies[currencyIndex].symbol)
+                    .filter((item) => item.currency === currencies[currencyIndex].label)
                     .map((item) => item.type);
 
                 // Add printer options for printing before payment

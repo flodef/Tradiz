@@ -20,6 +20,7 @@ interface TransactionRow {
 }
 
 interface ProductRow {
+    transaction_id: number;
     label: string;
     category: string;
     amount: number;
@@ -34,21 +35,38 @@ export async function GET(request: Request) {
     const date = searchParams.get('date'); // Format: YYYY-MM-DD
     const period = searchParams.get('period'); // 'day' or 'full'
     const includeDeleted = searchParams.get('includeDeleted') === 'true';
+    // Pagination (used for 'full' sync to avoid huge responses / timeouts)
+    const limitParam = searchParams.get('limit');
+    const offsetParam = searchParams.get('offset');
+    const limit = limitParam ? Math.max(1, parseInt(limitParam, 10)) : null;
+    const offset = offsetParam ? Math.max(0, parseInt(offsetParam, 10)) : 0;
 
     try {
         const connection = await getPosDb();
+        const isPg = connection.isPostgreSQL;
 
         let whereClause = '1=1';
         const params: (string | number)[] = [DEFAULT_USER];
+        let paramIndex = 2; // $1 is reserved for DEFAULT_USER in the validator COALESCE
 
         // Filter by date if provided
         if (date && period === 'day') {
-            if (connection.isPostgreSQL) {
-                whereClause += ' AND DATE(t.created_at) = $2';
-            } else {
-                whereClause += ' AND DATE(t.created_at) = ?';
-            }
+            whereClause += isPg ? ` AND DATE(t.created_at) = $${paramIndex}` : ' AND DATE(t.created_at) = ?';
             params.push(date);
+            paramIndex++;
+        }
+
+        // Pagination clause (only when a limit is requested)
+        let paginationClause = '';
+        if (limit !== null) {
+            if (isPg) {
+                paginationClause = ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+                params.push(limit, offset);
+                paramIndex += 2;
+            } else {
+                paginationClause = ' LIMIT ? OFFSET ?';
+                params.push(limit, offset);
+            }
         }
 
         // Query to get transactions with their products
@@ -57,7 +75,7 @@ export async function GET(request: Request) {
         // TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) which equals the server UTC offset
         // (e.g. +3600 for Europe/Paris in winter). This prevents a 1-hour gap that would cause
         // mergeTransactionArrays to treat the same transaction as two distinct entries.
-        const query = connection.isPostgreSQL
+        const query = isPg
             ? `
             SELECT
                 t.id,
@@ -73,7 +91,7 @@ export async function GET(request: Request) {
             FROM transactions t
             LEFT JOIN dc.orders o ON o.id::text = t.order_id
             WHERE ${whereClause}
-            ORDER BY t.created_at DESC
+            ORDER BY t.created_at DESC${paginationClause}
         `
             : `
             SELECT
@@ -90,28 +108,35 @@ export async function GET(request: Request) {
             FROM transactions t
             LEFT JOIN \`DC\`.orders o ON o.id = t.order_id
             WHERE ${whereClause}
-            ORDER BY t.created_at DESC
+            ORDER BY t.created_at DESC${paginationClause}
         `;
 
         const [rows] = await connection.execute(query, params);
+        const transactionRows = rows as TransactionRow[];
 
-        // Get products for each transaction
+        // Fetch ALL items for the fetched transactions in a single query (avoids N+1).
+        const ids = transactionRows.map((r) => r.id);
+        const itemsByTx = new Map<number, ProductRow[]>();
+        if (ids.length) {
+            const placeholders = ids.map((_, i) => (isPg ? `$${i + 1}` : '?')).join(', ');
+            const itemsQuery = `SELECT transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total
+                 FROM transaction_items
+                 WHERE transaction_id IN (${placeholders})`;
+            const [itemRows] = await connection.execute(itemsQuery, ids);
+            for (const p of itemRows as ProductRow[]) {
+                const arr = itemsByTx.get(p.transaction_id) ?? [];
+                arr.push(p);
+                itemsByTx.set(p.transaction_id, arr);
+            }
+        }
+
+        // Build transactions
         const transactions: Transaction[] = [];
-
-        for (const row of rows as TransactionRow[]) {
+        for (const row of transactionRows) {
             // Skip deleted transactions unless explicitly included (for sync)
             if (!includeDeleted && isDeletedTransaction({ method: row.method } as Transaction)) continue;
 
-            const productQuery = connection.isPostgreSQL
-                ? `SELECT label, category, amount, quantity, discount_amount, discount_unit, total
-                 FROM transaction_items
-                 WHERE transaction_id = $1`
-                : `SELECT label, category, amount, quantity, discount_amount, discount_unit, total
-                 FROM transaction_items
-                 WHERE transaction_id = ?`;
-            const [productRows] = await connection.execute(productQuery, [row.id]);
-
-            const products = (productRows as ProductRow[]).map((p) => ({
+            const products = (itemsByTx.get(row.id) ?? []).map((p) => ({
                 label: p.label || '',
                 category: p.category || '',
                 amount: Number(p.amount),
@@ -140,7 +165,10 @@ export async function GET(request: Request) {
 
         await connection.end();
 
-        return NextResponse.json({ transactions }, { status: 200 });
+        // hasMore tells the client (for paginated 'full' sync) to fetch the next batch.
+        const hasMore = limit !== null ? transactionRows.length === limit : false;
+
+        return NextResponse.json({ transactions, hasMore }, { status: 200 });
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching transactions' }, { status: 500 });

@@ -1,4 +1,3 @@
-import { DEFAULT_USER } from '@/app/utils/constants';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
@@ -6,21 +5,24 @@ export async function GET(_request: Request) {
     try {
         const connection = await getPosDb();
 
+        // Note: no user_name filter here to stay consistent with getTransactions,
+        // which returns transactions for all users. Dates are formatted as YYYY-MM-DD
+        // strings so the client can group/compare them reliably.
         const query = connection.isPostgreSQL
             ? `
-            SELECT DISTINCT DATE(t.created_at) as date
+            SELECT DISTINCT TO_CHAR(DATE(t.created_at), 'YYYY-MM-DD') as date
             FROM transactions t
-            WHERE t.user_name = $1 OR t.user_name IS NULL
+            WHERE t.created_at IS NOT NULL
             ORDER BY date DESC
         `
             : `
-            SELECT DISTINCT DATE(t.created_at) as date
+            SELECT DISTINCT DATE_FORMAT(t.created_at, '%Y-%m-%d') as date
             FROM transactions t
-            WHERE t.user_name = ? OR t.user_name IS NULL
+            WHERE t.created_at IS NOT NULL
             ORDER BY date DESC
         `;
 
-        const [rows] = await connection.execute(query, [DEFAULT_USER]);
+        const [rows] = await connection.execute(query);
         const dates = (rows as { date: string }[]).map((row) => row.date);
 
         await connection.end();

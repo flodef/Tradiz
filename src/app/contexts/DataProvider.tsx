@@ -492,20 +492,45 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         async (syncPeriod: SyncPeriod, onProgress?: (percent: number) => void): Promise<number> => {
             try {
                 console.log('[SQL Sync] Starting sync with shopId:', shopId);
-                onProgress?.(10);
+                onProgress?.(5);
 
                 // Include deleted transactions so deletions propagate across devices
-                const response = await fetch(
-                    `/api/sql/getTransactions?period=${syncPeriod === SyncPeriod.day ? 'day' : 'full'}&date=${new Date().toISOString().split('T')[0]}&includeDeleted=true`
-                );
-                onProgress?.(30);
-
-                if (!response.ok) {
-                    console.error('SQL DB sync error:', await response.json());
-                    return 0;
+                const sqlTransactions: Transaction[] = [];
+                if (syncPeriod === SyncPeriod.day) {
+                    const today = new Date().toISOString().split('T')[0];
+                    const response = await fetch(
+                        `/api/sql/getTransactions?period=day&date=${today}&includeDeleted=true`
+                    );
+                    if (!response.ok) {
+                        console.error('SQL DB sync error:', await response.json());
+                        return 0;
+                    }
+                    const data = await response.json();
+                    sqlTransactions.push(...(data.transactions as Transaction[]));
+                    onProgress?.(30);
+                } else {
+                    // Full sync: fetch in batches to avoid timeouts / oversized responses
+                    const BATCH_SIZE = 1000;
+                    let batchOffset = 0;
+                    let hasMore = true;
+                    while (hasMore) {
+                        const response = await fetch(
+                            `/api/sql/getTransactions?period=full&includeDeleted=true&limit=${BATCH_SIZE}&offset=${batchOffset}`
+                        );
+                        if (!response.ok) {
+                            console.error('SQL DB sync error:', await response.json());
+                            return 0;
+                        }
+                        const data = await response.json();
+                        const batch = data.transactions as Transaction[];
+                        sqlTransactions.push(...batch);
+                        hasMore = Boolean(data.hasMore);
+                        batchOffset += BATCH_SIZE;
+                        // Progress 5% → 40% during fetch (cap so it keeps moving)
+                        onProgress?.(Math.min(40, 5 + Math.floor(sqlTransactions.length / 500)));
+                        console.log(`[SQL Sync] Fetched batch, total so far: ${sqlTransactions.length}`);
+                    }
                 }
-                const data = await response.json();
-                const sqlTransactions = data.transactions as Transaction[];
                 console.log('[SQL Sync] Fetched transactions from SQL:', sqlTransactions.length);
 
                 if (!sqlTransactions.length) {

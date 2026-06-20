@@ -211,17 +211,17 @@ export const defaultCurrencies: Currency[] = [
 export const defaultPaymentMethods: PaymentMethod[] = [
     {
         type: 'Carte Bancaire',
-        currency: '€',
+        currency: 'Euro',
         availability: true,
     },
     {
         type: 'Espèce',
-        currency: '€',
+        currency: 'Euro',
         availability: true,
     },
     {
         type: 'Chèque',
-        currency: '€',
+        currency: 'Euro',
         availability: true,
     },
 ];
