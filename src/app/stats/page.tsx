@@ -11,7 +11,8 @@ import {
 } from '@/app/utils/constants';
 import type { Transaction } from '@/app/utils/interfaces';
 import { idbGetAllTransactionSets } from '@/app/utils/transactionStore';
-import { useCallback, useEffect, useState } from 'react';
+import '@/app/utils/extensions';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Bar,
     BarChart,
@@ -66,6 +67,41 @@ export default function StatsPage() {
     const [loading, setLoading] = useState(true);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const maxDate = new Date().toISOString().split('T')[0];
+    const hasLoadedRef = useRef(false);
+
+    type DatePreset = 'week' | 'month' | 'quarter' | 'semester' | 'year' | 'ytd';
+
+    const applyDatePreset = useCallback((preset: DatePreset) => {
+        const end = new Date();
+        const start = new Date();
+
+        switch (preset) {
+            case 'week':
+                start.setDate(start.getDate() - 7);
+                break;
+            case 'month':
+                start.setMonth(start.getMonth() - 1);
+                break;
+            case 'quarter':
+                start.setMonth(start.getMonth() - 3);
+                break;
+            case 'semester':
+                start.setMonth(start.getMonth() - 6);
+                break;
+            case 'year':
+                start.setFullYear(start.getFullYear() - 1);
+                break;
+            case 'ytd':
+                start.setMonth(0, 1); // January 1st of current year
+                break;
+        }
+
+        const startStr = start.toISOString().split('T')[0];
+        const endStr = end.toISOString().split('T')[0];
+        setStartDate(startStr);
+        setEndDate(endStr);
+    }, []);
 
     useEffect(() => {
         // Set default dates (last 30 days)
@@ -73,8 +109,10 @@ export default function StatsPage() {
         const start = new Date();
         start.setDate(start.getDate() - 30);
 
-        setStartDate(start.toISOString().split('T')[0]);
-        setEndDate(end.toISOString().split('T')[0]);
+        const startStr = start.toISOString().split('T')[0];
+        const endStr = end.toISOString().split('T')[0];
+        setStartDate(startStr);
+        setEndDate(endStr);
     }, []);
 
     const formatDate = (date: Date) =>
@@ -106,7 +144,10 @@ export default function StatsPage() {
         }
         const dailySales: DailySale[] = Array.from(dailyMap.entries())
             .sort(([a], [b]) => a.localeCompare(b))
-            .map(([date, revenue]) => ({ date: formatDate(new Date(date)), revenue }));
+            .map(([date, revenue]) => ({
+                date: formatDate(new Date(date)),
+                revenue: Math.round(revenue * 100) / 100,
+            }));
 
         // 2. Top 10 products
         const productMap = new Map<string, TopProduct>();
@@ -166,48 +207,71 @@ export default function StatsPage() {
         });
     }, [startDate, endDate]);
 
-    const fetchStatistics = useCallback(async () => {
-        setLoading(true);
-        try {
-            if (!USE_DIGICARTE) {
-                await computeStatsFromIdb();
-                return;
+    const fetchStatistics = useCallback(
+        async (showLoading = true) => {
+            if (showLoading) setLoading(true);
+            try {
+                if (!USE_DIGICARTE) {
+                    await computeStatsFromIdb();
+                    return;
+                }
+
+                const response = await fetch(`/api/sql/getStatistics?startDate=${startDate}&endDate=${endDate}`);
+                const data = await response.json();
+
+                if (data.dailySales) {
+                    data.dailySales = data.dailySales.map((sale: DailySale) => ({
+                        ...sale,
+                        date: new Date(sale.date).toLocaleDateString('fr-FR', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                        }),
+                    }));
+                }
+
+                setStats(data);
+            } catch (error) {
+                console.error('Error fetching statistics:', error);
+                alert('Erreur lors du chargement des statistiques');
+            } finally {
+                if (showLoading) setLoading(false);
             }
+        },
+        [startDate, endDate, computeStatsFromIdb]
+    );
 
-            const response = await fetch(`/api/sql/getStatistics?startDate=${startDate}&endDate=${endDate}`);
-            const data = await response.json();
+    const fetchStatisticsRef = useRef(fetchStatistics);
+    fetchStatisticsRef.current = fetchStatistics;
 
-            if (data.dailySales) {
-                data.dailySales = data.dailySales.map((sale: DailySale) => ({
-                    ...sale,
-                    date: new Date(sale.date).toLocaleDateString('fr-FR', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                    }),
-                }));
-            }
-
-            setStats(data);
-        } catch (error) {
-            console.error('Error fetching statistics:', error);
-            alert('Erreur lors du chargement des statistiques');
-        } finally {
-            setLoading(false);
-        }
-    }, [startDate, endDate, computeStatsFromIdb]);
-
+    // Initial load with loading indicator
     useEffect(() => {
-        if (startDate && endDate) {
-            fetchStatistics();
+        if (!hasLoadedRef.current) {
+            hasLoadedRef.current = true;
+            fetchStatistics(true);
         }
-    }, [startDate, endDate, fetchStatistics]);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Auto-update on date change without loading indicator
+    useEffect(() => {
+        if (hasLoadedRef.current && startDate && endDate) {
+            fetchStatistics(false);
+        }
+    }, [startDate, endDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Redirect to Grafana dashboard if using Digicarte
     if (USE_DIGICARTE) {
         if (typeof window !== 'undefined') window.location.href = '/stats/d/vue-dc-1/vue-dc';
 
         return null;
+    }
+
+    if (loading) {
+        return (
+            <AdminPageLayout title="Statistiques">
+                <LoadingDot fullscreen />
+            </AdminPageLayout>
+        );
     }
 
     // Check access - admin and cashier only
@@ -223,14 +287,6 @@ export default function StatsPage() {
         );
     }
 
-    if (loading) {
-        return (
-            <AdminPageLayout title="Statistiques">
-                <LoadingDot fullscreen />
-            </AdminPageLayout>
-        );
-    }
-
     if (!stats) {
         return (
             <AdminPageLayout title="Statistiques">
@@ -242,44 +298,80 @@ export default function StatsPage() {
     return (
         <AdminPageLayout title="Statistiques">
             {/* Date filters */}
-            <div className="mb-6 flex gap-4 items-center bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
-                <div>
-                    <label className="block text-sm font-medium mb-1">Date de début</label>
-                    <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
-                    />
+            <div className="mb-6 bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                <div className="flex gap-4 items-center mb-4">
+                    <div className="flex-1">
+                        <label className="block text-sm font-medium mb-1">Date de début</label>
+                        <input
+                            type="date"
+                            value={startDate}
+                            max={maxDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="w-full px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
+                        />
+                    </div>
+                    <div className="flex-1">
+                        <label className="block text-sm font-medium mb-1">Date de fin</label>
+                        <input
+                            type="date"
+                            value={endDate}
+                            max={maxDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="w-full px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
+                        />
+                    </div>
                 </div>
-                <div>
-                    <label className="block text-sm font-medium mb-1">Date de fin</label>
-                    <input
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
-                    />
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        onClick={() => applyDatePreset('week')}
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-[80px]"
+                    >
+                        Semaine
+                    </button>
+                    <button
+                        onClick={() => applyDatePreset('month')}
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-[80px]"
+                    >
+                        Mois
+                    </button>
+                    <button
+                        onClick={() => applyDatePreset('quarter')}
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-[80px]"
+                    >
+                        Trimestre
+                    </button>
+                    <button
+                        onClick={() => applyDatePreset('semester')}
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-[80px]"
+                    >
+                        Semestre
+                    </button>
+                    <button
+                        onClick={() => applyDatePreset('year')}
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-[80px]"
+                    >
+                        Année
+                    </button>
+                    <button
+                        onClick={() => applyDatePreset('ytd')}
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-[80px]"
+                    >
+                        {new Date().getFullYear()}
+                    </button>
                 </div>
-                <button
-                    onClick={fetchStatistics}
-                    className="mt-6 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                >
-                    Actualiser
-                </button>
             </div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-                    <h3 className="text-lg font-semibold mb-2">Panier Moyen</h3>
-                    <p className="text-4xl font-bold text-green-600 dark:text-green-400">
+            <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                    <h3 className="text-sm font-semibold mb-1">Panier Moyen</h3>
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                         €{stats.avgBasket.toFixed(2)}
                     </p>
                 </div>
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-                    <h3 className="text-lg font-semibold mb-2">Nombre de commandes</h3>
-                    <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">{stats.totalOrders}</p>
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                    <h3 className="text-sm font-semibold mb-1">Nombre de commandes</h3>
+                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.totalOrders}</p>
                 </div>
             </div>
 
@@ -291,7 +383,15 @@ export default function StatsPage() {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" />
                         <YAxis />
-                        <Tooltip />
+                        <Tooltip
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            formatter={(value: any) => {
+                                if (typeof value === 'number') {
+                                    return value.toShortCurrency(2, '€');
+                                }
+                                return value;
+                            }}
+                        />
                         <Legend />
                         <Line type="monotone" dataKey="revenue" stroke="#22c55e" name="Chiffre d'affaires" />
                     </LineChart>
@@ -346,36 +446,20 @@ export default function StatsPage() {
                     <table className="w-full">
                         <thead>
                             <tr className="border-b dark:border-gray-700">
-                                <th className="text-left py-2">N° Commande</th>
-                                <th className="text-left py-2">N° Court</th>
                                 <th className="text-left py-2">Date</th>
-                                <th className="text-left py-2">Type Service</th>
-                                <th className="text-left py-2">Statut</th>
+                                <th className="text-left py-2">Paiement</th>
                                 <th className="text-right py-2">Montant</th>
                             </tr>
                         </thead>
                         <tbody>
                             {stats.recentOrders.map((order, index) => (
                                 <tr key={index} className="border-b dark:border-gray-700">
-                                    <td className="py-2">{order.orderId}</td>
-                                    <td className="py-2">{order.shortOrderNumber}</td>
                                     <td className="py-2">
                                         {order.timestamp
                                             ? new Date(order.timestamp).toLocaleString('fr-FR')
                                             : 'Invalid Date'}
                                     </td>
                                     <td className="py-2">{order.paymentMethod}</td>
-                                    <td className="py-2">
-                                        <span
-                                            className={`px-2 py-1 rounded text-sm ${
-                                                order.status === 'Payé'
-                                                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                                    : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                                            }`}
-                                        >
-                                            {order.status}
-                                        </span>
-                                    </td>
                                     <td className="py-2 text-right">€{order.amount.toFixed(2)}</td>
                                 </tr>
                             ))}
