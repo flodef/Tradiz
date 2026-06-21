@@ -10,6 +10,7 @@ import Switch from '../Switch';
 import SiretInput from '../SiretInput';
 import ValidatedInput from '../ValidatedInput';
 import ZipCityRow from '../ZipCityRow';
+import { useEffect, useState } from 'react';
 
 interface ParametersConfigProps {
     config: Parameters;
@@ -53,6 +54,23 @@ export default function ParametersConfig({
     isOpen,
     onToggle,
 }: ParametersConfigProps) {
+    const [appVersion, setAppVersion] = useState(process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0');
+
+    useEffect(() => {
+        // Fetch the current version from package.json at runtime
+        fetch('/api/version')
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.version) {
+                    setAppVersion(data.version);
+                }
+            })
+            .catch(() => {
+                // Fallback to env var if API fails
+                setAppVersion(process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0');
+            });
+    }, []);
+
     const maxDaysInMonth = (month: number): number => {
         const days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
         return days[month - 1] ?? 31;
@@ -216,7 +234,7 @@ export default function ParametersConfig({
                     />
                     <ValidatedInput
                         label="Version"
-                        value={process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0'}
+                        value={appVersion}
                         onChange={() => {}}
                         disabled={true}
                         className="w-32"
