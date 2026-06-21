@@ -73,32 +73,36 @@ export default function EditMenuPage() {
         const fetchData = async () => {
             if (!dbConfigChecked) return;
             if (dataLoadedRef.current) return;
-            dataLoadedRef.current = true;
+
             try {
                 if (isReadOnly) {
                     // No DB — use spreadsheet data from useConfig
-                    if (inventory?.length && currencies?.length) {
-                        const allProducts: AdminProduct[] = [];
+                    if (!inventory?.length || !currencies?.length) {
+                        // Wait for inventory/currencies to load - will re-run when they change
+                        return;
+                    }
+                    dataLoadedRef.current = true;
+                    const allProducts: AdminProduct[] = [];
 
-                        inventory.forEach((item) => {
-                            item.products.forEach((product) => {
-                                allProducts.push({
-                                    name: product.label,
-                                    category: item.category,
-                                    stock: product.stock ?? null,
-                                    currencies: product.prices.map(String),
-                                    vat: item.rate >= 1 ? item.rate : item.rate * 100,
-                                });
+                    inventory.forEach((item) => {
+                        item.products.forEach((product) => {
+                            allProducts.push({
+                                name: product.label,
+                                category: item.category,
+                                stock: product.stock ?? null,
+                                currencies: product.prices.map(String),
+                                vat: item.rate >= 1 ? item.rate : item.rate * 100,
                             });
                         });
+                    });
 
-                        setProducts(allProducts);
-                        setOriginalProducts(allProducts);
-                        setIsLoading(false);
-                    }
-                    // else: wait for inventory/currencies to load (dep array will re-run)
+                    setProducts(allProducts);
+                    setOriginalProducts(allProducts);
+                    setIsLoading(false);
                     return;
                 }
+
+                dataLoadedRef.current = true;
 
                 // Fetch products and parameters in parallel
                 const [productsResponse, parametersResponse] = await Promise.all([
@@ -189,7 +193,8 @@ export default function EditMenuPage() {
         };
 
         fetchData();
-    }, [dbConfigChecked, isReadOnly, inventory, currencies, openFullscreenPopup]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dbConfigChecked, isReadOnly, openFullscreenPopup]);
 
     const handleProductsChange = useCallback(
         (data: AdminProduct[]) => {
