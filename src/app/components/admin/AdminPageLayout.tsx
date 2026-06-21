@@ -4,7 +4,7 @@ import TopNav from '@/app/components/admin/TopNav';
 import { CloseButton } from '@/app/components/CloseButton';
 import { usePopup } from '@/app/hooks/usePopup';
 import { useRouter } from 'next/navigation';
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 
 interface AdminPageLayoutProps {
     title: string;
@@ -16,6 +16,7 @@ interface AdminPageLayoutProps {
 export default function AdminPageLayout({ title, children, action, hasChanges = false }: AdminPageLayoutProps) {
     const router = useRouter();
     const { openFullscreenPopup } = usePopup();
+    const [navCollapsed, setNavCollapsed] = useState(true);
 
     const handleClose = () => {
         if (hasChanges) {
@@ -45,9 +46,11 @@ export default function AdminPageLayout({ title, children, action, hasChanges = 
                 style={{ position: 'sticky' }}
             >
                 <div className="shrink-0 z-10">
-                    <TopNav inline hasChanges={hasChanges} />
+                    <TopNav inline hasChanges={hasChanges} onCollapsedStateChange={setNavCollapsed} />
                 </div>
-                <h1 className="absolute inset-x-0 text-center text-3xl font-bold leading-tight wrap-break-word line-clamp-2 px-16 pointer-events-none">
+                <h1
+                    className={`absolute inset-x-0 text-center text-3xl font-bold leading-tight wrap-break-word line-clamp-2 px-16 pointer-events-none ${!navCollapsed ? 'md:block hidden' : ''}`}
+                >
                     {title}
                 </h1>
                 <div className="ml-auto shrink-0 z-10">

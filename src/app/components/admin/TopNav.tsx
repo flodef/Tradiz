@@ -7,7 +7,7 @@ import { IconChevronLeft, IconChevronRight, IconPencil, IconChartPie, IconSettin
 import { USE_DIGICARTE } from '@/app/utils/constants';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ReactNode, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 
 type NavItem = {
@@ -23,15 +23,27 @@ interface TopNavProps {
     className?: string;
     onCollapsedChange?: (collapsed: boolean) => void;
     hasChanges?: boolean;
+    onCollapsedStateChange?: (collapsed: boolean) => void;
 }
 
-export default function TopNav({ inline = false, className, onCollapsedChange, hasChanges = false }: TopNavProps) {
+export default function TopNav({
+    inline = false,
+    className,
+    onCollapsedChange,
+    hasChanges = false,
+    onCollapsedStateChange,
+}: TopNavProps) {
     const [collapsed, setCollapsed] = useState(true);
     const { isGrafanaAccessEnabled } = useConfig();
     const { isAdmin, isCashier } = useUserRole();
     const { openFullscreenPopup } = usePopup();
     const pathname = usePathname();
     const router = useRouter();
+
+    // Notify parent of collapsed state changes
+    useEffect(() => {
+        onCollapsedStateChange?.(collapsed);
+    }, [collapsed, onCollapsedStateChange]);
 
     const navItems = useMemo<NavItem[]>(
         () => [
