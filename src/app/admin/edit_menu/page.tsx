@@ -12,7 +12,7 @@ import { LoadingDot } from '@/app/loading';
 import { CONFIG_KEYWORD, USE_DIGICARTE } from '@/app/utils/constants';
 import { Category } from '@/app/utils/interfaces';
 import { clearLoadDataCache } from '@/app/utils/processData';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export default function EditMenuPage() {
     const { inventory, currencies, parameters } = useConfig();
@@ -29,6 +29,7 @@ export default function EditMenuPage() {
     const [options, setOptions] = useState<ProductOptionGroup[]>([]);
     const [originalOptions, setOriginalOptions] = useState<ProductOptionGroup[]>([]);
     const [hasOptionsChanges, setHasOptionsChanges] = useState(false);
+    const dataLoadedRef = useRef(false);
 
     // Derive categories from products — categories are local-only, not stored in DB
     // If all products in a category have the same VAT, use it; otherwise null (divers)
@@ -71,6 +72,8 @@ export default function EditMenuPage() {
     useEffect(() => {
         const fetchData = async () => {
             if (!dbConfigChecked) return;
+            if (dataLoadedRef.current) return;
+            dataLoadedRef.current = true;
             try {
                 if (isReadOnly) {
                     // No DB — use spreadsheet data from useConfig
