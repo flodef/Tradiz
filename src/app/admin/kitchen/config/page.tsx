@@ -16,7 +16,7 @@ import { Currency, Discount, Mercurial, PaymentMethod, Color, User, Role } from 
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { useIsMobile } from '@/app/utils/mobile';
 import { defaultParameters } from '@/app/utils/processData';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { LoadingDot } from '@/app/loading';
 
 // Type for currency row from DB
@@ -48,6 +48,8 @@ export default function SettingsPage() {
     const [usersConfig, setUsersConfig] = useState<User[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isSavingUsers, setIsSavingUsers] = useState(false);
+    const dbConfigCheckedRef = useRef(false);
+    const dataLoadedRef = useRef(false);
     const [isSavingParameters, setIsSavingParameters] = useState(false);
     const [isSavingDiscounts, setIsSavingDiscounts] = useState(false);
     const [isSavingCurrencies, setIsSavingCurrencies] = useState(false);
@@ -91,6 +93,9 @@ export default function SettingsPage() {
 
     // Step 1: check DB config once on mount
     useEffect(() => {
+        if (dbConfigCheckedRef.current) return;
+        dbConfigCheckedRef.current = true;
+
         fetch('/api/sql/getDbConfig')
             .then((r) => r.json())
             .then(({ hasDbConfig }) => {
@@ -303,6 +308,8 @@ export default function SettingsPage() {
     // Step 2: once DB config is known, load data
     useEffect(() => {
         if (!dbConfigChecked) return;
+        if (dataLoadedRef.current) return;
+        dataLoadedRef.current = true;
         fetchParameters();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dbConfigChecked]);

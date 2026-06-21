@@ -214,6 +214,13 @@ export default function ParametersConfig({
                         ]}
                         disabled={isReadOnly}
                     />
+                    <ValidatedInput
+                        label="Version"
+                        value={process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0'}
+                        onChange={() => {}}
+                        disabled={true}
+                        className="w-32"
+                    />
                 </div>
             </div>
 
