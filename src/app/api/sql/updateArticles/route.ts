@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
+import { generateProductReference } from '@/app/utils/productReference';
 
 interface Product {
     name: string;
@@ -84,7 +85,8 @@ export async function POST(request: Request) {
                 const price = parseFloat(product.currencies[0]) || 0;
                 const stock = product.stock;
                 const vatRate = product.vat ?? 20;
-                const reference = product.reference ?? null;
+                // Auto-generate reference if not provided
+                const reference = product.reference ?? generateProductReference(sortOrder);
                 const photo = product.photo ?? '';
                 const description = product.description ?? '';
                 const options = product.options ?? '';

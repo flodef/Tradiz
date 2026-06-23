@@ -194,6 +194,14 @@ export const defaultParameters: Parameters = {
     closingHour: 0,
     yearStartDate: { month: 1, day: 1 }, // January 1st by default
     user: { name: '', role: Role.service },
+    products: {
+        useVatPerProduct: false,
+        useReference: false,
+        useStock: false,
+        usePhoto: false,
+        useDescription: false,
+        useOptions: false,
+    },
 };
 
 export const defaultCurrencies: Currency[] = [

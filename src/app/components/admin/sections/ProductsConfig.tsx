@@ -492,6 +492,17 @@ export default function ProductsConfig({
                                             </div>
                                         </th>
                                     )}
+                                    {productsSettings?.useReference && (
+                                        <th
+                                            className={adminSortableHeaderStyle + ' min-w-32 w-32'}
+                                            onClick={() => handleSort('reference')}
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                Référence
+                                                <SortIcon field="reference" />
+                                            </div>
+                                        </th>
+                                    )}
                                     {productsSettings?.useStock && (
                                         <th
                                             className={adminSortableHeaderStyle + ' min-w-20 w-20'}
@@ -706,6 +717,27 @@ export default function ProductsConfig({
                                                                                     vat: Number(value) || 0,
                                                                                 })
                                                                             }
+                                                                        />
+                                                                    )}
+                                                                </td>
+                                                            )}
+                                                            {productsSettings?.useReference && (
+                                                                <td className="p-2">
+                                                                    {isReadOnly ? (
+                                                                        <div className="text-sm text-center">
+                                                                            {p.reference ?? '-'}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <ValidatedInput
+                                                                            type="text"
+                                                                            value={p.reference ?? ''}
+                                                                            onChange={(value) =>
+                                                                                handleProductChange(i, {
+                                                                                    ...p,
+                                                                                    reference: String(value),
+                                                                                })
+                                                                            }
+                                                                            placeholder="Auto-généré"
                                                                         />
                                                                     )}
                                                                 </td>
