@@ -127,10 +127,13 @@ export default function UsersConfig({
             if (debounceRef.current) clearTimeout(debounceRef.current);
             debounceRef.current = setTimeout(() => {
                 selfUpdateRef.current = true;
-                onChange(strip(items));
+                // Always include admin users from original config when notifying parent
+                const adminUsers = originalConfig.filter((user) => user.role === Role.admin);
+                const nonAdminUsers = strip(items.filter((u) => u.role !== Role.admin));
+                onChange([...adminUsers, ...nonAdminUsers]);
             }, 300);
         },
-        [onChange]
+        [onChange, originalConfig]
     );
 
     // Filter out admin users from display
@@ -178,8 +181,11 @@ export default function UsersConfig({
     );
 
     const handleSave = () => {
-        onSave?.(strip(users));
-        setOriginalConfig(strip(users));
+        // Always include admin users from original config when saving
+        const adminUsers = originalConfig.filter((user) => user.role === Role.admin);
+        const savedUsers = [...adminUsers, ...strip(users.filter((u) => u.role !== Role.admin))];
+        onSave?.(savedUsers);
+        setOriginalConfig(savedUsers);
     };
 
     const handleDragEnd = useCallback(

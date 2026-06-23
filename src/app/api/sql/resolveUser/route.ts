@@ -163,7 +163,7 @@ async function logAccessAttempt(
             : `INSERT INTO dc_sys.logs (level, message, metadata) VALUES (?, ?, ?)`;
 
         await connection.execute(query, [
-            'warning',
+            success ? 'info' : 'error',
             `User access attempt: ${userName || 'unknown'} (${publicKey})`,
             JSON.stringify(metadata),
         ]);
@@ -214,13 +214,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Access denied: Invalid timezone' }, { status: 403 });
         }
 
-        // Check if IP is blocked due to too many failed attempts
-        const blocked = await isIpBlocked(connection, ipAddress);
-        if (blocked) {
-            await connection.end();
-            return NextResponse.json({ error: 'Too many failed attempts. Please try again later.' }, { status: 429 });
-        }
-
         // Query for the specific user with matching key
         const query = connection.isPostgreSQL
             ? `SELECT key, name, role FROM users WHERE key = $1 LIMIT 1`
@@ -229,6 +222,19 @@ export async function POST(request: NextRequest) {
         const [rows] = await connection.execute(query, [publicKey]);
         const userRows = rows as UserRow[];
         const foundUser = userRows.length > 0 ? userRows[0] : null;
+
+        // Check if IP is blocked due to too many failed attempts
+        // Only apply block if user is NOT authenticated (not found in system)
+        if (!foundUser) {
+            const blocked = await isIpBlocked(connection, ipAddress);
+            if (blocked) {
+                await connection.end();
+                return NextResponse.json(
+                    { error: 'Too many failed attempts. Please try again later.' },
+                    { status: 429 }
+                );
+            }
+        }
 
         // Log access attempt
         await logAccessAttempt(
