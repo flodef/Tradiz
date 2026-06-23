@@ -37,6 +37,8 @@ import type { TransactionSet } from './import/types';
 import * as fs from 'fs';
 import * as readline from 'readline';
 import * as path from 'path';
+import { generateSimpleId } from '../src/app/utils/id';
+import '../src/app/utils/extensions';
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
@@ -240,18 +242,18 @@ async function ensurePaymentMethods(conn: mysql.PoolConnection): Promise<Map<str
 
 // ── Get default user ─────────────────────────────────────────────────────────
 
-async function getDefaultUserId(conn: mysql.PoolConnection): Promise<number> {
+async function getDefaultUserId(conn: mysql.PoolConnection, shopName: string): Promise<number> {
     const [rows] = await conn.query<mysql.RowDataPacket[]>('SELECT id FROM users ORDER BY id ASC LIMIT 1');
 
-    if (rows.length > 0) {
-        return rows[0].id as number;
-    }
+    if (rows.length > 0) return rows[0].id as number;
 
     // No users found - create a default admin user
     console.log('  ℹ️  No users found - creating default admin user');
+    const userKey = generateSimpleId();
+    const userName = shopName.toFirstUpperCase();
     const [result] = await conn.execute<mysql.ResultSetHeader>(
         'INSERT INTO users (`key`, name, role) VALUES (?, ?, ?)',
-        ['admin', 'Administrator', 'Admin']
+        [userKey, userName, 'Admin']
     );
 
     console.log(`  ✅ Created default user with ID: ${result.insertId}`);
@@ -348,7 +350,10 @@ async function main() {
         console.log(`Payment methods ready (${paymentMethodMap.size} methods).`);
 
         console.log('Getting default user...');
-        const defaultUserId = await getDefaultUserId(conn);
+        const shopName = process.env.NEXT_PUBLIC_SHOP_ID;
+        if (!shopName) throw new Error('NEXT_PUBLIC_SHOP_ID environment variable is required but not set');
+
+        const defaultUserId = await getDefaultUserId(conn, shopName);
         console.log(`Default user ID: ${defaultUserId}`);
 
         // Flatten all transactions into a single array with metadata

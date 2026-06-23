@@ -37,6 +37,8 @@ import type { TransactionSet } from './import/types';
 import * as fs from 'fs';
 import * as readline from 'readline';
 import * as path from 'path';
+import { generateSimpleId } from '../src/app/utils/id';
+import '../src/app/utils/extensions';
 
 type PgPool = InstanceType<typeof Pool>;
 
@@ -271,18 +273,18 @@ async function loadCurrencies(client: PoolClient): Promise<Map<string, number>> 
 
 // ── Get default user ─────────────────────────────────────────────────────────
 
-async function getDefaultUserId(client: PoolClient): Promise<number> {
+async function getDefaultUserId(client: PoolClient, shopName: string): Promise<number> {
     const result = await client.query<{ id: number }>('SELECT id FROM dc_pos.users ORDER BY id ASC LIMIT 1');
 
-    if (result.rows.length > 0) {
-        return result.rows[0].id;
-    }
+    if (result.rows.length > 0) return result.rows[0].id;
 
     // No users found - create a default admin user
     console.log('  ℹ️  No users found - creating default admin user');
+    const userKey = generateSimpleId();
+    const userName = shopName.toFirstUpperCase();
     const insertResult = await client.query<{ id: number }>(
         'INSERT INTO dc_pos.users (key, name, role) VALUES ($1, $2, $3) RETURNING id',
-        ['admin', 'Administrator', 'Admin']
+        [userKey, userName, 'Admin']
     );
 
     console.log(`  ✅ Created default user with ID: ${insertResult.rows[0].id}`);
@@ -539,7 +541,10 @@ async function main() {
         console.log(`Currencies loaded (${currencyMap.size} mappings).`);
 
         console.log('Getting default user...');
-        const defaultUserId = await getDefaultUserId(client);
+        const shopName = process.env.NEXT_PUBLIC_SHOP_ID;
+        if (!shopName) throw new Error('NEXT_PUBLIC_SHOP_ID environment variable is required but not set');
+
+        const defaultUserId = await getDefaultUserId(client, shopName);
         console.log(`Default user ID: ${defaultUserId}`);
 
         // Flatten all transactions into a single array with metadata
