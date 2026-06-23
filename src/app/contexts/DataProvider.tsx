@@ -646,8 +646,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     return await syncTransactions(SyncPeriod.full, undefined, onProgress);
                 case SyncAction.daysync:
                     return await syncTransactions(SyncPeriod.day, filename, onProgress);
-                case SyncAction.resync:
-                    return await syncTransactions(SyncPeriod.day, filename, onProgress);
                 case SyncAction.export:
                     onProgress?.(50);
                     await exportTransactions();
