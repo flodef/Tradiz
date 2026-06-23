@@ -401,7 +401,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                                 updateTransactionSet.transactions.splice(index, 1, cloudTransaction);
                                 syncedCount++;
                             } else if (cloudTransaction.modifiedDate < localTransaction.modifiedDate) {
-                                // Local is newer — no cloud to update (Firebase removed)
+                                // Local is newer — no cloud to update
                             } else if (cloudTransaction.shortNumOrder && !localTransaction.shortNumOrder) {
                                 // Always propagate shortNumOrder from cloud even if no other changes
                                 updateTransactionSet.transactions.splice(index, 1, {
