@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
+import { generateProductReference } from '@/app/utils/productReference';
 
 interface User {
     key?: string;
     name: string;
     role: string;
+    reference?: string;
 }
 
 export async function POST(request: Request) {
@@ -26,19 +28,21 @@ export async function POST(request: Request) {
             const key = user.key || user.name.toLowerCase().replace(/\s+/g, '_');
             const name = user.name;
             const role = user.role || 'Cashier';
+            // Auto-generate reference if not provided
+            const reference = user.reference || generateProductReference(Date.now());
 
             if (connection.isPostgreSQL) {
                 const insertQuery = `
-                    INSERT INTO users ("key", name, role)
-                    VALUES ($1, $2, $3)
+                    INSERT INTO users ("key", name, role, reference)
+                    VALUES ($1, $2, $3, $4)
                 `;
-                await connection.execute(insertQuery, [key, name, role]);
+                await connection.execute(insertQuery, [key, name, role, reference]);
             } else {
                 const insertQuery = `
-                    INSERT INTO users (\`key\`, name, role)
-                    VALUES (?, ?, ?)
+                    INSERT INTO users (\`key\`, name, role, reference)
+                    VALUES (?, ?, ?, ?)
                 `;
-                await connection.execute(insertQuery, [key, name, role]);
+                await connection.execute(insertQuery, [key, name, role, reference]);
             }
         }
 

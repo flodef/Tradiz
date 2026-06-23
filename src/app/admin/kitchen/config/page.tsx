@@ -289,6 +289,7 @@ export default function SettingsPage() {
                         key: String(row[0]),
                         name: String(row[1]),
                         role: String(row[2]) as Role,
+                        reference: row[3] ? String(row[3]) : undefined,
                     }));
                     setUsersConfig(loaded);
                     setOriginalUsers(loaded);

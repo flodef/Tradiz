@@ -5,6 +5,7 @@ interface UserRow {
     key: string;
     name: string;
     role: string;
+    reference: string | null;
 }
 
 export async function GET() {
@@ -12,8 +13,8 @@ export async function GET() {
         const connection = await getPosDb();
 
         const query = connection.isPostgreSQL
-            ? 'SELECT "key", name, role FROM users ORDER BY name'
-            : 'SELECT `key`, name, role FROM users ORDER BY name';
+            ? 'SELECT "key", name, role, reference FROM users ORDER BY name'
+            : 'SELECT `key`, name, role, reference FROM users ORDER BY name';
 
         const result = await connection.execute(query);
         const rows = result[0] as UserRow[];
@@ -21,7 +22,10 @@ export async function GET() {
         await connection.end();
 
         // Format as values array with header row
-        const values = [['key', 'name', 'role'], ...rows.map((row: UserRow) => [row.key, row.name, row.role])];
+        const values = [
+            ['key', 'name', 'role', 'reference'],
+            ...rows.map((row: UserRow) => [row.key, row.name, row.role, row.reference]),
+        ];
 
         return NextResponse.json({ values });
     } catch (error) {

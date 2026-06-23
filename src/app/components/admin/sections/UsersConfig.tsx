@@ -79,6 +79,15 @@ function SortableRow({
                 />
             </td>
             <td className="p-2">
+                <ValidatedInput
+                    value={user.reference ?? ''}
+                    onChange={(value) => onChange({ ...user, reference: String(value) })}
+                    placeholder="Auto-généré"
+                    isReadOnly={isReadOnly}
+                    className="min-w-32"
+                />
+            </td>
+            <td className="p-2">
                 <AdminSelect
                     value={user.role}
                     onChange={(e) => onChange({ ...user, role: e.target.value as Role })}
@@ -232,6 +241,7 @@ export default function UsersConfig({
                                         {!isReadOnly && <th className="p-2 w-10"></th>}
                                         <th className="p-2 text-left">Clé</th>
                                         <th className="p-2 text-left">Nom</th>
+                                        <th className="p-2 text-left">Référence</th>
                                         <th className="p-2 text-left w-20">Rôle</th>
                                         {!isReadOnly && <th className="p-2 w-10"></th>}
                                     </tr>

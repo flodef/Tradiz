@@ -31,6 +31,7 @@ export interface User {
     key?: string;
     name: string;
     role: Role;
+    reference?: string;
 }
 
 export interface Currency {
