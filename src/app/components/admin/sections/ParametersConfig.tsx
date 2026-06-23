@@ -24,6 +24,7 @@ interface ParametersConfigProps {
     isLoading?: boolean;
     isOpen?: boolean;
     onToggle?: () => void;
+    icon?: React.ReactNode;
 }
 
 const MONTH_NAMES = [
@@ -53,6 +54,7 @@ export default function ParametersConfig({
     isLoading = false,
     isOpen,
     onToggle,
+    icon,
 }: ParametersConfigProps) {
     const [appVersion, setAppVersion] = useState(process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0');
 
@@ -117,6 +119,7 @@ export default function ParametersConfig({
             title="Paramètres"
             onSave={isReadOnly || !hasChanges ? undefined : () => onSave(config)}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
+            icon={icon}
             saveDisabled={!isSiretValid}
             isLoading={isLoading}
             isOpen={isOpen}

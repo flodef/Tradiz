@@ -72,6 +72,7 @@ export default function ProductsConfig({
     productsSettings,
     isOpen,
     onToggle,
+    icon,
 }: {
     config: AdminProduct[];
     onChange: (data: AdminProduct[]) => void;
@@ -92,6 +93,7 @@ export default function ProductsConfig({
         useDescription: boolean;
         useOptions: boolean;
     };
+    icon?: React.ReactNode;
 }) {
     const [products, setProducts] = useState(config || []);
     const [search, setSearch] = useState('');
@@ -424,6 +426,7 @@ export default function ProductsConfig({
             title="Produits"
             onSave={isReadOnly || !hasChanges || !onSave ? undefined : () => onSave(products)}
             saveDisabled={duplicateNames.size > 0}
+            icon={icon}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
             headerExtra={headerControls}
             isLoading={isLoading}

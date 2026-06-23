@@ -21,6 +21,7 @@ interface UsersConfigProps {
     isLoading?: boolean;
     isOpen?: boolean;
     onToggle?: () => void;
+    icon?: React.ReactNode;
 }
 
 interface InternalUser extends User {
@@ -100,6 +101,7 @@ export default function UsersConfig({
     isLoading = false,
     isOpen,
     onToggle,
+    icon,
 }: UsersConfigProps) {
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
@@ -214,6 +216,7 @@ export default function UsersConfig({
             title="Utilisateurs"
             onSave={onSave ? handleSave : undefined}
             onCancel={hasChanges && onCancel ? () => onCancel() : undefined}
+            icon={icon}
             saveDisabled={!hasChanges || !isValid || isReadOnly || isLoading}
             isLoading={isLoading}
             isOpen={isOpen}

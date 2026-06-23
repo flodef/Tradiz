@@ -22,6 +22,7 @@ export default function ColorsConfig({
     onCustomThemeNamesChange,
     isOpen,
     onToggle,
+    icon,
 }: {
     config: Color[];
     onChange: (data: Color[]) => void;
@@ -37,6 +38,7 @@ export default function ColorsConfig({
     onCustomThemeNamesChange?: (names: Record<number, string>) => void;
     isOpen?: boolean;
     onToggle?: () => void;
+    icon?: React.ReactNode;
 }) {
     const [colors, setColors] = useState(config || []);
     const [internalSelectedIndex, setInternalSelectedIndex] = useState(0);
@@ -121,6 +123,7 @@ export default function ColorsConfig({
             title="Thèmes"
             onSave={isReadOnly ? undefined : onSave ? () => onSave(colors) : undefined}
             onCancel={onCancel}
+            icon={icon}
             isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}

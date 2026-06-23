@@ -78,6 +78,7 @@ export default function DiscountsConfig({
     isLoading = false,
     isOpen,
     onToggle,
+    icon,
 }: {
     config: Discount[];
     onChange: (data: Discount[]) => void;
@@ -89,6 +90,7 @@ export default function DiscountsConfig({
     isLoading?: boolean;
     isOpen?: boolean;
     onToggle?: () => void;
+    icon?: React.ReactNode;
 }) {
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
@@ -181,6 +183,7 @@ export default function DiscountsConfig({
             title="Réductions"
             onSave={isReadOnly || !hasChanges ? undefined : () => onSave(discounts.map(({ _id: _, ...rest }) => rest))}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
+            icon={icon}
             isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}

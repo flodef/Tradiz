@@ -206,6 +206,7 @@ interface OptionsConfigProps {
     isLoading?: boolean;
     isOpen?: boolean;
     onToggle?: () => void;
+    icon?: React.ReactNode;
 }
 
 export default function OptionsConfig({
@@ -221,6 +222,7 @@ export default function OptionsConfig({
     isLoading = false,
     isOpen,
     onToggle,
+    icon,
 }: OptionsConfigProps) {
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
@@ -367,6 +369,7 @@ export default function OptionsConfig({
             title="Options"
             onSave={isReadOnly || !hasChanges ? undefined : () => onSave(strip(groups))}
             saveDisabled={!isValid}
+            icon={icon}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
             isLoading={isLoading}
             isOpen={isOpen}

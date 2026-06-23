@@ -131,6 +131,7 @@ export default function CurrenciesConfig({
     isLoading = false,
     isOpen,
     onToggle,
+    icon,
 }: {
     config: Currency[];
     onChange: (data: Currency[]) => void;
@@ -141,6 +142,7 @@ export default function CurrenciesConfig({
     isLoading?: boolean;
     isOpen?: boolean;
     onToggle?: () => void;
+    icon?: React.ReactNode;
 }) {
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
@@ -226,6 +228,7 @@ export default function CurrenciesConfig({
             title="Devises"
             onSave={isReadOnly || !hasChanges ? undefined : () => onSave(strip(currencies))}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
+            icon={icon}
             isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}

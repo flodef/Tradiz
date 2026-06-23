@@ -18,6 +18,7 @@ import { useIsMobile } from '@/app/utils/mobile';
 import { defaultParameters } from '@/app/utils/processData';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LoadingDot } from '@/app/loading';
+import { IconSettings, IconDiscount, IconCurrency, IconCreditCard, IconUsers, IconPalette } from '@tabler/icons-react';
 
 // Type for currency row from DB
 interface CurrencyRow {
@@ -612,6 +613,7 @@ export default function SettingsPage() {
                 isLoading={isSavingParameters}
                 isOpen={openSection === 'parameters'}
                 onToggle={() => setOpenSection((prev) => (prev === 'parameters' ? null : 'parameters'))}
+                icon={<IconSettings size={24} />}
             />
 
             <DiscountsConfig
@@ -625,6 +627,7 @@ export default function SettingsPage() {
                 isLoading={isSavingDiscounts}
                 isOpen={openSection === 'discounts'}
                 onToggle={() => setOpenSection((prev) => (prev === 'discounts' ? null : 'discounts'))}
+                icon={<IconDiscount size={24} />}
             />
 
             <CurrenciesConfig
@@ -637,6 +640,7 @@ export default function SettingsPage() {
                 isLoading={isSavingCurrencies}
                 isOpen={openSection === 'currencies'}
                 onToggle={() => setOpenSection((prev) => (prev === 'currencies' ? null : 'currencies'))}
+                icon={<IconCurrency size={24} />}
             />
 
             <PaymentsConfig
@@ -649,6 +653,7 @@ export default function SettingsPage() {
                 isLoading={isSavingPayments}
                 isOpen={openSection === 'payments'}
                 onToggle={() => setOpenSection((prev) => (prev === 'payments' ? null : 'payments'))}
+                icon={<IconCreditCard size={24} />}
             />
 
             <UsersConfig
@@ -660,6 +665,7 @@ export default function SettingsPage() {
                 isLoading={isSavingUsers}
                 isOpen={openSection === 'users'}
                 onToggle={() => setOpenSection((prev) => (prev === 'users' ? null : 'users'))}
+                icon={<IconUsers size={24} />}
             />
 
             <ColorsConfig
@@ -677,6 +683,7 @@ export default function SettingsPage() {
                 onCustomThemeNamesChange={handleCustomThemeNamesChange}
                 isOpen={openSection === 'colors'}
                 onToggle={() => setOpenSection((prev) => (prev === 'colors' ? null : 'colors'))}
+                icon={<IconPalette size={24} />}
             />
 
             {!isReadOnly && hasChanges && (

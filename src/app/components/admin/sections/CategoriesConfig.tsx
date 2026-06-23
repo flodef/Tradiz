@@ -136,6 +136,7 @@ export default function CategoriesConfig({
     onCategoryVatChange,
     onReorderCategories,
     onLocalCategoriesChange,
+    icon,
 }: {
     config: Category[];
     isReadOnly?: boolean;
@@ -147,6 +148,7 @@ export default function CategoriesConfig({
     onCategoryVatChange?: (categoryLabel: string, vat: number) => void;
     onReorderCategories?: (orderedLabels: string[]) => void;
     onLocalCategoriesChange?: (labels: string[]) => void;
+    icon?: React.ReactNode;
 }) {
     const { openFullscreenPopup } = usePopup();
     const nextIdRef = useRef(0);
@@ -364,7 +366,7 @@ export default function CategoriesConfig({
     );
 
     return (
-        <SectionCard title="Catégories" isOpen={isOpen} onToggle={onToggle}>
+        <SectionCard title="Catégories" isOpen={isOpen} onToggle={onToggle} icon={icon}>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={categories.map((c) => c._id)} strategy={verticalListSortingStrategy}>
                     <div className="overflow-x-auto">

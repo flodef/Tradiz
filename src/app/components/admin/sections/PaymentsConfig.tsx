@@ -91,6 +91,7 @@ export default function PaymentsConfig({
     isLoading = false,
     isOpen,
     onToggle,
+    icon,
 }: {
     config: PaymentMethod[];
     onChange: (data: PaymentMethod[]) => void;
@@ -101,6 +102,7 @@ export default function PaymentsConfig({
     isLoading?: boolean;
     isOpen?: boolean;
     onToggle?: () => void;
+    icon?: React.ReactNode;
 }) {
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
@@ -190,6 +192,7 @@ export default function PaymentsConfig({
             title="Paiements"
             onSave={isReadOnly ? undefined : onSave ? () => onSave(strip(payments)) : undefined}
             onCancel={onCancel}
+            icon={icon}
             isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}
