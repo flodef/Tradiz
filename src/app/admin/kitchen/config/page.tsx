@@ -8,17 +8,26 @@ import ParametersConfig from '@/app/components/admin/sections/ParametersConfig';
 import PaymentsConfig from '@/app/components/admin/sections/PaymentsConfig';
 import ColorsConfig from '@/app/components/admin/sections/ColorsConfig';
 import UsersConfig from '@/app/components/admin/sections/UsersConfig';
+import CustomersConfig from '@/app/components/admin/sections/CustomersConfig';
 import { Parameters } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
 import { USE_DIGICARTE, INTERNAL_PAYMENT_METHODS } from '@/app/utils/constants';
-import { Currency, Discount, Mercurial, PaymentMethod, Color, User, Role } from '@/app/utils/interfaces';
+import { Currency, Discount, Mercurial, PaymentMethod, Color, User, Role, Customer } from '@/app/utils/interfaces';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { useIsMobile } from '@/app/utils/mobile';
 import { defaultParameters } from '@/app/utils/processData';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LoadingDot } from '@/app/loading';
-import { IconSettings, IconDiscount, IconCurrency, IconCreditCard, IconUsers, IconPalette } from '@tabler/icons-react';
+import {
+    IconSettings,
+    IconDiscount,
+    IconCurrency,
+    IconCreditCard,
+    IconUserScan,
+    IconPalette,
+    IconUsersGroup,
+} from '@tabler/icons-react';
 
 // Type for currency row from DB
 interface CurrencyRow {
@@ -47,8 +56,10 @@ export default function SettingsPage() {
     const [paymentsConfig, setPaymentsConfig] = useState<PaymentMethod[]>([]);
     const [colorsConfig, setColorsConfig] = useState<Color[]>([]);
     const [usersConfig, setUsersConfig] = useState<User[]>([]);
+    const [customersConfig, setCustomersConfig] = useState<Customer[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isSavingUsers, setIsSavingUsers] = useState(false);
+    const [isSavingCustomers, setIsSavingCustomers] = useState(false);
     const dbConfigCheckedRef = useRef(false);
     const dataLoadedRef = useRef(false);
     const [isSavingParameters, setIsSavingParameters] = useState(false);
@@ -67,12 +78,16 @@ export default function SettingsPage() {
     const [hasPaymentsChanges, setHasPaymentsChanges] = useState(false);
     const [hasColorsChanges, setHasColorsChanges] = useState(false);
     const [hasUsersChanges, setHasUsersChanges] = useState(false);
+    const [hasCustomersChanges, setHasCustomersChanges] = useState(false);
+    const [isUsersValid, setIsUsersValid] = useState(true);
+    const [isCustomersValid, setIsCustomersValid] = useState(true);
     const [originalSettings, setOriginalSettings] = useState<Parameters>(defaultParameters);
     const [originalDiscounts, setOriginalDiscounts] = useState<Discount[]>([]);
     const [originalCurrencies, setOriginalCurrencies] = useState<Currency[]>([]);
     const [originalPayments, setOriginalPayments] = useState<PaymentMethod[]>([]);
     const [originalColors, setOriginalColors] = useState<Color[]>([]);
     const [originalUsers, setOriginalUsers] = useState<User[]>([]);
+    const [originalCustomers, setOriginalCustomers] = useState<Customer[]>([]);
     const [themeName, setThemeName] = useState<string>('');
     const [originalThemeName, setOriginalThemeName] = useState<string>('');
     const [selectedThemeIndex, setSelectedThemeIndex] = useState<number>(0);
@@ -299,6 +314,28 @@ export default function SettingsPage() {
                 setUsersConfig([]);
                 setOriginalUsers([]);
             }
+
+            // Load customers from DB
+            try {
+                const customersResponse = await fetch('/api/sql/getCustomers');
+                const customersData = await customersResponse.json();
+                if (customersData.values && customersData.values.length > 1) {
+                    const loaded: Customer[] = customersData.values.slice(1).map((row: string[]) => ({
+                        id: row[0] ? Number(row[0]) : undefined,
+                        firstName: String(row[1]),
+                        lastName: String(row[2]),
+                        reference: row[3] ? String(row[3]) : undefined,
+                        email: row[4] ? String(row[4]) : undefined,
+                        phone: row[5] ? String(row[5]) : undefined,
+                    }));
+                    setCustomersConfig(loaded);
+                    setOriginalCustomers(loaded);
+                }
+            } catch {
+                // No fallback for customers - start with empty list
+                setCustomersConfig([]);
+                setOriginalCustomers([]);
+            }
         } catch (error) {
             console.error('Error fetching parameters:', error);
             if (parameters) setSettings(parameters);
@@ -328,14 +365,22 @@ export default function SettingsPage() {
             selectedThemeIndex !== originalSelectedThemeIndex ||
             JSON.stringify(customThemeNames) !== JSON.stringify(originalCustomThemeNames);
         const usersChanged = JSON.stringify(usersConfig) !== JSON.stringify(originalUsers);
+        const customersChanged = JSON.stringify(customersConfig) !== JSON.stringify(originalCustomers);
         setHasSettingsChanges(settingsChanged);
         setHasDiscountsChanges(discountsChanged);
         setHasCurrenciesChanges(currenciesChanged);
         setHasPaymentsChanges(paymentsChanged);
         setHasColorsChanges(colorsChanged);
         setHasUsersChanges(usersChanged);
+        setHasCustomersChanges(customersChanged);
         setHasChanges(
-            settingsChanged || discountsChanged || currenciesChanged || paymentsChanged || colorsChanged || usersChanged
+            settingsChanged ||
+                discountsChanged ||
+                currenciesChanged ||
+                paymentsChanged ||
+                colorsChanged ||
+                usersChanged ||
+                customersChanged
         );
     }, [
         settings,
@@ -344,6 +389,7 @@ export default function SettingsPage() {
         paymentsConfig,
         colorsConfig,
         usersConfig,
+        customersConfig,
         themeName,
         selectedThemeIndex,
         customThemeNames,
@@ -353,6 +399,7 @@ export default function SettingsPage() {
         originalPayments,
         originalColors,
         originalUsers,
+        originalCustomers,
         originalThemeName,
         originalSelectedThemeIndex,
         originalCustomThemeNames,
@@ -365,6 +412,8 @@ export default function SettingsPage() {
         if (hasDiscountsChanges) await handleDiscountsSave(discounts);
         if (hasCurrenciesChanges) await handleCurrenciesSave(currenciesConfig);
         if (hasPaymentsChanges) await handlePaymentsSave(paymentsConfig);
+        if (hasCustomersChanges) await handleCustomersSave(customersConfig);
+        if (hasColorsChanges) await handleColorsSave(colorsConfig);
         if (hasUsersChanges) await handleUsersSave(usersConfig);
         setIsSaving(false);
     };
@@ -528,6 +577,26 @@ export default function SettingsPage() {
         }
     };
 
+    const handleCustomersSave = async (data: Customer[]) => {
+        setIsSavingCustomers(true);
+        setIsSaving(true);
+        try {
+            await fetch('/api/sql/updateCustomers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ customers: data }),
+            });
+            setOriginalCustomers(data);
+            setHasCustomersChanges(false);
+        } catch (error) {
+            console.error("Erreur lors de l'enregistrement:", error);
+            openFullscreenPopup("Erreur lors de l'enregistrement des clients.", ['OK']);
+        } finally {
+            setIsSavingCustomers(false);
+            setIsSaving(false);
+        }
+    };
+
     const handleThemeNameChange = (name: string) => {
         setThemeName(name);
     };
@@ -552,6 +621,7 @@ export default function SettingsPage() {
                 setPaymentsConfig(originalPayments);
                 setColorsConfig(originalColors);
                 setUsersConfig(originalUsers);
+                setCustomersConfig(originalCustomers);
                 setThemeName(originalThemeName);
                 setSelectedThemeIndex(originalSelectedThemeIndex);
                 setCustomThemeNames(originalCustomThemeNames);
@@ -666,7 +736,21 @@ export default function SettingsPage() {
                 isLoading={isSavingUsers}
                 isOpen={openSection === 'users'}
                 onToggle={() => setOpenSection((prev) => (prev === 'users' ? null : 'users'))}
-                icon={<IconUsers size={24} />}
+                icon={<IconUserScan size={24} />}
+                onValidation={setIsUsersValid}
+            />
+
+            <CustomersConfig
+                config={customersConfig}
+                onChange={setCustomersConfig}
+                onSave={hasCustomersChanges ? handleCustomersSave : undefined}
+                isReadOnly={isReadOnly}
+                onCancel={hasCustomersChanges ? handleCancel : undefined}
+                isLoading={isSavingCustomers}
+                isOpen={openSection === 'customers'}
+                onToggle={() => setOpenSection((prev) => (prev === 'customers' ? null : 'customers'))}
+                icon={<IconUsersGroup size={24} />}
+                onValidation={setIsCustomersValid}
             />
 
             <ColorsConfig
@@ -697,7 +781,7 @@ export default function SettingsPage() {
                     <AdminButton
                         onClick={handleSaveAll}
                         isLoading={isSaving}
-                        disabled={!isSiretValid || isSaving}
+                        disabled={!isSiretValid || !isUsersValid || !isCustomersValid || isSaving}
                         variant="save"
                         className={isMobile ? 'px-3 py-2' : ''}
                     >

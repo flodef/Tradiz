@@ -1,6 +1,7 @@
 'use client';
 
 import { Role, User } from '@/app/utils/interfaces';
+import { adminHeaderStyle } from '@/app/utils/constants';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -22,6 +23,7 @@ interface UsersConfigProps {
     isOpen?: boolean;
     onToggle?: () => void;
     icon?: React.ReactNode;
+    onValidation?: (isValid: boolean) => void;
 }
 
 interface InternalUser extends User {
@@ -111,6 +113,7 @@ export default function UsersConfig({
     isOpen,
     onToggle,
     icon,
+    onValidation,
 }: UsersConfigProps) {
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
@@ -157,6 +160,11 @@ export default function UsersConfig({
     const isValid = useMemo(() => {
         return nonAdminUsers.every((user) => user.key?.trim() && user.name?.trim());
     }, [nonAdminUsers]);
+
+    // Notify parent of validation state
+    useEffect(() => {
+        onValidation?.(isValid);
+    }, [isValid, onValidation]);
 
     const handleUserChange = useCallback(
         (id: number, updatedUser: InternalUser) => {
@@ -237,13 +245,13 @@ export default function UsersConfig({
                         <table className="w-full border-collapse">
                             {nonAdminUsers.length > 0 && (
                                 <thead>
-                                    <tr className="border-b border-gray-300 dark:border-gray-600">
-                                        {!isReadOnly && <th className="p-2 w-10"></th>}
-                                        <th className="p-2 text-left">Clé</th>
-                                        <th className="p-2 text-left">Nom</th>
-                                        <th className="p-2 text-left">Référence</th>
-                                        <th className="p-2 text-left w-20">Rôle</th>
-                                        {!isReadOnly && <th className="p-2 w-10"></th>}
+                                    <tr className="border-b-2 border-gray-300 dark:border-gray-600">
+                                        {!isReadOnly && <th className="w-12"></th>}
+                                        <th className={adminHeaderStyle + ' min-w-40 w-40'}>Clé</th>
+                                        <th className={adminHeaderStyle + ' min-w-40 w-40'}>Nom</th>
+                                        <th className={adminHeaderStyle + ' min-w-32 w-32'}>Référence</th>
+                                        <th className={adminHeaderStyle + ' min-w-20 w-20'}>Rôle</th>
+                                        {!isReadOnly && <th className="w-8"></th>}
                                     </tr>
                                 </thead>
                             )}

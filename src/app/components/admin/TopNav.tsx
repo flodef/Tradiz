@@ -142,7 +142,7 @@ export default function TopNav({
             <button
                 type="button"
                 onClick={handleToggle}
-                className="flex h-12 w-12 items-center justify-center rounded-xl text-3xl transition hover:bg-black/5 dark:hover:bg-white/10"
+                className="flex h-12 w-12 items-center justify-center cursor-pointer rounded-xl text-3xl transition hover:bg-black/5 dark:hover:bg-white/10"
                 aria-label={collapsed ? 'Afficher la navigation' : 'Masquer la navigation'}
                 title={collapsed ? 'Afficher la navigation' : 'Masquer la navigation'}
             >

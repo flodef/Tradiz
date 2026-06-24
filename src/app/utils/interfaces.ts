@@ -34,6 +34,15 @@ export interface User {
     reference?: string;
 }
 
+export interface Customer {
+    id?: number;
+    firstName: string;
+    lastName: string;
+    reference?: string;
+    email?: string;
+    phone?: string;
+}
+
 export interface Currency {
     label: string;
     maxValue: number;
