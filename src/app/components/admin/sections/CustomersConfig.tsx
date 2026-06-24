@@ -86,7 +86,7 @@ function SortableRow({
                     onChange={(value) => onChange({ ...customer, email: String(value) })}
                     placeholder="Email"
                     isReadOnly={isReadOnly}
-                    validation={(value) => emailRegex.test(String(value))}
+                    validation={(value) => !value || emailRegex.test(String(value))}
                     className="min-w-40"
                 />
             </td>
@@ -96,7 +96,7 @@ function SortableRow({
                     onChange={(value) => onChange({ ...customer, phone: String(value) })}
                     placeholder="Téléphone"
                     isReadOnly={isReadOnly}
-                    validation={(value) => frenchPhoneRegex.test(String(value))}
+                    validation={(value) => !value || frenchPhoneRegex.test(String(value))}
                     className="w-36"
                 />
             </td>
