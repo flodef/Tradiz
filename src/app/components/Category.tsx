@@ -8,15 +8,12 @@ import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { useWindowParam } from '../hooks/useWindowParam';
 import { LoadingDot } from '../loading';
-import { getButtonSizeConfig } from '../utils/buttonSizeConfig';
+import { useScreenSizeConfig } from '../utils/screenSizeConfig';
 import { BACK_KEYWORD, CONFIG_KEYWORD, DEV_EMAIL, OTHER_KEYWORD, USE_DIGICARTE } from '../utils/constants';
 import { Catalog, CatalogFormula, EmptyDiscount, InventoryItem, Role, State } from '../utils/interfaces';
 import { useIsMobileDevice } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
-import { ButtonSize } from '../utils/types';
 import { useAddPopupClass } from './Popup';
-
-export const CATEGORY_BUTTON_SIZE: ButtonSize = 'xl';
 
 // Local types for option selection helpers
 type OptionDef = { type: string; options: { value: string; price: number | string }[] };
@@ -26,13 +23,12 @@ interface CategoryInputButton {
     input: string;
     onInput: (input: string, eventType: string) => void;
     length: number;
-    size?: ButtonSize;
+    sizeConfig: ReturnType<typeof useScreenSizeConfig>;
 }
 
-const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length, size = 'md' }) => {
+const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length, sizeConfig }) => {
     const { selectedProduct } = useData();
     const isMobileDevice = useIsMobileDevice();
-    const sizeConfig = getButtonSizeConfig(size);
 
     const onClick: MouseEventHandler = (e) => {
         e.preventDefault();
@@ -68,6 +64,9 @@ export const Category: FC = () => {
     const { isLocalhost, isDemo } = useWindowParam();
 
     const [hasSentEmail, setHasSentEmail] = useState(false);
+
+    // Use hook for screen size config with hydration safety
+    const sizeConfig = useScreenSizeConfig();
 
     // ── Catalog: lazy-loaded on first interaction, cached for the session ──
     const catalogRef = useRef<Catalog | null>(null);
@@ -502,7 +501,6 @@ export const Category: FC = () => {
     const categories = useMemo(() => displayInventory.map(({ category }) => category), [displayInventory]);
 
     // 2 columns per row, all categories shown (scroll if > 3 rows)
-    const sizeConfig = getButtonSizeConfig(CATEGORY_BUTTON_SIZE);
     const COLS = 2;
     const rows = Array.from({ length: Math.ceil(categories.length / COLS) }, (_, i) =>
         categories.slice(i * COLS, i * COLS + COLS)
@@ -540,7 +538,7 @@ export const Category: FC = () => {
                                     input={category}
                                     onInput={onInput}
                                     length={row.length}
-                                    size={CATEGORY_BUTTON_SIZE}
+                                    sizeConfig={sizeConfig}
                                 />
                             ))}
                         </div>

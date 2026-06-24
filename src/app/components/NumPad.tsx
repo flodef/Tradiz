@@ -11,14 +11,13 @@ import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
 import { LoadingDot } from '../loading';
-import { getButtonSizeConfig } from '../utils/buttonSizeConfig';
+import { useScreenSizeConfig } from '../utils/screenSizeConfig';
 import { WAITING_KEYWORD } from '../utils/constants';
 import { EmptyDiscount, Mercurial, State } from '../utils/interfaces';
 import { isMobileSize, useIsMobileDevice } from '../utils/mobile';
 import { Digits } from '../utils/types';
 import { Amount } from './Amount';
 import { Calculator } from './Calculator';
-import { CATEGORY_BUTTON_SIZE } from './Category';
 import { useAddPopupClass } from './Popup';
 
 interface NumPadButtonProps {
@@ -155,6 +154,9 @@ export const NumPad: FC = () => {
     const { pay, canPay, canAddProduct } = usePay();
     const { showTransactionsSummary, showTransactionsSummaryMenu, getHistoricalTransactions, refreshHistoricalKeys } =
         useSummary();
+
+    // Use hook for screen size config with hydration safety
+    const sizeConfig = useScreenSizeConfig();
 
     useEffect(() => {
         refreshHistoricalKeys();
@@ -404,9 +406,6 @@ export const NumPad: FC = () => {
         [height]
     );
     const left = useMemo(() => Math.max(((isMobileSize() ? width : width / 2) - 512) / 2, 0), [width]);
-
-    // Use same button size as Category component
-    const sizeConfig = getButtonSizeConfig(CATEGORY_BUTTON_SIZE);
 
     // Call useAddPopupClass before any conditional return
     const numPadClass = useAddPopupClass(
