@@ -16,7 +16,7 @@ import { USE_DIGICARTE, INTERNAL_PAYMENT_METHODS } from '@/app/utils/constants';
 import { Currency, Discount, Mercurial, PaymentMethod, Color, User, Role, Customer } from '@/app/utils/interfaces';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { useIsMobile } from '@/app/utils/mobile';
-import { defaultParameters } from '@/app/utils/processData';
+import { clearLoadDataCache, defaultParameters } from '@/app/utils/processData';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LoadingDot } from '@/app/loading';
 import {
@@ -43,6 +43,7 @@ export default function SettingsPage() {
     const isMobile = useIsMobile();
     const {
         parameters,
+        setParameters,
         discounts: configDiscounts,
         currencies,
         paymentMethods: configPayments,
@@ -193,6 +194,24 @@ export default function SettingsPage() {
                                         usePhoto: parsed.usePhoto ?? false,
                                         useDescription: parsed.useDescription ?? false,
                                         useOptions: parsed.useOptions ?? false,
+                                    };
+                                }
+                            }
+                        } catch {
+                            // Invalid JSON
+                        }
+                        return undefined;
+                    })(),
+                    search: (() => {
+                        try {
+                            const value = getParam('searchSettings', 'Paramètres recherche');
+                            if (value) {
+                                const parsed = JSON.parse(value);
+                                if (parsed && typeof parsed === 'object') {
+                                    return {
+                                        searchCustomers: parsed.searchCustomers ?? false,
+                                        searchProducts: parsed.searchProducts ?? false,
+                                        searchUsers: parsed.searchUsers ?? false,
                                     };
                                 }
                             }
@@ -483,6 +502,7 @@ export default function SettingsPage() {
                 { key: 'yearStartDate', value: JSON.stringify(data.yearStartDate) },
                 { key: 'lastModified', value: new Date().toLocaleString() },
                 { key: 'productsSettings', value: JSON.stringify(data.products ?? {}) },
+                { key: 'searchSettings', value: JSON.stringify(data.search ?? {}) },
             ];
 
             const response = await fetch('/api/sql/updateParameters', {
@@ -497,6 +517,13 @@ export default function SettingsPage() {
             setSettings(data);
             setOriginalSettings(data);
             setHasSettingsChanges(false);
+
+            // Update ConfigProvider parameters directly
+            setParameters(data);
+
+            // Invalidate the loadData cache so other ConfigProvider instances
+            // (e.g. the POS app) re-fetch fresh parameters from the DB on next mount
+            clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des paramètres.", ['OK']);

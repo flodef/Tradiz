@@ -13,6 +13,7 @@ export interface ConfigContextState {
     isKitchenViewEnabled: boolean;
     isGrafanaAccessEnabled: boolean;
     parameters: Parameters;
+    setParameters: (value: Parameters) => void;
     currencyIndex: number;
     setCurrency: (label: string) => void;
     currencies: Currency[];

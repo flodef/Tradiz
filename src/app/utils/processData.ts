@@ -154,6 +154,24 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             }
             return undefined;
         })(),
+        search: (() => {
+            try {
+                const value = getParamValue('searchSettings', 13);
+                if (value) {
+                    const parsed = JSON.parse(value);
+                    if (parsed && typeof parsed === 'object') {
+                        return {
+                            searchCustomers: parsed.searchCustomers ?? false,
+                            searchProducts: parsed.searchProducts ?? false,
+                            searchUsers: parsed.searchUsers ?? false,
+                        };
+                    }
+                }
+            } catch {
+                // Invalid JSON, use default
+            }
+            return undefined;
+        })(),
     };
 }
 
@@ -201,6 +219,11 @@ export const defaultParameters: Parameters = {
         usePhoto: false,
         useDescription: false,
         useOptions: false,
+    },
+    search: {
+        searchCustomers: false,
+        searchProducts: false,
+        searchUsers: false,
     },
 };
 
@@ -506,7 +529,7 @@ async function convertParametersData(
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-            checkData(data, 'Paramètres', 1, 2, 6, 13);
+            checkData(data, 'Paramètres', 1, 2, 6, 14);
 
             return {
                 keys: data.values.map((item) => {

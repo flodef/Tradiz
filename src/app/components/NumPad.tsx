@@ -1,7 +1,7 @@
 'use client';
 
-import { IconBackspace, IconCalculator, IconShoppingCart, IconWallet } from '@tabler/icons-react';
-import { FC, MouseEventHandler, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { IconBackspace, IconCalculator, IconSearch, IconShoppingCart, IconWallet } from '@tabler/icons-react';
+import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { isDeletedTransaction } from '../contexts/dataProvider/transactionHelpers';
 import { useConfig } from '../hooks/useConfig';
@@ -20,19 +20,19 @@ import { Amount } from './Amount';
 import { Calculator } from './Calculator';
 import { useAddPopupClass } from './Popup';
 
-interface NumPadButtonProps {
-    input: Digits | string;
-    onInput(key: Digits | string): void;
-    onContextMenu?: () => void;
-    className?: string;
-}
-
 export const MIN_QUANTITY = 0.125;
 export const quantityHalving = (quantity: number, key: Digits | string): number =>
     ({
         '½': Math.max(0.125, (quantity > 0 && quantity < 1 ? quantity : 1) / 2),
         '¼': Math.max(0.125, (quantity > 0 && quantity < 1 ? quantity : 1) / 4),
     })[key.toString()] ?? parseInt(quantity >= 1 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString());
+
+interface NumPadButtonProps {
+    input: Digits | string;
+    onInput(key: Digits | string): void;
+    onContextMenu?: () => void;
+    className?: string;
+}
 
 const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
     const { isStateReady } = useConfig();
@@ -101,12 +101,13 @@ const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu, 
 };
 
 interface ImageButtonProps {
-    children: ReactNode;
+    icon: FC<{ size: number }>;
+    iconSize?: number;
     onClick: () => void;
     onContextMenu: () => void;
     className?: string;
 }
-const ImageButton: FC<ImageButtonProps> = ({ children, onClick, onContextMenu, className }) => {
+const ImageButton: FC<ImageButtonProps> = ({ icon: Icon, iconSize = 42, onClick, onContextMenu, className }) => {
     const isMobileDevice = useIsMobileDevice();
     const handleContextMenu = useCallback<MouseEventHandler>(
         (e) => {
@@ -125,13 +126,13 @@ const ImageButton: FC<ImageButtonProps> = ({ children, onClick, onContextMenu, c
             onClick={onClick}
             onContextMenu={handleContextMenu}
         >
-            {children}
+            <Icon size={iconSize} />
         </div>
     );
 };
 
 export const NumPad: FC = () => {
-    const { currencies, currencyIndex, setCurrency, state, isStateReady, discounts } = useConfig();
+    const { currencies, currencyIndex, setCurrency, state, isStateReady, discounts, parameters } = useConfig();
     const {
         total,
         amount,
@@ -150,7 +151,7 @@ export const NumPad: FC = () => {
         isDbConnected,
         addProduct: _addProduct,
     } = useData();
-    const { openPopup, closePopup, isPopupOpen } = usePopup();
+    const { openPopup, closePopup, isPopupOpen, openFullscreenPopup } = usePopup();
     const { pay, canPay, canAddProduct } = usePay();
     const { showTransactionsSummary, showTransactionsSummaryMenu, getHistoricalTransactions, refreshHistoricalKeys } =
         useSummary();
@@ -325,6 +326,47 @@ export const NumPad: FC = () => {
         );
     }, [openPopup, selectedProduct, discounts, setDiscount]);
 
+    const isSearchPopupRef = useRef(false);
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    const openSearchPopup = useCallback(() => {
+        isSearchPopupRef.current = true;
+        const searchInput = (
+            <input
+                ref={searchInputRef}
+                type="text"
+                defaultValue=""
+                placeholder="Recherche..."
+                className="w-full p-2 border-none outline-none focus:outline-none dark:bg-gray-800 dark:text-white"
+                autoFocus
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                        const query = searchInputRef.current?.value || '';
+                        console.log('Search query:', query);
+                        // TODO: Implement search logic here
+                        closePopup();
+                        isSearchPopupRef.current = false;
+                    }
+                }}
+            />
+        );
+        openFullscreenPopup('Recherche', [searchInput], () => {}, false);
+    }, [openFullscreenPopup, closePopup]);
+
+    // Focus input when popup opens
+    useEffect(() => {
+        if (isPopupOpen && isSearchPopupRef.current && searchInputRef.current) {
+            searchInputRef.current.focus();
+        }
+    }, [isPopupOpen]);
+
+    // Reset ref when popup closes
+    useEffect(() => {
+        if (!isPopupOpen) {
+            isSearchPopupRef.current = false;
+        }
+    }, [isPopupOpen]);
+
     const mercuriale = useCallback(() => {
         const mercurials = Object.values(Mercurial);
         openPopup('Fonction coût quadratique', mercurials, (index) => {
@@ -365,9 +407,7 @@ export const NumPad: FC = () => {
         setAmount(parseInt(value) / Math.pow(10, maxDecimals));
     }, [value, setAmount, maxDecimals]);
     useEffect(() => {
-        if (!amount) {
-            setValue('0');
-        }
+        if (!amount) setValue('0');
     }, [amount]);
 
     const NumPadList: Digits[][] = [
@@ -376,6 +416,9 @@ export const NumPad: FC = () => {
         [1, 2, 3],
     ];
 
+    const hasAmount = selectedProduct || amount;
+    const hasSearchEnabled =
+        parameters.search?.searchCustomers || parameters.search?.searchProducts || parameters.search?.searchUsers;
     const color = isStateReady
         ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark ' +
           'text-secondary-light dark:text-secondary-dark active:text-popup-dark dark:active:text-popup-light '
@@ -385,10 +428,10 @@ export const NumPad: FC = () => {
     const sx = s + (canPay || canAddProduct ? color : 'invisible');
 
     const f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
-    const f1 = f + (amount || total || selectedProduct ? color : 'invisible');
+    const f1 = f + (hasAmount || total ? color : 'invisible');
     const f2 =
         f +
-        (selectedProduct || amount
+        (hasAmount
             ? quantity
                 ? 'bg-secondary-active-light dark:bg-secondary-active-dark text-popup-dark dark:text-popup-light '
                 : color
@@ -462,18 +505,33 @@ export const NumPad: FC = () => {
                             showZero
                             onClick={showCurrencies}
                         />
-                        <ImageButton className={f1} onClick={onClear} onContextMenu={onClearTotal}>
-                            <IconBackspace size={42} />
-                        </ImageButton>
-                        <FunctionButton
-                            className={f2}
-                            input="&times;"
-                            onInput={multiply}
-                            onContextMenu={discount ?? mercuriale}
+                        <ImageButton
+                            icon={IconBackspace}
+                            className={f1}
+                            onClick={onClear}
+                            onContextMenu={onClearTotal}
                         />
-                        <ImageButton className={f + color} onClick={openCalculator} onContextMenu={openCalculator}>
-                            <IconCalculator size={42} />
-                        </ImageButton>
+                        {hasAmount ? (
+                            <FunctionButton
+                                className={f2}
+                                input="&times;"
+                                onInput={multiply}
+                                onContextMenu={discount ?? mercuriale}
+                            />
+                        ) : hasSearchEnabled ? (
+                            <ImageButton
+                                icon={IconSearch}
+                                className={f + color}
+                                onClick={openSearchPopup}
+                                onContextMenu={openSearchPopup}
+                            />
+                        ) : null}
+                        <ImageButton
+                            icon={IconCalculator}
+                            className={f + color}
+                            onClick={openCalculator}
+                            onContextMenu={openCalculator}
+                        />
                         <FunctionButton
                             className={f3}
                             input="z"
@@ -500,14 +558,13 @@ export const NumPad: FC = () => {
                         <NumPadButton input={0} onInput={onInput} />
                         <NumPadButton input={!quantity ? '00' : '½'} onInput={onInput} />
                         <ImageButton
+                            icon={canPay ? IconWallet : canAddProduct ? IconShoppingCart : IconWallet}
                             className={sx}
                             onClick={canPay ? pay : canAddProduct ? addProduct : () => {}}
                             onContextMenu={
                                 canPay ? () => updateTransaction(WAITING_KEYWORD) : canAddProduct ? pay : () => {}
                             }
-                        >
-                            {canPay ? <IconWallet size={42} /> : canAddProduct ? <IconShoppingCart size={42} /> : ''}
-                        </ImageButton>
+                        />
                     </div>
                 </div>
             </div>

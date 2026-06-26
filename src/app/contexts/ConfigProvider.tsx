@@ -52,6 +52,12 @@ export interface ProductsSettings {
     useOptions: boolean;
 }
 
+export interface SearchSettings {
+    searchCustomers: boolean;
+    searchProducts: boolean;
+    searchUsers: boolean;
+}
+
 export interface Parameters {
     shop: Shop;
     thanksMessage: string;
@@ -61,6 +67,7 @@ export interface Parameters {
     yearStartDate?: { month: number; day: number }; // Optional, defaults to { month: 1, day: 1 } (January 1st)
     user: User;
     products?: ProductsSettings;
+    search?: SearchSettings;
     error?: string;
 }
 
@@ -288,6 +295,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
                 isKitchenViewEnabled,
                 isGrafanaAccessEnabled,
                 parameters,
+                setParameters,
                 currencyIndex,
                 setCurrency,
                 currencies,
