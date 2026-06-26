@@ -69,6 +69,7 @@ export interface InventoryItem {
         options?: string | null;
         stock: number | null;
         order: number;
+        reference?: string | null;
     }[];
 }
 

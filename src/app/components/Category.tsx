@@ -9,7 +9,7 @@ import { usePopup } from '../hooks/usePopup';
 import { useWindowParam } from '../hooks/useWindowParam';
 import { LoadingDot } from '../loading';
 import { useScreenSizeConfig } from '../utils/screenSizeConfig';
-import { BACK_KEYWORD, CONFIG_KEYWORD, DEV_EMAIL, OTHER_KEYWORD, USE_DIGICARTE } from '../utils/constants';
+import { ARROW, BACK_KEYWORD, CONFIG_KEYWORD, DEV_EMAIL, OTHER_KEYWORD, USE_DIGICARTE } from '../utils/constants';
 import { Catalog, CatalogFormula, EmptyDiscount, InventoryItem, Role, State } from '../utils/interfaces';
 import { useIsMobileDevice } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
@@ -319,7 +319,6 @@ export const Category: FC = () => {
     // ── Build the product list popup content for a category ──
     const buildProductListPopup = (item: InventoryItem) => {
         const sorted = [...item.products].sort((a, b) => a.label.localeCompare(b.label));
-        const ARROW = ' ▸';
         const entries: string[] = sorted.map((p) => (p.options ? `${p.label}${ARROW}` : p.label));
         entries.push('', OTHER_KEYWORD);
 

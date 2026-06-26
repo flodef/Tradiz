@@ -9,12 +9,14 @@ import { useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { useWindowParam } from '../hooks/useWindowParam';
 import { LoadingDot } from '../loading';
 import { useScreenSizeConfig } from '../utils/screenSizeConfig';
-import { WAITING_KEYWORD } from '../utils/constants';
-import { Customer, EmptyDiscount, InventoryItem, Mercurial, Role, State, User } from '../utils/interfaces';
+import { ARROW, WAITING_KEYWORD } from '../utils/constants';
+import { Customer, EmptyDiscount, InventoryItem, Mercurial, State, User } from '../utils/interfaces';
 import { isMobileSize, useIsMobileDevice } from '../utils/mobile';
+import { getPopupStyles, getOptionHoverStyles } from '../utils/popupStyles';
 import { Digits } from '../utils/types';
 import { Amount } from './Amount';
 import { Calculator } from './Calculator';
@@ -131,17 +133,10 @@ const ImageButton: FC<ImageButtonProps> = ({ icon: Icon, iconSize = 42, onClick,
     );
 };
 
-interface SearchUser {
-    key: string;
-    name: string;
-    role: string;
-    reference?: string;
-}
-
 interface SearchPopupProps {
     inventory: InventoryItem[];
     customers: Customer[];
-    users: SearchUser[];
+    users: User[];
     searchSettings?: { searchCustomers: boolean; searchProducts: boolean; searchUsers: boolean };
     onSelectProduct: (item: { category: string; label: string; amount: number }) => void;
     onSelectCustomer: (customer: Customer) => void;
@@ -158,11 +153,23 @@ const SearchPopup: FC<SearchPopupProps> = ({
     onSelectUser,
 }) => {
     const [query, setQuery] = useState('');
+    const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+        products: true,
+        customers: true,
+        users: true,
+    });
     const inputRef = useRef<HTMLInputElement>(null);
+    const isMobileDevice = useIsMobileDevice();
+    const styles = getPopupStyles('default');
+    const optionClass = twMerge(styles.option, 'px-3', getOptionHoverStyles(isMobileDevice, true));
 
     useEffect(() => {
         inputRef.current?.focus();
     }, []);
+
+    const toggleSection = (section: string) => {
+        setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+    };
 
     const q = query.toLowerCase();
 
@@ -172,7 +179,10 @@ const SearchPopup: FC<SearchPopupProps> = ({
                   cat.products
                       .map((p) => ({ ...p, category: cat.category }))
                       .filter(
-                          (p) => p.label.toLowerCase().includes(q) || (p.options && p.options.toLowerCase().includes(q))
+                          (p) =>
+                              p.label.toLowerCase().includes(q) ||
+                              (p.options && p.options.toLowerCase().includes(q)) ||
+                              p.reference?.toLowerCase().includes(q)
                       )
               )
               .slice(0, 10)
@@ -193,6 +203,8 @@ const SearchPopup: FC<SearchPopupProps> = ({
         ? users.filter((u) => u.name.toLowerCase().includes(q) || u.reference?.toLowerCase().includes(q)).slice(0, 10)
         : [];
 
+    const hasResults = productResults.length > 0 || customerResults.length > 0 || userResults.length > 0;
+
     return (
         <div onClick={(e) => e.stopPropagation()}>
             <input
@@ -201,65 +213,90 @@ const SearchPopup: FC<SearchPopupProps> = ({
                 value={query}
                 maxLength={10}
                 placeholder="Recherche..."
-                className="w-full p-2 border-none outline-none focus:outline-none dark:bg-gray-800 dark:text-white"
+                className={twMerge(
+                    'w-full px-3 py-2 bg-transparent border-none outline-none focus:outline-none text-xl font-semibold',
+                    'text-popup-dark dark:text-popup-light placeholder:font-normal placeholder:text-gray-400'
+                )}
                 autoFocus
                 onChange={(e) => setQuery(e.target.value)}
             />
             {query && (
-                <div className="max-h-60 overflow-y-auto">
+                <div className="max-h-[55vh] overflow-y-auto">
+                    {!hasResults && (
+                        <div className={twMerge(styles.optionText, 'py-4 text-center text-gray-400')}>
+                            Aucun résultat
+                        </div>
+                    )}
                     {productResults.length > 0 && (
                         <div className="mt-2">
-                            <div className="font-bold text-sm mb-1">Produits</div>
-                            {productResults.map((item, index) => (
-                                <div
-                                    key={`product-${index}`}
-                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                                    onClick={() =>
-                                        onSelectProduct({
-                                            category: item.category,
-                                            label: item.label,
-                                            amount: item.prices[0],
-                                        })
-                                    }
-                                >
-                                    {item.label}
-                                </div>
-                            ))}
+                            <div
+                                className={twMerge(styles.optionText, styles.separator, 'cursor-pointer')}
+                                onClick={() => toggleSection('products')}
+                            >
+                                PRODUITS {!expandedSections.products && ARROW}
+                            </div>
+                            {expandedSections.products &&
+                                productResults.map((item, index) => (
+                                    <div
+                                        key={`product-${index}`}
+                                        className={twMerge(optionClass)}
+                                        onClick={() =>
+                                            onSelectProduct({
+                                                category: item.category,
+                                                label: item.label,
+                                                amount: item.prices[0],
+                                            })
+                                        }
+                                    >
+                                        <div className={styles.optionText}>{item.label}</div>
+                                    </div>
+                                ))}
                         </div>
                     )}
+
                     {customerResults.length > 0 && (
                         <div className="mt-2">
-                            <div className="font-bold text-sm mb-1">Clients</div>
-                            {customerResults.map((item) => (
-                                <div
-                                    key={item.id}
-                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                                    onClick={() => onSelectCustomer(item)}
-                                >
-                                    {item.firstName} {item.lastName}
-                                </div>
-                            ))}
+                            <div
+                                className={twMerge(styles.optionText, styles.separator, 'cursor-pointer')}
+                                onClick={() => toggleSection('customers')}
+                            >
+                                CLIENTS {!expandedSections.customers && ARROW}
+                            </div>
+                            {expandedSections.customers &&
+                                customerResults.map((item) => (
+                                    <div
+                                        key={`customer-${item.id}`}
+                                        className={twMerge(optionClass)}
+                                        onClick={() => onSelectCustomer(item)}
+                                    >
+                                        <div className={styles.optionText}>
+                                            {item.firstName} {item.lastName}
+                                        </div>
+                                    </div>
+                                ))}
                         </div>
                     )}
+
                     {userResults.length > 0 && (
                         <div className="mt-2">
-                            <div className="font-bold text-sm mb-1">Utilisateurs</div>
-                            {userResults.map((item) => (
-                                <div
-                                    key={item.key}
-                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                                    onClick={() =>
-                                        onSelectUser({
-                                            key: item.key,
-                                            name: item.name,
-                                            role: item.role as Role,
-                                            reference: item.reference,
-                                        })
-                                    }
-                                >
-                                    {item.name} ({item.role})
-                                </div>
-                            ))}
+                            <div
+                                className={twMerge(styles.optionText, styles.separator, 'cursor-pointer')}
+                                onClick={() => toggleSection('users')}
+                            >
+                                UTILISATEURS {!expandedSections.users && ARROW}
+                            </div>
+                            {expandedSections.users &&
+                                userResults.map((item) => (
+                                    <div
+                                        key={`user-${item.key}`}
+                                        className={twMerge(optionClass)}
+                                        onClick={() => onSelectUser(item)}
+                                    >
+                                        <div className={styles.optionText}>
+                                            {item.name} ({item.role})
+                                        </div>
+                                    </div>
+                                ))}
                         </div>
                     )}
                 </div>
@@ -279,6 +316,8 @@ export const NumPad: FC = () => {
         parameters,
         setParameters,
         inventory,
+        customers,
+        users,
     } = useConfig();
     const {
         total,
@@ -303,6 +342,32 @@ export const NumPad: FC = () => {
     const { pay, canPay, canAddProduct } = usePay();
     const { showTransactionsSummary, showTransactionsSummaryMenu, getHistoricalTransactions, refreshHistoricalKeys } =
         useSummary();
+
+    // Barcode scanner - match by reference
+    useBarcodeScanner({
+        inventory,
+        customers,
+        users,
+        enabled:
+            !!parameters.search?.searchProducts ||
+            !!parameters.search?.searchCustomers ||
+            !!parameters.search?.searchUsers,
+        onMatchProduct: (item) => {
+            _addProduct({
+                category: item.category,
+                quantity: 1,
+                amount: item.amount,
+                label: item.label,
+                discount: EmptyDiscount,
+            });
+        },
+        onMatchCustomer: (customer) => {
+            setCurrentCustomer(customer);
+        },
+        onMatchUser: (user) => {
+            setParameters({ ...parameters, user });
+        },
+    });
 
     // Use hook for screen size config with hydration safety
     const sizeConfig = useScreenSizeConfig();
@@ -473,53 +538,6 @@ export const NumPad: FC = () => {
             (index) => setDiscount(selectedProduct, index < 0 ? selectedProduct.discount : displayDiscounts[index])
         );
     }, [openPopup, selectedProduct, discounts, setDiscount]);
-
-    const [customers, setCustomers] = useState<Customer[]>([]);
-    const [users, setUsers] = useState<SearchUser[]>([]);
-
-    // Fetch customers and users when needed
-    useEffect(() => {
-        if (parameters.search?.searchCustomers) {
-            fetch('/api/sql/getCustomers')
-                .then((r) => r.json())
-                .then((data) => {
-                    if (data.values && data.values.length > 1) {
-                        const headers = data.values[0];
-                        const rows = data.values.slice(1);
-                        setCustomers(
-                            rows.map((row: (string | number)[]) => ({
-                                id: row[headers.indexOf('id')] as number,
-                                firstName: row[headers.indexOf('first_name')] as string,
-                                lastName: row[headers.indexOf('last_name')] as string,
-                                reference: row[headers.indexOf('reference')] as string | undefined,
-                                email: row[headers.indexOf('email')] as string | undefined,
-                                phone: row[headers.indexOf('phone')] as string | undefined,
-                            }))
-                        );
-                    }
-                })
-                .catch(console.error);
-        }
-        if (parameters.search?.searchUsers) {
-            fetch('/api/sql/getUsers')
-                .then((r) => r.json())
-                .then((data) => {
-                    if (data.values && data.values.length > 1) {
-                        const headers = data.values[0];
-                        const rows = data.values.slice(1);
-                        setUsers(
-                            rows.map((row: (string | number)[]) => ({
-                                key: row[headers.indexOf('key')] as string,
-                                name: row[headers.indexOf('name')] as string,
-                                role: row[headers.indexOf('role')] as string,
-                                reference: row[headers.indexOf('reference')] as string | undefined,
-                            }))
-                        );
-                    }
-                })
-                .catch(console.error);
-        }
-    }, [parameters.search]);
 
     const openSearchPopup = useCallback(() => {
         const content = (

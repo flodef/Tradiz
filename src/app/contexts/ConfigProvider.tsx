@@ -3,6 +3,7 @@
 import {
     Color,
     Currency,
+    Customer,
     Discount,
     InventoryItem,
     Mercurial,
@@ -79,6 +80,8 @@ export interface Config {
     discounts: Discount[];
     colors: Color[];
     printers: Printer[];
+    customers: Customer[];
+    users: User[];
 }
 
 export interface ConfigProviderProps {
@@ -138,6 +141,8 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
     const [discounts, setDiscounts] = useState<Discount[]>([]);
     const [colors, setColors] = useState<Color[]>([]);
     const [printers, setPrinters] = useState<Printer[]>([]);
+    const [customers, setCustomers] = useState<Customer[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
 
     const isStateReady = useMemo(() => state === State.preloaded || state === State.loaded, [state]);
 
@@ -218,6 +223,8 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
         setDiscounts(data.discounts);
         setColors(data.colors);
         setPrinters(data.printers);
+        setCustomers(data.customers);
+        setUsers(data.users);
 
         setState(State.preloaded);
     }, []);
@@ -305,6 +312,8 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
                 colors,
                 getPrintersNames,
                 getPrinterAddresses,
+                customers,
+                users,
             }}
         >
             {children}

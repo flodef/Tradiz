@@ -2,6 +2,7 @@ import { Config, Parameters } from '../contexts/ConfigProvider';
 import {
     Color,
     Currency,
+    Customer,
     Discount,
     InventoryItem,
     Mercurial,
@@ -184,24 +185,21 @@ interface ProductData {
         options?: string | null;
         stock?: number | null;
         order: number;
+        reference?: string | null;
     }[];
     currencies: string[];
 }
 
-interface DataName {
-    json: string;
-    sheet: string;
-    sql: string;
-}
-
-const dataNames: { [key: string]: DataName } = {
-    parameters: { json: 'parameters', sheet: 'Paramètres', sql: 'getParameters' },
-    paymentMethods: { json: 'paymentMethods', sheet: 'Paiements', sql: 'getPaymentMethods' },
-    currencies: { json: 'currencies', sheet: '_Monnaies', sql: 'getCurrencies' },
-    discounts: { json: 'discounts', sheet: 'Remises', sql: 'getDiscounts' },
-    colors: { json: 'colors', sheet: 'Couleurs', sql: 'getColors' },
-    printers: { json: 'printers', sheet: 'Imprimantes', sql: 'getPrinters' },
-    products: { json: 'products', sheet: '_Produits', sql: 'getAllArticles' },
+const dataNames: { [key: string]: string } = {
+    parameters: 'getParameters',
+    paymentMethods: 'getPaymentMethods',
+    currencies: 'getCurrencies',
+    discounts: 'getDiscounts',
+    colors: 'getColors',
+    printers: 'getPrinters',
+    products: 'getAllArticles',
+    customers: 'getCustomers',
+    users: 'getUsers',
 };
 
 export const defaultParameters: Parameters = {
@@ -283,33 +281,13 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
     return promise;
 }
 
-async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<Config | undefined> {
+async function _loadDataImpl(_shop: string, _shouldUseLocalData = false): Promise<Config | undefined> {
     // Check if DB is configured
     const hasDbConfig = await checkDbConfig();
+    if (!hasDbConfig) throw new Error('Database not configured');
+    if (!navigator.onLine) throw new AppOfflineError();
 
-    const id = shouldUseLocalData
-        ? undefined // if the app is used locally, use the local data
-        : hasDbConfig
-          ? '' // if DB is configured, use DB (empty id means DB)
-          : typeof shop === 'string' // if shop is a string, it means that the app is used by a customer (custom path)
-            ? await fetch(`/api/spreadsheet?sheetName=index`)
-                  .then(convertIndexData)
-                  .then(
-                      (data) =>
-                          data
-                              .filter(({ shop: s }) => s === shop)
-                              .map(({ id }) => id)
-                              .at(0) ?? undefined
-                  )
-                  .catch((error) => {
-                      console.error(error);
-                      return undefined;
-                  })
-            : ''; // if shop is not a string, it means that the app is used by a shop (root path)
-
-    if (id !== undefined && !navigator.onLine) throw new AppOfflineError();
-
-    const param = await fetchData(dataNames.parameters, id, false).then(convertParametersData);
+    const param = await fetchData(dataNames.parameters).then(convertParametersData);
     if (!param?.values?.length) return;
 
     // Resolve user server-side using the public key (never exposes full user list)
@@ -321,13 +299,17 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
 
     const parameters = buildParameters(param, user!);
 
-    const paymentMethods = await fetchData(dataNames.paymentMethods, id).then(convertPaymentMethodsData);
-    const allCurrencies = await fetchData(dataNames.currencies, id).then(convertCurrenciesData);
-    const discounts = await fetchData(dataNames.discounts, id).then(convertDiscountsData);
-    const colors = await fetchData(dataNames.colors, id).then(convertColorsData);
-    const printers = await fetchData(dataNames.printers, id).then(convertPrintersData);
+    const paymentMethods = await fetchData(dataNames.paymentMethods).then(convertPaymentMethodsData);
+    const allCurrencies = await fetchData(dataNames.currencies).then(convertCurrenciesData);
+    const discounts = await fetchData(dataNames.discounts).then(convertDiscountsData);
+    const colors = await fetchData(dataNames.colors).then(convertColorsData);
+    const printers = await fetchData(dataNames.printers).then(convertPrintersData);
 
-    const data = await fetchData(dataNames.products, id).then(convertProductsData);
+    const data = await fetchData(dataNames.products).then(convertProductsData);
+
+    // Fetch customers and users
+    const customers = await fetchData(dataNames.customers).then(convertCustomersData);
+    const users = await fetchData(dataNames.users).then(convertUsersData);
 
     if (!data?.products?.length || !data?.currencies?.length) return;
 
@@ -349,6 +331,7 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
                 options: item.options,
                 stock: item.stock ?? null,
                 order: item.order,
+                reference: item.reference ?? null,
             });
         } else {
             inventory.push({
@@ -362,6 +345,7 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
                         options: item.options,
                         stock: item.stock ?? null,
                         order: item.order,
+                        reference: item.reference ?? null,
                     },
                 ],
             });
@@ -376,6 +360,8 @@ async function _loadDataImpl(shop: string, shouldUseLocalData = false): Promise<
         discounts,
         colors,
         printers,
+        customers,
+        users,
     };
 }
 
@@ -452,16 +438,9 @@ export async function checkDbConfig(): Promise<boolean> {
     });
 }
 
-async function fetchData(dataName: DataName, id: string | undefined, isRaw = true) {
-    // Check if DB is configured, if so use DB regardless of USE_DIGICARTE
-    const hasDbConfig = await checkDbConfig();
-
-    const url = hasDbConfig
-        ? `/api/sql/${dataName.sql}`
-        : id !== undefined
-          ? `/api/spreadsheet?sheetName=${dataName.sheet}&id=${id}&isRaw=${isRaw.toString()}`
-          : `/api/json?fileName=${dataName.json}`;
-
+async function fetchData(dataName: string) {
+    // Always use DB
+    const url = `/api/sql/${dataName}`;
     return await fetch(url).catch((error) => console.error(error));
 }
 
@@ -500,26 +479,6 @@ function checkColumn(item: unknown[], rowContext: string, minCol: number) {
         throw new WrongDataPatternError(
             `Format de colonne incorrect${context}: attendu au moins ${minCol} colonnes, reçu ${item.length} colonnes`
         );
-    }
-}
-
-async function convertIndexData(response: void | Response) {
-    try {
-        if (typeof response === 'undefined') throw new EmptyDataError();
-        return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-            checkData(data, 'Index', 2);
-
-            return data.values.map((item) => {
-                checkColumn(item, 'Index', 2);
-                return {
-                    shop: String(item.at(0)).trim(),
-                    id: String(item.at(1)).trim(),
-                };
-            });
-        });
-    } catch (error) {
-        console.error(error);
-        return [];
     }
 }
 
@@ -653,6 +612,58 @@ async function convertPrintersData(response: void | Response): Promise<Printer[]
                     ipAddress: String(item.at(1)).trim(),
                 };
             });
+        });
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
+}
+
+async function convertCustomersData(response: void | Response): Promise<Customer[]> {
+    try {
+        if (typeof response === 'undefined') throw new EmptyDataError();
+        return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
+            // Customers are optional, return empty array if no data
+            if (!data.values?.length || data.values.length < 2) {
+                return [];
+            }
+
+            const headers = data.values[0];
+            const rows = data.values.slice(1);
+
+            return rows.map((row: (string | number)[]) => ({
+                id: row[headers.indexOf('id')] as number,
+                firstName: row[headers.indexOf('first_name')] as string,
+                lastName: row[headers.indexOf('last_name')] as string,
+                reference: row[headers.indexOf('reference')] as string | undefined,
+                email: row[headers.indexOf('email')] as string | undefined,
+                phone: row[headers.indexOf('phone')] as string | undefined,
+            }));
+        });
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
+}
+
+async function convertUsersData(response: void | Response): Promise<User[]> {
+    try {
+        if (typeof response === 'undefined') throw new EmptyDataError();
+        return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
+            // Users are optional, return empty array if no data
+            if (!data.values?.length || data.values.length < 2) {
+                return [];
+            }
+
+            const headers = data.values[0];
+            const rows = data.values.slice(1);
+
+            return rows.map((row: (string | number)[]) => ({
+                key: row[headers.indexOf('key')] as string,
+                name: row[headers.indexOf('name')] as string,
+                role: row[headers.indexOf('role')] as Role,
+                reference: row[headers.indexOf('reference')] as string | undefined,
+            }));
         });
     } catch (error) {
         console.error(error);
