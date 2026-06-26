@@ -1,5 +1,6 @@
 import { ChangeEvent, createContext, RefObject, useContext } from 'react';
 import {
+    Customer,
     Discount,
     Mercurial,
     OrderData,
@@ -64,6 +65,8 @@ export interface DataContextState {
     contextTableId: string;
     setContextTableId: (tableId: string) => void;
     checkAndPerformDayReset: () => boolean;
+    currentCustomer: Customer | null;
+    setCurrentCustomer: (customer: Customer | null) => void;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);

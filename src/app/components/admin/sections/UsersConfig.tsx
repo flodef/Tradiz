@@ -247,8 +247,8 @@ export default function UsersConfig({
                                 <thead>
                                     <tr className="border-b-2 border-gray-300 dark:border-gray-600">
                                         {!isReadOnly && <th className="w-12"></th>}
-                                        <th className={adminHeaderStyle + ' min-w-40 w-40'}>Clé</th>
                                         <th className={adminHeaderStyle + ' min-w-40 w-40'}>Nom</th>
+                                        <th className={adminHeaderStyle + ' min-w-40 w-40'}>Clé</th>
                                         <th className={adminHeaderStyle + ' min-w-32 w-32'}>Référence</th>
                                         <th className={adminHeaderStyle + ' min-w-20 w-20'}>Rôle</th>
                                         {!isReadOnly && <th className="w-8"></th>}

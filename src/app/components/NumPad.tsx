@@ -13,7 +13,7 @@ import { useWindowParam } from '../hooks/useWindowParam';
 import { LoadingDot } from '../loading';
 import { useScreenSizeConfig } from '../utils/screenSizeConfig';
 import { WAITING_KEYWORD } from '../utils/constants';
-import { EmptyDiscount, Mercurial, State } from '../utils/interfaces';
+import { Customer, EmptyDiscount, InventoryItem, Mercurial, Role, State, User } from '../utils/interfaces';
 import { isMobileSize, useIsMobileDevice } from '../utils/mobile';
 import { Digits } from '../utils/types';
 import { Amount } from './Amount';
@@ -131,8 +131,155 @@ const ImageButton: FC<ImageButtonProps> = ({ icon: Icon, iconSize = 42, onClick,
     );
 };
 
+interface SearchUser {
+    key: string;
+    name: string;
+    role: string;
+    reference?: string;
+}
+
+interface SearchPopupProps {
+    inventory: InventoryItem[];
+    customers: Customer[];
+    users: SearchUser[];
+    searchSettings?: { searchCustomers: boolean; searchProducts: boolean; searchUsers: boolean };
+    onSelectProduct: (item: { category: string; label: string; amount: number }) => void;
+    onSelectCustomer: (customer: Customer) => void;
+    onSelectUser: (user: User) => void;
+}
+
+const SearchPopup: FC<SearchPopupProps> = ({
+    inventory,
+    customers,
+    users,
+    searchSettings,
+    onSelectProduct,
+    onSelectCustomer,
+    onSelectUser,
+}) => {
+    const [query, setQuery] = useState('');
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        inputRef.current?.focus();
+    }, []);
+
+    const q = query.toLowerCase();
+
+    const productResults = searchSettings?.searchProducts
+        ? inventory
+              .flatMap((cat) =>
+                  cat.products
+                      .map((p) => ({ ...p, category: cat.category }))
+                      .filter(
+                          (p) => p.label.toLowerCase().includes(q) || (p.options && p.options.toLowerCase().includes(q))
+                      )
+              )
+              .slice(0, 10)
+        : [];
+
+    const customerResults = searchSettings?.searchCustomers
+        ? customers
+              .filter(
+                  (c) =>
+                      c.firstName.toLowerCase().includes(q) ||
+                      c.lastName.toLowerCase().includes(q) ||
+                      c.reference?.toLowerCase().includes(q)
+              )
+              .slice(0, 10)
+        : [];
+
+    const userResults = searchSettings?.searchUsers
+        ? users.filter((u) => u.name.toLowerCase().includes(q) || u.reference?.toLowerCase().includes(q)).slice(0, 10)
+        : [];
+
+    return (
+        <div onClick={(e) => e.stopPropagation()}>
+            <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                maxLength={10}
+                placeholder="Recherche..."
+                className="w-full p-2 border-none outline-none focus:outline-none dark:bg-gray-800 dark:text-white"
+                autoFocus
+                onChange={(e) => setQuery(e.target.value)}
+            />
+            {query && (
+                <div className="max-h-60 overflow-y-auto">
+                    {productResults.length > 0 && (
+                        <div className="mt-2">
+                            <div className="font-bold text-sm mb-1">Produits</div>
+                            {productResults.map((item, index) => (
+                                <div
+                                    key={`product-${index}`}
+                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                                    onClick={() =>
+                                        onSelectProduct({
+                                            category: item.category,
+                                            label: item.label,
+                                            amount: item.prices[0],
+                                        })
+                                    }
+                                >
+                                    {item.label}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {customerResults.length > 0 && (
+                        <div className="mt-2">
+                            <div className="font-bold text-sm mb-1">Clients</div>
+                            {customerResults.map((item) => (
+                                <div
+                                    key={item.id}
+                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                                    onClick={() => onSelectCustomer(item)}
+                                >
+                                    {item.firstName} {item.lastName}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {userResults.length > 0 && (
+                        <div className="mt-2">
+                            <div className="font-bold text-sm mb-1">Utilisateurs</div>
+                            {userResults.map((item) => (
+                                <div
+                                    key={item.key}
+                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                                    onClick={() =>
+                                        onSelectUser({
+                                            key: item.key,
+                                            name: item.name,
+                                            role: item.role as Role,
+                                            reference: item.reference,
+                                        })
+                                    }
+                                >
+                                    {item.name} ({item.role})
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
 export const NumPad: FC = () => {
-    const { currencies, currencyIndex, setCurrency, state, isStateReady, discounts, parameters } = useConfig();
+    const {
+        currencies,
+        currencyIndex,
+        setCurrency,
+        state,
+        isStateReady,
+        discounts,
+        parameters,
+        setParameters,
+        inventory,
+    } = useConfig();
     const {
         total,
         amount,
@@ -150,6 +297,7 @@ export const NumPad: FC = () => {
         transactions,
         isDbConnected,
         addProduct: _addProduct,
+        setCurrentCustomer,
     } = useData();
     const { openPopup, closePopup, isPopupOpen, openFullscreenPopup } = usePopup();
     const { pay, canPay, canAddProduct } = usePay();
@@ -326,46 +474,93 @@ export const NumPad: FC = () => {
         );
     }, [openPopup, selectedProduct, discounts, setDiscount]);
 
-    const isSearchPopupRef = useRef(false);
-    const searchInputRef = useRef<HTMLInputElement>(null);
+    const [customers, setCustomers] = useState<Customer[]>([]);
+    const [users, setUsers] = useState<SearchUser[]>([]);
+
+    // Fetch customers and users when needed
+    useEffect(() => {
+        if (parameters.search?.searchCustomers) {
+            fetch('/api/sql/getCustomers')
+                .then((r) => r.json())
+                .then((data) => {
+                    if (data.values && data.values.length > 1) {
+                        const headers = data.values[0];
+                        const rows = data.values.slice(1);
+                        setCustomers(
+                            rows.map((row: (string | number)[]) => ({
+                                id: row[headers.indexOf('id')] as number,
+                                firstName: row[headers.indexOf('first_name')] as string,
+                                lastName: row[headers.indexOf('last_name')] as string,
+                                reference: row[headers.indexOf('reference')] as string | undefined,
+                                email: row[headers.indexOf('email')] as string | undefined,
+                                phone: row[headers.indexOf('phone')] as string | undefined,
+                            }))
+                        );
+                    }
+                })
+                .catch(console.error);
+        }
+        if (parameters.search?.searchUsers) {
+            fetch('/api/sql/getUsers')
+                .then((r) => r.json())
+                .then((data) => {
+                    if (data.values && data.values.length > 1) {
+                        const headers = data.values[0];
+                        const rows = data.values.slice(1);
+                        setUsers(
+                            rows.map((row: (string | number)[]) => ({
+                                key: row[headers.indexOf('key')] as string,
+                                name: row[headers.indexOf('name')] as string,
+                                role: row[headers.indexOf('role')] as string,
+                                reference: row[headers.indexOf('reference')] as string | undefined,
+                            }))
+                        );
+                    }
+                })
+                .catch(console.error);
+        }
+    }, [parameters.search]);
 
     const openSearchPopup = useCallback(() => {
-        isSearchPopupRef.current = true;
-        const searchInput = (
-            <input
-                ref={searchInputRef}
-                type="text"
-                defaultValue=""
-                placeholder="Recherche..."
-                className="w-full p-2 border-none outline-none focus:outline-none dark:bg-gray-800 dark:text-white"
-                autoFocus
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                        const query = searchInputRef.current?.value || '';
-                        console.log('Search query:', query);
-                        // TODO: Implement search logic here
-                        closePopup();
-                        isSearchPopupRef.current = false;
-                    }
+        const content = (
+            <SearchPopup
+                inventory={inventory}
+                customers={customers}
+                users={users}
+                searchSettings={parameters.search}
+                onSelectProduct={(item) => {
+                    _addProduct({
+                        category: item.category,
+                        quantity: 1,
+                        amount: item.amount,
+                        label: item.label,
+                        discount: EmptyDiscount,
+                    });
+                    closePopup();
+                }}
+                onSelectCustomer={(customer) => {
+                    setCurrentCustomer(customer);
+                    closePopup();
+                }}
+                onSelectUser={(user) => {
+                    setParameters({ ...parameters, user });
+                    closePopup();
                 }}
             />
         );
-        openFullscreenPopup('Recherche', [searchInput], () => {}, false);
-    }, [openFullscreenPopup, closePopup]);
 
-    // Focus input when popup opens
-    useEffect(() => {
-        if (isPopupOpen && isSearchPopupRef.current && searchInputRef.current) {
-            searchInputRef.current.focus();
-        }
-    }, [isPopupOpen]);
-
-    // Reset ref when popup closes
-    useEffect(() => {
-        if (!isPopupOpen) {
-            isSearchPopupRef.current = false;
-        }
-    }, [isPopupOpen]);
+        openFullscreenPopup('Recherche', [content], () => {}, true);
+    }, [
+        openFullscreenPopup,
+        closePopup,
+        inventory,
+        customers,
+        users,
+        parameters,
+        setParameters,
+        _addProduct,
+        setCurrentCustomer,
+    ]);
 
     const mercuriale = useCallback(() => {
         const mercurials = Object.values(Mercurial);

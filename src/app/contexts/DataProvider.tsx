@@ -14,6 +14,7 @@ import {
 } from '../utils/constants';
 import { getFormattedDate, getTransactionFileName, toSQLDateTime } from '../utils/date';
 import {
+    Customer,
     Discount,
     OrderData,
     OrderItem,
@@ -106,6 +107,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [showPartialPaymentSelector, setShowPartialPaymentSelector] = useState(false);
     const [counterServiceType, setCounterServiceTypeState] = useState<ServiceType>('sur_place');
     const [contextTableId, setContextTableId] = useState('');
+    const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
     const counterServiceTypeRef = useRef<ServiceType>('sur_place');
     const setCounterServiceType = useCallback((type: ServiceType) => {
         counterServiceTypeRef.current = type;
@@ -1217,6 +1219,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 contextTableId,
                 setContextTableId,
                 checkAndPerformDayReset,
+                currentCustomer,
+                setCurrentCustomer,
             }}
         >
             {children}
