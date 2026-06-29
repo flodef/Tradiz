@@ -7,4 +7,15 @@ bun scripts/utils/increment-version.js
 # Add the updated package.json to the commit
 git add package.json
 
+if git diff --cached --name-only | grep -E '\.(ts(x)?|js(x)?)$'; 
+then 
+    echo "Running tests..."
+    bun run test || exit 1
+    echo "Running build..."
+    bun run build || exit 1
+else 
+    echo "Running lint..."
+    bun run lint
+fi
+
 echo "✅ Version updated and staged for commit"

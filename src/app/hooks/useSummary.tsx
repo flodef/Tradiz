@@ -4,7 +4,7 @@ import { utils, writeFile } from 'xlsx';
 import { sendSummaryEmail } from '../actions/email';
 import { Shop } from '../contexts/ConfigProvider';
 import { isDeletedTransaction, isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
-import { BACK_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
+import { ARROW, BACK_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
 import { formatFrenchDate, getFormattedDate } from '../utils/date';
 import { Currency, DataElement, SyncAction, Transaction } from '../utils/interfaces';
 import { printSummary } from '../utils/posPrinter';
@@ -327,7 +327,6 @@ export const useSummary = () => {
                                 const sortedMonths = Object.keys(daysByMonth).sort().reverse();
 
                                 // Show month selection popup with arrows
-                                const ARROW = ' ▸';
                                 const monthEntries = sortedMonths.map((month) => {
                                     const date = new Date(month + '-01');
                                     return `${date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}${ARROW}`;
@@ -518,7 +517,6 @@ export const useSummary = () => {
 
             // For day period, group by month
             if (isDayPeriod) {
-                const ARROW = ' ▸';
                 const months = historicalTransactions
                     .map((key) => key.split('_')[1] ?? '')
                     .map((key) => key.split('-').slice(0, 2).join('-'))
@@ -634,7 +632,6 @@ export const useSummary = () => {
 
             // For month period, group by year
             if (isMonthPeriod) {
-                const ARROW = ' ▸';
                 const years = historicalTransactions
                     .map((key) => key.split('_')[1] ?? '')
                     .map((key) => key.split('-')[0])

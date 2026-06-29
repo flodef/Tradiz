@@ -96,7 +96,7 @@ export function generateTransactionHash(transaction: TransactionData, transactio
         hash = (hash << 5) - hash + char;
         hash = hash & hash;
     }
-    return Math.abs(hash).toString(16).padStart(16, '0') + Date.now().toString(16);
+    return Math.abs(hash).toString(16).padStart(16, '0');
 }
 
 async function handleAddTransaction(connection: Connection, transaction: TransactionData) {

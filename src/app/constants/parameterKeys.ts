@@ -17,6 +17,7 @@ export const PARAMETER_KEYS = {
     YEAR_START_DATE: 'yearStartDate',
     LAST_MODIFIED: 'lastModified',
     PRODUCTS_SETTINGS: 'productsSettings',
+    SEARCH_SETTINGS: 'searchSettings',
 } as const;
 
 export const PARAMETER_KEY_LIST = Object.values(PARAMETER_KEYS);

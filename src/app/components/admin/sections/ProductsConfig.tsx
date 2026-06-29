@@ -2,7 +2,15 @@
 
 import { adminSortableHeaderStyle } from '@/app/utils/constants';
 import { Currency } from '@/app/utils/interfaces';
-import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import {
+    closestCenter,
+    DndContext,
+    DragEndEvent,
+    PointerSensor,
+    TouchSensor,
+    useSensor,
+    useSensors,
+} from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { IconChevronDown, IconChevronUp, IconInfoCircle, IconSelector } from '@tabler/icons-react';
@@ -72,6 +80,7 @@ export default function ProductsConfig({
     productsSettings,
     isOpen,
     onToggle,
+    icon,
 }: {
     config: AdminProduct[];
     onChange: (data: AdminProduct[]) => void;
@@ -92,6 +101,7 @@ export default function ProductsConfig({
         useDescription: boolean;
         useOptions: boolean;
     };
+    icon?: React.ReactNode;
 }) {
     const [products, setProducts] = useState(config || []);
     const [search, setSearch] = useState('');
@@ -105,7 +115,14 @@ export default function ProductsConfig({
     const priceInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const focusPriceIndexRef = useRef<number | null>(null);
 
-    const sensors = useSensors(useSensor(PointerSensor));
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                distance: 10,
+            },
+        })
+    );
 
     const categoryOrder = useMemo(() => {
         // Use categories prop order as the stable base order
@@ -424,6 +441,7 @@ export default function ProductsConfig({
             title="Produits"
             onSave={isReadOnly || !hasChanges || !onSave ? undefined : () => onSave(products)}
             saveDisabled={duplicateNames.size > 0}
+            icon={icon}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
             headerExtra={headerControls}
             isLoading={isLoading}
@@ -486,6 +504,17 @@ export default function ProductsConfig({
                                             <div className="flex items-center gap-1">
                                                 TVA (%)
                                                 <SortIcon field="vat" />
+                                            </div>
+                                        </th>
+                                    )}
+                                    {productsSettings?.useReference && (
+                                        <th
+                                            className={adminSortableHeaderStyle + ' min-w-32 w-32'}
+                                            onClick={() => handleSort('reference')}
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                Référence
+                                                <SortIcon field="reference" />
                                             </div>
                                         </th>
                                     )}
@@ -703,6 +732,27 @@ export default function ProductsConfig({
                                                                                     vat: Number(value) || 0,
                                                                                 })
                                                                             }
+                                                                        />
+                                                                    )}
+                                                                </td>
+                                                            )}
+                                                            {productsSettings?.useReference && (
+                                                                <td className="p-2">
+                                                                    {isReadOnly ? (
+                                                                        <div className="text-sm text-center">
+                                                                            {p.reference ?? '-'}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <ValidatedInput
+                                                                            type="text"
+                                                                            value={p.reference ?? ''}
+                                                                            onChange={(value) =>
+                                                                                handleProductChange(i, {
+                                                                                    ...p,
+                                                                                    reference: String(value),
+                                                                                })
+                                                                            }
+                                                                            placeholder="Auto-généré"
                                                                         />
                                                                     )}
                                                                 </td>

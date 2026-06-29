@@ -13,6 +13,7 @@ import { CONFIG_KEYWORD, USE_DIGICARTE } from '@/app/utils/constants';
 import { Category } from '@/app/utils/interfaces';
 import { clearLoadDataCache } from '@/app/utils/processData';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { IconCategory, IconListDetails, IconBox } from '@tabler/icons-react';
 
 export default function EditMenuPage() {
     const { inventory, currencies, parameters } = useConfig();
@@ -373,6 +374,7 @@ export default function EditMenuPage() {
                     onCategoryVatChange={handleCategoryVatChange}
                     onReorderCategories={isReadOnly ? undefined : handleCategoryReorder}
                     onLocalCategoriesChange={setLocalCategoryLabels}
+                    icon={<IconCategory size={24} />}
                 />
 
                 {/* Options Configuration Section - only visible when useOptions is enabled and there are categories */}
@@ -412,6 +414,7 @@ export default function EditMenuPage() {
                         isLoading={isSavingProducts}
                         isOpen={openSection === 'options'}
                         onToggle={() => setOpenSection((prev) => (prev === 'options' ? null : 'options'))}
+                        icon={<IconListDetails size={24} />}
                     />
                 )}
 
@@ -428,6 +431,7 @@ export default function EditMenuPage() {
                     isOpen={openSection === 'products'}
                     onToggle={() => setOpenSection((prev) => (prev === 'products' ? null : 'products'))}
                     productsSettings={productsSettings}
+                    icon={<IconBox size={24} />}
                 />
             </div>
         </AdminPageLayout>

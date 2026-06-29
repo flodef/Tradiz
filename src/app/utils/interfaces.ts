@@ -31,6 +31,16 @@ export interface User {
     key?: string;
     name: string;
     role: Role;
+    reference?: string;
+}
+
+export interface Customer {
+    id?: number;
+    firstName: string;
+    lastName: string;
+    reference?: string;
+    email?: string;
+    phone?: string;
 }
 
 export interface Currency {
@@ -59,6 +69,7 @@ export interface InventoryItem {
         options?: string | null;
         stock: number | null;
         order: number;
+        reference?: string | null;
     }[];
 }
 

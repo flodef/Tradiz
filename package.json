@@ -1,6 +1,6 @@
 {
   "name": "tradiz",
-  "version": "1.16",
+  "version": "1.37",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -23,7 +23,7 @@
     "@neondatabase/serverless": "latest",
     "@solana/pay": "latest",
     "@solana/spl-token": "latest",
-    "@solana/web3.js": "1.95.8",
+    "@solana/web3.js": "1.98.4",
     "@tabler/icons-react": "latest",
     "@tailwindcss/postcss": "latest",
     "@types/nodemailer": "latest",
@@ -32,8 +32,6 @@
     "caniuse-lite": "latest",
     "dotenv": "latest",
     "eslint-plugin-jsx-a11y": "latest",
-    "firebase": "latest",
-    "firebase-admin": "latest",
     "mysql2": "latest",
     "next": "latest",
     "node-thermal-printer": "latest",
@@ -45,7 +43,7 @@
     "recharts": "latest",
     "tailwind-merge": "latest",
     "tailwindcss": "latest",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz"
   },
   "devDependencies": {
     "@commitlint/cli": "latest",
@@ -77,7 +75,6 @@
     "vitest": "latest"
   },
   "trustedDependencies": [
-    "@firebase/util",
     "protobufjs",
     "unrs-resolver"
   ]

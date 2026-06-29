@@ -43,6 +43,7 @@ export const DC_POS = 'DC_POS';
 export const DEFAULT_USER = String(Role.service);
 export const SEPARATOR = ' : ';
 export const CATEGORY_SEPARATOR = '>';
+export const ARROW = ' ▸';
 export const TRANSACTION_TIME_OUT = 60; // Time out in seconds
 export const BACK_KEYWORD = 'RETOUR';
 

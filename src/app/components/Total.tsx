@@ -29,12 +29,10 @@ import { useAddPopupClass } from './Popup';
 
 // Wrapper component to conditionally render TopNav based on user role
 function TopNavWithRoleCheck({
-    inline,
     showLightAdminNav,
     isMobile,
     onCollapsedChange,
 }: {
-    inline?: boolean;
     showLightAdminNav?: boolean;
     isMobile?: boolean;
     onCollapsedChange?: (collapsed: boolean) => void;
@@ -43,8 +41,12 @@ function TopNavWithRoleCheck({
     // Only show TopNav if user has admin or cashier access (they have accessible admin pages)
     if (!showLightAdminNav || !isMobile || !isCashier) return null;
     return (
-        <div onClick={(e) => e.stopPropagation()}>
-            <TopNav inline={inline} onCollapsedChange={onCollapsedChange} />
+        <div
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+        >
+            <TopNav inline onCollapsedChange={onCollapsedChange} />
         </div>
     );
 }
@@ -590,21 +592,22 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
         <div className={popupClassNormal}>
             <div
                 className={twMerge(
-                    'md:w-1/2 w-full fixed text-5xl text-center font-bold py-3',
+                    'md:w-1/2 w-full fixed text-center font-bold',
                     'border-b-4 border-active-light dark:border-active-dark',
-                    isMobile ? 'md:hidden' : 'hidden md:block',
-                    (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length) ? clickClassName : ''
+                    isMobile ? 'md:hidden text-4xl py-1' : 'hidden md:block text-5xl py-3',
+                    !isMobile && ((canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length))
+                        ? clickClassName
+                        : ''
                 )}
             >
-                <div className="flex items-center gap-0 w-full">
+                <div className="flex items-center gap-0 w-full pl-1">
                     <TopNavWithRoleCheck
-                        inline
                         showLightAdminNav={showLightAdminNav}
                         isMobile={isMobile}
                         onCollapsedChange={(c) => setNavExpanded(!c)}
                     />
                     <div
-                        className={twMerge('flex-1 text-center overflow-hidden')}
+                        className={twMerge('flex-1 text-center overflow-hidden whitespace-nowrap')}
                         onClick={handleClick}
                         onContextMenu={handleClick}
                     >

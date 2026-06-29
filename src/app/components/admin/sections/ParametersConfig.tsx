@@ -1,6 +1,6 @@
 'use client';
 
-import { Parameters, ProductsSettings } from '@/app/contexts/ConfigProvider';
+import { Parameters, ProductsSettings, SearchSettings } from '@/app/contexts/ConfigProvider';
 import { adminTextStyle } from '@/app/utils/constants';
 import { Mercurial } from '@/app/utils/interfaces';
 import AdminInput from '../AdminInput';
@@ -24,6 +24,7 @@ interface ParametersConfigProps {
     isLoading?: boolean;
     isOpen?: boolean;
     onToggle?: () => void;
+    icon?: React.ReactNode;
 }
 
 const MONTH_NAMES = [
@@ -53,6 +54,7 @@ export default function ParametersConfig({
     isLoading = false,
     isOpen,
     onToggle,
+    icon,
 }: ParametersConfigProps) {
     const [appVersion, setAppVersion] = useState(process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0');
 
@@ -117,6 +119,7 @@ export default function ParametersConfig({
             title="Paramètres"
             onSave={isReadOnly || !hasChanges ? undefined : () => onSave(config)}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
+            icon={icon}
             saveDisabled={!isSiretValid}
             isLoading={isLoading}
             isOpen={isOpen}
@@ -367,6 +370,66 @@ export default function ParametersConfig({
                             disabled={isReadOnly}
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser options</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Subsection: Recherche */}
+            <div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
+                    Recherche
+                </h3>
+                <div className="flex flex-wrap gap-6">
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.search?.searchCustomers ?? false}
+                            onChange={(checked) =>
+                                handleChange('search', {
+                                    ...(config.search ?? {
+                                        searchCustomers: false,
+                                        searchProducts: false,
+                                        searchUsers: false,
+                                    }),
+                                    searchCustomers: checked,
+                                } as SearchSettings)
+                            }
+                            disabled={isReadOnly}
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Clients</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.search?.searchProducts ?? false}
+                            onChange={(checked) =>
+                                handleChange('search', {
+                                    ...(config.search ?? {
+                                        searchCustomers: false,
+                                        searchProducts: false,
+                                        searchUsers: false,
+                                    }),
+                                    searchProducts: checked,
+                                } as SearchSettings)
+                            }
+                            disabled={isReadOnly}
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Produits</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.search?.searchUsers ?? false}
+                            onChange={(checked) =>
+                                handleChange('search', {
+                                    ...(config.search ?? {
+                                        searchCustomers: false,
+                                        searchProducts: false,
+                                        searchUsers: false,
+                                    }),
+                                    searchUsers: checked,
+                                } as SearchSettings)
+                            }
+                            disabled={isReadOnly}
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Utilisateurs</span>
                     </div>
                 </div>
             </div>

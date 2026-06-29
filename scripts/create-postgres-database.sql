@@ -235,6 +235,18 @@ CREATE TABLE IF NOT EXISTS dc_pos.users (
     key VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'Cashier',
+    reference VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Customers
+CREATE TABLE IF NOT EXISTS dc_pos.customers (
+    id SERIAL PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    reference VARCHAR(255) DEFAULT NULL,
+    email VARCHAR(255) DEFAULT NULL,
+    phone VARCHAR(20) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -320,6 +332,18 @@ CREATE TABLE IF NOT EXISTS dc_pos.users (
     key VARCHAR(50) NOT NULL,
     name VARCHAR(100) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'Cashier',
+    reference VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Customers
+CREATE TABLE IF NOT EXISTS dc_pos.customers (
+    id SERIAL PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    reference VARCHAR(255) DEFAULT NULL,
+    email VARCHAR(255) DEFAULT NULL,
+    phone VARCHAR(20) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

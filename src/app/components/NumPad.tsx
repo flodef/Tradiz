@@ -1,7 +1,7 @@
 'use client';
 
-import { IconBackspace, IconCalculator, IconShoppingCart, IconWallet } from '@tabler/icons-react';
-import { FC, MouseEventHandler, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { IconBackspace, IconCalculator, IconSearch, IconShoppingCart, IconWallet } from '@tabler/icons-react';
+import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { isDeletedTransaction } from '../contexts/dataProvider/transactionHelpers';
 import { useConfig } from '../hooks/useConfig';
@@ -9,24 +9,18 @@ import { useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { useWindowParam } from '../hooks/useWindowParam';
 import { LoadingDot } from '../loading';
-import { getButtonSizeConfig } from '../utils/buttonSizeConfig';
-import { WAITING_KEYWORD } from '../utils/constants';
-import { EmptyDiscount, Mercurial, State } from '../utils/interfaces';
+import { useScreenSizeConfig } from '../utils/screenSizeConfig';
+import { ARROW, WAITING_KEYWORD } from '../utils/constants';
+import { Customer, EmptyDiscount, InventoryItem, Mercurial, State, User } from '../utils/interfaces';
 import { isMobileSize, useIsMobileDevice } from '../utils/mobile';
+import { getPopupStyles, getOptionHoverStyles } from '../utils/popupStyles';
 import { Digits } from '../utils/types';
 import { Amount } from './Amount';
 import { Calculator } from './Calculator';
-import { CATEGORY_BUTTON_SIZE } from './Category';
 import { useAddPopupClass } from './Popup';
-
-interface NumPadButtonProps {
-    input: Digits | string;
-    onInput(key: Digits | string): void;
-    onContextMenu?: () => void;
-    className?: string;
-}
 
 export const MIN_QUANTITY = 0.125;
 export const quantityHalving = (quantity: number, key: Digits | string): number =>
@@ -34,6 +28,13 @@ export const quantityHalving = (quantity: number, key: Digits | string): number 
         '½': Math.max(0.125, (quantity > 0 && quantity < 1 ? quantity : 1) / 2),
         '¼': Math.max(0.125, (quantity > 0 && quantity < 1 ? quantity : 1) / 4),
     })[key.toString()] ?? parseInt(quantity >= 1 ? (quantity.toString() + key).replace(/^0{2,}/, '0') : key.toString());
+
+interface NumPadButtonProps {
+    input: Digits | string;
+    onInput(key: Digits | string): void;
+    onContextMenu?: () => void;
+    className?: string;
+}
 
 const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
     const { isStateReady } = useConfig();
@@ -102,12 +103,13 @@ const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu, 
 };
 
 interface ImageButtonProps {
-    children: ReactNode;
+    icon: FC<{ size: number }>;
+    iconSize?: number;
     onClick: () => void;
     onContextMenu: () => void;
     className?: string;
 }
-const ImageButton: FC<ImageButtonProps> = ({ children, onClick, onContextMenu, className }) => {
+const ImageButton: FC<ImageButtonProps> = ({ icon: Icon, iconSize = 42, onClick, onContextMenu, className }) => {
     const isMobileDevice = useIsMobileDevice();
     const handleContextMenu = useCallback<MouseEventHandler>(
         (e) => {
@@ -126,13 +128,197 @@ const ImageButton: FC<ImageButtonProps> = ({ children, onClick, onContextMenu, c
             onClick={onClick}
             onContextMenu={handleContextMenu}
         >
-            {children}
+            <Icon size={iconSize} />
+        </div>
+    );
+};
+
+interface SearchPopupProps {
+    inventory: InventoryItem[];
+    customers: Customer[];
+    users: User[];
+    searchSettings?: { searchCustomers: boolean; searchProducts: boolean; searchUsers: boolean };
+    onSelectProduct: (item: { category: string; label: string; amount: number }) => void;
+    onSelectCustomer: (customer: Customer) => void;
+    onSelectUser: (user: User) => void;
+}
+
+const SearchPopup: FC<SearchPopupProps> = ({
+    inventory,
+    customers,
+    users,
+    searchSettings,
+    onSelectProduct,
+    onSelectCustomer,
+    onSelectUser,
+}) => {
+    const [query, setQuery] = useState('');
+    const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+        products: true,
+        customers: true,
+        users: true,
+    });
+    const inputRef = useRef<HTMLInputElement>(null);
+    const isMobileDevice = useIsMobileDevice();
+    const styles = getPopupStyles('default');
+    const optionClass = twMerge(styles.option, 'px-3', getOptionHoverStyles(isMobileDevice, true));
+
+    useEffect(() => {
+        inputRef.current?.focus();
+    }, []);
+
+    const toggleSection = (section: string) => {
+        setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+    };
+
+    const q = query.toLowerCase();
+
+    const productResults = searchSettings?.searchProducts
+        ? inventory
+              .flatMap((cat) =>
+                  cat.products
+                      .map((p) => ({ ...p, category: cat.category }))
+                      .filter(
+                          (p) =>
+                              p.label.toLowerCase().includes(q) ||
+                              (p.options && p.options.toLowerCase().includes(q)) ||
+                              p.reference?.toLowerCase().includes(q)
+                      )
+              )
+              .slice(0, 10)
+        : [];
+
+    const customerResults = searchSettings?.searchCustomers
+        ? customers
+              .filter(
+                  (c) =>
+                      c.firstName.toLowerCase().includes(q) ||
+                      c.lastName.toLowerCase().includes(q) ||
+                      c.reference?.toLowerCase().includes(q)
+              )
+              .slice(0, 10)
+        : [];
+
+    const userResults = searchSettings?.searchUsers
+        ? users.filter((u) => u.name.toLowerCase().includes(q) || u.reference?.toLowerCase().includes(q)).slice(0, 10)
+        : [];
+
+    const hasResults = productResults.length > 0 || customerResults.length > 0 || userResults.length > 0;
+
+    return (
+        <div onClick={(e) => e.stopPropagation()}>
+            <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                maxLength={10}
+                placeholder="Recherche..."
+                className={twMerge(
+                    'w-full px-3 py-2 bg-transparent border-none outline-none focus:outline-none text-xl font-semibold',
+                    'text-popup-dark dark:text-popup-light placeholder:font-normal placeholder:text-gray-400'
+                )}
+                autoFocus
+                onChange={(e) => setQuery(e.target.value)}
+            />
+            {query && (
+                <div className="max-h-[55vh] overflow-y-auto">
+                    {!hasResults && (
+                        <div className={twMerge(styles.optionText, 'py-4 text-center text-gray-400')}>
+                            Aucun résultat
+                        </div>
+                    )}
+                    {productResults.length > 0 && (
+                        <div className="mt-2">
+                            <div
+                                className={twMerge(styles.optionText, styles.separator, 'cursor-pointer')}
+                                onClick={() => toggleSection('products')}
+                            >
+                                PRODUITS {!expandedSections.products && ARROW}
+                            </div>
+                            {expandedSections.products &&
+                                productResults.map((item, index) => (
+                                    <div
+                                        key={`product-${index}`}
+                                        className={twMerge(optionClass)}
+                                        onClick={() =>
+                                            onSelectProduct({
+                                                category: item.category,
+                                                label: item.label,
+                                                amount: item.prices[0],
+                                            })
+                                        }
+                                    >
+                                        <div className={styles.optionText}>{item.label}</div>
+                                    </div>
+                                ))}
+                        </div>
+                    )}
+
+                    {customerResults.length > 0 && (
+                        <div className="mt-2">
+                            <div
+                                className={twMerge(styles.optionText, styles.separator, 'cursor-pointer')}
+                                onClick={() => toggleSection('customers')}
+                            >
+                                CLIENTS {!expandedSections.customers && ARROW}
+                            </div>
+                            {expandedSections.customers &&
+                                customerResults.map((item) => (
+                                    <div
+                                        key={`customer-${item.id}`}
+                                        className={twMerge(optionClass)}
+                                        onClick={() => onSelectCustomer(item)}
+                                    >
+                                        <div className={styles.optionText}>
+                                            {item.firstName} {item.lastName}
+                                        </div>
+                                    </div>
+                                ))}
+                        </div>
+                    )}
+
+                    {userResults.length > 0 && (
+                        <div className="mt-2">
+                            <div
+                                className={twMerge(styles.optionText, styles.separator, 'cursor-pointer')}
+                                onClick={() => toggleSection('users')}
+                            >
+                                UTILISATEURS {!expandedSections.users && ARROW}
+                            </div>
+                            {expandedSections.users &&
+                                userResults.map((item) => (
+                                    <div
+                                        key={`user-${item.key}`}
+                                        className={twMerge(optionClass)}
+                                        onClick={() => onSelectUser(item)}
+                                    >
+                                        <div className={styles.optionText}>
+                                            {item.name} ({item.role})
+                                        </div>
+                                    </div>
+                                ))}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };
 
 export const NumPad: FC = () => {
-    const { currencies, currencyIndex, setCurrency, state, isStateReady, discounts } = useConfig();
+    const {
+        currencies,
+        currencyIndex,
+        setCurrency,
+        state,
+        isStateReady,
+        discounts,
+        parameters,
+        setParameters,
+        inventory,
+        customers,
+        users,
+    } = useConfig();
     const {
         total,
         amount,
@@ -150,11 +336,41 @@ export const NumPad: FC = () => {
         transactions,
         isDbConnected,
         addProduct: _addProduct,
+        setCurrentCustomer,
     } = useData();
-    const { openPopup, closePopup, isPopupOpen } = usePopup();
+    const { openPopup, closePopup, isPopupOpen, openFullscreenPopup } = usePopup();
     const { pay, canPay, canAddProduct } = usePay();
     const { showTransactionsSummary, showTransactionsSummaryMenu, getHistoricalTransactions, refreshHistoricalKeys } =
         useSummary();
+
+    // Barcode scanner - match by reference
+    useBarcodeScanner({
+        inventory,
+        customers,
+        users,
+        enabled:
+            !!parameters.search?.searchProducts ||
+            !!parameters.search?.searchCustomers ||
+            !!parameters.search?.searchUsers,
+        onMatchProduct: (item) => {
+            _addProduct({
+                category: item.category,
+                quantity: 1,
+                amount: item.amount,
+                label: item.label,
+                discount: EmptyDiscount,
+            });
+        },
+        onMatchCustomer: (customer) => {
+            setCurrentCustomer(customer);
+        },
+        onMatchUser: (user) => {
+            setParameters({ ...parameters, user });
+        },
+    });
+
+    // Use hook for screen size config with hydration safety
+    const sizeConfig = useScreenSizeConfig();
 
     useEffect(() => {
         refreshHistoricalKeys();
@@ -323,6 +539,47 @@ export const NumPad: FC = () => {
         );
     }, [openPopup, selectedProduct, discounts, setDiscount]);
 
+    const openSearchPopup = useCallback(() => {
+        const content = (
+            <SearchPopup
+                inventory={inventory}
+                customers={customers}
+                users={users}
+                searchSettings={parameters.search}
+                onSelectProduct={(item) => {
+                    _addProduct({
+                        category: item.category,
+                        quantity: 1,
+                        amount: item.amount,
+                        label: item.label,
+                        discount: EmptyDiscount,
+                    });
+                    closePopup();
+                }}
+                onSelectCustomer={(customer) => {
+                    setCurrentCustomer(customer);
+                    closePopup();
+                }}
+                onSelectUser={(user) => {
+                    setParameters({ ...parameters, user });
+                    closePopup();
+                }}
+            />
+        );
+
+        openFullscreenPopup('Recherche', [content], () => {}, true);
+    }, [
+        openFullscreenPopup,
+        closePopup,
+        inventory,
+        customers,
+        users,
+        parameters,
+        setParameters,
+        _addProduct,
+        setCurrentCustomer,
+    ]);
+
     const mercuriale = useCallback(() => {
         const mercurials = Object.values(Mercurial);
         openPopup('Fonction coût quadratique', mercurials, (index) => {
@@ -363,9 +620,7 @@ export const NumPad: FC = () => {
         setAmount(parseInt(value) / Math.pow(10, maxDecimals));
     }, [value, setAmount, maxDecimals]);
     useEffect(() => {
-        if (!amount) {
-            setValue('0');
-        }
+        if (!amount) setValue('0');
     }, [amount]);
 
     const NumPadList: Digits[][] = [
@@ -374,6 +629,9 @@ export const NumPad: FC = () => {
         [1, 2, 3],
     ];
 
+    const hasAmount = selectedProduct || amount;
+    const hasSearchEnabled =
+        parameters.search?.searchCustomers || parameters.search?.searchProducts || parameters.search?.searchUsers;
     const color = isStateReady
         ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark ' +
           'text-secondary-light dark:text-secondary-dark active:text-popup-dark dark:active:text-popup-light '
@@ -383,10 +641,10 @@ export const NumPad: FC = () => {
     const sx = s + (canPay || canAddProduct ? color : 'invisible');
 
     const f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
-    const f1 = f + (amount || total || selectedProduct ? color : 'invisible');
+    const f1 = f + (hasAmount || total ? color : 'invisible');
     const f2 =
         f +
-        (selectedProduct || amount
+        (hasAmount
             ? quantity
                 ? 'bg-secondary-active-light dark:bg-secondary-active-dark text-popup-dark dark:text-popup-light '
                 : color
@@ -404,9 +662,6 @@ export const NumPad: FC = () => {
         [height]
     );
     const left = useMemo(() => Math.max(((isMobileSize() ? width : width / 2) - 512) / 2, 0), [width]);
-
-    // Use same button size as Category component
-    const sizeConfig = getButtonSizeConfig(CATEGORY_BUTTON_SIZE);
 
     // Call useAddPopupClass before any conditional return
     const numPadClass = useAddPopupClass(
@@ -463,18 +718,33 @@ export const NumPad: FC = () => {
                             showZero
                             onClick={showCurrencies}
                         />
-                        <ImageButton className={f1} onClick={onClear} onContextMenu={onClearTotal}>
-                            <IconBackspace size={42} />
-                        </ImageButton>
-                        <FunctionButton
-                            className={f2}
-                            input="&times;"
-                            onInput={multiply}
-                            onContextMenu={discount ?? mercuriale}
+                        <ImageButton
+                            icon={IconBackspace}
+                            className={f1}
+                            onClick={onClear}
+                            onContextMenu={onClearTotal}
                         />
-                        <ImageButton className={f + color} onClick={openCalculator} onContextMenu={openCalculator}>
-                            <IconCalculator size={42} />
-                        </ImageButton>
+                        {hasAmount ? (
+                            <FunctionButton
+                                className={f2}
+                                input="&times;"
+                                onInput={multiply}
+                                onContextMenu={discount ?? mercuriale}
+                            />
+                        ) : hasSearchEnabled ? (
+                            <ImageButton
+                                icon={IconSearch}
+                                className={f + color}
+                                onClick={openSearchPopup}
+                                onContextMenu={openSearchPopup}
+                            />
+                        ) : null}
+                        <ImageButton
+                            icon={IconCalculator}
+                            className={f + color}
+                            onClick={openCalculator}
+                            onContextMenu={openCalculator}
+                        />
                         <FunctionButton
                             className={f3}
                             input="z"
@@ -501,14 +771,13 @@ export const NumPad: FC = () => {
                         <NumPadButton input={0} onInput={onInput} />
                         <NumPadButton input={!quantity ? '00' : '½'} onInput={onInput} />
                         <ImageButton
+                            icon={canPay ? IconWallet : canAddProduct ? IconShoppingCart : IconWallet}
                             className={sx}
                             onClick={canPay ? pay : canAddProduct ? addProduct : () => {}}
                             onContextMenu={
                                 canPay ? () => updateTransaction(WAITING_KEYWORD) : canAddProduct ? pay : () => {}
                             }
-                        >
-                            {canPay ? <IconWallet size={42} /> : canAddProduct ? <IconShoppingCart size={42} /> : ''}
-                        </ImageButton>
+                        />
                     </div>
                 </div>
             </div>

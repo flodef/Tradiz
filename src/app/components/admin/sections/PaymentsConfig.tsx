@@ -1,6 +1,14 @@
 import { adminHeaderStyle, PAYMENT_TYPES } from '@/app/utils/constants';
 import { Currency, PaymentMethod } from '@/app/utils/interfaces';
-import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import {
+    closestCenter,
+    DndContext,
+    DragEndEvent,
+    PointerSensor,
+    TouchSensor,
+    useSensor,
+    useSensors,
+} from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
@@ -91,6 +99,7 @@ export default function PaymentsConfig({
     isLoading = false,
     isOpen,
     onToggle,
+    icon,
 }: {
     config: PaymentMethod[];
     onChange: (data: PaymentMethod[]) => void;
@@ -101,6 +110,7 @@ export default function PaymentsConfig({
     isLoading?: boolean;
     isOpen?: boolean;
     onToggle?: () => void;
+    icon?: React.ReactNode;
 }) {
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
@@ -179,7 +189,14 @@ export default function PaymentsConfig({
         [notifyParent]
     );
 
-    const sensors = useSensors(useSensor(PointerSensor));
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                distance: 10,
+            },
+        })
+    );
     const currencyOptions = React.useMemo(
         () => currencies.map(({ symbol }) => ({ value: symbol, label: symbol })),
         [currencies]
@@ -190,6 +207,7 @@ export default function PaymentsConfig({
             title="Paiements"
             onSave={isReadOnly ? undefined : onSave ? () => onSave(strip(payments)) : undefined}
             onCancel={onCancel}
+            icon={icon}
             isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}

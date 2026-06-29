@@ -315,10 +315,23 @@ CREATE TABLE IF NOT EXISTS `users` (
   `key` varchar(50) NOT NULL,
   `name` varchar(100) NOT NULL,
   `role` enum('Cashier','Service','Kitchen','Admin') NOT NULL,
+  `reference` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `id_temp` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Customers
+CREATE TABLE IF NOT EXISTS `customers` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `first_name` varchar(100) NOT NULL,
+  `last_name` varchar(100) NOT NULL,
+  `reference` varchar(255) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `phone` varchar(20) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
 -- DC_SYS Schema - System Logs (English table names)
