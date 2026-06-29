@@ -3,13 +3,9 @@
 import { Role, User } from '@/app/utils/interfaces';
 import { adminHeaderStyle } from '@/app/utils/constants';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import SectionCard from '../SectionCard';
 import AdminButton from '../AdminButton';
 import DeleteButtonCell from '../DeleteButtonCell';
-import DragHandleCell from '../DragHandleCell';
 import ValidatedInput from '../ValidatedInput';
 import AdminSelect from '../AdminSelect';
 
@@ -30,7 +26,7 @@ interface InternalUser extends User {
     _id: number;
 }
 
-function SortableRow({
+function Row({
     user,
     isReadOnly,
     onChange,
@@ -41,13 +37,6 @@ function SortableRow({
     onChange: (user: InternalUser) => void;
     onDelete: () => void;
 }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: user._id });
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.5 : 1,
-    };
-
     const roles = Object.values(Role).filter((role) => role !== Role.admin);
 
     const roleLabels: Record<Role, string> = {
@@ -58,8 +47,7 @@ function SortableRow({
     };
 
     return (
-        <tr ref={setNodeRef} style={style} className="border-b border-gray-200 dark:border-gray-700">
-            <DragHandleCell isReadOnly={isReadOnly} attributes={attributes} listeners={listeners} />
+        <tr className="border-b border-gray-200 dark:border-gray-700">
             <td className="p-2">
                 <ValidatedInput
                     value={user.name}
@@ -207,27 +195,6 @@ export default function UsersConfig({
         setOriginalConfig(savedUsers);
     };
 
-    const handleDragEnd = useCallback(
-        (event: DragEndEvent) => {
-            const { active, over } = event;
-            if (!over || active.id === over.id) return;
-            setUsers((prev) => {
-                const nonAdmin = prev.filter((u) => u.role !== Role.admin);
-                const oldIdx = nonAdmin.findIndex((u) => u._id === active.id);
-                const newIdx = nonAdmin.findIndex((u) => u._id === over.id);
-                if (oldIdx === -1 || newIdx === -1) return prev;
-                const reorderedNonAdmin = arrayMove(nonAdmin, oldIdx, newIdx);
-                const adminUsers = prev.filter((u) => u.role === Role.admin);
-                const updated = [...adminUsers, ...reorderedNonAdmin];
-                notifyParent(updated);
-                return updated;
-            });
-        },
-        [notifyParent]
-    );
-
-    const sensors = useSensors(useSensor(PointerSensor));
-
     return (
         <SectionCard
             title="Utilisateurs"
@@ -239,37 +206,32 @@ export default function UsersConfig({
             isOpen={isOpen}
             onToggle={onToggle}
         >
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={nonAdminUsers.map((u) => u._id)} strategy={verticalListSortingStrategy}>
-                    <div className="overflow-x-auto">
-                        <table className="w-full border-collapse">
-                            {nonAdminUsers.length > 0 && (
-                                <thead>
-                                    <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                        {!isReadOnly && <th className="w-12"></th>}
-                                        <th className={adminHeaderStyle + ' min-w-40 w-40'}>Nom</th>
-                                        <th className={adminHeaderStyle + ' min-w-40 w-40'}>Clé</th>
-                                        <th className={adminHeaderStyle + ' min-w-32 w-32'}>Référence</th>
-                                        <th className={adminHeaderStyle + ' min-w-20 w-20'}>Rôle</th>
-                                        {!isReadOnly && <th className="w-8"></th>}
-                                    </tr>
-                                </thead>
-                            )}
-                            <tbody>
-                                {nonAdminUsers.map((user) => (
-                                    <SortableRow
-                                        key={user._id}
-                                        user={user}
-                                        isReadOnly={isReadOnly}
-                                        onChange={(updated) => handleUserChange(user._id, updated)}
-                                        onDelete={() => handleDeleteUser(user._id)}
-                                    />
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </SortableContext>
-            </DndContext>
+            <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                    {nonAdminUsers.length > 0 && (
+                        <thead>
+                            <tr className="border-b-2 border-gray-300 dark:border-gray-600">
+                                <th className={adminHeaderStyle + ' min-w-40 w-40'}>Nom</th>
+                                <th className={adminHeaderStyle + ' min-w-40 w-40'}>Clé</th>
+                                <th className={adminHeaderStyle + ' min-w-32 w-32'}>Référence</th>
+                                <th className={adminHeaderStyle + ' min-w-20 w-20'}>Rôle</th>
+                                {!isReadOnly && <th className="w-8"></th>}
+                            </tr>
+                        </thead>
+                    )}
+                    <tbody>
+                        {nonAdminUsers.map((user) => (
+                            <Row
+                                key={user._id}
+                                user={user}
+                                isReadOnly={isReadOnly}
+                                onChange={(updated) => handleUserChange(user._id, updated)}
+                                onDelete={() => handleDeleteUser(user._id)}
+                            />
+                        ))}
+                    </tbody>
+                </table>
+            </div>
 
             {!isReadOnly && (
                 <AdminButton variant="add" onClick={handleAddUser} disabled={!isValid || isLoading}>
