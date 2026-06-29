@@ -7,6 +7,12 @@ import {
     useScreenSizeConfig,
 } from '../src/app/utils/screenSizeConfig';
 import { renderHook } from '@testing-library/react';
+import { ColorScheme } from '../src/app/hooks/useWindowParam';
+
+vi.mock('../src/app/hooks/useWindowParam');
+
+const { useWindowParam } = await import('../src/app/hooks/useWindowParam');
+const mockedUseWindowParam = vi.mocked(useWindowParam);
 
 describe('SCREEN_SIZE_CONFIG', () => {
     it('has all required size options', () => {
@@ -54,6 +60,10 @@ describe('SCREEN_SIZE_CONFIG', () => {
 });
 
 describe('getScreenWidth', () => {
+    it('returns xl when width is -1 (SSR)', () => {
+        expect(getScreenWidth(-1)).toBe('xl');
+    });
+
     it('returns xs for width < 640', () => {
         expect(getScreenWidth(500)).toBe('xs');
     });
@@ -126,29 +136,47 @@ describe('getScreenSizeConfig', () => {
 
 describe('useScreenSizeConfig', () => {
     it('returns xl config when height is -1 (SSR)', () => {
-        vi.mock('../src/app/hooks/useWindowParam', () => ({
-            useWindowParam: () => ({ height: -1, width: -1 }),
-        }));
+        mockedUseWindowParam.mockReturnValue({
+            height: -1,
+            width: -1,
+            top: 0,
+            left: 0,
+            colorScheme: ColorScheme.Light,
+            isOnline: true,
+            isLocalhost: false,
+            isDemo: false,
+        });
         const { result } = renderHook(() => useScreenSizeConfig());
         expect(result.current).toEqual(SCREEN_SIZE_CONFIG.xl);
-        vi.unmock('../src/app/hooks/useWindowParam');
     });
 
     it('returns xs config for small screen', () => {
-        vi.mock('../src/app/hooks/useWindowParam', () => ({
-            useWindowParam: () => ({ height: 600, width: 375 }),
-        }));
+        mockedUseWindowParam.mockReturnValue({
+            height: 600,
+            width: 375,
+            top: 0,
+            left: 0,
+            colorScheme: ColorScheme.Light,
+            isOnline: true,
+            isLocalhost: false,
+            isDemo: false,
+        });
         const { result } = renderHook(() => useScreenSizeConfig());
         expect(result.current).toEqual(SCREEN_SIZE_CONFIG.xs);
-        vi.unmock('../src/app/hooks/useWindowParam');
     });
 
     it('returns xl config for large screen', () => {
-        vi.mock('../src/app/hooks/useWindowParam', () => ({
-            useWindowParam: () => ({ height: 1024, width: 1366 }),
-        }));
+        mockedUseWindowParam.mockReturnValue({
+            height: 1024,
+            width: 1366,
+            top: 0,
+            left: 0,
+            colorScheme: ColorScheme.Light,
+            isOnline: true,
+            isLocalhost: false,
+            isDemo: false,
+        });
         const { result } = renderHook(() => useScreenSizeConfig());
         expect(result.current).toEqual(SCREEN_SIZE_CONFIG.xl);
-        vi.unmock('../src/app/hooks/useWindowParam');
     });
 });

@@ -1,7 +1,15 @@
 'use client';
 
 import { Category } from '@/app/utils/interfaces';
-import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import {
+    closestCenter,
+    DndContext,
+    DragEndEvent,
+    PointerSensor,
+    TouchSensor,
+    useSensor,
+    useSensors,
+} from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -155,7 +163,14 @@ export default function CategoriesConfig({
     const [categories, setCategories] = useState<InternalCategory[]>(() =>
         (config || []).map((c) => ({ ...c, _id: nextIdRef.current++, _originalLabel: c.label }))
     );
-    const sensors = useSensors(useSensor(PointerSensor));
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                distance: 10,
+            },
+        })
+    );
     const vatRates = useMemo(() => [20, 10, 5.5, 2.1, 0], []);
 
     // Compute product count per category: { total, available }

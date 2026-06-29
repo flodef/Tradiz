@@ -12,7 +12,7 @@ export default function DragHandleCell({ isReadOnly, attributes, listeners }: Dr
     if (isReadOnly) return null;
 
     return (
-        <td className="p-2 text-center cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
+        <td className="p-2 text-center cursor-grab active:cursor-grabbing touch-none" {...attributes} {...listeners}>
             <IconGripVertical size={18} className="mx-auto text-gray-400" />
         </td>
     );

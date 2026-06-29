@@ -2,7 +2,15 @@
 
 import { adminSortableHeaderStyle } from '@/app/utils/constants';
 import { Currency } from '@/app/utils/interfaces';
-import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import {
+    closestCenter,
+    DndContext,
+    DragEndEvent,
+    PointerSensor,
+    TouchSensor,
+    useSensor,
+    useSensors,
+} from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { IconChevronDown, IconChevronUp, IconInfoCircle, IconSelector } from '@tabler/icons-react';
@@ -107,7 +115,14 @@ export default function ProductsConfig({
     const priceInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const focusPriceIndexRef = useRef<number | null>(null);
 
-    const sensors = useSensors(useSensor(PointerSensor));
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                distance: 10,
+            },
+        })
+    );
 
     const categoryOrder = useMemo(() => {
         // Use categories prop order as the stable base order

@@ -1,6 +1,14 @@
 import { adminHeaderStyle } from '@/app/utils/constants';
 import { Currency, Discount } from '@/app/utils/interfaces';
-import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import {
+    closestCenter,
+    DndContext,
+    DragEndEvent,
+    PointerSensor,
+    TouchSensor,
+    useSensor,
+    useSensors,
+} from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
@@ -175,7 +183,14 @@ export default function DiscountsConfig({
         [notifyParent]
     );
 
-    const sensors = useSensors(useSensor(PointerSensor));
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                distance: 10,
+            },
+        })
+    );
     const units = React.useMemo(() => ['%', ...currencies.map((c) => c.symbol)], [currencies]);
 
     return (
