@@ -1,11 +1,11 @@
 import { FC } from 'react';
 import { twMerge } from 'tailwind-merge';
-import { ButtonSize } from '../utils/types';
+import { Size } from '../utils/types';
 
 interface CloseButtonProps {
     onClose: () => void;
     className?: string;
-    size?: ButtonSize;
+    size?: Size;
 }
 
 export const CloseButton: FC<CloseButtonProps> = ({ onClose, className, size = 'md' }) => {
