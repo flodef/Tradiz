@@ -59,6 +59,9 @@ interface SortableRowProps {
     onTypeChange: (id: number, type: string) => void;
     onOptionsChange: (id: number, options: ProductOption[]) => void;
     onDelete: (id: number) => void;
+    typeInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
+    lastAddedIndexRef: React.MutableRefObject<number | null>;
+    index: number;
 }
 
 const SortableRow = memo(function SortableRow({
@@ -73,6 +76,9 @@ const SortableRow = memo(function SortableRow({
     onTypeChange,
     onOptionsChange,
     onDelete,
+    typeInputRefs,
+    lastAddedIndexRef,
+    index,
 }: SortableRowProps) {
     // Filter products by selected category
     const filteredProducts = group.category ? products.filter((p) => p.category === group.category) : [];
@@ -128,6 +134,17 @@ const SortableRow = memo(function SortableRow({
                 <ValidatedInput
                     type="text"
                     value={group.type}
+                    ref={(el) => {
+                        if (el) {
+                            typeInputRefs.current.set(index, el);
+                            if (lastAddedIndexRef.current === index) {
+                                el.focus();
+                                lastAddedIndexRef.current = null;
+                            }
+                        } else {
+                            typeInputRefs.current.delete(index);
+                        }
+                    }}
                     onChange={(value) => onTypeChange(group._id, String(value))}
                     placeholder="Type (ex: Scoop, Size, Flavor)"
                     isReadOnly={isReadOnly}
@@ -227,6 +244,8 @@ export default function OptionsConfig({
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const lastAddedIndexRef = useRef<number | null>(null);
+    const typeInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const [groups, setGroups] = useState<InternalOptionGroup[]>(() =>
         (config || []).map((g) => ({ ...g, _id: nextIdRef.current++ }))
     );
@@ -327,6 +346,7 @@ export default function OptionsConfig({
                     _id: nextIdRef.current++,
                 },
             ];
+            lastAddedIndexRef.current = updated.length - 1;
             notifyParent(updated);
             return updated;
         });
@@ -381,6 +401,10 @@ export default function OptionsConfig({
             isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}
+            onAdd={handleAddGroup}
+            isValid={isValid}
+            addLabel="Ajouter un groupe d'options"
+            isReadOnly={isReadOnly}
         >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={groups.map((g) => g._id)} strategy={verticalListSortingStrategy}>
@@ -399,7 +423,7 @@ export default function OptionsConfig({
                                 </thead>
                             )}
                             <tbody>
-                                {groups.map((group) => (
+                                {groups.map((group, index) => (
                                     <SortableRow
                                         key={group._id}
                                         group={group}
@@ -413,6 +437,9 @@ export default function OptionsConfig({
                                         onTypeChange={handleTypeChange}
                                         onOptionsChange={handleOptionsChange}
                                         onDelete={handleDeleteGroup}
+                                        typeInputRefs={typeInputRefs}
+                                        lastAddedIndexRef={lastAddedIndexRef}
+                                        index={index}
                                     />
                                 ))}
                             </tbody>
@@ -420,11 +447,6 @@ export default function OptionsConfig({
                     </div>
                 </SortableContext>
             </DndContext>
-            {!isReadOnly && (
-                <AdminButton variant="add" onClick={handleAddGroup}>
-                    Ajouter un groupe d'options
-                </AdminButton>
-            )}
         </SectionCard>
     );
 }

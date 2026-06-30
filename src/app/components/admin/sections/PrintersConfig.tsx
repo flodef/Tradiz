@@ -1,8 +1,7 @@
 import { Printer } from '@/app/utils/interfaces';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import SectionCard from '../SectionCard';
 import PrinterItem from '../items/PrinterItem';
-import AdminButton from '../AdminButton';
 
 export default function PrintersConfig({
     config,
@@ -16,6 +15,8 @@ export default function PrintersConfig({
     isReadOnly?: boolean;
 }) {
     const [printers, setPrinters] = useState(config || []);
+    const lastAddedIndexRef = useRef<number | null>(null);
+    const labelInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
 
     useEffect(() => {
         setPrinters(config || []);
@@ -34,6 +35,7 @@ export default function PrintersConfig({
             ipAddress: '',
         };
         const updated = [...printers, newPrinter];
+        lastAddedIndexRef.current = updated.length - 1;
         setPrinters(updated);
         onChange(updated);
     };
@@ -44,8 +46,17 @@ export default function PrintersConfig({
         onChange(newPrinters);
     };
 
+    const isValid = printers.every((p) => p.label?.trim() && p.ipAddress?.trim());
+
     return (
-        <SectionCard title="Imprimantes" onSave={isReadOnly ? undefined : () => onSave(printers)}>
+        <SectionCard
+            title="Imprimantes"
+            onSave={isReadOnly ? undefined : () => onSave(printers)}
+            onAdd={handleAddPrinter}
+            isValid={isValid}
+            addLabel="Ajouter une imprimante"
+            isReadOnly={isReadOnly}
+        >
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {printers.map((printer, index) => (
                     <PrinterItem
@@ -54,14 +65,12 @@ export default function PrintersConfig({
                         onChange={(updatedPrinter) => handlePrinterChange(index, updatedPrinter)}
                         onDelete={() => handleDeletePrinter(index)}
                         isReadOnly={isReadOnly}
+                        labelInputRefs={labelInputRefs}
+                        lastAddedIndexRef={lastAddedIndexRef}
+                        index={index}
                     />
                 ))}
             </div>
-            {!isReadOnly && (
-                <AdminButton variant="add" onClick={handleAddPrinter}>
-                    Ajouter une imprimante
-                </AdminButton>
-            )}
         </SectionCard>
     );
 }

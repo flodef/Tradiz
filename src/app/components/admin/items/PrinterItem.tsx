@@ -6,9 +6,20 @@ interface PrinterItemProps {
     onChange: (printer: Printer) => void;
     onDelete: () => void;
     isReadOnly?: boolean;
+    labelInputRefs?: React.MutableRefObject<Map<number, HTMLInputElement>>;
+    lastAddedIndexRef?: React.MutableRefObject<number | null>;
+    index?: number;
 }
 
-export default function PrinterItem({ printer, onChange, onDelete, isReadOnly = false }: PrinterItemProps) {
+export default function PrinterItem({
+    printer,
+    onChange,
+    onDelete,
+    isReadOnly = false,
+    labelInputRefs,
+    lastAddedIndexRef,
+    index,
+}: PrinterItemProps) {
     const ipV4Validation = (ip: string) => {
         const regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
         return regex.test(ip);
@@ -32,6 +43,17 @@ export default function PrinterItem({ printer, onChange, onDelete, isReadOnly = 
                         onChange={(value) => onChange({ ...printer, label: String(value) })}
                         placeholder="Label de l'imprimante"
                         isReadOnly={isReadOnly}
+                        ref={(el) => {
+                            if (el && labelInputRefs && lastAddedIndexRef && index !== undefined) {
+                                labelInputRefs.current.set(index, el);
+                                if (lastAddedIndexRef.current === index) {
+                                    el.focus();
+                                    lastAddedIndexRef.current = null;
+                                }
+                            } else if (el && labelInputRefs && index !== undefined) {
+                                labelInputRefs.current.delete(index);
+                            }
+                        }}
                     />
                 </div>
                 <div>

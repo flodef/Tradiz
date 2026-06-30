@@ -15,7 +15,6 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { CSS } from '@dnd-kit/utilities';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { usePopup } from '@/app/hooks/usePopup';
-import AdminButton from '../AdminButton';
 import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
@@ -31,6 +30,9 @@ interface SortableRowProps {
     canDelete: boolean;
     onFieldChange: (id: number, field: keyof Company, value: string | number) => void;
     onDelete: (id: number) => void;
+    nameInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
+    lastAddedIndexRef: React.MutableRefObject<number | null>;
+    index: number;
 }
 
 const SortableRow = memo(function SortableRow({
@@ -39,6 +41,9 @@ const SortableRow = memo(function SortableRow({
     canDelete,
     onFieldChange,
     onDelete,
+    nameInputRefs,
+    lastAddedIndexRef,
+    index,
 }: SortableRowProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: company._id,
@@ -62,6 +67,17 @@ const SortableRow = memo(function SortableRow({
                         onChange={(value) => onFieldChange(company._id, 'name', String(value))}
                         validation={(value) => String(value).trim().length > 0}
                         isNameField
+                        ref={(el) => {
+                            if (el) {
+                                nameInputRefs.current.set(index, el);
+                                if (lastAddedIndexRef.current === index) {
+                                    el.focus();
+                                    lastAddedIndexRef.current = null;
+                                }
+                            } else {
+                                nameInputRefs.current.delete(index);
+                            }
+                        }}
                     />
                 )}
             </td>
@@ -115,6 +131,8 @@ export default function CompaniesConfig({
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const lastAddedIndexRef = useRef<number | null>(null);
+    const nameInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const [companies, setCompanies] = useState<InternalCompany[]>(() =>
         (config || []).map((c) => ({ ...c, _id: nextIdRef.current++ }))
     );
@@ -169,6 +187,7 @@ export default function CompaniesConfig({
     const handleAddCompany = useCallback(() => {
         setCompanies((prev) => {
             const updated = [...prev, { name: '', quotaShare: 0, _id: nextIdRef.current++ }];
+            lastAddedIndexRef.current = updated.length - 1;
             notifyParent(updated);
             return updated;
         });
@@ -248,6 +267,10 @@ export default function CompaniesConfig({
             isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}
+            onAdd={handleAddCompany}
+            isValid={isValid}
+            addLabel="Ajouter une entreprise"
+            isReadOnly={isReadOnly}
         >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={companies.map((c) => c._id)} strategy={verticalListSortingStrategy}>
@@ -264,7 +287,7 @@ export default function CompaniesConfig({
                                 </thead>
                             )}
                             <tbody>
-                                {companies.map((company) => (
+                                {companies.map((company, index) => (
                                     <SortableRow
                                         key={company._id}
                                         company={company}
@@ -272,6 +295,9 @@ export default function CompaniesConfig({
                                         canDelete={companies.length > 0}
                                         onFieldChange={handleFieldChange}
                                         onDelete={handleDeleteCompany}
+                                        nameInputRefs={nameInputRefs}
+                                        lastAddedIndexRef={lastAddedIndexRef}
+                                        index={index}
                                     />
                                 ))}
                             </tbody>
@@ -279,11 +305,6 @@ export default function CompaniesConfig({
                     </div>
                 </SortableContext>
             </DndContext>
-            {!isReadOnly && (
-                <AdminButton variant="add" onClick={handleAddCompany}>
-                    Ajouter une entreprise
-                </AdminButton>
-            )}
         </SectionCard>
     );
 }

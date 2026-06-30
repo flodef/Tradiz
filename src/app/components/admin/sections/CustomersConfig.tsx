@@ -4,7 +4,6 @@ import { Customer, Company } from '@/app/utils/interfaces';
 import { adminHeaderStyle } from '@/app/utils/constants';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SectionCard from '../SectionCard';
-import AdminButton from '../AdminButton';
 import DeleteButtonCell from '../DeleteButtonCell';
 import ValidatedInput from '../ValidatedInput';
 import AdminSelect from '../AdminSelect';
@@ -34,12 +33,18 @@ function Row({
     onChange,
     onDelete,
     companies,
+    firstNameInputRefs,
+    lastAddedIndexRef,
+    index,
 }: {
     customer: InternalCustomer;
     isReadOnly: boolean;
     onChange: (customer: InternalCustomer) => void;
     onDelete: () => void;
     companies?: Company[];
+    firstNameInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
+    lastAddedIndexRef: React.MutableRefObject<number | null>;
+    index: number;
 }) {
     const companyOptions = useMemo(() => {
         const opts = [{ value: '', label: 'Aucune' }];
@@ -62,6 +67,17 @@ function Row({
                     validation={(value) => String(value).trim().length > 0}
                     className="min-w-32"
                     isNameField
+                    ref={(el) => {
+                        if (el) {
+                            firstNameInputRefs.current.set(index, el);
+                            if (lastAddedIndexRef.current === index) {
+                                el.focus();
+                                lastAddedIndexRef.current = null;
+                            }
+                        } else {
+                            firstNameInputRefs.current.delete(index);
+                        }
+                    }}
                 />
             </td>
             <td className="p-2">
@@ -136,6 +152,8 @@ export default function CustomersConfig({
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const lastAddedIndexRef = useRef<number | null>(null);
+    const firstNameInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const [customers, setCustomers] = useState<InternalCustomer[]>(() =>
         (config || []).map((c: Customer) => ({ ...c, _id: nextIdRef.current++ }))
     );
@@ -200,6 +218,7 @@ export default function CustomersConfig({
                     _id: nextIdRef.current++,
                 } as InternalCustomer,
             ];
+            lastAddedIndexRef.current = updated.length - 1;
             notifyParent(updated);
             return updated;
         });
@@ -231,6 +250,10 @@ export default function CustomersConfig({
             isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}
+            onAdd={handleAddCustomer}
+            isValid={isValid && !isLoading}
+            addLabel="Ajouter un client"
+            isReadOnly={isReadOnly}
         >
             <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
@@ -248,7 +271,7 @@ export default function CustomersConfig({
                         </thead>
                     )}
                     <tbody>
-                        {customers.map((customer) => (
+                        {customers.map((customer, index) => (
                             <Row
                                 key={customer._id}
                                 customer={customer}
@@ -256,16 +279,14 @@ export default function CustomersConfig({
                                 onChange={(updated) => handleCustomerChange(customer._id, updated)}
                                 onDelete={() => handleDeleteCustomer(customer._id)}
                                 companies={companies}
+                                firstNameInputRefs={firstNameInputRefs}
+                                lastAddedIndexRef={lastAddedIndexRef}
+                                index={index}
                             />
                         ))}
                     </tbody>
                 </table>
             </div>
-            {!isReadOnly && (
-                <AdminButton variant="add" onClick={handleAddCustomer} disabled={!isValid || isLoading}>
-                    Ajouter un client
-                </AdminButton>
-            )}
         </SectionCard>
     );
 }

@@ -14,7 +14,6 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { CSS } from '@dnd-kit/utilities';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePopup } from '@/app/hooks/usePopup';
-import AdminButton from '../AdminButton';
 import AdminSelect from '../AdminSelect';
 import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
@@ -39,7 +38,9 @@ interface SortableRowProps {
     onLabelBlur: (id: number) => void;
     onVatChange: (id: number, vat: number) => void;
     onDelete: (id: number) => void;
-    inputRef?: (el: HTMLInputElement | null) => void;
+    labelInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
+    lastAddedIndexRef: React.MutableRefObject<number | null>;
+    index: number;
 }
 
 const SortableRow = memo(function SortableRow({
@@ -52,7 +53,9 @@ const SortableRow = memo(function SortableRow({
     onLabelBlur,
     onVatChange,
     onDelete,
-    inputRef,
+    labelInputRefs,
+    lastAddedIndexRef,
+    index,
 }: SortableRowProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: category._id,
@@ -94,9 +97,19 @@ const SortableRow = memo(function SortableRow({
                     <div className="text-sm">{category.label}</div>
                 ) : (
                     <ValidatedInput
-                        ref={inputRef}
                         type="text"
                         value={category.label}
+                        ref={(el) => {
+                            if (el) {
+                                labelInputRefs.current.set(index, el);
+                                if (lastAddedIndexRef.current === index) {
+                                    el.focus();
+                                    lastAddedIndexRef.current = null;
+                                }
+                            } else {
+                                labelInputRefs.current.delete(index);
+                            }
+                        }}
                         onChange={handleLabelChange}
                         onBlur={handleLabelBlur}
                         validation={() => !isInvalid}
@@ -161,6 +174,8 @@ export default function CategoriesConfig({
 }) {
     const { openFullscreenPopup } = usePopup();
     const nextIdRef = useRef(0);
+    const lastAddedIndexRef = useRef<number | null>(null);
+    const labelInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const [categories, setCategories] = useState<InternalCategory[]>(() =>
         (config || []).map((c) => ({ ...c, _id: nextIdRef.current++, _originalLabel: c.label }))
     );
@@ -193,6 +208,8 @@ export default function CategoriesConfig({
         onLocalCategoriesChange?.(categories.map((c) => c.label).filter(Boolean));
     }, [categories, onLocalCategoriesChange]);
 
+    const isValid = categories.every((c) => c.label?.trim() && c.vat !== null && c.vat !== undefined && c.vat >= 0);
+
     const handleAddCategory = useCallback(() => {
         const newCat: InternalCategory = {
             label: '',
@@ -200,7 +217,11 @@ export default function CategoriesConfig({
             _id: nextIdRef.current++,
             _originalLabel: '',
         };
-        setCategories((prev) => [...prev, newCat]);
+        setCategories((prev) => {
+            const updated = [...prev, newCat];
+            lastAddedIndexRef.current = updated.length - 1;
+            return updated;
+        });
     }, []);
 
     // Sync from parent config (categories derived from products)
@@ -382,7 +403,16 @@ export default function CategoriesConfig({
     );
 
     return (
-        <SectionCard title="Catégories" isOpen={isOpen} onToggle={onToggle} icon={icon}>
+        <SectionCard
+            title="Catégories"
+            isOpen={isOpen}
+            onToggle={onToggle}
+            icon={icon}
+            onAdd={handleAddCategory}
+            isValid={isValid}
+            addLabel="Ajouter une catégorie"
+            isReadOnly={isReadOnly}
+        >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={categories.map((c) => c._id)} strategy={verticalListSortingStrategy}>
                     <div className="overflow-x-auto">
@@ -397,7 +427,7 @@ export default function CategoriesConfig({
                                 </tr>
                             </thead>
                             <tbody>
-                                {categories.map((category) => (
+                                {categories.map((category, index) => (
                                     <SortableRow
                                         key={category._id}
                                         category={category}
@@ -414,10 +444,9 @@ export default function CategoriesConfig({
                                         onLabelBlur={handleLabelBlur}
                                         onVatChange={handleVatChange}
                                         onDelete={handleDeleteCategory}
-                                        inputRef={(el) => {
-                                            if (el) inputRefs.current.set(category._id, el);
-                                            else inputRefs.current.delete(category._id);
-                                        }}
+                                        labelInputRefs={labelInputRefs}
+                                        lastAddedIndexRef={lastAddedIndexRef}
+                                        index={index}
                                     />
                                 ))}
                             </tbody>
@@ -425,11 +454,6 @@ export default function CategoriesConfig({
                     </div>
                 </SortableContext>
             </DndContext>
-            {!isReadOnly && (
-                <AdminButton variant="add" onClick={handleAddCategory}>
-                    Ajouter une catégorie
-                </AdminButton>
-            )}
         </SectionCard>
     );
 }

@@ -14,7 +14,6 @@ import {
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import AdminButton from '../AdminButton';
 import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
@@ -30,6 +29,9 @@ interface SortableRowProps {
     canDelete: boolean;
     onFieldChange: (id: number, field: keyof Currency, value: string | number) => void;
     onDelete: (id: number) => void;
+    labelInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
+    lastAddedIndexRef: React.MutableRefObject<number | null>;
+    index: number;
 }
 
 const SortableRow = memo(function SortableRow({
@@ -38,6 +40,9 @@ const SortableRow = memo(function SortableRow({
     canDelete,
     onFieldChange,
     onDelete,
+    labelInputRefs,
+    lastAddedIndexRef,
+    index,
 }: SortableRowProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: currency._id,
@@ -60,6 +65,17 @@ const SortableRow = memo(function SortableRow({
                         value={currency.label}
                         onChange={(value) => onFieldChange(currency._id, 'label', String(value))}
                         isNameField
+                        ref={(el) => {
+                            if (el) {
+                                labelInputRefs.current.set(index, el);
+                                if (lastAddedIndexRef.current === index) {
+                                    el.focus();
+                                    lastAddedIndexRef.current = null;
+                                }
+                            } else {
+                                labelInputRefs.current.delete(index);
+                            }
+                        }}
                     />
                 )}
             </td>
@@ -156,6 +172,8 @@ export default function CurrenciesConfig({
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const lastAddedIndexRef = useRef<number | null>(null);
+    const labelInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const [currencies, setCurrencies] = useState<InternalCurrency[]>(() =>
         (config || []).map((c) => ({ ...c, _id: nextIdRef.current++ }))
     );
@@ -192,12 +210,17 @@ export default function CurrenciesConfig({
         [notifyParent]
     );
 
+    const isValid = currencies.every(
+        (c) => c.label?.trim() && c.symbol?.trim() && c.maxValue > 0 && c.decimals >= 0 && c.rate > 0 && c.fee >= 0
+    );
+
     const handleAddCurrency = useCallback(() => {
         setCurrencies((prev) => {
             const updated = [
                 ...prev,
                 { label: '', maxValue: 1000, symbol: '', decimals: 2, rate: 1, fee: 0, _id: nextIdRef.current++ },
             ];
+            lastAddedIndexRef.current = updated.length - 1;
             notifyParent(updated);
             return updated;
         });
@@ -248,6 +271,10 @@ export default function CurrenciesConfig({
             isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}
+            onAdd={handleAddCurrency}
+            isValid={isValid}
+            addLabel="Ajouter une devise"
+            isReadOnly={isReadOnly}
         >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={currencies.map((c) => c._id)} strategy={verticalListSortingStrategy}>
@@ -266,7 +293,7 @@ export default function CurrenciesConfig({
                                 </tr>
                             </thead>
                             <tbody>
-                                {currencies.map((currency) => (
+                                {currencies.map((currency, index) => (
                                     <SortableRow
                                         key={currency._id}
                                         currency={currency}
@@ -274,6 +301,9 @@ export default function CurrenciesConfig({
                                         canDelete={currencies.length > 1}
                                         onFieldChange={handleFieldChange}
                                         onDelete={handleDeleteCurrency}
+                                        labelInputRefs={labelInputRefs}
+                                        lastAddedIndexRef={lastAddedIndexRef}
+                                        index={index}
                                     />
                                 ))}
                             </tbody>
@@ -281,11 +311,6 @@ export default function CurrenciesConfig({
                     </div>
                 </SortableContext>
             </DndContext>
-            {!isReadOnly && (
-                <AdminButton variant="add" onClick={handleAddCurrency}>
-                    Ajouter une devise
-                </AdminButton>
-            )}
         </SectionCard>
     );
 }
