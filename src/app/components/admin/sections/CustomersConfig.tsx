@@ -1,12 +1,12 @@
 'use client';
 
-import { Customer } from '@/app/utils/interfaces';
+import { Customer, Company } from '@/app/utils/interfaces';
 import { adminHeaderStyle } from '@/app/utils/constants';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SectionCard from '../SectionCard';
-import AdminButton from '../AdminButton';
 import DeleteButtonCell from '../DeleteButtonCell';
 import ValidatedInput from '../ValidatedInput';
+import AdminSelect from '../AdminSelect';
 import { normalizeFirstName, normalizeFamilyName, emailRegex, frenchPhoneRegex } from '@/app/utils/regex';
 
 interface CustomersConfigProps {
@@ -20,6 +20,7 @@ interface CustomersConfigProps {
     onToggle?: () => void;
     icon?: React.ReactNode;
     onValidation?: (isValid: boolean) => void;
+    companies?: Company[];
 }
 
 interface InternalCustomer extends Customer {
@@ -31,12 +32,30 @@ function Row({
     isReadOnly,
     onChange,
     onDelete,
+    companies,
+    firstNameInputRefs,
+    lastAddedIndexRef,
+    index,
 }: {
     customer: InternalCustomer;
     isReadOnly: boolean;
     onChange: (customer: InternalCustomer) => void;
     onDelete: () => void;
+    companies?: Company[];
+    firstNameInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
+    lastAddedIndexRef: React.MutableRefObject<number | null>;
+    index: number;
 }) {
+    const companyOptions = useMemo(() => {
+        const opts = [{ value: '', label: 'Aucune' }];
+        if (companies) {
+            companies.forEach((c) => {
+                opts.push({ value: c.name, label: c.name });
+            });
+        }
+        return opts;
+    }, [companies]);
+
     return (
         <tr className="border-b border-gray-200 dark:border-gray-700">
             <td className="p-2">
@@ -47,6 +66,18 @@ function Row({
                     isReadOnly={isReadOnly}
                     validation={(value) => String(value).trim().length > 0}
                     className="min-w-32"
+                    isNameField
+                    ref={(el) => {
+                        if (el) {
+                            firstNameInputRefs.current.set(index, el);
+                            if (lastAddedIndexRef.current === index) {
+                                el.focus();
+                                lastAddedIndexRef.current = null;
+                            }
+                        } else {
+                            firstNameInputRefs.current.delete(index);
+                        }
+                    }}
                 />
             </td>
             <td className="p-2">
@@ -57,6 +88,7 @@ function Row({
                     isReadOnly={isReadOnly}
                     validation={(value) => String(value).trim().length > 0}
                     className="min-w-32"
+                    isNameField
                 />
             </td>
             <td className="p-2">
@@ -88,6 +120,17 @@ function Row({
                     className="w-36"
                 />
             </td>
+            <td className="p-2">
+                <AdminSelect
+                    value={customer.company || ''}
+                    onChange={(e) =>
+                        onChange({ ...customer, company: e.target.value === '' ? undefined : String(e.target.value) })
+                    }
+                    options={companyOptions}
+                    className="min-w-40"
+                    isReadOnly={isReadOnly}
+                />
+            </td>
             <DeleteButtonCell isReadOnly={isReadOnly} onDelete={onDelete} title="Supprimer le client" />
         </tr>
     );
@@ -104,10 +147,13 @@ export default function CustomersConfig({
     onToggle,
     icon,
     onValidation,
+    companies,
 }: CustomersConfigProps) {
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const lastAddedIndexRef = useRef<number | null>(null);
+    const firstNameInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const [customers, setCustomers] = useState<InternalCustomer[]>(() =>
         (config || []).map((c: Customer) => ({ ...c, _id: nextIdRef.current++ }))
     );
@@ -168,9 +214,11 @@ export default function CustomersConfig({
                     reference: '',
                     email: '',
                     phone: '',
+                    company: undefined,
                     _id: nextIdRef.current++,
                 } as InternalCustomer,
             ];
+            lastAddedIndexRef.current = updated.length - 1;
             notifyParent(updated);
             return updated;
         });
@@ -202,6 +250,10 @@ export default function CustomersConfig({
             isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}
+            onAdd={handleAddCustomer}
+            isValid={isValid && !isLoading}
+            addLabel="Ajouter un client"
+            isReadOnly={isReadOnly}
         >
             <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
@@ -213,29 +265,28 @@ export default function CustomersConfig({
                                 <th className={adminHeaderStyle + ' min-w-32 w-32'}>Référence</th>
                                 <th className={adminHeaderStyle + ' min-w-40 w-40'}>Email</th>
                                 <th className={adminHeaderStyle + ' min-w-36 w-36'}>Téléphone</th>
+                                <th className={adminHeaderStyle + ' min-w-40 w-40'}>Entreprise</th>
                                 {!isReadOnly && <th className="w-8"></th>}
                             </tr>
                         </thead>
                     )}
                     <tbody>
-                        {customers.map((customer) => (
+                        {customers.map((customer, index) => (
                             <Row
                                 key={customer._id}
                                 customer={customer}
                                 isReadOnly={isReadOnly}
                                 onChange={(updated) => handleCustomerChange(customer._id, updated)}
                                 onDelete={() => handleDeleteCustomer(customer._id)}
+                                companies={companies}
+                                firstNameInputRefs={firstNameInputRefs}
+                                lastAddedIndexRef={lastAddedIndexRef}
+                                index={index}
                             />
                         ))}
                     </tbody>
                 </table>
             </div>
-
-            {!isReadOnly && (
-                <AdminButton variant="add" onClick={handleAddCustomer} disabled={!isValid || isLoading}>
-                    Ajouter un client
-                </AdminButton>
-            )}
         </SectionCard>
     );
 }

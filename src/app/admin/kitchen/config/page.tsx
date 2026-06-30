@@ -9,11 +9,22 @@ import PaymentsConfig from '@/app/components/admin/sections/PaymentsConfig';
 import ColorsConfig from '@/app/components/admin/sections/ColorsConfig';
 import UsersConfig from '@/app/components/admin/sections/UsersConfig';
 import CustomersConfig from '@/app/components/admin/sections/CustomersConfig';
+import CompaniesConfig from '@/app/components/admin/sections/CompaniesConfig';
 import { Parameters } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
 import { USE_DIGICARTE, INTERNAL_PAYMENT_METHODS } from '@/app/utils/constants';
-import { Currency, Discount, Mercurial, PaymentMethod, Color, User, Role, Customer } from '@/app/utils/interfaces';
+import {
+    Currency,
+    Discount,
+    Mercurial,
+    PaymentMethod,
+    Color,
+    User,
+    Role,
+    Customer,
+    Company,
+} from '@/app/utils/interfaces';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { useIsMobile } from '@/app/utils/mobile';
 import { clearLoadDataCache, defaultParameters } from '@/app/utils/processData';
@@ -27,6 +38,7 @@ import {
     IconUserScan,
     IconPalette,
     IconUsersGroup,
+    IconBuilding,
 } from '@tabler/icons-react';
 
 // Type for currency row from DB
@@ -58,9 +70,11 @@ export default function SettingsPage() {
     const [colorsConfig, setColorsConfig] = useState<Color[]>([]);
     const [usersConfig, setUsersConfig] = useState<User[]>([]);
     const [customersConfig, setCustomersConfig] = useState<Customer[]>([]);
+    const [companiesConfig, setCompaniesConfig] = useState<Company[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isSavingUsers, setIsSavingUsers] = useState(false);
     const [isSavingCustomers, setIsSavingCustomers] = useState(false);
+    const [isSavingCompanies, setIsSavingCompanies] = useState(false);
     const dbConfigCheckedRef = useRef(false);
     const dataLoadedRef = useRef(false);
     const [isSavingParameters, setIsSavingParameters] = useState(false);
@@ -80,8 +94,10 @@ export default function SettingsPage() {
     const [hasColorsChanges, setHasColorsChanges] = useState(false);
     const [hasUsersChanges, setHasUsersChanges] = useState(false);
     const [hasCustomersChanges, setHasCustomersChanges] = useState(false);
+    const [hasCompaniesChanges, setHasCompaniesChanges] = useState(false);
     const [isUsersValid, setIsUsersValid] = useState(true);
     const [isCustomersValid, setIsCustomersValid] = useState(true);
+    const [isCompaniesValid, setIsCompaniesValid] = useState(true);
     const [originalSettings, setOriginalSettings] = useState<Parameters>(defaultParameters);
     const [originalDiscounts, setOriginalDiscounts] = useState<Discount[]>([]);
     const [originalCurrencies, setOriginalCurrencies] = useState<Currency[]>([]);
@@ -89,6 +105,7 @@ export default function SettingsPage() {
     const [originalColors, setOriginalColors] = useState<Color[]>([]);
     const [originalUsers, setOriginalUsers] = useState<User[]>([]);
     const [originalCustomers, setOriginalCustomers] = useState<Customer[]>([]);
+    const [originalCompanies, setOriginalCompanies] = useState<Company[]>([]);
     const [themeName, setThemeName] = useState<string>('');
     const [originalThemeName, setOriginalThemeName] = useState<string>('');
     const [selectedThemeIndex, setSelectedThemeIndex] = useState<number>(0);
@@ -339,14 +356,24 @@ export default function SettingsPage() {
                 const customersResponse = await fetch('/api/sql/getCustomers');
                 const customersData = await customersResponse.json();
                 if (customersData.values && customersData.values.length > 1) {
-                    const loaded: Customer[] = customersData.values.slice(1).map((row: string[]) => ({
-                        id: row[0] ? Number(row[0]) : undefined,
-                        firstName: String(row[1]),
-                        lastName: String(row[2]),
-                        reference: row[3] ? String(row[3]) : undefined,
-                        email: row[4] ? String(row[4]) : undefined,
-                        phone: row[5] ? String(row[5]) : undefined,
-                    }));
+                    const loaded: Customer[] = customersData.values.slice(1).map((row: string[]) => {
+                        const company = row[6];
+                        // Ensure company is a string, not an object
+                        const companyValue =
+                            typeof company === 'object' && company !== null
+                                ? (company as { name: string }).name
+                                : String(company || '');
+                        return {
+                            id: row[0] ? Number(row[0]) : undefined,
+                            firstName: String(row[1]),
+                            lastName: String(row[2]),
+                            reference: row[3] ? String(row[3]) : undefined,
+                            email: row[4] ? String(row[4]) : undefined,
+                            phone: row[5] ? String(row[5]) : undefined,
+                            company: companyValue || undefined,
+                            quotaShare: row[7] ? Number(row[7]) : undefined,
+                        };
+                    });
                     setCustomersConfig(loaded);
                     setOriginalCustomers(loaded);
                 }
@@ -354,6 +381,25 @@ export default function SettingsPage() {
                 // No fallback for customers - start with empty list
                 setCustomersConfig([]);
                 setOriginalCustomers([]);
+            }
+
+            // Load companies from DB
+            try {
+                const companiesResponse = await fetch('/api/sql/getCompanies');
+                const companiesData = await companiesResponse.json();
+                if (companiesData.values && companiesData.values.length > 1) {
+                    const loaded: Company[] = companiesData.values.slice(1).map((row: string[]) => ({
+                        id: row[0] ? Number(row[0]) : undefined,
+                        name: String(row[1]),
+                        quotaShare: Number(row[2]),
+                    }));
+                    setCompaniesConfig(loaded);
+                    setOriginalCompanies(loaded);
+                }
+            } catch {
+                // No fallback for companies - start with empty list
+                setCompaniesConfig([]);
+                setOriginalCompanies([]);
             }
         } catch (error) {
             console.error('Error fetching parameters:', error);
@@ -385,6 +431,7 @@ export default function SettingsPage() {
             JSON.stringify(customThemeNames) !== JSON.stringify(originalCustomThemeNames);
         const usersChanged = JSON.stringify(usersConfig) !== JSON.stringify(originalUsers);
         const customersChanged = JSON.stringify(customersConfig) !== JSON.stringify(originalCustomers);
+        const companiesChanged = JSON.stringify(companiesConfig) !== JSON.stringify(originalCompanies);
         setHasSettingsChanges(settingsChanged);
         setHasDiscountsChanges(discountsChanged);
         setHasCurrenciesChanges(currenciesChanged);
@@ -392,6 +439,7 @@ export default function SettingsPage() {
         setHasColorsChanges(colorsChanged);
         setHasUsersChanges(usersChanged);
         setHasCustomersChanges(customersChanged);
+        setHasCompaniesChanges(companiesChanged);
         setHasChanges(
             settingsChanged ||
                 discountsChanged ||
@@ -399,7 +447,8 @@ export default function SettingsPage() {
                 paymentsChanged ||
                 colorsChanged ||
                 usersChanged ||
-                customersChanged
+                customersChanged ||
+                companiesChanged
         );
     }, [
         settings,
@@ -409,6 +458,7 @@ export default function SettingsPage() {
         colorsConfig,
         usersConfig,
         customersConfig,
+        companiesConfig,
         themeName,
         selectedThemeIndex,
         customThemeNames,
@@ -419,6 +469,7 @@ export default function SettingsPage() {
         originalColors,
         originalUsers,
         originalCustomers,
+        originalCompanies,
         originalThemeName,
         originalSelectedThemeIndex,
         originalCustomThemeNames,
@@ -433,7 +484,8 @@ export default function SettingsPage() {
         if (hasPaymentsChanges) await handlePaymentsSave(paymentsConfig);
         if (hasCustomersChanges) await handleCustomersSave(customersConfig);
         if (hasColorsChanges) await handleColorsSave(colorsConfig);
-        if (hasUsersChanges) await handleUsersSave(usersConfig);
+        if (hasUsersChanges && isUsersValid) await handleUsersSave(usersConfig);
+        if (hasCompaniesChanges && isCompaniesValid) await handleCompaniesSave(companiesConfig);
         setIsSaving(false);
     };
 
@@ -624,6 +676,45 @@ export default function SettingsPage() {
         }
     };
 
+    const handleCompaniesSave = async (data: Company[]) => {
+        setIsSavingCompanies(true);
+        setIsSaving(true);
+        try {
+            await fetch('/api/sql/updateCompanies', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ companies: data }),
+            });
+
+            // Check if any companies were deleted and update customers accordingly
+            const companyNames = new Set(data.map((c) => c.name));
+            const customersToUpdate = customersConfig.filter((c) => c.company && !companyNames.has(c.company));
+
+            if (customersToUpdate.length > 0) {
+                const updatedCustomers = customersConfig.map((c) =>
+                    c.company && !companyNames.has(c.company) ? { ...c, company: undefined } : c
+                );
+                await fetch('/api/sql/updateCustomers', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ customers: updatedCustomers }),
+                });
+                setCustomersConfig(updatedCustomers);
+                setOriginalCustomers(updatedCustomers);
+            }
+
+            setOriginalCompanies(data);
+            setCompaniesConfig(data);
+            setHasCompaniesChanges(false);
+        } catch (error) {
+            console.error("Erreur lors de l'enregistrement:", error);
+            openFullscreenPopup("Erreur lors de l'enregistrement des entreprises.", ['OK']);
+        } finally {
+            setIsSavingCompanies(false);
+            setIsSaving(false);
+        }
+    };
+
     const handleThemeNameChange = (name: string) => {
         setThemeName(name);
     };
@@ -649,6 +740,7 @@ export default function SettingsPage() {
                 setColorsConfig(originalColors);
                 setUsersConfig(originalUsers);
                 setCustomersConfig(originalCustomers);
+                setCompaniesConfig(originalCompanies);
                 setThemeName(originalThemeName);
                 setSelectedThemeIndex(originalSelectedThemeIndex);
                 setCustomThemeNames(originalCustomThemeNames);
@@ -778,6 +870,21 @@ export default function SettingsPage() {
                 onToggle={() => setOpenSection((prev) => (prev === 'customers' ? null : 'customers'))}
                 icon={<IconUsersGroup size={24} />}
                 onValidation={setIsCustomersValid}
+                companies={companiesConfig}
+            />
+
+            <CompaniesConfig
+                config={companiesConfig}
+                onChange={setCompaniesConfig}
+                onSave={handleCompaniesSave}
+                isReadOnly={isReadOnly}
+                onCancel={handleCancel}
+                isLoading={isSavingCompanies}
+                isOpen={openSection === 'companies'}
+                onToggle={() => setOpenSection((prev) => (prev === 'companies' ? null : 'companies'))}
+                icon={<IconBuilding size={24} />}
+                customers={customersConfig}
+                onValidation={setIsCompaniesValid}
             />
 
             <ColorsConfig

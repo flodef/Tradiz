@@ -76,7 +76,7 @@ export default function CategoryItem({
                         value={Number(category.vat)}
                         onChange={(value) => onChange({ ...category, vat: parseFloat(String(value)) })}
                         options={vatRates.map((rate) => ({ label: `${rate}%`, value: rate }))}
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                     />
                 </div>
             </div>

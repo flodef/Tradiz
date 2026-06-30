@@ -59,6 +59,9 @@ interface SortableRowProps {
     onTypeChange: (id: number, type: string) => void;
     onOptionsChange: (id: number, options: ProductOption[]) => void;
     onDelete: (id: number) => void;
+    typeInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
+    lastAddedIndexRef: React.MutableRefObject<number | null>;
+    index: number;
 }
 
 const SortableRow = memo(function SortableRow({
@@ -73,6 +76,9 @@ const SortableRow = memo(function SortableRow({
     onTypeChange,
     onOptionsChange,
     onDelete,
+    typeInputRefs,
+    lastAddedIndexRef,
+    index,
 }: SortableRowProps) {
     // Filter products by selected category
     const filteredProducts = group.category ? products.filter((p) => p.category === group.category) : [];
@@ -107,41 +113,42 @@ const SortableRow = memo(function SortableRow({
             <DragHandleCell isReadOnly={isReadOnly} attributes={attributes} listeners={listeners} />
             {/* Category Select */}
             <td className="p-2">
-                {isReadOnly ? (
-                    <div className="text-sm">{group.category}</div>
-                ) : (
-                    <AdminSelect
-                        options={categories}
-                        value={group.category}
-                        onChange={(e) => onCategoryChange(group._id, e.target.value)}
-                    />
-                )}
+                <AdminSelect
+                    options={categories}
+                    value={group.category}
+                    onChange={(e) => onCategoryChange(group._id, e.target.value)}
+                    isReadOnly={isReadOnly}
+                />
             </td>
             {/* Product Select */}
             <td className="p-2">
-                {isReadOnly ? (
-                    <div className="text-sm">{group.product}</div>
-                ) : (
-                    <AdminSelect
-                        options={filteredProducts.map((p) => ({ label: p.name, value: p.name }))}
-                        value={group.product}
-                        onChange={(e) => onProductChange(group._id, e.target.value)}
-                        disabled={!group.category}
-                    />
-                )}
+                <AdminSelect
+                    options={filteredProducts.map((p) => ({ label: p.name, value: p.name }))}
+                    value={group.product}
+                    onChange={(e) => onProductChange(group._id, e.target.value)}
+                    isReadOnly={isReadOnly}
+                />
             </td>
             {/* Type Input */}
             <td className="p-2">
-                {isReadOnly ? (
-                    <div className="text-sm font-semibold">{group.type}</div>
-                ) : (
-                    <ValidatedInput
-                        type="text"
-                        value={group.type}
-                        onChange={(value) => onTypeChange(group._id, String(value))}
-                        placeholder="Type (ex: Scoop, Size, Flavor)"
-                    />
-                )}
+                <ValidatedInput
+                    type="text"
+                    value={group.type}
+                    ref={(el) => {
+                        if (el) {
+                            typeInputRefs.current.set(index, el);
+                            if (lastAddedIndexRef.current === index) {
+                                el.focus();
+                                lastAddedIndexRef.current = null;
+                            }
+                        } else {
+                            typeInputRefs.current.delete(index);
+                        }
+                    }}
+                    onChange={(value) => onTypeChange(group._id, String(value))}
+                    placeholder="Type (ex: Scoop, Size, Flavor)"
+                    isReadOnly={isReadOnly}
+                />
             </td>
             <td className="p-2">
                 <div className="space-y-2">
@@ -160,6 +167,7 @@ const SortableRow = memo(function SortableRow({
                                         onChange={(value) => handleOptionChange(index, 'value', value)}
                                         placeholder="Valeur"
                                         className="flex-1 min-w-0"
+                                        isReadOnly={isReadOnly}
                                     />
                                     <ValidatedInput
                                         type="number"
@@ -169,6 +177,7 @@ const SortableRow = memo(function SortableRow({
                                         min={0}
                                         step={priceStep}
                                         className="w-16"
+                                        isReadOnly={isReadOnly}
                                     />
                                     {group.options.length > 1 && (
                                         <button
@@ -235,6 +244,8 @@ export default function OptionsConfig({
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const lastAddedIndexRef = useRef<number | null>(null);
+    const typeInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const [groups, setGroups] = useState<InternalOptionGroup[]>(() =>
         (config || []).map((g) => ({ ...g, _id: nextIdRef.current++ }))
     );
@@ -335,6 +346,7 @@ export default function OptionsConfig({
                     _id: nextIdRef.current++,
                 },
             ];
+            lastAddedIndexRef.current = updated.length - 1;
             notifyParent(updated);
             return updated;
         });
@@ -389,6 +401,10 @@ export default function OptionsConfig({
             isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}
+            onAdd={handleAddGroup}
+            isValid={isValid}
+            addLabel="Ajouter un groupe d'options"
+            isReadOnly={isReadOnly}
         >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={groups.map((g) => g._id)} strategy={verticalListSortingStrategy}>
@@ -407,7 +423,7 @@ export default function OptionsConfig({
                                 </thead>
                             )}
                             <tbody>
-                                {groups.map((group) => (
+                                {groups.map((group, index) => (
                                     <SortableRow
                                         key={group._id}
                                         group={group}
@@ -421,6 +437,9 @@ export default function OptionsConfig({
                                         onTypeChange={handleTypeChange}
                                         onOptionsChange={handleOptionsChange}
                                         onDelete={handleDeleteGroup}
+                                        typeInputRefs={typeInputRefs}
+                                        lastAddedIndexRef={lastAddedIndexRef}
+                                        index={index}
                                     />
                                 ))}
                             </tbody>
@@ -428,11 +447,6 @@ export default function OptionsConfig({
                     </div>
                 </SortableContext>
             </DndContext>
-            {!isReadOnly && (
-                <AdminButton variant="add" onClick={handleAddGroup}>
-                    Ajouter un groupe d'options
-                </AdminButton>
-            )}
         </SectionCard>
     );
 }

@@ -9,6 +9,7 @@ interface Customer {
     reference?: string;
     email?: string;
     phone?: string;
+    company?: string;
 }
 
 export async function POST(request: Request) {
@@ -33,19 +34,24 @@ export async function POST(request: Request) {
             const reference = customer.reference || generateProductReference(Date.now());
             const email = customer.email || null;
             const phone = customer.phone || null;
+            // Ensure company is a string, not an object
+            let company = customer.company || null;
+            if (typeof company === 'object' && company !== null) {
+                company = (company as { name: string }).name || null;
+            }
 
             if (connection.isPostgreSQL) {
                 const insertQuery = `
-                    INSERT INTO dc_pos.customers (first_name, last_name, reference, email, phone)
-                    VALUES ($1, $2, $3, $4, $5)
+                    INSERT INTO dc_pos.customers (first_name, last_name, reference, email, phone, company)
+                    VALUES ($1, $2, $3, $4, $5, $6)
                 `;
-                await connection.execute(insertQuery, [firstName, lastName, reference, email, phone]);
+                await connection.execute(insertQuery, [firstName, lastName, reference, email, phone, company]);
             } else {
                 const insertQuery = `
-                    INSERT INTO customers (first_name, last_name, reference, email, phone)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO customers (first_name, last_name, reference, email, phone, company)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 `;
-                await connection.execute(insertQuery, [firstName, lastName, reference, email, phone]);
+                await connection.execute(insertQuery, [firstName, lastName, reference, email, phone, company]);
             }
         }
 

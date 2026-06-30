@@ -18,6 +18,10 @@ interface SectionCardProps {
     isOpen?: boolean;
     onToggle?: () => void;
     icon?: ReactNode;
+    onAdd?: () => void;
+    isValid?: boolean;
+    addLabel?: string;
+    isReadOnly?: boolean;
 }
 
 export default function SectionCard({
@@ -32,6 +36,10 @@ export default function SectionCard({
     isOpen,
     onToggle,
     icon,
+    onAdd,
+    isValid = true,
+    addLabel = 'Ajouter',
+    isReadOnly = false,
 }: SectionCardProps) {
     const [internalOpen, setInternalOpen] = useState(defaultOpen);
     const open = isOpen !== undefined ? isOpen : internalOpen;
@@ -92,7 +100,14 @@ export default function SectionCard({
                 </div>
             </div>
             {open && (
-                <div className="px-6 pb-6 pt-2 border-t border-black/10 dark:border-white/10 space-y-4">{children}</div>
+                <div className="px-6 pb-6 pt-2 border-t border-black/10 dark:border-white/10 space-y-4">
+                    {children}
+                    {onAdd && !isReadOnly && (
+                        <AdminButton variant="add" onClick={onAdd} disabled={!isValid}>
+                            {addLabel}
+                        </AdminButton>
+                    )}
+                </div>
             )}
         </div>
     );

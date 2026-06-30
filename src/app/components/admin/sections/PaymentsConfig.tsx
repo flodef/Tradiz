@@ -12,7 +12,6 @@ import {
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
-import AdminButton from '../AdminButton';
 import AdminSelect from '../AdminSelect';
 import AvailabilityToggle from '../AvailabilityToggle';
 import DeleteButtonCell from '../DeleteButtonCell';
@@ -30,6 +29,9 @@ interface SortableRowProps {
     currencyOptions: { value: string; label: string }[];
     onFieldChange: (id: number, field: keyof PaymentMethod, value: string | boolean) => void;
     onDelete: (id: number) => void;
+    idInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
+    lastAddedIndexRef: React.MutableRefObject<number | null>;
+    index: number;
 }
 
 const SortableRow = memo(function SortableRow({
@@ -38,6 +40,9 @@ const SortableRow = memo(function SortableRow({
     currencyOptions,
     onFieldChange,
     onDelete,
+    idInputRefs,
+    lastAddedIndexRef,
+    index,
 }: SortableRowProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: payment._id,
@@ -56,7 +61,7 @@ const SortableRow = memo(function SortableRow({
                     value={payment.type}
                     onChange={(e) => onFieldChange(payment._id, 'type', e.target.value)}
                     options={PAYMENT_TYPES.map((type) => ({ value: type, label: type }))}
-                    disabled={isReadOnly}
+                    isReadOnly={isReadOnly}
                 />
             </td>
             <td className="p-2">
@@ -64,7 +69,19 @@ const SortableRow = memo(function SortableRow({
                     type="text"
                     value={payment.id || ''}
                     onChange={(value) => onFieldChange(payment._id, 'id', String(value))}
-                    disabled={isReadOnly}
+                    isReadOnly={isReadOnly}
+                    isNameField
+                    ref={(el) => {
+                        if (el) {
+                            idInputRefs.current.set(index, el);
+                            if (lastAddedIndexRef.current === index) {
+                                el.focus();
+                                lastAddedIndexRef.current = null;
+                            }
+                        } else {
+                            idInputRefs.current.delete(index);
+                        }
+                    }}
                 />
             </td>
             <td className="p-2">
@@ -72,7 +89,7 @@ const SortableRow = memo(function SortableRow({
                     value={payment.currency}
                     onChange={(e) => onFieldChange(payment._id, 'currency', e.target.value)}
                     options={currencyOptions}
-                    disabled={isReadOnly}
+                    isReadOnly={isReadOnly}
                 />
             </td>
             <td className="p-2 text-center">
@@ -115,6 +132,8 @@ export default function PaymentsConfig({
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const lastAddedIndexRef = useRef<number | null>(null);
+    const idInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const [payments, setPayments] = useState<InternalPayment[]>(() =>
         (config || []).map((p) => ({ ...p, _id: nextIdRef.current++ }))
     );
@@ -151,12 +170,22 @@ export default function PaymentsConfig({
         [notifyParent]
     );
 
+    const isValid =
+        payments.every((p) => p.type?.trim()) && new Set(payments.map((p) => p.type)).size === payments.length;
+
     const handleAddPayment = useCallback(() => {
         setPayments((prev) => {
             const updated = [
                 ...prev,
-                { type: 'Carte Bancaire', id: '', currency: '', availability: false, _id: nextIdRef.current++ },
+                {
+                    type: 'Carte Bancaire',
+                    id: '',
+                    currency: '',
+                    availability: false,
+                    _id: nextIdRef.current++,
+                },
             ];
+            lastAddedIndexRef.current = updated.length - 1;
             notifyParent(updated);
             return updated;
         });
@@ -211,6 +240,10 @@ export default function PaymentsConfig({
             isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}
+            onAdd={handleAddPayment}
+            isValid={isValid}
+            addLabel="Ajouter un moyen de paiement"
+            isReadOnly={isReadOnly}
         >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={payments.map((p) => p._id)} strategy={verticalListSortingStrategy}>
@@ -227,7 +260,7 @@ export default function PaymentsConfig({
                                 </tr>
                             </thead>
                             <tbody>
-                                {payments.map((payment) => (
+                                {payments.map((payment, index) => (
                                     <SortableRow
                                         key={payment._id}
                                         payment={payment}
@@ -235,6 +268,9 @@ export default function PaymentsConfig({
                                         currencyOptions={currencyOptions}
                                         onFieldChange={handleFieldChange}
                                         onDelete={handleDeletePayment}
+                                        idInputRefs={idInputRefs}
+                                        lastAddedIndexRef={lastAddedIndexRef}
+                                        index={index}
                                     />
                                 ))}
                             </tbody>
@@ -242,11 +278,6 @@ export default function PaymentsConfig({
                     </div>
                 </SortableContext>
             </DndContext>
-            {!isReadOnly && (
-                <AdminButton variant="add" onClick={handleAddPayment}>
-                    Ajouter un moyen de paiement
-                </AdminButton>
-            )}
         </SectionCard>
     );
 }

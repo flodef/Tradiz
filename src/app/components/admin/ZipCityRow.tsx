@@ -12,7 +12,7 @@ interface ZipCityRowProps {
     city: string;
     onZipChange: (value: string) => void;
     onCityChange: (value: string) => void;
-    disabled?: boolean;
+    isReadOnly?: boolean;
 }
 
 interface GeoApiCity {
@@ -22,7 +22,7 @@ interface GeoApiCity {
 
 const toUpper = (s: string) => s.toUpperCase();
 
-export default function ZipCityRow({ zipCode, city, onZipChange, onCityChange, disabled = false }: ZipCityRowProps) {
+export default function ZipCityRow({ zipCode, city, onZipChange, onCityChange, isReadOnly = false }: ZipCityRowProps) {
     const [cities, setCities] = useState<string[]>([]);
     const [isLoadingCities, setIsLoadingCities] = useState(false);
     const [isOffline, setIsOffline] = useState(false);
@@ -92,7 +92,7 @@ export default function ZipCityRow({ zipCode, city, onZipChange, onCityChange, d
                 maxLength={5}
                 value={zipCode}
                 onChange={handleZipChange}
-                disabled={disabled}
+                isReadOnly={isReadOnly}
                 placeholder="75001"
                 error={!isZipValid}
                 className="w-16"
@@ -103,7 +103,7 @@ export default function ZipCityRow({ zipCode, city, onZipChange, onCityChange, d
                         label={`Ville${isLoadingCities ? ' …' : ''}`}
                         value={toUpper(city)}
                         onChange={(e) => onCityChange(e.target.value)}
-                        disabled={disabled}
+                        isReadOnly={isReadOnly}
                         error={selectHasError}
                         options={[
                             { label: city || 'Sélectionner…', value: toUpper(city) },
@@ -117,7 +117,7 @@ export default function ZipCityRow({ zipCode, city, onZipChange, onCityChange, d
                         type="text"
                         value={city}
                         onChange={(e) => onCityChange(toUpper(e.target.value))}
-                        disabled={disabled}
+                        isReadOnly={isReadOnly}
                         placeholder="Ville"
                         className="w-full"
                     />

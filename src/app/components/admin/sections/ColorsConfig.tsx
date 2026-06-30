@@ -1,7 +1,6 @@
 import { adminBaseStyle, adminHeaderStyle } from '@/app/utils/constants';
 import { Color } from '@/app/utils/interfaces';
-import { useEffect, useState } from 'react';
-import AdminButton from '../AdminButton';
+import { useEffect, useRef, useState } from 'react';
 import ColorPicker from '../ColorPicker';
 import DeleteButton from '../DeleteButton';
 import SectionCard from '../SectionCard';
@@ -43,6 +42,8 @@ export default function ColorsConfig({
     const [colors, setColors] = useState(config || []);
     const [internalSelectedIndex, setInternalSelectedIndex] = useState(0);
     const [internalCustomNames, setInternalCustomNames] = useState<Record<number, string>>({});
+    const lastAddedThemeIndexRef = useRef<number | null>(null);
+    const themeNameInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
 
     // Use external state if provided, otherwise internal
     const selectedThemeIndex = externalSelectedIndex !== undefined ? externalSelectedIndex : internalSelectedIndex;
@@ -84,6 +85,8 @@ export default function ColorsConfig({
             { label: 'Secondaire activé', light: '#10B981', dark: '#34D399' },
         ];
         const updated = [...colors, ...defaultTheme];
+        const newThemeIndex = themes.length;
+        lastAddedThemeIndexRef.current = newThemeIndex;
         setColors(updated);
         onChange(updated);
     };
@@ -93,6 +96,10 @@ export default function ColorsConfig({
     for (let i = 0; i < colors.length; i += 7) {
         themes.push(colors.slice(i, i + 7));
     }
+
+    const isValid = themes.every((theme) => {
+        return theme.every((color) => color.label?.trim() && color.light?.trim() && color.dark?.trim());
+    });
 
     // Generate theme names for all themes
     const getThemeName = (index: number) => {
@@ -125,7 +132,11 @@ export default function ColorsConfig({
             onCancel={onCancel}
             icon={icon}
             isLoading={isLoading}
+            onAdd={handleAddTheme}
+            isValid={isValid}
+            addLabel="Ajouter un thème"
             isOpen={isOpen}
+            isReadOnly={isReadOnly}
             onToggle={onToggle}
         >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -149,6 +160,18 @@ export default function ColorsConfig({
                                         onChange={(value) => handleThemeNameChange(themeIndex, String(value))}
                                         maxLength={30}
                                         className="min-w-48 w-48"
+                                        ref={(el) => {
+                                            if (el) {
+                                                themeNameInputRefs.current.set(themeIndex, el);
+                                                if (lastAddedThemeIndexRef.current === themeIndex) {
+                                                    el.focus();
+                                                    el.select();
+                                                    lastAddedThemeIndexRef.current = null;
+                                                }
+                                            } else {
+                                                themeNameInputRefs.current.delete(themeIndex);
+                                            }
+                                        }}
                                     />
                                 ) : (
                                     <h3 className={adminBaseStyle}>Thème: {getThemeName(themeIndex)}</h3>
@@ -243,7 +266,7 @@ export default function ColorsConfig({
                                                                     light: value,
                                                                 })
                                                             }
-                                                            disabled={isReadOnly}
+                                                            isReadOnly={isReadOnly}
                                                         />
                                                     )}
                                                 </td>
@@ -262,7 +285,7 @@ export default function ColorsConfig({
                                                                     dark: value,
                                                                 })
                                                             }
-                                                            disabled={isReadOnly}
+                                                            isReadOnly={isReadOnly}
                                                         />
                                                     )}
                                                 </td>
@@ -275,11 +298,6 @@ export default function ColorsConfig({
                     </div>
                 ))}
             </div>
-            {!isReadOnly && (
-                <AdminButton variant="add" onClick={handleAddTheme}>
-                    Ajouter un thème
-                </AdminButton>
-            )}
         </SectionCard>
     );
 }

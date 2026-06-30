@@ -34,6 +34,12 @@ export interface User {
     reference?: string;
 }
 
+export interface Company {
+    id?: number;
+    name: string;
+    quotaShare: number;
+}
+
 export interface Customer {
     id?: number;
     firstName: string;
@@ -41,6 +47,8 @@ export interface Customer {
     reference?: string;
     email?: string;
     phone?: string;
+    company?: string;
+    quotaShare?: number;
 }
 
 export interface Currency {

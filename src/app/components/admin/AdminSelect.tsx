@@ -10,6 +10,7 @@ interface AdminSelectProps extends React.SelectHTMLAttributes<HTMLSelectElement>
     error?: boolean;
     containerClassName?: string;
     inputClassName?: string;
+    isReadOnly?: boolean;
 }
 
 export default function AdminSelect({
@@ -18,14 +19,14 @@ export default function AdminSelect({
     className = '',
     containerClassName = '',
     inputClassName = '',
-    disabled = false,
+    isReadOnly = false,
     error = false,
     ...props
 }: AdminSelectProps) {
     return (
         <div className={`flex flex-col ${containerClassName || className}`}>
             {label && <label className={adminTextStyle}>{label}</label>}
-            <select disabled={disabled} className={twMerge(adminInputStyle(error), inputClassName)} {...props}>
+            <select disabled={isReadOnly} className={twMerge(adminInputStyle(error), inputClassName)} {...props}>
                 {options.map((opt, idx) => (
                     <option key={`${opt.value}-${idx}`} value={opt.value}>
                         {opt.label}

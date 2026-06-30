@@ -1,0 +1,51 @@
+import { NextResponse } from 'next/server';
+import { getPosDb } from '../db';
+
+interface Company {
+    id?: number;
+    name: string;
+    quotaShare: number;
+}
+
+export async function POST(request: Request) {
+    try {
+        const { companies } = (await request.json()) as { companies: Company[] };
+
+        if (!Array.isArray(companies)) {
+            return NextResponse.json({ error: 'Invalid companies data' }, { status: 400 });
+        }
+
+        const connection = await getPosDb();
+
+        // Delete all existing companies
+        const deleteQuery = connection.isPostgreSQL ? 'DELETE FROM dc_pos.companies' : 'DELETE FROM companies';
+        await connection.execute(deleteQuery);
+
+        // Insert new companies
+        for (const company of companies) {
+            const name = company.name;
+            const quotaShare = company.quotaShare;
+
+            if (connection.isPostgreSQL) {
+                const insertQuery = `
+                    INSERT INTO dc_pos.companies (name, quota_share)
+                    VALUES ($1, $2)
+                `;
+                await connection.execute(insertQuery, [name, quotaShare]);
+            } else {
+                const insertQuery = `
+                    INSERT INTO companies (name, quota_share)
+                    VALUES (?, ?)
+                `;
+                await connection.execute(insertQuery, [name, quotaShare]);
+            }
+        }
+
+        await connection.end();
+
+        return NextResponse.json({ success: true }, { status: 200 });
+    } catch (error) {
+        console.error('Error updating companies:', error);
+        return NextResponse.json({ error: 'An error occurred while updating companies' }, { status: 500 });
+    }
+}

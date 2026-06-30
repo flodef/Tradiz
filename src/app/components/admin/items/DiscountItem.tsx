@@ -72,14 +72,14 @@ export default function DiscountItem({
                     onChange({ ...discount, amount: val });
                 }}
                 inputClassName="w-24"
-                disabled={isReadOnly}
+                isReadOnly={isReadOnly}
             />
             <AdminSelect
                 value={discount.unit}
                 onChange={(e) => onChange({ ...discount, unit: e.target.value })}
                 options={units.map((u) => ({ label: u, value: u }))}
                 inputClassName="w-16"
-                disabled={isReadOnly}
+                isReadOnly={isReadOnly}
             />
             <div className={errorRoundContainerStyle}>
                 <CloseButton onClose={onDelete} size="xs" className={errorRoundButtonStyle} />

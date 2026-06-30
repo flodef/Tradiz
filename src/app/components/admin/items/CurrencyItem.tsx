@@ -67,7 +67,7 @@ export default function CurrencyItem({
                 onChange={(e) => onChange({ ...currency, label: e.target.value })}
                 inputClassName="min-w-[120px] flex-1"
                 placeholder="ex: Euro"
-                disabled={isReadOnly}
+                isReadOnly={isReadOnly}
             />
 
             <AdminInput
@@ -78,7 +78,7 @@ export default function CurrencyItem({
                 onChange={(e) => onChange({ ...currency, symbol: e.target.value })}
                 className="w-12"
                 placeholder="€"
-                disabled={isReadOnly}
+                isReadOnly={isReadOnly}
             />
 
             <AdminInput
@@ -90,7 +90,7 @@ export default function CurrencyItem({
                 step={step}
                 onChange={(e) => onChange({ ...currency, maxValue: Number(e.target.value) })}
                 className="w-24"
-                disabled={isReadOnly}
+                isReadOnly={isReadOnly}
             />
 
             <AdminInput
@@ -112,7 +112,7 @@ export default function CurrencyItem({
                     step="any"
                     onChange={(e) => onChange({ ...currency, rate: Number(e.target.value) })}
                     className="w-20"
-                    disabled={isReadOnly}
+                    isReadOnly={isReadOnly}
                 />
                 <div className="text-[9px] text-gray-400 absolute bottom-1 right-2 pointer-events-none">
                     {currency.rate === 0 ? 'Auto' : currency.rate === 1 ? 'Aucun' : ''}
@@ -128,7 +128,7 @@ export default function CurrencyItem({
                 step={0.01}
                 onChange={(e) => onChange({ ...currency, fee: Number(e.target.value) })}
                 className="w-16"
-                disabled={isReadOnly}
+                isReadOnly={isReadOnly}
             />
 
             {canDelete && (

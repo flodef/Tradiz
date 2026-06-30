@@ -4,7 +4,6 @@ import { Role, User } from '@/app/utils/interfaces';
 import { adminHeaderStyle } from '@/app/utils/constants';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SectionCard from '../SectionCard';
-import AdminButton from '../AdminButton';
 import DeleteButtonCell from '../DeleteButtonCell';
 import ValidatedInput from '../ValidatedInput';
 import AdminSelect from '../AdminSelect';
@@ -31,11 +30,17 @@ function Row({
     isReadOnly,
     onChange,
     onDelete,
+    nameInputRefs,
+    lastAddedIndexRef,
+    index,
 }: {
     user: InternalUser;
     isReadOnly: boolean;
     onChange: (user: InternalUser) => void;
     onDelete: () => void;
+    nameInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
+    lastAddedIndexRef: React.MutableRefObject<number | null>;
+    index: number;
 }) {
     const roles = Object.values(Role).filter((role) => role !== Role.admin);
 
@@ -56,6 +61,18 @@ function Row({
                     isReadOnly={isReadOnly}
                     validation={(value) => String(value).trim().length > 0}
                     className="min-w-40"
+                    isNameField
+                    ref={(el) => {
+                        if (el) {
+                            nameInputRefs.current.set(index, el);
+                            if (lastAddedIndexRef.current === index) {
+                                el.focus();
+                                lastAddedIndexRef.current = null;
+                            }
+                        } else {
+                            nameInputRefs.current.delete(index);
+                        }
+                    }}
                 />
             </td>
             <td className="p-2">
@@ -81,7 +98,7 @@ function Row({
                 <AdminSelect
                     value={user.role}
                     onChange={(e) => onChange({ ...user, role: e.target.value as Role })}
-                    disabled={isReadOnly}
+                    isReadOnly={isReadOnly}
                     options={roles.map((role) => ({ value: role, label: roleLabels[role] }))}
                     className="min-w-20 w-20"
                 />
@@ -106,6 +123,8 @@ export default function UsersConfig({
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const lastAddedIndexRef = useRef<number | null>(null);
+    const nameInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const [users, setUsers] = useState<InternalUser[]>(() =>
         (config || []).map((u) => ({ ...u, _id: nextIdRef.current++ }))
     );
@@ -171,6 +190,7 @@ export default function UsersConfig({
                 ...prev,
                 { key: '', name: '', role: Role.service, _id: nextIdRef.current++ } as InternalUser,
             ];
+            lastAddedIndexRef.current = updated.length - 1;
             notifyParent(updated);
             return updated;
         });
@@ -205,6 +225,10 @@ export default function UsersConfig({
             isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}
+            onAdd={handleAddUser}
+            isValid={isValid && !isLoading}
+            addLabel="Ajouter un utilisateur"
+            isReadOnly={isReadOnly}
         >
             <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
@@ -220,24 +244,24 @@ export default function UsersConfig({
                         </thead>
                     )}
                     <tbody>
-                        {nonAdminUsers.map((user) => (
-                            <Row
-                                key={user._id}
-                                user={user}
-                                isReadOnly={isReadOnly}
-                                onChange={(updated) => handleUserChange(user._id, updated)}
-                                onDelete={() => handleDeleteUser(user._id)}
-                            />
-                        ))}
+                        {nonAdminUsers.map((user) => {
+                            const actualIndex = users.findIndex((u) => u._id === user._id);
+                            return (
+                                <Row
+                                    key={user._id}
+                                    user={user}
+                                    isReadOnly={isReadOnly}
+                                    onChange={(updated) => handleUserChange(user._id, updated)}
+                                    onDelete={() => handleDeleteUser(user._id)}
+                                    nameInputRefs={nameInputRefs}
+                                    lastAddedIndexRef={lastAddedIndexRef}
+                                    index={actualIndex}
+                                />
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
-
-            {!isReadOnly && (
-                <AdminButton variant="add" onClick={handleAddUser} disabled={!isValid || isLoading}>
-                    Ajouter un utilisateur
-                </AdminButton>
-            )}
         </SectionCard>
     );
 }
