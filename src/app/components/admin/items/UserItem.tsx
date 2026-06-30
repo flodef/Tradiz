@@ -46,7 +46,7 @@ export default function UserItem({ user, onChange, onDelete, isReadOnly }: UserI
                         label="Rôle"
                         value={user.role}
                         onChange={(e) => onChange({ ...user, role: e.target.value as Role })}
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                         options={roles.map((role) => ({ value: role, label: role }))}
                     />
                 </div>

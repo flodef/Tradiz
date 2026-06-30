@@ -81,7 +81,7 @@ function Row({
                 <AdminSelect
                     value={user.role}
                     onChange={(e) => onChange({ ...user, role: e.target.value as Role })}
-                    disabled={isReadOnly}
+                    isReadOnly={isReadOnly}
                     options={roles.map((role) => ({ value: role, label: roleLabels[role] }))}
                     className="min-w-20 w-20"
                 />

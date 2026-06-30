@@ -29,10 +29,10 @@ interface SiretInputProps {
     value: string;
     onChange: (value: string) => void;
     onValidation?: (isValid: boolean) => void;
-    disabled?: boolean;
+    isReadOnly?: boolean;
 }
 
-export default function SiretInput({ value, onChange, onValidation, disabled = false }: SiretInputProps) {
+export default function SiretInput({ value, onChange, onValidation, isReadOnly = false }: SiretInputProps) {
     const isValid = luhnCheck(value);
 
     useEffect(() => {
@@ -53,7 +53,7 @@ export default function SiretInput({ value, onChange, onValidation, disabled = f
                 maxLength={14}
                 value={value}
                 onChange={handleChange}
-                disabled={disabled}
+                isReadOnly={isReadOnly}
                 placeholder="12345678901234"
                 error={!isValid}
                 className="w-36"

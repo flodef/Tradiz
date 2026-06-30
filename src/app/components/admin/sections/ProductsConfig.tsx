@@ -627,7 +627,7 @@ export default function ProductsConfig({
                                                         <SortableRow key={i} id={String(i)} isReadOnly={isReadOnly}>
                                                             <td className="p-2">
                                                                 <ValidatedInput
-                                                                    disabled={isReadOnly}
+                                                                    isReadOnly={isReadOnly}
                                                                     type="text"
                                                                     value={p.name}
                                                                     onChange={(value) =>
@@ -665,13 +665,13 @@ export default function ProductsConfig({
                                                                             category: e.target.value,
                                                                         })
                                                                     }
-                                                                    disabled={isReadOnly}
+                                                                    isReadOnly={isReadOnly}
                                                                 />
                                                             </td>
                                                             {productsSettings?.useReference && (
                                                                 <td className="p-2">
                                                                     <ValidatedInput
-                                                                        disabled={isReadOnly}
+                                                                        isReadOnly={isReadOnly}
                                                                         type="text"
                                                                         value={p.reference ?? ''}
                                                                         onChange={(value) =>
@@ -786,7 +786,7 @@ export default function ProductsConfig({
                                                             {productsSettings?.usePhoto && (
                                                                 <td className="p-2">
                                                                     <ValidatedInput
-                                                                        disabled={isReadOnly}
+                                                                        isReadOnly={isReadOnly}
                                                                         type="text"
                                                                         value={p.photo ?? ''}
                                                                         onChange={(value) =>
@@ -802,7 +802,7 @@ export default function ProductsConfig({
                                                             {productsSettings?.useDescription && (
                                                                 <td className="p-2">
                                                                     <ValidatedInput
-                                                                        disabled={isReadOnly}
+                                                                        isReadOnly={isReadOnly}
                                                                         type="text"
                                                                         value={p.description ?? ''}
                                                                         onChange={(value) =>
@@ -818,7 +818,7 @@ export default function ProductsConfig({
                                                             {productsSettings?.useOptions && (
                                                                 <td className="p-2">
                                                                     <ValidatedInput
-                                                                        disabled={isReadOnly}
+                                                                        isReadOnly={isReadOnly}
                                                                         type="text"
                                                                         value={p.options ?? ''}
                                                                         onChange={(value) =>

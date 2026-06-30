@@ -9,6 +9,7 @@ interface AdminInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
     error?: boolean;
     containerClassName?: string;
     inputClassName?: string;
+    isReadOnly?: boolean;
     ref?: (el: HTMLInputElement | null) => void;
 }
 
@@ -18,7 +19,7 @@ export default function AdminInput({
     className = '',
     containerClassName = '',
     inputClassName = '',
-    disabled = false,
+    isReadOnly = false,
     ref,
     ...props
 }: AdminInputProps) {
@@ -26,7 +27,7 @@ export default function AdminInput({
         <div className={twMerge('flex flex-col', containerClassName || className)}>
             {label && <label className={adminTextStyle}>{label}</label>}
             <input
-                disabled={disabled}
+                disabled={isReadOnly}
                 className={twMerge(adminInputStyle(error), inputClassName || 'w-full')}
                 ref={ref}
                 {...props}

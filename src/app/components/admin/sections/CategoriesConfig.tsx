@@ -101,7 +101,7 @@ const SortableRow = memo(function SortableRow({
                         onBlur={handleLabelBlur}
                         validation={() => !isInvalid}
                         maxLength={50}
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                     />
                 )}
             </td>
@@ -114,14 +114,14 @@ const SortableRow = memo(function SortableRow({
                             { value: 'divers', label: 'Divers' },
                             ...vatRates.map((rate) => ({ value: String(rate), label: `${rate}%` })),
                         ]}
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                     />
                 ) : (
                     <AdminSelect
                         value={String(category.vat)}
                         onChange={handleVatChange}
                         options={vatRates.map((rate) => ({ value: String(rate), label: `${rate}%` }))}
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                     />
                 )}
             </td>

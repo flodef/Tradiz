@@ -9,11 +9,10 @@ interface ValidatedInputProps {
     placeholder?: string;
     validation?: (value: string | number) => boolean;
     type?: string;
-    disabled?: boolean;
+    isReadOnly?: boolean;
     maxLength?: number;
     label?: string;
     className?: string;
-    isReadOnly?: boolean;
     min?: number;
     max?: number;
     step?: number;
@@ -30,7 +29,7 @@ export default function ValidatedInput({
     maxLength,
     label,
     className,
-    disabled = false,
+    isReadOnly = false,
     min,
     max,
     step,
@@ -45,13 +44,11 @@ export default function ValidatedInput({
 
     // Re-validate when value changes externally
     useEffect(() => {
-        if (validation) {
-            setIsValid(validation(value));
-        }
+        if (validation) setIsValid(validation(value));
     }, [value, validation]);
 
     const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-        if (disabled) return;
+        if (isReadOnly) return;
 
         const newValue = e.target.value;
         if (validation) setIsValid(validation(newValue));
@@ -68,7 +65,7 @@ export default function ValidatedInput({
             error={!isValid}
             label={label}
             className={className}
-            disabled={disabled}
+            isReadOnly={isReadOnly}
             min={min}
             max={max}
             step={step}

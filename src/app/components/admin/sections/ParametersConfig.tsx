@@ -136,7 +136,7 @@ export default function ParametersConfig({
                         value={String(config.shop.name || '')}
                         onChange={(value) => handleShopChange('name', String(value))}
                         placeholder="Nom du commerce"
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                         className="flex-1 min-w-40 max-w-xs"
                     />
                     <ValidatedInput
@@ -144,14 +144,14 @@ export default function ParametersConfig({
                         value={String(config.shop.email || '')}
                         onChange={(value) => handleShopChange('email', String(value))}
                         placeholder="Email"
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                         className="flex-1 min-w-40 max-w-xs"
                     />
                     <SiretInput
                         value={String(config.shop.serial || '')}
                         onChange={(value: string) => handleShopChange('serial', value)}
                         onValidation={onSiretValidation}
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                     />
                     <div className="w-full flex flex-wrap gap-4 items-end">
                         <ValidatedInput
@@ -159,7 +159,7 @@ export default function ParametersConfig({
                             value={String(config.shop.address || '')}
                             onChange={(value) => handleShopChange('address', String(value))}
                             placeholder="Adresse"
-                            disabled={isReadOnly}
+                            isReadOnly={isReadOnly}
                             className="flex-1 min-w-40 max-w-xs"
                         />
                         <ZipCityRow
@@ -167,7 +167,7 @@ export default function ParametersConfig({
                             city={String(config.shop.city || '')}
                             onZipChange={(value: string) => handleShopChange('zipCode', value)}
                             onCityChange={(value: string) => handleShopChange('city', value)}
-                            disabled={isReadOnly}
+                            isReadOnly={isReadOnly}
                         />
                     </div>
                 </div>
@@ -189,7 +189,7 @@ export default function ParametersConfig({
                             !isReadOnly &&
                             handleChange('closingHour', Math.max(0, Math.min(23, Number(e.target.value))))
                         }
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                         className="w-30"
                     />
                     <div className="flex flex-col">
@@ -200,7 +200,7 @@ export default function ParametersConfig({
                                 min={1}
                                 max={maxDaysInMonth(config.yearStartDate?.month || 1)}
                                 value={config.yearStartDate?.day || 1}
-                                disabled={isReadOnly}
+                                isReadOnly={isReadOnly}
                                 onChange={(e) => handleYearStartDateChange('day', Number(e.target.value))}
                                 className="w-14"
                                 placeholder="Jour"
@@ -210,7 +210,7 @@ export default function ParametersConfig({
                                 onChange={(e) => handleYearStartDateChange('month', Number(e.target.value))}
                                 className="w-28"
                                 options={MONTH_NAMES.map((name, i) => ({ label: name, value: i + 1 }))}
-                                disabled={isReadOnly}
+                                isReadOnly={isReadOnly}
                             />
                         </div>
                     </div>
@@ -219,7 +219,7 @@ export default function ParametersConfig({
                         value={config.thanksMessage || ''}
                         onChange={(value) => handleChange('thanksMessage', String(value))}
                         placeholder="Message de remerciement"
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                         className="max-w-xs min-w-40 flex-1"
                     />
                     <AdminSelect
@@ -233,13 +233,13 @@ export default function ParametersConfig({
                             { label: 'Douce', value: Mercurial.soft },
                             { label: 'Zelet', value: Mercurial.zelet },
                         ]}
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                     />
                     <ValidatedInput
                         label="Version"
                         value={appVersion}
                         onChange={() => {}}
-                        disabled={true}
+                        isReadOnly={true}
                         className="w-32"
                     />
                 </div>
@@ -267,7 +267,7 @@ export default function ParametersConfig({
                                     useVatPerProduct: checked,
                                 } as ProductsSettings)
                             }
-                            disabled={isReadOnly}
+                            isReadOnly={isReadOnly}
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser TVA par produit</span>
                     </div>
@@ -287,7 +287,7 @@ export default function ParametersConfig({
                                     useReference: checked,
                                 } as ProductsSettings)
                             }
-                            disabled={isReadOnly}
+                            isReadOnly={isReadOnly}
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser référence</span>
                     </div>
@@ -307,7 +307,7 @@ export default function ParametersConfig({
                                     useStock: checked,
                                 } as ProductsSettings)
                             }
-                            disabled={isReadOnly}
+                            isReadOnly={isReadOnly}
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser stock</span>
                     </div>
@@ -327,7 +327,7 @@ export default function ParametersConfig({
                                     usePhoto: checked,
                                 } as ProductsSettings)
                             }
-                            disabled={isReadOnly}
+                            isReadOnly={isReadOnly}
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser photo</span>
                     </div>
@@ -347,7 +347,7 @@ export default function ParametersConfig({
                                     useDescription: checked,
                                 } as ProductsSettings)
                             }
-                            disabled={isReadOnly}
+                            isReadOnly={isReadOnly}
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser description</span>
                     </div>
@@ -367,7 +367,7 @@ export default function ParametersConfig({
                                     useOptions: checked,
                                 } as ProductsSettings)
                             }
-                            disabled={isReadOnly}
+                            isReadOnly={isReadOnly}
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser options</span>
                     </div>
@@ -393,7 +393,7 @@ export default function ParametersConfig({
                                     searchCustomers: checked,
                                 } as SearchSettings)
                             }
-                            disabled={isReadOnly}
+                            isReadOnly={isReadOnly}
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Clients</span>
                     </div>
@@ -410,7 +410,7 @@ export default function ParametersConfig({
                                     searchProducts: checked,
                                 } as SearchSettings)
                             }
-                            disabled={isReadOnly}
+                            isReadOnly={isReadOnly}
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Produits</span>
                     </div>
@@ -427,7 +427,7 @@ export default function ParametersConfig({
                                     searchUsers: checked,
                                 } as SearchSettings)
                             }
-                            disabled={isReadOnly}
+                            isReadOnly={isReadOnly}
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Utilisateurs</span>
                     </div>

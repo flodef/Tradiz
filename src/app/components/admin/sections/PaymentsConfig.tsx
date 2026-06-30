@@ -56,7 +56,7 @@ const SortableRow = memo(function SortableRow({
                     value={payment.type}
                     onChange={(e) => onFieldChange(payment._id, 'type', e.target.value)}
                     options={PAYMENT_TYPES.map((type) => ({ value: type, label: type }))}
-                    disabled={isReadOnly}
+                    isReadOnly={isReadOnly}
                 />
             </td>
             <td className="p-2">
@@ -64,7 +64,7 @@ const SortableRow = memo(function SortableRow({
                     type="text"
                     value={payment.id || ''}
                     onChange={(value) => onFieldChange(payment._id, 'id', String(value))}
-                    disabled={isReadOnly}
+                    isReadOnly={isReadOnly}
                 />
             </td>
             <td className="p-2">
@@ -72,7 +72,7 @@ const SortableRow = memo(function SortableRow({
                     value={payment.currency}
                     onChange={(e) => onFieldChange(payment._id, 'currency', e.target.value)}
                     options={currencyOptions}
-                    disabled={isReadOnly}
+                    isReadOnly={isReadOnly}
                 />
             </td>
             <td className="p-2 text-center">

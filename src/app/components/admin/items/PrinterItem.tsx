@@ -31,7 +31,7 @@ export default function PrinterItem({ printer, onChange, onDelete, isReadOnly = 
                         value={printer.label}
                         onChange={(value) => onChange({ ...printer, label: String(value) })}
                         placeholder="Label de l'imprimante"
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                     />
                 </div>
                 <div>
@@ -43,7 +43,7 @@ export default function PrinterItem({ printer, onChange, onDelete, isReadOnly = 
                         onChange={(value) => onChange({ ...printer, ipAddress: String(value) })}
                         placeholder="Adresse IP de l'imprimante"
                         validation={(ip) => ipV4Validation(String(ip))}
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                     />
                 </div>
             </div>

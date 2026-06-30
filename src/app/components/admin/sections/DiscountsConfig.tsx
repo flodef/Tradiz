@@ -59,7 +59,7 @@ const SortableRow = memo(function SortableRow({
                     onChange={(value) => onAmountChange(discount._id, Number(value))}
                     min={0}
                     step={discount.unit === '%' ? 0.5 : 0.01}
-                    disabled={isReadOnly}
+                    isReadOnly={isReadOnly}
                 />
             </td>
             <td className="p-2">
@@ -67,7 +67,7 @@ const SortableRow = memo(function SortableRow({
                     value={discount.unit}
                     onChange={(e) => onUnitChange(discount._id, e.target.value)}
                     options={units.map((u) => ({ value: u, label: u }))}
-                    disabled={isReadOnly}
+                    isReadOnly={isReadOnly}
                 />
             </td>
             <DeleteButtonCell isReadOnly={isReadOnly} onDelete={() => onDelete(discount._id)} />

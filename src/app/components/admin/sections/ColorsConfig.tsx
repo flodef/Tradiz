@@ -243,7 +243,7 @@ export default function ColorsConfig({
                                                                     light: value,
                                                                 })
                                                             }
-                                                            disabled={isReadOnly}
+                                                            isReadOnly={isReadOnly}
                                                         />
                                                     )}
                                                 </td>
@@ -262,7 +262,7 @@ export default function ColorsConfig({
                                                                     dark: value,
                                                                 })
                                                             }
-                                                            disabled={isReadOnly}
+                                                            isReadOnly={isReadOnly}
                                                         />
                                                     )}
                                                 </td>

@@ -1,12 +1,13 @@
 'use client';
 
-import { Customer } from '@/app/utils/interfaces';
+import { Customer, Company } from '@/app/utils/interfaces';
 import { adminHeaderStyle } from '@/app/utils/constants';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SectionCard from '../SectionCard';
 import AdminButton from '../AdminButton';
 import DeleteButtonCell from '../DeleteButtonCell';
 import ValidatedInput from '../ValidatedInput';
+import AdminSelect from '../AdminSelect';
 import { normalizeFirstName, normalizeFamilyName, emailRegex, frenchPhoneRegex } from '@/app/utils/regex';
 
 interface CustomersConfigProps {
@@ -20,6 +21,7 @@ interface CustomersConfigProps {
     onToggle?: () => void;
     icon?: React.ReactNode;
     onValidation?: (isValid: boolean) => void;
+    companies?: Company[];
 }
 
 interface InternalCustomer extends Customer {
@@ -31,12 +33,24 @@ function Row({
     isReadOnly,
     onChange,
     onDelete,
+    companies,
 }: {
     customer: InternalCustomer;
     isReadOnly: boolean;
     onChange: (customer: InternalCustomer) => void;
     onDelete: () => void;
+    companies?: Company[];
 }) {
+    const companyOptions = useMemo(() => {
+        const opts = [{ value: '', label: 'Aucune' }];
+        if (companies) {
+            companies.forEach((c) => {
+                opts.push({ value: c.name, label: c.name });
+            });
+        }
+        return opts;
+    }, [companies]);
+
     return (
         <tr className="border-b border-gray-200 dark:border-gray-700">
             <td className="p-2">
@@ -88,6 +102,15 @@ function Row({
                     className="w-36"
                 />
             </td>
+            <td className="p-2">
+                <AdminSelect
+                    value={customer.company || ''}
+                    onChange={(value) => onChange({ ...customer, company: String(value) })}
+                    options={companyOptions}
+                    className="min-w-40"
+                    isReadOnly={isReadOnly}
+                />
+            </td>
             <DeleteButtonCell isReadOnly={isReadOnly} onDelete={onDelete} title="Supprimer le client" />
         </tr>
     );
@@ -104,6 +127,7 @@ export default function CustomersConfig({
     onToggle,
     icon,
     onValidation,
+    companies,
 }: CustomersConfigProps) {
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
@@ -213,6 +237,7 @@ export default function CustomersConfig({
                                 <th className={adminHeaderStyle + ' min-w-32 w-32'}>Référence</th>
                                 <th className={adminHeaderStyle + ' min-w-40 w-40'}>Email</th>
                                 <th className={adminHeaderStyle + ' min-w-36 w-36'}>Téléphone</th>
+                                <th className={adminHeaderStyle + ' min-w-40 w-40'}>Entreprise</th>
                                 {!isReadOnly && <th className="w-8"></th>}
                             </tr>
                         </thead>
@@ -225,6 +250,7 @@ export default function CustomersConfig({
                                 isReadOnly={isReadOnly}
                                 onChange={(updated) => handleCustomerChange(customer._id, updated)}
                                 onDelete={() => handleDeleteCustomer(customer._id)}
+                                companies={companies}
                             />
                         ))}
                     </tbody>

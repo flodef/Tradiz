@@ -84,7 +84,7 @@ export default function ProductItem({
                         onChange={(value) => onChange({ ...product, name: String(value) })}
                         placeholder="Nom du produit"
                         maxLength={50}
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                     />
                 </div>
                 <div>
@@ -98,7 +98,7 @@ export default function ProductItem({
                             onChange({ ...product, currencies: updated });
                         }}
                         placeholder={(0).toFixed(currencies[0]?.decimals ?? 2)}
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                     />
                 </div>
                 <div>
@@ -109,7 +109,7 @@ export default function ProductItem({
                         onChange={(value) =>
                             onChange({ ...product, category: Array.isArray(value) ? value[0] : value })
                         }
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                     />
                 </div>
                 <div className="flex flex-col">

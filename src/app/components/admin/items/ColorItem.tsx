@@ -23,7 +23,7 @@ export default function ColorItem({ color, onChange, isReadOnly }: ColorItemProp
                     <ColorPicker
                         color={color.light}
                         onChange={(value) => onChange({ ...color, light: value })}
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                     />
                 </div>
                 <div>
@@ -31,7 +31,7 @@ export default function ColorItem({ color, onChange, isReadOnly }: ColorItemProp
                     <ColorPicker
                         color={color.dark}
                         onChange={(value) => onChange({ ...color, dark: value })}
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                     />
                 </div>
             </div>

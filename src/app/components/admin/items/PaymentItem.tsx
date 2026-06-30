@@ -26,7 +26,7 @@ export default function PaymentItem({ payment, onChange, onDelete, currencies, i
                         label="Type"
                         value={payment.type}
                         onChange={(e) => !isReadOnly && onChange({ ...payment, type: e.target.value })}
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                         options={PAYMENT_TYPES.map((type) => ({ label: type, value: type }))}
                     />
                 </div>
@@ -36,7 +36,7 @@ export default function PaymentItem({ payment, onChange, onDelete, currencies, i
                         value={payment.id ?? ''}
                         onChange={(value) => onChange({ ...payment, id: String(value) })}
                         placeholder="ID du paiement"
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                     />
                 </div>
                 <div>
@@ -44,7 +44,7 @@ export default function PaymentItem({ payment, onChange, onDelete, currencies, i
                         label="Devise"
                         value={payment.currency}
                         onChange={(e) => !isReadOnly && onChange({ ...payment, currency: e.target.value })}
-                        disabled={isReadOnly}
+                        isReadOnly={isReadOnly}
                         options={currencies.map((currency) => ({ label: currency.label, value: currency.label }))}
                     />
                 </div>
