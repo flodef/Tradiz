@@ -15,7 +15,6 @@ import { arrayMove, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { IconChevronDown, IconChevronUp, IconInfoCircle, IconSelector } from '@tabler/icons-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import AdminButton from '../AdminButton';
 import AdminSelect from '../AdminSelect';
 import AvailabilityToggle from '../AvailabilityToggle';
 import DeleteButtonCell from '../DeleteButtonCell';
@@ -332,6 +331,8 @@ export default function ProductsConfig({
         return new Set(Object.keys(counts).filter((k) => counts[k] > 1));
     }, [products]);
 
+    const isValid = products.every((p) => p.name?.trim()) && duplicateNames.size === 0;
+
     const mainCurrency = currencies.find((c) => c.rate === 1) ?? currencies[0];
 
     const headerControls = (
@@ -440,6 +441,10 @@ export default function ProductsConfig({
             isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}
+            onAdd={isReadOnly || hasFilter ? undefined : () => handleAddProduct()}
+            isValid={isValid}
+            addLabel="Ajouter un produit"
+            isReadOnly={isReadOnly}
         >
             {mobileSearchRow}
             {totalFiltered === 0 && hasFilter ? (
@@ -831,11 +836,6 @@ export default function ProductsConfig({
                         </table>
                     </div>
                 </DndContext>
-            )}
-            {!isReadOnly && !hasFilter && (
-                <AdminButton variant="add" onClick={() => handleAddProduct()} className="mt-4">
-                    Ajouter un produit
-                </AdminButton>
             )}
         </SectionCard>
     );

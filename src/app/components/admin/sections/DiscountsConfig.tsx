@@ -166,7 +166,7 @@ export default function DiscountsConfig({
         [notifyParent]
     );
 
-    const isValid = discounts.every((d) => d.amount !== null && d.amount !== undefined && d.amount >= 0);
+    const isValid = discounts.every((d) => d.amount !== null && d.amount !== undefined && d.amount > 0);
 
     const handleAddDiscount = useCallback(() => {
         setDiscounts((prev) => {

@@ -170,13 +170,20 @@ export default function PaymentsConfig({
         [notifyParent]
     );
 
-    const isValid = payments.every((p) => p.type?.trim() && p.id?.trim() && p.currency?.trim());
+    const isValid =
+        payments.every((p) => p.type?.trim()) && new Set(payments.map((p) => p.type)).size === payments.length;
 
     const handleAddPayment = useCallback(() => {
         setPayments((prev) => {
             const updated = [
                 ...prev,
-                { type: 'Carte Bancaire', id: '', currency: '', availability: false, _id: nextIdRef.current++ },
+                {
+                    type: 'Carte Bancaire',
+                    id: '',
+                    currency: '',
+                    availability: false,
+                    _id: nextIdRef.current++,
+                },
             ];
             lastAddedIndexRef.current = updated.length - 1;
             notifyParent(updated);
