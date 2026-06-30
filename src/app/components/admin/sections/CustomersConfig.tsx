@@ -61,6 +61,7 @@ function Row({
                     isReadOnly={isReadOnly}
                     validation={(value) => String(value).trim().length > 0}
                     className="min-w-32"
+                    isNameField
                 />
             </td>
             <td className="p-2">
@@ -71,6 +72,7 @@ function Row({
                     isReadOnly={isReadOnly}
                     validation={(value) => String(value).trim().length > 0}
                     className="min-w-32"
+                    isNameField
                 />
             </td>
             <td className="p-2">
@@ -105,7 +107,9 @@ function Row({
             <td className="p-2">
                 <AdminSelect
                     value={customer.company || ''}
-                    onChange={(value) => onChange({ ...customer, company: String(value) })}
+                    onChange={(e) =>
+                        onChange({ ...customer, company: e.target.value === '' ? undefined : String(e.target.value) })
+                    }
                     options={companyOptions}
                     className="min-w-40"
                     isReadOnly={isReadOnly}
@@ -192,6 +196,7 @@ export default function CustomersConfig({
                     reference: '',
                     email: '',
                     phone: '',
+                    company: undefined,
                     _id: nextIdRef.current++,
                 } as InternalCustomer,
             ];
@@ -256,7 +261,6 @@ export default function CustomersConfig({
                     </tbody>
                 </table>
             </div>
-
             {!isReadOnly && (
                 <AdminButton variant="add" onClick={handleAddCustomer} disabled={!isValid || isLoading}>
                     Ajouter un client

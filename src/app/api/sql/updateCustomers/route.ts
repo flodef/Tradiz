@@ -34,7 +34,11 @@ export async function POST(request: Request) {
             const reference = customer.reference || generateProductReference(Date.now());
             const email = customer.email || null;
             const phone = customer.phone || null;
-            const company = customer.company || null;
+            // Ensure company is a string, not an object
+            let company = customer.company || null;
+            if (typeof company === 'object' && company !== null) {
+                company = (company as { name: string }).name || null;
+            }
 
             if (connection.isPostgreSQL) {
                 const insertQuery = `

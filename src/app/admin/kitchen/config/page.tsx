@@ -356,16 +356,24 @@ export default function SettingsPage() {
                 const customersResponse = await fetch('/api/sql/getCustomers');
                 const customersData = await customersResponse.json();
                 if (customersData.values && customersData.values.length > 1) {
-                    const loaded: Customer[] = customersData.values.slice(1).map((row: string[]) => ({
-                        id: row[0] ? Number(row[0]) : undefined,
-                        firstName: String(row[1]),
-                        lastName: String(row[2]),
-                        reference: row[3] ? String(row[3]) : undefined,
-                        email: row[4] ? String(row[4]) : undefined,
-                        phone: row[5] ? String(row[5]) : undefined,
-                        company: row[6] ? String(row[6]) : undefined,
-                        quotaShare: row[7] ? Number(row[7]) : undefined,
-                    }));
+                    const loaded: Customer[] = customersData.values.slice(1).map((row: string[]) => {
+                        const company = row[6];
+                        // Ensure company is a string, not an object
+                        const companyValue =
+                            typeof company === 'object' && company !== null
+                                ? (company as { name: string }).name
+                                : String(company || '');
+                        return {
+                            id: row[0] ? Number(row[0]) : undefined,
+                            firstName: String(row[1]),
+                            lastName: String(row[2]),
+                            reference: row[3] ? String(row[3]) : undefined,
+                            email: row[4] ? String(row[4]) : undefined,
+                            phone: row[5] ? String(row[5]) : undefined,
+                            company: companyValue || undefined,
+                            quotaShare: row[7] ? Number(row[7]) : undefined,
+                        };
+                    });
                     setCustomersConfig(loaded);
                     setOriginalCustomers(loaded);
                 }

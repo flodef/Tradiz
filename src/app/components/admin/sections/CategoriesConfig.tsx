@@ -102,6 +102,7 @@ const SortableRow = memo(function SortableRow({
                         validation={() => !isInvalid}
                         maxLength={50}
                         isReadOnly={isReadOnly}
+                        isNameField
                     />
                 )}
             </td>

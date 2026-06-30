@@ -61,6 +61,7 @@ const SortableRow = memo(function SortableRow({
                         value={company.name}
                         onChange={(value) => onFieldChange(company._id, 'name', String(value))}
                         validation={(value) => String(value).trim().length > 0}
+                        isNameField
                     />
                 )}
             </td>

@@ -15,8 +15,8 @@ import { arrayMove, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { IconChevronDown, IconChevronUp, IconInfoCircle, IconSelector } from '@tabler/icons-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import AdminSelect from '../AdminSelect';
 import AdminButton from '../AdminButton';
+import AdminSelect from '../AdminSelect';
 import AvailabilityToggle from '../AvailabilityToggle';
 import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
@@ -334,13 +334,6 @@ export default function ProductsConfig({
 
     const mainCurrency = currencies.find((c) => c.rate === 1) ?? currencies[0];
 
-    const formatPrice = (price: string) => {
-        if (!price || price === '' || price === '0') return '';
-        const decimals = mainCurrency?.decimals ?? 2;
-        const numPrice = parseFloat(price);
-        return numPrice.toFixed(decimals);
-    };
-
     const headerControls = (
         <>
             {/* Desktop: all controls in one row */}
@@ -629,6 +622,7 @@ export default function ProductsConfig({
                                                                 <ValidatedInput
                                                                     isReadOnly={isReadOnly}
                                                                     type="text"
+                                                                    isNameField
                                                                     value={p.name}
                                                                     onChange={(value) =>
                                                                         handleProductChange(i, {
@@ -685,102 +679,78 @@ export default function ProductsConfig({
                                                                 </td>
                                                             )}
                                                             <td className="p-2">
-                                                                {isReadOnly ? (
-                                                                    <div className="text-sm">
-                                                                        {formatPrice(p.currencies[0] ?? '0')}
-                                                                    </div>
-                                                                ) : (
-                                                                    <ValidatedInput
-                                                                        type="number"
-                                                                        value={p.currencies[0] ?? ''}
-                                                                        step={getMainCurrencyStep(currencies)}
-                                                                        onChange={(value) => {
-                                                                            const updated = [...p.currencies];
-                                                                            updated[0] = String(value);
-                                                                            handleProductChange(i, {
-                                                                                ...p,
-                                                                                currencies: updated,
-                                                                            });
-                                                                        }}
-                                                                        ref={(el) => {
-                                                                            if (el) {
-                                                                                priceInputRefs.current.set(i, el);
-                                                                                if (focusPriceIndexRef.current === i) {
-                                                                                    el.focus();
-                                                                                    focusPriceIndexRef.current = null;
-                                                                                }
-                                                                            } else {
-                                                                                priceInputRefs.current.delete(i);
+                                                                <ValidatedInput
+                                                                    type="number"
+                                                                    value={p.currencies[0] ?? ''}
+                                                                    step={getMainCurrencyStep(currencies)}
+                                                                    onChange={(value) => {
+                                                                        const updated = [...p.currencies];
+                                                                        updated[0] = String(value);
+                                                                        handleProductChange(i, {
+                                                                            ...p,
+                                                                            currencies: updated,
+                                                                        });
+                                                                    }}
+                                                                    ref={(el) => {
+                                                                        if (el) {
+                                                                            priceInputRefs.current.set(i, el);
+                                                                            if (focusPriceIndexRef.current === i) {
+                                                                                el.focus();
+                                                                                focusPriceIndexRef.current = null;
                                                                             }
-                                                                        }}
-                                                                    />
-                                                                )}
+                                                                        } else {
+                                                                            priceInputRefs.current.delete(i);
+                                                                        }
+                                                                    }}
+                                                                    isReadOnly={isReadOnly}
+                                                                />
                                                             </td>
                                                             {productsSettings?.useVatPerProduct && (
                                                                 <td className="p-2">
-                                                                    {isReadOnly ? (
-                                                                        <div className="text-sm text-center">
-                                                                            {p.vat ?? 0}%
-                                                                        </div>
-                                                                    ) : (
-                                                                        <ValidatedInput
-                                                                            type="number"
-                                                                            value={String(p.vat ?? 0)}
-                                                                            onChange={(value) =>
-                                                                                handleProductChange(i, {
-                                                                                    ...p,
-                                                                                    vat: Number(value) || 0,
-                                                                                })
-                                                                            }
-                                                                        />
-                                                                    )}
+                                                                    <ValidatedInput
+                                                                        type="number"
+                                                                        value={String(p.vat ?? 0)}
+                                                                        onChange={(value) =>
+                                                                            handleProductChange(i, {
+                                                                                ...p,
+                                                                                vat: Number(value) || 0,
+                                                                            })
+                                                                        }
+                                                                        isReadOnly={isReadOnly}
+                                                                    />
                                                                 </td>
                                                             )}
                                                             {productsSettings?.useReference && (
                                                                 <td className="p-2">
-                                                                    {isReadOnly ? (
-                                                                        <div className="text-sm text-center">
-                                                                            {p.reference ?? '-'}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <ValidatedInput
-                                                                            type="text"
-                                                                            value={p.reference ?? ''}
-                                                                            onChange={(value) =>
-                                                                                handleProductChange(i, {
-                                                                                    ...p,
-                                                                                    reference: String(value),
-                                                                                })
-                                                                            }
-                                                                            placeholder="Auto-généré"
-                                                                        />
-                                                                    )}
+                                                                    <ValidatedInput
+                                                                        type="text"
+                                                                        value={p.reference ?? ''}
+                                                                        onChange={(value) =>
+                                                                            handleProductChange(i, {
+                                                                                ...p,
+                                                                                reference: String(value),
+                                                                            })
+                                                                        }
+                                                                        placeholder="Auto-généré"
+                                                                        isReadOnly={isReadOnly}
+                                                                    />
                                                                 </td>
                                                             )}
                                                             {productsSettings?.useStock && (
                                                                 <td className="p-2">
-                                                                    {isReadOnly ? (
-                                                                        <div className="text-sm text-center">
-                                                                            {p.stock === null ? '∞' : p.stock}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <ValidatedInput
-                                                                            type="number"
-                                                                            value={
-                                                                                p.stock === null ? '' : String(p.stock)
-                                                                            }
-                                                                            onChange={(value) => {
-                                                                                handleProductChange(i, {
-                                                                                    ...p,
-                                                                                    stock:
-                                                                                        value === ''
-                                                                                            ? null
-                                                                                            : Number(value),
-                                                                                });
-                                                                            }}
-                                                                            placeholder="∞"
-                                                                        />
-                                                                    )}
+                                                                    <ValidatedInput
+                                                                        type="number"
+                                                                        value={p.stock === null ? '' : String(p.stock)}
+                                                                        onChange={(value) => {
+                                                                            handleProductChange(i, {
+                                                                                ...p,
+                                                                                stock:
+                                                                                    value === '' ? null : Number(value),
+                                                                            });
+                                                                        }}
+                                                                        placeholder="∞"
+                                                                        isReadOnly={isReadOnly}
+                                                                    />
                                                                 </td>
                                                             )}
                                                             {productsSettings?.usePhoto && (

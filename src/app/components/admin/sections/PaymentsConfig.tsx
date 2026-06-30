@@ -65,6 +65,7 @@ const SortableRow = memo(function SortableRow({
                     value={payment.id || ''}
                     onChange={(value) => onFieldChange(payment._id, 'id', String(value))}
                     isReadOnly={isReadOnly}
+                    isNameField
                 />
             </td>
             <td className="p-2">

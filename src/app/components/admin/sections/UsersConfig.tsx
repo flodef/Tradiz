@@ -56,6 +56,7 @@ function Row({
                     isReadOnly={isReadOnly}
                     validation={(value) => String(value).trim().length > 0}
                     className="min-w-40"
+                    isNameField
                 />
             </td>
             <td className="p-2">
@@ -232,7 +233,6 @@ export default function UsersConfig({
                     </tbody>
                 </table>
             </div>
-
             {!isReadOnly && (
                 <AdminButton variant="add" onClick={handleAddUser} disabled={!isValid || isLoading}>
                     Ajouter un utilisateur

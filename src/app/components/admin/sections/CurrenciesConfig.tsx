@@ -59,6 +59,7 @@ const SortableRow = memo(function SortableRow({
                         type="text"
                         value={currency.label}
                         onChange={(value) => onFieldChange(currency._id, 'label', String(value))}
+                        isNameField
                     />
                 )}
             </td>
