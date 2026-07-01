@@ -871,6 +871,7 @@ export default function SettingsPage() {
                 icon={<IconUsersGroup size={24} />}
                 onValidation={setIsCustomersValid}
                 companies={companiesConfig}
+                onCompaniesChange={setCompaniesConfig}
             />
 
             <CompaniesConfig

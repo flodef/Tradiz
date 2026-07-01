@@ -3,10 +3,19 @@
 import { Role, User } from '@/app/utils/interfaces';
 import { adminHeaderStyle } from '@/app/utils/constants';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { IconChevronDown, IconChevronUp, IconSelector, IconUpload } from '@tabler/icons-react';
+import * as XLSX from 'xlsx';
+import { useIsMobile } from '@/app/utils/mobile';
 import SectionCard from '../SectionCard';
 import DeleteButtonCell from '../DeleteButtonCell';
 import ValidatedInput from '../ValidatedInput';
 import AdminSelect from '../AdminSelect';
+import AdminButton from '../AdminButton';
+import { twMerge } from 'tailwind-merge';
+import { usePopup } from '@/app/hooks/usePopup';
+
+type SortField = 'name' | 'key' | 'reference' | 'role';
+type SortDirection = 'asc' | 'desc' | 'none';
 
 interface UsersConfigProps {
     config: User[];
@@ -31,7 +40,7 @@ function Row({
     onChange,
     onDelete,
     nameInputRefs,
-    lastAddedIndexRef,
+    lastAddedIdRef,
     index,
 }: {
     user: InternalUser;
@@ -39,7 +48,7 @@ function Row({
     onChange: (user: InternalUser) => void;
     onDelete: () => void;
     nameInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
-    lastAddedIndexRef: React.MutableRefObject<number | null>;
+    lastAddedIdRef: React.MutableRefObject<number | null>;
     index: number;
 }) {
     const roles = Object.values(Role).filter((role) => role !== Role.admin);
@@ -65,9 +74,9 @@ function Row({
                     ref={(el) => {
                         if (el) {
                             nameInputRefs.current.set(index, el);
-                            if (lastAddedIndexRef.current === index) {
+                            if (lastAddedIdRef.current === user._id) {
                                 el.focus();
-                                lastAddedIndexRef.current = null;
+                                lastAddedIdRef.current = null;
                             }
                         } else {
                             nameInputRefs.current.delete(index);
@@ -120,16 +129,20 @@ export default function UsersConfig({
     icon,
     onValidation,
 }: UsersConfigProps) {
+    const { openFullscreenPopup, closePopup } = usePopup();
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
-    const lastAddedIndexRef = useRef<number | null>(null);
+    const lastAddedIdRef = useRef<number | null>(null);
     const nameInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const [users, setUsers] = useState<InternalUser[]>(() =>
         (config || []).map((u) => ({ ...u, _id: nextIdRef.current++ }))
     );
     // Store original config to track changes against (not the live-updating config prop)
     const [originalConfig, setOriginalConfig] = useState<User[]>(config || []);
+    const [sortField, setSortField] = useState<SortField | null>(null);
+    const [sortDirection, setSortDirection] = useState<SortDirection>('none');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (selfUpdateRef.current) {
@@ -168,6 +181,160 @@ export default function UsersConfig({
         return nonAdminUsers.every((user) => user.key?.trim() && user.name?.trim());
     }, [nonAdminUsers]);
 
+    const sortedUsers = useMemo(() => {
+        if (!sortField || sortDirection === 'none') return nonAdminUsers;
+
+        const sorted = [...nonAdminUsers].sort((a, b) => {
+            let comparison = 0;
+            if (sortField === 'name') {
+                comparison = (a.name ?? '').localeCompare(b.name ?? '');
+            } else if (sortField === 'key') {
+                comparison = (a.key ?? '').localeCompare(b.key ?? '');
+            } else if (sortField === 'reference') {
+                comparison = (a.reference ?? '').localeCompare(b.reference ?? '');
+            } else if (sortField === 'role') {
+                comparison = (a.role ?? '').localeCompare(b.role ?? '');
+            }
+            return sortDirection === 'desc' ? -comparison : comparison;
+        });
+
+        return sorted;
+    }, [nonAdminUsers, sortField, sortDirection]);
+
+    const handleSort = (field: SortField) => {
+        if (sortField === field) {
+            if (sortDirection === 'asc') {
+                setSortDirection('desc');
+            } else if (sortDirection === 'desc') {
+                setSortDirection('none');
+                setSortField(null);
+            }
+        } else {
+            setSortField(field);
+            setSortDirection('asc');
+        }
+    };
+
+    const SortIcon = ({ field }: { field: SortField }) => {
+        if (sortField !== field) return <IconSelector size={14} className="opacity-30" />;
+        if (sortDirection === 'none') return <IconSelector size={14} className="opacity-30" />;
+        return sortDirection === 'asc' ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />;
+    };
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const data = event.target?.result;
+            if (!data) return;
+
+            const workbook = XLSX.read(data, { type: 'binary' });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as (string | number)[][];
+
+            // Parse data (skip header row)
+            const parsedUsers: InternalUser[] = [];
+            for (let i = 1; i < jsonData.length; i++) {
+                const row = jsonData[i];
+                if (row.length < 2) continue; // Need at least name and key
+
+                parsedUsers.push({
+                    name: String(row[0] || ''),
+                    key: String(row[1] || ''),
+                    reference: row[2] ? String(row[2]) : '',
+                    role: (row[3] && Object.values(Role).includes(row[3] as Role) ? row[3] : Role.service) as Role,
+                    _id: nextIdRef.current++,
+                });
+            }
+
+            if (parsedUsers.length > 0) {
+                openImportConfirmationPopup(parsedUsers);
+            }
+        };
+        reader.readAsBinaryString(file);
+        e.target.value = '';
+    };
+
+    const openImportConfirmationPopup = (parsedUsers: InternalUser[]) => {
+        const userText = parsedUsers.length === 1 ? 'utilisateur' : 'utilisateurs';
+        openFullscreenPopup(
+            `Importer ${parsedUsers.length} ${userText} ?`,
+            ['Importer'],
+            () => {
+                closePopup();
+                handleImportConfirm(parsedUsers);
+            },
+            true
+        );
+    };
+
+    const handleImportConfirm = (parsedUsers: InternalUser[]) => {
+        // Remove the last added empty user if it exists
+        let usersToUse = users;
+        if (lastAddedIdRef.current !== null) {
+            const lastAddedUser = users.find((u) => u._id === lastAddedIdRef.current);
+            if (lastAddedUser && !lastAddedUser.name && !lastAddedUser.key) {
+                usersToUse = users.filter((u) => u._id !== lastAddedIdRef.current);
+                lastAddedIdRef.current = null;
+            }
+        }
+
+        // Avoid duplicates based on name + key
+        const existingKeys = new Set(usersToUse.map((u) => `${u.name}|${u.key}`));
+        const nonDuplicates = parsedUsers.filter((u) => !existingKeys.has(`${u.name}|${u.key}`));
+        const duplicateCount = parsedUsers.length - nonDuplicates.length;
+
+        const finalUsers = [...usersToUse, ...nonDuplicates];
+        setUsers(finalUsers);
+        notifyParent(finalUsers);
+
+        // Show popup if there were duplicates
+        if (duplicateCount > 0) {
+            const userText = duplicateCount === 1 ? 'utilisateur' : 'utilisateurs';
+            openFullscreenPopup(
+                `${duplicateCount} ${userText} en double n'ont pas été importés`,
+                ['OK'],
+                () => {
+                    closePopup();
+                },
+                true
+            );
+        }
+    };
+
+    const handlePaste = (e: React.ClipboardEvent) => {
+        if (isReadOnly) return;
+        // Let normal paste happen when pasting into an editable field
+        if ((e.target as HTMLElement)?.closest('input, textarea, select')) return;
+        const text = e.clipboardData.getData('text');
+        if (!text) return;
+
+        const lines = text.split('\n').filter((line) => line.trim());
+        if (lines.length === 0) return;
+
+        e.preventDefault();
+        const parsedUsers: InternalUser[] = [];
+        for (const line of lines) {
+            const parts = line.split('\t');
+            if (parts.length < 2) continue; // Need at least name and key
+
+            parsedUsers.push({
+                name: parts[0] || '',
+                key: parts[1] || '',
+                reference: parts[2] || '',
+                role: (parts[3] && Object.values(Role).includes(parts[3] as Role) ? parts[3] : Role.service) as Role,
+                _id: nextIdRef.current++,
+            });
+        }
+
+        if (parsedUsers.length > 0) {
+            openImportConfirmationPopup(parsedUsers);
+        }
+    };
+
     // Notify parent of validation state
     useEffect(() => {
         onValidation?.(isValid);
@@ -186,11 +353,9 @@ export default function UsersConfig({
 
     const handleAddUser = useCallback(() => {
         setUsers((prev) => {
-            const updated = [
-                ...prev,
-                { key: '', name: '', role: Role.service, _id: nextIdRef.current++ } as InternalUser,
-            ];
-            lastAddedIndexRef.current = updated.length - 1;
+            const newId = nextIdRef.current++;
+            const updated = [...prev, { key: '', name: '', role: Role.service, _id: newId } as InternalUser];
+            lastAddedIdRef.current = newId;
             notifyParent(updated);
             return updated;
         });
@@ -215,53 +380,109 @@ export default function UsersConfig({
         setOriginalConfig(savedUsers);
     };
 
+    const isMobile = useIsMobile();
+
+    const headerExtra = (
+        <div className="flex items-center">
+            {!isReadOnly && !hasChanges && (
+                <>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileUpload}
+                        accept=".xlsx,.xls,.csv"
+                        className="hidden"
+                    />
+                    <AdminButton
+                        variant="add"
+                        onClick={() => fileInputRef.current?.click()}
+                        className={twMerge(isMobile ? 'px-3 py-1.5' : 'px-3 py-1', 'mt-0')}
+                    >
+                        {isMobile ? <IconUpload size={24} /> : 'Importer'}
+                    </AdminButton>
+                </>
+            )}
+        </div>
+    );
+
     return (
-        <SectionCard
-            title="Utilisateurs"
-            onSave={onSave ? handleSave : undefined}
-            onCancel={hasChanges && onCancel ? () => onCancel() : undefined}
-            icon={icon}
-            saveDisabled={!hasChanges || !isValid || isReadOnly || isLoading}
-            isLoading={isLoading}
-            isOpen={isOpen}
-            onToggle={onToggle}
-            onAdd={handleAddUser}
-            isValid={isValid && !isLoading}
-            addLabel="Ajouter un utilisateur"
-            isReadOnly={isReadOnly}
-        >
-            <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                    {nonAdminUsers.length > 0 && (
-                        <thead>
-                            <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                <th className={adminHeaderStyle + ' min-w-40 w-40'}>Nom</th>
-                                <th className={adminHeaderStyle + ' min-w-40 w-40'}>Clé</th>
-                                <th className={adminHeaderStyle + ' min-w-32 w-32'}>Référence</th>
-                                <th className={adminHeaderStyle + ' min-w-20 w-20'}>Rôle</th>
-                                {!isReadOnly && <th className="w-8"></th>}
-                            </tr>
-                        </thead>
-                    )}
-                    <tbody>
-                        {nonAdminUsers.map((user) => {
-                            const actualIndex = users.findIndex((u) => u._id === user._id);
-                            return (
-                                <Row
-                                    key={user._id}
-                                    user={user}
-                                    isReadOnly={isReadOnly}
-                                    onChange={(updated) => handleUserChange(user._id, updated)}
-                                    onDelete={() => handleDeleteUser(user._id)}
-                                    nameInputRefs={nameInputRefs}
-                                    lastAddedIndexRef={lastAddedIndexRef}
-                                    index={actualIndex}
-                                />
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
-        </SectionCard>
+        <div onPaste={handlePaste}>
+            <SectionCard
+                title="Utilisateurs"
+                onSave={onSave ? handleSave : undefined}
+                onCancel={hasChanges && onCancel ? () => onCancel() : undefined}
+                icon={icon}
+                saveDisabled={!hasChanges || !isValid || isReadOnly || isLoading}
+                isLoading={isLoading}
+                isOpen={isOpen}
+                onToggle={onToggle}
+                onAdd={handleAddUser}
+                isValid={isValid && !isLoading}
+                addLabel="Ajouter un utilisateur"
+                isReadOnly={isReadOnly}
+                headerExtra={headerExtra}
+            >
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                        {sortedUsers.length > 0 && (
+                            <thead>
+                                <tr className="border-b-2 border-gray-300 dark:border-gray-600">
+                                    <th
+                                        className={adminHeaderStyle + ' min-w-40 w-40 cursor-pointer'}
+                                        onClick={() => handleSort('name')}
+                                    >
+                                        <div className="flex items-center gap-1">
+                                            Nom <SortIcon field="name" />
+                                        </div>
+                                    </th>
+                                    <th
+                                        className={adminHeaderStyle + ' min-w-40 w-40 cursor-pointer'}
+                                        onClick={() => handleSort('key')}
+                                    >
+                                        <div className="flex items-center gap-1">
+                                            Clé <SortIcon field="key" />
+                                        </div>
+                                    </th>
+                                    <th
+                                        className={adminHeaderStyle + ' min-w-32 w-32 cursor-pointer'}
+                                        onClick={() => handleSort('reference')}
+                                    >
+                                        <div className="flex items-center gap-1">
+                                            Référence <SortIcon field="reference" />
+                                        </div>
+                                    </th>
+                                    <th
+                                        className={adminHeaderStyle + ' min-w-20 w-20 cursor-pointer'}
+                                        onClick={() => handleSort('role')}
+                                    >
+                                        <div className="flex items-center gap-1">
+                                            Rôle <SortIcon field="role" />
+                                        </div>
+                                    </th>
+                                    {!isReadOnly && <th className="w-8"></th>}
+                                </tr>
+                            </thead>
+                        )}
+                        <tbody>
+                            {sortedUsers.map((user) => {
+                                const actualIndex = users.findIndex((u) => u._id === user._id);
+                                return (
+                                    <Row
+                                        key={user._id}
+                                        user={user}
+                                        isReadOnly={isReadOnly}
+                                        onChange={(updated) => handleUserChange(user._id, updated)}
+                                        onDelete={() => handleDeleteUser(user._id)}
+                                        nameInputRefs={nameInputRefs}
+                                        lastAddedIdRef={lastAddedIdRef}
+                                        index={actualIndex}
+                                    />
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </SectionCard>
+        </div>
     );
 }
