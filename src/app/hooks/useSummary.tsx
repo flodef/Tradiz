@@ -1144,10 +1144,6 @@ export const useSummary = () => {
                         case 'Menu Synchronisation':
                             showSyncMenu(showTransactionsSummaryMenu);
                             break;
-                        case 'Resynchroniser jour':
-                            processTransactions(SyncAction.resync, transactionsDate.date);
-                            showTransactionsSummary(showTransactionsSummaryMenu, showTransactionsSummaryMenu);
-                            break;
                         case 'Historique par jour':
                         case 'Historique par mois':
                         case 'Historique par année fiscale':
@@ -1192,7 +1188,6 @@ export const useSummary = () => {
         getTransactionsDate,
         isDbConnected,
         showSyncMenu,
-        processTransactions,
         getPrintersNames,
         parameters,
     ]);

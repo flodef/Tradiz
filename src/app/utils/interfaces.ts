@@ -102,7 +102,6 @@ export enum SyncAction {
     none,
     fullsync,
     daysync,
-    resync,
     export,
     import,
 }
