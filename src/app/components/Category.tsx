@@ -7,7 +7,6 @@ import { useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { useWindowParam } from '../hooks/useWindowParam';
-import { LoadingDot } from '../loading';
 import { useScreenSizeConfig } from '../utils/screenSizeConfig';
 import { ARROW, BACK_KEYWORD, CONFIG_KEYWORD, DEV_EMAIL, OTHER_KEYWORD, USE_DIGICARTE } from '../utils/constants';
 import { Catalog, CatalogFormula, EmptyDiscount, InventoryItem, Role, State } from '../utils/interfaces';
@@ -506,8 +505,6 @@ export const Category: FC = () => {
     );
     const ROW_HEIGHT = sizeConfig.rowHeight;
     const MAX_VISIBLE_ROWS = 3;
-    const gridHeight = Math.min(rows.length, MAX_VISIBLE_ROWS) * ROW_HEIGHT;
-
     const rowClassName = 'flex justify-evenly divide-x divide-active-light dark:divide-active-dark';
 
     return (
@@ -516,34 +513,27 @@ export const Category: FC = () => {
                 'inset-x-0 border-t-[3px] absolute bottom-0 md:w-1/2 border-active-light dark:border-active-dark overflow-hidden'
             )}
         >
-            {(state === State.init || state === State.loading || state === State.error) && (
-                <div className="flex items-center justify-center" style={{ height: gridHeight }}>
-                    <LoadingDot />
-                </div>
-            )}
-            {(state === State.preloaded || state === State.loaded) && (
-                <div
-                    className="divide-y divide-active-light dark:divide-active-dark"
-                    style={{
-                        maxHeight: MAX_VISIBLE_ROWS * ROW_HEIGHT,
-                        overflowY: rows.length > MAX_VISIBLE_ROWS ? 'auto' : 'hidden',
-                    }}
-                >
-                    {rows.map((row, rowIdx) => (
-                        <div key={rowIdx} className={rowClassName}>
-                            {row.map((category, colIdx) => (
-                                <CategoryButton
-                                    key={colIdx}
-                                    input={category}
-                                    onInput={onInput}
-                                    length={row.length}
-                                    sizeConfig={sizeConfig}
-                                />
-                            ))}
-                        </div>
-                    ))}
-                </div>
-            )}
+            <div
+                className="divide-y divide-active-light dark:divide-active-dark"
+                style={{
+                    maxHeight: MAX_VISIBLE_ROWS * ROW_HEIGHT,
+                    overflowY: rows.length > MAX_VISIBLE_ROWS ? 'auto' : 'hidden',
+                }}
+            >
+                {rows.map((row, rowIdx) => (
+                    <div key={rowIdx} className={rowClassName}>
+                        {row.map((category, colIdx) => (
+                            <CategoryButton
+                                key={colIdx}
+                                input={category}
+                                onInput={onInput}
+                                length={row.length}
+                                sizeConfig={sizeConfig}
+                            />
+                        ))}
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };

@@ -11,10 +11,9 @@ import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { useWindowParam } from '../hooks/useWindowParam';
-import { LoadingDot } from '../loading';
 import { useScreenSizeConfig } from '../utils/screenSizeConfig';
 import { ARROW, WAITING_KEYWORD } from '../utils/constants';
-import { Customer, EmptyDiscount, InventoryItem, Mercurial, State, User } from '../utils/interfaces';
+import { Customer, EmptyDiscount, InventoryItem, Mercurial, User } from '../utils/interfaces';
 import { isMobileSize, useIsMobileDevice } from '../utils/mobile';
 import { getPopupStyles, getOptionHoverStyles } from '../utils/popupStyles';
 import { Digits } from '../utils/types';
@@ -310,7 +309,6 @@ export const NumPad: FC = () => {
         currencies,
         currencyIndex,
         setCurrency,
-        state,
         isStateReady,
         discounts,
         parameters,
@@ -672,23 +670,6 @@ export const NumPad: FC = () => {
                     : 'top-32 block overflow-auto '
                 : 'flex flex-col justify-center items-center top-20 md:top-0')
     );
-
-    // Show loading animation while state is init, loading, or error (after all hooks are called)
-    if (state === State.init || state === State.loading || state === State.error) {
-        return (
-            <div
-                className={numPadClass}
-                style={{
-                    bottom: `${sizeConfig.numPadBottom}px`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                }}
-            >
-                <LoadingDot />
-            </div>
-        );
-    }
 
     return (
         <div
