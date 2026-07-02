@@ -719,7 +719,9 @@ export const NumPad: FC = () => {
                                 onClick={openSearchPopup}
                                 onContextMenu={openSearchPopup}
                             />
-                        ) : null}
+                        ) : (
+                            <div className={f2}></div>
+                        )}
                         <ImageButton
                             icon={IconCalculator}
                             className={f + color}
