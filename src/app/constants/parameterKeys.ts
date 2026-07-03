@@ -18,6 +18,7 @@ export const PARAMETER_KEYS = {
     LAST_MODIFIED: 'lastModified',
     PRODUCTS_SETTINGS: 'productsSettings',
     SEARCH_SETTINGS: 'searchSettings',
+    DISPLAY_SETTINGS: 'displaySettings',
 } as const;
 
 export const PARAMETER_KEY_LIST = Object.values(PARAMETER_KEYS);

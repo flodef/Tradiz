@@ -237,6 +237,23 @@ export default function SettingsPage() {
                         }
                         return undefined;
                     })(),
+                    display: (() => {
+                        try {
+                            const value = getParam('displaySettings', 'Paramètres affichage');
+                            if (value) {
+                                const parsed = JSON.parse(value);
+                                if (parsed && typeof parsed === 'object') {
+                                    return {
+                                        showWaiting: parsed.showWaiting ?? true,
+                                        showRefund: parsed.showRefund ?? true,
+                                    };
+                                }
+                            }
+                        } catch {
+                            // Invalid JSON
+                        }
+                        return undefined;
+                    })(),
                 };
 
                 setSettings(loadedSettings);
@@ -555,6 +572,7 @@ export default function SettingsPage() {
                 { key: 'lastModified', value: new Date().toLocaleString() },
                 { key: 'productsSettings', value: JSON.stringify(data.products ?? {}) },
                 { key: 'searchSettings', value: JSON.stringify(data.search ?? {}) },
+                { key: 'displaySettings', value: JSON.stringify(data.display ?? {}) },
             ];
 
             const response = await fetch('/api/sql/updateParameters', {

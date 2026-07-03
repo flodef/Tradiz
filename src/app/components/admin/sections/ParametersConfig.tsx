@@ -1,6 +1,6 @@
 'use client';
 
-import { Parameters, ProductsSettings, SearchSettings } from '@/app/contexts/ConfigProvider';
+import { Parameters, ProductsSettings, SearchSettings, DisplaySettings } from '@/app/contexts/ConfigProvider';
 import { adminTextStyle } from '@/app/utils/constants';
 import { Mercurial } from '@/app/utils/interfaces';
 import AdminInput from '../AdminInput';
@@ -126,7 +126,7 @@ export default function ParametersConfig({
             onToggle={onToggle}
         >
             {/* Subsection: Commerce */}
-            <div className="mb-6">
+            <div>
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
                     Commerce
                 </h3>
@@ -246,7 +246,7 @@ export default function ParametersConfig({
             </div>
 
             {/* Subsection: Produits */}
-            <div className="mb-6">
+            <div>
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
                     Produits
                 </h3>
@@ -430,6 +430,47 @@ export default function ParametersConfig({
                             isReadOnly={isReadOnly}
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Utilisateurs</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Subsection: Affichage */}
+            <div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
+                    Affichage
+                </h3>
+                <div className="flex flex-wrap gap-6">
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.display?.showWaiting ?? true}
+                            onChange={(checked) =>
+                                handleChange('display', {
+                                    ...(config.display ?? {
+                                        showWaiting: true,
+                                        showRefund: true,
+                                    }),
+                                    showWaiting: checked,
+                                } as DisplaySettings)
+                            }
+                            isReadOnly={isReadOnly}
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Mettre en attente</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.display?.showRefund ?? true}
+                            onChange={(checked) =>
+                                handleChange('display', {
+                                    ...(config.display ?? {
+                                        showWaiting: true,
+                                        showRefund: true,
+                                    }),
+                                    showRefund: checked,
+                                } as DisplaySettings)
+                            }
+                            isReadOnly={isReadOnly}
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Remboursement</span>
                     </div>
                 </div>
             </div>

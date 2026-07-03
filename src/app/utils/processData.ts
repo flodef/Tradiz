@@ -173,6 +173,23 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             }
             return undefined;
         })(),
+        display: (() => {
+            try {
+                const value = getParamValue('displaySettings', 14);
+                if (value) {
+                    const parsed = JSON.parse(value);
+                    if (parsed && typeof parsed === 'object') {
+                        return {
+                            showWaiting: parsed.showWaiting ?? true,
+                            showRefund: parsed.showRefund ?? true,
+                        };
+                    }
+                }
+            } catch {
+                // Invalid JSON, use default
+            }
+            return undefined;
+        })(),
     };
 }
 
@@ -222,6 +239,10 @@ export const defaultParameters: Parameters = {
         searchCustomers: false,
         searchProducts: false,
         searchUsers: false,
+    },
+    display: {
+        showWaiting: true,
+        showRefund: true,
     },
 };
 
@@ -488,7 +509,7 @@ async function convertParametersData(
     try {
         if (typeof response === 'undefined') throw new EmptyDataError();
         return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-            checkData(data, 'Paramètres', 1, 2, 6, 14);
+            checkData(data, 'Paramètres', 1, 2, 6, 15);
 
             return {
                 keys: data.values.map((item) => {

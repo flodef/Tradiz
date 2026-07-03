@@ -474,7 +474,10 @@ export const usePay = () => {
                     allOptions.push('PAIEMENT PARTIEL');
                 }
 
-                allOptions.push('METTRE ' + WAITING_KEYWORD, REFUND_KEYWORD);
+                // Add waiting and refund options based on display settings (default to true if not set)
+                if (parameters.display?.showWaiting !== false) allOptions.push('METTRE ' + WAITING_KEYWORD);
+
+                if (parameters.display?.showRefund !== false) allOptions.push(REFUND_KEYWORD);
 
                 if (paymentMethodsLabels.length === 1) {
                     if (paymentSelectionLockedRef.current) return;
@@ -531,6 +534,8 @@ export const usePay = () => {
         orderData,
         selectedOrderItems,
         showPartialPaymentSelector,
+        parameters.display?.showWaiting,
+        parameters.display?.showRefund,
         setShowPartialPaymentSelector,
         partialPaymentAmount,
         modeFonctionnement,

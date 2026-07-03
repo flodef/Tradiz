@@ -59,6 +59,11 @@ export interface SearchSettings {
     searchUsers: boolean;
 }
 
+export interface DisplaySettings {
+    showWaiting: boolean;
+    showRefund: boolean;
+}
+
 export interface Parameters {
     shop: Shop;
     thanksMessage: string;
@@ -69,6 +74,7 @@ export interface Parameters {
     user: User;
     products?: ProductsSettings;
     search?: SearchSettings;
+    display?: DisplaySettings;
     error?: string;
 }
 
