@@ -1,6 +1,6 @@
 'use client';
 
-import { IconBackspace, IconCalculator, IconSearch, IconShoppingCart, IconWallet } from '@tabler/icons-react';
+import { IconBackspace, IconCalculator, IconSearch, IconShoppingCart, IconWallet, IconX } from '@tabler/icons-react';
 import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { isDeletedTransaction } from '../contexts/dataProvider/transactionHelpers';
@@ -335,6 +335,7 @@ export const NumPad: FC = () => {
         isDbConnected,
         addProduct: _addProduct,
         setCurrentCustomer,
+        currentCustomer,
     } = useData();
     const { openPopup, closePopup, isPopupOpen, openFullscreenPopup } = usePopup();
     const { pay, canPay, canAddProduct } = usePay();
@@ -663,7 +664,7 @@ export const NumPad: FC = () => {
 
     // Call useAddPopupClass before any conditional return
     const numPadClass = useAddPopupClass(
-        `inset-0 min-w-[375px] w-full self-center absolute md:top-0 md:w-1/2 md:justify-center md:max-w-[50%] ` +
+        `inset-0 min-w-[375px] w-full self-center absolute md:top-10 md:w-1/2 md:justify-center md:max-w-[50%] ` +
             (shouldUseOverflow
                 ? isPopupOpen
                     ? 'top-[76px] '
@@ -689,6 +690,23 @@ export const NumPad: FC = () => {
                     }
                     style={shouldUseOverflow ? { left: left } : {}}
                 >
+                    {(currentCustomer || parameters.user) && (
+                        <div className="flex items-center justify-center gap-2 text-lg font-semibold px-2">
+                            <span className="truncate">
+                                {currentCustomer
+                                    ? `Client : ${currentCustomer.firstName} ${currentCustomer.lastName}`
+                                    : parameters.user.name}
+                            </span>
+                            {currentCustomer && (
+                                <button
+                                    onClick={() => setCurrentCustomer(null)}
+                                    className="shrink-0 p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                                >
+                                    <IconX size={24} stroke={3} />
+                                </button>
+                            )}
+                        </div>
+                    )}
                     <div className="flex justify-around text-4xl text-center font-bold pt-0 max-w-lg w-full self-center">
                         <Amount
                             className={

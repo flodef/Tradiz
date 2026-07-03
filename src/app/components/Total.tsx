@@ -541,11 +541,7 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
 
     // Call all hooks BEFORE any conditional return
     const popupClass = useAddPopupClass(
-        'inset-x-0 h-[75px] md:absolute md:left-1/2 md:h-full md:border-l-4 overflow-hidden ' +
-            'md:border-secondary-active-light md:dark:border-secondary-active-dark '
-    );
-    const popupClassNormal = useAddPopupClass(
-        'inset-x-0 h-[75px] md:absolute md:left-1/2 md:h-full md:border-l-4 overflow-y-auto ' +
+        'inset-x-0 h-[70px] md:absolute md:left-1/2 md:h-full md:border-l-4 overflow-hidden ' +
             'md:border-secondary-active-light md:dark:border-secondary-active-dark '
     );
     const isMobile = useIsMobile();
@@ -589,7 +585,7 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
     }
 
     return (
-        <div className={popupClassNormal}>
+        <div className={twMerge(popupClass, 'overflow-y-auto')}>
             <div
                 className={twMerge(
                     'md:w-1/2 w-full fixed text-center font-bold',
