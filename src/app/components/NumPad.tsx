@@ -142,6 +142,21 @@ interface SearchPopupProps {
     onSelectUser: (user: User) => void;
 }
 
+interface ProductWithCategory {
+    category: string;
+    label: string;
+    prices: number[];
+    options?: string | null;
+    stock: number | null;
+    order: number;
+    reference?: string | null;
+}
+
+type SearchItem =
+    | { type: 'product'; data: ProductWithCategory; index: number }
+    | { type: 'customer'; data: Customer; index: number }
+    | { type: 'user'; data: User; index: number };
+
 const SearchPopup: FC<SearchPopupProps> = ({
     inventory,
     customers,
@@ -157,7 +172,9 @@ const SearchPopup: FC<SearchPopupProps> = ({
         customers: true,
         users: true,
     });
+    const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
     const inputRef = useRef<HTMLInputElement>(null);
+    const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
     const isMobileDevice = useIsMobileDevice();
     const styles = getPopupStyles('default');
     const optionClass = twMerge(styles.option, 'px-3', getOptionHoverStyles(isMobileDevice, true));
@@ -166,41 +183,221 @@ const SearchPopup: FC<SearchPopupProps> = ({
         inputRef.current?.focus();
     }, []);
 
+    // Scroll highlighted item into view
+    useEffect(() => {
+        if (highlightedIndex >= 0 && itemRefs.current[highlightedIndex]) {
+            itemRefs.current[highlightedIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    }, [highlightedIndex]);
+
     const toggleSection = (section: string) => {
         setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
     };
 
     const q = query.toLowerCase();
 
-    const productResults = searchSettings?.searchProducts
-        ? inventory
-              .flatMap((cat) =>
-                  cat.products
-                      .map((p) => ({ ...p, category: cat.category }))
-                      .filter(
-                          (p) =>
-                              p.label.toLowerCase().includes(q) ||
-                              (p.options && p.options.toLowerCase().includes(q)) ||
-                              p.reference?.toLowerCase().includes(q)
+    const productResults = useMemo(
+        (): ProductWithCategory[] =>
+            searchSettings?.searchProducts
+                ? inventory
+                      .flatMap((cat) =>
+                          cat.products
+                              .map((p) => ({ ...p, category: cat.category }) as ProductWithCategory)
+                              .filter(
+                                  (p) =>
+                                      p.label.toLowerCase().includes(q) ||
+                                      (p.options && p.options.toLowerCase().includes(q)) ||
+                                      p.reference?.toLowerCase().includes(q)
+                              )
                       )
-              )
-              .slice(0, 10)
-        : [];
+                      .slice(0, 10)
+                : [],
+        [inventory, searchSettings?.searchProducts, q]
+    );
 
-    const customerResults = searchSettings?.searchCustomers
-        ? customers
-              .filter(
-                  (c) =>
-                      c.firstName.toLowerCase().includes(q) ||
-                      c.lastName.toLowerCase().includes(q) ||
-                      c.reference?.toLowerCase().includes(q)
-              )
-              .slice(0, 10)
-        : [];
+    const customerResults = useMemo(
+        () =>
+            searchSettings?.searchCustomers
+                ? customers
+                      .filter(
+                          (c) =>
+                              c.firstName.toLowerCase().includes(q) ||
+                              c.lastName.toLowerCase().includes(q) ||
+                              c.reference?.toLowerCase().includes(q)
+                      )
+                      .slice(0, 10)
+                : [],
+        [customers, searchSettings?.searchCustomers, q]
+    );
 
-    const userResults = searchSettings?.searchUsers
-        ? users.filter((u) => u.name.toLowerCase().includes(q) || u.reference?.toLowerCase().includes(q)).slice(0, 10)
-        : [];
+    const userResults = useMemo(
+        () =>
+            searchSettings?.searchUsers
+                ? users
+                      .filter((u) => u.name.toLowerCase().includes(q) || u.reference?.toLowerCase().includes(q))
+                      .slice(0, 10)
+                : [],
+        [users, searchSettings?.searchUsers, q]
+    );
+
+    // Build flat list of all items for keyboard navigation
+    const allItems = useMemo((): SearchItem[] => {
+        const items: SearchItem[] = [];
+        let idx = 0;
+
+        if (searchSettings?.searchProducts && expandedSections.products) {
+            productResults.forEach((item) => {
+                items.push({ type: 'product', data: item, index: idx++ });
+            });
+        }
+        if (searchSettings?.searchCustomers && expandedSections.customers) {
+            customerResults.forEach((item) => {
+                items.push({ type: 'customer', data: item, index: idx++ });
+            });
+        }
+        if (searchSettings?.searchUsers && expandedSections.users) {
+            userResults.forEach((item) => {
+                items.push({ type: 'user', data: item, index: idx++ });
+            });
+        }
+
+        return items;
+    }, [productResults, customerResults, userResults, expandedSections, searchSettings]);
+
+    // Get category boundaries
+    const categoryBoundaries = useMemo(() => {
+        const boundaries: { [key: string]: { start: number; end: number } } = {};
+        let idx = 0;
+
+        if (searchSettings?.searchProducts && expandedSections.products && productResults.length > 0) {
+            boundaries.products = { start: idx, end: idx + productResults.length - 1 };
+            idx += productResults.length;
+        }
+        if (searchSettings?.searchCustomers && expandedSections.customers && customerResults.length > 0) {
+            boundaries.customers = { start: idx, end: idx + customerResults.length - 1 };
+            idx += customerResults.length;
+        }
+        if (searchSettings?.searchUsers && expandedSections.users && userResults.length > 0) {
+            boundaries.users = { start: idx, end: idx + userResults.length - 1 };
+        }
+
+        return boundaries;
+    }, [productResults, customerResults, userResults, expandedSections, searchSettings]);
+
+    // Auto-highlight first item when query changes and there are results
+    useEffect(() => {
+        if (query && allItems.length > 0) {
+            setHighlightedIndex(0);
+        } else {
+            setHighlightedIndex(-1);
+        }
+    }, [query, allItems.length]);
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (allItems.length === 0) return;
+
+        const categoryCount = Object.keys(categoryBoundaries).length;
+
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                setHighlightedIndex((prev) => (prev < allItems.length - 1 ? prev + 1 : prev));
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : prev));
+                break;
+            case 'ArrowRight':
+                e.preventDefault();
+                setHighlightedIndex((prev) => {
+                    if (prev < 0) return 0;
+                    if (categoryCount > 1) {
+                        // Try to move to next category
+                        const currentCategory = Object.entries(categoryBoundaries).find(
+                            ([, bounds]) => prev >= bounds.start && prev <= bounds.end
+                        );
+                        if (currentCategory) {
+                            const categories = Object.keys(categoryBoundaries);
+                            const currentIdx = categories.indexOf(currentCategory[0]);
+                            const nextCategory = categories[currentIdx + 1];
+                            if (nextCategory) {
+                                return categoryBoundaries[nextCategory].start;
+                            } else {
+                                // No next category, move down 5
+                                return Math.min(prev + 5, allItems.length - 1);
+                            }
+                        } else {
+                            // Not found in any category, move down 5
+                            return Math.min(prev + 5, allItems.length - 1);
+                        }
+                    } else {
+                        // Single category, move down 5 items
+                        return Math.min(prev + 5, allItems.length - 1);
+                    }
+                });
+                break;
+            case 'ArrowLeft':
+                e.preventDefault();
+                setHighlightedIndex((prev) => {
+                    if (prev < 0) return 0;
+                    if (categoryCount > 1) {
+                        // Try to move to previous category
+                        const currentCat = Object.entries(categoryBoundaries).find(
+                            ([, bounds]) => prev >= bounds.start && prev <= bounds.end
+                        );
+                        if (currentCat) {
+                            const categories = Object.keys(categoryBoundaries);
+                            const currentIdx = categories.indexOf(currentCat[0]);
+                            const prevCategory = categories[currentIdx - 1];
+                            if (prevCategory) {
+                                return categoryBoundaries[prevCategory].start;
+                            } else {
+                                // No previous category, move up 5
+                                return Math.max(prev - 5, 0);
+                            }
+                        } else {
+                            // Not found in any category, move up 5
+                            return Math.max(prev - 5, 0);
+                        }
+                    } else {
+                        // Single category, move up 5 items
+                        return Math.max(prev - 5, 0);
+                    }
+                });
+                break;
+            case 'Enter':
+                e.preventDefault();
+                if (highlightedIndex >= 0 && highlightedIndex < allItems.length) {
+                    const item = allItems[highlightedIndex];
+                    if (item.type === 'product') {
+                        onSelectProduct({
+                            category: item.data.category,
+                            label: item.data.label,
+                            amount: item.data.prices[0],
+                        });
+                    } else if (item.type === 'customer') {
+                        onSelectCustomer(item.data);
+                    } else if (item.type === 'user') {
+                        onSelectUser(item.data);
+                    }
+                } else if (allItems.length > 0) {
+                    // Select first item if none highlighted
+                    const firstItem = allItems[0];
+                    if (firstItem.type === 'product') {
+                        onSelectProduct({
+                            category: firstItem.data.category,
+                            label: firstItem.data.label,
+                            amount: firstItem.data.prices[0],
+                        });
+                    } else if (firstItem.type === 'customer') {
+                        onSelectCustomer(firstItem.data);
+                    } else if (firstItem.type === 'user') {
+                        onSelectUser(firstItem.data);
+                    }
+                }
+                break;
+        }
+    };
 
     const hasResults = productResults.length > 0 || customerResults.length > 0 || userResults.length > 0;
 
@@ -218,6 +415,7 @@ const SearchPopup: FC<SearchPopupProps> = ({
                 )}
                 autoFocus
                 onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
             />
             {query && (
                 <div className="max-h-[55vh] overflow-y-auto">
@@ -235,21 +433,31 @@ const SearchPopup: FC<SearchPopupProps> = ({
                                 PRODUITS {!expandedSections.products && ARROW}
                             </div>
                             {expandedSections.products &&
-                                productResults.map((item, index) => (
-                                    <div
-                                        key={`product-${index}`}
-                                        className={twMerge(optionClass)}
-                                        onClick={() =>
-                                            onSelectProduct({
-                                                category: item.category,
-                                                label: item.label,
-                                                amount: item.prices[0],
-                                            })
-                                        }
-                                    >
-                                        <div className={styles.optionText}>{item.label}</div>
-                                    </div>
-                                ))}
+                                productResults.map((item, index) => {
+                                    const globalIndex = index;
+                                    return (
+                                        <div
+                                            key={`product-${index}`}
+                                            ref={(el) => {
+                                                itemRefs.current[globalIndex] = el;
+                                            }}
+                                            className={twMerge(
+                                                optionClass,
+                                                highlightedIndex === globalIndex &&
+                                                    'bg-active-light dark:bg-active-dark'
+                                            )}
+                                            onClick={() =>
+                                                onSelectProduct({
+                                                    category: item.category,
+                                                    label: item.label,
+                                                    amount: item.prices[0],
+                                                })
+                                            }
+                                        >
+                                            <div className={styles.optionText}>{item.label}</div>
+                                        </div>
+                                    );
+                                })}
                         </div>
                     )}
 
@@ -262,17 +470,30 @@ const SearchPopup: FC<SearchPopupProps> = ({
                                 CLIENTS {!expandedSections.customers && ARROW}
                             </div>
                             {expandedSections.customers &&
-                                customerResults.map((item) => (
-                                    <div
-                                        key={`customer-${item.id}`}
-                                        className={twMerge(optionClass)}
-                                        onClick={() => onSelectCustomer(item)}
-                                    >
-                                        <div className={styles.optionText}>
-                                            {item.firstName} {item.lastName}
+                                customerResults.map((item, index) => {
+                                    const globalIndex =
+                                        (searchSettings?.searchProducts && expandedSections.products
+                                            ? productResults.length
+                                            : 0) + index;
+                                    return (
+                                        <div
+                                            key={`customer-${item.id}`}
+                                            ref={(el) => {
+                                                itemRefs.current[globalIndex] = el;
+                                            }}
+                                            className={twMerge(
+                                                optionClass,
+                                                highlightedIndex === globalIndex &&
+                                                    'bg-active-light dark:bg-active-dark'
+                                            )}
+                                            onClick={() => onSelectCustomer(item)}
+                                        >
+                                            <div className={styles.optionText}>
+                                                {item.firstName} {item.lastName}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                         </div>
                     )}
 
@@ -285,17 +506,34 @@ const SearchPopup: FC<SearchPopupProps> = ({
                                 UTILISATEURS {!expandedSections.users && ARROW}
                             </div>
                             {expandedSections.users &&
-                                userResults.map((item) => (
-                                    <div
-                                        key={`user-${item.key}`}
-                                        className={twMerge(optionClass)}
-                                        onClick={() => onSelectUser(item)}
-                                    >
-                                        <div className={styles.optionText}>
-                                            {item.name} ({item.role})
+                                userResults.map((item, index) => {
+                                    const globalIndex =
+                                        (searchSettings?.searchProducts && expandedSections.products
+                                            ? productResults.length
+                                            : 0) +
+                                        (searchSettings?.searchCustomers && expandedSections.customers
+                                            ? customerResults.length
+                                            : 0) +
+                                        index;
+                                    return (
+                                        <div
+                                            key={`user-${item.key}`}
+                                            ref={(el) => {
+                                                itemRefs.current[globalIndex] = el;
+                                            }}
+                                            className={twMerge(
+                                                optionClass,
+                                                highlightedIndex === globalIndex &&
+                                                    'bg-active-light dark:bg-active-dark'
+                                            )}
+                                            onClick={() => onSelectUser(item)}
+                                        >
+                                            <div className={styles.optionText}>
+                                                {item.name} ({item.role})
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                         </div>
                     )}
                 </div>
