@@ -1,37 +1,28 @@
 import { useWindowParam } from '../hooks/useWindowParam';
 import { Size } from './types';
 
+interface ScreenSizeConfigItem {
+    height: number;
+    tailwindClass: string;
+    rowHeight: number;
+    numPadBottom: number;
+}
+
+export function createScreenSizeConfig(baseHeight: number): ScreenSizeConfigItem {
+    return {
+        height: baseHeight,
+        tailwindClass: `h-${baseHeight}`,
+        rowHeight: baseHeight * 4 + 1,
+        numPadBottom: baseHeight * 12 + 15,
+    };
+}
+
 export const SCREEN_SIZE_CONFIG = {
-    xs: {
-        height: 11, // h-11 (44px)
-        tailwindClass: 'h-11',
-        rowHeight: 45, // 44px + 1px divider
-        numPadBottom: 135,
-    },
-    sm: {
-        height: 12, // h-12 (48px)
-        tailwindClass: 'h-12',
-        rowHeight: 49, // 48px + 1px divider
-        numPadBottom: 145,
-    },
-    md: {
-        height: 13, // h-13 (52px)
-        tailwindClass: 'h-13',
-        rowHeight: 53, // 52px + 1px divider
-        numPadBottom: 155,
-    },
-    lg: {
-        height: 14, // h-14 (56px)
-        tailwindClass: 'h-14',
-        rowHeight: 57, // 56px + 1px divider
-        numPadBottom: 165,
-    },
-    xl: {
-        height: 15, // h-15 (60px)
-        tailwindClass: 'h-15',
-        rowHeight: 61, // 60px + 1px divider
-        numPadBottom: 175,
-    },
+    xs: createScreenSizeConfig(11),
+    sm: createScreenSizeConfig(12),
+    md: createScreenSizeConfig(13),
+    lg: createScreenSizeConfig(14),
+    xl: createScreenSizeConfig(15),
 } as const;
 
 export type ScreenSizeConfig = (typeof SCREEN_SIZE_CONFIG)[Size];
@@ -50,10 +41,10 @@ export const getScreenWidth = (width: number): Size => {
 export const getScreenHeight = (height: number): Size => {
     // SSR case: height is -1, default to xl
     if (height === -1) return 'xl';
-    if (height < 667) return 'xs';
-    if (height < 768) return 'sm';
-    if (height < 896) return 'md';
-    if (height < 1024) return 'lg';
+    if (height <= 667) return 'xs';
+    if (height <= 768) return 'sm';
+    if (height <= 896) return 'md';
+    if (height <= 1024) return 'lg';
     return 'xl';
 };
 

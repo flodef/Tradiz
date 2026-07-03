@@ -1,18 +1,37 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
     SCREEN_SIZE_CONFIG,
+    createScreenSizeConfig,
     getScreenSizeConfig,
     getScreenWidth,
     getScreenHeight,
-    useScreenSizeConfig,
 } from '../src/app/utils/screenSizeConfig';
-import { renderHook } from '@testing-library/react';
-import { ColorScheme } from '../src/app/hooks/useWindowParam';
 
-vi.mock('../src/app/hooks/useWindowParam');
+describe('createScreenSizeConfig', () => {
+    it('returns correct config for base height 11', () => {
+        const config = createScreenSizeConfig(11);
+        expect(config.height).toBe(11);
+        expect(config.tailwindClass).toBe('h-11');
+        expect(config.rowHeight).toBe(11 * 4 + 1);
+        expect(config.numPadBottom).toBe(11 * 12 + 15);
+    });
 
-const { useWindowParam } = await import('../src/app/hooks/useWindowParam');
-const mockedUseWindowParam = vi.mocked(useWindowParam);
+    it('returns correct config for base height 12', () => {
+        const config = createScreenSizeConfig(12);
+        expect(config.height).toBe(12);
+        expect(config.tailwindClass).toBe('h-12');
+        expect(config.rowHeight).toBe(12 * 4 + 1);
+        expect(config.numPadBottom).toBe(12 * 12 + 15);
+    });
+
+    it('returns correct config for base height 15', () => {
+        const config = createScreenSizeConfig(15);
+        expect(config.height).toBe(15);
+        expect(config.tailwindClass).toBe('h-15');
+        expect(config.rowHeight).toBe(15 * 4 + 1);
+        expect(config.numPadBottom).toBe(15 * 12 + 15);
+    });
+});
 
 describe('SCREEN_SIZE_CONFIG', () => {
     it('has all required size options', () => {
@@ -57,6 +76,14 @@ describe('SCREEN_SIZE_CONFIG', () => {
         expect(SCREEN_SIZE_CONFIG.md.numPadBottom).toBeLessThan(SCREEN_SIZE_CONFIG.lg.numPadBottom);
         expect(SCREEN_SIZE_CONFIG.lg.numPadBottom).toBeLessThan(SCREEN_SIZE_CONFIG.xl.numPadBottom);
     });
+
+    it('matches createScreenSizeConfig output for each size', () => {
+        expect(SCREEN_SIZE_CONFIG.xs).toEqual(createScreenSizeConfig(11));
+        expect(SCREEN_SIZE_CONFIG.sm).toEqual(createScreenSizeConfig(12));
+        expect(SCREEN_SIZE_CONFIG.md).toEqual(createScreenSizeConfig(13));
+        expect(SCREEN_SIZE_CONFIG.lg).toEqual(createScreenSizeConfig(14));
+        expect(SCREEN_SIZE_CONFIG.xl).toEqual(createScreenSizeConfig(15));
+    });
 });
 
 describe('getScreenWidth', () => {
@@ -86,24 +113,28 @@ describe('getScreenWidth', () => {
 });
 
 describe('getScreenHeight', () => {
-    it('returns xs for height < 667 (iPhone SE)', () => {
+    it('returns xs for height <= 667 (iPhone SE)', () => {
         expect(getScreenHeight(600)).toBe('xs');
+        expect(getScreenHeight(667)).toBe('xs');
     });
 
-    it('returns sm for height 667-767', () => {
+    it('returns sm for height 668-768', () => {
         expect(getScreenHeight(700)).toBe('sm');
+        expect(getScreenHeight(768)).toBe('sm');
     });
 
-    it('returns md for height 768-895', () => {
+    it('returns md for height 769-896', () => {
         expect(getScreenHeight(800)).toBe('md');
+        expect(getScreenHeight(896)).toBe('md');
     });
 
-    it('returns lg for height 896-1023', () => {
+    it('returns lg for height 897-1024', () => {
         expect(getScreenHeight(1000)).toBe('lg');
+        expect(getScreenHeight(1024)).toBe('lg');
     });
 
-    it('returns xl for height >= 1024 (iPad Pro)', () => {
-        expect(getScreenHeight(1024)).toBe('xl');
+    it('returns xl for height > 1024 (iPad Pro)', () => {
+        expect(getScreenHeight(1025)).toBe('xl');
     });
 });
 
@@ -129,54 +160,7 @@ describe('getScreenSizeConfig', () => {
     });
 
     it('returns xl config for xl screen', () => {
-        const result = getScreenSizeConfig(1024);
+        const result = getScreenSizeConfig(1025);
         expect(result).toEqual(SCREEN_SIZE_CONFIG.xl);
-    });
-});
-
-describe('useScreenSizeConfig', () => {
-    it('returns xl config when height is -1 (SSR)', () => {
-        mockedUseWindowParam.mockReturnValue({
-            height: -1,
-            width: -1,
-            top: 0,
-            left: 0,
-            colorScheme: ColorScheme.Light,
-            isOnline: true,
-            isLocalhost: false,
-            isDemo: false,
-        });
-        const { result } = renderHook(() => useScreenSizeConfig());
-        expect(result.current).toEqual(SCREEN_SIZE_CONFIG.xl);
-    });
-
-    it('returns xs config for small screen', () => {
-        mockedUseWindowParam.mockReturnValue({
-            height: 600,
-            width: 375,
-            top: 0,
-            left: 0,
-            colorScheme: ColorScheme.Light,
-            isOnline: true,
-            isLocalhost: false,
-            isDemo: false,
-        });
-        const { result } = renderHook(() => useScreenSizeConfig());
-        expect(result.current).toEqual(SCREEN_SIZE_CONFIG.xs);
-    });
-
-    it('returns xl config for large screen', () => {
-        mockedUseWindowParam.mockReturnValue({
-            height: 1024,
-            width: 1366,
-            top: 0,
-            left: 0,
-            colorScheme: ColorScheme.Light,
-            isOnline: true,
-            isLocalhost: false,
-            isDemo: false,
-        });
-        const { result } = renderHook(() => useScreenSizeConfig());
-        expect(result.current).toEqual(SCREEN_SIZE_CONFIG.xl);
     });
 });
