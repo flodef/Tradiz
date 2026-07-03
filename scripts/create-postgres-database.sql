@@ -13,10 +13,10 @@
 -- STEP 1: Create database for shop
 -- ============================================================
 -- IMPORTANT: Replace 'annette' with your actual shop name
-CREATE DATABASE annette;
+CREATE DATABASE gds;
 
 -- Connect to the new database
-\c annette
+\c gds;
 
 -- ============================================================
 -- STEP 2: Create schemas
@@ -324,27 +324,6 @@ CREATE TABLE IF NOT EXISTS dc_pos.discounts (
     id SERIAL PRIMARY KEY,
     value DECIMAL(10,2) NOT NULL,
     unity VARCHAR(10) NOT NULL -- '%' or 'currency'
-);
-
--- Users (default name is 'Comptoir' - handled in app code)
-CREATE TABLE IF NOT EXISTS dc_pos.users (
-    id SERIAL PRIMARY KEY,
-    key VARCHAR(50) NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    role VARCHAR(50) NOT NULL DEFAULT 'Cashier',
-    reference VARCHAR(255) DEFAULT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Customers
-CREATE TABLE IF NOT EXISTS dc_pos.customers (
-    id SERIAL PRIMARY KEY,
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
-    reference VARCHAR(255) DEFAULT NULL,
-    email VARCHAR(255) DEFAULT NULL,
-    phone VARCHAR(20) DEFAULT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================================
