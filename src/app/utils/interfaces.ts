@@ -11,6 +11,7 @@ export enum State {
     error,
     fatal,
     unidentified,
+    missingData,
     preloaded,
     loaded,
 }

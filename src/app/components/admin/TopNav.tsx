@@ -4,7 +4,7 @@ import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { IconChevronLeft, IconChevronRight, IconPencil, IconChartPie, IconSettings } from '@tabler/icons-react';
-import { USE_DIGICARTE } from '@/app/utils/constants';
+import { ADMIN_CONFIG_URL, ADMIN_EDIT_MENU_URL, ADMIN_STATS_URL, USE_DIGICARTE } from '@/app/utils/constants';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode, useEffect, useMemo, useState } from 'react';
@@ -49,21 +49,21 @@ export default function TopNav({
         () => [
             {
                 id: 'cash_register',
-                href: '/admin/kitchen/config/',
+                href: ADMIN_CONFIG_URL,
                 label: 'Configuration',
                 icon: <IconSettings size={28} />,
                 hidden: !isAdmin, // Admin only
             },
             {
                 id: 'edit_menu',
-                href: '/admin/edit_menu/',
+                href: ADMIN_EDIT_MENU_URL,
                 label: 'Edition menu',
                 icon: <IconPencil size={28} />,
                 hidden: !isCashier, // Admin and Cashier
             },
             {
                 id: 'kpi',
-                href: USE_DIGICARTE ? '/stats/d/vue-dc-1/vue-dc' : '/stats',
+                href: USE_DIGICARTE ? ADMIN_STATS_URL : ADMIN_STATS_URL.split('/').slice(0, 2).join('/'),
                 label: 'Statistiques',
                 icon: <IconChartPie size={28} />,
                 hidden: !isCashier || !isGrafanaAccessEnabled, // Admin and Cashier

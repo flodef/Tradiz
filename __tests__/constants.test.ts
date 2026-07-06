@@ -15,6 +15,9 @@ import {
     DC_POS,
     TRANSACTION_TIME_OUT,
     BACK_KEYWORD,
+    ADMIN_CONFIG_URL,
+    ADMIN_EDIT_MENU_URL,
+    ADMIN_STATS_URL,
 } from '../src/app/utils/constants';
 
 describe('Constants', () => {
@@ -72,6 +75,28 @@ describe('Constants', () => {
         it('has correct transaction timeout', () => {
             expect(TRANSACTION_TIME_OUT).toBe(60);
             expect(typeof TRANSACTION_TIME_OUT).toBe('number');
+        });
+    });
+
+    describe('Admin URL constants', () => {
+        it('has correct admin config URL', () => {
+            expect(ADMIN_CONFIG_URL).toBe('/admin/kitchen/config');
+            expect(typeof ADMIN_CONFIG_URL).toBe('string');
+        });
+
+        it('has correct admin edit menu URL', () => {
+            expect(ADMIN_EDIT_MENU_URL).toBe('/admin/edit_menu');
+            expect(typeof ADMIN_EDIT_MENU_URL).toBe('string');
+        });
+
+        it('has correct admin stats URL', () => {
+            expect(ADMIN_STATS_URL).toBe('/stats/d/vue-dc-1/vue-dc');
+            expect(typeof ADMIN_STATS_URL).toBe('string');
+        });
+
+        it('admin stats URL can be sliced to get base stats URL', () => {
+            const baseStatsUrl = ADMIN_STATS_URL.split('/').slice(0, 2).join('/');
+            expect(baseStatsUrl).toBe('/stats');
         });
     });
 

@@ -10,6 +10,9 @@ export const PRINT_KEYWORD = 'Impression';
 export const LOCAL_PRINTER_KEYWORD = 'Local';
 
 export const CRYPTO_KEYWORD = 'Crypto';
+export const ADMIN_CONFIG_URL = '/admin/kitchen/config';
+export const ADMIN_EDIT_MENU_URL = '/admin/edit_menu';
+export const ADMIN_STATS_URL = '/stats/d/vue-dc-1/vue-dc';
 
 export const WAITING_KEYWORD = 'EN ATTENTE';
 export const REFUND_KEYWORD = 'REMBOURSEMENT';

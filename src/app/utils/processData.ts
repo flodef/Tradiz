@@ -15,11 +15,15 @@ import { DEV_EMAIL } from './constants';
 import './extensions';
 import { generateSimpleId } from './id';
 
-class MissingDataError extends Error {
+export class MissingDataError extends Error {
     name = 'MissingDataError';
-    constructor(dataName?: string) {
+    dataName?: string;
+    isAdmin?: boolean;
+    constructor(dataName?: string, isAdmin = false) {
         super(dataName ? `Données manquantes: ${dataName}` : 'Données manquantes');
         this.message = dataName ? `Données manquantes: ${dataName}` : 'Données manquantes';
+        this.dataName = dataName;
+        this.isAdmin = isAdmin;
     }
 }
 class EmptyDataError extends Error {
@@ -308,15 +312,23 @@ async function _loadDataImpl(_shop: string, _shouldUseLocalData = false): Promis
     if (!hasDbConfig) throw new Error('Database not configured');
     if (!navigator.onLine) throw new AppOfflineError();
 
-    const param = await fetchData(dataNames.parameters).then(convertParametersData);
-    if (!param?.values?.length) return;
-
     // Resolve user server-side using the public key (never exposes full user list)
     const publicKey = getPublicKey();
     const { user } = await resolveUserFromKey(publicKey);
 
     // Require authentication - if no user found, don't load data
     if (!user) throw new UserNotFoundError(publicKey);
+
+    const param = await fetchData(dataNames.parameters).then(convertParametersData);
+    if (!param?.values?.length) {
+        // Parameters are missing - check if user is admin
+        if (user.role === 'Admin') {
+            // Admin user - throw error with isAdmin flag to trigger redirect
+            throw new MissingDataError('Paramètres', true);
+        }
+        // Non-admin user - throw normal error to show popup
+        throw new MissingDataError('Paramètres', false);
+    }
 
     const parameters = buildParameters(param, user!);
 
@@ -506,26 +518,21 @@ function checkColumn(item: unknown[], rowContext: string, minCol: number) {
 async function convertParametersData(
     response: void | Response
 ): Promise<{ keys: (string | undefined)[]; values: (string | undefined)[] }> {
-    try {
-        if (typeof response === 'undefined') throw new EmptyDataError();
-        return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-            checkData(data, 'Paramètres', 1, 2, 6, 15);
+    if (typeof response === 'undefined') throw new EmptyDataError();
+    return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
+        checkData(data, 'Paramètres', 1, 2, 6, 15);
 
-            return {
-                keys: data.values.map((item) => {
-                    checkColumn(item, 'Clé', 1);
-                    return item.at(0);
-                }),
-                values: data.values.map((item) => {
-                    checkColumn(item, 'Valeur', 1);
-                    return item.at(1);
-                }),
-            };
-        });
-    } catch (error) {
-        console.error(error);
-        return { keys: [], values: [] };
-    }
+        return {
+            keys: data.values.map((item) => {
+                checkColumn(item, 'Clé', 1);
+                return item.at(0);
+            }),
+            values: data.values.map((item) => {
+                checkColumn(item, 'Valeur', 1);
+                return item.at(1);
+            }),
+        };
+    });
 }
 
 async function convertPaymentMethodsData(response: void | Response): Promise<PaymentMethod[]> {

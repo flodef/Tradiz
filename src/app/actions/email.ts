@@ -142,3 +142,28 @@ export async function sendFatalErrorEmail(error: string): Promise<boolean> {
       `,
     });
 }
+
+/**
+ * Send an email to request access when parameters are missing
+ * @param publicKey The public key of the user
+ * @param userEmail The email of the user (if available)
+ * @returns A promise that resolves to a boolean indicating whether the email was sent successfully
+ */
+export async function sendMissingParametersRequest(publicKey: string, userEmail?: string): Promise<boolean> {
+    const adminEmail = DEV_EMAIL || process.env.SMTP_USER;
+    return await sendEmail({
+        to: adminEmail,
+        subject: "Demande d'accès - Paramètres manquants",
+        html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px;">
+          <p>Bonjour,</p>
+          <p>Un utilisateur tente d'accéder à l'application mais les paramètres ne sont pas configurés.</p>
+          <p>Clé publique de l'utilisateur : ${publicKey}</p>
+          ${userEmail ? `<p>Email de l'utilisateur : ${userEmail}</p>` : ''}
+          <p>Veuillez configurer les paramètres de l'application via la page d'administration.</p>
+          <p>Une fois les paramètres configurés, l'utilisateur pourra accéder à l'application.</p>
+          <p>Merci,<br>L'équipe Tradiz</p>
+        </div>
+      `,
+    });
+}

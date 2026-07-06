@@ -16,6 +16,7 @@ import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import { ConfigContext, OperationMode } from '../hooks/useConfig';
 import { useWindowParam } from '../hooks/useWindowParam';
 import {
+    ADMIN_CONFIG_URL,
     CONFIG_KEYWORD,
     IS_DEV,
     IS_LOCAL,
@@ -27,6 +28,7 @@ import {
 } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
 import {
+    MissingDataError,
     UserNotFoundError,
     defaultCurrencies,
     defaultParameters,
@@ -291,6 +293,13 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
                 if (error instanceof UserNotFoundError) {
                     parameters.shop.email = String(error.cause);
                     setState(State.unidentified);
+                } else if (error instanceof MissingDataError) {
+                    // Check if error has isAdmin flag (admin user with missing parameters)
+                    if (error.isAdmin) {
+                        window.location.href = ADMIN_CONFIG_URL;
+                    } else {
+                        setState(State.missingData);
+                    }
                 } else {
                     setState(State.error);
                 }

@@ -2,7 +2,7 @@
 
 import { FC, MouseEventHandler, useEffect, useMemo, useRef, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
-import { sendFatalErrorEmail, sendUserAccessRequest } from '../actions/email';
+import { sendFatalErrorEmail, sendMissingParametersRequest, sendUserAccessRequest } from '../actions/email';
 import { useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
@@ -272,6 +272,41 @@ export const Category: FC = () => {
                             sendUserAccessRequest(parameters.shop.email, Object.values(Role)[i], getPublicKey()).then(
                                 setHasSentEmail
                             );
+                        } else {
+                            closePopup();
+                            setState(State.init);
+                        }
+                    },
+                    true
+                );
+                break;
+            case State.missingData:
+                openFullscreenPopup(
+                    'Données manquantes',
+                    ["Demander l'accès", 'Rafraîchir la page'],
+                    async (i) => {
+                        if (i === 0) {
+                            const publicKey = getPublicKey();
+                            const success = await sendMissingParametersRequest(publicKey, parameters.shop.email);
+                            if (success) {
+                                openFullscreenPopup(
+                                    'Demande envoyée',
+                                    ['OK'],
+                                    () => {
+                                        closePopup();
+                                    },
+                                    true
+                                );
+                            } else {
+                                openFullscreenPopup(
+                                    "Erreur lors de l'envoi",
+                                    ['OK'],
+                                    () => {
+                                        closePopup();
+                                    },
+                                    true
+                                );
+                            }
                         } else {
                             closePopup();
                             setState(State.init);
