@@ -1,6 +1,6 @@
 {
   "name": "tradiz",
-  "version": "1.55",
+  "version": "1.56",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -10,6 +10,7 @@
     "start": "next start -p 3001",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "nuke": "shx rm -rf node_modules package-lock.json || true",
     "prepare": "husky",
     "migrate": "bun scripts/migrate-sheets-to-postgres.ts",
@@ -58,6 +59,7 @@
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@typescript-eslint/eslint-plugin": "latest",
+    "@vitest/coverage-v8": "latest",
     "baseline-browser-mapping": "latest",
     "encoding": "latest",
     "eslint": "latest",
