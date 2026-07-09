@@ -83,8 +83,15 @@ export async function resolveUserFromKey(
             const foundUser = resolvedUser || undefined;
             const user: User | null = foundUser || null;
             return { user, foundUser, noUsers };
+        } else if (resolveResponse.status === 429) {
+            // Too many requests - throw specific error
+            throw new Error('Too many requests. Please try again later.');
         }
-    } catch {
+    } catch (error) {
+        // Network error or other error - rethrow if it's our custom error
+        if (error instanceof Error && error.message === 'Too many requests. Please try again later.') {
+            throw error;
+        }
         // Network error - return null
     }
 
