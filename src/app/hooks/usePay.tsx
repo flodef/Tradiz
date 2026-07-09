@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { QRCode } from '../components/QRCode';
+import CustomerSearchPopup from '../components/CustomerSearchPopup';
 import { Shop } from '../contexts/ConfigProvider';
 import { isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
 import { IS_LOCAL, PRINT_KEYWORD, REFUND_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
-import { Currency, InventoryItem, SERVICE_TYPE_LABELS, ServiceType, Transaction } from '../utils/interfaces';
+import { Currency, Customer, InventoryItem, SERVICE_TYPE_LABELS, ServiceType, Transaction } from '../utils/interfaces';
 import { CLOSE, postMessageToParent, REFRESH } from '../utils/message';
 import { printReceipt } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
@@ -45,6 +46,8 @@ export const usePay = () => {
         showPartialPaymentSelector,
         setShowPartialPaymentSelector,
         setCounterServiceType,
+        currentCustomer,
+        setCurrentCustomer,
     } = useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
     const {
@@ -56,6 +59,7 @@ export const usePay = () => {
         getPrinterAddresses,
         inventory,
         modeFonctionnement,
+        customers,
     } = useConfig();
 
     // Ref local pour éviter de redemander le type de service lors de l'appel récursif à pay()
@@ -242,6 +246,71 @@ export const usePay = () => {
                         }
                     );
                     break;
+                case 'Provision':
+                    // Handle Provision payment - require customer selection
+                    if (!currentCustomer) {
+                        // Show customer selection popup
+                        openPopup(
+                            'Sélectionner un client',
+                            [
+                                <CustomerSearchPopup
+                                    key="customerSearch"
+                                    customers={customers}
+                                    initialQuery=""
+                                    onSelectCustomer={(customer) => {
+                                        setCurrentCustomer(customer);
+                                        closePopup();
+                                        selectPayment(option, fallback);
+                                    }}
+                                    onCreateCustomer={async (customerName) => {
+                                        // Create a new customer and select it
+                                        const newCustomer: Customer = {
+                                            firstName: customerName.split(' ')[0] || customerName,
+                                            lastName: customerName.split(' ').slice(1).join(' ') || '',
+                                        };
+
+                                        try {
+                                            const response = await fetch('/api/sql/addCustomer', {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                },
+                                                body: JSON.stringify(newCustomer),
+                                            });
+
+                                            const result = await response.json();
+
+                                            if (result.success) {
+                                                setCurrentCustomer(result.customer);
+                                                closePopup();
+                                                selectPayment(option, fallback);
+                                            } else {
+                                                openPopup('Erreur', [
+                                                    'Échec de la création du client: ' +
+                                                        (result.error || 'Erreur inconnue'),
+                                                ]);
+                                            }
+                                        } catch (error) {
+                                            console.error('Error creating customer:', error);
+                                            openPopup('Erreur', ['Erreur lors de la création du client']);
+                                        }
+                                    }}
+                                    onSelectNoCustomer={() => {
+                                        closePopup();
+                                    }}
+                                />,
+                            ],
+                            () => {
+                                // Close popup on cancel
+                                closePopup();
+                            }
+                        );
+                        return;
+                    }
+                    // If customer is selected, proceed with normal payment
+                    updateTransaction(option);
+                    closePopup();
+                    break;
                 case PRINT_KEYWORD:
                     updateTransaction(WAITING_KEYWORD);
                     printTransaction(option);
@@ -300,6 +369,9 @@ export const usePay = () => {
             getCurrentTotal,
             parameters.user.name,
             reverseTransaction,
+            currentCustomer,
+            setCurrentCustomer,
+            customers,
         ]
     );
 
