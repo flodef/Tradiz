@@ -1,7 +1,7 @@
 'use client';
 
 import { Role, User } from '@/app/utils/interfaces';
-import { adminHeaderStyle } from '@/app/utils/constants';
+import { adminHeaderStyle, ROLE_LABELS } from '@/app/utils/constants';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconChevronDown, IconChevronUp, IconSelector, IconUpload } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
@@ -53,13 +53,6 @@ function Row({
 }) {
     const roles = Object.values(Role).filter((role) => role !== Role.admin);
 
-    const roleLabels: Record<Role, string> = {
-        [Role.cashier]: 'Caisse',
-        [Role.service]: 'Service',
-        [Role.kitchen]: 'Cuisine',
-        [Role.admin]: 'Administrateur',
-    };
-
     return (
         <tr className="border-b border-gray-200 dark:border-gray-700">
             <td className="p-2">
@@ -108,7 +101,7 @@ function Row({
                     value={user.role}
                     onChange={(e) => onChange({ ...user, role: e.target.value as Role })}
                     isReadOnly={isReadOnly}
-                    options={roles.map((role) => ({ value: role, label: roleLabels[role] }))}
+                    options={roles.map((role) => ({ value: role, label: ROLE_LABELS[role] }))}
                     className="min-w-20 w-20"
                 />
             </td>

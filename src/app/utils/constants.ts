@@ -9,6 +9,14 @@ export const TRANSACTIONS_KEYWORD = 'Transactions';
 export const PRINT_KEYWORD = 'Impression';
 export const LOCAL_PRINTER_KEYWORD = 'Local';
 
+// Role labels (French translations)
+export const ROLE_LABELS: Record<Role, string> = {
+    [Role.cashier]: 'Caissier',
+    [Role.service]: 'Service',
+    [Role.kitchen]: 'Cuisine',
+    [Role.admin]: 'Administrateur',
+};
+
 export const CRYPTO_KEYWORD = 'Crypto';
 export const ADMIN_CONFIG_URL = '/admin/kitchen/config';
 export const ADMIN_EDIT_MENU_URL = '/admin/edit_menu';

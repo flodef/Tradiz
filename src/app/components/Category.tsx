@@ -8,7 +8,15 @@ import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { useWindowParam } from '../hooks/useWindowParam';
 import { useScreenSizeConfig } from '../utils/screenSizeConfig';
-import { ARROW, BACK_KEYWORD, CONFIG_KEYWORD, DEV_EMAIL, OTHER_KEYWORD, USE_DIGICARTE } from '../utils/constants';
+import {
+    ARROW,
+    BACK_KEYWORD,
+    CONFIG_KEYWORD,
+    DEV_EMAIL,
+    OTHER_KEYWORD,
+    ROLE_LABELS,
+    USE_DIGICARTE,
+} from '../utils/constants';
 import { Catalog, CatalogFormula, EmptyDiscount, InventoryItem, Role, State } from '../utils/interfaces';
 import { useIsMobileDevice } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
@@ -265,7 +273,7 @@ export const Category: FC = () => {
                         !hasSentEmail
                             ? Object.values(Role)
                                   .filter((role) => role !== Role.admin)
-                                  .map((role) => `Demande d'accès ${role}`)
+                                  .map((role) => `Demande d'accès ${ROLE_LABELS[role]}`)
                             : []
                     ),
                     (i) => {
