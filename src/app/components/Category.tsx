@@ -269,13 +269,12 @@ export const Category: FC = () => {
             case State.unidentified:
                 openFullscreenPopup(
                     'Utilisateur non identifié',
-                    ['Rafraîchir la page'].concat(
-                        !hasSentEmail
-                            ? Object.values(Role)
-                                  .filter((role) => role !== Role.admin)
-                                  .map((role) => `Demande d'accès ${ROLE_LABELS[role]}`)
-                            : []
-                    ),
+                    (!hasSentEmail
+                        ? Object.values(Role)
+                              .filter((role) => role !== Role.admin)
+                              .map((role) => `Demande d'accès ${ROLE_LABELS[role]}`)
+                        : []
+                    ).concat(['Rafraîchir la page']),
                     (i) => {
                         if (i >= 1) {
                             sendUserAccessRequest(parameters.shop.email, Object.values(Role)[i], getPublicKey()).then(

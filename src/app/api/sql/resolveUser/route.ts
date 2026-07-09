@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
             ? `SELECT COUNT(*) as count FROM users`
             : `SELECT COUNT(*) as count FROM users`;
         const [countRows] = await connection.execute(countQuery);
-        const userCount = (countRows as { count: number }[])[0]?.count || 0;
+        const userCount = Number((countRows as { count: string | number }[])[0]?.count || 0);
 
         if (userCount === 0) {
             await connection.end();
