@@ -214,6 +214,19 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Access denied: Invalid timezone' }, { status: 403 });
         }
 
+        // Check if users table is empty (fresh DB with no users)
+        const countQuery = connection.isPostgreSQL
+            ? `SELECT COUNT(*) as count FROM users`
+            : `SELECT COUNT(*) as count FROM users`;
+        const [countRows] = await connection.execute(countQuery);
+        const userCount = (countRows as { count: number }[])[0]?.count || 0;
+
+        if (userCount === 0) {
+            await connection.end();
+            // No users in database - indicate missing data
+            return NextResponse.json({ user: null, noUsers: true }, { status: 200 });
+        }
+
         // Query for the specific user with matching key
         const query = connection.isPostgreSQL
             ? `SELECT key, name, role FROM users WHERE key = $1 LIMIT 1`

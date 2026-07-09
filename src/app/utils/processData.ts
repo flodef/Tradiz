@@ -56,7 +56,7 @@ export class UserNotFoundError extends Error {
  */
 export async function resolveUserFromKey(
     publicKey: string | undefined
-): Promise<{ user: User | null; foundUser: User | undefined }> {
+): Promise<{ user: User | null; foundUser: User | undefined; noUsers?: boolean }> {
     if (!publicKey) {
         return {
             user: null,
@@ -79,10 +79,10 @@ export async function resolveUserFromKey(
         });
 
         if (resolveResponse.ok) {
-            const { user: resolvedUser } = await resolveResponse.json();
+            const { user: resolvedUser, noUsers } = await resolveResponse.json();
             const foundUser = resolvedUser || undefined;
             const user: User | null = foundUser || null;
-            return { user, foundUser };
+            return { user, foundUser, noUsers };
         }
     } catch {
         // Network error - return null
@@ -314,7 +314,10 @@ async function _loadDataImpl(_shop: string, _shouldUseLocalData = false): Promis
 
     // Resolve user server-side using the public key (never exposes full user list)
     const publicKey = getPublicKey();
-    const { user } = await resolveUserFromKey(publicKey);
+    const { user, noUsers } = await resolveUserFromKey(publicKey);
+
+    // If no users exist in database, throw MissingDataError
+    if (noUsers) throw new MissingDataError('Utilisateurs', false);
 
     // Require authentication - if no user found, don't load data
     if (!user) throw new UserNotFoundError(publicKey);
