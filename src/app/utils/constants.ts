@@ -32,8 +32,9 @@ export const INTERNAL_PAYMENT_METHODS = [
 
 export const PAYMENT_TYPES = [
     'Carte Bancaire',
-    'Espèce',
+    'Espèces',
     'Chèque',
+    'Provision',
     'Ticket Restaurant',
     'Chèque Vacances',
     'Solana',

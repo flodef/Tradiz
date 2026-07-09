@@ -225,7 +225,9 @@ export const usePay = () => {
 
     const selectPayment = useCallback(
         (option: string, fallback: () => void) => {
-            switch (option.split(SEPARATOR)[0]) {
+            const paymentType = option.split(SEPARATOR)[0];
+
+            switch (paymentType) {
                 case Crypto.Solana:
                 case Crypto.June:
                     generate(option as Crypto);

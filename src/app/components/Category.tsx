@@ -185,6 +185,7 @@ export const Category: FC = () => {
                 quantity: 1,
                 discount: EmptyDiscount,
                 amount: baseAmount + extra,
+                vatRate: item.rate,
                 ...(options && options.length > 0 ? { options: JSON.stringify(options) } : {}),
             });
 
@@ -459,6 +460,7 @@ export const Category: FC = () => {
                         quantity: 1,
                         discount: EmptyDiscount,
                         amount: finalAmount,
+                        vatRate: item.rate,
                         options: JSON.stringify(selected),
                     })
                 );
@@ -480,6 +482,7 @@ export const Category: FC = () => {
                         quantity: 1,
                         discount: EmptyDiscount,
                         amount: baseAmount + extra,
+                        vatRate: item.rate,
                         options: JSON.stringify(selected),
                     });
                 },
@@ -501,6 +504,7 @@ export const Category: FC = () => {
                 quantity: 1,
                 discount: EmptyDiscount,
                 amount: amount,
+                vatRate: item.rate,
             });
             return;
         }

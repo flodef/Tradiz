@@ -64,10 +64,10 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
         switch (crypto) {
             case Crypto.Solana:
                 return encodeURL({
-                    recipient: recipient.toBase58(),
-                    amount: amount.toNumber(),
-                    splToken: splToken ? splToken.toBase58() : undefined,
-                    reference: reference ? [reference.toBase58()] : undefined,
+                    recipient,
+                    amount,
+                    splToken: splToken ? splToken : undefined,
+                    reference: reference ? [reference] : undefined,
                     label: parameters.shop.name,
                     message: parameters.thanksMessage,
                     memo,

@@ -247,8 +247,26 @@ CREATE TABLE IF NOT EXISTS dc_pos.customers (
     reference VARCHAR(255) DEFAULT NULL,
     email VARCHAR(255) DEFAULT NULL,
     phone VARCHAR(20) DEFAULT NULL,
+    company VARCHAR(255) DEFAULT NULL,
+    balance DECIMAL(10,2) DEFAULT 0.00,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Balance History
+CREATE TABLE IF NOT EXISTS dc_pos.balance_history (
+    id SERIAL PRIMARY KEY,
+    customer_id INTEGER NOT NULL REFERENCES dc_pos.customers(id) ON DELETE CASCADE,
+    amount DECIMAL(10,2) NOT NULL,
+    operation VARCHAR(10) NOT NULL, -- 'credit' or 'debit'
+    previous_balance DECIMAL(10,2) NOT NULL,
+    new_balance DECIMAL(10,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create index on customer_id for balance history queries
+CREATE INDEX IF NOT EXISTS idx_balance_history_customer_id ON dc_pos.balance_history(customer_id);
+-- Create index on created_at for time-based queries
+CREATE INDEX IF NOT EXISTS idx_balance_history_created_at ON dc_pos.balance_history(created_at DESC);
 
 -- Parameters
 CREATE TABLE IF NOT EXISTS dc_pos.parameters (

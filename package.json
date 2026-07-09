@@ -1,6 +1,6 @@
 {
   "name": "tradiz",
-  "version": "1.58",
+  "version": "1.61",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -22,7 +22,7 @@
     "@dnd-kit/sortable": "latest",
     "@dnd-kit/utilities": "latest",
     "@neondatabase/serverless": "latest",
-    "@solana/pay": "latest",
+    "@solana/pay": "0.2.6",
     "@solana/spl-token": "latest",
     "@solana/web3.js": "1.98.4",
     "@tabler/icons-react": "latest",
@@ -72,7 +72,7 @@
     "jest": "latest",
     "jest-environment-jsdom": "latest",
     "shx": "latest",
-    "typescript": "latest",
+    "typescript": "^5.9.3",
     "typescript-eslint": "latest",
     "vitest": "latest"
   },

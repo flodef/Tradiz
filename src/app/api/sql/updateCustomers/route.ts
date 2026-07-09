@@ -10,6 +10,7 @@ interface Customer {
     email?: string;
     phone?: string;
     company?: string;
+    balance?: number;
 }
 
 export async function POST(request: Request) {
@@ -39,19 +40,20 @@ export async function POST(request: Request) {
             if (typeof company === 'object' && company !== null) {
                 company = (company as { name: string }).name || null;
             }
+            const balance = customer.balance || 0;
 
             if (connection.isPostgreSQL) {
                 const insertQuery = `
-                    INSERT INTO dc_pos.customers (first_name, last_name, reference, email, phone, company)
-                    VALUES ($1, $2, $3, $4, $5, $6)
+                    INSERT INTO dc_pos.customers (first_name, last_name, reference, email, phone, company, balance)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
                 `;
-                await connection.execute(insertQuery, [firstName, lastName, reference, email, phone, company]);
+                await connection.execute(insertQuery, [firstName, lastName, reference, email, phone, company, balance]);
             } else {
                 const insertQuery = `
-                    INSERT INTO customers (first_name, last_name, reference, email, phone, company)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO customers (first_name, last_name, reference, email, phone, company, balance)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 `;
-                await connection.execute(insertQuery, [firstName, lastName, reference, email, phone, company]);
+                await connection.execute(insertQuery, [firstName, lastName, reference, email, phone, company, balance]);
             }
         }
 

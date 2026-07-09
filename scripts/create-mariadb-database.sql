@@ -329,8 +329,25 @@ CREATE TABLE IF NOT EXISTS `customers` (
   `reference` varchar(255) DEFAULT NULL,
   `email` varchar(255) DEFAULT NULL,
   `phone` varchar(20) DEFAULT NULL,
+  `company` varchar(255) DEFAULT NULL,
+  `balance` decimal(10,2) DEFAULT 0.00,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Balance History
+CREATE TABLE IF NOT EXISTS `balance_history` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `customer_id` int(11) NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `operation` varchar(10) NOT NULL, -- 'credit' or 'debit'
+  `previous_balance` decimal(10,2) NOT NULL,
+  `new_balance` decimal(10,2) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_balance_history_customer_id` (`customer_id`),
+  KEY `idx_balance_history_created_at` (`created_at` DESC),
+  CONSTRAINT `fk_balance_history_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================

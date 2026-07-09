@@ -50,8 +50,9 @@ describe('Constants', () => {
 
         it('has correct payment types', () => {
             expect(PAYMENT_TYPES).toContain('Carte Bancaire');
-            expect(PAYMENT_TYPES).toContain('Espèce');
+            expect(PAYMENT_TYPES).toContain('Espèces');
             expect(PAYMENT_TYPES).toContain('Chèque');
+            expect(PAYMENT_TYPES).toContain('Provision');
             expect(PAYMENT_TYPES).toContain('Ticket Restaurant');
             expect(PAYMENT_TYPES).toContain('Chèque Vacances');
             expect(PAYMENT_TYPES).toContain('Solana');

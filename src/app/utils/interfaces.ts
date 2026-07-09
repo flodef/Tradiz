@@ -50,6 +50,7 @@ export interface Customer {
     phone?: string;
     company?: string;
     quotaShare?: number;
+    balance?: number;
 }
 
 export interface Currency {
@@ -124,6 +125,7 @@ export type Product = DataElement & {
     discount: Discount;
     mercurial?: Mercurial;
     options?: string;
+    vatRate?: number;
 };
 
 export type Transaction = {

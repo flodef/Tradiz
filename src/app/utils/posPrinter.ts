@@ -185,8 +185,9 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
         let totalTTC = 0;
 
         receiptData.transaction.products.forEach((item) => {
-            const itemCategory = receiptData.inventory?.find((inv) => inv.category === item.category);
-            const rawRate = itemCategory?.rate ?? 20; // Default to 20% if not found
+            // Use item.vatRate if available, otherwise fall back to category rate, default to 20%
+            const rawRate =
+                item.vatRate ?? receiptData.inventory?.find((inv) => inv.category === item.category)?.rate ?? 20;
 
             // Normalize rate to decimal: values >= 1 are treated as percentages (e.g. 5.5 → 0.055, 20 → 0.20)
             const vatRate = rawRate >= 1 ? rawRate / 100 : rawRate;
@@ -263,6 +264,103 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
     } catch (error) {
         console.error('Failed to print receipt:', error);
         return { error: "Erreur lors de l'impression du reçu" };
+    }
+}
+
+/**
+ * Server action to print a balance statement
+ */
+export async function printBalanceStatement(
+    printerAddresses: string[],
+    balanceData: {
+        customer: { firstName: string; lastName: string; reference?: string };
+        balance: number;
+        history: Array<{
+            amount: number;
+            operation: 'credit' | 'debit';
+            previousBalance: number;
+            newBalance: number;
+            createdAt: string;
+        }>;
+        shop: Shop;
+        currency: Currency;
+    }
+): Promise<PrintResponse> {
+    try {
+        const { printer, error } = await initPrinter(printerAddresses);
+        if (!printer || error) return { error };
+
+        const currentDate = new Date();
+        const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
+        const currency = balanceData.currency;
+
+        // Print header
+        printer.alignCenter();
+        printer.setTextDoubleHeight();
+        printer.bold(true);
+        printer.invert(true);
+        printer.println('                   RELEVÉ DE SOLDE                   ');
+        printer.invert(false);
+        printer.newLine();
+        printShopInfo(printer, balanceData.shop);
+
+        // Print date
+        printer.println(`Date : ${frenchDateStr} ${frenchTimeStr}`);
+        printer.newLine();
+
+        // Print customer info
+        printer.alignLeft();
+        printer.println(`Client : ${balanceData.customer.firstName} ${balanceData.customer.lastName}`);
+        if (balanceData.customer.reference) {
+            printer.println(`Référence : ${balanceData.customer.reference}`);
+        }
+        printer.newLine();
+
+        // Print current balance
+        printer.drawLine();
+        printer.setTextDoubleHeight();
+        printer.bold(true);
+        printer.leftRight('SOLDE ACTUEL', toCurrency(balanceData.balance, currency));
+        printer.setTextNormal();
+        printer.bold(false);
+        printer.drawLine();
+        printer.newLine();
+
+        // Print transaction history
+        printer.alignCenter();
+        printer.println('HISTORIQUE DES OPÉRATIONS');
+        printer.newLine();
+        printer.alignLeft();
+
+        balanceData.history.forEach((entry) => {
+            const date = new Date(entry.createdAt);
+            const dateStr = date.toLocaleDateString('fr-FR');
+            const timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            const operationLabel = entry.operation === 'credit' ? 'CRÉDIT' : 'DÉBIT';
+            const sign = entry.operation === 'credit' ? '+' : '-';
+
+            printer.println(`${dateStr} ${timeStr} - ${operationLabel}`);
+            printer.leftRight(`  ${sign}${toCurrency(entry.amount, currency)}`, toCurrency(entry.newBalance, currency));
+            printer.newLine();
+        });
+
+        printer.drawLine();
+        printer.newLine();
+
+        // Print legal mention
+        printer.alignCenter();
+        printer.println('Document comptable');
+        printer.newLine();
+
+        // Cut
+        printer.cut();
+
+        // Execute print
+        await printer.execute();
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to print balance statement:', error);
+        return { error: "Erreur lors de l'impression du relevé de solde" };
     }
 }
 
