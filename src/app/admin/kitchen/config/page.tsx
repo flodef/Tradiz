@@ -267,6 +267,8 @@ export default function SettingsPage() {
                                     return {
                                         showWaiting: parsed.showWaiting ?? true,
                                         showRefund: parsed.showRefund ?? true,
+                                        showProvision: parsed.showProvision ?? true,
+                                        showDebit: parsed.showDebit ?? true,
                                     };
                                 }
                             }

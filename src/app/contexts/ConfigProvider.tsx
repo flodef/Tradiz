@@ -65,6 +65,8 @@ export interface SearchSettings {
 export interface DisplaySettings {
     showWaiting: boolean;
     showRefund: boolean;
+    showProvision: boolean;
+    showDebit: boolean;
 }
 
 export interface Parameters {

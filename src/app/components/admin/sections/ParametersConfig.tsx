@@ -114,6 +114,18 @@ export default function ParametersConfig({
         }
     };
 
+    const handleDisplayChange = (field: keyof DisplaySettings, checked: boolean) => {
+        handleChange('display', {
+            ...(config.display ?? {
+                showWaiting: true,
+                showRefund: true,
+                showProvision: true,
+                showDebit: true,
+            }),
+            [field]: checked,
+        } as DisplaySettings);
+    };
+
     return (
         <SectionCard
             title="Paramètres"
@@ -443,15 +455,7 @@ export default function ParametersConfig({
                     <div className="flex items-center gap-3">
                         <Switch
                             checked={config.display?.showWaiting ?? true}
-                            onChange={(checked) =>
-                                handleChange('display', {
-                                    ...(config.display ?? {
-                                        showWaiting: true,
-                                        showRefund: true,
-                                    }),
-                                    showWaiting: checked,
-                                } as DisplaySettings)
-                            }
+                            onChange={(checked) => handleDisplayChange('showWaiting', checked)}
                             isReadOnly={isReadOnly}
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Mettre en attente</span>
@@ -459,18 +463,26 @@ export default function ParametersConfig({
                     <div className="flex items-center gap-3">
                         <Switch
                             checked={config.display?.showRefund ?? true}
-                            onChange={(checked) =>
-                                handleChange('display', {
-                                    ...(config.display ?? {
-                                        showWaiting: true,
-                                        showRefund: true,
-                                    }),
-                                    showRefund: checked,
-                                } as DisplaySettings)
-                            }
+                            onChange={(checked) => handleDisplayChange('showRefund', checked)}
                             isReadOnly={isReadOnly}
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Remboursement</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.display?.showProvision ?? true}
+                            onChange={(checked) => handleDisplayChange('showProvision', checked)}
+                            isReadOnly={isReadOnly}
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Provision</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.display?.showDebit ?? true}
+                            onChange={(checked) => handleDisplayChange('showDebit', checked)}
+                            isReadOnly={isReadOnly}
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Débit</span>
                     </div>
                 </div>
             </div>

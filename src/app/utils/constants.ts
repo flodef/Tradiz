@@ -27,6 +27,8 @@ export const REFUND_KEYWORD = 'REMBOURSEMENT';
 export const UPDATING_KEYWORD = 'EN MODIF';
 export const PROCESSING_KEYWORD = 'EN COURS';
 export const DELETED_KEYWORD = 'EFFACÉE';
+export const PROVISION_KEYWORD = 'PROVISION';
+export const DEBIT_KEYWORD = 'DEBIT';
 
 // Internal payment methods that should not be displayed in admin UI
 export const INTERNAL_PAYMENT_METHODS = [
@@ -42,7 +44,6 @@ export const PAYMENT_TYPES = [
     'Carte Bancaire',
     'Espèces',
     'Chèque',
-    'Provision',
     'Ticket Restaurant',
     'Chèque Vacances',
     'Solana',

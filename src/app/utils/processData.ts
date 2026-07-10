@@ -11,7 +11,7 @@ import {
     Role,
     User,
 } from '../utils/interfaces';
-import { DEV_EMAIL } from './constants';
+import { DEBIT_KEYWORD, DEV_EMAIL, PROVISION_KEYWORD } from './constants';
 import './extensions';
 import { generateSimpleId } from './id';
 
@@ -190,6 +190,8 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
                         return {
                             showWaiting: parsed.showWaiting ?? true,
                             showRefund: parsed.showRefund ?? true,
+                            showProvision: parsed.showProvision ?? true,
+                            showDebit: parsed.showDebit ?? true,
                         };
                     }
                 }
@@ -251,6 +253,8 @@ export const defaultParameters: Parameters = {
     display: {
         showWaiting: true,
         showRefund: true,
+        showProvision: true,
+        showDebit: true,
     },
 };
 
@@ -497,7 +501,13 @@ async function convertPaymentMethodsData(response: void | Response): Promise<Pay
         const data: { paymentMethods?: PaymentMethod[]; error?: { message: string } } = await response.json();
         if (data.error?.message) throw new Error(data.error.message);
         if (!data.paymentMethods?.length) return defaultPaymentMethods;
-        return data.paymentMethods.map((item) => ({ ...item, type: normalizedString(item.type) }));
+        return data.paymentMethods
+            .map((item) => ({ ...item, type: normalizedString(item.type) }))
+            .filter(
+                (item) =>
+                    item.type.toLowerCase() !== PROVISION_KEYWORD.toLowerCase() &&
+                    item.type.toLowerCase() !== DEBIT_KEYWORD.toLowerCase()
+            );
     } catch (error) {
         console.error(error);
         return defaultPaymentMethods;

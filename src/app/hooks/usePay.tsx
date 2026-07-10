@@ -3,7 +3,18 @@ import { QRCode } from '../components/QRCode';
 import CustomerSearchPopup from '../components/CustomerSearchPopup';
 import { Shop } from '../contexts/ConfigProvider';
 import { isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
-import { IS_LOCAL, PRINT_KEYWORD, REFUND_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
+import {
+    ARROW,
+    BACK_KEYWORD,
+    CATEGORY_SEPARATOR,
+    DEBIT_KEYWORD,
+    IS_LOCAL,
+    PRINT_KEYWORD,
+    PROVISION_KEYWORD,
+    REFUND_KEYWORD,
+    SEPARATOR,
+    WAITING_KEYWORD,
+} from '../utils/constants';
 import { Currency, Customer, InventoryItem, SERVICE_TYPE_LABELS, ServiceType, Transaction } from '../utils/interfaces';
 import { CLOSE, postMessageToParent, REFRESH } from '../utils/message';
 import { printBalanceStatement, printReceipt } from '../utils/posPrinter';
@@ -276,7 +287,110 @@ export const usePay = () => {
 
     const selectPayment = useCallback(
         (option: string, fallback: () => void) => {
-            const paymentType = option.split(SEPARATOR)[0];
+            const updateCustomerBalance = (customerId: number, amount: number, operation: 'credit' | 'debit') => {
+                fetch('/api/sql/updateCustomerBalance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ customerId, amount, operation }),
+                }).catch((error) => console.error(`Failed to ${operation} customer balance:`, error));
+            };
+
+            const finalizeProvisionPayment = (customer: Customer, selectedOption: string) => {
+                const amount = getCurrentTotal();
+                const transaction: Transaction = {
+                    validator: parameters.user.name,
+                    method: selectedOption,
+                    amount,
+                    createdDate: new Date().getTime(),
+                    modifiedDate: new Date().getTime(),
+                    currency: currencies[currencyIndex].label,
+                    products: [],
+                };
+                updateTransaction(transaction);
+                if (customer.id) {
+                    updateCustomerBalance(customer.id, amount, 'credit');
+                }
+                closePopup();
+            };
+
+            const finalizeDebitPayment = (customer: Customer) => {
+                updateTransaction(DEBIT_KEYWORD);
+                if (customer.id) {
+                    updateCustomerBalance(customer.id, getCurrentTotal(), 'debit');
+                }
+                closePopup();
+            };
+
+            const openCustomerSearchPopup = (onCustomerSelected: (customer: Customer) => void) => {
+                openPopup(
+                    'Sélectionner un client',
+                    [
+                        <CustomerSearchPopup
+                            key="customerSearch"
+                            customers={customers}
+                            initialQuery=""
+                            onPrintBalance={handlePrintBalance}
+                            onSelectCustomer={(customer) => {
+                                setCurrentCustomer(customer);
+                                onCustomerSelected(customer);
+                            }}
+                            onCreateCustomer={async (customerName) => {
+                                const newCustomer: Customer = {
+                                    firstName: customerName.split(' ')[0] || customerName,
+                                    lastName: customerName.split(' ').slice(1).join(' ') || '',
+                                };
+                                try {
+                                    const response = await fetch('/api/sql/addCustomer', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(newCustomer),
+                                    });
+                                    const result = await response.json();
+                                    if (result.success) {
+                                        setCurrentCustomer(result.customer);
+                                        onCustomerSelected(result.customer);
+                                    } else {
+                                        openPopup('Erreur', [
+                                            'Échec de la création du client: ' + (result.error || 'Erreur inconnue'),
+                                        ]);
+                                    }
+                                } catch (error) {
+                                    console.error('Error creating customer:', error);
+                                    openPopup('Erreur', ['Erreur lors de la création du client']);
+                                }
+                            }}
+                            onSelectNoCustomer={() => closePopup()}
+                        />,
+                    ],
+                    () => closePopup()
+                );
+            };
+
+            const showProvisionSubOptions = (customer: Customer) => {
+                const subOptions = paymentMethods
+                    .filter(
+                        (m) =>
+                            m.currency === currencies[currencyIndex].label &&
+                            m.type.toLowerCase() !== DEBIT_KEYWORD.toLowerCase() &&
+                            m.type.toLowerCase() !== PROVISION_KEYWORD.toLowerCase()
+                    )
+                    .map((m) => m.type);
+                subOptions.push(BACK_KEYWORD);
+                if (subOptions.length === 1) {
+                    openPopup('Erreur', ['Aucune méthode de paiement disponible']);
+                    return;
+                }
+                openPopup('Mode de paiement PROVISION', subOptions, (index, selectedOption) => {
+                    if (index < 0) return;
+                    if (selectedOption === BACK_KEYWORD) {
+                        closePopup(() => fallback());
+                        return;
+                    }
+                    finalizeProvisionPayment(customer, selectedOption);
+                });
+            };
+
+            const paymentType = option.split(SEPARATOR)[0].split(ARROW)[0].split(CATEGORY_SEPARATOR)[0].trim();
 
             switch (paymentType) {
                 case Crypto.Solana:
@@ -293,112 +407,33 @@ export const usePay = () => {
                         }
                     );
                     break;
-                case 'Provision':
-                    // Handle Provision payment - require customer selection
-                    if (!currentCustomer) {
-                        // Show customer selection popup
-                        openPopup(
-                            'Sélectionner un client',
-                            [
-                                <CustomerSearchPopup
-                                    key="customerSearch"
-                                    customers={customers}
-                                    initialQuery=""
-                                    onPrintBalance={handlePrintBalance}
-                                    onSelectCustomer={(customer) => {
-                                        // Set the customer, then finalize the payment directly.
-                                        // We cannot recurse into selectPayment here because the
-                                        // updated currentCustomer state isn't visible in this closure yet.
-                                        setCurrentCustomer(customer);
-                                        updateTransaction(option);
-                                        if (customer.id) {
-                                            const amount = getCurrentTotal();
-                                            fetch('/api/sql/updateCustomerBalance', {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({
-                                                    customerId: customer.id,
-                                                    amount,
-                                                    operation: 'debit',
-                                                }),
-                                            }).catch((error) => console.error('Failed to debit provision:', error));
-                                        }
-                                        closePopup();
-                                    }}
-                                    onCreateCustomer={async (customerName) => {
-                                        // Create a new customer and select it
-                                        const newCustomer: Customer = {
-                                            firstName: customerName.split(' ')[0] || customerName,
-                                            lastName: customerName.split(' ').slice(1).join(' ') || '',
-                                        };
+                case PROVISION_KEYWORD: {
+                    const subOption = option.includes(CATEGORY_SEPARATOR)
+                        ? option.split(CATEGORY_SEPARATOR).slice(1).join(CATEGORY_SEPARATOR).trim()
+                        : undefined;
 
-                                        try {
-                                            const response = await fetch('/api/sql/addCustomer', {
-                                                method: 'POST',
-                                                headers: {
-                                                    'Content-Type': 'application/json',
-                                                },
-                                                body: JSON.stringify(newCustomer),
-                                            });
-
-                                            const result = await response.json();
-
-                                            if (result.success) {
-                                                setCurrentCustomer(result.customer);
-                                                updateTransaction(option);
-                                                if (result.customer?.id) {
-                                                    const amount = getCurrentTotal();
-                                                    fetch('/api/sql/updateCustomerBalance', {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({
-                                                            customerId: result.customer.id,
-                                                            amount,
-                                                            operation: 'debit',
-                                                        }),
-                                                    }).catch((error) =>
-                                                        console.error('Failed to debit provision:', error)
-                                                    );
-                                                }
-                                                closePopup();
-                                            } else {
-                                                openPopup('Erreur', [
-                                                    'Échec de la création du client: ' +
-                                                        (result.error || 'Erreur inconnue'),
-                                                ]);
-                                            }
-                                        } catch (error) {
-                                            console.error('Error creating customer:', error);
-                                            openPopup('Erreur', ['Erreur lors de la création du client']);
-                                        }
-                                    }}
-                                    onSelectNoCustomer={() => {
-                                        closePopup();
-                                    }}
-                                />,
-                            ],
-                            () => {
-                                // Close popup on cancel
-                                closePopup();
-                            }
-                        );
+                    if (subOption) {
+                        if (!currentCustomer) {
+                            openCustomerSearchPopup((customer) => finalizeProvisionPayment(customer, option));
+                            return;
+                        }
+                        finalizeProvisionPayment(currentCustomer, option);
                         return;
                     }
-                    // If customer is selected, proceed with normal payment and debit their provision
-                    updateTransaction(option);
-                    if (currentCustomer.id) {
-                        const amount = getCurrentTotal();
-                        fetch('/api/sql/updateCustomerBalance', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                customerId: currentCustomer.id,
-                                amount,
-                                operation: 'debit',
-                            }),
-                        }).catch((error) => console.error('Failed to debit provision:', error));
+
+                    if (!currentCustomer) {
+                        openCustomerSearchPopup((customer) => showProvisionSubOptions(customer));
+                        return;
                     }
-                    closePopup();
+                    showProvisionSubOptions(currentCustomer);
+                    break;
+                }
+                case DEBIT_KEYWORD:
+                    if (!currentCustomer) {
+                        openCustomerSearchPopup((customer) => finalizeDebitPayment(customer));
+                        return;
+                    }
+                    finalizeDebitPayment(currentCustomer);
                     break;
                 case PRINT_KEYWORD:
                     updateTransaction(WAITING_KEYWORD);
@@ -638,10 +673,14 @@ export const usePay = () => {
                     allOptions.push('PAIEMENT PARTIEL');
                 }
 
-                // Add waiting and refund options based on display settings (default to true if not set)
+                // Add waiting, refund, provision, and debit options based on display settings (default to true if not set)
                 if (parameters.display?.showWaiting !== false) allOptions.push('METTRE ' + WAITING_KEYWORD);
 
                 if (parameters.display?.showRefund !== false) allOptions.push(REFUND_KEYWORD);
+
+                if (parameters.display?.showProvision !== false) allOptions.push(PROVISION_KEYWORD + ARROW);
+
+                if (parameters.display?.showDebit !== false) allOptions.push(DEBIT_KEYWORD);
 
                 if (paymentMethodsLabels.length === 1) {
                     if (paymentSelectionLockedRef.current) return;
@@ -700,6 +739,8 @@ export const usePay = () => {
         showPartialPaymentSelector,
         parameters.display?.showWaiting,
         parameters.display?.showRefund,
+        parameters.display?.showProvision,
+        parameters.display?.showDebit,
         setShowPartialPaymentSelector,
         partialPaymentAmount,
         modeFonctionnement,

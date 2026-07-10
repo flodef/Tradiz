@@ -11,6 +11,8 @@ import {
     DELETED_KEYWORD,
     INTERNAL_PAYMENT_METHODS,
     PAYMENT_TYPES,
+    PROVISION_KEYWORD,
+    DEBIT_KEYWORD,
     DC,
     DC_POS,
     TRANSACTION_TIME_OUT,
@@ -52,12 +54,23 @@ describe('Constants', () => {
             expect(PAYMENT_TYPES).toContain('Carte Bancaire');
             expect(PAYMENT_TYPES).toContain('Espèces');
             expect(PAYMENT_TYPES).toContain('Chèque');
-            expect(PAYMENT_TYPES).toContain('Provision');
             expect(PAYMENT_TYPES).toContain('Ticket Restaurant');
             expect(PAYMENT_TYPES).toContain('Chèque Vacances');
             expect(PAYMENT_TYPES).toContain('Solana');
             expect(PAYMENT_TYPES).toContain('Ğ1 June');
             expect(PAYMENT_TYPES).toContain('Virement');
+        });
+
+        it('does not include Provision or Debit as payment types', () => {
+            expect(PAYMENT_TYPES).not.toContain(PROVISION_KEYWORD);
+            expect(PAYMENT_TYPES).not.toContain(DEBIT_KEYWORD);
+            expect(PAYMENT_TYPES).not.toContain('Provision');
+            expect(PAYMENT_TYPES).not.toContain('Debit');
+        });
+
+        it('has correct special payment option keywords', () => {
+            expect(PROVISION_KEYWORD).toBe('PROVISION');
+            expect(DEBIT_KEYWORD).toBe('DEBIT');
         });
 
         it('payment types array is not empty', () => {
