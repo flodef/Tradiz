@@ -15,23 +15,46 @@ export async function POST(request: Request) {
 
         const connection = await getPosDb();
 
-        // Get current balance
-        const getQuery = connection.isPostgreSQL
-            ? 'SELECT balance FROM dc_pos.customers WHERE id = $1'
-            : 'SELECT balance FROM customers WHERE id = ?';
+        const delta = operation === 'credit' ? amount : -amount;
 
-        const [rows] = await connection.execute(getQuery, [customerId]);
-        const currentBalance = (rows as { balance: number }[])[0]?.balance || 0;
+        // Atomically update the balance and return both the previous and new values.
+        // Using SQL arithmetic (balance = balance + delta) avoids the read-modify-write
+        // race condition where concurrent updates could overwrite each other.
+        const customerTable = connection.isPostgreSQL ? 'dc_pos.customers' : 'customers';
 
-        // Calculate new balance
-        const newBalance = operation === 'credit' ? currentBalance + amount : currentBalance - amount;
+        let previousBalance: number;
+        let newBalance: number;
 
-        // Update balance
-        const updateQuery = connection.isPostgreSQL
-            ? 'UPDATE dc_pos.customers SET balance = $1 WHERE id = $2'
-            : 'UPDATE customers SET balance = ? WHERE id = ?';
-
-        await connection.execute(updateQuery, [newBalance, customerId]);
+        if (connection.isPostgreSQL) {
+            const [rows] = await connection.execute(
+                `UPDATE ${customerTable}
+                 SET balance = balance + $1
+                 WHERE id = $2
+                 RETURNING balance - $1 AS previous_balance, balance AS new_balance`,
+                [delta, customerId]
+            );
+            const result = (rows as { previous_balance: number; new_balance: number }[])[0];
+            if (!result) {
+                await connection.end();
+                return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+            }
+            previousBalance = Number(result.previous_balance);
+            newBalance = Number(result.new_balance);
+        } else {
+            // MariaDB/MySQL: no RETURNING, so update then read back within the same connection
+            await connection.execute(`UPDATE ${customerTable} SET balance = balance + ? WHERE id = ?`, [
+                delta,
+                customerId,
+            ]);
+            const [rows] = await connection.execute(`SELECT balance FROM ${customerTable} WHERE id = ?`, [customerId]);
+            const row = (rows as { balance: number }[])[0];
+            if (!row) {
+                await connection.end();
+                return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+            }
+            newBalance = Number(row.balance);
+            previousBalance = newBalance - delta;
+        }
 
         // Record balance change in transaction history
         const historyQuery = connection.isPostgreSQL
@@ -40,7 +63,7 @@ export async function POST(request: Request) {
             : `INSERT INTO balance_history (customer_id, amount, operation, previous_balance, new_balance, created_at)
                VALUES (?, ?, ?, ?, ?, NOW())`;
 
-        await connection.execute(historyQuery, [customerId, amount, operation, currentBalance, newBalance]);
+        await connection.execute(historyQuery, [customerId, amount, operation, previousBalance, newBalance]);
 
         await connection.end();
 

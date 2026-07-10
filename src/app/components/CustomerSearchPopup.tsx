@@ -47,29 +47,32 @@ const CustomerSearchPopup: FC<CustomerSearchPopupProps> = ({
             <div className="max-h-60 overflow-y-auto">
                 {filteredCustomers.length > 0 ? (
                     filteredCustomers.map((customer: Customer) => (
-                        <div
+                        <button
+                            type="button"
                             key={customer.id || customer.reference || `${customer.firstName}-${customer.lastName}`}
                             onClick={() => onSelectCustomer(customer)}
                             className="w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer"
                         >
                             {customer.firstName} {customer.lastName}
                             {customer.reference && <span className="text-gray-500 ml-2">({customer.reference})</span>}
-                        </div>
+                        </button>
                     ))
                 ) : (
-                    <div
+                    <button
+                        type="button"
                         onClick={() => onCreateCustomer(query)}
                         className="w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-green-600 dark:text-green-400 cursor-pointer"
                     >
-                        + Créer "{query}"
-                    </div>
+                        + Créer &quot;{query}&quot;
+                    </button>
                 )}
-                <div
+                <button
+                    type="button"
                     onClick={() => onSelectNoCustomer()}
                     className="w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded mt-2 border-t border-gray-200 dark:border-gray-700 cursor-pointer"
                 >
                     Aucun client
-                </div>
+                </button>
             </div>
         </div>
     );

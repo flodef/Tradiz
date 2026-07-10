@@ -22,12 +22,26 @@ export async function POST(request: Request) {
         }
 
         const connection = await getPosDb();
+        const table = connection.isPostgreSQL ? 'dc_pos.customers' : 'customers';
 
-        // Delete all existing customers
-        const deleteQuery = connection.isPostgreSQL ? 'DELETE FROM dc_pos.customers' : 'DELETE FROM customers';
-        await connection.execute(deleteQuery);
+        // Delete only customers that are no longer present in the incoming list.
+        // This preserves existing IDs and their linked balance_history (avoids the
+        // ON DELETE CASCADE wiping all balance records on every save).
+        const keptIds = customers.map((c) => c.id).filter((id): id is number => typeof id === 'number');
+        if (keptIds.length > 0) {
+            if (connection.isPostgreSQL) {
+                const placeholders = keptIds.map((_, i) => `$${i + 1}`).join(', ');
+                await connection.execute(`DELETE FROM ${table} WHERE id NOT IN (${placeholders})`, keptIds);
+            } else {
+                const placeholders = keptIds.map(() => '?').join(', ');
+                await connection.execute(`DELETE FROM ${table} WHERE id NOT IN (${placeholders})`, keptIds);
+            }
+        } else {
+            // No existing customers kept - remove all
+            await connection.execute(`DELETE FROM ${table}`);
+        }
 
-        // Insert new customers
+        // Upsert customers
         for (const customer of customers) {
             const firstName = customer.firstName;
             const lastName = customer.lastName;
@@ -40,20 +54,40 @@ export async function POST(request: Request) {
             if (typeof company === 'object' && company !== null) {
                 company = (company as { name: string }).name || null;
             }
-            const balance = customer.balance || 0;
 
-            if (connection.isPostgreSQL) {
-                const insertQuery = `
-                    INSERT INTO dc_pos.customers (first_name, last_name, reference, email, phone, company, balance)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                `;
-                await connection.execute(insertQuery, [firstName, lastName, reference, email, phone, company, balance]);
+            if (typeof customer.id === 'number') {
+                // Update existing customer - never touch balance (managed separately)
+                if (connection.isPostgreSQL) {
+                    await connection.execute(
+                        `UPDATE ${table}
+                         SET first_name = $1, last_name = $2, reference = $3, email = $4, phone = $5, company = $6
+                         WHERE id = $7`,
+                        [firstName, lastName, reference, email, phone, company, customer.id]
+                    );
+                } else {
+                    await connection.execute(
+                        `UPDATE ${table}
+                         SET first_name = ?, last_name = ?, reference = ?, email = ?, phone = ?, company = ?
+                         WHERE id = ?`,
+                        [firstName, lastName, reference, email, phone, company, customer.id]
+                    );
+                }
             } else {
-                const insertQuery = `
-                    INSERT INTO customers (first_name, last_name, reference, email, phone, company, balance)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                `;
-                await connection.execute(insertQuery, [firstName, lastName, reference, email, phone, company, balance]);
+                // Insert new customer
+                const balance = customer.balance || 0;
+                if (connection.isPostgreSQL) {
+                    await connection.execute(
+                        `INSERT INTO ${table} (first_name, last_name, reference, email, phone, company, balance)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                        [firstName, lastName, reference, email, phone, company, balance]
+                    );
+                } else {
+                    await connection.execute(
+                        `INSERT INTO ${table} (first_name, last_name, reference, email, phone, company, balance)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                        [firstName, lastName, reference, email, phone, company, balance]
+                    );
+                }
             }
         }
 

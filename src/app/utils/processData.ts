@@ -45,6 +45,10 @@ export class DatabaseNotConfiguredError extends Error {
     name = 'DatabaseNotConfiguredError';
     message = 'Database not configured';
 }
+export class TooManyRequestsError extends Error {
+    name = 'TooManyRequestsError';
+    message = 'Too many requests. Please try again later.';
+}
 export class UserNotFoundError extends Error {
     name = 'UserNotFoundError';
     message = 'Utilisateur non identifié';
@@ -89,11 +93,11 @@ export async function resolveUserFromKey(
             return { user, foundUser, noUsers };
         } else if (resolveResponse.status === 429) {
             // Too many requests - throw specific error
-            throw new Error('Too many requests. Please try again later.');
+            throw new TooManyRequestsError();
         }
     } catch (error) {
-        // Network error or other error - rethrow if it's our custom error
-        if (error instanceof Error && error.message === 'Too many requests. Please try again later.') {
+        // Rethrow our rate-limit error so callers can handle it; swallow network errors
+        if (error instanceof TooManyRequestsError) {
             throw error;
         }
         // Network error - return null

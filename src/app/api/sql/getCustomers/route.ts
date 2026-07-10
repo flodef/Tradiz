@@ -12,6 +12,12 @@ interface CustomerRow {
     quota_share: number | null;
 }
 
+// Detects "relation/table does not exist" errors across Postgres (42P01) and MySQL/MariaDB (1146)
+function isMissingTableError(error: unknown): boolean {
+    const e = error as { code?: string; errno?: number };
+    return e?.code === '42P01' || e?.code === 'ER_NO_SUCH_TABLE' || e?.errno === 1146;
+}
+
 export async function GET() {
     try {
         const connection = await getPosDb();
@@ -30,8 +36,10 @@ export async function GET() {
         let result;
         try {
             result = await connection.execute(query);
-        } catch {
-            // If companies table doesn't exist, fall back to query without join
+        } catch (joinError) {
+            // Only fall back to a join-less query if the companies table is missing;
+            // rethrow any other error so genuine failures aren't masked.
+            if (!isMissingTableError(joinError)) throw joinError;
             console.warn('Companies table does not exist, using fallback query');
             query = connection.isPostgreSQL
                 ? `SELECT c.id, c.first_name, c.last_name, c.reference, c.email, c.phone, c.company, NULL as quota_share

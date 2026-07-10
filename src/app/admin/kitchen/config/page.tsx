@@ -164,13 +164,7 @@ export default function SettingsPage() {
         })
             .then((r) => r.json())
             .then(({ user }) => {
-                console.log('Admin check - resolved user:', user);
-                if (user.role.toLowerCase() === 'admin') {
-                    setIsAdmin(true);
-                } else {
-                    console.warn('User is not admin:', user.role);
-                    setIsAdmin(false);
-                }
+                setIsAdmin(user?.role?.toLowerCase() === 'admin');
             })
             .catch((error) => {
                 console.error('Failed to resolve user for admin check:', error);

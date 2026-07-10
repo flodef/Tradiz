@@ -258,9 +258,12 @@ export const usePay = () => {
                                     customers={customers}
                                     initialQuery=""
                                     onSelectCustomer={(customer) => {
+                                        // Set the customer, then finalize the payment directly.
+                                        // We cannot recurse into selectPayment here because the
+                                        // updated currentCustomer state isn't visible in this closure yet.
                                         setCurrentCustomer(customer);
+                                        updateTransaction(option);
                                         closePopup();
-                                        selectPayment(option, fallback);
                                     }}
                                     onCreateCustomer={async (customerName) => {
                                         // Create a new customer and select it
@@ -282,8 +285,8 @@ export const usePay = () => {
 
                                             if (result.success) {
                                                 setCurrentCustomer(result.customer);
+                                                updateTransaction(option);
                                                 closePopup();
-                                                selectPayment(option, fallback);
                                             } else {
                                                 openPopup('Erreur', [
                                                     'Échec de la création du client: ' +
