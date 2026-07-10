@@ -45,11 +45,12 @@ export async function GET() {
         const [rows] = await connection.execute(query);
         await connection.end();
 
-        const data: { values: string[][] } = { values: [] };
-        data.values.push(['Nom', 'Adresse IP']);
-        data.values.push(...(rows as PrinterRow[]).map((row): string[] => [String(row.name), String(row.ip_address)]));
+        const printers = (rows as PrinterRow[]).map((row) => ({
+            label: String(row.name),
+            ipAddress: String(row.ip_address),
+        }));
 
-        return NextResponse.json(data, { status: 200 });
+        return NextResponse.json({ printers }, { status: 200 });
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching data' }, { status: 500 });

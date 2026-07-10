@@ -21,13 +21,14 @@ export async function GET() {
 
         await connection.end();
 
-        // Format as values array with header row
-        const values = [
-            ['key', 'name', 'role', 'reference'],
-            ...rows.map((row: UserRow) => [row.key, row.name, row.role, row.reference]),
-        ];
+        const users = rows.map((row) => ({
+            key: String(row.key),
+            name: String(row.name),
+            role: String(row.role),
+            reference: row.reference ? String(row.reference) : undefined,
+        }));
 
-        return NextResponse.json({ values });
+        return NextResponse.json({ users });
     } catch (error) {
         console.error('Error fetching users:', error);
         return NextResponse.json({ error: 'An error occurred while fetching users' }, { status: 500 });

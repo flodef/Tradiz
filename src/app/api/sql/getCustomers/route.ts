@@ -55,22 +55,18 @@ export async function GET() {
 
         await connection.end();
 
-        // Format as values array with header row
-        const values = [
-            ['id', 'first_name', 'last_name', 'reference', 'email', 'phone', 'company', 'quotaShare'],
-            ...rows.map((row: CustomerRow) => [
-                row.id,
-                row.first_name,
-                row.last_name,
-                row.reference,
-                row.email,
-                row.phone,
-                row.company,
-                row.quota_share,
-            ]),
-        ];
+        const customers = rows.map((row) => ({
+            id: row.id,
+            firstName: String(row.first_name),
+            lastName: String(row.last_name),
+            reference: row.reference ?? undefined,
+            email: row.email ?? undefined,
+            phone: row.phone ?? undefined,
+            company: row.company ?? undefined,
+            quotaShare: row.quota_share ?? undefined,
+        }));
 
-        return NextResponse.json({ values });
+        return NextResponse.json({ customers });
     } catch (error) {
         console.error('Error fetching customers:', error);
         return NextResponse.json({ error: 'An error occurred while fetching customers' }, { status: 500 });

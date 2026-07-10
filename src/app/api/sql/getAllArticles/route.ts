@@ -51,29 +51,22 @@ export async function GET() {
         // Combine all rows
         const allRows = [...(productsRows as ArticleRow[]), ...(formulasRows as ArticleRow[])];
 
-        const data: { values: (number | string | boolean | null)[][]; options: (string | null)[] } = {
-            values: [],
-            options: [],
-        };
-        data.values.push(['Taux', 'Catégorie', 'Nom', 'Stock', 'Reference', 'Photo', 'Description', 'Euro (€)']);
-        data.values.push(
-            ...allRows.map((row): (number | string | boolean | null)[] => {
-                // Ensure we always have exactly 8 columns, even if some data is missing
-                return [
-                    row.rate !== null ? Number(row.rate) / 100 : null,
-                    String(row.category),
-                    String(row.label),
-                    row.stock !== null ? Number(row.stock) : null,
-                    String(row.reference),
-                    String(row.photo),
-                    String(row.description),
-                    Number(Number(row.amount).toFixed(2)),
-                ];
-            })
-        );
-        data.options = allRows.map((row) => row.options || null);
+        // Currency columns follow the fixed product fields. Only Euro is supported for now.
+        const currencies = ['Euro (€)'];
 
-        return NextResponse.json(data, { status: 200 });
+        const products = allRows.map((row) => ({
+            rate: row.rate !== null ? Number(row.rate) / 100 : null,
+            category: String(row.category),
+            label: String(row.label),
+            stock: row.stock !== null ? Number(row.stock) : null,
+            reference: String(row.reference),
+            photo: String(row.photo),
+            description: String(row.description),
+            prices: [Number(Number(row.amount).toFixed(2))],
+            options: row.options || null,
+        }));
+
+        return NextResponse.json({ products, currencies }, { status: 200 });
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching data' }, { status: 500 });

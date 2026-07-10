@@ -20,18 +20,14 @@ export async function GET() {
         const [rows] = await connection.execute(query);
         await connection.end();
 
-        const data: { values: (string | number | boolean)[][] } = { values: [] };
-        data.values.push(['Type', 'ID', 'Monnaie', 'Masqué']);
-        data.values.push(
-            ...(rows as PaymentMethodRow[]).map((row): (string | number | boolean)[] => [
-                String(row.label),
-                String(row.address),
-                String(row.currency),
-                Number(row.hidden ?? 0) === 1,
-            ])
-        );
+        const paymentMethods = (rows as PaymentMethodRow[]).map((row) => ({
+            type: String(row.label),
+            id: String(row.address),
+            currency: String(row.currency),
+            availability: Number(row.hidden ?? 0) !== 1,
+        }));
 
-        return NextResponse.json(data, { status: 200 });
+        return NextResponse.json({ paymentMethods }, { status: 200 });
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching data' }, { status: 500 });

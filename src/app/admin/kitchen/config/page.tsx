@@ -41,16 +41,6 @@ import {
     IconBuilding,
 } from '@tabler/icons-react';
 
-// Type for currency row from DB
-interface CurrencyRow {
-    0: string; // label
-    1: number; // maxValue
-    2: string; // symbol
-    3: number; // decimals
-    4?: number; // rate
-    5?: number; // fee
-}
-
 export default function SettingsPage() {
     const isMobile = useIsMobile();
     const {
@@ -189,9 +179,9 @@ export default function SettingsPage() {
             const response = await fetch('/api/sql/getParameters');
             const data = await response.json();
 
-            if (data.values && data.values.length > 0) {
+            if (data.parameters && data.parameters.length > 0) {
                 const paramMap = new Map<string, string>();
-                data.values.forEach(([key, value]: [string, string]) => {
+                data.parameters.forEach(({ key, value }: { key: string; value: string }) => {
                     paramMap.set(key, value);
                 });
 
@@ -295,11 +285,8 @@ export default function SettingsPage() {
             try {
                 const discountsResponse = await fetch('/api/sql/getDiscounts');
                 const discountsData = await discountsResponse.json();
-                if (discountsData.values && discountsData.values.length > 1) {
-                    const loaded: Discount[] = discountsData.values.slice(1).map((row: (string | number)[]) => ({
-                        amount: Number(row[0]),
-                        unit: String(row[1]).trim(),
-                    }));
+                if (discountsData.discounts && discountsData.discounts.length > 0) {
+                    const loaded: Discount[] = discountsData.discounts;
                     setDiscounts(loaded);
                     setOriginalDiscounts(loaded);
                 }
@@ -311,15 +298,8 @@ export default function SettingsPage() {
             try {
                 const currenciesResponse = await fetch('/api/sql/getCurrencies');
                 const currenciesData = await currenciesResponse.json();
-                if (currenciesData.values && currenciesData.values.length > 1) {
-                    const loaded: Currency[] = currenciesData.values.slice(1).map((row: CurrencyRow) => ({
-                        label: String(row[0]),
-                        maxValue: Number(row[1]),
-                        symbol: String(row[2]),
-                        decimals: Number(row[3]),
-                        rate: Number(row[4] ?? 1),
-                        fee: Number(row[5] ?? 0),
-                    }));
+                if (currenciesData.currencies && currenciesData.currencies.length > 0) {
+                    const loaded: Currency[] = currenciesData.currencies;
                     setCurrenciesConfig(loaded);
                     setOriginalCurrencies(loaded);
                 }
@@ -331,19 +311,10 @@ export default function SettingsPage() {
             try {
                 const paymentsResponse = await fetch('/api/sql/getPaymentMethods');
                 const paymentsData = await paymentsResponse.json();
-                if (paymentsData.values && paymentsData.values.length > 1) {
-                    const loaded: PaymentMethod[] = paymentsData.values
-                        .slice(1)
-                        .filter((row: unknown[]) => {
-                            const type = String(row[0]);
-                            return !INTERNAL_PAYMENT_METHODS.includes(type);
-                        })
-                        .map((row: unknown[]) => ({
-                            type: String(row[0]),
-                            id: String(row[1]),
-                            currency: String(row[2]),
-                            availability: Boolean(row[3]),
-                        }));
+                if (paymentsData.paymentMethods && paymentsData.paymentMethods.length > 0) {
+                    const loaded: PaymentMethod[] = paymentsData.paymentMethods.filter(
+                        (p: PaymentMethod) => !INTERNAL_PAYMENT_METHODS.includes(p.type)
+                    );
                     setPaymentsConfig(loaded);
                     setOriginalPayments(loaded);
                 }
@@ -359,12 +330,8 @@ export default function SettingsPage() {
             try {
                 const colorsResponse = await fetch('/api/sql/getColors');
                 const colorsData = await colorsResponse.json();
-                if (colorsData.values && colorsData.values.length > 1) {
-                    const loaded: Color[] = colorsData.values.slice(1).map((row: string[]) => ({
-                        label: String(row[0]),
-                        light: String(row[1]),
-                        dark: String(row[2]),
-                    }));
+                if (colorsData.colors && colorsData.colors.length > 0) {
+                    const loaded: Color[] = colorsData.colors;
                     setColorsConfig(loaded);
                     setOriginalColors(loaded);
                     if (colorsData.themeName) {
@@ -383,13 +350,8 @@ export default function SettingsPage() {
             try {
                 const usersResponse = await fetch('/api/sql/getUsers');
                 const usersData = await usersResponse.json();
-                if (usersData.values && usersData.values.length > 1) {
-                    const loaded: User[] = usersData.values.slice(1).map((row: string[]) => ({
-                        key: String(row[0]),
-                        name: String(row[1]),
-                        role: String(row[2]) as Role,
-                        reference: row[3] ? String(row[3]) : undefined,
-                    }));
+                if (usersData.users && usersData.users.length > 0) {
+                    const loaded: User[] = usersData.users.map((u: User) => ({ ...u, role: u.role as Role }));
                     setUsersConfig(loaded);
                     setOriginalUsers(loaded);
                 }
@@ -403,25 +365,8 @@ export default function SettingsPage() {
             try {
                 const customersResponse = await fetch('/api/sql/getCustomers');
                 const customersData = await customersResponse.json();
-                if (customersData.values && customersData.values.length > 1) {
-                    const loaded: Customer[] = customersData.values.slice(1).map((row: string[]) => {
-                        const company = row[6];
-                        // Ensure company is a string, not an object
-                        const companyValue =
-                            typeof company === 'object' && company !== null
-                                ? (company as { name: string }).name
-                                : String(company || '');
-                        return {
-                            id: row[0] ? Number(row[0]) : undefined,
-                            firstName: String(row[1]),
-                            lastName: String(row[2]),
-                            reference: row[3] ? String(row[3]) : undefined,
-                            email: row[4] ? String(row[4]) : undefined,
-                            phone: row[5] ? String(row[5]) : undefined,
-                            company: companyValue || undefined,
-                            quotaShare: row[7] ? Number(row[7]) : undefined,
-                        };
-                    });
+                if (customersData.customers && customersData.customers.length > 0) {
+                    const loaded: Customer[] = customersData.customers;
                     setCustomersConfig(loaded);
                     setOriginalCustomers(loaded);
                 }
@@ -436,12 +381,8 @@ export default function SettingsPage() {
             try {
                 const companiesResponse = await fetch('/api/sql/getCompanies');
                 const companiesData = await companiesResponse.json();
-                if (companiesData.values && companiesData.values.length > 1) {
-                    const loaded: Company[] = companiesData.values.slice(1).map((row: string[]) => ({
-                        id: row[0] ? Number(row[0]) : undefined,
-                        name: String(row[1]),
-                        quotaShare: Number(row[2]),
-                    }));
+                if (companiesData.companies && companiesData.companies.length > 0) {
+                    const loaded: Company[] = companiesData.companies;
                     setCompaniesConfig(loaded);
                     setOriginalCompanies(loaded);
                 }

@@ -26,18 +26,18 @@ export async function GET() {
 
         await connection.end();
 
-        // Format as values array with header row
-        const values = [
-            ['id', 'name', 'quotaShare'],
-            ...rows.map((row: CompanyRow) => [row.id, row.name, row.quota_share]),
-        ];
+        const companies = rows.map((row) => ({
+            id: row.id,
+            name: String(row.name),
+            quotaShare: Number(row.quota_share),
+        }));
 
-        return NextResponse.json({ values });
+        return NextResponse.json({ companies });
     } catch (error) {
         // If companies table doesn't exist, return empty result instead of error
         if (isMissingTableError(error)) {
             console.warn('Companies table does not exist, returning empty result');
-            return NextResponse.json({ values: [['id', 'name', 'quotaShare']] });
+            return NextResponse.json({ companies: [] });
         }
         console.error('Error fetching companies:', error);
         return NextResponse.json({ error: 'An error occurred while fetching companies' }, { status: 500 });
