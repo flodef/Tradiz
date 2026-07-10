@@ -10,6 +10,7 @@ interface TransactionProduct {
     discount_amount?: number;
     discount_unit?: string;
     total: number;
+    vat_rate?: number;
 }
 
 interface TransactionData {
@@ -158,12 +159,12 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
         for (const product of transaction.products) {
             const insertItemQuery = connection.isPostgreSQL
                 ? `
-                INSERT INTO transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                INSERT INTO transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             `
                 : `
-                INSERT INTO transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
             await connection.execute(insertItemQuery, [
@@ -175,6 +176,7 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
                 product.discount_amount || 0,
                 product.discount_unit || '',
                 product.total,
+                product.vat_rate ?? 20,
             ]);
         }
     }
@@ -269,12 +271,12 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
         for (const product of transaction.products) {
             const insertQuery = connection.isPostgreSQL
                 ? `
-                INSERT INTO transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                INSERT INTO transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             `
                 : `
-                INSERT INTO transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
             await connection.execute(insertQuery, [
                 transactionId,
@@ -285,6 +287,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
                 product.discount_amount || 0,
                 product.discount_unit || '',
                 product.total,
+                product.vat_rate ?? 20,
             ]);
         }
     }

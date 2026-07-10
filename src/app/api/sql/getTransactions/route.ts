@@ -28,6 +28,7 @@ interface ProductRow {
     discount_amount: number;
     discount_unit: string;
     total: number;
+    vat_rate: number;
 }
 
 export async function GET(request: Request) {
@@ -119,7 +120,7 @@ export async function GET(request: Request) {
         const itemsByTx = new Map<number, ProductRow[]>();
         if (ids.length) {
             const placeholders = ids.map((_, i) => (isPg ? `$${i + 1}` : '?')).join(', ');
-            const itemsQuery = `SELECT transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total
+            const itemsQuery = `SELECT transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate
                  FROM transaction_items
                  WHERE transaction_id IN (${placeholders})`;
             const [itemRows] = await connection.execute(itemsQuery, ids);
@@ -146,6 +147,7 @@ export async function GET(request: Request) {
                     unit: p.discount_unit || '%',
                 },
                 total: Number(p.total),
+                vatRate: Number(p.vat_rate) || 20,
             }));
 
             const createdDate = Number(row.createddate ?? row.createdDate);

@@ -768,6 +768,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                                 discount_amount: product.discount.amount,
                                 discount_unit: product.discount.unit,
                                 total: product.total || 0,
+                                vat_rate: product.vatRate,
                             })),
                         },
                     };

@@ -327,6 +327,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.transaction_items (
     discount_amount NUMERIC(10,2) DEFAULT 0,
     discount_unit VARCHAR(10) DEFAULT '%',
     total NUMERIC(10,2) NOT NULL DEFAULT 0,
+    vat_rate NUMERIC(5,2) NOT NULL DEFAULT 20.00,
     FOREIGN KEY (transaction_id) REFERENCES dc_pos.transactions(id) ON DELETE CASCADE
 );
 

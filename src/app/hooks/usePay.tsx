@@ -6,7 +6,7 @@ import { isWaitingTransaction } from '../contexts/dataProvider/transactionHelper
 import { IS_LOCAL, PRINT_KEYWORD, REFUND_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
 import { Currency, Customer, InventoryItem, SERVICE_TYPE_LABELS, ServiceType, Transaction } from '../utils/interfaces';
 import { CLOSE, postMessageToParent, REFRESH } from '../utils/message';
-import { printReceipt } from '../utils/posPrinter';
+import { printBalanceStatement, printReceipt } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
 import { useData } from './useData';
@@ -141,6 +141,53 @@ export const usePay = () => {
         [closePopup, openPopup, printTransactionReceipt]
     );
 
+    const handlePrintBalance = useCallback(
+        async (customer: Customer) => {
+            if (!customer.id) return;
+            try {
+                const response = await fetch(`/api/sql/getCustomerBalance?customerId=${customer.id}`);
+                if (!response.ok) throw new Error('Failed to fetch balance');
+                const { balance, history } = (await response.json()) as {
+                    balance: number;
+                    history: Array<{
+                        amount: number;
+                        operation: 'credit' | 'debit';
+                        previous_balance: number;
+                        new_balance: number;
+                        created_at: string;
+                    }>;
+                };
+                const printerAddresses = getPrinterAddresses();
+                if (!printerAddresses.length) {
+                    openPopup('Erreur', ['Aucune imprimante configurée']);
+                    return;
+                }
+                const result = await printBalanceStatement(printerAddresses, {
+                    customer: {
+                        firstName: customer.firstName,
+                        lastName: customer.lastName,
+                        reference: customer.reference,
+                    },
+                    balance,
+                    history: history.map((entry) => ({
+                        amount: entry.amount,
+                        operation: entry.operation,
+                        previousBalance: entry.previous_balance,
+                        newBalance: entry.new_balance,
+                        createdAt: entry.created_at,
+                    })),
+                    shop: parameters.shop,
+                    currency: currencies[currencyIndex],
+                });
+                if (!result.success) openPopup('Erreur', [result.error || "Impossible d'imprimer le relevé"]);
+            } catch (error) {
+                console.error('Failed to print balance:', error);
+                openPopup('Erreur', ["Erreur lors de l'impression du relevé de solde"]);
+            }
+        },
+        [getPrinterAddresses, parameters.shop, currencies, currencyIndex, openPopup]
+    );
+
     const openQRCode = useCallback(
         (onCancel: (onConfirm: () => void) => void, onConfirm: () => void) => {
             openPopup(
@@ -257,12 +304,25 @@ export const usePay = () => {
                                     key="customerSearch"
                                     customers={customers}
                                     initialQuery=""
+                                    onPrintBalance={handlePrintBalance}
                                     onSelectCustomer={(customer) => {
                                         // Set the customer, then finalize the payment directly.
                                         // We cannot recurse into selectPayment here because the
                                         // updated currentCustomer state isn't visible in this closure yet.
                                         setCurrentCustomer(customer);
                                         updateTransaction(option);
+                                        if (customer.id) {
+                                            const amount = getCurrentTotal();
+                                            fetch('/api/sql/updateCustomerBalance', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    customerId: customer.id,
+                                                    amount,
+                                                    operation: 'debit',
+                                                }),
+                                            }).catch((error) => console.error('Failed to debit provision:', error));
+                                        }
                                         closePopup();
                                     }}
                                     onCreateCustomer={async (customerName) => {
@@ -286,6 +346,20 @@ export const usePay = () => {
                                             if (result.success) {
                                                 setCurrentCustomer(result.customer);
                                                 updateTransaction(option);
+                                                if (result.customer?.id) {
+                                                    const amount = getCurrentTotal();
+                                                    fetch('/api/sql/updateCustomerBalance', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            customerId: result.customer.id,
+                                                            amount,
+                                                            operation: 'debit',
+                                                        }),
+                                                    }).catch((error) =>
+                                                        console.error('Failed to debit provision:', error)
+                                                    );
+                                                }
                                                 closePopup();
                                             } else {
                                                 openPopup('Erreur', [
@@ -310,8 +384,20 @@ export const usePay = () => {
                         );
                         return;
                     }
-                    // If customer is selected, proceed with normal payment
+                    // If customer is selected, proceed with normal payment and debit their provision
                     updateTransaction(option);
+                    if (currentCustomer.id) {
+                        const amount = getCurrentTotal();
+                        fetch('/api/sql/updateCustomerBalance', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                customerId: currentCustomer.id,
+                                amount,
+                                operation: 'debit',
+                            }),
+                        }).catch((error) => console.error('Failed to debit provision:', error));
+                    }
                     closePopup();
                     break;
                 case PRINT_KEYWORD:
@@ -375,6 +461,7 @@ export const usePay = () => {
             currentCustomer,
             setCurrentCustomer,
             customers,
+            handlePrintBalance,
         ]
     );
 

@@ -261,6 +261,7 @@ CREATE TABLE IF NOT EXISTS `transaction_items` (
   `discount_amount` float DEFAULT 0,
   `discount_unit` varchar(10) DEFAULT '',
   `total` float DEFAULT NULL,
+  `vat_rate` decimal(5,2) NOT NULL DEFAULT 20.00,
   PRIMARY KEY (`id`),
   KEY `transaction_id` (`transaction_id`),
   CONSTRAINT `transaction_items_ibfk_1` FOREIGN KEY (`transaction_id`) REFERENCES `transactions` (`id`)
