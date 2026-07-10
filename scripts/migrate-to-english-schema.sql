@@ -27,9 +27,11 @@ SELECT `id`, `ordre`, `nom`, `prix`, `photo`, CASE WHEN `disponible` = 1 THEN NU
 INSERT INTO `establishment_config` (`id`, `operation_mode`, `orange_delay_minutes`, `red_delay_minutes`, `updated_at`, `last_order_short_number`, `auto_print_kitchen_ticket`, `kitchen_printer_id`, `kitchen_view_enabled`, `grafana_access_enabled`, `note_printer_id`)
 SELECT `id`, `mode_fonctionnement`, `delai_orange_minutes`, `delai_rouge_minutes`, `updated_at`, `last_order_short_number`, `auto_print_kitchen_ticket`, `kitchen_printer_id`, `kitchen_view_enabled`, `grafana_access_enabled`, `note_printer_id` FROM `config_etablissement`;
 
--- Migrate element_formule → formula_elements
-INSERT INTO `formula_elements` (`id`, `name`, `category_id`)
-SELECT `id`, `nom`, `id_categorie` FROM `element_formule`;
+-- Migrate element_formule → formula_elements (category_id is a numeric reference to categorie.id; store the category name)
+INSERT INTO `formula_elements` (`id`, `name`, `category`)
+SELECT ef.`id`, ef.`nom`, c.`nom`
+FROM `element_formule` ef
+JOIN `categorie` c ON c.`id` = ef.`id_categorie`;
 
 -- Migrate formule → formulas
 INSERT INTO `formulas` (`id`, `name`, `price`, `sort_order`, `order_count`)

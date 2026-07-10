@@ -64,7 +64,7 @@ export async function POST(request: Request) {
         try {
             if (scopedCategory !== null) {
                 await connection.execute(
-                    `DELETE FROM ${pgTable} WHERE category_id = ${connection.isPostgreSQL ? '$1' : '?'}`,
+                    `DELETE FROM ${pgTable} WHERE category = ${connection.isPostgreSQL ? '$1' : '?'}`,
                     [scopedCategory]
                 );
             } else {
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
                 const options = product.options ?? '';
 
                 const cols =
-                    'name, price, category_id, stock, reference, photo, description, sort_order, vat_rate, options';
+                    'name, price, category, stock, reference, photo, description, sort_order, vat_rate, options';
                 const vals = connection.isPostgreSQL
                     ? '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10'
                     : '?, ?, ?, ?, ?, ?, ?, ?, ?, ?';

@@ -21,12 +21,12 @@ export async function GET() {
         // Query 1: Get all products
         const queryProducts = connection.isPostgreSQL
             ? `
-            SELECT name as label, price as amount, vat_rate as rate, category_id as category, options, stock, reference, photo, description
+            SELECT name as label, price as amount, vat_rate as rate, category, options, stock, reference, photo, description
             FROM dc.products
             ORDER BY sort_order ASC
         `
             : `
-            SELECT name as label, price as amount, vat_rate as rate, category_id as category, options, stock, reference, photo, description
+            SELECT name as label, price as amount, vat_rate as rate, category, options, stock, reference, photo, description
             FROM products
             ORDER BY sort_order ASC
         `;
