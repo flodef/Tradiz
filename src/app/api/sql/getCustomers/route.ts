@@ -16,7 +16,8 @@ export async function GET() {
     try {
         const connection = await getPosDb();
 
-        const query = connection.isPostgreSQL
+        // Try query with companies join first
+        let query = connection.isPostgreSQL
             ? `SELECT c.id, c.first_name, c.last_name, c.reference, c.email, c.phone, c.company, co.quota_share
                FROM dc_pos.customers c
                LEFT JOIN dc_pos.companies co ON c.company = co.name
@@ -26,7 +27,22 @@ export async function GET() {
                LEFT JOIN companies co ON c.company = co.name
                ORDER BY c.last_name, c.first_name`;
 
-        const result = await connection.execute(query);
+        let result;
+        try {
+            result = await connection.execute(query);
+        } catch {
+            // If companies table doesn't exist, fall back to query without join
+            console.warn('Companies table does not exist, using fallback query');
+            query = connection.isPostgreSQL
+                ? `SELECT c.id, c.first_name, c.last_name, c.reference, c.email, c.phone, c.company, NULL as quota_share
+                   FROM dc_pos.customers c
+                   ORDER BY c.last_name, c.first_name`
+                : `SELECT c.id, c.first_name, c.last_name, c.reference, c.email, c.phone, c.company, NULL as quota_share
+                   FROM customers c
+                   ORDER BY c.last_name, c.first_name`;
+            result = await connection.execute(query);
+        }
+
         const rows = result[0] as CustomerRow[];
 
         await connection.end();

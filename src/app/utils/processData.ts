@@ -41,6 +41,10 @@ class AppOfflineError extends Error {
     name = 'AppOfflineError';
     message = "L'application est hors ligne";
 }
+export class DatabaseNotConfiguredError extends Error {
+    name = 'DatabaseNotConfiguredError';
+    message = 'Database not configured';
+}
 export class UserNotFoundError extends Error {
     name = 'UserNotFoundError';
     message = 'Utilisateur non identifié';
@@ -316,7 +320,7 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
 async function _loadDataImpl(_shop: string, _shouldUseLocalData = false): Promise<Config | undefined> {
     // Check if DB is configured
     const hasDbConfig = await checkDbConfig();
-    if (!hasDbConfig) throw new Error('Database not configured');
+    if (!hasDbConfig) throw new DatabaseNotConfiguredError();
     if (!navigator.onLine) throw new AppOfflineError();
 
     // Resolve user server-side using the public key (never exposes full user list)
@@ -329,16 +333,8 @@ async function _loadDataImpl(_shop: string, _shouldUseLocalData = false): Promis
     // Require authentication - if no user found, don't load data
     if (!user) throw new UserNotFoundError(publicKey);
 
-    const param = await fetchData(dataNames.parameters).then(convertParametersData);
-    if (!param?.values?.length) {
-        // Parameters are missing - check if user is admin
-        if (user.role === 'Admin') {
-            // Admin user - throw error with isAdmin flag to trigger redirect
-            throw new MissingDataError('Paramètres', true);
-        }
-        // Non-admin user - throw normal error to show popup
-        throw new MissingDataError('Paramètres', false);
-    }
+    const isAdmin = user.role === 'Admin';
+    const param = await fetchData(dataNames.parameters).then((response) => convertParametersData(response, isAdmin));
 
     const parameters = buildParameters(param, user!);
 
@@ -493,11 +489,12 @@ function checkData(
     minCol: number,
     maxCol = minCol,
     minRow = 1,
-    maxRow = 100000
+    maxRow = 100000,
+    isAdmin = false
 ) {
     if (!data) throw new Error('data not fetched');
     if (data.error?.message) throw new Error(data.error.message);
-    if (!data.values?.length) throw new MissingDataError(dataName);
+    if (!data.values?.length) throw new MissingDataError(dataName, isAdmin);
     if (
         data.values &&
         (data.values.length < minRow ||
@@ -526,11 +523,12 @@ function checkColumn(item: unknown[], rowContext: string, minCol: number) {
 }
 
 async function convertParametersData(
-    response: void | Response
+    response: void | Response,
+    isAdmin = false
 ): Promise<{ keys: (string | undefined)[]; values: (string | undefined)[] }> {
     if (typeof response === 'undefined') throw new EmptyDataError();
     return await response.json().then((data: { values: string[][]; error: { message: string } }) => {
-        checkData(data, 'Paramètres', 1, 2, 6, 15);
+        checkData(data, 'Paramètres', 1, 2, 6, 15, isAdmin);
 
         return {
             keys: data.values.map((item) => {

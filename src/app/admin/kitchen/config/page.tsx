@@ -27,7 +27,7 @@ import {
 } from '@/app/utils/interfaces';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { useIsMobile } from '@/app/utils/mobile';
-import { clearLoadDataCache, defaultParameters } from '@/app/utils/processData';
+import { clearLoadDataCache, defaultParameters, getPublicKey } from '@/app/utils/processData';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LoadingDot } from '@/app/loading';
 import {
@@ -62,8 +62,9 @@ export default function SettingsPage() {
         colors: configColors,
     } = useConfig();
     const { openFullscreenPopup } = usePopup();
-    const { isAdmin } = useUserRole();
+    const { isAdmin: isConfigAdmin } = useUserRole();
     const [settings, setSettings] = useState<Parameters>(defaultParameters);
+    const [isAdmin, setIsAdmin] = useState(isConfigAdmin);
     const [discounts, setDiscounts] = useState<Discount[]>([]);
     const [currenciesConfig, setCurrenciesConfig] = useState<Currency[]>([]);
     const [paymentsConfig, setPaymentsConfig] = useState<PaymentMethod[]>([]);
@@ -141,6 +142,42 @@ export default function SettingsPage() {
                 setDbConfigChecked(true);
             });
     }, []);
+
+    // Step 1.5: check current user role to determine admin access
+    useEffect(() => {
+        const publicKey = getPublicKey();
+        if (!publicKey) {
+            console.warn('No public key found, cannot verify admin access');
+            return;
+        }
+
+        const browserData = {
+            screenResolution: `${window.screen.width}x${window.screen.height}`,
+            language: navigator.language,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        };
+
+        fetch('/api/sql/resolveUser', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ publicKey, browserData }),
+        })
+            .then((r) => r.json())
+            .then(({ user }) => {
+                console.log('Admin check - resolved user:', user);
+                if (user.role.toLowerCase() === 'admin') {
+                    setIsAdmin(true);
+                } else {
+                    console.warn('User is not admin:', user.role);
+                    setIsAdmin(false);
+                }
+            })
+            .catch((error) => {
+                console.error('Failed to resolve user for admin check:', error);
+                // If resolve fails, fall back to ConfigProvider's isAdmin
+                setIsAdmin(isConfigAdmin);
+            });
+    }, [isConfigAdmin]);
 
     const fetchParameters = useCallback(async () => {
         setIsLoading(true);
@@ -394,8 +431,9 @@ export default function SettingsPage() {
                     setCustomersConfig(loaded);
                     setOriginalCustomers(loaded);
                 }
-            } catch {
-                // No fallback for customers - start with empty list
+            } catch (error) {
+                // Handle missing companies table gracefully
+                console.warn('Could not load customers (companies table may not exist):', error);
                 setCustomersConfig([]);
                 setOriginalCustomers([]);
             }
@@ -413,8 +451,9 @@ export default function SettingsPage() {
                     setCompaniesConfig(loaded);
                     setOriginalCompanies(loaded);
                 }
-            } catch {
-                // No fallback for companies - start with empty list
+            } catch (error) {
+                // Handle missing companies table gracefully
+                console.warn('Could not load companies (table may not exist):', error);
                 setCompaniesConfig([]);
                 setOriginalCompanies([]);
             }

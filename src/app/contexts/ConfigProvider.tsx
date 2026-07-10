@@ -28,6 +28,7 @@ import {
 } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
 import {
+    DatabaseNotConfiguredError,
     MissingDataError,
     UserNotFoundError,
     defaultCurrencies,
@@ -278,6 +279,12 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
 
         loadConfig(config);
 
+        // Skip loading data if on admin config page - it has its own loading logic
+        if (window.location.pathname.includes(ADMIN_CONFIG_URL)) {
+            setState(State.loaded);
+            return;
+        }
+
         loadData(shop, IS_DEV || isDemo)
             .then((data) => {
                 if (!data) {
@@ -296,10 +303,16 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
                 } else if (error instanceof MissingDataError) {
                     // Check if error has isAdmin flag (admin user with missing parameters)
                     if (error.isAdmin) {
-                        window.location.href = ADMIN_CONFIG_URL;
+                        // Only redirect if not already on admin config page to prevent infinite loop
+                        if (!window.location.pathname.includes(ADMIN_CONFIG_URL)) {
+                            window.location.href = ADMIN_CONFIG_URL;
+                        }
                     } else {
                         setState(State.missingData);
                     }
+                } else if (error instanceof DatabaseNotConfiguredError) {
+                    // Database not configured - fatal error
+                    setState(State.fatal);
                 } else {
                     setState(State.error);
                 }

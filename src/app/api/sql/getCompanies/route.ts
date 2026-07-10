@@ -27,8 +27,9 @@ export async function GET() {
         ];
 
         return NextResponse.json({ values });
-    } catch (error) {
-        console.error('Error fetching companies:', error);
-        return NextResponse.json({ error: 'An error occurred while fetching companies' }, { status: 500 });
+    } catch {
+        // If companies table doesn't exist, return empty result instead of error
+        console.warn('Companies table does not exist, returning empty result');
+        return NextResponse.json({ values: [['id', 'name', 'quotaShare']] });
     }
 }
