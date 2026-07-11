@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS `products` (
   `photo` varchar(50) NOT NULL DEFAULT '',
   `stock` int(11) DEFAULT NULL,
   `reference` varchar(255) DEFAULT NULL,
-  `category_id` varchar(50) NOT NULL DEFAULT '',
+  `category` varchar(50) NOT NULL DEFAULT '',
   `description` varchar(300) DEFAULT '',
   `options` varchar(1000) DEFAULT '',
   `order_count` int(11) NOT NULL DEFAULT 0,
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS `establishment_config` (
 CREATE TABLE IF NOT EXISTS `formula_elements` (
   `id` varchar(50) NOT NULL DEFAULT '',
   `name` varchar(50) NOT NULL,
-  `category_id` varchar(50) DEFAULT NULL,
+  `category` varchar(50) DEFAULT NULL,
   KEY `Index 1` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -261,6 +261,7 @@ CREATE TABLE IF NOT EXISTS `transaction_items` (
   `discount_amount` float DEFAULT 0,
   `discount_unit` varchar(10) DEFAULT '',
   `total` float DEFAULT NULL,
+  `vat_rate` decimal(5,2) NOT NULL DEFAULT 20.00,
   PRIMARY KEY (`id`),
   KEY `transaction_id` (`transaction_id`),
   CONSTRAINT `transaction_items_ibfk_1` FOREIGN KEY (`transaction_id`) REFERENCES `transactions` (`id`)

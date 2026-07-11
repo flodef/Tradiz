@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS dc.products (
     photo VARCHAR(50) NOT NULL DEFAULT '',
     stock INTEGER DEFAULT NULL,
     reference VARCHAR(255) DEFAULT NULL,
-    category_id VARCHAR(50) NOT NULL DEFAULT '',
+    category VARCHAR(50) NOT NULL DEFAULT '',
     description VARCHAR(300) DEFAULT '',
     options VARCHAR(1000) DEFAULT '',
     order_count INTEGER NOT NULL DEFAULT 0,
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS dc.formulas (
 CREATE TABLE IF NOT EXISTS dc.formula_elements (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    category_id VARCHAR(50) DEFAULT NULL
+    category VARCHAR(50) DEFAULT NULL
 );
 
 -- Relation: formula_element ↔ formula (was: rel_ef_formule)
@@ -327,6 +327,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.transaction_items (
     discount_amount NUMERIC(10,2) DEFAULT 0,
     discount_unit VARCHAR(10) DEFAULT '%',
     total NUMERIC(10,2) NOT NULL DEFAULT 0,
+    vat_rate NUMERIC(5,2) NOT NULL DEFAULT 20.00,
     FOREIGN KEY (transaction_id) REFERENCES dc_pos.transactions(id) ON DELETE CASCADE
 );
 

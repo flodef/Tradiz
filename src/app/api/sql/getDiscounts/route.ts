@@ -18,12 +18,12 @@ export async function GET() {
         const [rows] = await connection.execute(query);
         await connection.end();
 
-        const discountRows = rows as DiscountRow[];
+        const discounts = (rows as DiscountRow[]).map((row) => ({
+            amount: Number(row.value),
+            unit: String(row.unity).trim(),
+        }));
 
-        // Return header row + data rows: [amount, unit]
-        const values = [['Montant', 'Unité'], ...discountRows.map((row) => [Number(row.value), row.unity])];
-
-        return NextResponse.json({ values }, { status: 200 });
+        return NextResponse.json({ discounts }, { status: 200 });
     } catch (error) {
         console.error('Error fetching discounts:', error);
         return NextResponse.json({ error: 'An error occurred while fetching data' }, { status: 500 });

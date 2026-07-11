@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import currencies from '../../data/currencies.json';
 import { getPosDb } from '../db';
 
 export interface CurrencyRow {
@@ -10,6 +9,8 @@ export interface CurrencyRow {
     rate: number | null;
     fee: number | null;
 }
+
+const defaultCurrencies = [{ label: 'Euro (€)', maxValue: 999.99, symbol: '€', decimals: 2, rate: 1, fee: 0 }];
 
 export async function GET() {
     try {
@@ -27,24 +28,20 @@ export async function GET() {
         await connection.end();
 
         const currencyRows = rows as CurrencyRow[];
-        if (!currencyRows.length) return NextResponse.json(currencies, { status: 200 });
+        if (!currencyRows.length) return NextResponse.json({ currencies: defaultCurrencies }, { status: 200 });
 
-        // Return header row + data rows: [label, maxValue, symbol, decimals, rate, fee]
-        const values = [
-            ['Intitulé (Symbole)', 'Valeur maximale', 'Symbole', 'Décimales', 'Taux', 'Frais'],
-            ...currencyRows.map((row) => [
-                row.label,
-                row.max_value ?? 999.99,
-                row.symbol,
-                row.decimals ?? 2,
-                row.rate ?? 1,
-                row.fee ?? 0,
-            ]),
-        ];
+        const currencies = currencyRows.map((row) => ({
+            label: row.label,
+            maxValue: row.max_value ?? 999.99,
+            symbol: row.symbol,
+            decimals: row.decimals ?? 2,
+            rate: row.rate ?? 1,
+            fee: row.fee ?? 0,
+        }));
 
-        return NextResponse.json({ values }, { status: 200 });
+        return NextResponse.json({ currencies }, { status: 200 });
     } catch (error) {
         console.error('Error fetching currencies:', error);
-        return NextResponse.json(currencies, { status: 200 });
+        return NextResponse.json({ currencies: defaultCurrencies }, { status: 200 });
     }
 }

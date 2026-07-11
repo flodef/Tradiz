@@ -554,7 +554,7 @@ async function migrateProducts(client: Client) {
     for (const product of products) {
         await client.query(
             `INSERT INTO dc.products (
-                sort_order, name, price, photo, stock, reference, category_id, vat_rate, description, options
+                sort_order, name, price, photo, stock, reference, category, vat_rate, description, options
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
             [
                 product.sort_order,

@@ -1,6 +1,6 @@
 'use client';
 
-import { encodeURL, findReference, FindReferenceError, ValidateTransferError } from '@solana/pay';
+import { encodeURL, findReference, FindReferenceError } from '@solana/pay';
 import { Connection, Keypair, PublicKey, TransactionSignature } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -9,8 +9,7 @@ import { Crypto, CryptoContext, PaymentStatus } from '../hooks/useCrypto';
 import { useData } from '../hooks/useData';
 import { useWindowParam } from '../hooks/useWindowParam';
 import { ENDPOINT, SPL_TOKEN, TRANSACTION_TIME_OUT } from '../utils/constants';
-import { Confirmations } from '../utils/types';
-import { validateTransfer } from '../utils/validateTransfer';
+import { validateTransfer, ValidateTransferError } from '../utils/validateTransfer';
 
 export interface CryptoProviderProps {
     children: ReactNode;
@@ -95,7 +94,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
         (crypto: Crypto) => {
             setCrypto(crypto);
             setPaymentStatus(PaymentStatus.Pending);
-            setReference(crypto === Crypto.Solana ? new Keypair().publicKey : undefined);
+            setReference(undefined);
             setMemo(undefined);
             setSignature(undefined);
             setError(undefined);
@@ -103,6 +102,21 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
         },
         [setError]
     );
+
+    useEffect(() => {
+        if (!(crypto === Crypto.Solana && paymentStatus === PaymentStatus.Pending && !reference)) return;
+        let cancelled = false;
+        Keypair.generate()
+            .then((keypair) => {
+                if (!cancelled) setReference(keypair.publicKey);
+            })
+            .catch((e) => {
+                if (!cancelled) setError(e instanceof Error ? e : new Error(String(e)));
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [crypto, paymentStatus, reference, setError]);
 
     const retry = useCallback(() => {
         if (refPaymentStatus.current === PaymentStatus.Error) {
@@ -123,9 +137,12 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
         const interval = setInterval(async () => {
             try {
                 if (crypto === Crypto.Solana && reference) {
+                    // @solana/pay@0.2.6 is typed against web3.js v1, but at runtime findReference only
+                    // forwards these to connection.getSignaturesForAddress, which the v3 Connection and
+                    // PublicKey satisfy. The casts bridge the v1 type signatures to our v3 objects.
                     const signature = await findReference(
                         connection.current as unknown as Parameters<typeof findReference>[0],
-                        reference.toBase58() as any // eslint-disable-line @typescript-eslint/no-explicit-any
+                        reference as unknown as Parameters<typeof findReference>[1]
                     );
 
                     if (!changed) {
@@ -237,7 +254,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
                 if (status.err) throw status.err;
 
                 if (!changed) {
-                    const confirmations = (status.confirmations || 0) as Confirmations;
+                    const confirmations = Number(status.confirmations ?? 0);
 
                     if (confirmations >= requiredConfirmations || status.confirmationStatus === 'finalized') {
                         clearInterval(interval);

@@ -19,12 +19,12 @@ export async function GET() {
         const [rows] = await connection.execute(query);
         await connection.end();
 
-        const data: { values: string[][] } = { values: [] };
-        data.values.push(
-            ...(rows as ParameterRow[]).map((row): string[] => [String(row.param_key), String(row.param_value)])
-        );
+        const parameters = (rows as ParameterRow[]).map((row) => ({
+            key: String(row.param_key),
+            value: String(row.param_value),
+        }));
 
-        return NextResponse.json(data, { status: 200 });
+        return NextResponse.json({ parameters }, { status: 200 });
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching data' }, { status: 500 });

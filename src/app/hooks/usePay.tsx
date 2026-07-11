@@ -3,10 +3,21 @@ import { QRCode } from '../components/QRCode';
 import CustomerSearchPopup from '../components/CustomerSearchPopup';
 import { Shop } from '../contexts/ConfigProvider';
 import { isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
-import { IS_LOCAL, PRINT_KEYWORD, REFUND_KEYWORD, SEPARATOR, WAITING_KEYWORD } from '../utils/constants';
+import {
+    ARROW,
+    BACK_KEYWORD,
+    CATEGORY_SEPARATOR,
+    DEBIT_KEYWORD,
+    IS_LOCAL,
+    PRINT_KEYWORD,
+    PROVISION_KEYWORD,
+    REFUND_KEYWORD,
+    SEPARATOR,
+    WAITING_KEYWORD,
+} from '../utils/constants';
 import { Currency, Customer, InventoryItem, SERVICE_TYPE_LABELS, ServiceType, Transaction } from '../utils/interfaces';
 import { CLOSE, postMessageToParent, REFRESH } from '../utils/message';
-import { printReceipt } from '../utils/posPrinter';
+import { printBalanceStatement, printReceipt } from '../utils/posPrinter';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
 import { useData } from './useData';
@@ -141,6 +152,53 @@ export const usePay = () => {
         [closePopup, openPopup, printTransactionReceipt]
     );
 
+    const handlePrintBalance = useCallback(
+        async (customer: Customer) => {
+            if (!customer.id) return;
+            try {
+                const response = await fetch(`/api/sql/getCustomerBalance?customerId=${customer.id}`);
+                if (!response.ok) throw new Error('Failed to fetch balance');
+                const { balance, history } = (await response.json()) as {
+                    balance: number;
+                    history: Array<{
+                        amount: number;
+                        operation: 'credit' | 'debit';
+                        previous_balance: number;
+                        new_balance: number;
+                        created_at: string;
+                    }>;
+                };
+                const printerAddresses = getPrinterAddresses();
+                if (!printerAddresses.length) {
+                    openPopup('Erreur', ['Aucune imprimante configurée']);
+                    return;
+                }
+                const result = await printBalanceStatement(printerAddresses, {
+                    customer: {
+                        firstName: customer.firstName,
+                        lastName: customer.lastName,
+                        reference: customer.reference,
+                    },
+                    balance,
+                    history: history.map((entry) => ({
+                        amount: entry.amount,
+                        operation: entry.operation,
+                        previousBalance: entry.previous_balance,
+                        newBalance: entry.new_balance,
+                        createdAt: entry.created_at,
+                    })),
+                    shop: parameters.shop,
+                    currency: currencies[currencyIndex],
+                });
+                if (!result.success) openPopup('Erreur', [result.error || "Impossible d'imprimer le relevé"]);
+            } catch (error) {
+                console.error('Failed to print balance:', error);
+                openPopup('Erreur', ["Erreur lors de l'impression du relevé de solde"]);
+            }
+        },
+        [getPrinterAddresses, parameters.shop, currencies, currencyIndex, openPopup]
+    );
+
     const openQRCode = useCallback(
         (onCancel: (onConfirm: () => void) => void, onConfirm: () => void) => {
             openPopup(
@@ -229,7 +287,125 @@ export const usePay = () => {
 
     const selectPayment = useCallback(
         (option: string, fallback: () => void) => {
-            const paymentType = option.split(SEPARATOR)[0];
+            const updateCustomerBalance = async (customerId: number, amount: number, operation: 'credit' | 'debit') => {
+                try {
+                    const response = await fetch('/api/sql/updateCustomerBalance', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ customerId, amount, operation }),
+                    });
+                    if (!response.ok) {
+                        const result = (await response.json().catch(() => ({}))) as { error?: string };
+                        throw new Error(result.error || `HTTP ${response.status}`);
+                    }
+                } catch (error) {
+                    console.error(`Failed to ${operation} customer balance:`, error);
+                    // Surface the failure so staff know the balance is out of sync and can fix it manually.
+                    openPopup('Erreur', [
+                        "Le solde du client n'a pas pu être mis à jour.",
+                        'Veuillez le corriger manuellement.',
+                    ]);
+                }
+            };
+
+            const finalizeProvisionPayment = async (customer: Customer, selectedOption: string) => {
+                const amount = getCurrentTotal();
+                const transaction: Transaction = {
+                    validator: parameters.user.name,
+                    method: selectedOption,
+                    amount,
+                    createdDate: new Date().getTime(),
+                    modifiedDate: new Date().getTime(),
+                    currency: currencies[currencyIndex].label,
+                    products: [],
+                };
+                updateTransaction(transaction);
+                closePopup();
+                if (customer.id) {
+                    await updateCustomerBalance(customer.id, amount, 'credit');
+                }
+            };
+
+            const finalizeDebitPayment = async (customer: Customer) => {
+                // Capture the amount before updateTransaction, which may reset the current total.
+                const amount = getCurrentTotal();
+                updateTransaction(DEBIT_KEYWORD);
+                closePopup();
+                if (customer.id) {
+                    await updateCustomerBalance(customer.id, amount, 'debit');
+                }
+            };
+
+            const openCustomerSearchPopup = (onCustomerSelected: (customer: Customer) => void) => {
+                openPopup(
+                    'Sélectionner un client',
+                    [
+                        <CustomerSearchPopup
+                            key="customerSearch"
+                            customers={customers}
+                            initialQuery=""
+                            onPrintBalance={handlePrintBalance}
+                            onSelectCustomer={(customer) => {
+                                setCurrentCustomer(customer);
+                                onCustomerSelected(customer);
+                            }}
+                            onCreateCustomer={async (customerName) => {
+                                const newCustomer: Customer = {
+                                    firstName: customerName.split(' ')[0] || customerName,
+                                    lastName: customerName.split(' ').slice(1).join(' ') || '',
+                                };
+                                try {
+                                    const response = await fetch('/api/sql/addCustomer', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(newCustomer),
+                                    });
+                                    const result = await response.json();
+                                    if (result.success) {
+                                        setCurrentCustomer(result.customer);
+                                        onCustomerSelected(result.customer);
+                                    } else {
+                                        openPopup('Erreur', [
+                                            'Échec de la création du client: ' + (result.error || 'Erreur inconnue'),
+                                        ]);
+                                    }
+                                } catch (error) {
+                                    console.error('Error creating customer:', error);
+                                    openPopup('Erreur', ['Erreur lors de la création du client']);
+                                }
+                            }}
+                            onSelectNoCustomer={() => closePopup()}
+                        />,
+                    ],
+                    () => closePopup()
+                );
+            };
+
+            const showProvisionSubOptions = (customer: Customer) => {
+                const subOptions = paymentMethods
+                    .filter(
+                        (m) =>
+                            m.currency === currencies[currencyIndex].label &&
+                            m.type.toLowerCase() !== DEBIT_KEYWORD.toLowerCase() &&
+                            m.type.toLowerCase() !== PROVISION_KEYWORD.toLowerCase()
+                    )
+                    .map((m) => m.type);
+                subOptions.push(BACK_KEYWORD);
+                if (subOptions.length === 1) {
+                    openPopup('Erreur', ['Aucune méthode de paiement disponible']);
+                    return;
+                }
+                openPopup('Mode de paiement PROVISION', subOptions, (index, selectedOption) => {
+                    if (index < 0) return;
+                    if (selectedOption === BACK_KEYWORD) {
+                        closePopup(() => fallback());
+                        return;
+                    }
+                    finalizeProvisionPayment(customer, selectedOption);
+                });
+            };
+
+            const paymentType = option.split(SEPARATOR)[0].split(ARROW)[0].split(CATEGORY_SEPARATOR)[0].trim();
 
             switch (paymentType) {
                 case Crypto.Solana:
@@ -246,73 +422,33 @@ export const usePay = () => {
                         }
                     );
                     break;
-                case 'Provision':
-                    // Handle Provision payment - require customer selection
-                    if (!currentCustomer) {
-                        // Show customer selection popup
-                        openPopup(
-                            'Sélectionner un client',
-                            [
-                                <CustomerSearchPopup
-                                    key="customerSearch"
-                                    customers={customers}
-                                    initialQuery=""
-                                    onSelectCustomer={(customer) => {
-                                        // Set the customer, then finalize the payment directly.
-                                        // We cannot recurse into selectPayment here because the
-                                        // updated currentCustomer state isn't visible in this closure yet.
-                                        setCurrentCustomer(customer);
-                                        updateTransaction(option);
-                                        closePopup();
-                                    }}
-                                    onCreateCustomer={async (customerName) => {
-                                        // Create a new customer and select it
-                                        const newCustomer: Customer = {
-                                            firstName: customerName.split(' ')[0] || customerName,
-                                            lastName: customerName.split(' ').slice(1).join(' ') || '',
-                                        };
+                case PROVISION_KEYWORD: {
+                    const subOption = option.includes(CATEGORY_SEPARATOR)
+                        ? option.split(CATEGORY_SEPARATOR).slice(1).join(CATEGORY_SEPARATOR).trim()
+                        : undefined;
 
-                                        try {
-                                            const response = await fetch('/api/sql/addCustomer', {
-                                                method: 'POST',
-                                                headers: {
-                                                    'Content-Type': 'application/json',
-                                                },
-                                                body: JSON.stringify(newCustomer),
-                                            });
-
-                                            const result = await response.json();
-
-                                            if (result.success) {
-                                                setCurrentCustomer(result.customer);
-                                                updateTransaction(option);
-                                                closePopup();
-                                            } else {
-                                                openPopup('Erreur', [
-                                                    'Échec de la création du client: ' +
-                                                        (result.error || 'Erreur inconnue'),
-                                                ]);
-                                            }
-                                        } catch (error) {
-                                            console.error('Error creating customer:', error);
-                                            openPopup('Erreur', ['Erreur lors de la création du client']);
-                                        }
-                                    }}
-                                    onSelectNoCustomer={() => {
-                                        closePopup();
-                                    }}
-                                />,
-                            ],
-                            () => {
-                                // Close popup on cancel
-                                closePopup();
-                            }
-                        );
+                    if (subOption) {
+                        if (!currentCustomer) {
+                            openCustomerSearchPopup((customer) => finalizeProvisionPayment(customer, option));
+                            return;
+                        }
+                        finalizeProvisionPayment(currentCustomer, option);
                         return;
                     }
-                    // If customer is selected, proceed with normal payment
-                    updateTransaction(option);
-                    closePopup();
+
+                    if (!currentCustomer) {
+                        openCustomerSearchPopup((customer) => showProvisionSubOptions(customer));
+                        return;
+                    }
+                    showProvisionSubOptions(currentCustomer);
+                    break;
+                }
+                case DEBIT_KEYWORD:
+                    if (!currentCustomer) {
+                        openCustomerSearchPopup((customer) => finalizeDebitPayment(customer));
+                        return;
+                    }
+                    finalizeDebitPayment(currentCustomer);
                     break;
                 case PRINT_KEYWORD:
                     updateTransaction(WAITING_KEYWORD);
@@ -375,6 +511,7 @@ export const usePay = () => {
             currentCustomer,
             setCurrentCustomer,
             customers,
+            handlePrintBalance,
         ]
     );
 
@@ -551,10 +688,14 @@ export const usePay = () => {
                     allOptions.push('PAIEMENT PARTIEL');
                 }
 
-                // Add waiting and refund options based on display settings (default to true if not set)
+                // Add waiting, refund, provision, and debit options based on display settings (default to true if not set)
                 if (parameters.display?.showWaiting !== false) allOptions.push('METTRE ' + WAITING_KEYWORD);
 
                 if (parameters.display?.showRefund !== false) allOptions.push(REFUND_KEYWORD);
+
+                if (parameters.display?.showProvision !== false) allOptions.push(PROVISION_KEYWORD + ARROW);
+
+                if (parameters.display?.showDebit !== false) allOptions.push(DEBIT_KEYWORD);
 
                 if (paymentMethodsLabels.length === 1) {
                     if (paymentSelectionLockedRef.current) return;
@@ -613,6 +754,8 @@ export const usePay = () => {
         showPartialPaymentSelector,
         parameters.display?.showWaiting,
         parameters.display?.showRefund,
+        parameters.display?.showProvision,
+        parameters.display?.showDebit,
         setShowPartialPaymentSelector,
         partialPaymentAmount,
         modeFonctionnement,

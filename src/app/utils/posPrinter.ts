@@ -6,7 +6,7 @@ import { Shop } from '../contexts/ConfigProvider';
 import { isProcessingTransaction, isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
 import { ReceiptData } from '../hooks/usePay';
 import { SummaryData } from '../hooks/useSummary';
-import { IS_DEV } from './constants';
+import { DEFAULT_VAT_RATE, IS_DEV } from './constants';
 import { formatFrenchDate, generateReceiptNumber } from './date';
 import { Currency, SERVICE_TYPE_LABELS } from './interfaces';
 import { createMockPrinter } from './mockPrinter';
@@ -185,9 +185,11 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
         let totalTTC = 0;
 
         receiptData.transaction.products.forEach((item) => {
-            // Use item.vatRate if available, otherwise fall back to category rate, default to 20%
+            // Use item.vatRate if available, otherwise fall back to category rate, default to DEFAULT_VAT_RATE
             const rawRate =
-                item.vatRate ?? receiptData.inventory?.find((inv) => inv.category === item.category)?.rate ?? 20;
+                item.vatRate ??
+                receiptData.inventory?.find((inv) => inv.category === item.category)?.rate ??
+                DEFAULT_VAT_RATE;
 
             // Normalize rate to decimal: values >= 1 are treated as percentages (e.g. 5.5 → 0.055, 20 → 0.20)
             const vatRate = rawRate >= 1 ? rawRate / 100 : rawRate;

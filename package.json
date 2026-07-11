@@ -1,6 +1,6 @@
 {
   "name": "tradiz",
-  "version": "1.70",
+  "version": "1.80",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -24,7 +24,7 @@
     "@neondatabase/serverless": "latest",
     "@solana/pay": "0.2.6",
     "@solana/spl-token": "latest",
-    "@solana/web3.js": "1.98.4",
+    "@solana/web3.js": "3.0.0-rc.2",
     "@tabler/icons-react": "latest",
     "@tailwindcss/postcss": "latest",
     "@types/nodemailer": "latest",

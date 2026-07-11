@@ -51,21 +51,34 @@ export async function GET() {
 
         const allRows = rows as ThemeRow[];
 
-        const data: { values: string[][]; themeName?: string } = { values: [] };
-        data.values.push(['Couleur', 'Clair', 'Sombre']);
+        const data: { colors: { label: string; light: string; dark: string }[]; themeName?: string } = {
+            colors: [],
+        };
 
         if (allRows.length > 0) {
             const row = allRows[0];
             data.themeName = String(row.name);
-            data.values.push(
-                ['Texte', String(row.text_light), String(row.text_dark)],
-                ['Fond début dégradé', String(row.gradient_start_light), String(row.gradient_start_dark)],
-                ['Fond fin dégradé', String(row.gradient_end_light), String(row.gradient_end_dark)],
-                ['Popup', String(row.popup_light), String(row.popup_dark)],
-                ['Activé', String(row.activated_light), String(row.activated_dark)],
-                ['Secondaire', String(row.secondary_light), String(row.secondary_dark)],
-                ['Secondaire activé', String(row.secondary_activated_light), String(row.secondary_activated_dark)]
-            );
+            data.colors = [
+                { label: 'Texte', light: String(row.text_light), dark: String(row.text_dark) },
+                {
+                    label: 'Fond début dégradé',
+                    light: String(row.gradient_start_light),
+                    dark: String(row.gradient_start_dark),
+                },
+                {
+                    label: 'Fond fin dégradé',
+                    light: String(row.gradient_end_light),
+                    dark: String(row.gradient_end_dark),
+                },
+                { label: 'Popup', light: String(row.popup_light), dark: String(row.popup_dark) },
+                { label: 'Activé', light: String(row.activated_light), dark: String(row.activated_dark) },
+                { label: 'Secondaire', light: String(row.secondary_light), dark: String(row.secondary_dark) },
+                {
+                    label: 'Secondaire activé',
+                    light: String(row.secondary_activated_light),
+                    dark: String(row.secondary_activated_dark),
+                },
+            ];
         }
 
         return NextResponse.json(data, { status: 200 });

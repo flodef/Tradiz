@@ -114,9 +114,9 @@ export default function EditMenuPage() {
                 const parametersData = await parametersResponse.json();
 
                 // Parse productsSettings from parameters
-                if (parametersData.values) {
+                if (parametersData.parameters) {
                     const paramMap = new Map<string, string>();
-                    parametersData.values.forEach(([key, value]: [string, string]) => {
+                    parametersData.parameters.forEach(({ key, value }: { key: string; value: string }) => {
                         paramMap.set(key, value);
                     });
                     const raw = paramMap.get('productsSettings');
@@ -139,23 +139,20 @@ export default function EditMenuPage() {
                     }
                 }
 
-                // Parse products (skip header row)
-                // Column order: Taux, Catégorie, Nom, Stock, Reference, Photo, Description, Euro (€), ...
+                // Parse products from typed API objects
                 const loadedProducts: AdminProduct[] = [];
-                if (productsData.values && productsData.values.length > 1) {
-                    for (let i = 1; i < productsData.values.length; i++) {
-                        const [vat, category, name, stock, reference, photo, description, ...prices] =
-                            productsData.values[i];
+                if (Array.isArray(productsData.products)) {
+                    for (const p of productsData.products) {
                         loadedProducts.push({
-                            name: String(name),
-                            category: String(category),
-                            stock: stock === null || stock === undefined ? null : Number(stock),
-                            vat: vat != null ? Number(vat) * 100 : undefined,
-                            reference: reference ? String(reference) : undefined,
-                            photo: photo ? String(photo) : undefined,
-                            description: description ? String(description) : undefined,
-                            options: productsData.options?.[i - 1] ? String(productsData.options[i - 1]) : undefined,
-                            currencies: prices.map(String),
+                            name: String(p.label),
+                            category: String(p.category),
+                            stock: p.stock === null || p.stock === undefined ? null : Number(p.stock),
+                            vat: p.rate != null ? Number(p.rate) * 100 : undefined,
+                            reference: p.reference ? String(p.reference) : undefined,
+                            photo: p.photo ? String(p.photo) : undefined,
+                            description: p.description ? String(p.description) : undefined,
+                            options: p.options ? String(p.options) : undefined,
+                            currencies: (p.prices ?? []).map(String),
                         });
                     }
                 }

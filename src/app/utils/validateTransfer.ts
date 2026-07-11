@@ -1,7 +1,8 @@
 import { Amount, Memo, Recipient, Reference, References, SPLToken } from '@solana/pay';
 import {
+    ASSOCIATED_TOKEN_PROGRAM_ID,
+    TOKEN_PROGRAM_ID,
     decodeInstruction,
-    getAssociatedTokenAddress,
     isTransferCheckedInstruction,
     isTransferInstruction,
 } from '@solana/spl-token';
@@ -80,7 +81,7 @@ export async function validateTransfer(
     // Transfer instruction must be the last instruction
     const instruction = instructions.pop();
     if (!instruction) throw new ValidateTransferError('missing transfer instruction');
-    if (instruction.keys[0].pubkey === instruction.keys[1].pubkey)
+    if (instruction.keys[0].pubkey.toBase58() === instruction.keys[1].pubkey.toBase58())
         throw new ValidateTransferError('sender is also recipient');
 
     const [preAmount, postAmount] = splToken
@@ -100,9 +101,10 @@ export async function validateTransfer(
 
 function validateMemo(instruction: TransactionInstruction, memo: string): void {
     // Check that the instruction is a memo instruction with no keys and the expected memo data.
-    if (!instruction.programId.equals(MEMO_PROGRAM_ID)) throw new ValidateTransferError('invalid memo program');
+    if (instruction.programId.toBase58() !== MEMO_PROGRAM_ID.toBase58())
+        throw new ValidateTransferError('invalid memo program');
     if (instruction.keys.length) throw new ValidateTransferError('invalid memo keys');
-    if (!instruction.data.equals(Buffer.from(memo, 'utf8'))) throw new ValidateTransferError('invalid memo');
+    if (Buffer.from(instruction.data).toString('utf8') !== memo) throw new ValidateTransferError('invalid memo');
 }
 
 async function validateSystemTransfer(
@@ -113,7 +115,9 @@ async function validateSystemTransfer(
     references?: Reference[]
 ): Promise<[BigNumber, BigNumber]> {
     const recipientPubkey = new PublicKey(String(recipient));
-    const accountIndex = message.staticAccountKeys.findIndex((pubkey) => pubkey.equals(recipientPubkey));
+    const accountIndex = message.staticAccountKeys.findIndex(
+        (pubkey) => pubkey.toBase58() === recipientPubkey.toBase58()
+    );
     if (accountIndex === -1) throw new ValidateTransferError('recipient not found');
 
     if (references) {
@@ -127,13 +131,14 @@ async function validateSystemTransfer(
 
         for (let i = 0; i < length; i++) {
             const refPubkey = new PublicKey(String(references[i]));
-            if (!extraKeys[i].pubkey.equals(refPubkey)) throw new ValidateTransferError(`invalid reference ${i}`);
+            if (extraKeys[i].pubkey.toBase58() !== refPubkey.toBase58())
+                throw new ValidateTransferError(`invalid reference ${i}`);
         }
     }
 
     return [
-        new BigNumber(meta.preBalances[accountIndex] || 0).div(LAMPORTS_PER_SOL),
-        new BigNumber(meta.postBalances[accountIndex] || 0).div(LAMPORTS_PER_SOL),
+        new BigNumber(meta.preBalances[accountIndex]?.toString() ?? '0').div(LAMPORTS_PER_SOL),
+        new BigNumber(meta.postBalances[accountIndex]?.toString() ?? '0').div(LAMPORTS_PER_SOL),
     ];
 }
 
@@ -148,7 +153,7 @@ async function validateSPLTokenTransfer(
     const recipientPubkey = new PublicKey(String(recipient));
     const splTokenPubkey = new PublicKey(String(splToken));
     const recipientATA = await getAssociatedTokenAddress(splTokenPubkey, recipientPubkey);
-    const accountIndex = message.staticAccountKeys.findIndex((pubkey) => pubkey.equals(recipientATA));
+    const accountIndex = message.staticAccountKeys.findIndex((pubkey) => pubkey.toBase58() === recipientATA.toBase58());
     if (accountIndex === -1) throw new ValidateTransferError('recipient not found');
 
     if (references) {
@@ -164,7 +169,8 @@ async function validateSPLTokenTransfer(
 
         for (let i = 0; i < length; i++) {
             const refPubkey = new PublicKey(String(references[i]));
-            if (!extraKeys[i].pubkey.equals(refPubkey)) throw new ValidateTransferError(`invalid reference ${i}`);
+            if (extraKeys[i].pubkey.toBase58() !== refPubkey.toBase58())
+                throw new ValidateTransferError(`invalid reference ${i}`);
         }
     }
 
@@ -175,6 +181,19 @@ async function validateSPLTokenTransfer(
         new BigNumber(preBalance?.uiTokenAmount.uiAmountString || 0),
         new BigNumber(postBalance?.uiTokenAmount.uiAmountString || 0),
     ];
+}
+
+// Derives the associated token address for a mint/owner. Only supports the classic SPL Token program
+// (TOKEN_PROGRAM_ID), not Token-2022; this matches @solana/spl-token's default and the mints we accept.
+async function getAssociatedTokenAddress(mint: PublicKey, owner: PublicKey): Promise<PublicKey> {
+    if (!PublicKey.isOnCurve(owner.toBytes())) {
+        throw new ValidateTransferError('recipient owner off curve');
+    }
+    const [address] = await PublicKey.findProgramAddress(
+        [owner.toBytes(), TOKEN_PROGRAM_ID.toBytes(), mint.toBytes()],
+        ASSOCIATED_TOKEN_PROGRAM_ID
+    );
+    return address;
 }
 
 const DEFAULT_SIGNATURE = Buffer.alloc(SIGNATURE_LENGTH_IN_BYTES).fill(0);

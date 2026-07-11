@@ -102,6 +102,8 @@ const baseConfig: Config = {
     inventory: [{ category: 'Boulange', products: [], rate: 5.5, order: 0 }],
     discounts: [],
     printers: [],
+    customers: [],
+    users: [],
     colors: [
         { label: 'writing', light: '#fff', dark: '#000' },
         { label: 'main-from', light: '#fff', dark: '#000' },

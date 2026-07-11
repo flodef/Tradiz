@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
 import { generateProductReference } from '@/app/utils/productReference';
+import { DEFAULT_VAT_RATE } from '@/app/utils/constants';
 
 interface Product {
     name: string;
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
         try {
             if (scopedCategory !== null) {
                 await connection.execute(
-                    `DELETE FROM ${pgTable} WHERE category_id = ${connection.isPostgreSQL ? '$1' : '?'}`,
+                    `DELETE FROM ${pgTable} WHERE category = ${connection.isPostgreSQL ? '$1' : '?'}`,
                     [scopedCategory]
                 );
             } else {
@@ -84,7 +85,7 @@ export async function POST(request: Request) {
                 const sortOrder = sortOrders[globalIdx];
                 const price = parseFloat(product.currencies[0]) || 0;
                 const stock = product.stock;
-                const vatRate = product.vat ?? 20;
+                const vatRate = product.vat ?? DEFAULT_VAT_RATE;
                 // Auto-generate reference if not provided
                 const reference = product.reference ?? generateProductReference(sortOrder);
                 const photo = product.photo ?? '';
@@ -92,7 +93,7 @@ export async function POST(request: Request) {
                 const options = product.options ?? '';
 
                 const cols =
-                    'name, price, category_id, stock, reference, photo, description, sort_order, vat_rate, options';
+                    'name, price, category, stock, reference, photo, description, sort_order, vat_rate, options';
                 const vals = connection.isPostgreSQL
                     ? '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10'
                     : '?, ?, ?, ?, ?, ?, ?, ?, ?, ?';

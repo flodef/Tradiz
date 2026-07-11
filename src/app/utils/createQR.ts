@@ -9,28 +9,10 @@ import type {
     Options,
     TypeNumber,
 } from '@solana/qr-code-styling';
-import QRCodeStyling from '@solana/qr-code-styling';
 
 /**
- * Create a QR code from a Solana Pay URL.
- *
- * @param url - The URL to encode.
- * @param size - Width and height in pixels.
- * @param background - Background color, which should be light for device compatibility.
- * @param color - Foreground color, which should be dark for device compatibility.
- * @param gradient - Optional gradient to apply to the foreground color.
+ * Create QR code styling options for a Solana Pay URL.
  */
-export function createQR(
-    url: string | URL,
-    size = 512,
-    background = 'white',
-    color = 'black',
-    gradient?: Gradient
-): QRCodeStyling {
-    return new QRCodeStyling(createQROptions(url, size, background, color, gradient));
-}
-
-/** @ignore */
 export function createQROptions(
     url: string | URL,
     size = 512,

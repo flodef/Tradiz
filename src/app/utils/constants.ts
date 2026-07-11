@@ -27,6 +27,8 @@ export const REFUND_KEYWORD = 'REMBOURSEMENT';
 export const UPDATING_KEYWORD = 'EN MODIF';
 export const PROCESSING_KEYWORD = 'EN COURS';
 export const DELETED_KEYWORD = 'EFFACÉE';
+export const PROVISION_KEYWORD = 'PROVISION';
+export const DEBIT_KEYWORD = 'DEBIT';
 
 // Internal payment methods that should not be displayed in admin UI
 export const INTERNAL_PAYMENT_METHODS = [
@@ -42,7 +44,6 @@ export const PAYMENT_TYPES = [
     'Carte Bancaire',
     'Espèces',
     'Chèque',
-    'Provision',
     'Ticket Restaurant',
     'Chèque Vacances',
     'Solana',
@@ -58,6 +59,9 @@ export const CATEGORY_SEPARATOR = '>';
 export const ARROW = ' ▸';
 export const TRANSACTION_TIME_OUT = 60; // Time out in seconds
 export const BACK_KEYWORD = 'RETOUR';
+
+// Default VAT rate as a percentage, applied when an item has no explicit rate
+export const DEFAULT_VAT_RATE = 20;
 
 export const IS_LOCAL = !process.env.NEXT_PUBLIC_VERCEL_ENV;
 export const IS_DEV = process.env.NEXT_PUBLIC_IS_DEV?.toLowerCase() === 'true';

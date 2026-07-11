@@ -63,10 +63,10 @@ async function checkProductStock() {
         if (unavailable > 0) {
             log('\n🔍 Sample unavailable products:', 'yellow');
             const sampleResult = await client.query(
-                'SELECT name, category_id, stock FROM dc.products WHERE stock = 0 LIMIT 10'
+                'SELECT name, category, stock FROM dc.products WHERE stock = 0 LIMIT 10'
             );
             sampleResult.rows.forEach((row) => {
-                log(`  - ${row.name} (${row.category_id}): stock = ${row.stock}`, 'yellow');
+                log(`  - ${row.name} (${row.category}): stock = ${row.stock}`, 'yellow');
             });
         }
 
@@ -74,10 +74,10 @@ async function checkProductStock() {
         if (available > 0) {
             log('\n🔍 Sample available products:', 'green');
             const sampleResult = await client.query(
-                'SELECT name, category_id, stock FROM dc.products WHERE stock IS NULL LIMIT 10'
+                'SELECT name, category, stock FROM dc.products WHERE stock IS NULL LIMIT 10'
             );
             sampleResult.rows.forEach((row) => {
-                log(`  - ${row.name} (${row.category_id}): stock = ${row.stock}`, 'green');
+                log(`  - ${row.name} (${row.category}): stock = ${row.stock}`, 'green');
             });
         }
 

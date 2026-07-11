@@ -214,7 +214,7 @@ async function syncProducts() {
         let insertedCount = 0;
         for (const product of products) {
             await client.query(
-                `INSERT INTO dc.products (sort_order, name, price, photo, category_id, description, vat_rate, stock, reference, options)
+                `INSERT INTO dc.products (sort_order, name, price, photo, category, description, vat_rate, stock, reference, options)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
                 [
                     product.sort_order,
