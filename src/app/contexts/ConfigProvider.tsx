@@ -308,6 +308,19 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
             return;
         }
 
+        // If a fresh admin update is already in localStorage, use it immediately
+        // instead of waiting for the full DB reload.
+        const lastModified = config?.parameters?.lastModified;
+        if (lastModified && !Number.isNaN(Number(lastModified)) && Date.now() - Number(lastModified) < 60_000) {
+            try {
+                storeData(config);
+                setConfig({ ...config });
+                return;
+            } catch {
+                // stale/invalid, fall back to loadData
+            }
+        }
+
         loadData(shop, IS_DEV || isDemo)
             .then((data) => {
                 if (!data) {
@@ -340,13 +353,14 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
                     setState(State.error);
                 }
             });
-    }, [state, config, storeData, loadConfig, shop, parameters, isDemo]);
+    }, [state, config, setConfig, storeData, loadConfig, shop, parameters, isDemo]);
 
     return (
         <ConfigContext.Provider
             value={{
                 state,
                 setState,
+                setConfig,
                 isStateReady,
                 modeFonctionnement,
                 isFastFood,
@@ -361,6 +375,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
                 inventory,
                 discounts,
                 colors,
+                printers,
                 getPrintersNames,
                 getPrinterAddresses,
                 customers,

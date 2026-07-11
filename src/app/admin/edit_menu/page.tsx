@@ -4,19 +4,64 @@ import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
 import CategoriesConfig from '@/app/components/admin/sections/CategoriesConfig';
 import OptionsConfig, { ProductOptionGroup } from '@/app/components/admin/sections/OptionsConfig';
 import ProductsConfig, { AdminProduct } from '@/app/components/admin/sections/ProductsConfig';
-import { ProductsSettings } from '@/app/contexts/ConfigProvider';
+import { Config, ProductsSettings } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { LoadingDot } from '@/app/loading';
-import { CONFIG_KEYWORD, USE_DIGICARTE } from '@/app/utils/constants';
-import { Category } from '@/app/utils/interfaces';
+import { USE_DIGICARTE } from '@/app/utils/constants';
+import { Category, InventoryItem } from '@/app/utils/interfaces';
 import { clearLoadDataCache } from '@/app/utils/processData';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconCategory, IconListDetails, IconBox } from '@tabler/icons-react';
 
+function buildInventoryFromAdminProducts(products: AdminProduct[]): InventoryItem[] {
+    const inventory: InventoryItem[] = [];
+    const categoryIndex: Record<string, number> = {};
+
+    for (let i = 0; i < products.length; i++) {
+        const p = products[i];
+        const label = (p.name || '').trim();
+        const category = (p.category || '').trim();
+        if (!label || !category) continue;
+
+        if (categoryIndex[category] === undefined) {
+            categoryIndex[category] = inventory.length;
+            inventory.push({
+                category: category.toFirstUpperCase(),
+                rate: p.vat ?? 0,
+                order: inventory.length,
+                products: [],
+            });
+        }
+
+        const item = inventory[categoryIndex[category]];
+        item.products.push({
+            label: label.toFirstUpperCase(),
+            prices: p.currencies.map((c) => Number(c)).filter((price) => Number.isFinite(price)),
+            options: p.options || null,
+            stock: p.stock ?? null,
+            order: item.products.length,
+            reference: p.reference ? String(p.reference).trim() : null,
+        });
+    }
+
+    return inventory;
+}
+
 export default function EditMenuPage() {
-    const { inventory, currencies, parameters } = useConfig();
+    const {
+        inventory,
+        currencies,
+        parameters,
+        setConfig,
+        paymentMethods,
+        discounts,
+        colors,
+        printers,
+        customers,
+        users,
+    } = useConfig();
     const { isCashier } = useUserRole();
     const { openFullscreenPopup } = usePopup();
     const [products, setProducts] = useState<AdminProduct[]>([]);
@@ -220,7 +265,19 @@ export default function EditMenuPage() {
 
                 setProducts(data);
                 setOriginalProducts(data);
-                localStorage.removeItem(CONFIG_KEYWORD);
+
+                const config: Config = {
+                    parameters: { ...parameters, lastModified: Date.now().toString() },
+                    currencies,
+                    paymentMethods,
+                    inventory: buildInventoryFromAdminProducts(data),
+                    discounts,
+                    colors,
+                    printers,
+                    customers,
+                    users,
+                };
+                setConfig(config);
                 clearLoadDataCache();
             } catch (error) {
                 console.error("Erreur lors de l'enregistrement:", error);
@@ -232,7 +289,18 @@ export default function EditMenuPage() {
                 setIsSavingProducts(false);
             }
         },
-        [openFullscreenPopup]
+        [
+            openFullscreenPopup,
+            parameters,
+            currencies,
+            setConfig,
+            paymentMethods,
+            discounts,
+            colors,
+            printers,
+            customers,
+            users,
+        ]
     );
 
     // Category rename: update all products with the old category name and save to DB

@@ -1,12 +1,23 @@
 import { createContext, useContext } from 'react';
-import { Parameters } from '../contexts/ConfigProvider';
-import { Currency, Customer, PaymentMethod, InventoryItem, Discount, Color, State, User } from '../utils/interfaces';
+import { Config, Parameters } from '../contexts/ConfigProvider';
+import {
+    Currency,
+    Customer,
+    PaymentMethod,
+    InventoryItem,
+    Discount,
+    Color,
+    Printer,
+    State,
+    User,
+} from '../utils/interfaces';
 
 export type OperationMode = 'restaurant' | 'fastfood' | 'lite';
 
 export interface ConfigContextState {
     state: State;
     setState: (value: State) => void;
+    setConfig: (value: Config | undefined) => void;
     isStateReady: boolean;
     modeFonctionnement: OperationMode;
     isFastFood: boolean;
@@ -21,6 +32,7 @@ export interface ConfigContextState {
     inventory: InventoryItem[];
     discounts: Discount[];
     colors: Color[];
+    printers: Printer[];
     getPrintersNames: () => string[];
     getPrinterAddresses: (name?: string) => string[];
     customers: Customer[];
