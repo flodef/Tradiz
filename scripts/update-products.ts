@@ -121,11 +121,6 @@ async function syncProducts() {
 
         log(`📊 Found ${filtered.length} products in Google Sheets\n`, 'blue');
 
-        // Delete all existing products
-        log('🗑️  Deleting all existing products...', 'yellow');
-        const deleteResult = await client.query('DELETE FROM dc.products');
-        log(`✅ Deleted ${deleteResult.rowCount} existing products\n`, 'green');
-
         // Build category order from first appearance to compute encoded sort_order
         const categoryOrder: string[] = [];
         for (const { item: row } of filtered) {
@@ -209,7 +204,13 @@ async function syncProducts() {
             }
         }
 
-        // Insert all products
+        // Replace products atomically: if anything fails the original data is preserved.
+        await client.query('BEGIN');
+
+        log('🗑️  Deleting all existing products...', 'yellow');
+        const deleteResult = await client.query('DELETE FROM dc.products');
+        log(`✅ Deleted ${deleteResult.rowCount} existing products\n`, 'green');
+
         log('📥 Inserting products into database...', 'blue');
         let insertedCount = 0;
         for (const product of products) {
@@ -233,6 +234,8 @@ async function syncProducts() {
             log(`✅ Inserted: ${product.name} (${product.category_id}) - stock = ${product.stock}`, 'green');
         }
 
+        await client.query('COMMIT');
+
         log(`\n✨ Sync completed!`, 'green');
         log(`   Inserted: ${insertedCount} products`, 'green');
 
@@ -240,6 +243,11 @@ async function syncProducts() {
     } catch (error) {
         log('\n❌ Sync failed:', 'red');
         console.error(error);
+        try {
+            await client.query('ROLLBACK');
+        } catch {
+            // rollback may fail if the transaction was already closed
+        }
         await client.end();
         process.exit(1);
     }

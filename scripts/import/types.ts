@@ -9,7 +9,7 @@ import {
     REFUND_KEYWORD,
     UPDATING_KEYWORD,
     WAITING_KEYWORD,
-} from '@/app/utils/constants';
+} from '../../src/app/utils/constants';
 
 // ── Firestore data shapes ────────────────────────────────────────────────────
 

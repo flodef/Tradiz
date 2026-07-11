@@ -33,6 +33,8 @@ export function computeSortOrders(products: Product[]): number[] {
 }
 
 export async function POST(request: Request) {
+    let connection: Awaited<ReturnType<typeof getMainDb>> | undefined;
+
     try {
         const { products, category } = await request.json();
 
@@ -40,13 +42,20 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid products format' }, { status: 400 });
         }
 
-        const connection = await getMainDb();
+        const scopedCategory = typeof category === 'string' ? category : null;
+
+        // Refuse a full replace with an empty product list — that would TRUNCATE the whole catalog.
+        // Empty category-scoped saves are still allowed (delete a single category).
+        if (products.length === 0 && scopedCategory === null) {
+            return NextResponse.json({ error: 'Empty product list' }, { status: 400 });
+        }
+
+        connection = await getMainDb();
 
         // Check for duplicate product names before writing
         const names = (products as Product[]).map((p) => p.name.trim().toLowerCase());
         const duplicates = names.filter((n, i) => names.indexOf(n) !== i);
         if (duplicates.length > 0) {
-            await connection.end();
             return NextResponse.json(
                 { error: `Noms de produits en double : "${[...new Set(duplicates)].join(', ')}"` },
                 { status: 409 }
@@ -54,10 +63,6 @@ export async function POST(request: Request) {
         }
 
         const sortOrders = computeSortOrders(products as Product[]);
-
-        // When a category is provided, scope the delete to that category only.
-        // Otherwise do a full truncate+reinsert.
-        const scopedCategory = typeof category === 'string' ? category : null;
 
         const pgTable = connection.isPostgreSQL ? 'dc.products' : 'products';
 
@@ -69,15 +74,17 @@ export async function POST(request: Request) {
                     [scopedCategory]
                 );
             } else {
-                await connection.execute(
-                    connection.isPostgreSQL ? 'TRUNCATE dc.products RESTART IDENTITY' : 'TRUNCATE TABLE products'
-                );
+                await connection.execute(connection.isPostgreSQL ? 'DELETE FROM dc.products' : 'DELETE FROM products');
             }
 
             const productsToInsert =
                 scopedCategory !== null
                     ? (products as Product[]).filter((p) => p.category === scopedCategory)
                     : (products as Product[]);
+
+            const cols = 'name, price, category, stock, reference, photo, description, sort_order, vat_rate, options';
+            const rowValues: unknown[] = [];
+            const placeholders: string[] = [];
 
             for (let i = 0; i < productsToInsert.length; i++) {
                 const product = productsToInsert[i];
@@ -86,18 +93,17 @@ export async function POST(request: Request) {
                 const price = parseFloat(product.currencies[0]) || 0;
                 const stock = product.stock;
                 const vatRate = product.vat ?? DEFAULT_VAT_RATE;
-                // Auto-generate reference if not provided
                 const reference = product.reference ?? generateProductReference(sortOrder);
                 const photo = product.photo ?? '';
                 const description = product.description ?? '';
                 const options = product.options ?? '';
 
-                const cols =
-                    'name, price, category, stock, reference, photo, description, sort_order, vat_rate, options';
-                const vals = connection.isPostgreSQL
-                    ? '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10'
+                const start = rowValues.length + 1;
+                const row = connection.isPostgreSQL
+                    ? Array.from({ length: 10 }, (_, j) => `$${start + j}`).join(', ')
                     : '?, ?, ?, ?, ?, ?, ?, ?, ?, ?';
-                await connection.execute(`INSERT INTO ${pgTable} (${cols}) VALUES (${vals})`, [
+                placeholders.push(`(${row})`);
+                rowValues.push(
                     product.name,
                     price,
                     product.category,
@@ -107,8 +113,13 @@ export async function POST(request: Request) {
                     description,
                     sortOrder,
                     vatRate,
-                    options,
-                ]);
+                    options
+                );
+            }
+
+            if (placeholders.length > 0) {
+                const insertQuery = `INSERT INTO ${pgTable} (${cols}) VALUES ${placeholders.join(', ')}`;
+                await connection.execute(insertQuery, rowValues);
             }
 
             await connection.commit();
@@ -116,8 +127,6 @@ export async function POST(request: Request) {
             await connection.rollback();
             throw e;
         }
-
-        await connection.end();
 
         return NextResponse.json({ success: true }, { status: 200 });
     } catch (error) {
@@ -127,5 +136,7 @@ export async function POST(request: Request) {
                 ? 'La connexion à la base de données a expiré. Veuillez réessayer.'
                 : 'Une erreur est survenue lors de la mise à jour des produits.';
         return NextResponse.json({ error: msg }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

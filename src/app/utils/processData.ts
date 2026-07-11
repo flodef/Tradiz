@@ -341,13 +341,28 @@ async function _loadDataImpl(_shop: string, _shouldUseLocalData = false): Promis
     const colors = await fetchData(dataNames.colors).then(convertColorsData);
     const printers = await fetchData(dataNames.printers).then(convertPrintersData);
 
-    const data = await fetchData(dataNames.products).then(convertProductsData);
+    let data = await fetchData(dataNames.products).then(convertProductsData);
+
+    // If getAllArticles failed or returned no products, allow admins/cashiers to proceed
+    // so they can open the Edit Menu page and re-create the catalog. Other users get
+    // the usual missing-products error.
+    const hasEditAccess = user.role === Role.admin || user.role === Role.cashier;
+    if (!data?.currencies?.length) {
+        if (!data && allCurrencies.length) {
+            // getAllArticles likely failed (e.g. 500 due to schema mismatch or empty table).
+            // Fall back to the currency labels from getCurrencies so the admin can still load.
+            data = { products: [], currencies: allCurrencies.map((c) => c.label) };
+        } else {
+            throw new MissingDataError('Devises', isAdmin);
+        }
+    }
+    if (!data.products.length && !hasEditAccess) {
+        throw new MissingDataError('Produits', isAdmin);
+    }
 
     // Fetch customers and users
     const customers = await fetchData(dataNames.customers).then(convertCustomersData);
     const users = await fetchData(dataNames.users).then(convertUsersData);
-
-    if (!data?.products?.length || !data?.currencies?.length) return;
 
     const currencies = data.currencies.map((item) => {
         const normalizedItem = item.normalizeCurrency();
@@ -592,7 +607,7 @@ interface RawProduct {
     category: string;
     label: string;
     stock: number | null;
-    reference: string;
+    reference: string | null;
     photo: string;
     description: string;
     prices: number[];
@@ -602,13 +617,15 @@ interface RawProduct {
 async function convertProductsData(response: void | Response): Promise<ProductData | undefined> {
     try {
         if (typeof response === 'undefined') return;
-        const data: { products?: RawProduct[]; currencies?: string[]; error?: { message: string } } =
+        const data: { products?: RawProduct[]; currencies?: string[]; error?: string | { message: string } } =
             await response.json();
-        if (data.error?.message) throw new Error(data.error.message);
-        if (!data.products?.length || !data.currencies?.length) return;
+        // getAllArticles returns a plain string error on 500; object errors may also be present.
+        const errorMessage = typeof data.error === 'string' ? data.error : data.error?.message;
+        if (errorMessage) throw new Error(errorMessage);
+        if (!data.currencies?.length) return;
 
         // Ignore products missing a category or a label
-        const filtered = data.products.filter((p) => p.category?.trim() !== '' && p.label?.trim() !== '');
+        const filtered = (data.products ?? []).filter((p) => p.category?.trim() !== '' && p.label?.trim() !== '');
 
         return {
             products: filtered.map((p, order) => ({
@@ -616,7 +633,7 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
                 category: normalizedString(p.category),
                 label: normalizedString(p.label),
                 stock: p.stock ?? null,
-                reference: String(p.reference).trim(),
+                reference: p.reference != null ? String(p.reference).trim() : null,
                 order,
                 prices: p.prices.map((price) => Number(price)),
                 options: p.options ?? null,

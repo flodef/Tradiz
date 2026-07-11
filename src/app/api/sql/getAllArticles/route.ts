@@ -9,14 +9,15 @@ interface ArticleRow {
     category: string;
     options: string;
     stock: number | null;
-    reference: string;
+    reference: string | null;
     photo: string;
     description: string;
 }
 
 export async function GET() {
+    let connection: Awaited<ReturnType<typeof getMainDb>> | undefined;
     try {
-        const connection = await getMainDb();
+        connection = await getMainDb();
 
         // Query 1: Get all products
         const queryProducts = connection.isPostgreSQL
@@ -34,19 +35,24 @@ export async function GET() {
         // Query 2: Get all formulas
         const queryFormulas = connection.isPostgreSQL
             ? `
-            SELECT name as label, price as amount, '0.1' as rate, 'Formule' as category, '' as options, NULL as stock, '' as reference, '' as photo, '' as description
+            SELECT name as label, price as amount, '20' as rate, 'Formule' as category, '' as options, NULL as stock, '' as reference, '' as photo, '' as description
             FROM dc.formulas
         `
             : `
-            SELECT name as label, price as amount, '0.1' as rate, 'Formule' as category, '' as options, NULL as stock, '' as reference, '' as photo, '' as description
+            SELECT name as label, price as amount, '20' as rate, 'Formule' as category, '' as options, NULL as stock, '' as reference, '' as photo, '' as description
             FROM formulas
         `;
 
-        // Execute both queries
+        // Execute both queries. The products query is required; the formulas query is
+        // optional - if the formulas table doesn't exist we still return the catalog.
         const [productsRows] = await connection.execute(queryProducts);
-        const [formulasRows] = await connection.execute(queryFormulas);
-
-        await connection.end();
+        let formulasRows: unknown[] = [];
+        try {
+            const [rows] = await connection.execute(queryFormulas);
+            formulasRows = rows as unknown[];
+        } catch (formulaError) {
+            console.warn('Could not load formulas, continuing without them:', formulaError);
+        }
 
         // Combine all rows
         const allRows = [...(productsRows as ArticleRow[]), ...(formulasRows as ArticleRow[])];
@@ -54,21 +60,27 @@ export async function GET() {
         // Currency columns follow the fixed product fields. Only Euro is supported for now.
         const currencies = ['Euro (€)'];
 
-        const products = allRows.map((row) => ({
-            rate: row.rate !== null ? Number(row.rate) / 100 : null,
-            category: String(row.category),
-            label: String(row.label),
-            stock: row.stock !== null ? Number(row.stock) : null,
-            reference: String(row.reference),
-            photo: String(row.photo),
-            description: String(row.description),
-            prices: [Number(Number(row.amount).toFixed(2))],
-            options: row.options || null,
-        }));
+        const products = allRows.map((row) => {
+            const rate = row.rate != null ? Number(row.rate) / 100 : null;
+            const price = Number((Number(row.amount) || 0).toFixed(2));
+            return {
+                rate: rate !== null && Number.isFinite(rate) ? rate : null,
+                category: String(row.category),
+                label: String(row.label),
+                stock: row.stock != null ? Number(row.stock) : null,
+                reference: row.reference != null ? String(row.reference) : null,
+                photo: String(row.photo),
+                description: String(row.description),
+                prices: [Number.isFinite(price) ? price : 0],
+                options: row.options || null,
+            };
+        });
 
         return NextResponse.json({ products, currencies }, { status: 200 });
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching data' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }
