@@ -9,6 +9,7 @@ import type {
     Options,
     TypeNumber,
 } from '@solana/qr-code-styling';
+
 /**
  * Create QR code styling options for a Solana Pay URL.
  */

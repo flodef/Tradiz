@@ -287,15 +287,28 @@ export const usePay = () => {
 
     const selectPayment = useCallback(
         (option: string, fallback: () => void) => {
-            const updateCustomerBalance = (customerId: number, amount: number, operation: 'credit' | 'debit') => {
-                fetch('/api/sql/updateCustomerBalance', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ customerId, amount, operation }),
-                }).catch((error) => console.error(`Failed to ${operation} customer balance:`, error));
+            const updateCustomerBalance = async (customerId: number, amount: number, operation: 'credit' | 'debit') => {
+                try {
+                    const response = await fetch('/api/sql/updateCustomerBalance', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ customerId, amount, operation }),
+                    });
+                    if (!response.ok) {
+                        const result = (await response.json().catch(() => ({}))) as { error?: string };
+                        throw new Error(result.error || `HTTP ${response.status}`);
+                    }
+                } catch (error) {
+                    console.error(`Failed to ${operation} customer balance:`, error);
+                    // Surface the failure so staff know the balance is out of sync and can fix it manually.
+                    openPopup('Erreur', [
+                        "Le solde du client n'a pas pu être mis à jour.",
+                        'Veuillez le corriger manuellement.',
+                    ]);
+                }
             };
 
-            const finalizeProvisionPayment = (customer: Customer, selectedOption: string) => {
+            const finalizeProvisionPayment = async (customer: Customer, selectedOption: string) => {
                 const amount = getCurrentTotal();
                 const transaction: Transaction = {
                     validator: parameters.user.name,
@@ -307,18 +320,20 @@ export const usePay = () => {
                     products: [],
                 };
                 updateTransaction(transaction);
-                if (customer.id) {
-                    updateCustomerBalance(customer.id, amount, 'credit');
-                }
                 closePopup();
+                if (customer.id) {
+                    await updateCustomerBalance(customer.id, amount, 'credit');
+                }
             };
 
-            const finalizeDebitPayment = (customer: Customer) => {
+            const finalizeDebitPayment = async (customer: Customer) => {
+                // Capture the amount before updateTransaction, which may reset the current total.
+                const amount = getCurrentTotal();
                 updateTransaction(DEBIT_KEYWORD);
-                if (customer.id) {
-                    updateCustomerBalance(customer.id, getCurrentTotal(), 'debit');
-                }
                 closePopup();
+                if (customer.id) {
+                    await updateCustomerBalance(customer.id, amount, 'debit');
+                }
             };
 
             const openCustomerSearchPopup = (onCustomerSelected: (customer: Customer) => void) => {

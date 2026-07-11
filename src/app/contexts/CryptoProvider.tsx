@@ -104,10 +104,19 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
     );
 
     useEffect(() => {
-        if (crypto === Crypto.Solana && paymentStatus === PaymentStatus.Pending && !reference) {
-            Keypair.generate().then((keypair) => setReference(keypair.publicKey));
-        }
-    }, [crypto, paymentStatus, reference]);
+        if (!(crypto === Crypto.Solana && paymentStatus === PaymentStatus.Pending && !reference)) return;
+        let cancelled = false;
+        Keypair.generate()
+            .then((keypair) => {
+                if (!cancelled) setReference(keypair.publicKey);
+            })
+            .catch((e) => {
+                if (!cancelled) setError(e instanceof Error ? e : new Error(String(e)));
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [crypto, paymentStatus, reference, setError]);
 
     const retry = useCallback(() => {
         if (refPaymentStatus.current === PaymentStatus.Error) {
@@ -128,6 +137,9 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
         const interval = setInterval(async () => {
             try {
                 if (crypto === Crypto.Solana && reference) {
+                    // @solana/pay@0.2.6 is typed against web3.js v1, but at runtime findReference only
+                    // forwards these to connection.getSignaturesForAddress, which the v3 Connection and
+                    // PublicKey satisfy. The casts bridge the v1 type signatures to our v3 objects.
                     const signature = await findReference(
                         connection.current as unknown as Parameters<typeof findReference>[0],
                         reference as unknown as Parameters<typeof findReference>[1]

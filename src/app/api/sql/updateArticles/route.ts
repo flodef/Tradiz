@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
 import { generateProductReference } from '@/app/utils/productReference';
+import { DEFAULT_VAT_RATE } from '@/app/utils/constants';
 
 interface Product {
     name: string;
@@ -84,7 +85,7 @@ export async function POST(request: Request) {
                 const sortOrder = sortOrders[globalIdx];
                 const price = parseFloat(product.currencies[0]) || 0;
                 const stock = product.stock;
-                const vatRate = product.vat ?? 20;
+                const vatRate = product.vat ?? DEFAULT_VAT_RATE;
                 // Auto-generate reference if not provided
                 const reference = product.reference ?? generateProductReference(sortOrder);
                 const photo = product.photo ?? '';

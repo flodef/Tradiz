@@ -81,7 +81,7 @@ export async function validateTransfer(
     // Transfer instruction must be the last instruction
     const instruction = instructions.pop();
     if (!instruction) throw new ValidateTransferError('missing transfer instruction');
-    if (instruction.keys[0].pubkey === instruction.keys[1].pubkey)
+    if (instruction.keys[0].pubkey.toBase58() === instruction.keys[1].pubkey.toBase58())
         throw new ValidateTransferError('sender is also recipient');
 
     const [preAmount, postAmount] = splToken
@@ -183,6 +183,8 @@ async function validateSPLTokenTransfer(
     ];
 }
 
+// Derives the associated token address for a mint/owner. Only supports the classic SPL Token program
+// (TOKEN_PROGRAM_ID), not Token-2022; this matches @solana/spl-token's default and the mints we accept.
 async function getAssociatedTokenAddress(mint: PublicKey, owner: PublicKey): Promise<PublicKey> {
     if (!PublicKey.isOnCurve(owner.toBytes())) {
         throw new ValidateTransferError('recipient owner off curve');

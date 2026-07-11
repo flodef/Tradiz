@@ -1,4 +1,4 @@
-import { DELETED_KEYWORD, PROCESSING_KEYWORD, DEFAULT_USER } from '@/app/utils/constants';
+import { DELETED_KEYWORD, PROCESSING_KEYWORD, DEFAULT_USER, DEFAULT_VAT_RATE } from '@/app/utils/constants';
 import { NextResponse } from 'next/server';
 import { Connection, getPosDb } from '../db';
 
@@ -176,7 +176,7 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
                 product.discount_amount || 0,
                 product.discount_unit || '',
                 product.total,
-                product.vat_rate ?? 20,
+                product.vat_rate ?? DEFAULT_VAT_RATE,
             ]);
         }
     }
@@ -287,7 +287,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
                 product.discount_amount || 0,
                 product.discount_unit || '',
                 product.total,
-                product.vat_rate ?? 20,
+                product.vat_rate ?? DEFAULT_VAT_RATE,
             ]);
         }
     }

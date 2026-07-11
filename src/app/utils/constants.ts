@@ -60,6 +60,9 @@ export const ARROW = ' ▸';
 export const TRANSACTION_TIME_OUT = 60; // Time out in seconds
 export const BACK_KEYWORD = 'RETOUR';
 
+// Default VAT rate as a percentage, applied when an item has no explicit rate
+export const DEFAULT_VAT_RATE = 20;
+
 export const IS_LOCAL = !process.env.NEXT_PUBLIC_VERCEL_ENV;
 export const IS_DEV = process.env.NEXT_PUBLIC_IS_DEV?.toLowerCase() === 'true';
 export const SHOP_ID = process.env.NEXT_PUBLIC_SHOP_ID || '';

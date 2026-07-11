@@ -9,8 +9,11 @@ export async function POST(request: Request) {
             operation: 'credit' | 'debit';
         };
 
-        if (!customerId || !amount || !operation) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        if (!customerId || (operation !== 'credit' && operation !== 'debit')) {
+            return NextResponse.json({ error: 'Missing or invalid required fields' }, { status: 400 });
+        }
+        if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
+            return NextResponse.json({ error: 'Amount must be a positive number' }, { status: 400 });
         }
 
         const connection = await getPosDb();

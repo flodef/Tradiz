@@ -1,5 +1,5 @@
 import { isDeletedTransaction } from '@/app/contexts/dataProvider/transactionHelpers';
-import { DEFAULT_USER } from '@/app/utils/constants';
+import { DEFAULT_USER, DEFAULT_VAT_RATE } from '@/app/utils/constants';
 import { Transaction } from '@/app/utils/interfaces';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
@@ -147,7 +147,7 @@ export async function GET(request: Request) {
                     unit: p.discount_unit || '%',
                 },
                 total: Number(p.total),
-                vatRate: Number(p.vat_rate) || 20,
+                vatRate: p.vat_rate != null ? Number(p.vat_rate) : DEFAULT_VAT_RATE,
             }));
 
             const createdDate = Number(row.createddate ?? row.createdDate);
