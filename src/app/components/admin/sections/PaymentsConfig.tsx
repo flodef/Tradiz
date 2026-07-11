@@ -32,6 +32,7 @@ interface SortableRowProps {
     idInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
     lastAddedIndexRef: React.MutableRefObject<number | null>;
     index: number;
+    isDuplicate: boolean;
 }
 
 const SortableRow = memo(function SortableRow({
@@ -43,6 +44,7 @@ const SortableRow = memo(function SortableRow({
     idInputRefs,
     lastAddedIndexRef,
     index,
+    isDuplicate,
 }: SortableRowProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: payment._id,
@@ -62,6 +64,7 @@ const SortableRow = memo(function SortableRow({
                     onChange={(e) => onFieldChange(payment._id, 'type', e.target.value)}
                     options={PAYMENT_TYPES.map((type) => ({ value: type, label: type }))}
                     isReadOnly={isReadOnly}
+                    error={isDuplicate}
                 />
             </td>
             <td className="p-2">
@@ -170,8 +173,13 @@ export default function PaymentsConfig({
         [notifyParent]
     );
 
-    const isValid =
-        payments.every((p) => p.type?.trim()) && new Set(payments.map((p) => p.type)).size === payments.length;
+    const typeCounts = payments.reduce<Record<string, number>>((acc, p) => {
+        acc[p.type] = (acc[p.type] || 0) + 1;
+        return acc;
+    }, {});
+    const duplicateTypes = new Set(payments.filter((p) => typeCounts[p.type] > 1).map((p) => p.type));
+
+    const isValid = payments.every((p) => p.type?.trim()) && duplicateTypes.size === 0;
 
     const handleAddPayment = useCallback(() => {
         setPayments((prev) => {
@@ -181,7 +189,7 @@ export default function PaymentsConfig({
                     type: 'Carte Bancaire',
                     id: '',
                     currency: '',
-                    availability: false,
+                    availability: true,
                     _id: nextIdRef.current++,
                 },
             ];
@@ -235,6 +243,7 @@ export default function PaymentsConfig({
         <SectionCard
             title="Paiements"
             onSave={isReadOnly ? undefined : onSave ? () => onSave(strip(payments)) : undefined}
+            saveDisabled={!isValid}
             onCancel={onCancel}
             icon={icon}
             isLoading={isLoading}
@@ -271,6 +280,7 @@ export default function PaymentsConfig({
                                         idInputRefs={idInputRefs}
                                         lastAddedIndexRef={lastAddedIndexRef}
                                         index={index}
+                                        isDuplicate={duplicateTypes.has(payment.type)}
                                     />
                                 ))}
                             </tbody>

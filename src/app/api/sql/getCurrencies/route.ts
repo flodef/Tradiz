@@ -10,7 +10,7 @@ export interface CurrencyRow {
     fee: number | null;
 }
 
-const defaultCurrencies = [{ label: 'Euro (€)', maxValue: 999.99, symbol: '€', decimals: 2, rate: 1, fee: 0 }];
+const defaultCurrencies = [{ label: 'Euro', maxValue: 999.99, symbol: '€', decimals: 2, rate: 1, fee: 0 }];
 
 export async function GET() {
     try {

@@ -535,7 +535,7 @@ async function convertCurrenciesData(response: void | Response): Promise<Currenc
         const data: { currencies?: Currency[]; error?: { message: string } } = await response.json();
         if (data.error?.message) throw new Error(data.error.message);
         if (!data.currencies?.length) return defaultCurrencies;
-        return data.currencies.map((item) => ({ ...item, label: normalizedString(item.label) }));
+        return data.currencies.map((item) => ({ ...item, label: String(item.label).normalizeCurrency() }));
     } catch (error) {
         console.error(error);
         return defaultCurrencies;

@@ -52,6 +52,14 @@ const SortableRow = memo(function SortableRow({
         transition,
         opacity: isDragging ? 0.5 : 1,
     };
+    const isValidLabel = (value: string | number) => {
+        const str = String(value).trim();
+        return str.length > 0 && str.length <= 20;
+    };
+    const isValidSymbol = (value: string | number) => {
+        const str = String(value).trim();
+        return str.length > 0 && str.length <= 5;
+    };
 
     return (
         <tr ref={setNodeRef} style={style} className="border-b border-gray-200 dark:border-gray-700">
@@ -63,6 +71,8 @@ const SortableRow = memo(function SortableRow({
                     <ValidatedInput
                         type="text"
                         value={currency.label}
+                        validation={isValidLabel}
+                        maxLength={20}
                         onChange={(value) => onFieldChange(currency._id, 'label', String(value))}
                         isNameField
                         ref={(el) => {
@@ -86,6 +96,8 @@ const SortableRow = memo(function SortableRow({
                     <ValidatedInput
                         type="text"
                         value={currency.symbol}
+                        validation={isValidSymbol}
+                        maxLength={5}
                         onChange={(value) => onFieldChange(currency._id, 'symbol', String(value))}
                     />
                 )}
@@ -211,7 +223,15 @@ export default function CurrenciesConfig({
     );
 
     const isValid = currencies.every(
-        (c) => c.label?.trim() && c.symbol?.trim() && c.maxValue > 0 && c.decimals >= 0 && c.rate > 0 && c.fee >= 0
+        (c) =>
+            c.label?.trim() &&
+            c.label.trim().length <= 20 &&
+            c.symbol?.trim() &&
+            c.symbol.trim().length <= 5 &&
+            c.maxValue > 0 &&
+            c.decimals >= 0 &&
+            c.rate > 0 &&
+            c.fee >= 0
     );
 
     const handleAddCurrency = useCallback(() => {
@@ -266,6 +286,7 @@ export default function CurrenciesConfig({
         <SectionCard
             title="Devises"
             onSave={isReadOnly || !hasChanges ? undefined : () => onSave(strip(currencies))}
+            saveDisabled={!isValid}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
             icon={icon}
             isLoading={isLoading}

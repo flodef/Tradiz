@@ -6,6 +6,16 @@ import DeleteButton from '../DeleteButton';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
 
+const defaultColors: Color[] = [
+    { label: 'Texte', light: '#d97706', dark: '#facc15' },
+    { label: 'Fond début dégradé', light: '#fff7ed', dark: '#65a30d' },
+    { label: 'Fond fin dégradé', light: '#fed7aa', dark: '#14532d' },
+    { label: 'Popup', light: '#f1f5f9', dark: '#713f12' },
+    { label: 'Activé', light: '#fdba74', dark: '#84cc16' },
+    { label: 'Secondaire', light: '#84cc16', dark: '#fdba74' },
+    { label: 'Secondaire activé', light: '#a3e635', dark: '#f97316' },
+];
+
 export default function ColorsConfig({
     config,
     onChange,
@@ -39,7 +49,7 @@ export default function ColorsConfig({
     onToggle?: () => void;
     icon?: React.ReactNode;
 }) {
-    const [colors, setColors] = useState(config || []);
+    const [colors, setColors] = useState<Color[]>(config?.length ? config : defaultColors);
     const [internalSelectedIndex, setInternalSelectedIndex] = useState(0);
     const [internalCustomNames, setInternalCustomNames] = useState<Record<number, string>>({});
     const lastAddedThemeIndexRef = useRef<number | null>(null);
@@ -50,7 +60,7 @@ export default function ColorsConfig({
     const customThemeNames = externalCustomNames !== undefined ? externalCustomNames : internalCustomNames;
 
     useEffect(() => {
-        setColors(config || []);
+        setColors(config?.length ? config : defaultColors);
     }, [config]);
 
     // Notify parent of selection change to trigger save/cancel buttons
@@ -74,17 +84,10 @@ export default function ColorsConfig({
     };
 
     const handleAddTheme = () => {
-        // Add a new theme with default colors
-        const defaultTheme: Color[] = [
-            { label: 'Texte', light: '#000000', dark: '#FFFFFF' },
-            { label: 'Fond début dégradé', light: '#FFFFFF', dark: '#1F2937' },
-            { label: 'Fond fin dégradé', light: '#F3F4F6', dark: '#111827' },
-            { label: 'Popup', light: '#FFFFFF', dark: '#374151' },
-            { label: 'Activé', light: '#3B82F6', dark: '#60A5FA' },
-            { label: 'Secondaire', light: '#6B7280', dark: '#9CA3AF' },
-            { label: 'Secondaire activé', light: '#10B981', dark: '#34D399' },
-        ];
-        const updated = [...colors, ...defaultTheme];
+        // Add a new theme using the current theme as a default
+        const currentTheme = themes[selectedThemeIndex] ?? defaultColors;
+        const newTheme = currentTheme.map((color) => ({ ...color }));
+        const updated = [...colors, ...newTheme];
         const newThemeIndex = themes.length;
         lastAddedThemeIndexRef.current = newThemeIndex;
         setColors(updated);
