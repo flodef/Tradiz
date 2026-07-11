@@ -6,31 +6,28 @@
  * main (empty) DB, without touching transactions, users, or history.
  *
  * Usage:
- *   SOURCE_PG_HOST=... SOURCE_PG_USER=... SOURCE_PG_PASSWORD=... SOURCE_PG_DATABASE=... \
- *   TARGET_PG_HOST=... TARGET_PG_USER=... TARGET_PG_PASSWORD=... TARGET_PG_DATABASE=... \
  *   bun scripts/restore-products-from-db.ts
  *
- * The target is taken from your standard PG_* variables if SOURCE_PG_* is not set.
+ * The script uses PG_USER, PG_PASSWORD and NEXT_PUBLIC_SHOP_ID from .env.local.
+ * It prompts for the source and target PG hosts, defaulting to PG_HOST.
  * Add --dry-run to preview the row count without writing anything.
  */
 
 import { Client } from 'pg';
+import * as readline from 'readline/promises';
 
-function getConnectionString(prefix: 'SOURCE_' | 'TARGET_' | '') {
-    const host = process.env[`${prefix}PG_HOST`] ?? process.env.PG_HOST;
-    const user = process.env[`${prefix}PG_USER`] ?? process.env.PG_USER;
-    const password = process.env[`${prefix}PG_PASSWORD`] ?? process.env.PG_PASSWORD;
-    const database = process.env[`${prefix}PG_DATABASE`] ?? process.env.PG_DATABASE ?? process.env.NEXT_PUBLIC_SHOP_ID;
+function buildConnectionString(host: string) {
+    const user = process.env.PG_USER;
+    const password = process.env.PG_PASSWORD;
+    const database = process.env.NEXT_PUBLIC_SHOP_ID;
 
     if (!host || !user || !password || !database) {
         throw new Error(
-            `Missing ${prefix || 'TARGET_'}PG_* credentials. ` +
-                'Set SOURCE_PG_HOST, SOURCE_PG_USER, SOURCE_PG_PASSWORD, SOURCE_PG_DATABASE, ' +
-                'and the corresponding TARGET_* variables (or plain PG_* for target).'
+            'Missing connection details. Make sure PG_USER, PG_PASSWORD, NEXT_PUBLIC_SHOP_ID and the host are set.'
         );
     }
 
-    return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}/${encodeURIComponent(database)}?sslmode=require`;
+    return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}/${encodeURIComponent(database)}?sslmode=verify-full`;
 }
 
 async function getColumns(client: Client, schema: string, table: string): Promise<string[]> {
@@ -45,8 +42,22 @@ async function getColumns(client: Client, schema: string, table: string): Promis
 
 async function main() {
     const dryRun = process.argv.includes('--dry-run');
-    const sourceConnectionString = getConnectionString('SOURCE_');
-    const targetConnectionString = getConnectionString('TARGET_');
+    const defaultHost = process.env.PG_HOST || '';
+
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const sourceHost = (await rl.question(`Source PG host (default: ${defaultHost}): `)).trim() || defaultHost;
+    const targetHost = (await rl.question(`Target PG host (default: ${defaultHost}): `)).trim() || defaultHost;
+    rl.close();
+
+    if (!sourceHost) {
+        throw new Error('Source PG host is required.');
+    }
+    if (!targetHost) {
+        throw new Error('Target PG host is required.');
+    }
+
+    const sourceConnectionString = buildConnectionString(sourceHost);
+    const targetConnectionString = buildConnectionString(targetHost);
 
     const source = new Client({ connectionString: sourceConnectionString, ssl: { rejectUnauthorized: false } });
     const target = new Client({ connectionString: targetConnectionString, ssl: { rejectUnauthorized: false } });
@@ -66,7 +77,7 @@ async function main() {
         }
 
         if (dryRun) {
-            console.log('🔍 Dry run: would copy ${sourceCount} products to target.');
+            console.log(`🔍 Dry run: would copy ${sourceCount} products to target.`);
             return;
         }
 
