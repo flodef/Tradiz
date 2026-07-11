@@ -40,6 +40,14 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid products format' }, { status: 400 });
         }
 
+        const scopedCategory = typeof category === 'string' ? category : null;
+
+        // Refuse a full replace with an empty product list — that would TRUNCATE the whole catalog.
+        // Empty category-scoped saves are still allowed (delete a single category).
+        if (products.length === 0 && scopedCategory === null) {
+            return NextResponse.json({ error: 'Empty product list' }, { status: 400 });
+        }
+
         const connection = await getMainDb();
 
         // Check for duplicate product names before writing
@@ -55,10 +63,6 @@ export async function POST(request: Request) {
 
         const sortOrders = computeSortOrders(products as Product[]);
 
-        // When a category is provided, scope the delete to that category only.
-        // Otherwise do a full truncate+reinsert.
-        const scopedCategory = typeof category === 'string' ? category : null;
-
         const pgTable = connection.isPostgreSQL ? 'dc.products' : 'products';
 
         await connection.beginTransaction();
@@ -69,9 +73,7 @@ export async function POST(request: Request) {
                     [scopedCategory]
                 );
             } else {
-                await connection.execute(
-                    connection.isPostgreSQL ? 'TRUNCATE dc.products RESTART IDENTITY' : 'TRUNCATE TABLE products'
-                );
+                await connection.execute(connection.isPostgreSQL ? 'DELETE FROM dc.products' : 'DELETE FROM products');
             }
 
             const productsToInsert =

@@ -9,7 +9,7 @@ interface ArticleRow {
     category: string;
     options: string;
     stock: number | null;
-    reference: string;
+    reference: string | null;
     photo: string;
     description: string;
 }
@@ -35,11 +35,11 @@ export async function GET() {
         // Query 2: Get all formulas
         const queryFormulas = connection.isPostgreSQL
             ? `
-            SELECT name as label, price as amount, '0.1' as rate, 'Formule' as category, '' as options, NULL as stock, '' as reference, '' as photo, '' as description
+            SELECT name as label, price as amount, '20' as rate, 'Formule' as category, '' as options, NULL as stock, '' as reference, '' as photo, '' as description
             FROM dc.formulas
         `
             : `
-            SELECT name as label, price as amount, '0.1' as rate, 'Formule' as category, '' as options, NULL as stock, '' as reference, '' as photo, '' as description
+            SELECT name as label, price as amount, '20' as rate, 'Formule' as category, '' as options, NULL as stock, '' as reference, '' as photo, '' as description
             FROM formulas
         `;
 
@@ -60,17 +60,21 @@ export async function GET() {
         // Currency columns follow the fixed product fields. Only Euro is supported for now.
         const currencies = ['Euro (€)'];
 
-        const products = allRows.map((row) => ({
-            rate: row.rate !== null ? Number(row.rate) / 100 : null,
-            category: String(row.category),
-            label: String(row.label),
-            stock: row.stock !== null ? Number(row.stock) : null,
-            reference: String(row.reference),
-            photo: String(row.photo),
-            description: String(row.description),
-            prices: [Number(Number(row.amount).toFixed(2))],
-            options: row.options || null,
-        }));
+        const products = allRows.map((row) => {
+            const rate = row.rate != null ? Number(row.rate) / 100 : null;
+            const price = Number((Number(row.amount) || 0).toFixed(2));
+            return {
+                rate: rate !== null && Number.isFinite(rate) ? rate : null,
+                category: String(row.category),
+                label: String(row.label),
+                stock: row.stock != null ? Number(row.stock) : null,
+                reference: row.reference != null ? String(row.reference) : null,
+                photo: String(row.photo),
+                description: String(row.description),
+                prices: [Number.isFinite(price) ? price : 0],
+                options: row.options || null,
+            };
+        });
 
         return NextResponse.json({ products, currencies }, { status: 200 });
     } catch (error) {

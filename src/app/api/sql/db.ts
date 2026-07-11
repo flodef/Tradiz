@@ -1,5 +1,6 @@
 import { DC, DC_POS, USE_DIGICARTE } from '@/app/utils/constants';
 import mysql from 'mysql2/promise';
+import { Client } from 'pg';
 import { getMainPgDb, getPosPgDb, isPgConfigured } from './pg-db';
 
 // Unified database connection interface
@@ -48,23 +49,35 @@ class MySQLConnectionWrapper implements DbConnection {
     }
 }
 
-type NeonHttpClient = ReturnType<typeof import('./pg-db').getMainPgDb>;
-
-// Wrapper for Neon HTTP client to match our DbConnection interface.
-// Neon HTTP is stateless — each execute() batches SET search_path + query in one sql.transaction() call.
+// Wrapper for PostgreSQL client to match our DbConnection interface.
+// This uses real BEGIN/COMMIT/ROLLBACK so routes that truncate and re-insert are atomic.
 class PostgreSQLConnectionWrapper implements DbConnection {
     isPostgreSQL = true;
 
-    constructor(private sql: NeonHttpClient) {}
+    private connected = false;
+    private searchPathSet = false;
 
-    private async runQuery(query: string, params: unknown[] = []): Promise<unknown[]> {
-        // Neon HTTP is stateless — always batch SET search_path with the query
-        // sql.transaction() returns an array of raw row arrays: [setPathRows, queryRows]
-        const [, rows] = await this.sql.transaction([
-            this.sql.query('SET search_path TO dc_pos, dc, dc_sys, public'),
-            this.sql.query(query, params),
-        ]);
-        return (rows as unknown as unknown[]) ?? [];
+    constructor(private client: Client) {}
+
+    private async ensureConnected(): Promise<void> {
+        if (!this.connected) {
+            await this.client.connect();
+            this.connected = true;
+        }
+    }
+
+    private async setSearchPath(): Promise<void> {
+        if (!this.searchPathSet) {
+            await this.client.query('SET search_path TO dc_pos, dc, dc_sys, public');
+            this.searchPathSet = true;
+        }
+    }
+
+    private async runQuery(query: string, params?: unknown[]): Promise<unknown[]> {
+        await this.ensureConnected();
+        await this.setSearchPath();
+        const result = await this.client.query(query, params as unknown[]);
+        return result.rows;
     }
 
     async execute(query: string, params?: unknown[]): Promise<[unknown[], unknown]> {
@@ -78,19 +91,23 @@ class PostgreSQLConnectionWrapper implements DbConnection {
     }
 
     async beginTransaction(): Promise<void> {
-        // No-op: Neon HTTP has no persistent session; each sql.transaction() is already atomic
+        await this.ensureConnected();
+        await this.setSearchPath();
+        await this.client.query('BEGIN');
     }
 
     async commit(): Promise<void> {
-        // No-op: see beginTransaction
+        await this.client.query('COMMIT');
     }
 
     async rollback(): Promise<void> {
-        // No-op: see beginTransaction
+        await this.client.query('ROLLBACK');
     }
 
     async end(): Promise<void> {
-        return Promise.resolve();
+        if (this.connected) {
+            await this.client.end();
+        }
     }
 }
 
