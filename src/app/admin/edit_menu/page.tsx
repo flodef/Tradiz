@@ -265,7 +265,7 @@ export default function EditMenuPage() {
             } else {
                 setProducts((prev) => {
                     const updated = prev.filter((p) => (p.category || '').trim() !== key);
-                    setTimeout(() => handleProductsSave(updated), 0);
+                    setTimeout(() => handleProductsSave(updated, key), 0);
                     return updated;
                 });
             }

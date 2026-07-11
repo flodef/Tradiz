@@ -9,8 +9,8 @@
  */
 
 import { Client } from 'pg';
-import { PARAMETER_KEYS } from '@/app/constants/parameterKeys';
-import { generateSimpleId } from '@/app/utils/id';
+import { PARAMETER_KEYS } from '../src/app/constants/parameterKeys';
+import { generateSimpleId } from '../src/app/utils/id';
 
 // Environment validation
 const requiredEnvVars = [
@@ -448,9 +448,6 @@ async function migrateDiscounts(client: Client) {
 async function migrateProducts(client: Client) {
     console.log('📦 Migrating products...');
 
-    // Clear existing data
-    await client.query('DELETE FROM dc.products');
-
     const data = await fetchSheetData(SHEETS.PRODUCTS);
     if (data.error || !data.values || data.values.length < 2) {
         console.log('ℹ️  No products data found');
@@ -549,6 +546,9 @@ async function migrateProducts(client: Client) {
         }
     }
 
+    // Clear existing products only once we have valid data to replace them.
+    await client.query('DELETE FROM dc.products');
+
     // Insert products
     let artCount = 0;
     for (const product of products) {
@@ -588,7 +588,8 @@ async function main() {
         await client.connect();
         console.log(`✅ Connected to database: ${SHOP_NAME}\n`);
 
-        // Run migrations
+        // Run migrations in one transaction so the database is never left half-migrated.
+        await client.query('BEGIN');
         await migrateParameters(client);
         await migrateCurrencies(client);
         await migratePaymentMethods(client);
@@ -597,10 +598,16 @@ async function main() {
         await migrateColors(client);
         await migrateDiscounts(client);
         await migrateProducts(client);
+        await client.query('COMMIT');
 
         console.log('\n✨ Migration completed successfully!');
     } catch (error) {
         console.error('\n❌ Migration failed:', error);
+        try {
+            await client.query('ROLLBACK');
+        } catch {
+            // rollback may fail if the transaction was already closed
+        }
         throw error;
     } finally {
         await client.end();

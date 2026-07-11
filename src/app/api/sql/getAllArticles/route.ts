@@ -15,8 +15,9 @@ interface ArticleRow {
 }
 
 export async function GET() {
+    let connection: Awaited<ReturnType<typeof getMainDb>> | undefined;
     try {
-        const connection = await getMainDb();
+        connection = await getMainDb();
 
         // Query 1: Get all products
         const queryProducts = connection.isPostgreSQL
@@ -42,11 +43,16 @@ export async function GET() {
             FROM formulas
         `;
 
-        // Execute both queries
+        // Execute both queries. The products query is required; the formulas query is
+        // optional - if the formulas table doesn't exist we still return the catalog.
         const [productsRows] = await connection.execute(queryProducts);
-        const [formulasRows] = await connection.execute(queryFormulas);
-
-        await connection.end();
+        let formulasRows: unknown[] = [];
+        try {
+            const [rows] = await connection.execute(queryFormulas);
+            formulasRows = rows as unknown[];
+        } catch (formulaError) {
+            console.warn('Could not load formulas, continuing without them:', formulaError);
+        }
 
         // Combine all rows
         const allRows = [...(productsRows as ArticleRow[]), ...(formulasRows as ArticleRow[])];
@@ -70,5 +76,7 @@ export async function GET() {
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching data' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

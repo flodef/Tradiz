@@ -9,6 +9,7 @@ import {
     Mercurial,
     PaymentMethod,
     Printer,
+    Role,
     State,
     User,
 } from '@/app/utils/interfaces';
@@ -17,6 +18,7 @@ import { ConfigContext, OperationMode } from '../hooks/useConfig';
 import { useWindowParam } from '../hooks/useWindowParam';
 import {
     ADMIN_CONFIG_URL,
+    ADMIN_EDIT_MENU_URL,
     CONFIG_KEYWORD,
     IS_DEV,
     IS_LOCAL,
@@ -34,7 +36,9 @@ import {
     defaultCurrencies,
     defaultParameters,
     defaultPaymentMethods,
+    getPublicKey,
     loadData,
+    resolveUserFromKey,
 } from '../utils/processData';
 
 export interface Shop {
@@ -121,11 +125,13 @@ export function getShopFromSubdomain(): string {
  * @throws Error if required fields are missing or empty
  */
 export function validateConfigData(data: Config): void {
+    const role = data.parameters?.user?.role;
+    const hasEditAccess = role === Role.admin || role === Role.cashier;
     if (
         !(
             data.currencies?.length &&
             data.paymentMethods?.length &&
-            data.inventory?.length &&
+            (data.inventory?.length || hasEditAccess) &&
             data.colors?.length &&
             data.parameters?.shop
         )
@@ -274,6 +280,17 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
         document.documentElement.setAttribute('data-theme-ready', '1');
     }, [colors]);
 
+    // When loaded with an empty inventory, send admins/cashiers straight to the menu editor
+    // so they can recreate the catalog instead of staring at a blank or error screen.
+    useEffect(() => {
+        if (state !== State.loaded) return;
+        const role = parameters.user?.role;
+        const hasEditAccess = role === Role.admin || role === Role.cashier;
+        if (hasEditAccess && inventory.length === 0 && !window.location.pathname.startsWith('/admin')) {
+            window.location.href = ADMIN_EDIT_MENU_URL;
+        }
+    }, [state, inventory, parameters.user?.role]);
+
     useEffect(() => {
         if (state !== State.init) return;
 
@@ -281,9 +298,13 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
 
         loadConfig(config);
 
-        // Skip loading data if on admin config page - it has its own loading logic
+        // Skip loading data if on admin config page - it has its own loading logic.
+        // Still resolve the user so the TopNav and admin pages know the role.
         if (window.location.pathname.includes(ADMIN_CONFIG_URL)) {
-            setState(State.loaded);
+            resolveUserFromKey(getPublicKey()).then(({ user }) => {
+                if (user) setParameters((prev) => ({ ...prev, user }));
+                setState(State.loaded);
+            });
             return;
         }
 

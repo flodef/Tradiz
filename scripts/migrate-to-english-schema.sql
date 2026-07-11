@@ -20,7 +20,7 @@
 USE `DC`;
 
 -- Migrate article → products (stock=NULL means unlimited/available, stock=0 means unavailable)
-INSERT INTO `products` (`id`, `sort_order`, `name`, `price`, `photo`, `stock`, `reference`, `category_id`, `description`, `options`, `order_count`, `vat_rate`)
+INSERT INTO `products` (`id`, `sort_order`, `name`, `price`, `photo`, `stock`, `reference`, `category`, `description`, `options`, `order_count`, `vat_rate`)
 SELECT `id`, `ordre`, `nom`, `prix`, `photo`, CASE WHEN `disponible` = 1 THEN NULL ELSE 0 END, NULL, `categorie`, `description`, `options`, `nbr_commandes`, `taux_tva` FROM `article`;
 
 -- Migrate config_etablissement → establishment_config
