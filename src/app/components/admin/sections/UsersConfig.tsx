@@ -14,7 +14,7 @@ import AdminButton from '../AdminButton';
 import { twMerge } from 'tailwind-merge';
 import { usePopup } from '@/app/hooks/usePopup';
 
-type SortField = 'name' | 'key' | 'reference' | 'role';
+type SortField = 'name' | 'reference' | 'role';
 type SortDirection = 'asc' | 'desc' | 'none';
 
 interface UsersConfigProps {
@@ -75,16 +75,6 @@ function Row({
                             nameInputRefs.current.delete(index);
                         }
                     }}
-                />
-            </td>
-            <td className="p-2">
-                <ValidatedInput
-                    value={user.key ?? ''}
-                    onChange={(value) => onChange({ ...user, key: String(value) })}
-                    placeholder="Clé de l'utilisateur"
-                    isReadOnly={isReadOnly}
-                    validation={(value) => String(value).trim().length > 0}
-                    className="min-w-40"
                 />
             </td>
             <td className="p-2">
@@ -169,9 +159,9 @@ export default function UsersConfig({
 
     const hasChanges = JSON.stringify(strip(nonAdminUsers)) !== JSON.stringify(nonAdminOriginal);
 
-    // Check if all non-admin users have valid key and name
+    // Check if all non-admin users have a valid name
     const isValid = useMemo(() => {
-        return nonAdminUsers.every((user) => user.key?.trim() && user.name?.trim());
+        return nonAdminUsers.every((user) => user.name?.trim());
     }, [nonAdminUsers]);
 
     const sortedUsers = useMemo(() => {
@@ -181,8 +171,6 @@ export default function UsersConfig({
             let comparison = 0;
             if (sortField === 'name') {
                 comparison = (a.name ?? '').localeCompare(b.name ?? '');
-            } else if (sortField === 'key') {
-                comparison = (a.key ?? '').localeCompare(b.key ?? '');
             } else if (sortField === 'reference') {
                 comparison = (a.reference ?? '').localeCompare(b.reference ?? '');
             } else if (sortField === 'role') {
@@ -232,13 +220,12 @@ export default function UsersConfig({
             const parsedUsers: InternalUser[] = [];
             for (let i = 1; i < jsonData.length; i++) {
                 const row = jsonData[i];
-                if (row.length < 2) continue; // Need at least name and key
+                if (row.length < 1) continue; // Need at least name
 
                 parsedUsers.push({
                     name: String(row[0] || ''),
-                    key: String(row[1] || ''),
-                    reference: row[2] ? String(row[2]) : '',
-                    role: (row[3] && Object.values(Role).includes(row[3] as Role) ? row[3] : Role.service) as Role,
+                    reference: row[1] ? String(row[1]) : '',
+                    role: (row[2] && Object.values(Role).includes(row[2] as Role) ? row[2] : Role.service) as Role,
                     _id: nextIdRef.current++,
                 });
             }
@@ -269,15 +256,15 @@ export default function UsersConfig({
         let usersToUse = users;
         if (lastAddedIdRef.current !== null) {
             const lastAddedUser = users.find((u) => u._id === lastAddedIdRef.current);
-            if (lastAddedUser && !lastAddedUser.name && !lastAddedUser.key) {
+            if (lastAddedUser && !lastAddedUser.name) {
                 usersToUse = users.filter((u) => u._id !== lastAddedIdRef.current);
                 lastAddedIdRef.current = null;
             }
         }
 
-        // Avoid duplicates based on name + key
-        const existingKeys = new Set(usersToUse.map((u) => `${u.name}|${u.key}`));
-        const nonDuplicates = parsedUsers.filter((u) => !existingKeys.has(`${u.name}|${u.key}`));
+        // Avoid duplicates based on name + reference
+        const existingRefs = new Set(usersToUse.map((u) => `${u.name}|${u.reference}`));
+        const nonDuplicates = parsedUsers.filter((u) => !existingRefs.has(`${u.name}|${u.reference}`));
         const duplicateCount = parsedUsers.length - nonDuplicates.length;
 
         const finalUsers = [...usersToUse, ...nonDuplicates];
@@ -312,13 +299,12 @@ export default function UsersConfig({
         const parsedUsers: InternalUser[] = [];
         for (const line of lines) {
             const parts = line.split('\t');
-            if (parts.length < 2) continue; // Need at least name and key
+            if (parts.length < 1) continue; // Need at least name
 
             parsedUsers.push({
                 name: parts[0] || '',
-                key: parts[1] || '',
-                reference: parts[2] || '',
-                role: (parts[3] && Object.values(Role).includes(parts[3] as Role) ? parts[3] : Role.service) as Role,
+                reference: parts[1] || '',
+                role: (parts[2] && Object.values(Role).includes(parts[2] as Role) ? parts[2] : Role.service) as Role,
                 _id: nextIdRef.current++,
             });
         }
@@ -347,7 +333,7 @@ export default function UsersConfig({
     const handleAddUser = useCallback(() => {
         setUsers((prev) => {
             const newId = nextIdRef.current++;
-            const updated = [...prev, { key: '', name: '', role: Role.service, _id: newId } as InternalUser];
+            const updated = [...prev, { name: '', role: Role.service, _id: newId } as InternalUser];
             lastAddedIdRef.current = newId;
             notifyParent(updated);
             return updated;
@@ -426,14 +412,6 @@ export default function UsersConfig({
                                     >
                                         <div className="flex items-center gap-1">
                                             Nom <SortIcon field="name" />
-                                        </div>
-                                    </th>
-                                    <th
-                                        className={adminHeaderStyle + ' min-w-40 w-40 cursor-pointer'}
-                                        onClick={() => handleSort('key')}
-                                    >
-                                        <div className="flex items-center gap-1">
-                                            Clé <SortIcon field="key" />
                                         </div>
                                     </th>
                                     <th

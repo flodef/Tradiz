@@ -11,7 +11,7 @@ import {
     Role,
     User,
 } from '../utils/interfaces';
-import { DEBIT_KEYWORD, DEV_EMAIL, PROVISION_KEYWORD } from './constants';
+import { CURRENT_USER_KEYWORD, DEBIT_KEYWORD, DEV_EMAIL, PROVISION_KEYWORD } from './constants';
 import './extensions';
 import { generateSimpleId } from './id';
 
@@ -200,6 +200,11 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             }
             return undefined;
         })(),
+        userSwitch: (() => {
+            const value = getParamValue('userSwitch', 15);
+            if (value === '') return undefined;
+            return value !== 'false';
+        })(),
     };
 }
 
@@ -237,6 +242,7 @@ export const defaultParameters: Parameters = {
     closingHour: 0,
     yearStartDate: { month: 1, day: 1 }, // January 1st by default
     user: { name: '', role: Role.service },
+    userSwitch: true,
     products: {
         useVatPerProduct: false,
         useReference: false,
@@ -363,6 +369,30 @@ async function _loadDataImpl(_shop: string, _shouldUseLocalData = false): Promis
     // Fetch customers and users
     const customers = await fetchData(dataNames.customers).then(convertCustomersData);
     const users = await fetchData(dataNames.users).then(convertUsersData);
+
+    // Prefer the user persisted in localStorage if it still exists in the users list
+    // and user switching is enabled (defaults to true).
+    const savedUserJson = typeof window !== 'undefined' ? localStorage.getItem(CURRENT_USER_KEYWORD) : null;
+    if (savedUserJson && users.length) {
+        try {
+            const savedUser = JSON.parse(savedUserJson) as User;
+            const userSwitchEnabled = (parameters.userSwitch ?? true) as boolean;
+            if (
+                userSwitchEnabled &&
+                users.some(
+                    (u) =>
+                        u.id === savedUser.id &&
+                        u.name === savedUser.name &&
+                        u.role === savedUser.role &&
+                        u.reference === savedUser.reference
+                )
+            ) {
+                parameters.user = savedUser;
+            }
+        } catch {
+            // Invalid saved user, ignore
+        }
+    }
 
     const currencies = data.currencies.map((item) => {
         const normalizedItem = item.normalizeCurrency();

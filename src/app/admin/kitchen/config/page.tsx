@@ -10,6 +10,7 @@ import ColorsConfig from '@/app/components/admin/sections/ColorsConfig';
 import UsersConfig from '@/app/components/admin/sections/UsersConfig';
 import CustomersConfig from '@/app/components/admin/sections/CustomersConfig';
 import CompaniesConfig from '@/app/components/admin/sections/CompaniesConfig';
+import DevicesConfig from '@/app/components/admin/sections/DevicesConfig';
 import { Parameters } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
@@ -21,6 +22,7 @@ import {
     PaymentMethod,
     Color,
     User,
+    Device,
     Role,
     Customer,
     Company,
@@ -60,10 +62,12 @@ export default function SettingsPage() {
     const [paymentsConfig, setPaymentsConfig] = useState<PaymentMethod[]>([]);
     const [colorsConfig, setColorsConfig] = useState<Color[]>([]);
     const [usersConfig, setUsersConfig] = useState<User[]>([]);
+    const [devicesConfig, setDevicesConfig] = useState<Device[]>([]);
     const [customersConfig, setCustomersConfig] = useState<Customer[]>([]);
     const [companiesConfig, setCompaniesConfig] = useState<Company[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isSavingUsers, setIsSavingUsers] = useState(false);
+    const [isSavingDevices, setIsSavingDevices] = useState(false);
     const [isSavingCustomers, setIsSavingCustomers] = useState(false);
     const [isSavingCompanies, setIsSavingCompanies] = useState(false);
     const dbConfigCheckedRef = useRef(false);
@@ -84,9 +88,11 @@ export default function SettingsPage() {
     const [hasPaymentsChanges, setHasPaymentsChanges] = useState(false);
     const [hasColorsChanges, setHasColorsChanges] = useState(false);
     const [hasUsersChanges, setHasUsersChanges] = useState(false);
+    const [hasDevicesChanges, setHasDevicesChanges] = useState(false);
     const [hasCustomersChanges, setHasCustomersChanges] = useState(false);
     const [hasCompaniesChanges, setHasCompaniesChanges] = useState(false);
     const [isUsersValid, setIsUsersValid] = useState(true);
+    const [isDevicesValid, setIsDevicesValid] = useState(true);
     const [isCustomersValid, setIsCustomersValid] = useState(true);
     const [isCompaniesValid, setIsCompaniesValid] = useState(true);
     const [originalSettings, setOriginalSettings] = useState<Parameters>(defaultParameters);
@@ -95,6 +101,7 @@ export default function SettingsPage() {
     const [originalPayments, setOriginalPayments] = useState<PaymentMethod[]>([]);
     const [originalColors, setOriginalColors] = useState<Color[]>([]);
     const [originalUsers, setOriginalUsers] = useState<User[]>([]);
+    const [originalDevices, setOriginalDevices] = useState<Device[]>([]);
     const [originalCustomers, setOriginalCustomers] = useState<Customer[]>([]);
     const [originalCompanies, setOriginalCompanies] = useState<Company[]>([]);
     const [themeName, setThemeName] = useState<string>('');
@@ -277,6 +284,11 @@ export default function SettingsPage() {
                         }
                         return undefined;
                     })(),
+                    userSwitch: (() => {
+                        const value = getParam('userSwitch', 'Changement utilisateur');
+                        if (value === '') return undefined;
+                        return value === 'true';
+                    })(),
                 };
 
                 setSettings(loadedSettings);
@@ -363,6 +375,21 @@ export default function SettingsPage() {
                 setOriginalUsers([]);
             }
 
+            // Load devices from DB
+            try {
+                const devicesResponse = await fetch('/api/sql/getDevices');
+                const devicesData = await devicesResponse.json();
+                if (devicesData.devices && devicesData.devices.length > 0) {
+                    const loaded: Device[] = devicesData.devices;
+                    setDevicesConfig(loaded);
+                    setOriginalDevices(loaded);
+                }
+            } catch {
+                // No fallback for devices - start with empty list
+                setDevicesConfig([]);
+                setOriginalDevices([]);
+            }
+
             // Load customers from DB
             try {
                 const customersResponse = await fetch('/api/sql/getCustomers');
@@ -423,6 +450,7 @@ export default function SettingsPage() {
             selectedThemeIndex !== originalSelectedThemeIndex ||
             JSON.stringify(customThemeNames) !== JSON.stringify(originalCustomThemeNames);
         const usersChanged = JSON.stringify(usersConfig) !== JSON.stringify(originalUsers);
+        const devicesChanged = JSON.stringify(devicesConfig) !== JSON.stringify(originalDevices);
         const customersChanged = JSON.stringify(customersConfig) !== JSON.stringify(originalCustomers);
         const companiesChanged = JSON.stringify(companiesConfig) !== JSON.stringify(originalCompanies);
         setHasSettingsChanges(settingsChanged);
@@ -431,6 +459,7 @@ export default function SettingsPage() {
         setHasPaymentsChanges(paymentsChanged);
         setHasColorsChanges(colorsChanged);
         setHasUsersChanges(usersChanged);
+        setHasDevicesChanges(devicesChanged);
         setHasCustomersChanges(customersChanged);
         setHasCompaniesChanges(companiesChanged);
         setHasChanges(
@@ -440,6 +469,7 @@ export default function SettingsPage() {
                 paymentsChanged ||
                 colorsChanged ||
                 usersChanged ||
+                devicesChanged ||
                 customersChanged ||
                 companiesChanged
         );
@@ -450,6 +480,7 @@ export default function SettingsPage() {
         paymentsConfig,
         colorsConfig,
         usersConfig,
+        devicesConfig,
         customersConfig,
         companiesConfig,
         themeName,
@@ -461,6 +492,7 @@ export default function SettingsPage() {
         originalPayments,
         originalColors,
         originalUsers,
+        originalDevices,
         originalCustomers,
         originalCompanies,
         originalThemeName,
@@ -478,6 +510,7 @@ export default function SettingsPage() {
         if (hasCustomersChanges) await handleCustomersSave(customersConfig);
         if (hasColorsChanges) await handleColorsSave(colorsConfig);
         if (hasUsersChanges && isUsersValid) await handleUsersSave(usersConfig);
+        if (hasDevicesChanges && isDevicesValid) await handleDevicesSave(devicesConfig);
         if (hasCompaniesChanges && isCompaniesValid) await handleCompaniesSave(companiesConfig);
         setIsSaving(false);
     };
@@ -492,13 +525,37 @@ export default function SettingsPage() {
                 body: JSON.stringify({ users: data }),
             });
             if (!response.ok) throw new Error('Failed to save users');
-            setOriginalUsers(data);
+            const { users: savedUsers } = await response.json();
+            const usersWithRole = (savedUsers as User[]).map((u) => ({ ...u, role: u.role as Role }));
+            setUsersConfig(usersWithRole);
+            setOriginalUsers(usersWithRole);
             setHasUsersChanges(false);
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des utilisateurs.", ['OK']);
         } finally {
             setIsSavingUsers(false);
+            setIsSaving(false);
+        }
+    };
+
+    const handleDevicesSave = async (data: Device[]) => {
+        setIsSavingDevices(true);
+        setIsSaving(true);
+        try {
+            const response = await fetch('/api/sql/updateDevices', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ devices: data }),
+            });
+            if (!response.ok) throw new Error('Failed to save devices');
+            setOriginalDevices(data);
+            setHasDevicesChanges(false);
+        } catch (error) {
+            console.error("Erreur lors de l'enregistrement:", error);
+            openFullscreenPopup("Erreur lors de l'enregistrement des appareils.", ['OK']);
+        } finally {
+            setIsSavingDevices(false);
             setIsSaving(false);
         }
     };
@@ -549,6 +606,7 @@ export default function SettingsPage() {
                 { key: 'productsSettings', value: JSON.stringify(data.products ?? {}) },
                 { key: 'searchSettings', value: JSON.stringify(data.search ?? {}) },
                 { key: 'displaySettings', value: JSON.stringify(data.display ?? {}) },
+                { key: 'userSwitch', value: String(data.userSwitch ?? true) },
             ];
 
             const response = await fetch('/api/sql/updateParameters', {
@@ -733,6 +791,7 @@ export default function SettingsPage() {
                 setPaymentsConfig(originalPayments);
                 setColorsConfig(originalColors);
                 setUsersConfig(originalUsers);
+                setDevicesConfig(originalDevices);
                 setCustomersConfig(originalCustomers);
                 setCompaniesConfig(originalCompanies);
                 setThemeName(originalThemeName);
@@ -787,6 +846,7 @@ export default function SettingsPage() {
 
             <ParametersConfig
                 config={settings}
+                users={usersConfig}
                 onChange={setSettings}
                 onSave={handleParametersSave}
                 onCancel={handleCancel}
@@ -853,6 +913,21 @@ export default function SettingsPage() {
                 onValidation={setIsUsersValid}
             />
 
+            {usersConfig.length > 0 && (
+                <DevicesConfig
+                    config={devicesConfig}
+                    users={usersConfig}
+                    onChange={setDevicesConfig}
+                    onSave={hasDevicesChanges ? handleDevicesSave : undefined}
+                    onCancel={hasDevicesChanges ? handleCancel : undefined}
+                    isReadOnly={isReadOnly}
+                    isLoading={isSavingDevices}
+                    isOpen={openSection === 'devices'}
+                    onToggle={() => setOpenSection((prev) => (prev === 'devices' ? null : 'devices'))}
+                    onValidation={setIsDevicesValid}
+                />
+            )}
+
             <CustomersConfig
                 config={customersConfig}
                 onChange={setCustomersConfig}
@@ -910,7 +985,7 @@ export default function SettingsPage() {
                     <AdminButton
                         onClick={handleSaveAll}
                         isLoading={isSaving}
-                        disabled={!isSiretValid || !isUsersValid || !isCustomersValid || isSaving}
+                        disabled={!isSiretValid || !isUsersValid || !isDevicesValid || !isCustomersValid || isSaving}
                         variant="save"
                         className={isMobile ? 'px-3 py-2' : ''}
                     >

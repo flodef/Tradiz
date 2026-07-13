@@ -313,13 +313,25 @@ CREATE TABLE IF NOT EXISTS `discounts` (
 -- Users (default name is 'Comptoir' - handled in app code)
 CREATE TABLE IF NOT EXISTS `users` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `key` varchar(50) NOT NULL,
   `name` varchar(100) NOT NULL,
   `role` enum('Cashier','Service','Kitchen','Admin') NOT NULL,
   `reference` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `id_temp` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Devices (public keys) - a user can be on multiple devices
+CREATE TABLE IF NOT EXISTS `devices` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `label` varchar(255) NOT NULL,
+  `public_key` varchar(255) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `public_key` (`public_key`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `fk_devices_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Customers

@@ -20,6 +20,7 @@ import {
     ADMIN_CONFIG_URL,
     ADMIN_EDIT_MENU_URL,
     CONFIG_KEYWORD,
+    CURRENT_USER_KEYWORD,
     IS_DEV,
     IS_LOCAL,
     LOCAL_PRINTER_KEYWORD,
@@ -81,6 +82,7 @@ export interface Parameters {
     closingHour: number;
     yearStartDate?: { month: number; day: number }; // Optional, defaults to { month: 1, day: 1 } (January 1st)
     user: User;
+    userSwitch?: boolean;
     products?: ProductsSettings;
     search?: SearchSettings;
     display?: DisplaySettings;
@@ -279,6 +281,15 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
 
         document.documentElement.setAttribute('data-theme-ready', '1');
     }, [colors]);
+
+    // Persist the current user to localStorage so the next session can restore it.
+    useEffect(() => {
+        if (parameters.user && parameters.user.name) {
+            localStorage.setItem(CURRENT_USER_KEYWORD, JSON.stringify(parameters.user));
+        } else {
+            localStorage.removeItem(CURRENT_USER_KEYWORD);
+        }
+    }, [parameters.user]);
 
     // When loaded with an empty inventory, send admins/cashiers straight to the menu editor
     // so they can recreate the catalog instead of staring at a blank or error screen.

@@ -29,10 +29,17 @@ export interface Category {
 }
 
 export interface User {
-    key?: string;
+    id?: number;
     name: string;
     role: Role;
     reference?: string;
+}
+
+export interface Device {
+    id?: number;
+    label: string;
+    key: string;
+    userId?: number;
 }
 
 export interface Company {

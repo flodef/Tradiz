@@ -2,7 +2,7 @@
 
 import { Parameters, ProductsSettings, SearchSettings, DisplaySettings } from '@/app/contexts/ConfigProvider';
 import { adminTextStyle } from '@/app/utils/constants';
-import { Mercurial } from '@/app/utils/interfaces';
+import { Mercurial, User } from '@/app/utils/interfaces';
 import AdminInput from '../AdminInput';
 import AdminSelect from '../AdminSelect';
 import SectionCard from '../SectionCard';
@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react';
 
 interface ParametersConfigProps {
     config: Parameters;
+    users: User[];
     onChange: (data: Parameters) => void;
     onSave: (data: Parameters) => void;
     onCancel?: () => void;
@@ -44,6 +45,7 @@ const MONTH_NAMES = [
 
 export default function ParametersConfig({
     config,
+    users,
     onChange,
     onSave,
     onCancel,
@@ -446,10 +448,31 @@ export default function ParametersConfig({
                 </div>
             </div>
 
-            {/* Subsection: Affichage */}
+            {/* Subsection: Utilisateur */}
+            {users.length > 1 && (
+                <div>
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
+                        Utilisateur
+                    </h3>
+                    <div className="flex flex-wrap gap-6">
+                        <div className="flex items-center gap-3">
+                            <Switch
+                                checked={config.userSwitch ?? true}
+                                onChange={(checked) => handleChange('userSwitch', checked)}
+                                isReadOnly={isReadOnly}
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">
+                                Autoriser le changement d&apos;utilisateur
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Subsection: Paiements */}
             <div>
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
-                    Affichage
+                    Paiements
                 </h3>
                 <div className="flex flex-wrap gap-6">
                     <div className="flex items-center gap-3">

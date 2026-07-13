@@ -20,6 +20,7 @@ import { Digits } from '../utils/types';
 import { Amount } from './Amount';
 import { Calculator } from './Calculator';
 import { useAddPopupClass } from './Popup';
+import { UserSwitchPopup } from './UserSwitchPopup';
 
 export const MIN_QUANTITY = 0.125;
 export const quantityHalving = (quantity: number, key: Digits | string): number =>
@@ -517,7 +518,7 @@ const SearchPopup: FC<SearchPopupProps> = ({
                                         index;
                                     return (
                                         <div
-                                            key={`user-${item.key}`}
+                                            key={`user-${item.id ?? index}`}
                                             ref={(el) => {
                                                 itemRefs.current[globalIndex] = el;
                                             }}
@@ -555,6 +556,8 @@ export const NumPad: FC = () => {
         customers,
         users,
     } = useConfig();
+
+    const [isUserSwitchOpen, setIsUserSwitchOpen] = useState(false);
     const {
         total,
         amount,
@@ -930,7 +933,19 @@ export const NumPad: FC = () => {
                 >
                     {(currentCustomer || parameters.user) && (
                         <div className="flex items-center justify-center gap-2 text-lg font-semibold px-2">
-                            <span className="truncate">
+                            <span
+                                className={twMerge(
+                                    'truncate',
+                                    !currentCustomer && parameters.userSwitch && users.length > 0
+                                        ? 'cursor-pointer underline'
+                                        : ''
+                                )}
+                                onClick={
+                                    !currentCustomer && parameters.userSwitch && users.length > 0
+                                        ? () => setIsUserSwitchOpen(true)
+                                        : undefined
+                                }
+                            >
                                 {currentCustomer
                                     ? `Client : ${currentCustomer.firstName} ${currentCustomer.lastName}`
                                     : parameters.user.name}
@@ -1020,6 +1035,15 @@ export const NumPad: FC = () => {
                     </div>
                 </div>
             </div>
+            <UserSwitchPopup
+                isOpen={isUserSwitchOpen}
+                users={users}
+                onClose={() => setIsUserSwitchOpen(false)}
+                onSelect={(user) => {
+                    setParameters({ ...parameters, user });
+                    setIsUserSwitchOpen(false);
+                }}
+            />
         </div>
     );
 };

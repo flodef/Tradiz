@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
 interface UserRow {
-    key: string;
+    id: number;
     name: string;
     role: string;
     reference: string | null;
@@ -13,8 +13,12 @@ export async function GET() {
         const connection = await getPosDb();
 
         const query = connection.isPostgreSQL
-            ? 'SELECT "key", name, role, reference FROM users ORDER BY name'
-            : 'SELECT `key`, name, role, reference FROM users ORDER BY name';
+            ? `SELECT u.id, u.name, u.role, u.reference
+                FROM users u
+                ORDER BY u.name`
+            : `SELECT u.id, u.name, u.role, u.reference
+                FROM users u
+                ORDER BY u.name`;
 
         const result = await connection.execute(query);
         const rows = result[0] as UserRow[];
@@ -22,7 +26,7 @@ export async function GET() {
         await connection.end();
 
         const users = rows.map((row) => ({
-            key: String(row.key),
+            id: Number(row.id),
             name: String(row.name),
             role: String(row.role),
             reference: row.reference ? String(row.reference) : undefined,

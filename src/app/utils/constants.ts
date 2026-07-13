@@ -4,6 +4,7 @@ import { Role } from './interfaces';
 // UI
 export const DEV_EMAIL = 'flo@tradiz.fr';
 export const CONFIG_KEYWORD = 'Config';
+export const CURRENT_USER_KEYWORD = 'CurrentUser';
 export const OTHER_KEYWORD = 'Autres';
 export const TRANSACTIONS_KEYWORD = 'Transactions';
 export const PRINT_KEYWORD = 'Impression';

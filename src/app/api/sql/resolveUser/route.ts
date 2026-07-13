@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
 interface UserRow {
-    key: string;
+    id: number;
     name: string;
     role: string;
+    reference: string;
 }
 
 const MAX_FAILED_ATTEMPTS = 3;
@@ -84,8 +85,8 @@ function parseUserAgent(userAgent: string): {
  */
 async function isIpBlocked(connection: import('../db').DbConnection, ipAddress: string): Promise<boolean> {
     try {
-        // Check for failed attempts in the last hour from this IP
-        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        // Check for failed attempts in the last 24 hours from this IP
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         const query = connection.isPostgreSQL
             ? `SELECT COUNT(*) as count FROM dc_sys.logs 
                WHERE metadata->>'ip_address' = $1 
@@ -96,10 +97,10 @@ async function isIpBlocked(connection: import('../db').DbConnection, ipAddress: 
                AND JSON_EXTRACT(metadata, '$.success') = 'false' 
                AND created_at > ?`;
 
-        const [rows] = await connection.execute(query, [ipAddress, oneHourAgo]);
+        const [rows] = await connection.execute(query, [ipAddress, oneDayAgo]);
         const count = (rows as { count: number }[])[0]?.count || 0;
 
-        // Block IP if more than MAX_FAILED_ATTEMPTS failed attempts in the last hour
+        // Block IP if more than MAX_FAILED_ATTEMPTS failed attempts in the last 24 hours
         return count >= MAX_FAILED_ATTEMPTS;
     } catch (error) {
         console.error('Failed to check IP block status:', error);
@@ -227,10 +228,18 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ user: null, noUsers: true }, { status: 200 });
         }
 
-        // Query for the specific user with matching key
+        // Query for the specific device and its associated user
         const query = connection.isPostgreSQL
-            ? `SELECT key, name, role FROM users WHERE key = $1 LIMIT 1`
-            : `SELECT key, name, role FROM users WHERE key = ? LIMIT 1`;
+            ? `SELECT u.id, u.name, u.role, u.reference
+               FROM devices d
+               JOIN users u ON u.id = d.user_id
+               WHERE d.public_key = $1
+               LIMIT 1`
+            : `SELECT u.id, u.name, u.role, u.reference
+               FROM devices d
+               JOIN users u ON u.id = d.user_id
+               WHERE d.public_key = ?
+               LIMIT 1`;
 
         const [rows] = await connection.execute(query, [publicKey]);
         const userRows = rows as UserRow[];
@@ -280,9 +289,10 @@ export async function POST(request: NextRequest) {
             {
                 user: foundUser
                     ? {
+                          id: Number(foundUser.id),
                           name: foundUser.name,
                           role: foundUser.role,
-                          key: foundUser.key,
+                          reference: foundUser.reference,
                       }
                     : null,
             },

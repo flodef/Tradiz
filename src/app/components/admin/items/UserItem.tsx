@@ -25,19 +25,19 @@ export default function UserItem({ user, onChange, onDelete, isReadOnly }: UserI
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <ValidatedInput
-                        label="Clé"
-                        value={user.key ?? ''}
-                        onChange={(value) => onChange({ ...user, key: String(value) })}
-                        placeholder="Clé de l'utilisateur"
+                        label="Nom"
+                        value={user.name}
+                        onChange={(value) => onChange({ ...user, name: String(value) })}
+                        placeholder="Nom de l'utilisateur"
                         isReadOnly={isReadOnly}
                     />
                 </div>
                 <div>
                     <ValidatedInput
-                        label="Nom"
-                        value={user.name}
-                        onChange={(value) => onChange({ ...user, name: String(value) })}
-                        placeholder="Nom de l'utilisateur"
+                        label="Référence"
+                        value={user.reference ?? ''}
+                        onChange={(value) => onChange({ ...user, reference: String(value) })}
+                        placeholder="Référence de l'utilisateur"
                         isReadOnly={isReadOnly}
                     />
                 </div>

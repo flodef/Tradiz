@@ -94,7 +94,7 @@ describe('resolveUserFromKey', () => {
 });
 
 describe('buildParameters', () => {
-    const mockUser: User = { name: 'TestUser', key: 'key123', role: Role.admin };
+    const mockUser: User = { name: 'TestUser', role: Role.admin };
 
     it('uses defaults for empty parameters', () => {
         const result = buildParameters({ keys: [], values: [] }, mockUser, 'test@example.com');

@@ -232,10 +232,18 @@ CREATE TABLE IF NOT EXISTS dc.theme_client (
 -- Users (cashiers) - default name is 'Comptoir' (handled in app code)
 CREATE TABLE IF NOT EXISTS dc_pos.users (
     id SERIAL PRIMARY KEY,
-    key VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'Cashier',
     reference VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Devices (public keys) - a user can be on multiple devices
+CREATE TABLE IF NOT EXISTS dc_pos.devices (
+    id SERIAL PRIMARY KEY,
+    label VARCHAR(255) NOT NULL,
+    public_key VARCHAR(255) NOT NULL UNIQUE,
+    user_id INTEGER REFERENCES dc_pos.users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
