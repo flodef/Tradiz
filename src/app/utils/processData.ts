@@ -140,7 +140,7 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             }
             return { month: 1, day: 1 }; // Default to January 1st
         })(),
-        lastModified: getParamValue('lastModified', 11) || new Date().toLocaleString(),
+        lastModified: getParamValue('lastModified', 11) || Date.now().toString(),
         user: user,
         products: (() => {
             try {
@@ -238,7 +238,7 @@ export const defaultParameters: Parameters = {
     shop: { name: '', email: DEV_EMAIL, address: '', zipCode: '', city: '', id: '', serial: '' },
     thanksMessage: '',
     mercurial: Mercurial.none,
-    lastModified: new Date().toLocaleString(),
+    lastModified: Date.now().toString(),
     closingHour: 0,
     yearStartDate: { month: 1, day: 1 }, // January 1st by default
     user: { name: '', role: Role.service },
@@ -336,7 +336,7 @@ async function _loadDataImpl(_shop: string, _shouldUseLocalData = false): Promis
     // Require authentication - if no user found, don't load data
     if (!user) throw new UserNotFoundError(publicKey);
 
-    const isAdmin = user.role === 'Admin';
+    const isAdmin = user.role === Role.admin;
     const param = await fetchData(dataNames.parameters).then((response) => convertParametersData(response, isAdmin));
 
     const parameters = buildParameters(param, user!);
@@ -366,19 +366,18 @@ async function _loadDataImpl(_shop: string, _shouldUseLocalData = false): Promis
         throw new MissingDataError('Produits', isAdmin);
     }
 
-    // Fetch customers and users
+    // Fetch customers. The full user list is only exposed to the client when user
+    // switching is enabled; otherwise resolveUser already returned the single device user.
     const customers = await fetchData(dataNames.customers).then(convertCustomersData);
-    const users = await fetchData(dataNames.users).then(convertUsersData);
+    const userSwitchEnabled = (parameters.userSwitch ?? true) as boolean;
+    const users = userSwitchEnabled ? await fetchData(dataNames.users).then(convertUsersData) : [];
 
-    // Prefer the user persisted in localStorage if it still exists in the users list
-    // and user switching is enabled (defaults to true).
+    // Prefer the user persisted in localStorage if it still exists in the users list.
     const savedUserJson = typeof window !== 'undefined' ? localStorage.getItem(CURRENT_USER_KEYWORD) : null;
     if (savedUserJson && users.length) {
         try {
             const savedUser = JSON.parse(savedUserJson) as User;
-            const userSwitchEnabled = (parameters.userSwitch ?? true) as boolean;
             if (
-                userSwitchEnabled &&
                 users.some(
                     (u) =>
                         u.id === savedUser.id &&

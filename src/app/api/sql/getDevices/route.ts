@@ -12,11 +12,7 @@ export async function GET() {
     try {
         const connection = await getPosDb();
 
-        const query = connection.isPostgreSQL
-            ? 'SELECT id, label, public_key, user_id FROM devices ORDER BY label'
-            : 'SELECT id, label, public_key, user_id FROM devices ORDER BY label';
-
-        const result = await connection.execute(query);
+        const result = await connection.execute('SELECT id, label, public_key, user_id FROM devices ORDER BY label');
         const rows = result[0] as DeviceRow[];
 
         await connection.end();

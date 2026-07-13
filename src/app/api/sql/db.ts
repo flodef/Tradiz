@@ -145,5 +145,34 @@ export async function getPosDb(): Promise<DbConnection> {
     return new MySQLConnectionWrapper(connection);
 }
 
+// Run a set of statements inside a real transaction, rolling back on any error.
+export async function withTransaction<T>(connection: DbConnection, fn: () => Promise<T>): Promise<T> {
+    await connection.beginTransaction();
+    try {
+        const result = await fn();
+        await connection.commit();
+        return result;
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    }
+}
+
+// Run an INSERT and return the generated primary key id, handling both drivers.
+// The PostgreSQL query must include a `RETURNING id` clause.
+export async function executeInsert(
+    connection: DbConnection,
+    pgQuery: string,
+    myQuery: string,
+    params: unknown[]
+): Promise<number | undefined> {
+    const [result] = await connection.execute(connection.isPostgreSQL ? pgQuery : myQuery, params);
+    if (connection.isPostgreSQL) {
+        return (result as { id: number }[])[0]?.id;
+    }
+    const insertId = Number((result as unknown as { insertId: number }).insertId);
+    return Number.isNaN(insertId) ? undefined : insertId;
+}
+
 // Legacy type export for backwards compatibility
 export type Connection = DbConnection;

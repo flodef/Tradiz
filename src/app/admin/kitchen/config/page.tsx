@@ -224,7 +224,7 @@ export default function SettingsPage() {
                         }
                         return { month: 1, day: 1 };
                     })(),
-                    lastModified: getParam('lastModified', 'Dernière modification') || new Date().toLocaleString(),
+                    lastModified: getParam('lastModified', 'Dernière modification') || Date.now().toString(),
                     user: parameters?.user || { name: '', role: 0 },
                     products: (() => {
                         try {
@@ -602,7 +602,7 @@ export default function SettingsPage() {
                 { key: 'mercurial', value: data.mercurial },
                 { key: 'closingHour', value: String(data.closingHour) },
                 { key: 'yearStartDate', value: JSON.stringify(data.yearStartDate) },
-                { key: 'lastModified', value: new Date().toLocaleString() },
+                { key: 'lastModified', value: Date.now().toString() },
                 { key: 'productsSettings', value: JSON.stringify(data.products ?? {}) },
                 { key: 'searchSettings', value: JSON.stringify(data.search ?? {}) },
                 { key: 'displaySettings', value: JSON.stringify(data.display ?? {}) },

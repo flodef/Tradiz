@@ -254,7 +254,11 @@ export const Category: FC = () => {
 
                 // Has saved data, extract lastModified from saved parameters
                 const parsedParams = JSON.parse(savedParameters);
-                const savedLastModified = parsedParams?.lastModified;
+                const rawLastModified = parsedParams?.lastModified;
+                const savedLastModified =
+                    rawLastModified && !Number.isNaN(Number(rawLastModified))
+                        ? new Date(Number(rawLastModified)).toLocaleString()
+                        : rawLastModified;
                 openFullscreenPopup(
                     'Erreur chargement données',
                     [
