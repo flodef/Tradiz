@@ -1,20 +1,11 @@
 import { adminBaseStyle, adminHeaderStyle } from '@/app/utils/constants';
 import { Color } from '@/app/utils/interfaces';
+import { defaultColors } from '@/app/utils/processData';
 import { useEffect, useRef, useState } from 'react';
 import ColorPicker from '../ColorPicker';
 import DeleteButton from '../DeleteButton';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
-
-const defaultColors: Color[] = [
-    { label: 'Texte', light: '#d97706', dark: '#facc15' },
-    { label: 'Fond début dégradé', light: '#fff7ed', dark: '#65a30d' },
-    { label: 'Fond fin dégradé', light: '#fed7aa', dark: '#14532d' },
-    { label: 'Popup', light: '#f1f5f9', dark: '#713f12' },
-    { label: 'Activé', light: '#fdba74', dark: '#84cc16' },
-    { label: 'Secondaire', light: '#84cc16', dark: '#fdba74' },
-    { label: 'Secondaire activé', light: '#a3e635', dark: '#f97316' },
-];
 
 export default function ColorsConfig({
     config,

@@ -17,7 +17,7 @@ interface SectionCardProps {
     isLoading?: boolean;
     isOpen?: boolean;
     onToggle?: () => void;
-    icon?: ReactNode;
+    icon: ReactNode;
     onAdd?: () => void;
     isValid?: boolean;
     addLabel?: string;
@@ -61,7 +61,7 @@ export default function SectionCard({
                         >
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
-                        {icon && <div className="text-light dark:text-dark">{icon}</div>}
+                        <div className="text-light dark:text-dark">{icon}</div>
                         <h2 className="text-2xl font-semibold text-light dark:text-dark">{title}</h2>
                     </div>
                     <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>

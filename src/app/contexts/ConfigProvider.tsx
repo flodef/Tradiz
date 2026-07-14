@@ -129,16 +129,16 @@ export function getShopFromSubdomain(): string {
 export function validateConfigData(data: Config): void {
     const role = data.parameters?.user?.role;
     const hasEditAccess = role === Role.admin || role === Role.cashier;
-    if (
-        !(
-            data.currencies?.length &&
-            data.paymentMethods?.length &&
-            (data.inventory?.length || hasEditAccess) &&
-            data.colors?.length &&
-            data.parameters?.shop
-        )
-    )
-        throw new Error('Empty config data');
+
+    if (!data.currencies?.length) throw new Error('Empty config data: currencies');
+
+    if (!data.paymentMethods?.length) throw new Error('Empty config data: paymentMethods');
+
+    if (!data.inventory?.length && !hasEditAccess) throw new Error('Empty config data: inventory');
+
+    if (!data.colors?.length) throw new Error('Empty config data: colors');
+
+    if (!data.parameters?.shop) throw new Error('Empty config data: shop');
 }
 
 export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopProp }) => {

@@ -45,19 +45,22 @@ function Row({
 }) {
     const validUsers = useMemo(() => users.filter((u) => u.id !== undefined), [users]);
     const singleUser = validUsers.length === 1 ? validUsers[0] : undefined;
+    const defaultUserId = singleUser ? singleUser.id : validUsers[0]?.id;
     const userOptions = useMemo(
         () =>
-            singleUser
-                ? [{ value: String(singleUser.id), label: singleUser.name }]
-                : [
-                      { value: '', label: 'Sélectionner un utilisateur' },
-                      ...validUsers.map((user) => ({
-                          value: String(user.id),
-                          label: `${user.name} ${user.reference ? `(${user.reference})` : ''}`,
-                      })),
-                  ],
-        [validUsers, singleUser]
+            validUsers.map((user) => ({
+                value: String(user.id),
+                label: user.name,
+            })),
+        [validUsers]
     );
+
+    // Ensure a user is always selected when one is available.
+    useEffect(() => {
+        if (device.userId === undefined && defaultUserId !== undefined) {
+            onChange({ ...device, userId: defaultUserId });
+        }
+    }, [device, defaultUserId, onChange]);
 
     return (
         <tr className="border-b border-gray-200 dark:border-gray-700">
@@ -83,7 +86,7 @@ function Row({
             </td>
             <td className="p-2">
                 <AdminSelect
-                    value={device.userId ? String(device.userId) : singleUser ? String(singleUser.id) : ''}
+                    value={device.userId ? String(device.userId) : defaultUserId ? String(defaultUserId) : ''}
                     onChange={(e) => {
                         const value = e.target.value;
                         onChange({ ...device, userId: value ? Number(value) : undefined });

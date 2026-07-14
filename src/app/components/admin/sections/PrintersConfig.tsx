@@ -7,12 +7,22 @@ export default function PrintersConfig({
     config,
     onChange,
     onSave,
+    onCancel,
     isReadOnly = false,
+    isLoading = false,
+    isOpen,
+    onToggle,
+    icon,
 }: {
     config: Printer[];
     onChange: (data: Printer[]) => void;
-    onSave: (data: Printer[]) => void;
+    onSave?: (data: Printer[]) => void;
+    onCancel?: () => void;
     isReadOnly?: boolean;
+    isLoading?: boolean;
+    isOpen?: boolean;
+    onToggle?: () => void;
+    icon?: React.ReactNode;
 }) {
     const [printers, setPrinters] = useState(config || []);
     const lastAddedIndexRef = useRef<number | null>(null);
@@ -51,11 +61,16 @@ export default function PrintersConfig({
     return (
         <SectionCard
             title="Imprimantes"
-            onSave={isReadOnly ? undefined : () => onSave(printers)}
+            onSave={isReadOnly ? undefined : onSave ? () => onSave(printers) : undefined}
+            onCancel={onCancel}
             onAdd={handleAddPrinter}
             isValid={isValid}
             addLabel="Ajouter une imprimante"
             isReadOnly={isReadOnly}
+            isLoading={isLoading}
+            isOpen={isOpen}
+            onToggle={onToggle}
+            icon={icon}
         >
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {printers.map((printer, index) => (

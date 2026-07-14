@@ -11,6 +11,7 @@ import UsersConfig from '@/app/components/admin/sections/UsersConfig';
 import CustomersConfig from '@/app/components/admin/sections/CustomersConfig';
 import CompaniesConfig from '@/app/components/admin/sections/CompaniesConfig';
 import DevicesConfig from '@/app/components/admin/sections/DevicesConfig';
+import PrintersConfig from '@/app/components/admin/sections/PrintersConfig';
 import { Parameters } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
@@ -26,6 +27,7 @@ import {
     Role,
     Customer,
     Company,
+    Printer,
 } from '@/app/utils/interfaces';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { useIsMobile } from '@/app/utils/mobile';
@@ -41,6 +43,8 @@ import {
     IconPalette,
     IconUsersGroup,
     IconBuilding,
+    IconDeviceTablet,
+    IconPrinter,
 } from '@tabler/icons-react';
 
 export default function SettingsPage() {
@@ -63,11 +67,13 @@ export default function SettingsPage() {
     const [colorsConfig, setColorsConfig] = useState<Color[]>([]);
     const [usersConfig, setUsersConfig] = useState<User[]>([]);
     const [devicesConfig, setDevicesConfig] = useState<Device[]>([]);
+    const [printersConfig, setPrintersConfig] = useState<Printer[]>([]);
     const [customersConfig, setCustomersConfig] = useState<Customer[]>([]);
     const [companiesConfig, setCompaniesConfig] = useState<Company[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isSavingUsers, setIsSavingUsers] = useState(false);
     const [isSavingDevices, setIsSavingDevices] = useState(false);
+    const [isSavingPrinters, setIsSavingPrinters] = useState(false);
     const [isSavingCustomers, setIsSavingCustomers] = useState(false);
     const [isSavingCompanies, setIsSavingCompanies] = useState(false);
     const dbConfigCheckedRef = useRef(false);
@@ -89,6 +95,7 @@ export default function SettingsPage() {
     const [hasColorsChanges, setHasColorsChanges] = useState(false);
     const [hasUsersChanges, setHasUsersChanges] = useState(false);
     const [hasDevicesChanges, setHasDevicesChanges] = useState(false);
+    const [hasPrintersChanges, setHasPrintersChanges] = useState(false);
     const [hasCustomersChanges, setHasCustomersChanges] = useState(false);
     const [hasCompaniesChanges, setHasCompaniesChanges] = useState(false);
     const [isUsersValid, setIsUsersValid] = useState(true);
@@ -102,6 +109,7 @@ export default function SettingsPage() {
     const [originalColors, setOriginalColors] = useState<Color[]>([]);
     const [originalUsers, setOriginalUsers] = useState<User[]>([]);
     const [originalDevices, setOriginalDevices] = useState<Device[]>([]);
+    const [originalPrinters, setOriginalPrinters] = useState<Printer[]>([]);
     const [originalCustomers, setOriginalCustomers] = useState<Customer[]>([]);
     const [originalCompanies, setOriginalCompanies] = useState<Company[]>([]);
     const [themeName, setThemeName] = useState<string>('');
@@ -390,6 +398,21 @@ export default function SettingsPage() {
                 setOriginalDevices([]);
             }
 
+            // Load printers from DB
+            try {
+                const printersResponse = await fetch('/api/sql/getPrinters');
+                const printersData = await printersResponse.json();
+                if (printersData.printers && printersData.printers.length > 0) {
+                    const loaded: Printer[] = printersData.printers;
+                    setPrintersConfig(loaded);
+                    setOriginalPrinters(loaded);
+                }
+            } catch {
+                // No fallback for printers - start with empty list
+                setPrintersConfig([]);
+                setOriginalPrinters([]);
+            }
+
             // Load customers from DB
             try {
                 const customersResponse = await fetch('/api/sql/getCustomers');
@@ -451,6 +474,7 @@ export default function SettingsPage() {
             JSON.stringify(customThemeNames) !== JSON.stringify(originalCustomThemeNames);
         const usersChanged = JSON.stringify(usersConfig) !== JSON.stringify(originalUsers);
         const devicesChanged = JSON.stringify(devicesConfig) !== JSON.stringify(originalDevices);
+        const printersChanged = JSON.stringify(printersConfig) !== JSON.stringify(originalPrinters);
         const customersChanged = JSON.stringify(customersConfig) !== JSON.stringify(originalCustomers);
         const companiesChanged = JSON.stringify(companiesConfig) !== JSON.stringify(originalCompanies);
         setHasSettingsChanges(settingsChanged);
@@ -460,6 +484,7 @@ export default function SettingsPage() {
         setHasColorsChanges(colorsChanged);
         setHasUsersChanges(usersChanged);
         setHasDevicesChanges(devicesChanged);
+        setHasPrintersChanges(printersChanged);
         setHasCustomersChanges(customersChanged);
         setHasCompaniesChanges(companiesChanged);
         setHasChanges(
@@ -470,6 +495,7 @@ export default function SettingsPage() {
                 colorsChanged ||
                 usersChanged ||
                 devicesChanged ||
+                printersChanged ||
                 customersChanged ||
                 companiesChanged
         );
@@ -481,6 +507,7 @@ export default function SettingsPage() {
         colorsConfig,
         usersConfig,
         devicesConfig,
+        printersConfig,
         customersConfig,
         companiesConfig,
         themeName,
@@ -493,6 +520,7 @@ export default function SettingsPage() {
         originalColors,
         originalUsers,
         originalDevices,
+        originalPrinters,
         originalCustomers,
         originalCompanies,
         originalThemeName,
@@ -511,6 +539,7 @@ export default function SettingsPage() {
         if (hasColorsChanges) await handleColorsSave(colorsConfig);
         if (hasUsersChanges && isUsersValid) await handleUsersSave(usersConfig);
         if (hasDevicesChanges && isDevicesValid) await handleDevicesSave(devicesConfig);
+        if (hasPrintersChanges) await handlePrintersSave(printersConfig);
         if (hasCompaniesChanges && isCompaniesValid) await handleCompaniesSave(companiesConfig);
         setIsSaving(false);
     };
@@ -708,6 +737,26 @@ export default function SettingsPage() {
         }
     };
 
+    const handlePrintersSave = async (data: Printer[]) => {
+        setIsSavingPrinters(true);
+        setIsSaving(true);
+        try {
+            await fetch('/api/sql/updatePrinters', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ printers: data }),
+            });
+            setOriginalPrinters(data);
+            setHasPrintersChanges(false);
+        } catch (error) {
+            console.error("Erreur lors de l'enregistrement:", error);
+            openFullscreenPopup("Erreur lors de l'enregistrement des imprimantes.", ['OK']);
+        } finally {
+            setIsSavingPrinters(false);
+            setIsSaving(false);
+        }
+    };
+
     const handleCustomersSave = async (data: Customer[]) => {
         setIsSavingCustomers(true);
         setIsSaving(true);
@@ -792,6 +841,7 @@ export default function SettingsPage() {
                 setColorsConfig(originalColors);
                 setUsersConfig(originalUsers);
                 setDevicesConfig(originalDevices);
+                setPrintersConfig(originalPrinters);
                 setCustomersConfig(originalCustomers);
                 setCompaniesConfig(originalCompanies);
                 setThemeName(originalThemeName);
@@ -924,6 +974,7 @@ export default function SettingsPage() {
                     isLoading={isSavingDevices}
                     isOpen={openSection === 'devices'}
                     onToggle={() => setOpenSection((prev) => (prev === 'devices' ? null : 'devices'))}
+                    icon={<IconDeviceTablet size={24} />}
                     onValidation={setIsDevicesValid}
                 />
             )}
@@ -973,6 +1024,18 @@ export default function SettingsPage() {
                 isOpen={openSection === 'colors'}
                 onToggle={() => setOpenSection((prev) => (prev === 'colors' ? null : 'colors'))}
                 icon={<IconPalette size={24} />}
+            />
+
+            <PrintersConfig
+                config={printersConfig}
+                onChange={setPrintersConfig}
+                onSave={hasPrintersChanges ? handlePrintersSave : undefined}
+                onCancel={hasPrintersChanges ? handleCancel : undefined}
+                isReadOnly={isReadOnly}
+                isLoading={isSavingPrinters}
+                isOpen={openSection === 'printers'}
+                onToggle={() => setOpenSection((prev) => (prev === 'printers' ? null : 'printers'))}
+                icon={<IconPrinter size={24} />}
             />
 
             {!isReadOnly && hasChanges && (
