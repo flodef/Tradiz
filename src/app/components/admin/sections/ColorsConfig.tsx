@@ -15,6 +15,7 @@ export default function ColorsConfig({
     themeName,
     onThemeNameChange,
     onCancel,
+    hasChanges = false,
     isLoading = false,
     selectedThemeIndex: externalSelectedIndex,
     onThemeSelect,
@@ -28,6 +29,7 @@ export default function ColorsConfig({
     onChange: (data: Color[]) => void;
     onSave?: (data: Color[]) => void;
     isReadOnly?: boolean;
+    hasChanges?: boolean;
     themeName?: string;
     onThemeNameChange?: (name: string) => void;
     onCancel?: () => void;
@@ -122,8 +124,9 @@ export default function ColorsConfig({
     return (
         <SectionCard
             title="Thèmes"
-            onSave={isReadOnly ? undefined : onSave ? () => onSave(colors) : undefined}
+            onSave={onSave ? () => onSave(colors) : undefined}
             onCancel={onCancel}
+            hasChanges={hasChanges}
             icon={icon}
             isLoading={isLoading}
             onAdd={handleAddTheme}

@@ -22,6 +22,7 @@ interface UsersConfigProps {
     onChange: (data: User[]) => void;
     onSave?: (data: User[]) => void;
     onCancel?: () => void;
+    hasChanges?: boolean;
     isReadOnly?: boolean;
     isLoading?: boolean;
     isOpen?: boolean;
@@ -390,6 +391,7 @@ export default function UsersConfig({
                 title="Utilisateurs"
                 onSave={onSave ? handleSave : undefined}
                 onCancel={hasChanges && onCancel ? () => onCancel() : undefined}
+                hasChanges={hasChanges}
                 icon={icon}
                 saveDisabled={!hasChanges || !isValid || isReadOnly || isLoading}
                 isLoading={isLoading}

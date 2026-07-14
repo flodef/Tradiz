@@ -23,6 +23,7 @@ interface CustomersConfigProps {
     onChange: (data: Customer[]) => void;
     onSave?: (data: Customer[]) => void;
     onCancel?: () => void;
+    hasChanges?: boolean;
     isReadOnly?: boolean;
     isLoading?: boolean;
     isOpen?: boolean;
@@ -630,6 +631,7 @@ export default function CustomersConfig({
                 title="Clients"
                 onSave={onSave ? handleSave : undefined}
                 onCancel={hasChanges && onCancel ? () => onCancel() : undefined}
+                hasChanges={hasChanges}
                 icon={icon}
                 saveDisabled={!hasChanges || !isValid || isReadOnly || isLoading}
                 isLoading={isLoading}

@@ -106,7 +106,7 @@ export default function DiscountsConfig({
 }: {
     config: Discount[];
     onChange: (data: Discount[]) => void;
-    onSave: (data: Discount[]) => void;
+    onSave?: (data: Discount[]) => void;
     onCancel?: () => void;
     hasChanges?: boolean;
     currencies: Currency[];
@@ -217,8 +217,9 @@ export default function DiscountsConfig({
     return (
         <SectionCard
             title="Réductions"
-            onSave={isReadOnly || !hasChanges ? undefined : () => onSave(discounts.map(({ _id: _, ...rest }) => rest))}
+            onSave={onSave ? () => onSave(discounts.map(({ _id: _, ...rest }) => rest)) : undefined}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
+            hasChanges={hasChanges}
             icon={icon}
             isLoading={isLoading}
             isOpen={isOpen}

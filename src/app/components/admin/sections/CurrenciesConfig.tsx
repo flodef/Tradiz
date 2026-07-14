@@ -172,7 +172,7 @@ export default function CurrenciesConfig({
 }: {
     config: Currency[];
     onChange: (data: Currency[]) => void;
-    onSave: (data: Currency[]) => void;
+    onSave?: (data: Currency[]) => void;
     onCancel?: () => void;
     hasChanges?: boolean;
     isReadOnly?: boolean;
@@ -285,9 +285,10 @@ export default function CurrenciesConfig({
     return (
         <SectionCard
             title="Devises"
-            onSave={isReadOnly || !hasChanges ? undefined : () => onSave(strip(currencies))}
+            onSave={onSave ? () => onSave(strip(currencies)) : undefined}
             saveDisabled={!isValid}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
+            hasChanges={hasChanges}
             icon={icon}
             isLoading={isLoading}
             isOpen={isOpen}

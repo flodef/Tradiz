@@ -940,10 +940,11 @@ export default function SettingsPage() {
             <PaymentsConfig
                 config={paymentsConfig}
                 onChange={setPaymentsConfig}
-                onSave={hasPaymentsChanges ? handlePaymentsSave : undefined}
+                onSave={handlePaymentsSave}
+                onCancel={handleCancel}
+                hasChanges={hasPaymentsChanges}
                 currencies={currenciesConfig}
                 isReadOnly={isReadOnly}
-                onCancel={hasPaymentsChanges ? handleCancel : undefined}
                 isLoading={isSavingPayments}
                 isOpen={openSection === 'payments'}
                 onToggle={() => setOpenSection((prev) => (prev === 'payments' ? null : 'payments'))}
@@ -953,8 +954,9 @@ export default function SettingsPage() {
             <UsersConfig
                 config={usersConfig}
                 onChange={setUsersConfig}
-                onSave={hasUsersChanges ? handleUsersSave : undefined}
-                onCancel={hasUsersChanges ? handleCancel : undefined}
+                onSave={handleUsersSave}
+                onCancel={handleCancel}
+                hasChanges={hasUsersChanges}
                 isReadOnly={isReadOnly}
                 isLoading={isSavingUsers}
                 isOpen={openSection === 'users'}
@@ -968,8 +970,9 @@ export default function SettingsPage() {
                     config={devicesConfig}
                     users={usersConfig}
                     onChange={setDevicesConfig}
-                    onSave={hasDevicesChanges ? handleDevicesSave : undefined}
-                    onCancel={hasDevicesChanges ? handleCancel : undefined}
+                    onSave={handleDevicesSave}
+                    onCancel={handleCancel}
+                    hasChanges={hasDevicesChanges}
                     isReadOnly={isReadOnly}
                     isLoading={isSavingDevices}
                     isOpen={openSection === 'devices'}
@@ -982,9 +985,10 @@ export default function SettingsPage() {
             <CustomersConfig
                 config={customersConfig}
                 onChange={setCustomersConfig}
-                onSave={hasCustomersChanges ? handleCustomersSave : undefined}
                 isReadOnly={isReadOnly}
-                onCancel={hasCustomersChanges ? handleCancel : undefined}
+                onSave={handleCustomersSave}
+                onCancel={handleCancel}
+                hasChanges={hasCustomersChanges}
                 isLoading={isSavingCustomers}
                 isOpen={openSection === 'customers'}
                 onToggle={() => setOpenSection((prev) => (prev === 'customers' ? null : 'customers'))}
@@ -998,8 +1002,9 @@ export default function SettingsPage() {
                 config={companiesConfig}
                 onChange={setCompaniesConfig}
                 onSave={handleCompaniesSave}
-                isReadOnly={isReadOnly}
                 onCancel={handleCancel}
+                hasChanges={hasCompaniesChanges}
+                isReadOnly={isReadOnly}
                 isLoading={isSavingCompanies}
                 isOpen={openSection === 'companies'}
                 onToggle={() => setOpenSection((prev) => (prev === 'companies' ? null : 'companies'))}
@@ -1011,11 +1016,12 @@ export default function SettingsPage() {
             <ColorsConfig
                 config={colorsConfig}
                 onChange={setColorsConfig}
-                onSave={hasColorsChanges ? handleColorsSave : undefined}
+                onSave={handleColorsSave}
+                onCancel={handleCancel}
+                hasChanges={hasColorsChanges}
                 isReadOnly={isReadOnly}
                 themeName={themeName}
                 onThemeNameChange={handleThemeNameChange}
-                onCancel={hasColorsChanges ? handleCancel : undefined}
                 isLoading={isSavingColors}
                 selectedThemeIndex={selectedThemeIndex}
                 onThemeSelect={handleThemeSelect}
@@ -1029,8 +1035,9 @@ export default function SettingsPage() {
             <PrintersConfig
                 config={printersConfig}
                 onChange={setPrintersConfig}
-                onSave={hasPrintersChanges ? handlePrintersSave : undefined}
-                onCancel={hasPrintersChanges ? handleCancel : undefined}
+                onSave={handlePrintersSave}
+                onCancel={handleCancel}
+                hasChanges={hasPrintersChanges}
                 isReadOnly={isReadOnly}
                 isLoading={isSavingPrinters}
                 isOpen={openSection === 'printers'}

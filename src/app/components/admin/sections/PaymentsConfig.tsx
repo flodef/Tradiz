@@ -116,6 +116,7 @@ export default function PaymentsConfig({
     currencies,
     isReadOnly = false,
     onCancel,
+    hasChanges = false,
     isLoading = false,
     isOpen,
     onToggle,
@@ -127,6 +128,7 @@ export default function PaymentsConfig({
     currencies: Currency[];
     isReadOnly?: boolean;
     onCancel?: () => void;
+    hasChanges?: boolean;
     isLoading?: boolean;
     isOpen?: boolean;
     onToggle?: () => void;
@@ -242,9 +244,10 @@ export default function PaymentsConfig({
     return (
         <SectionCard
             title="Paiements"
-            onSave={isReadOnly ? undefined : onSave ? () => onSave(strip(payments)) : undefined}
+            onSave={onSave ? () => onSave(strip(payments)) : undefined}
             saveDisabled={!isValid}
             onCancel={onCancel}
+            hasChanges={hasChanges}
             icon={icon}
             isLoading={isLoading}
             isOpen={isOpen}

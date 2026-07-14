@@ -16,7 +16,7 @@ interface ParametersConfigProps {
     config: Parameters;
     users: User[];
     onChange: (data: Parameters) => void;
-    onSave: (data: Parameters) => void;
+    onSave?: (data: Parameters) => void;
     onCancel?: () => void;
     hasChanges?: boolean;
     isReadOnly?: boolean;
@@ -131,13 +131,18 @@ export default function ParametersConfig({
     return (
         <SectionCard
             title="Paramètres"
-            onSave={isReadOnly || !hasChanges ? undefined : () => onSave(config)}
+            onSave={onSave ? () => onSave(config) : undefined}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
+            hasChanges={hasChanges}
+            onAdd={() => {}}
             icon={icon}
             saveDisabled={!isSiretValid}
             isLoading={isLoading}
             isOpen={isOpen}
+            isReadOnly={isReadOnly}
             onToggle={onToggle}
+            isValid={true}
+            addLabel=""
         >
             {/* Subsection: Commerce */}
             <div>

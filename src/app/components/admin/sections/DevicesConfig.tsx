@@ -18,6 +18,7 @@ interface DevicesConfigProps {
     onChange: (data: Device[]) => void;
     onSave?: (data: Device[]) => void;
     onCancel?: () => void;
+    hasChanges?: boolean;
     isReadOnly?: boolean;
     isLoading?: boolean;
     isOpen?: boolean;
@@ -259,6 +260,7 @@ export default function DevicesConfig({
             title="Appareils"
             onSave={onSave ? handleSave : undefined}
             onCancel={hasChanges && onCancel ? () => onCancel() : undefined}
+            hasChanges={hasChanges}
             icon={icon}
             saveDisabled={!hasChanges || !isValid || isReadOnly || isLoading}
             isLoading={isLoading}

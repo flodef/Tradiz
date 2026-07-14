@@ -8,6 +8,7 @@ export default function PrintersConfig({
     onChange,
     onSave,
     onCancel,
+    hasChanges = false,
     isReadOnly = false,
     isLoading = false,
     isOpen,
@@ -18,6 +19,7 @@ export default function PrintersConfig({
     onChange: (data: Printer[]) => void;
     onSave?: (data: Printer[]) => void;
     onCancel?: () => void;
+    hasChanges?: boolean;
     isReadOnly?: boolean;
     isLoading?: boolean;
     isOpen?: boolean;
@@ -61,8 +63,9 @@ export default function PrintersConfig({
     return (
         <SectionCard
             title="Imprimantes"
-            onSave={isReadOnly ? undefined : onSave ? () => onSave(printers) : undefined}
+            onSave={onSave ? () => onSave(printers) : undefined}
             onCancel={onCancel}
+            hasChanges={hasChanges}
             onAdd={handleAddPrinter}
             isValid={isValid}
             addLabel="Ajouter une imprimante"

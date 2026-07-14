@@ -119,6 +119,7 @@ export default function CompaniesConfig({
     onChange: (data: Company[]) => void;
     onSave?: (data: Company[]) => void;
     onCancel?: () => void;
+    hasChanges?: boolean;
     isReadOnly?: boolean;
     isLoading?: boolean;
     isOpen?: boolean;
@@ -261,8 +262,9 @@ export default function CompaniesConfig({
     return (
         <SectionCard
             title="Entreprises"
-            onSave={isReadOnly || !hasChanges || !onSave || isLoading ? undefined : handleSave}
+            onSave={onSave ? handleSave : undefined}
             onCancel={isReadOnly || !hasChanges || isLoading ? undefined : onCancel}
+            hasChanges={hasChanges}
             icon={icon}
             isLoading={isLoading}
             isOpen={isOpen}

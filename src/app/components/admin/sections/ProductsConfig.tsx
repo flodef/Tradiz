@@ -433,15 +433,16 @@ export default function ProductsConfig({
     return (
         <SectionCard
             title="Produits"
-            onSave={isReadOnly || !hasChanges || !onSave ? undefined : () => onSave(products)}
+            onSave={onSave ? () => onSave(products) : undefined}
             saveDisabled={duplicateNames.size > 0}
             icon={icon}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
+            hasChanges={hasChanges}
             headerExtra={headerControls}
             isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}
-            onAdd={isReadOnly || hasFilter ? undefined : () => handleAddProduct()}
+            onAdd={isReadOnly || hasFilter ? () => {} : () => handleAddProduct()}
             isValid={isValid}
             addLabel="Ajouter un produit"
             isReadOnly={isReadOnly}

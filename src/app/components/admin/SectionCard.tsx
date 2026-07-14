@@ -9,27 +9,29 @@ import { twMerge } from 'tailwind-merge';
 interface SectionCardProps {
     title: string;
     children: ReactNode;
-    onSave?: () => void;
     saveDisabled?: boolean;
+    onSave?: () => void;
     onCancel?: () => void;
+    hasChanges?: boolean;
     defaultOpen?: boolean;
     headerExtra?: ReactNode;
-    isLoading?: boolean;
-    isOpen?: boolean;
-    onToggle?: () => void;
+    isLoading: boolean;
+    isOpen: boolean | undefined;
+    onToggle: (() => void) | undefined;
     icon: ReactNode;
-    onAdd?: () => void;
-    isValid?: boolean;
-    addLabel?: string;
-    isReadOnly?: boolean;
+    onAdd: () => void;
+    isValid: boolean;
+    addLabel: string;
+    isReadOnly: boolean;
 }
 
 export default function SectionCard({
     title,
     children,
-    onSave,
     saveDisabled = false,
+    onSave,
     onCancel,
+    hasChanges = false,
     defaultOpen = true,
     headerExtra,
     isLoading = false,
@@ -66,7 +68,7 @@ export default function SectionCard({
                     </div>
                     <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                         {open && headerExtra}
-                        {open && (onSave || onCancel) && (
+                        {open && !isReadOnly && hasChanges && (onSave || onCancel) && (
                             <div className="flex items-center gap-2">
                                 {!isLoading && onCancel && (
                                     <AdminButton

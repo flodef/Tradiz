@@ -158,10 +158,16 @@ export default function CategoriesConfig({
     onCategoryVatChange,
     onReorderCategories,
     onLocalCategoriesChange,
+    onSave,
+    onCancel,
+    isLoading = false,
     icon,
 }: {
     config: Category[];
     isReadOnly?: boolean;
+    onSave?: () => void;
+    onCancel?: () => void;
+    isLoading?: boolean;
     isOpen?: boolean;
     onToggle?: () => void;
     productCategories?: { category: string; available: boolean }[];
@@ -405,6 +411,9 @@ export default function CategoriesConfig({
     return (
         <SectionCard
             title="Catégories"
+            onSave={onSave}
+            onCancel={onCancel}
+            isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}
             icon={icon}

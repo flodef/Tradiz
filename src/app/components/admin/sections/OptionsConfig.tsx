@@ -394,10 +394,11 @@ export default function OptionsConfig({
     return (
         <SectionCard
             title="Options"
-            onSave={isReadOnly || !hasChanges ? undefined : () => onSave(strip(groups))}
+            onSave={onSave ? () => onSave(strip(groups)) : undefined}
             saveDisabled={!isValid}
             icon={icon}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
+            hasChanges={hasChanges}
             isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}
