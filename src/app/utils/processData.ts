@@ -1,3 +1,4 @@
+import { SHOP_ID } from '../constants/shop';
 import { Config, Parameters } from '../contexts/ConfigProvider';
 import {
     Color,
@@ -11,7 +12,7 @@ import {
     Role,
     User,
 } from '../utils/interfaces';
-import { CURRENT_USER_KEYWORD, DEBIT_KEYWORD, DEV_EMAIL, PROVISION_KEYWORD } from './constants';
+import { CURRENT_USER_KEYWORD, DEBIT_KEYWORD, DEV_EMAIL, IS_DEV, PROVISION_KEYWORD } from './constants';
 import './extensions';
 import { generateSimpleId } from './id';
 
@@ -317,12 +318,13 @@ export function clearLoadDataCache() {
     loadDataCache.clear();
 }
 
-export async function loadData(shop: string, shouldUseLocalData = false): Promise<Config | undefined> {
-    const cacheKey = `${shop}|${shouldUseLocalData}`;
+export async function loadData(): Promise<Config | undefined> {
+    const shouldUseLocalData = IS_DEV;
+    const cacheKey = `${SHOP_ID}|${shouldUseLocalData}`;
     const cached = loadDataCache.get(cacheKey);
     if (cached) return cached;
 
-    const promise = _loadDataImpl(shop, shouldUseLocalData).catch((err) => {
+    const promise = _loadDataImpl().catch((err) => {
         loadDataCache.delete(cacheKey); // allow retry on error
         throw err;
     });
@@ -330,7 +332,7 @@ export async function loadData(shop: string, shouldUseLocalData = false): Promis
     return promise;
 }
 
-async function _loadDataImpl(_shop: string, _shouldUseLocalData = false): Promise<Config | undefined> {
+async function _loadDataImpl(): Promise<Config | undefined> {
     // Check if DB is configured
     const hasDbConfig = await checkDbConfig();
     if (!hasDbConfig) throw new DatabaseNotConfiguredError();

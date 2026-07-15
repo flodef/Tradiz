@@ -1,3 +1,4 @@
+import { SHOP_ID } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 
 export interface DbConfigEnv {
@@ -9,12 +10,11 @@ export interface DbConfigEnv {
     PG_USER?: string;
     PG_PASSWORD?: string;
     PG_DATABASE?: string;
-    NEXT_PUBLIC_SHOP_ID?: string;
     NEXT_PUBLIC_USE_DIGICARTE?: string;
 }
 
 /**
- * Compute whether DB is configured based on environment variables.
+ * Compute whether DB is configured based on environment variables and the resolved shop.
  * Exported for testing purposes.
  */
 export function computeHasDbConfig(env: DbConfigEnv): boolean {
@@ -26,7 +26,7 @@ export function computeHasDbConfig(env: DbConfigEnv): boolean {
         env.PG_HOST?.trim() &&
         env.PG_USER?.trim() &&
         env.PG_PASSWORD?.trim() &&
-        (env.NEXT_PUBLIC_SHOP_ID?.trim() || env.PG_DATABASE?.trim())
+        (SHOP_ID?.trim() || env.PG_DATABASE?.trim())
     );
 
     // If USE_DIGICARTE is true, prefer MariaDB, otherwise prefer PostgreSQL

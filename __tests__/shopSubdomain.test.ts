@@ -1,4 +1,4 @@
-import { getShopFromSubdomain } from '@/app/contexts/ConfigProvider';
+import { getShopFromSubdomain } from '@/app/constants/shop';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 /**

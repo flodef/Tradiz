@@ -6,7 +6,7 @@ import { TRANSACTIONS_KEYWORD } from './constants';
  * @param date The date to use for the file name (defaults to current date)
  * @returns The generated file name
  */
-export const getTransactionFileName = (shopId: string, date?: Date) =>
+export const getTransactionFileName = (shopId: string | undefined, date?: Date) =>
     (shopId || TRANSACTIONS_KEYWORD) + '_' + getFormattedDate(date);
 
 /**

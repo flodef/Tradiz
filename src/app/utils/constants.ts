@@ -1,4 +1,4 @@
-import { PublicKey, clusterApiUrl } from '@solana/web3.js';
+import { Address, clusterApiUrl } from '@solana/web3.js';
 import { Role } from './interfaces';
 
 // UI
@@ -66,7 +66,6 @@ export const DEFAULT_VAT_RATE = 20;
 
 export const IS_LOCAL = !process.env.NEXT_PUBLIC_VERCEL_ENV;
 export const IS_DEV = process.env.NEXT_PUBLIC_IS_DEV?.toLowerCase() === 'true';
-export const SHOP_ID = process.env.NEXT_PUBLIC_SHOP_ID || '';
 export const USE_DIGICARTE = process.env.NEXT_PUBLIC_USE_DIGICARTE?.toLowerCase() === 'true';
 export const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || '';
 
@@ -85,8 +84,8 @@ export const errorRoundButtonStyle =
     'bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 rounded-full p-1 shadow-sm';
 
 // Solana
-export const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
-export const SPL_TOKEN = new PublicKey(
+export const MEMO_PROGRAM_ID = new Address('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
+export const SPL_TOKEN = new Address(
     IS_DEV ? 'J99D2TvHcev22FF8rNfdUXQx31qzuoVdXRpRiPzJCH6c' : 'Pnsjp9dbenPeFZWqqPHDygzkCZ4Gr37G8mgdRK2KjQp'
 );
 export const ENDPOINT = IS_DEV

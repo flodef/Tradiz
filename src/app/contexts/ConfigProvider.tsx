@@ -15,18 +15,14 @@ import {
 } from '@/app/utils/interfaces';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigContext, OperationMode } from '../hooks/useConfig';
-import { useWindowParam } from '../hooks/useWindowParam';
 import {
     ADMIN_CONFIG_URL,
     ADMIN_EDIT_MENU_URL,
     CONFIG_KEYWORD,
     CURRENT_USER_KEYWORD,
-    IS_DEV,
-    IS_LOCAL,
     LOCAL_PRINTER_KEYWORD,
     PRINT_KEYWORD,
     SEPARATOR,
-    SHOP_ID,
     USE_DIGICARTE,
 } from '../utils/constants';
 import { useLocalStorage } from '../utils/localStorage';
@@ -107,19 +103,6 @@ export interface ConfigProviderProps {
 }
 
 /**
- * Extracts the shop ID from the subdomain of the current hostname.
- * e.g. annette.tradiz.fr → "annette", localhost → ""
- * Must only be called client-side (requires window).
- */
-export function getShopFromSubdomain(): string {
-    if (typeof window === 'undefined') return '';
-    const parts = window.location.hostname.split('.');
-    // Only treat the first label as a shop if there are at least 3 parts (subdomain.domain.tld)
-    if (parts.length < 3) return '';
-    return parts[0];
-}
-
-/**
  * Validates config data to ensure required fields are present.
  * This prevents infinite spinner and error states when config is incomplete.
  *
@@ -141,10 +124,7 @@ export function validateConfigData(data: Config): void {
     if (!data.parameters?.shop) throw new Error('Empty config data: shop');
 }
 
-export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopProp }) => {
-    const shop = shopProp || (IS_LOCAL ? SHOP_ID : getShopFromSubdomain());
-    const { isDemo } = useWindowParam();
-
+export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     const [state, setState] = useState(State.init);
     const [modeFonctionnement, setModeFonctionnement] = useState<OperationMode>(USE_DIGICARTE ? 'restaurant' : 'lite');
     const [isFastFood, setIsFastFood] = useState(!USE_DIGICARTE);
@@ -332,7 +312,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
             }
         }
 
-        loadData(shop, IS_DEV || isDemo)
+        loadData()
             .then((data) => {
                 if (!data) {
                     setState(State.error);
@@ -364,7 +344,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children, shop: shopPr
                     setState(State.error);
                 }
             });
-    }, [state, config, setConfig, storeData, loadConfig, shop, parameters, isDemo]);
+    }, [state, config, setConfig, storeData, loadConfig, parameters]);
 
     return (
         <ConfigContext.Provider
