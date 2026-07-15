@@ -209,7 +209,12 @@ export default function StatsPage() {
 
     const fetchStatistics = useCallback(
         async (showLoading = true) => {
-            if (showLoading) setLoading(true);
+            // If showing loading, only show it if data takes longer than 100ms to load
+            let loadingTimeout: NodeJS.Timeout | null = null;
+            if (showLoading) {
+                loadingTimeout = setTimeout(() => setLoading(true), 100);
+            }
+
             try {
                 if (!USE_DIGICARTE) {
                     await computeStatsFromIdb();
@@ -235,6 +240,7 @@ export default function StatsPage() {
                 console.error('Error fetching statistics:', error);
                 alert('Erreur lors du chargement des statistiques');
             } finally {
+                if (loadingTimeout) clearTimeout(loadingTimeout);
                 if (showLoading) setLoading(false);
             }
         },

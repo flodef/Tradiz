@@ -12,7 +12,7 @@ import CustomersConfig from '@/app/components/admin/sections/CustomersConfig';
 import CompaniesConfig from '@/app/components/admin/sections/CompaniesConfig';
 import DevicesConfig from '@/app/components/admin/sections/DevicesConfig';
 import PrintersConfig from '@/app/components/admin/sections/PrintersConfig';
-import { Parameters } from '@/app/contexts/ConfigProvider';
+import { Parameters, Config } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
 import { USE_DIGICARTE, INTERNAL_PAYMENT_METHODS } from '@/app/utils/constants';
@@ -52,10 +52,16 @@ export default function SettingsPage() {
     const {
         parameters,
         setParameters,
+        setConfig,
         discounts: configDiscounts,
         currencies,
         paymentMethods: configPayments,
         colors: configColors,
+        inventory,
+        isStateReady,
+        printers: configPrinters,
+        customers: configCustomers,
+        users: configUsers,
     } = useConfig();
     const { openFullscreenPopup } = usePopup();
     const { isAdmin: isConfigAdmin } = useUserRole();
@@ -70,6 +76,33 @@ export default function SettingsPage() {
     const [printersConfig, setPrintersConfig] = useState<Printer[]>([]);
     const [customersConfig, setCustomersConfig] = useState<Customer[]>([]);
     const [companiesConfig, setCompaniesConfig] = useState<Company[]>([]);
+
+    // Helper function to build config object for syncing with ConfigProvider
+    const buildConfig = useCallback(
+        (overrides: Partial<Config> = {}): Config => ({
+            parameters: { ...parameters, lastModified: Date.now().toString() },
+            currencies: currenciesConfig,
+            paymentMethods: paymentsConfig,
+            inventory,
+            discounts,
+            colors: colorsConfig,
+            printers: printersConfig,
+            customers: customersConfig,
+            users: usersConfig,
+            ...overrides,
+        }),
+        [
+            parameters,
+            currenciesConfig,
+            paymentsConfig,
+            inventory,
+            discounts,
+            colorsConfig,
+            printersConfig,
+            customersConfig,
+            usersConfig,
+        ]
+    );
     const [isSaving, setIsSaving] = useState(false);
     const [isSavingUsers, setIsSavingUsers] = useState(false);
     const [isSavingDevices, setIsSavingDevices] = useState(false);
@@ -86,6 +119,13 @@ export default function SettingsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isReadOnly, setIsReadOnly] = useState(true);
     const [dbConfigChecked, setDbConfigChecked] = useState(false);
+
+    // If data is already ready from ConfigProvider, skip loading immediately
+    useEffect(() => {
+        if (isStateReady) {
+            setIsLoading(false);
+        }
+    }, [isStateReady]);
     const [isSiretValid, setIsSiretValid] = useState(true);
     const [hasChanges, setHasChanges] = useState(false);
     const [hasSettingsChanges, setHasSettingsChanges] = useState(false);
@@ -179,14 +219,49 @@ export default function SettingsPage() {
     }, [isConfigAdmin]);
 
     const fetchParameters = useCallback(async () => {
-        setIsLoading(true);
+        // If data is already ready from ConfigProvider (cached), load it immediately without showing loading
+        if (isStateReady) {
+            if (parameters?.lastModified) {
+                setSettings(parameters);
+                setOriginalSettings(parameters);
+            }
+            if (configDiscounts) {
+                setDiscounts(configDiscounts);
+                setOriginalDiscounts(configDiscounts);
+            }
+            if (currencies) {
+                setCurrenciesConfig(currencies);
+                setOriginalCurrencies(currencies);
+            }
+            if (configPayments) {
+                setPaymentsConfig(configPayments);
+                setOriginalPayments(configPayments);
+            }
+            if (configColors) {
+                setColorsConfig(configColors);
+                setOriginalColors(configColors);
+            }
+            if (configUsers) {
+                setUsersConfig(configUsers);
+                setOriginalUsers(configUsers);
+            }
+            if (configPrinters) {
+                setPrintersConfig(configPrinters);
+                setOriginalPrinters(configPrinters);
+            }
+            if (configCustomers) {
+                setCustomersConfig(configCustomers);
+                setOriginalCustomers(configCustomers);
+            }
+            setIsLoading(false);
+            // Skip DB fetch when we have cached data - will refresh in background via ConfigProvider
+            return;
+        } else {
+            setIsLoading(true);
+        }
+
         try {
             if (isReadOnly) {
-                if (parameters?.lastModified) setSettings(parameters);
-                if (configDiscounts) setDiscounts(configDiscounts);
-                if (currencies) setCurrenciesConfig(currencies);
-                if (configPayments) setPaymentsConfig(configPayments);
-                if (configColors) setColorsConfig(configColors);
                 setIsLoading(false);
                 return;
             }
@@ -450,16 +525,36 @@ export default function SettingsPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [isReadOnly, parameters, configDiscounts, currencies, configPayments, configColors]);
+    }, [
+        isReadOnly,
+        parameters,
+        configDiscounts,
+        currencies,
+        configPayments,
+        configColors,
+        isStateReady,
+        configUsers,
+        configPrinters,
+        configCustomers,
+    ]);
 
-    // Step 2: once DB config is known, load data
+    // Step 2: load data immediately if cached, otherwise wait for DB config check
     useEffect(() => {
-        if (!dbConfigChecked) return;
         if (dataLoadedRef.current) return;
-        dataLoadedRef.current = true;
-        fetchParameters();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dbConfigChecked]);
+
+        // If data is already ready from ConfigProvider, load it immediately
+        if (isStateReady) {
+            dataLoadedRef.current = true;
+            fetchParameters();
+            return;
+        }
+
+        // Otherwise wait for DB config check before loading from DB
+        if (dbConfigChecked) {
+            dataLoadedRef.current = true;
+            fetchParameters();
+        }
+    }, [dbConfigChecked, fetchParameters, isStateReady]);
 
     // Track changes by comparing current state with original loaded data
     useEffect(() => {
@@ -559,6 +654,10 @@ export default function SettingsPage() {
             setUsersConfig(usersWithRole);
             setOriginalUsers(usersWithRole);
             setHasUsersChanges(false);
+
+            // Update ConfigProvider to sync with main app
+            setConfig(buildConfig({ users: usersWithRole }));
+            clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des utilisateurs.", ['OK']);
@@ -602,6 +701,10 @@ export default function SettingsPage() {
             setCurrenciesConfig(data);
             setOriginalCurrencies(data);
             setHasCurrenciesChanges(false);
+
+            // Update ConfigProvider to sync with main app
+            setConfig(buildConfig({ currencies: data }));
+            clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des devises.", ['OK']);
@@ -654,6 +757,9 @@ export default function SettingsPage() {
             // Update ConfigProvider parameters directly
             setParameters(data);
 
+            // Update ConfigProvider to sync with main app
+            setConfig(buildConfig({ parameters: { ...data, lastModified: Date.now().toString() } }));
+
             // Invalidate the loadData cache so other ConfigProvider instances
             // (e.g. the POS app) re-fetch fresh parameters from the DB on next mount
             clearLoadDataCache();
@@ -678,6 +784,10 @@ export default function SettingsPage() {
             if (!response.ok) throw new Error('Failed to save payment methods');
             setOriginalPayments(data);
             setHasPaymentsChanges(false);
+
+            // Update ConfigProvider to sync with main app
+            setConfig(buildConfig({ paymentMethods: data }));
+            clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des moyens de paiement.", ['OK']);
@@ -699,6 +809,10 @@ export default function SettingsPage() {
             if (!response.ok) throw new Error('Failed to save discounts');
             setOriginalDiscounts(data);
             setHasDiscountsChanges(false);
+
+            // Update ConfigProvider to sync with main app
+            setConfig(buildConfig({ discounts: data }));
+            clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des réductions.", ['OK']);
@@ -728,6 +842,10 @@ export default function SettingsPage() {
             setOriginalSelectedThemeIndex(selectedThemeIndex);
             setOriginalCustomThemeNames(customThemeNames);
             setHasColorsChanges(false);
+
+            // Update ConfigProvider to sync with main app
+            setConfig(buildConfig({ colors: data }));
+            clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des couleurs.", ['OK']);
@@ -748,6 +866,10 @@ export default function SettingsPage() {
             });
             setOriginalPrinters(data);
             setHasPrintersChanges(false);
+
+            // Update ConfigProvider to sync with main app
+            setConfig(buildConfig({ printers: data }));
+            clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des imprimantes.", ['OK']);
@@ -768,6 +890,10 @@ export default function SettingsPage() {
             });
             setOriginalCustomers(data);
             setHasCustomersChanges(false);
+
+            // Update ConfigProvider to sync with main app
+            setConfig(buildConfig({ customers: data }));
+            clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des clients.", ['OK']);
@@ -791,8 +917,9 @@ export default function SettingsPage() {
             const companyNames = new Set(data.map((c) => c.name));
             const customersToUpdate = customersConfig.filter((c) => c.company && !companyNames.has(c.company));
 
+            let updatedCustomers = customersConfig;
             if (customersToUpdate.length > 0) {
-                const updatedCustomers = customersConfig.map((c) =>
+                updatedCustomers = customersConfig.map((c) =>
                     c.company && !companyNames.has(c.company) ? { ...c, company: undefined } : c
                 );
                 await fetch('/api/sql/updateCustomers', {
@@ -807,6 +934,10 @@ export default function SettingsPage() {
             setOriginalCompanies(data);
             setCompaniesConfig(data);
             setHasCompaniesChanges(false);
+
+            // Update ConfigProvider to sync with main app (customers may have changed)
+            setConfig(buildConfig({ customers: updatedCustomers }));
+            clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des entreprises.", ['OK']);

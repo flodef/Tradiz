@@ -302,10 +302,6 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     useEffect(() => {
         if (state !== State.init) return;
 
-        setState(State.loading);
-
-        loadConfig(config);
-
         // Skip loading data if on admin config page - it has its own loading logic.
         // Still resolve the user so the TopNav and admin pages know the role.
         if (window.location.pathname.includes(ADMIN_CONFIG_URL)) {
@@ -316,14 +312,18 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
             return;
         }
 
-        // Load cached data first if available
+        // Load cached data first if available - set state directly to preloaded to avoid loading dots
         if (config) {
             try {
                 loadConfig(config);
                 setState(State.preloaded);
             } catch {
-                // Invalid cached data, proceed to load from DB
+                // Invalid cached data, proceed to load from DB with loading state
+                setState(State.loading);
             }
+        } else {
+            // No cached data, show loading
+            setState(State.loading);
         }
 
         // Always load fresh data from DB in background

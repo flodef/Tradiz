@@ -62,6 +62,7 @@ export default function EditMenuPage() {
         printers,
         customers,
         users,
+        isStateReady,
     } = useConfig();
     const { isCashier } = useUserRole();
     const { openFullscreenPopup } = usePopup();
@@ -79,6 +80,13 @@ export default function EditMenuPage() {
     const [hasOptionsChanges, setHasOptionsChanges] = useState(false);
     const [emptyProductsPopupShown, setEmptyProductsPopupShown] = useState(false);
     const dataLoadedRef = useRef(false);
+
+    // If data is already ready from ConfigProvider, skip loading immediately
+    useEffect(() => {
+        if (isStateReady && inventory?.length && currencies?.length) {
+            setIsLoading(false);
+        }
+    }, [isStateReady, inventory, currencies]);
 
     // Derive categories from products — categories are local-only, not stored in DB
     // If all products in a category have the same VAT, use it; otherwise null (divers)
@@ -131,8 +139,36 @@ export default function EditMenuPage() {
 
     useEffect(() => {
         const fetchData = async () => {
-            if (!dbConfigChecked) return;
             if (dataLoadedRef.current) return;
+
+            // If data is already ready from ConfigProvider (cached), load it immediately without showing loading
+            if (isStateReady && inventory?.length && currencies?.length) {
+                dataLoadedRef.current = true;
+                const allProducts: AdminProduct[] = [];
+
+                inventory.forEach((item) => {
+                    item.products.forEach((product) => {
+                        allProducts.push({
+                            name: product.label,
+                            category: item.category,
+                            stock: product.stock ?? null,
+                            currencies: product.prices.map(String),
+                            vat: item.rate >= 1 ? item.rate : item.rate * 100,
+                        });
+                    });
+                });
+
+                setProducts(allProducts);
+                setOriginalProducts(allProducts);
+                setIsLoading(false);
+
+                if (isReadOnly) return;
+            } else {
+                setIsLoading(true);
+            }
+
+            // Wait for DB config check before loading from DB
+            if (!dbConfigChecked) return;
 
             try {
                 if (isReadOnly) {
@@ -269,8 +305,7 @@ export default function EditMenuPage() {
         };
 
         fetchData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dbConfigChecked, isReadOnly, openFullscreenPopup]);
+    }, [dbConfigChecked, isReadOnly, openFullscreenPopup, isStateReady, inventory, currencies]);
 
     const handleProductsChange = useCallback(
         (data: AdminProduct[]) => {
