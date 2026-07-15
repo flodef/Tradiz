@@ -162,9 +162,28 @@ export default function EditMenuPage() {
                     return;
                 }
 
-                dataLoadedRef.current = true;
+                // Load cached data first from useConfig (inventory/currencies)
+                if (inventory?.length && currencies?.length) {
+                    const allProducts: AdminProduct[] = [];
 
-                // Fetch products and parameters in parallel
+                    inventory.forEach((item) => {
+                        item.products.forEach((product) => {
+                            allProducts.push({
+                                name: product.label,
+                                category: item.category,
+                                stock: product.stock ?? null,
+                                currencies: product.prices.map(String),
+                                vat: item.rate >= 1 ? item.rate : item.rate * 100,
+                            });
+                        });
+                    });
+
+                    setProducts(allProducts);
+                    setOriginalProducts(allProducts);
+                    setIsLoading(false);
+                }
+
+                // Always fetch fresh data from DB in background
                 const [productsResponse, parametersResponse] = await Promise.all([
                     fetch('/api/sql/getAllArticles'),
                     fetch('/api/sql/getParameters'),

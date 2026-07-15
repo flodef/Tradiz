@@ -213,8 +213,6 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     const loadConfig = useCallback((data: Config | undefined) => {
         if (!data) return;
 
-        localStorage.removeItem(CONFIG_KEYWORD);
-
         setParameters(data.parameters);
         setCurrencies(data.currencies);
         setPaymentMethods(data.paymentMethods);
@@ -282,6 +280,25 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
         }
     }, [state, inventory, parameters.user?.role]);
 
+    // Listen for storage events to detect when data is updated in another tab
+    // (e.g., when admin saves data, main app should reload to get fresh data)
+    useEffect(() => {
+        const handleStorageChange = (e: StorageEvent) => {
+            if (e.key === CONFIG_KEYWORD && e.newValue) {
+                try {
+                    const newConfig = JSON.parse(e.newValue) as Config;
+                    loadConfig(newConfig);
+                    storeData(newConfig);
+                } catch {
+                    // Invalid data, ignore
+                }
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, [loadConfig, storeData]);
+
     useEffect(() => {
         if (state !== State.init) return;
 
@@ -299,22 +316,22 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
             return;
         }
 
-        // If a fresh admin update is already in localStorage, use it immediately
-        // instead of waiting for the full DB reload.
-        const lastModified = config?.parameters?.lastModified;
-        if (lastModified && !Number.isNaN(Number(lastModified)) && Date.now() - Number(lastModified) < 60_000) {
+        // Load cached data first if available
+        if (config) {
             try {
-                storeData(config);
-                setConfig({ ...config });
-                return;
+                loadConfig(config);
+                setState(State.preloaded);
             } catch {
-                // stale/invalid, fall back to loadData
+                // Invalid cached data, proceed to load from DB
             }
         }
 
+        // Always load fresh data from DB in background
         loadData()
             .then((data) => {
                 if (!data) {
+                    // If we have cached data, stay in preloaded state
+                    if (config) return;
                     setState(State.error);
                     return;
                 }
@@ -322,6 +339,12 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
             })
             .catch((error) => {
                 console.error(error);
+
+                // If we have cached data, stay in preloaded state and just log error
+                if (config) {
+                    parameters.error = error.message;
+                    return;
+                }
 
                 parameters.error = error.message;
                 if (error instanceof UserNotFoundError) {

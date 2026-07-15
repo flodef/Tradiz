@@ -669,7 +669,7 @@ export default function ProductsConfig({
                                                                             category: e.target.value,
                                                                         })
                                                                     }
-                                                                    isReadOnly={isReadOnly}
+                                                                    isReadOnly={isReadOnly || categories.length === 1}
                                                                 />
                                                             </td>
                                                             {productsSettings?.useReference && (
