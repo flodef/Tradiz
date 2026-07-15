@@ -80,6 +80,7 @@ export default function ProductsConfig({
     isOpen,
     onToggle,
     icon,
+    showHeader = true,
 }: {
     config: AdminProduct[];
     onChange: (data: AdminProduct[]) => void;
@@ -101,6 +102,7 @@ export default function ProductsConfig({
         useOptions: boolean;
     };
     icon?: React.ReactNode;
+    showHeader?: boolean;
 }) {
     const [products, setProducts] = useState(config || []);
     const [search, setSearch] = useState('');
@@ -454,130 +456,132 @@ export default function ProductsConfig({
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                     <div className="overflow-auto max-h-[calc(100vh-16rem)]">
                         <table className="w-full border-collapse">
-                            <thead className="sticky top-0 z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur">
-                                <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                    {!isReadOnly && <th className="w-12"></th>}
-                                    <th
-                                        className={adminSortableHeaderStyle + ' min-w-40'}
-                                        onClick={() => handleSort('name')}
-                                    >
-                                        <div className="flex items-center gap-1">
-                                            Nom
-                                            <SortIcon field="name" />
-                                        </div>
-                                    </th>
-                                    <th
-                                        className={adminSortableHeaderStyle + ' min-w-32 w-32'}
-                                        onClick={() => handleSort('category')}
-                                    >
-                                        <div className="flex items-center gap-1">
-                                            Catégorie
-                                            <SortIcon field="category" />
-                                        </div>
-                                    </th>
-                                    {productsSettings?.useReference && (
+                            {showHeader && totalFiltered > 0 && (
+                                <thead className="sticky top-0 z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur">
+                                    <tr className="border-b-2 border-gray-300 dark:border-gray-600">
+                                        {!isReadOnly && <th className="w-12"></th>}
                                         <th
-                                            className={adminSortableHeaderStyle + ' min-w-24 w-24'}
-                                            onClick={() => handleSort('reference')}
+                                            className={adminSortableHeaderStyle + ' min-w-40'}
+                                            onClick={() => handleSort('name')}
                                         >
                                             <div className="flex items-center gap-1">
-                                                Référence
-                                                <SortIcon field="reference" />
+                                                Nom
+                                                <SortIcon field="name" />
                                             </div>
                                         </th>
-                                    )}
-                                    <th
-                                        className={adminSortableHeaderStyle + ' min-w-20 w-20'}
-                                        onClick={() => handleSort('price')}
-                                    >
-                                        <div className="flex items-center gap-1">
-                                            Prix {mainCurrency ? `(${mainCurrency.symbol})` : ''}
-                                            <SortIcon field="price" />
-                                        </div>
-                                    </th>
-                                    {productsSettings?.useVatPerProduct && (
                                         <th
-                                            className={adminSortableHeaderStyle + ' min-w-16 w-16'}
-                                            onClick={() => handleSort('vat')}
+                                            className={adminSortableHeaderStyle + ' min-w-36 w-36'}
+                                            onClick={() => handleSort('category')}
                                         >
                                             <div className="flex items-center gap-1">
-                                                TVA (%)
-                                                <SortIcon field="vat" />
+                                                Catégorie
+                                                <SortIcon field="category" />
                                             </div>
                                         </th>
-                                    )}
-                                    {productsSettings?.useReference && (
-                                        <th
-                                            className={adminSortableHeaderStyle + ' min-w-32 w-32'}
-                                            onClick={() => handleSort('reference')}
-                                        >
-                                            <div className="flex items-center gap-1">
-                                                Référence
-                                                <SortIcon field="reference" />
-                                            </div>
-                                        </th>
-                                    )}
-                                    {productsSettings?.useStock && (
+                                        {productsSettings?.useReference && (
+                                            <th
+                                                className={adminSortableHeaderStyle + ' min-w-24 w-24'}
+                                                onClick={() => handleSort('reference')}
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    Référence
+                                                    <SortIcon field="reference" />
+                                                </div>
+                                            </th>
+                                        )}
                                         <th
                                             className={adminSortableHeaderStyle + ' min-w-20 w-20'}
-                                            onClick={() => handleSort('stock')}
-                                        >
-                                            <div className="flex items-center justify-center gap-1">
-                                                Stock
-                                                <SortIcon field="stock" />
-                                                <span title="Un stock vide signifie un stock infini">
-                                                    <IconInfoCircle size={14} className="opacity-50" />
-                                                </span>
-                                            </div>
-                                        </th>
-                                    )}
-                                    {productsSettings?.usePhoto && (
-                                        <th
-                                            className={adminSortableHeaderStyle + ' min-w-20 w-20'}
-                                            onClick={() => handleSort('photo')}
+                                            onClick={() => handleSort('price')}
                                         >
                                             <div className="flex items-center gap-1">
-                                                Photo
-                                                <SortIcon field="photo" />
+                                                Prix {mainCurrency ? `(${mainCurrency.symbol})` : ''}
+                                                <SortIcon field="price" />
                                             </div>
                                         </th>
-                                    )}
-                                    {productsSettings?.useDescription && (
-                                        <th
-                                            className={adminSortableHeaderStyle + ' min-w-32 w-32'}
-                                            onClick={() => handleSort('description')}
-                                        >
-                                            <div className="flex items-center gap-1">
-                                                Description
-                                                <SortIcon field="description" />
-                                            </div>
-                                        </th>
-                                    )}
-                                    {productsSettings?.useOptions && (
-                                        <th
-                                            className={adminSortableHeaderStyle + ' min-w-32 w-32'}
-                                            onClick={() => handleSort('options')}
-                                        >
-                                            <div className="flex items-center gap-1">
-                                                Options
-                                                <SortIcon field="options" />
-                                            </div>
-                                        </th>
-                                    )}
-                                    {!productsSettings?.useStock && (
-                                        <th
-                                            className={adminSortableHeaderStyle + ' min-w-20 w-20'}
-                                            onClick={() => handleSort('availability')}
-                                        >
-                                            <div className="flex items-center justify-center gap-1">
-                                                Disponibilité
-                                                <SortIcon field="availability" />
-                                            </div>
-                                        </th>
-                                    )}
-                                    {!isReadOnly && <th className="w-8"></th>}
-                                </tr>
-                            </thead>
+                                        {productsSettings?.useVatPerProduct && (
+                                            <th
+                                                className={adminSortableHeaderStyle + ' min-w-16 w-16'}
+                                                onClick={() => handleSort('vat')}
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    TVA (%)
+                                                    <SortIcon field="vat" />
+                                                </div>
+                                            </th>
+                                        )}
+                                        {productsSettings?.useReference && (
+                                            <th
+                                                className={adminSortableHeaderStyle + ' min-w-32 w-32'}
+                                                onClick={() => handleSort('reference')}
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    Référence
+                                                    <SortIcon field="reference" />
+                                                </div>
+                                            </th>
+                                        )}
+                                        {productsSettings?.useStock && (
+                                            <th
+                                                className={adminSortableHeaderStyle + ' min-w-20 w-20'}
+                                                onClick={() => handleSort('stock')}
+                                            >
+                                                <div className="flex items-center justify-center gap-1">
+                                                    Stock
+                                                    <SortIcon field="stock" />
+                                                    <span title="Un stock vide signifie un stock infini">
+                                                        <IconInfoCircle size={14} className="opacity-50" />
+                                                    </span>
+                                                </div>
+                                            </th>
+                                        )}
+                                        {productsSettings?.usePhoto && (
+                                            <th
+                                                className={adminSortableHeaderStyle + ' min-w-20 w-20'}
+                                                onClick={() => handleSort('photo')}
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    Photo
+                                                    <SortIcon field="photo" />
+                                                </div>
+                                            </th>
+                                        )}
+                                        {productsSettings?.useDescription && (
+                                            <th
+                                                className={adminSortableHeaderStyle + ' min-w-32 w-32'}
+                                                onClick={() => handleSort('description')}
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    Description
+                                                    <SortIcon field="description" />
+                                                </div>
+                                            </th>
+                                        )}
+                                        {productsSettings?.useOptions && (
+                                            <th
+                                                className={adminSortableHeaderStyle + ' min-w-32 w-32'}
+                                                onClick={() => handleSort('options')}
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    Options
+                                                    <SortIcon field="options" />
+                                                </div>
+                                            </th>
+                                        )}
+                                        {!productsSettings?.useStock && (
+                                            <th
+                                                className={adminSortableHeaderStyle + ' min-w-20 w-20'}
+                                                onClick={() => handleSort('availability')}
+                                            >
+                                                <div className="flex items-center justify-center gap-1">
+                                                    Disponibilité
+                                                    <SortIcon field="availability" />
+                                                </div>
+                                            </th>
+                                        )}
+                                        {!isReadOnly && <th className="w-8"></th>}
+                                    </tr>
+                                </thead>
+                            )}
                             <tbody>
                                 {sortedCategoryOrder
                                     .filter((cat) => categoryGroups[cat] !== undefined)

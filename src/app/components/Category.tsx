@@ -21,6 +21,7 @@ import { Catalog, CatalogFormula, EmptyDiscount, InventoryItem, Role, State } fr
 import { useIsMobileDevice } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
 import { useAddPopupClass } from './Popup';
+import { LoadingDot } from '../loading';
 
 // Local types for option selection helpers
 type OptionDef = { type: string; options: { value: string; price: number | string }[] };
@@ -557,12 +558,30 @@ export const Category: FC = () => {
     const MAX_VISIBLE_ROWS = 3;
     const rowClassName = 'flex justify-evenly divide-x divide-active-light dark:divide-active-dark';
 
+    const popupClass = useAddPopupClass(
+        'inset-x-0 border-t-[3px] absolute bottom-0 md:w-1/2 border-active-light dark:border-active-dark overflow-hidden'
+    );
+
+    if (state === State.init || state === State.loading || state === State.error) {
+        return (
+            <div
+                className={popupClass}
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: MAX_VISIBLE_ROWS * ROW_HEIGHT,
+                }}
+            >
+                <div className="md:hidden block">
+                    <LoadingDot fullscreen={false} />
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div
-            className={useAddPopupClass(
-                'inset-x-0 border-t-[3px] absolute bottom-0 md:w-1/2 border-active-light dark:border-active-dark overflow-hidden'
-            )}
-        >
+        <div className={popupClass}>
             <div
                 className="divide-y divide-active-light dark:divide-active-dark"
                 style={{

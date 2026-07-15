@@ -278,7 +278,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
         const role = parameters.user?.role;
         const hasEditAccess = role === Role.admin || role === Role.cashier;
         if (hasEditAccess && inventory.length === 0 && !window.location.pathname.startsWith('/admin')) {
-            window.location.href = ADMIN_EDIT_MENU_URL;
+            window.location.href = `${ADMIN_EDIT_MENU_URL}?emptyProducts=true`;
         }
     }, [state, inventory, parameters.user?.role]);
 

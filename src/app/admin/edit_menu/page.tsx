@@ -14,6 +14,7 @@ import { Category, InventoryItem } from '@/app/utils/interfaces';
 import { clearLoadDataCache } from '@/app/utils/processData';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconCategory, IconListDetails, IconBox } from '@tabler/icons-react';
+import { useSearchParams } from 'next/navigation';
 
 function buildInventoryFromAdminProducts(products: AdminProduct[]): InventoryItem[] {
     const inventory: InventoryItem[] = [];
@@ -64,6 +65,7 @@ export default function EditMenuPage() {
     } = useConfig();
     const { isCashier } = useUserRole();
     const { openFullscreenPopup } = usePopup();
+    const searchParams = useSearchParams();
     const [products, setProducts] = useState<AdminProduct[]>([]);
     const [originalProducts, setOriginalProducts] = useState<AdminProduct[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -71,10 +73,11 @@ export default function EditMenuPage() {
     const [dbConfigChecked, setDbConfigChecked] = useState(false);
     const [isSavingProducts, setIsSavingProducts] = useState(false);
     const [productsSettings, setProductsSettings] = useState<ProductsSettings | undefined>(parameters?.products);
-    const [openSection, setOpenSection] = useState<string | null>(null);
+    const [openSection, setOpenSection] = useState<string | null>('products');
     const [options, setOptions] = useState<ProductOptionGroup[]>([]);
     const [originalOptions, setOriginalOptions] = useState<ProductOptionGroup[]>([]);
     const [hasOptionsChanges, setHasOptionsChanges] = useState(false);
+    const [emptyProductsPopupShown, setEmptyProductsPopupShown] = useState(false);
     const dataLoadedRef = useRef(false);
 
     // Derive categories from products — categories are local-only, not stored in DB
@@ -114,6 +117,17 @@ export default function EditMenuPage() {
                 setDbConfigChecked(true);
             });
     }, []);
+
+    // Show popup when redirected due to empty products
+    useEffect(() => {
+        const emptyProducts = searchParams.get('emptyProducts');
+        if (emptyProducts === 'true' && !emptyProductsPopupShown && !isLoading) {
+            setEmptyProductsPopupShown(true);
+            openFullscreenPopup('Votre catalogue de produits est vide.\n\nVeuillez ajouter des produits ci-dessous.', [
+                'OK',
+            ]);
+        }
+    }, [searchParams, emptyProductsPopupShown, isLoading, openFullscreenPopup]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -497,6 +511,7 @@ export default function EditMenuPage() {
                     onToggle={() => setOpenSection((prev) => (prev === 'products' ? null : 'products'))}
                     productsSettings={productsSettings}
                     icon={<IconBox size={24} />}
+                    showHeader={products.length > 0}
                 />
             </div>
         </AdminPageLayout>

@@ -550,7 +550,9 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
     if (state === State.init || state === State.loading || state === State.error) {
         return (
             <div className={popupClass} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <LoadingDot />
+                <div className="hidden md:block">
+                    <LoadingDot />
+                </div>
             </div>
         );
     }
