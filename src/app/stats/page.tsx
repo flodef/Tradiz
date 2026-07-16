@@ -1,6 +1,7 @@
 'use client';
 
 import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
+import { SHOP_ID } from '@/app/constants/shop';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import {
     DELETED_KEYWORD,
@@ -9,9 +10,9 @@ import {
     USE_DIGICARTE,
     WAITING_KEYWORD,
 } from '@/app/utils/constants';
+import '@/app/utils/extensions';
 import type { Transaction } from '@/app/utils/interfaces';
 import { idbGetAllTransactionSets } from '@/app/utils/transactionStore';
-import '@/app/utils/extensions';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Bar,
@@ -123,7 +124,7 @@ export default function StatsPage() {
         const start = startDate ? new Date(startDate).getTime() : 0;
         const end = endDate ? new Date(endDate + 'T23:59:59').getTime() : Infinity;
 
-        const sets = await idbGetAllTransactionSets();
+        const sets = await idbGetAllTransactionSets(SHOP_ID);
         const paid: Transaction[] = [];
         const all: Transaction[] = [];
 
@@ -216,11 +217,13 @@ export default function StatsPage() {
             }
 
             try {
+                // First, load from IndexedDB for immediate display
                 if (!USE_DIGICARTE) {
                     await computeStatsFromIdb();
                     return;
                 }
 
+                // Then, fetch from DB for fresh data
                 const response = await fetch(`/api/sql/getStatistics?startDate=${startDate}&endDate=${endDate}`);
                 const data = await response.json();
 
@@ -238,7 +241,7 @@ export default function StatsPage() {
                 setStats(data);
             } catch (error) {
                 console.error('Error fetching statistics:', error);
-                alert('Erreur lors du chargement des statistiques');
+                // If DB fetch fails, we still have IndexedDB data, so no alert needed
             } finally {
                 if (loadingTimeout) clearTimeout(loadingTimeout);
                 if (showLoading) setLoading(false);
