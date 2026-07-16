@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
@@ -27,12 +28,13 @@ interface RecentOrderRow {
 }
 
 export async function GET(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate'); // Format: YYYY-MM-DD
     const endDate = searchParams.get('endDate'); // Format: YYYY-MM-DD
 
     try {
-        const connection = await getPosDb();
+        const connection = await getPosDb(shopId);
 
         // Non-paid payment methods
         const nonPaidMethods = ['EFFACÉE', 'REMBOURSEMENT', 'EN COURS', 'EN ATTENTE'];

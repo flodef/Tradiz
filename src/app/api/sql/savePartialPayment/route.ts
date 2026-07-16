@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, getMainDb } from '../db';
 
@@ -11,6 +12,7 @@ interface PaymentItem {
 }
 
 export async function POST(request: NextRequest) {
+    const shopId = getShopIdFromRequest(request);
     let connection: Connection | undefined;
     try {
         const body = await request.json();
@@ -24,7 +26,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid request data' }, { status: 400 });
         }
 
-        connection = await getMainDb();
+        connection = await getMainDb(shopId);
         await connection.beginTransaction();
 
         const now = new Date();

@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { RowDataPacket } from 'mysql2';
 import { Product, EmptyDiscount } from '@/app/utils/interfaces';
@@ -60,13 +61,14 @@ const computeOptionsExtra = (
 };
 
 export async function GET(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get('orderId');
 
     if (!orderId) return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
 
     try {
-        const connection = await getMainDb();
+        const connection = await getMainDb(shopId);
 
         // Query 1: Get articles
         const queryArticles = connection.isPostgreSQL

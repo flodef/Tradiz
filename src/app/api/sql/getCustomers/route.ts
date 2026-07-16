@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
@@ -18,9 +19,10 @@ function isMissingTableError(error: unknown): boolean {
     return e?.code === '42P01' || e?.code === 'ER_NO_SUCH_TABLE' || e?.errno === 1146;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     try {
-        const connection = await getPosDb();
+        const connection = await getPosDb(shopId);
 
         // Try query with companies join first
         let query = connection.isPostgreSQL

@@ -1,4 +1,5 @@
 import { DELETED_KEYWORD, PROCESSING_KEYWORD, DEFAULT_USER, DEFAULT_VAT_RATE } from '@/app/utils/constants';
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { Connection, getPosDb } from '../db';
 
@@ -30,6 +31,7 @@ interface IdRow {
 }
 
 export async function POST(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     try {
         const body = await request.json();
         const { action, transaction } = body;
@@ -37,7 +39,7 @@ export async function POST(request: Request) {
         if (!action || !transaction)
             return NextResponse.json({ error: 'Action and transaction data are required' }, { status: 400 });
 
-        const connection = await getPosDb();
+        const connection = await getPosDb(shopId);
 
         await connection.beginTransaction();
 

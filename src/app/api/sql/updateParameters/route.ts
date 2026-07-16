@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 import { PARAMETER_KEY_LIST } from '@/app/constants/parameterKeys';
@@ -8,6 +9,7 @@ interface ParameterUpdate {
 }
 
 export async function POST(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     try {
         const { parameters } = await request.json();
 
@@ -15,7 +17,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid parameters format' }, { status: 400 });
         }
 
-        const connection = await getPosDb();
+        const connection = await getPosDb(shopId);
 
         // Update each parameter, but only if it's a known parameter key
         for (const param of parameters as ParameterUpdate[]) {

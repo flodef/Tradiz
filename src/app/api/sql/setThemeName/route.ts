@@ -1,7 +1,9 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
 
 export async function POST(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     try {
         const { name } = await request.json();
 
@@ -9,7 +11,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid theme name' }, { status: 400 });
         }
 
-        const connection = await getMainDb();
+        const connection = await getMainDb(shopId);
 
         const query = connection.isPostgreSQL
             ? `

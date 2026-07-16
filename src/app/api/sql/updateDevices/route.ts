@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { executeInsert, getPosDb, withTransaction } from '../db';
 
@@ -9,6 +10,7 @@ interface Device {
 }
 
 export async function POST(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     let connection: Awaited<ReturnType<typeof getPosDb>> | undefined;
 
     try {
@@ -18,7 +20,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid devices data' }, { status: 400 });
         }
 
-        connection = await getPosDb();
+        connection = await getPosDb(shopId);
         const db = connection;
 
         await withTransaction(db, async () => {

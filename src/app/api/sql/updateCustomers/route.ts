@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 import { generateProductReference } from '@/app/utils/productReference';
@@ -14,6 +15,7 @@ interface Customer {
 }
 
 export async function POST(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     try {
         const { customers } = (await request.json()) as { customers: Customer[] };
 
@@ -21,7 +23,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid customers data' }, { status: 400 });
         }
 
-        const connection = await getPosDb();
+        const connection = await getPosDb(shopId);
         const table = connection.isPostgreSQL ? 'dc_pos.customers' : 'customers';
 
         // Delete only customers that are no longer present in the incoming list.

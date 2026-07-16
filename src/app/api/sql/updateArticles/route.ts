@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
 import { generateProductReference } from '@/app/utils/productReference';
@@ -33,6 +34,7 @@ export function computeSortOrders(products: Product[]): number[] {
 }
 
 export async function POST(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     let connection: Awaited<ReturnType<typeof getMainDb>> | undefined;
 
     try {
@@ -50,7 +52,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Empty product list' }, { status: 400 });
         }
 
-        connection = await getMainDb();
+        connection = await getMainDb(shopId);
 
         // Check for duplicate product names before writing
         const names = (products as Product[]).map((p) => p.name.trim().toLowerCase());

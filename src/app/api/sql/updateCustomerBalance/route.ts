@@ -1,7 +1,9 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
 export async function POST(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     try {
         const { customerId, amount, operation } = (await request.json()) as {
             customerId: number;
@@ -16,7 +18,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Amount must be a positive number' }, { status: 400 });
         }
 
-        const connection = await getPosDb();
+        const connection = await getPosDb(shopId);
 
         const delta = operation === 'credit' ? amount : -amount;
 

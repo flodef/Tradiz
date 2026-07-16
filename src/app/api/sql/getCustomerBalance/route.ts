@@ -1,7 +1,9 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
 export async function GET(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     try {
         const { searchParams } = new URL(request.url);
         const customerId = searchParams.get('customerId');
@@ -10,13 +12,13 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Missing customerId parameter' }, { status: 400 });
         }
 
-        const connection = await getPosDb();
+        const connection = await getPosDb(shopId);
 
         // Get current balance
         const getQuery = connection.isPostgreSQL
             ? 'SELECT balance FROM dc_pos.customers WHERE id = $1'
             : 'SELECT balance FROM customers WHERE id = ?';
-        
+
         const [rows] = await connection.execute(getQuery, [customerId]);
         const balance = (rows as { balance: number }[])[0]?.balance || 0;
 
@@ -32,7 +34,7 @@ export async function GET(request: Request) {
                WHERE customer_id = ? 
                ORDER BY created_at DESC 
                LIMIT 50`;
-        
+
         const [historyRows] = await connection.execute(historyQuery, [customerId]);
         const history = historyRows as Array<{
             amount: number;

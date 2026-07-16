@@ -117,10 +117,10 @@ const dbConfig = {
     password: process.env.DB_PASSWORD,
 };
 
-export async function getMainDb(): Promise<DbConnection> {
+export async function getMainDb(shopId?: string): Promise<DbConnection> {
     // If USE_DIGICARTE is false and PostgreSQL is configured, use PostgreSQL
-    if (!USE_DIGICARTE && isPgConfigured()) {
-        return new PostgreSQLConnectionWrapper(getMainPgDb());
+    if (!USE_DIGICARTE && isPgConfigured(shopId)) {
+        return new PostgreSQLConnectionWrapper(getMainPgDb(shopId));
     }
 
     // Otherwise use MariaDB
@@ -131,10 +131,10 @@ export async function getMainDb(): Promise<DbConnection> {
     return new MySQLConnectionWrapper(connection);
 }
 
-export async function getPosDb(): Promise<DbConnection> {
+export async function getPosDb(shopId?: string): Promise<DbConnection> {
     // If USE_DIGICARTE is false and PostgreSQL is configured, use PostgreSQL
-    if (!USE_DIGICARTE && isPgConfigured()) {
-        return new PostgreSQLConnectionWrapper(getPosPgDb());
+    if (!USE_DIGICARTE && isPgConfigured(shopId)) {
+        return new PostgreSQLConnectionWrapper(getPosPgDb(shopId));
     }
 
     // Otherwise use MariaDB

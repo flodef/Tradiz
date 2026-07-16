@@ -1,4 +1,5 @@
 import {} from '@/app/utils/extensions';
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
 
@@ -14,10 +15,11 @@ interface ArticleRow {
     description: string;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     let connection: Awaited<ReturnType<typeof getMainDb>> | undefined;
     try {
-        connection = await getMainDb();
+        connection = await getMainDb(shopId);
 
         // Query 1: Get all products
         const queryProducts = connection.isPostgreSQL

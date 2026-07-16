@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 /**
  * Tests for DB configuration detection via /api/sql/getDbConfig
@@ -7,10 +7,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  * 1. hasDbConfig is true when all required DB env vars are set
  * 2. hasDbConfig is false when any required env var is missing or empty
  * 3. hasDbConfig is false when vars are whitespace-only
- * 4. hasDbConfig uses the SHOP_ID constant (NEXT_PUBLIC_SHOP_ID) for PostgreSQL database name fallback
+ * 4. hasDbConfig uses the shopId parameter for PostgreSQL database name fallback
  */
-
-const originalShopId = process.env.NEXT_PUBLIC_SHOP_ID;
 
 async function loadComputeHasDbConfig() {
     vi.resetModules();
@@ -19,22 +17,6 @@ async function loadComputeHasDbConfig() {
 }
 
 describe('hasDbConfig (MariaDB mode)', () => {
-    beforeEach(() => {
-        if (originalShopId === undefined) {
-            delete process.env.NEXT_PUBLIC_SHOP_ID;
-        } else {
-            process.env.NEXT_PUBLIC_SHOP_ID = originalShopId;
-        }
-    });
-
-    afterAll(() => {
-        if (originalShopId === undefined) {
-            delete process.env.NEXT_PUBLIC_SHOP_ID;
-        } else {
-            process.env.NEXT_PUBLIC_SHOP_ID = originalShopId;
-        }
-    });
-
     const mariaDbEnv = {
         NEXT_PUBLIC_USE_DIGICARTE: 'true',
         DB_HOST: 'localhost',
@@ -124,22 +106,6 @@ describe('hasDbConfig (MariaDB mode)', () => {
 });
 
 describe('hasDbConfig (PostgreSQL mode)', () => {
-    beforeEach(() => {
-        if (originalShopId === undefined) {
-            delete process.env.NEXT_PUBLIC_SHOP_ID;
-        } else {
-            process.env.NEXT_PUBLIC_SHOP_ID = originalShopId;
-        }
-    });
-
-    afterAll(() => {
-        if (originalShopId === undefined) {
-            delete process.env.NEXT_PUBLIC_SHOP_ID;
-        } else {
-            process.env.NEXT_PUBLIC_SHOP_ID = originalShopId;
-        }
-    });
-
     const pgEnv = {
         NEXT_PUBLIC_USE_DIGICARTE: 'false',
         PG_HOST: 'localhost',
@@ -153,16 +119,18 @@ describe('hasDbConfig (PostgreSQL mode)', () => {
         expect(computeHasDbConfig(pgEnv)).toBe(true);
     });
 
-    it('returns true with SHOP_ID instead of PG_DATABASE', async () => {
-        process.env.NEXT_PUBLIC_SHOP_ID = 'myshop';
+    it('returns true with shopId parameter instead of PG_DATABASE', async () => {
         const computeHasDbConfig = await loadComputeHasDbConfig();
         expect(
-            computeHasDbConfig({
-                NEXT_PUBLIC_USE_DIGICARTE: 'false',
-                PG_HOST: 'localhost',
-                PG_USER: 'tradiz',
-                PG_PASSWORD: 'secret',
-            })
+            computeHasDbConfig(
+                {
+                    NEXT_PUBLIC_USE_DIGICARTE: 'false',
+                    PG_HOST: 'localhost',
+                    PG_USER: 'tradiz',
+                    PG_PASSWORD: 'secret',
+                },
+                'myshop'
+            )
         ).toBe(true);
     });
 
@@ -177,8 +145,7 @@ describe('hasDbConfig (PostgreSQL mode)', () => {
         ).toBe(false);
     });
 
-    it('returns false when both PG_DATABASE and SHOP_ID are missing', async () => {
-        delete process.env.NEXT_PUBLIC_SHOP_ID;
+    it('returns false when both PG_DATABASE and shopId are missing', async () => {
         const computeHasDbConfig = await loadComputeHasDbConfig();
         expect(
             computeHasDbConfig({

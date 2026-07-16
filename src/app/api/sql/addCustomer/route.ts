@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 import { generateProductReference } from '@/app/utils/productReference';
@@ -13,6 +14,7 @@ interface Customer {
 }
 
 export async function POST(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     try {
         const customer = (await request.json()) as Customer;
 
@@ -20,7 +22,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing required fields: firstName and lastName' }, { status: 400 });
         }
 
-        const connection = await getPosDb();
+        const connection = await getPosDb(shopId);
 
         const firstName = customer.firstName;
         const lastName = customer.lastName;

@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
@@ -9,6 +10,7 @@ interface PaymentMethod {
 }
 
 export async function POST(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     try {
         const { paymentMethods } = (await request.json()) as { paymentMethods: PaymentMethod[] };
 
@@ -16,7 +18,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid payment methods data' }, { status: 400 });
         }
 
-        const connection = await getPosDb();
+        const connection = await getPosDb(shopId);
 
         // Delete all existing payment methods
         const deleteQuery = connection.isPostgreSQL ? 'DELETE FROM payment_methods' : 'DELETE FROM payment_methods';

@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { isDeletedTransaction } from '@/app/contexts/dataProvider/transactionHelpers';
 import { DEFAULT_USER, DEFAULT_VAT_RATE } from '@/app/utils/constants';
 import { Transaction } from '@/app/utils/interfaces';
@@ -32,6 +33,7 @@ interface ProductRow {
 }
 
 export async function GET(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date'); // Format: YYYY-MM-DD
     const period = searchParams.get('period'); // 'day' or 'full'
@@ -43,7 +45,7 @@ export async function GET(request: Request) {
     const offset = offsetParam ? Math.max(0, parseInt(offsetParam, 10)) : 0;
 
     try {
-        const connection = await getPosDb();
+        const connection = await getPosDb(shopId);
         const isPg = connection.isPostgreSQL;
 
         let whereClause = '1=1';

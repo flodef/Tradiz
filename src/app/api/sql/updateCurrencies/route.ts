@@ -1,8 +1,10 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 import { Currency } from '@/app/utils/interfaces';
 
 export async function POST(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     try {
         const { currencies } = await request.json();
 
@@ -10,7 +12,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid currencies format' }, { status: 400 });
         }
 
-        const connection = await getPosDb();
+        const connection = await getPosDb(shopId);
 
         // Check if currencies table exists, if not create it
         const createTableQuery = connection.isPostgreSQL

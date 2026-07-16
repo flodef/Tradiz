@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
@@ -6,9 +7,10 @@ interface PrinterRow {
     ip_address: string;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     try {
-        const connection = await getPosDb();
+        const connection = await getPosDb(shopId);
 
         // Compat schema: if note_enabled exists, only expose printers enabled for note tickets.
         // Check if column exists (works for both MySQL and PostgreSQL)

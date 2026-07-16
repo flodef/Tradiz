@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
 
@@ -19,9 +20,10 @@ interface ThemeRow {
     secondary_activated_dark: string;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     try {
-        const connection = await getMainDb();
+        const connection = await getMainDb(shopId);
 
         const query = `
             SELECT

@@ -1,9 +1,11 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
-export async function GET(_request: Request) {
+export async function GET(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     try {
-        const connection = await getPosDb();
+        const connection = await getPosDb(shopId);
 
         // Note: no user_name filter here to stay consistent with getTransactions,
         // which returns transactions for all users. Dates are formatted as YYYY-MM-DD

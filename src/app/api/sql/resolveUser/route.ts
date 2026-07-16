@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
@@ -181,6 +182,7 @@ async function logAccessAttempt(
  * Also logs access attempts with browser characteristics.
  */
 export async function POST(request: NextRequest) {
+    const shopId = getShopIdFromRequest(request);
     try {
         const { publicKey, browserData } = await request.json();
 
@@ -207,7 +209,7 @@ export async function POST(request: NextRequest) {
         const latitude = browserData?.latitude || null;
         const longitude = browserData?.longitude || null;
 
-        const connection = await getPosDb();
+        const connection = await getPosDb(shopId);
 
         // Immediately block users not from Europe/Paris timezone
         if (timezone !== 'Europe/Paris') {

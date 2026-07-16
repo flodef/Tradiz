@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, getMainDb } from '../db';
 import { OrderData, OrderItem, ServiceType } from '@/app/utils/interfaces';
@@ -36,6 +37,7 @@ interface FormuleElementRow {
 }
 
 export async function GET(request: NextRequest) {
+    const shopId = getShopIdFromRequest(request);
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get('orderId');
 
@@ -45,7 +47,7 @@ export async function GET(request: NextRequest) {
 
     let connection: Connection | undefined;
     try {
-        connection = await getMainDb();
+        connection = await getMainDb(shopId);
 
         // Get panier info
         const panierQuery = connection.isPostgreSQL

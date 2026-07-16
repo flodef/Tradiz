@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { executeInsert, getPosDb, withTransaction } from '../db';
 import { generateProductReference } from '@/app/utils/productReference';
@@ -10,6 +11,7 @@ interface User {
 }
 
 export async function POST(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     let connection: Awaited<ReturnType<typeof getPosDb>> | undefined;
 
     try {
@@ -19,7 +21,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid users data' }, { status: 400 });
         }
 
-        connection = await getPosDb();
+        connection = await getPosDb(shopId);
         const db = connection;
 
         const savedUsers = await withTransaction(db, async () => {

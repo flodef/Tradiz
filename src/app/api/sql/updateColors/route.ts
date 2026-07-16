@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
 
@@ -15,6 +16,7 @@ interface UpdateColorsRequest {
 }
 
 export async function POST(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     try {
         const { colors, themeName, selectedThemeIndex, customThemeNames } =
             (await request.json()) as UpdateColorsRequest;
@@ -23,7 +25,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid colors data' }, { status: 400 });
         }
 
-        const connection = await getMainDb();
+        const connection = await getMainDb(shopId);
 
         // Group colors by theme (every 7 colors is one theme)
         const themes: Color[][] = [];

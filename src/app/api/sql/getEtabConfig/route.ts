@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { RowDataPacket } from 'mysql2';
 import { getMainDb } from '../db';
@@ -17,9 +18,10 @@ const SAFE_DEFAULTS = {
     grafana_access_enabled: true,
 };
 
-export async function GET() {
+export async function GET(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     try {
-        const connection = await getMainDb();
+        const connection = await getMainDb(shopId);
 
         const query = connection.isPostgreSQL
             ? 'SELECT operation_mode, kitchen_view_enabled, grafana_access_enabled FROM establishment_config ORDER BY id DESC LIMIT 1'

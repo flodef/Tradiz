@@ -1,4 +1,4 @@
-import { SHOP_ID } from '@/app/constants/shop';
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 
 export interface DbConfigEnv {
@@ -17,7 +17,7 @@ export interface DbConfigEnv {
  * Compute whether DB is configured based on environment variables and the resolved shop.
  * Exported for testing purposes.
  */
-export function computeHasDbConfig(env: DbConfigEnv): boolean {
+export function computeHasDbConfig(env: DbConfigEnv, shopId?: string): boolean {
     // Check for MariaDB config (used when USE_DIGICARTE = true)
     const hasMariaDbConfig = !!(env.DB_HOST?.trim() && env.DB_USER?.trim() && env.DB_PASSWORD?.trim());
 
@@ -26,7 +26,7 @@ export function computeHasDbConfig(env: DbConfigEnv): boolean {
         env.PG_HOST?.trim() &&
         env.PG_USER?.trim() &&
         env.PG_PASSWORD?.trim() &&
-        (SHOP_ID?.trim() || env.PG_DATABASE?.trim())
+        (shopId?.trim() || env.PG_DATABASE?.trim())
     );
 
     // If USE_DIGICARTE is true, prefer MariaDB, otherwise prefer PostgreSQL
@@ -34,7 +34,8 @@ export function computeHasDbConfig(env: DbConfigEnv): boolean {
     return useDigicarte ? hasMariaDbConfig : hasPostgresConfig;
 }
 
-export async function GET() {
-    const hasDbConfig = computeHasDbConfig(process.env as DbConfigEnv);
+export async function GET(request: Request) {
+    const shopId = getShopIdFromRequest(request);
+    const hasDbConfig = computeHasDbConfig(process.env as DbConfigEnv, shopId);
     return NextResponse.json({ hasDbConfig });
 }

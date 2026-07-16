@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
@@ -8,9 +9,10 @@ interface UserRow {
     reference: string | null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     try {
-        const connection = await getPosDb();
+        const connection = await getPosDb(shopId);
 
         const result = await connection.execute(
             'SELECT u.id, u.name, u.role, u.reference FROM users u ORDER BY u.name'

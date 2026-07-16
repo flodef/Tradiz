@@ -1,3 +1,4 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { RowDataPacket } from 'mysql2';
 import { getMainDb } from '../db';
@@ -25,9 +26,10 @@ interface FormulaRow extends RowDataPacket {
     aordre: number;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+    const shopId = getShopIdFromRequest(request);
     try {
-        const connection = await getMainDb();
+        const connection = await getMainDb(shopId);
 
         // Articles with their options definition and category
         const [articleRows] = await connection.execute(`
