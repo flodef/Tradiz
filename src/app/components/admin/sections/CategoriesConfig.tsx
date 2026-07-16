@@ -300,6 +300,11 @@ export default function CategoriesConfig({
 
             // If new label is empty, treat as delete (move to "Sans catégorie")
             if (!newLabel) {
+                // Edge case: if old label is "Sans catégorie", just cancel (can't delete the default category)
+                if (oldLabel === 'Sans catégorie') {
+                    setCategories((p) => p.map((c) => (c._id === id ? { ...c, label: oldLabel } : c)));
+                    return;
+                }
                 const hasProducts = productCategories?.some((p) => p.category === oldLabel);
                 if (hasProducts) {
                     openFullscreenPopup(

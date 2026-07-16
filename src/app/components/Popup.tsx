@@ -1,6 +1,6 @@
 'use client';
 
-import { FC, useCallback } from 'react';
+import { FC, useCallback, useEffect, useState, useRef } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { usePopup } from '../hooks/usePopup';
 import { useIsMobile, useIsMobileDevice } from '../utils/mobile';
@@ -31,6 +31,9 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
     } = usePopup();
     const isMobileDevice = useIsMobileDevice();
     const styles = getPopupStyles(variant);
+    const [selectedIndex, setSelectedIndex] = useState(0);
+    const optionRefs = useRef<(HTMLDivElement | null)[]>([]);
+    const [popupOpenedAt, setPopupOpenedAt] = useState(0);
 
     const close = useCallback(() => {
         closePopup(() => {
@@ -53,6 +56,62 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
 
     const isMobile = useIsMobile();
 
+    // Reset selected index when popup opens
+    useEffect(() => {
+        if (isPopupOpen) {
+            setSelectedIndex(0);
+            optionRefs.current = [];
+            setPopupOpenedAt(Date.now());
+        }
+    }, [isPopupOpen]);
+
+    // Keyboard navigation
+    useEffect(() => {
+        if (!isPopupOpen || isMobile) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const validOptions = popupOptions.filter((opt) => opt?.toString().trim());
+            if (validOptions.length === 0) return;
+
+            // Ignore Enter key if pressed shortly after popup opened (to prevent accidental selection)
+            if (e.key === 'Enter' && Date.now() - popupOpenedAt < 100) {
+                return;
+            }
+
+            switch (e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    setSelectedIndex((prev) => (prev + 1) % validOptions.length);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    setSelectedIndex((prev) => (prev - 1 + validOptions.length) % validOptions.length);
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    const selectedOption = validOptions[selectedIndex];
+                    if (selectedOption) {
+                        handleClick(selectedIndex, selectedOption.toString());
+                    }
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    close();
+                    break;
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isPopupOpen, isMobile, popupOptions, selectedIndex, handleClick, close, popupOpenedAt]);
+
+    // Scroll selected option into view
+    useEffect(() => {
+        if (selectedIndex >= 0 && optionRefs.current[selectedIndex]) {
+            optionRefs.current[selectedIndex]?.scrollIntoView({ block: 'nearest' });
+        }
+    }, [selectedIndex]);
+
     if (!isPopupOpen) return null;
 
     return (
@@ -72,16 +131,25 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                     </div>
                 </div>
                 <div>
-                    {popupOptions.map((option, index) =>
-                        option?.toString().trim() ? (
+                    {popupOptions.map((option, index) => {
+                        const validOption = option?.toString().trim();
+                        const validIndex = popupOptions.filter((opt) => opt?.toString().trim()).indexOf(option);
+                        if (!validOption) {
+                            return <div key={index} className={styles.separator} />;
+                        }
+                        return (
                             <div
+                                ref={(el) => {
+                                    optionRefs.current[validIndex] = el;
+                                }}
                                 className={twMerge(
                                     styles.option,
                                     typeof option === 'string'
                                         ? 'grid auto-cols-fr text-left pl-3 gap-4'
                                         : 'flex justify-around items-center text-center py-0',
                                     getOptionHoverStyles(isMobileDevice, typeof option === 'string'),
-                                    popupIsSpecial && popupIsSpecial(option.toString()) ? 'animate-pulse' : ''
+                                    !isMobile && validIndex === selectedIndex ? 'bg-blue-100 dark:bg-blue-900' : '',
+                                    popupIsSpecial && popupIsSpecial(validOption) ? 'animate-pulse' : ''
                                 )}
                                 style={
                                     typeof option === 'string'
@@ -89,7 +157,7 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                                         : undefined
                                 }
                                 key={index}
-                                onClick={() => handleClick(index, option.toString())}
+                                onClick={() => handleClick(index, validOption)}
                                 onContextMenu={(e) => {
                                     e.preventDefault();
                                     if (popupSpecialAction) {
@@ -105,10 +173,8 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                                       ))
                                     : option}
                             </div>
-                        ) : (
-                            <div key={index} className={styles.separator} />
-                        )
-                    )}
+                        );
+                    })}
                 </div>
             </div>
         </div>

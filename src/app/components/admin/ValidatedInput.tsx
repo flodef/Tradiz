@@ -96,6 +96,8 @@ export default function ValidatedInput({
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
             e.currentTarget.blur();
         }
         if (onKeyDown) onKeyDown(e);
