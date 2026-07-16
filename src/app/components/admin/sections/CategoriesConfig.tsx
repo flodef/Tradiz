@@ -182,6 +182,7 @@ export default function CategoriesConfig({
     const nextIdRef = useRef(0);
     const lastAddedIndexRef = useRef<number | null>(null);
     const labelInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
+    const renamingRef = useRef<Set<number>>(new Set());
     const [categories, setCategories] = useState<InternalCategory[]>(() =>
         (config || []).map((c) => ({ ...c, _id: nextIdRef.current++, _originalLabel: c.label }))
     );
@@ -232,6 +233,9 @@ export default function CategoriesConfig({
 
     // Sync from parent config (categories derived from products)
     useEffect(() => {
+        // Skip sync entirely if any category is being renamed
+        if (renamingRef.current.size > 0) return;
+
         const incoming = config || [];
         setCategories((prev) => {
             // Preserve existing _id for categories that still exist, assign new _id for new ones
@@ -239,7 +243,13 @@ export default function CategoriesConfig({
             for (const c of incoming) {
                 const existing = prev.find((p) => p._originalLabel === c.label || p.label === c.label);
                 if (existing) {
-                    result.push({ ...existing, label: c.label, vat: c.vat, _originalLabel: c.label });
+                    // If user is editing (label differs from _originalLabel), preserve local state
+                    if (existing.label !== existing._originalLabel) {
+                        result.push({ ...existing, vat: c.vat });
+                    } else {
+                        // Not editing - sync normally
+                        result.push({ ...existing, label: c.label, vat: c.vat, _originalLabel: c.label });
+                    }
                 } else {
                     result.push({ ...c, _id: nextIdRef.current++, _originalLabel: c.label });
                 }
@@ -286,7 +296,31 @@ export default function CategoriesConfig({
             const cat = categories.find((c) => c._id === id);
             if (!cat || !cat._originalLabel || cat._originalLabel === cat.label) return;
             const oldLabel = cat._originalLabel;
-            const newLabel = cat.label;
+            const newLabel = cat.label.trim();
+
+            // If new label is empty, treat as delete (move to "Sans catégorie")
+            if (!newLabel) {
+                const hasProducts = productCategories?.some((p) => p.category === oldLabel);
+                if (hasProducts) {
+                    openFullscreenPopup(
+                        `Déplacer les produits de "${oldLabel}" vers "Sans catégorie" ?`,
+                        ['Confirmer', 'Annuler'],
+                        (index) => {
+                            if (index === 0) {
+                                onDeleteCategoryProducts?.(oldLabel, true);
+                                setCategories((p) => p.filter((c) => c._id !== id));
+                            } else {
+                                setCategories((p) => p.map((c) => (c._id === id ? { ...c, label: oldLabel } : c)));
+                            }
+                        }
+                    );
+                } else {
+                    // No products - just remove the category
+                    setCategories((p) => p.filter((c) => c._id !== id));
+                }
+                return;
+            }
+
             const hasProducts = productCategories?.some((p) => p.category === oldLabel);
             if (!hasProducts) {
                 // No products — just update the label silently
@@ -298,15 +332,23 @@ export default function CategoriesConfig({
                 ['Confirmer', 'Annuler'],
                 (index) => {
                     if (index === 0) {
-                        onRenameCategory?.(oldLabel, newLabel);
+                        // Mark this category as being renamed to prevent sync from reverting
+                        renamingRef.current.add(id);
+                        // Update _originalLabel immediately
                         setCategories((p) => p.map((c) => (c._id === id ? { ...c, _originalLabel: newLabel } : c)));
+                        // Then call the parent to update products
+                        onRenameCategory?.(oldLabel, newLabel);
+                        // Remove from renaming ref after a longer delay to allow parent to process and save
+                        setTimeout(() => {
+                            renamingRef.current.delete(id);
+                        }, 500);
                     } else {
                         setCategories((p) => p.map((c) => (c._id === id ? { ...c, label: oldLabel } : c)));
                     }
                 }
             );
         },
-        [categories, productCategories, onRenameCategory, openFullscreenPopup]
+        [categories, productCategories, onRenameCategory, onDeleteCategoryProducts, openFullscreenPopup]
     );
 
     const handleVatChange = useCallback(
@@ -352,7 +394,7 @@ export default function CategoriesConfig({
                     ? ['Supprimer tous les produits de la catégorie', 'Renommer la catégorie']
                     : [
                           'Supprimer tous les produits de la catégorie',
-                          'Déplacer les produits sans catégorie',
+                          'Supprimer la catégorie mais conserver les produits',
                           'Renommer la catégorie',
                       ];
                 openFullscreenPopup(`La catégorie "${category.label}" contient des produits`, options, (index) => {

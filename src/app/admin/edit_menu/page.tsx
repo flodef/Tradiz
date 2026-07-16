@@ -341,41 +341,43 @@ export default function EditMenuPage() {
     );
 
     // Category rename: update all products with the old category name and save to DB
-    // 'Sans catégorie' maps to products with category === ''
     const handleCategoryRename = useCallback(
         (oldLabel: string, newLabel: string) => {
-            const oldKey = oldLabel === 'Sans catégorie' ? '' : oldLabel.trim();
             const trimmedNewLabel = newLabel.trim();
-            setProducts((prev) => {
-                const updated = prev.map((p) =>
-                    (p.category || '').trim() === oldKey ? { ...p, category: trimmedNewLabel } : p
-                );
-                setTimeout(() => handleProductsSave(updated, trimmedNewLabel), 0);
-                return updated;
+            const trimmedOldLabel = oldLabel.trim();
+            // Update products and save immediately
+            const updated = products.map((p) => {
+                const productCategory = (p.category || '').trim();
+                // Match by exact string comparison
+                // Special case: "Sans catégorie" maps to empty string in products
+                const oldKey = trimmedOldLabel === 'Sans catégorie' ? '' : trimmedOldLabel;
+                if (productCategory === oldKey) return { ...p, category: trimmedNewLabel };
+
+                return p;
             });
+            setProducts(updated);
+            setOriginalProducts(updated);
+            // Pass undefined to do a full DB replace (delete all, insert all) to avoid duplicates
+            handleProductsSave(updated, undefined);
         },
-        [handleProductsSave]
+        [products, handleProductsSave]
     );
 
     // Category delete: either remove products or move them to empty category, then save
     const handleDeleteCategoryProducts = useCallback(
         (categoryLabel: string, moveToEmpty: boolean) => {
             const key = categoryLabel === 'Sans catégorie' ? '' : categoryLabel.trim();
+            let updated;
             if (moveToEmpty) {
-                setProducts((prev) => {
-                    const updated = prev.map((p) => ((p.category || '').trim() === key ? { ...p, category: '' } : p));
-                    setTimeout(() => handleProductsSave(updated, ''), 0);
-                    return updated;
-                });
+                updated = products.map((p) => ((p.category || '').trim() === key ? { ...p, category: '' } : p));
             } else {
-                setProducts((prev) => {
-                    const updated = prev.filter((p) => (p.category || '').trim() !== key);
-                    setTimeout(() => handleProductsSave(updated, key), 0);
-                    return updated;
-                });
+                updated = products.filter((p) => (p.category || '').trim() !== key);
             }
+            setProducts(updated);
+            setOriginalProducts(updated);
+            handleProductsSave(updated, undefined);
         },
-        [handleProductsSave]
+        [products, handleProductsSave]
     );
 
     // Category VAT change: apply new VAT to all products in the category and save to DB
@@ -384,7 +386,8 @@ export default function EditMenuPage() {
             const key = categoryLabel === 'Sans catégorie' ? '' : categoryLabel.trim();
             setProducts((prev) => {
                 const updated = prev.map((p) => ((p.category || '').trim() === key ? { ...p, vat } : p));
-                setTimeout(() => handleProductsSave(updated, categoryLabel), 0);
+                // Save immediately with full DB replace to avoid duplicates
+                handleProductsSave(updated, undefined);
                 return updated;
             });
         },
@@ -400,8 +403,8 @@ export default function EditMenuPage() {
                     ...orderedLabels.flatMap((label) => prev.filter((p) => p.category === labelToKey(label))),
                     ...prev.filter((p) => !orderedLabels.map(labelToKey).includes(p.category)),
                 ];
-                // Schedule save after state settles
-                setTimeout(() => handleProductsSave(sorted), 0);
+                // Save immediately with full DB replace to avoid duplicates
+                handleProductsSave(sorted, undefined);
                 return sorted;
             });
         },

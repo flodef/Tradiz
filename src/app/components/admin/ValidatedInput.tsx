@@ -17,6 +17,8 @@ interface ValidatedInputProps {
     max?: number;
     step?: number;
     onBlur?: () => void;
+    onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
+    onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
     ref?: (el: HTMLInputElement | null) => void;
     isNameField?: boolean;
 }
@@ -35,6 +37,8 @@ export default function ValidatedInput({
     max,
     step,
     onBlur,
+    onFocus,
+    onKeyDown,
     ref,
     isNameField = false,
 }: ValidatedInputProps) {
@@ -64,16 +68,37 @@ export default function ValidatedInput({
             }
         }
 
-        // Handle text fields (names): reject numbers and normalize to first letter uppercase
+        // Handle text fields (names): reject numbers but don't normalize yet
         if (isNameField) {
             // Reject numbers
             newValue = newValue.replace(/[0-9]/g, '');
-            // Apply first letter uppercase
-            newValue = newValue.toFirstUpperCase();
         }
 
         if (validation) setIsValid(validation(newValue));
         onChange(newValue);
+    };
+
+    const handleBlur = () => {
+        if (isNameField && typeof value === 'string') {
+            // Normalize on blur: trim and apply first letter uppercase
+            const normalized = value.toFirstUpperCase();
+            if (normalized !== value) {
+                onChange(normalized);
+            }
+        }
+        if (onBlur) onBlur();
+    };
+
+    const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+        e.target.select();
+        if (onFocus) onFocus(e);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.currentTarget.blur();
+        }
+        if (onKeyDown) onKeyDown(e);
     };
 
     return (
@@ -90,7 +115,9 @@ export default function ValidatedInput({
             min={min}
             max={max}
             step={step}
-            onBlur={onBlur}
+            onBlur={handleBlur}
+            onFocus={handleFocus}
+            onKeyDown={handleKeyDown}
             ref={ref}
         />
     );
