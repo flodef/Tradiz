@@ -14,7 +14,7 @@ export async function GET(request: Request) {
 
         // Fetch discounts: unity column contains either '%' or currency symbol
         const query = connection.isPostgreSQL
-            ? 'SELECT value, unity FROM discounts ORDER BY id'
+            ? 'SELECT value, unity FROM dc_pos.discounts ORDER BY id'
             : 'SELECT value, unity FROM discounts ORDER BY id';
 
         const [rows] = await connection.execute(query);

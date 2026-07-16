@@ -17,7 +17,7 @@ export async function POST(request: Request) {
         // Check if currencies table exists, if not create it
         const createTableQuery = connection.isPostgreSQL
             ? `
-            CREATE TABLE IF NOT EXISTS currencies (
+            CREATE TABLE IF NOT EXISTS dc_pos.currencies (
                 label VARCHAR(50) PRIMARY KEY,
                 symbol VARCHAR(10) NOT NULL,
                 max_value DECIMAL(12,4) DEFAULT 999.99,
@@ -42,12 +42,13 @@ export async function POST(request: Request) {
         // For simplicity and to handle deletions, we can clear and re-insert
 
         // Let's use a simple approach: delete all and insert all
-        await connection.execute('DELETE FROM currencies');
+        const deleteQuery = connection.isPostgreSQL ? 'DELETE FROM dc_pos.currencies' : 'DELETE FROM currencies';
+        await connection.execute(deleteQuery);
 
         for (const currency of currencies as Currency[]) {
             const query = connection.isPostgreSQL
                 ? `
-                INSERT INTO currencies (label, symbol, max_value, decimals, rate, fee)
+                INSERT INTO dc_pos.currencies (label, symbol, max_value, decimals, rate, fee)
                 VALUES ($1, $2, $3, $4, $5, $6)
             `
                 : `

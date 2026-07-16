@@ -19,7 +19,7 @@ export async function POST(request: Request) {
         const connection = await getPosDb(shopId);
 
         // Clear existing discounts
-        const deleteQuery = connection.isPostgreSQL ? 'DELETE FROM discounts' : 'DELETE FROM discounts';
+        const deleteQuery = connection.isPostgreSQL ? 'DELETE FROM dc_pos.discounts' : 'DELETE FROM discounts';
         await connection.execute(deleteQuery);
 
         // Insert discounts: unity column stores either '%' or currency symbol directly
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
             if (!isNaN(value) && unity) {
                 // unity is either '%' or a currency symbol like '€', '$', etc.
                 const insertQuery = connection.isPostgreSQL
-                    ? 'INSERT INTO discounts (value, unity) VALUES ($1, $2)'
+                    ? 'INSERT INTO dc_pos.discounts (value, unity) VALUES ($1, $2)'
                     : 'INSERT INTO discounts (value, unity) VALUES (?, ?)';
                 await connection.execute(insertQuery, [value, unity]);
             }

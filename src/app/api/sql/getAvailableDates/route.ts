@@ -13,7 +13,7 @@ export async function GET(request: Request) {
         const query = connection.isPostgreSQL
             ? `
             SELECT DISTINCT TO_CHAR(DATE(t.created_at), 'YYYY-MM-DD') as date
-            FROM transactions t
+            FROM dc_pos.transactions t
             WHERE t.created_at IS NOT NULL
             ORDER BY date DESC
         `

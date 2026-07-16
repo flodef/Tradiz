@@ -105,7 +105,7 @@ export function generateTransactionHash(transaction: TransactionData, transactio
 async function handleAddTransaction(connection: Connection, transaction: TransactionData) {
     // Check if transaction already exists (by created_at timestamp to avoid duplicates)
     const checkQuery = connection.isPostgreSQL
-        ? 'SELECT id FROM transactions WHERE created_at = $1'
+        ? 'SELECT id FROM dc_pos.transactions WHERE created_at = $1'
         : 'SELECT id FROM transactions WHERE created_at = ?';
     const [existing] = await connection.execute(checkQuery, [transaction.created_at]);
     const existingRows = existing as IdRow[];
@@ -125,7 +125,7 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
     // Insert into transactions table (payment_method, currency, and user_name are strings)
     const insertTransactionQuery = connection.isPostgreSQL
         ? `
-        INSERT INTO transactions (order_id, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
+        INSERT INTO dc_pos.transactions (order_id, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING id
     `
@@ -221,7 +221,7 @@ async function handleDeleteTransaction(connection: Connection, transaction: Tran
 async function handleSyncTransaction(connection: Connection, transaction: TransactionData) {
     // Find existing transaction by created_at
     const checkQuery = connection.isPostgreSQL
-        ? 'SELECT id FROM transactions WHERE created_at = $1'
+        ? 'SELECT id FROM dc_pos.transactions WHERE created_at = $1'
         : 'SELECT id FROM transactions WHERE created_at = ?';
     const [existing] = await connection.execute(checkQuery, [transaction.created_at]);
     const existingRows = existing as IdRow[];
@@ -243,7 +243,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
     // Update the transaction row (payment_method, currency, and user_name are strings)
     const updateQuery = connection.isPostgreSQL
         ? `
-        UPDATE transactions
+        UPDATE dc_pos.transactions
          SET user_name = $1, payment_method = $2, amount = $3, currency = $4, note = $5, hash = $6, updated_at = $7
          WHERE id = $8
     `
@@ -265,7 +265,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
 
     // Delete old items and re-insert
     const deleteQuery = connection.isPostgreSQL
-        ? 'DELETE FROM transaction_items WHERE transaction_id = $1'
+        ? 'DELETE FROM dc_pos.transaction_items WHERE transaction_id = $1'
         : 'DELETE FROM transaction_items WHERE transaction_id = ?';
     await connection.execute(deleteQuery, [transactionId]);
 
@@ -273,7 +273,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
         for (const product of transaction.products) {
             const insertQuery = connection.isPostgreSQL
                 ? `
-                INSERT INTO transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate)
+                INSERT INTO dc_pos.transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             `
                 : `

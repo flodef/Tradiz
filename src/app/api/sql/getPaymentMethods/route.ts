@@ -14,7 +14,12 @@ export async function GET(request: Request) {
     try {
         const connection = await getPosDb(shopId);
 
-        const query = `
+        const query = connection.isPostgreSQL
+            ? `
+            SELECT label, address, currency, hidden
+            FROM dc_pos.payment_methods
+        `
+            : `
             SELECT label, address, currency, hidden
             FROM payment_methods
         `;

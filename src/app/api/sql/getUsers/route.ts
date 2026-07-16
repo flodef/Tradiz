@@ -15,7 +15,9 @@ export async function GET(request: Request) {
         const connection = await getPosDb(shopId);
 
         const result = await connection.execute(
-            'SELECT u.id, u.name, u.role, u.reference FROM users u ORDER BY u.name'
+            connection.isPostgreSQL
+                ? 'SELECT u.id, u.name, u.role, u.reference FROM dc_pos.users u ORDER BY u.name'
+                : 'SELECT u.id, u.name, u.role, u.reference FROM users u ORDER BY u.name'
         );
         const rows = result[0] as UserRow[];
 

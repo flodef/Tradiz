@@ -34,7 +34,7 @@ export async function POST(request: Request) {
                     // Update existing device by id
                     await db.execute(
                         db.isPostgreSQL
-                            ? 'UPDATE devices SET label = $1, public_key = $2, user_id = $3 WHERE id = $4'
+                            ? 'UPDATE dc_pos.devices SET label = $1, public_key = $2, user_id = $3 WHERE id = $4'
                             : 'UPDATE devices SET label = ?, public_key = ?, user_id = ? WHERE id = ?',
                         [label, key, userId, device.id]
                     );
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
                 // Try to find existing device by public key
                 const [findRows] = await db.execute(
                     db.isPostgreSQL
-                        ? 'SELECT id FROM devices WHERE public_key = $1 LIMIT 1'
+                        ? 'SELECT id FROM dc_pos.devices WHERE public_key = $1 LIMIT 1'
                         : 'SELECT id FROM devices WHERE public_key = ? LIMIT 1',
                     [key]
                 );
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
                 if (existingId) {
                     await db.execute(
                         db.isPostgreSQL
-                            ? 'UPDATE devices SET label = $1, user_id = $2 WHERE id = $3'
+                            ? 'UPDATE dc_pos.devices SET label = $1, user_id = $2 WHERE id = $3'
                             : 'UPDATE devices SET label = ?, user_id = ? WHERE id = ?',
                         [label, userId, existingId]
                     );
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
                 } else {
                     const newId = await executeInsert(
                         db,
-                        'INSERT INTO devices (label, public_key, user_id) VALUES ($1, $2, $3) RETURNING id',
+                        'INSERT INTO dc_pos.devices (label, public_key, user_id) VALUES ($1, $2, $3) RETURNING id',
                         'INSERT INTO devices (label, public_key, user_id) VALUES (?, ?, ?)',
                         [label, key, userId]
                     );
@@ -75,9 +75,14 @@ export async function POST(request: Request) {
             // Delete devices that are not in the incoming list
             if (savedIds.length > 0) {
                 const placeholders = savedIds.map((_, i) => (db.isPostgreSQL ? `$${i + 1}` : '?')).join(',');
-                await db.execute(`DELETE FROM devices WHERE id NOT IN (${placeholders})`, savedIds);
+                await db.execute(
+                    db.isPostgreSQL
+                        ? `DELETE FROM dc_pos.devices WHERE id NOT IN (${placeholders})`
+                        : `DELETE FROM devices WHERE id NOT IN (${placeholders})`,
+                    savedIds
+                );
             } else {
-                await db.execute('DELETE FROM devices');
+                await db.execute(db.isPostgreSQL ? 'DELETE FROM dc_pos.devices' : 'DELETE FROM devices');
             }
         });
 

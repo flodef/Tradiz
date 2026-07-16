@@ -91,7 +91,7 @@ export async function GET(request: Request) {
                 t.note,
                 (EXTRACT(EPOCH FROM t.created_at) * 1000)::bigint as createddate,
                 (EXTRACT(EPOCH FROM t.updated_at) * 1000)::bigint as modifieddate
-            FROM transactions t
+            FROM dc_pos.transactions t
             LEFT JOIN dc.orders o ON o.id::text = t.order_id
             WHERE ${whereClause}
             ORDER BY t.created_at DESC${paginationClause}
@@ -122,9 +122,13 @@ export async function GET(request: Request) {
         const itemsByTx = new Map<number, ProductRow[]>();
         if (ids.length) {
             const placeholders = ids.map((_, i) => (isPg ? `$${i + 1}` : '?')).join(', ');
-            const itemsQuery = `SELECT transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate
-                 FROM transaction_items
-                 WHERE transaction_id IN (${placeholders})`;
+            const itemsQuery = isPg
+                ? `SELECT transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate
+                   FROM dc_pos.transaction_items
+                   WHERE transaction_id IN (${placeholders})`
+                : `SELECT transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate
+                   FROM transaction_items
+                   WHERE transaction_id IN (${placeholders})`;
             const [itemRows] = await connection.execute(itemsQuery, ids);
             for (const p of itemRows as ProductRow[]) {
                 const arr = itemsByTx.get(p.transaction_id) ?? [];

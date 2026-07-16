@@ -34,12 +34,23 @@ export async function GET(request: Request) {
         }
 
         const query = hasNoteEnabled
-            ? `
+            ? connection.isPostgreSQL
+                ? `
+                SELECT name, ip_address
+                FROM dc_pos.printers
+                WHERE note_enabled = true
+            `
+                : `
                 SELECT name, ip_address
                 FROM printers
                 WHERE note_enabled = true
             `
-            : `
+            : connection.isPostgreSQL
+              ? `
+                SELECT name, ip_address
+                FROM dc_pos.printers
+            `
+              : `
                 SELECT name, ip_address
                 FROM printers
             `;

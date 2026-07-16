@@ -12,7 +12,13 @@ export async function GET(request: Request) {
     try {
         const connection = await getPosDb(shopId);
 
-        const query = `
+        const query = connection.isPostgreSQL
+            ? `
+            SELECT param_key, param_value
+            FROM dc_pos.parameters
+            ORDER BY id
+        `
+            : `
             SELECT param_key, param_value
             FROM parameters
             ORDER BY id

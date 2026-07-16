@@ -21,7 +21,9 @@ export async function POST(request: Request) {
         const connection = await getPosDb(shopId);
 
         // Delete all existing payment methods
-        const deleteQuery = connection.isPostgreSQL ? 'DELETE FROM payment_methods' : 'DELETE FROM payment_methods';
+        const deleteQuery = connection.isPostgreSQL
+            ? 'DELETE FROM dc_pos.payment_methods'
+            : 'DELETE FROM payment_methods';
         await connection.execute(deleteQuery);
 
         // Insert new payment methods
@@ -33,7 +35,7 @@ export async function POST(request: Request) {
 
             if (connection.isPostgreSQL) {
                 const insertQuery = `
-                    INSERT INTO payment_methods (label, address, currency, hidden)
+                    INSERT INTO dc_pos.payment_methods (label, address, currency, hidden)
                     VALUES ($1, $2, $3, $4)
                 `;
                 await connection.execute(insertQuery, [label, address, currency, hidden]);

@@ -61,8 +61,18 @@ export async function GET(request: Request) {
         }
 
         // 1. Daily revenue (Chiffre d'affaires par jour)
-        const dailySalesQuery = `
-            SELECT 
+        const dailySalesQuery = connection.isPostgreSQL
+            ? `
+            SELECT
+                DATE(t.created_at) as date,
+                SUM(t.amount) as revenue
+            FROM dc_pos.transactions t
+            WHERE ${nonPaidCondition} ${dateFilter}
+            GROUP BY DATE(t.created_at)
+            ORDER BY date ASC
+        `
+            : `
+            SELECT
                 DATE(t.created_at) as date,
                 SUM(t.amount) as revenue
             FROM transactions t
@@ -77,8 +87,21 @@ export async function GET(request: Request) {
         }));
 
         // 2. Top 10 products (Top 10 produits vendus)
-        const topProductsQuery = `
-            SELECT 
+        const topProductsQuery = connection.isPostgreSQL
+            ? `
+            SELECT
+                ti.label,
+                ti.category,
+                SUM(ti.quantity) as quantity
+            FROM dc_pos.transaction_items ti
+            JOIN dc_pos.transactions t ON t.id = ti.transaction_id
+            WHERE ${nonPaidCondition} ${dateFilter}
+            GROUP BY ti.label, ti.category
+            ORDER BY quantity DESC
+            LIMIT 10
+        `
+            : `
+            SELECT
                 ti.label,
                 ti.category,
                 SUM(ti.quantity) as quantity
@@ -97,7 +120,13 @@ export async function GET(request: Request) {
         }));
 
         // 3. Average basket (Panier moyen)
-        const avgBasketQuery = `
+        const avgBasketQuery = connection.isPostgreSQL
+            ? `
+            SELECT AVG(t.amount) as avgBasket
+            FROM dc_pos.transactions t
+            WHERE ${nonPaidCondition} ${dateFilter}
+        `
+            : `
             SELECT AVG(t.amount) as avgBasket
             FROM transactions t
             WHERE ${nonPaidCondition} ${dateFilter}
@@ -106,8 +135,19 @@ export async function GET(request: Request) {
         const avgBasket = Number((avgBasketRows as { avgBasket: number }[])[0]?.avgBasket) || 0;
 
         // 4. Sales by category (Ventes par catégorie)
-        const categorySalesQuery = `
-            SELECT 
+        const categorySalesQuery = connection.isPostgreSQL
+            ? `
+            SELECT
+                ti.category,
+                COUNT(*) as count
+            FROM dc_pos.transaction_items ti
+            JOIN dc_pos.transactions t ON t.id = ti.transaction_id
+            WHERE ${nonPaidCondition} ${dateFilter}
+            GROUP BY ti.category
+            ORDER BY count DESC
+        `
+            : `
+            SELECT
                 ti.category,
                 COUNT(*) as count
             FROM transaction_items ti
@@ -123,7 +163,13 @@ export async function GET(request: Request) {
         }));
 
         // 5. Total orders count (Nombre de commandes)
-        const ordersCountQuery = `
+        const ordersCountQuery = connection.isPostgreSQL
+            ? `
+            SELECT COUNT(*) as totalOrders
+            FROM dc_pos.transactions t
+            WHERE ${nonPaidCondition} ${dateFilter}
+        `
+            : `
             SELECT COUNT(*) as totalOrders
             FROM transactions t
             WHERE ${nonPaidCondition} ${dateFilter}
@@ -134,17 +180,17 @@ export async function GET(request: Request) {
         // 6. Recent orders (Dernières commandes)
         const recentOrdersQuery = connection.isPostgreSQL
             ? `
-            SELECT 
+            SELECT
                 t.order_id,
                 o.short_order_number AS short_num_order,
                 t.created_at,
                 t.payment_method,
-                CASE 
+                CASE
                     WHEN t.payment_method IN ('EFFACÉE', 'REMBOURSEMENT', 'EN COURS', 'EN ATTENTE') THEN 'Non payé'
                     ELSE 'Payé'
                 END as status,
                 t.amount
-            FROM transactions t
+            FROM dc_pos.transactions t
             LEFT JOIN dc.orders o ON o.id::text = t.order_id
             WHERE 1=1 ${dateFilter}
             ORDER BY t.created_at DESC

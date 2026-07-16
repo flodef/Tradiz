@@ -36,7 +36,7 @@ export async function POST(request: Request) {
                     // Update existing user by id
                     await db.execute(
                         db.isPostgreSQL
-                            ? 'UPDATE users SET name = $1, role = $2, reference = $3 WHERE id = $4'
+                            ? 'UPDATE dc_pos.users SET name = $1, role = $2, reference = $3 WHERE id = $4'
                             : 'UPDATE users SET name = ?, role = ?, reference = ? WHERE id = ?',
                         [name, role, providedReference, user.id]
                     );
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
                 if (providedReference) {
                     const [findRows] = await db.execute(
                         db.isPostgreSQL
-                            ? 'SELECT id FROM users WHERE reference = $1 LIMIT 1'
+                            ? 'SELECT id FROM dc_pos.users WHERE reference = $1 LIMIT 1'
                             : 'SELECT id FROM users WHERE reference = ? LIMIT 1',
                         [providedReference]
                     );
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
                     if (existingId) {
                         await db.execute(
                             db.isPostgreSQL
-                                ? 'UPDATE users SET name = $1, role = $2, reference = $3 WHERE id = $4'
+                                ? 'UPDATE dc_pos.users SET name = $1, role = $2, reference = $3 WHERE id = $4'
                                 : 'UPDATE users SET name = ?, role = ?, reference = ? WHERE id = ?',
                             [name, role, providedReference, existingId]
                         );
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
 
                 const newId = await executeInsert(
                     db,
-                    'INSERT INTO users (name, role, reference) VALUES ($1, $2, $3) RETURNING id',
+                    'INSERT INTO dc_pos.users (name, role, reference) VALUES ($1, $2, $3) RETURNING id',
                     'INSERT INTO users (name, role, reference) VALUES (?, ?, ?)',
                     [name, role, providedReference]
                 );
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
                     if (!providedReference) {
                         await db.execute(
                             db.isPostgreSQL
-                                ? 'UPDATE users SET reference = $1 WHERE id = $2'
+                                ? 'UPDATE dc_pos.users SET reference = $1 WHERE id = $2'
                                 : 'UPDATE users SET reference = ? WHERE id = ?',
                             [generateProductReference(newId), newId]
                         );
@@ -91,13 +91,22 @@ export async function POST(request: Request) {
             // Delete users that are not in the incoming list
             if (savedIds.length > 0) {
                 const placeholders = savedIds.map((_, i) => (db.isPostgreSQL ? `$${i + 1}` : '?')).join(',');
-                await db.execute(`DELETE FROM users WHERE id NOT IN (${placeholders})`, savedIds);
+                await db.execute(
+                    db.isPostgreSQL
+                        ? `DELETE FROM dc_pos.users WHERE id NOT IN (${placeholders})`
+                        : `DELETE FROM users WHERE id NOT IN (${placeholders})`,
+                    savedIds
+                );
             } else {
                 // No incoming users, delete all users
-                await db.execute('DELETE FROM users');
+                await db.execute(db.isPostgreSQL ? 'DELETE FROM dc_pos.users' : 'DELETE FROM users');
             }
 
-            const [savedRows] = await db.execute('SELECT id, name, role, reference FROM users ORDER BY name');
+            const [savedRows] = await db.execute(
+                db.isPostgreSQL
+                    ? 'SELECT id, name, role, reference FROM dc_pos.users ORDER BY name'
+                    : 'SELECT id, name, role, reference FROM users ORDER BY name'
+            );
             return (savedRows as { id: number; name: string; role: string; reference?: string }[]).map((row) => ({
                 id: Number(row.id),
                 name: row.name,

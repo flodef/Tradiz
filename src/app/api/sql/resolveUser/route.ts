@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
 
         // Check if users table is empty (fresh DB with no users)
         const countQuery = connection.isPostgreSQL
-            ? `SELECT COUNT(*) as count FROM users`
+            ? `SELECT COUNT(*) as count FROM dc_pos.users`
             : `SELECT COUNT(*) as count FROM users`;
         const [countRows] = await connection.execute(countQuery);
         const userCount = Number((countRows as { count: string | number }[])[0]?.count || 0);
@@ -233,8 +233,8 @@ export async function POST(request: NextRequest) {
         // Query for the specific device and its associated user
         const query = connection.isPostgreSQL
             ? `SELECT u.id, u.name, u.role, u.reference
-               FROM devices d
-               JOIN users u ON u.id = d.user_id
+               FROM dc_pos.devices d
+               JOIN dc_pos.users u ON u.id = d.user_id
                WHERE d.public_key = $1
                LIMIT 1`
             : `SELECT u.id, u.name, u.role, u.reference
