@@ -50,6 +50,22 @@ function buildInventoryFromAdminProducts(products: AdminProduct[]): InventoryIte
     return inventory;
 }
 
+function buildProductsFromInventory(inventory: InventoryItem[]): AdminProduct[] {
+    const products: AdminProduct[] = [];
+    inventory.forEach((item) => {
+        item.products.forEach((product) => {
+            products.push({
+                name: product.label,
+                category: item.category,
+                stock: product.stock ?? null,
+                currencies: product.prices.map(String),
+                vat: item.rate >= 1 ? item.rate : item.rate * 100,
+            });
+        });
+    });
+    return products;
+}
+
 export default function EditMenuPage() {
     const {
         inventory,
@@ -80,13 +96,7 @@ export default function EditMenuPage() {
     const [hasOptionsChanges, setHasOptionsChanges] = useState(false);
     const [emptyProductsPopupShown, setEmptyProductsPopupShown] = useState(false);
     const dataLoadedRef = useRef(false);
-
-    // If data is already ready from ConfigProvider, skip loading immediately
-    useEffect(() => {
-        if (isStateReady && inventory?.length && currencies?.length) {
-            setIsLoading(false);
-        }
-    }, [isStateReady, inventory, currencies]);
+    const seededRef = useRef(false);
 
     // Derive categories from products — categories are local-only, not stored in DB
     // If all products in a category have the same VAT, use it; otherwise null (divers)
@@ -137,38 +147,29 @@ export default function EditMenuPage() {
         }
     }, [searchParams, emptyProductsPopupShown, isLoading, openFullscreenPopup]);
 
+    // Phase 1: seed the UI instantly from cached inventory/currencies (no loading dots).
+    // This shows products immediately; the DB fetch below adds fields not present in the
+    // cached inventory (reference, photo, description, options and option groups).
+    useEffect(() => {
+        if (seededRef.current) return;
+        if (isStateReady && inventory?.length && currencies?.length) {
+            seededRef.current = true;
+            const allProducts = buildProductsFromInventory(inventory);
+            setProducts(allProducts);
+            setOriginalProducts(allProducts);
+            setIsLoading(false);
+        }
+    }, [isStateReady, inventory, currencies]);
+
+    // Phase 2: once the DB config check completes, load the full data set.
+    // For read-only (no DB) we rely on cached inventory; otherwise we fetch fresh product
+    // details from the DB so nothing is lost when the page was seeded from cache.
     useEffect(() => {
         const fetchData = async () => {
             if (dataLoadedRef.current) return;
-
-            // If data is already ready from ConfigProvider (cached), load it immediately without showing loading
-            if (isStateReady && inventory?.length && currencies?.length) {
-                dataLoadedRef.current = true;
-                const allProducts: AdminProduct[] = [];
-
-                inventory.forEach((item) => {
-                    item.products.forEach((product) => {
-                        allProducts.push({
-                            name: product.label,
-                            category: item.category,
-                            stock: product.stock ?? null,
-                            currencies: product.prices.map(String),
-                            vat: item.rate >= 1 ? item.rate : item.rate * 100,
-                        });
-                    });
-                });
-
-                setProducts(allProducts);
-                setOriginalProducts(allProducts);
-                setIsLoading(false);
-
-                if (isReadOnly) return;
-            } else {
-                setIsLoading(true);
-            }
-
-            // Wait for DB config check before loading from DB
             if (!dbConfigChecked) return;
+
+            if (!seededRef.current) setIsLoading(true);
 
             try {
                 if (isReadOnly) {
@@ -178,46 +179,14 @@ export default function EditMenuPage() {
                         return;
                     }
                     dataLoadedRef.current = true;
-                    const allProducts: AdminProduct[] = [];
-
-                    inventory.forEach((item) => {
-                        item.products.forEach((product) => {
-                            allProducts.push({
-                                name: product.label,
-                                category: item.category,
-                                stock: product.stock ?? null,
-                                currencies: product.prices.map(String),
-                                vat: item.rate >= 1 ? item.rate : item.rate * 100,
-                            });
-                        });
-                    });
-
+                    const allProducts = buildProductsFromInventory(inventory);
                     setProducts(allProducts);
                     setOriginalProducts(allProducts);
                     setIsLoading(false);
                     return;
                 }
 
-                // Load cached data first from useConfig (inventory/currencies)
-                if (inventory?.length && currencies?.length) {
-                    const allProducts: AdminProduct[] = [];
-
-                    inventory.forEach((item) => {
-                        item.products.forEach((product) => {
-                            allProducts.push({
-                                name: product.label,
-                                category: item.category,
-                                stock: product.stock ?? null,
-                                currencies: product.prices.map(String),
-                                vat: item.rate >= 1 ? item.rate : item.rate * 100,
-                            });
-                        });
-                    });
-
-                    setProducts(allProducts);
-                    setOriginalProducts(allProducts);
-                    setIsLoading(false);
-                }
+                dataLoadedRef.current = true;
 
                 // Always fetch fresh data from DB in background
                 const [productsResponse, parametersResponse] = await Promise.all([
@@ -305,7 +274,7 @@ export default function EditMenuPage() {
         };
 
         fetchData();
-    }, [dbConfigChecked, isReadOnly, openFullscreenPopup, isStateReady, inventory, currencies]);
+    }, [dbConfigChecked, isReadOnly, openFullscreenPopup, inventory, currencies]);
 
     const handleProductsChange = useCallback(
         (data: AdminProduct[]) => {

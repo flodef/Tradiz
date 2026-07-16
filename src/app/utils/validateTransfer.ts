@@ -11,7 +11,7 @@ import {
     Connection,
     GetVersionedTransactionConfig,
     LAMPORTS_PER_SOL,
-    PublicKey,
+    Address,
     SIGNATURE_LENGTH_IN_BYTES,
     SystemInstruction,
     Transaction,
@@ -114,7 +114,7 @@ async function validateSystemTransfer(
     recipient: Recipient,
     references?: Reference[]
 ): Promise<[BigNumber, BigNumber]> {
-    const recipientPubkey = new PublicKey(String(recipient));
+    const recipientPubkey = new Address(String(recipient));
     const accountIndex = message.staticAccountKeys.findIndex(
         (pubkey) => pubkey.toBase58() === recipientPubkey.toBase58()
     );
@@ -130,7 +130,7 @@ async function validateSystemTransfer(
         // if (length !== references.length) throw new ValidateTransferError('invalid references');
 
         for (let i = 0; i < length; i++) {
-            const refPubkey = new PublicKey(String(references[i]));
+            const refPubkey = new Address(String(references[i]));
             if (extraKeys[i].pubkey.toBase58() !== refPubkey.toBase58())
                 throw new ValidateTransferError(`invalid reference ${i}`);
         }
@@ -150,8 +150,8 @@ async function validateSPLTokenTransfer(
     splToken: SPLToken,
     references?: Reference[]
 ): Promise<[BigNumber, BigNumber]> {
-    const recipientPubkey = new PublicKey(String(recipient));
-    const splTokenPubkey = new PublicKey(String(splToken));
+    const recipientPubkey = new Address(String(recipient));
+    const splTokenPubkey = new Address(String(splToken));
     const recipientATA = await getAssociatedTokenAddress(splTokenPubkey, recipientPubkey);
     const accountIndex = message.staticAccountKeys.findIndex((pubkey) => pubkey.toBase58() === recipientATA.toBase58());
     if (accountIndex === -1) throw new ValidateTransferError('recipient not found');
@@ -168,7 +168,7 @@ async function validateSPLTokenTransfer(
         // if (length !== references.length) throw new ValidateTransferError('invalid references');
 
         for (let i = 0; i < length; i++) {
-            const refPubkey = new PublicKey(String(references[i]));
+            const refPubkey = new Address(String(references[i]));
             if (extraKeys[i].pubkey.toBase58() !== refPubkey.toBase58())
                 throw new ValidateTransferError(`invalid reference ${i}`);
         }
@@ -185,11 +185,11 @@ async function validateSPLTokenTransfer(
 
 // Derives the associated token address for a mint/owner. Only supports the classic SPL Token program
 // (TOKEN_PROGRAM_ID), not Token-2022; this matches @solana/spl-token's default and the mints we accept.
-async function getAssociatedTokenAddress(mint: PublicKey, owner: PublicKey): Promise<PublicKey> {
-    if (!PublicKey.isOnCurve(owner.toBytes())) {
+async function getAssociatedTokenAddress(mint: Address, owner: Address): Promise<Address> {
+    if (!Address.isOnCurve(owner.toBytes())) {
         throw new ValidateTransferError('recipient owner off curve');
     }
-    const [address] = await PublicKey.findProgramAddress(
+    const [address] = await Address.findProgramAddress(
         [owner.toBytes(), TOKEN_PROGRAM_ID.toBytes(), mint.toBytes()],
         ASSOCIATED_TOKEN_PROGRAM_ID
     );

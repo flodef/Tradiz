@@ -111,6 +111,7 @@ export default function SettingsPage() {
     const [isSavingCompanies, setIsSavingCompanies] = useState(false);
     const dbConfigCheckedRef = useRef(false);
     const dataLoadedRef = useRef(false);
+    const seededRef = useRef(false);
     const [isSavingParameters, setIsSavingParameters] = useState(false);
     const [isSavingDiscounts, setIsSavingDiscounts] = useState(false);
     const [isSavingCurrencies, setIsSavingCurrencies] = useState(false);
@@ -119,13 +120,6 @@ export default function SettingsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isReadOnly, setIsReadOnly] = useState(true);
     const [dbConfigChecked, setDbConfigChecked] = useState(false);
-
-    // If data is already ready from ConfigProvider, skip loading immediately
-    useEffect(() => {
-        if (isStateReady) {
-            setIsLoading(false);
-        }
-    }, [isStateReady]);
     const [isSiretValid, setIsSiretValid] = useState(true);
     const [hasChanges, setHasChanges] = useState(false);
     const [hasSettingsChanges, setHasSettingsChanges] = useState(false);
@@ -218,50 +212,61 @@ export default function SettingsPage() {
             });
     }, [isConfigAdmin]);
 
-    const fetchParameters = useCallback(async () => {
-        // If data is already ready from ConfigProvider (cached), load it immediately without showing loading
-        if (isStateReady) {
-            if (parameters?.lastModified) {
-                setSettings(parameters);
-                setOriginalSettings(parameters);
-            }
-            if (configDiscounts) {
-                setDiscounts(configDiscounts);
-                setOriginalDiscounts(configDiscounts);
-            }
-            if (currencies) {
-                setCurrenciesConfig(currencies);
-                setOriginalCurrencies(currencies);
-            }
-            if (configPayments) {
-                setPaymentsConfig(configPayments);
-                setOriginalPayments(configPayments);
-            }
-            if (configColors) {
-                setColorsConfig(configColors);
-                setOriginalColors(configColors);
-            }
-            if (configUsers) {
-                setUsersConfig(configUsers);
-                setOriginalUsers(configUsers);
-            }
-            if (configPrinters) {
-                setPrintersConfig(configPrinters);
-                setOriginalPrinters(configPrinters);
-            }
-            if (configCustomers) {
-                setCustomersConfig(configCustomers);
-                setOriginalCustomers(configCustomers);
-            }
-            setIsLoading(false);
-            // Skip DB fetch when we have cached data - will refresh in background via ConfigProvider
-            return;
-        } else {
-            setIsLoading(true);
+    // Seed the config-backed sections instantly from ConfigProvider's cached data.
+    // Note: devices, companies and theme metadata are NOT part of the cached Config
+    // and are only available from the DB (loaded in fetchParameters).
+    const seedFromCache = useCallback(() => {
+        if (parameters?.lastModified) {
+            setSettings(parameters);
+            setOriginalSettings(parameters);
         }
+        if (configDiscounts) {
+            setDiscounts(configDiscounts);
+            setOriginalDiscounts(configDiscounts);
+        }
+        if (currencies) {
+            setCurrenciesConfig(currencies);
+            setOriginalCurrencies(currencies);
+        }
+        if (configPayments) {
+            setPaymentsConfig(configPayments);
+            setOriginalPayments(configPayments);
+        }
+        if (configColors) {
+            setColorsConfig(configColors);
+            setOriginalColors(configColors);
+        }
+        if (configUsers) {
+            setUsersConfig(configUsers);
+            setOriginalUsers(configUsers);
+        }
+        if (configPrinters) {
+            setPrintersConfig(configPrinters);
+            setOriginalPrinters(configPrinters);
+        }
+        if (configCustomers) {
+            setCustomersConfig(configCustomers);
+            setOriginalCustomers(configCustomers);
+        }
+    }, [
+        parameters,
+        configDiscounts,
+        currencies,
+        configPayments,
+        configColors,
+        configUsers,
+        configPrinters,
+        configCustomers,
+    ]);
+
+    const fetchParameters = useCallback(async () => {
+        // Only show loading dots if we don't already have cached data to display
+        if (!isStateReady) setIsLoading(true);
 
         try {
             if (isReadOnly) {
+                // No DB — cached/config data is the complete source
+                if (!seededRef.current) seedFromCache();
                 setIsLoading(false);
                 return;
             }
@@ -533,28 +538,28 @@ export default function SettingsPage() {
         configPayments,
         configColors,
         isStateReady,
-        configUsers,
-        configPrinters,
-        configCustomers,
+        seedFromCache,
     ]);
 
-    // Step 2: load data immediately if cached, otherwise wait for DB config check
+    // Step 2a: seed the UI instantly from cached config (no loading dots) as soon as it's ready.
+    useEffect(() => {
+        if (seededRef.current) return;
+        if (isStateReady) {
+            seededRef.current = true;
+            seedFromCache();
+            setIsLoading(false);
+        }
+    }, [isStateReady, seedFromCache]);
+
+    // Step 2b: once the DB config check completes, always load the full data set.
+    // This is required so DB-only sections (devices, companies, theme metadata) — which are
+    // NOT part of the cached Config — get populated, while also refreshing the cached sections.
     useEffect(() => {
         if (dataLoadedRef.current) return;
-
-        // If data is already ready from ConfigProvider, load it immediately
-        if (isStateReady) {
-            dataLoadedRef.current = true;
-            fetchParameters();
-            return;
-        }
-
-        // Otherwise wait for DB config check before loading from DB
-        if (dbConfigChecked) {
-            dataLoadedRef.current = true;
-            fetchParameters();
-        }
-    }, [dbConfigChecked, fetchParameters, isStateReady]);
+        if (!dbConfigChecked) return;
+        dataLoadedRef.current = true;
+        fetchParameters();
+    }, [dbConfigChecked, fetchParameters]);
 
     // Track changes by comparing current state with original loaded data
     useEffect(() => {

@@ -1,7 +1,7 @@
 'use client';
 
 import { encodeURL, findReference, FindReferenceError } from '@solana/pay';
-import { Connection, Keypair, PublicKey, TransactionSignature } from '@solana/web3.js';
+import { Address, Connection, Keypair, TransactionSignature } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConfig } from '../hooks/useConfig';
@@ -27,18 +27,18 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
     const recipient = useMemo(() => {
         switch (crypto) {
             case Crypto.Solana:
-                return new PublicKey(paymentMethods.find((item) => item.type === Crypto.Solana)?.id ?? 0);
+                return new Address(paymentMethods.find((item) => item.type === Crypto.Solana)?.id ?? 0);
             case Crypto.June:
-                return new PublicKey(paymentMethods.find((item) => item.type === Crypto.June)?.id?.split(':')[0] ?? 0);
+                return new Address(paymentMethods.find((item) => item.type === Crypto.June)?.id?.split(':')[0] ?? 0);
             default:
-                return new PublicKey(0);
+                return new Address(0);
         }
     }, [paymentMethods, crypto]);
 
     const amount = useMemo(() => BigNumber(total), [total]);
     const connection = useRef(new Connection(ENDPOINT, 'confirmed'));
     const [memo, setMemo] = useState<string>();
-    const [reference, setReference] = useState<PublicKey>();
+    const [reference, setReference] = useState<Address>();
     const [signature, setSignature] = useState<TransactionSignature>();
     const [paymentStatus, setPaymentStatus] = useState(PaymentStatus.New);
     const [error, setError] = useState<Error>();
@@ -139,7 +139,7 @@ export const CryptoProvider: FC<CryptoProviderProps> = ({ children }) => {
                 if (crypto === Crypto.Solana && reference) {
                     // @solana/pay@0.2.6 is typed against web3.js v1, but at runtime findReference only
                     // forwards these to connection.getSignaturesForAddress, which the v3 Connection and
-                    // PublicKey satisfy. The casts bridge the v1 type signatures to our v3 objects.
+                    // Address satisfy. The casts bridge the v1 type signatures to our v3 objects.
                     const signature = await findReference(
                         connection.current as unknown as Parameters<typeof findReference>[0],
                         reference as unknown as Parameters<typeof findReference>[1]

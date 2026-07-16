@@ -287,8 +287,11 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
             if (e.key === CONFIG_KEYWORD && e.newValue) {
                 try {
                     const newConfig = JSON.parse(e.newValue) as Config;
+                    // The value already lives in localStorage (it triggered this event),
+                    // so just apply it to state — no need to write it back via storeData.
+                    validateConfigData(newConfig);
                     loadConfig(newConfig);
-                    storeData(newConfig);
+                    setState(State.loaded);
                 } catch {
                     // Invalid data, ignore
                 }
@@ -297,7 +300,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
 
         window.addEventListener('storage', handleStorageChange);
         return () => window.removeEventListener('storage', handleStorageChange);
-    }, [loadConfig, storeData]);
+    }, [loadConfig]);
 
     useEffect(() => {
         if (state !== State.init) return;
@@ -340,15 +343,19 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
             .catch((error) => {
                 console.error(error);
 
-                // If we have cached data, stay in preloaded state and just log error
-                if (config) {
-                    parameters.error = error.message;
-                    return;
-                }
+                // Record the error on parameters via a proper state update (no direct mutation).
+                setParameters((prev) => {
+                    const next: Parameters = { ...prev, error: error.message };
+                    if (error instanceof UserNotFoundError) {
+                        next.shop = { ...prev.shop, email: String(error.cause) };
+                    }
+                    return next;
+                });
 
-                parameters.error = error.message;
+                // If we have cached data, stay in preloaded state and just log the error
+                if (config) return;
+
                 if (error instanceof UserNotFoundError) {
-                    parameters.shop.email = String(error.cause);
                     setState(State.unidentified);
                 } else if (error instanceof MissingDataError) {
                     // Check if error has isAdmin flag (admin user with missing parameters)
@@ -367,7 +374,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                     setState(State.error);
                 }
             });
-    }, [state, config, setConfig, storeData, loadConfig, parameters]);
+    }, [state, config, storeData, loadConfig]);
 
     return (
         <ConfigContext.Provider
