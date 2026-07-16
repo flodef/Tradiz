@@ -182,7 +182,10 @@ export default function CategoriesConfig({
     const nextIdRef = useRef(0);
     const lastAddedIndexRef = useRef<number | null>(null);
     const labelInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
-    const renamingRef = useRef<Set<number>>(new Set());
+    // Tracks in-progress renames: category _id → expected new label.
+    // An entry is cleared once the parent config reflects the new label, so the
+    // sync effect never reverts an optimistic rename (deterministic, no timers).
+    const renamingRef = useRef<Map<number, string>>(new Map());
     const [categories, setCategories] = useState<InternalCategory[]>(() =>
         (config || []).map((c) => ({ ...c, _id: nextIdRef.current++, _originalLabel: c.label }))
     );
@@ -233,10 +236,20 @@ export default function CategoriesConfig({
 
     // Sync from parent config (categories derived from products)
     useEffect(() => {
-        // Skip sync entirely if any category is being renamed
-        if (renamingRef.current.size > 0) return;
-
         const incoming = config || [];
+
+        // Clear pending renames whose new label has propagated into the config.
+        if (renamingRef.current.size > 0) {
+            for (const [id, newLabel] of renamingRef.current) {
+                if (incoming.some((c) => c.label === newLabel)) {
+                    renamingRef.current.delete(id);
+                }
+            }
+            // A rename is still in flight (config not yet updated) — skip this sync
+            // so the optimistic label isn't reverted to the old value.
+            if (renamingRef.current.size > 0) return;
+        }
+
         setCategories((prev) => {
             // Preserve existing _id for categories that still exist, assign new _id for new ones
             const result: InternalCategory[] = [];
@@ -337,16 +350,13 @@ export default function CategoriesConfig({
                 ['Confirmer', 'Annuler'],
                 (index) => {
                     if (index === 0) {
-                        // Mark this category as being renamed to prevent sync from reverting
-                        renamingRef.current.add(id);
+                        // Track the pending rename; the sync effect clears it once the
+                        // parent config reflects the new label (deterministic, no timers).
+                        renamingRef.current.set(id, newLabel);
                         // Update _originalLabel immediately
                         setCategories((p) => p.map((c) => (c._id === id ? { ...c, _originalLabel: newLabel } : c)));
                         // Then call the parent to update products
                         onRenameCategory?.(oldLabel, newLabel);
-                        // Remove from renaming ref after a longer delay to allow parent to process and save
-                        setTimeout(() => {
-                            renamingRef.current.delete(id);
-                        }, 500);
                     } else {
                         setCategories((p) => p.map((c) => (c._id === id ? { ...c, label: oldLabel } : c)));
                     }

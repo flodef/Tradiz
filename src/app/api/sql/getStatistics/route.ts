@@ -49,13 +49,18 @@ export async function GET(request: Request) {
             .join(' AND ');
 
         let dateFilter = '';
+        // Separate filter for queries that don't include the nonPaidMethods params (e.g. recent orders),
+        // so PostgreSQL placeholders start at $1 instead of after the nonPaidMethods params.
+        let recentDateFilter = '';
         const params: string[] = [...nonPaidMethods];
 
         if (startDate && endDate) {
             if (connection.isPostgreSQL) {
-                dateFilter = 'AND DATE(t.created_at) BETWEEN $5 AND $6';
+                dateFilter = `AND DATE(t.created_at) BETWEEN $${nonPaidMethods.length + 1} AND $${nonPaidMethods.length + 2}`;
+                recentDateFilter = 'AND DATE(t.created_at) BETWEEN $1 AND $2';
             } else {
                 dateFilter = 'AND DATE(t.created_at) BETWEEN ? AND ?';
+                recentDateFilter = 'AND DATE(t.created_at) BETWEEN ? AND ?';
             }
             params.push(startDate, endDate);
         }
@@ -192,7 +197,7 @@ export async function GET(request: Request) {
                 t.amount
             FROM dc_pos.transactions t
             LEFT JOIN dc.orders o ON o.id::text = t.order_id
-            WHERE 1=1 ${dateFilter}
+            WHERE 1=1 ${recentDateFilter}
             ORDER BY t.created_at DESC
             LIMIT 20
         `
@@ -209,7 +214,7 @@ export async function GET(request: Request) {
                 t.amount
             FROM transactions t
             LEFT JOIN \`DC\`.orders o ON o.id = t.order_id
-            WHERE 1=1 ${dateFilter}
+            WHERE 1=1 ${recentDateFilter}
             ORDER BY t.created_at DESC
             LIMIT 20
         `;

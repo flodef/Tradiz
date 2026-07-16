@@ -33,7 +33,9 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
     const styles = getPopupStyles(variant);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const optionRefs = useRef<(HTMLDivElement | null)[]>([]);
-    const [popupOpenedAt, setPopupOpenedAt] = useState(0);
+    // Deterministic guard: the Enter keydown that opened the popup must be released (keyup)
+    // before Enter can select an option, preventing accidental confirmation.
+    const enterArmedRef = useRef(false);
 
     const close = useCallback(() => {
         closePopup(() => {
@@ -61,7 +63,8 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
         if (isPopupOpen) {
             setSelectedIndex(0);
             optionRefs.current = [];
-            setPopupOpenedAt(Date.now());
+            // Disarm Enter until the key that opened the popup has been released.
+            enterArmedRef.current = false;
         }
     }, [isPopupOpen]);
 
@@ -69,14 +72,14 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
     useEffect(() => {
         if (!isPopupOpen || isMobile) return;
 
+        const handleKeyUp = (e: KeyboardEvent) => {
+            // Once Enter is released, it becomes usable for selecting an option.
+            if (e.key === 'Enter') enterArmedRef.current = true;
+        };
+
         const handleKeyDown = (e: KeyboardEvent) => {
             const validOptions = popupOptions.filter((opt) => opt?.toString().trim());
             if (validOptions.length === 0) return;
-
-            // Ignore Enter key if pressed shortly after popup opened (to prevent accidental selection)
-            if (e.key === 'Enter' && Date.now() - popupOpenedAt < 100) {
-                return;
-            }
 
             switch (e.key) {
                 case 'ArrowDown':
@@ -88,6 +91,8 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                     setSelectedIndex((prev) => (prev - 1 + validOptions.length) % validOptions.length);
                     break;
                 case 'Enter':
+                    // Ignore the Enter that opened the popup (not yet released).
+                    if (!enterArmedRef.current) return;
                     e.preventDefault();
                     const selectedOption = validOptions[selectedIndex];
                     if (selectedOption) {
@@ -102,8 +107,12 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
         };
 
         window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isPopupOpen, isMobile, popupOptions, selectedIndex, handleClick, close, popupOpenedAt]);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [isPopupOpen, isMobile, popupOptions, selectedIndex, handleClick, close]);
 
     // Scroll selected option into view
     useEffect(() => {
@@ -113,6 +122,11 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
     }, [selectedIndex]);
 
     if (!isPopupOpen) return null;
+
+    // Map each render index to its position among valid (non-separator) options.
+    // Using a running counter avoids mismatches when option labels are duplicated.
+    let validCounter = 0;
+    const validIndexByRenderIndex = popupOptions.map((opt) => (opt?.toString().trim() ? validCounter++ : -1));
 
     return (
         <div className="fixed inset-0 z-100 grid">
@@ -133,7 +147,7 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                 <div>
                     {popupOptions.map((option, index) => {
                         const validOption = option?.toString().trim();
-                        const validIndex = popupOptions.filter((opt) => opt?.toString().trim()).indexOf(option);
+                        const validIndex = validIndexByRenderIndex[index];
                         if (!validOption) {
                             return <div key={index} className={styles.separator} />;
                         }
