@@ -1101,22 +1101,20 @@ export default function SettingsPage() {
                 onValidation={setIsUsersValid}
             />
 
-            {usersConfig.length > 0 && (
-                <DevicesConfig
-                    config={devicesConfig}
-                    users={usersConfig}
-                    onChange={setDevicesConfig}
-                    onSave={handleDevicesSave}
-                    onCancel={handleCancel}
-                    hasChanges={hasDevicesChanges}
-                    isReadOnly={isReadOnly}
-                    isLoading={isSavingDevices}
-                    isOpen={openSection === 'devices'}
-                    onToggle={() => setOpenSection((prev) => (prev === 'devices' ? null : 'devices'))}
-                    icon={<IconDeviceTablet size={24} />}
-                    onValidation={setIsDevicesValid}
-                />
-            )}
+            <DevicesConfig
+                config={devicesConfig}
+                users={usersConfig}
+                onChange={setDevicesConfig}
+                onSave={handleDevicesSave}
+                onCancel={handleCancel}
+                hasChanges={hasDevicesChanges}
+                isReadOnly={isReadOnly}
+                isLoading={isSavingDevices}
+                isOpen={openSection === 'devices'}
+                onToggle={() => setOpenSection((prev) => (prev === 'devices' ? null : 'devices'))}
+                icon={<IconDeviceTablet size={24} />}
+                onValidation={setIsDevicesValid}
+            />
 
             <CustomersConfig
                 config={customersConfig}

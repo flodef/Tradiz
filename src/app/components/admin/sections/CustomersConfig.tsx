@@ -565,24 +565,22 @@ export default function CustomersConfig({
     );
 
     const handleAddCustomer = useCallback(() => {
-        setCustomers((prev: InternalCustomer[]) => {
-            const newId = nextIdRef.current++;
-            const updated = [
-                ...prev,
-                {
-                    firstName: '',
-                    lastName: '',
-                    reference: '',
-                    email: '',
-                    phone: '',
-                    company: undefined,
-                    _id: newId,
-                } as InternalCustomer,
-            ];
-            lastAddedIdRef.current = newId;
-            return updated;
-        });
-    }, []);
+        const newId = nextIdRef.current++;
+        const newCustomer: InternalCustomer = {
+            firstName: '',
+            lastName: '',
+            reference: '',
+            email: '',
+            phone: '',
+            company: undefined,
+            _id: newId,
+        };
+        const updated = [...customers, newCustomer];
+        lastAddedIdRef.current = newId;
+        selfUpdateRef.current = true;
+        setCustomers(updated);
+        onChange(strip(updated));
+    }, [customers, onChange]);
 
     const handleDeleteCustomer = useCallback(
         (id: number) => {
