@@ -1,91 +1,123 @@
 'use client';
 
 import { FC, useEffect, useMemo, useRef, useState } from 'react';
-import { IconX } from '@tabler/icons-react';
 import { twMerge } from 'tailwind-merge';
 import { User } from '@/app/utils/interfaces';
 import { ROLE_LABELS } from '@/app/utils/constants';
+import { usePopup } from '@/app/hooks/usePopup';
+import { useConfig } from '@/app/hooks/useConfig';
+import { useIsMobileDevice } from '@/app/utils/mobile';
+import { getPopupStyles, getOptionHoverStyles } from '@/app/utils/popupStyles';
 
 interface UserSwitchPopupProps {
-    isOpen: boolean;
-    users: User[];
     onSelect: (user: User) => void;
-    onClose: () => void;
+    initialQuery?: string;
 }
 
-export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({ isOpen, users, onSelect, onClose }) => {
-    const [query, setQuery] = useState('');
+export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({ onSelect, initialQuery = '' }) => {
+    const { users } = useConfig();
+    const { closePopup } = usePopup();
+    const [query, setQuery] = useState(initialQuery);
+    const [highlightedIndex, setHighlightedIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
+    const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+    const isMobileDevice = useIsMobileDevice();
+    const styles = getPopupStyles('default');
+    const optionClass = twMerge(styles.option, 'px-3', getOptionHoverStyles(isMobileDevice, true));
 
     useEffect(() => {
-        if (isOpen) {
-            inputRef.current?.focus();
+        inputRef.current?.focus();
+    }, []);
+
+    useEffect(() => {
+        if (highlightedIndex >= 0 && itemRefs.current[highlightedIndex]) {
+            itemRefs.current[highlightedIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }
-    }, [isOpen]);
+    }, [highlightedIndex]);
+
+    const q = query.trim().toLowerCase();
 
     const filteredUsers = useMemo(() => {
-        const q = query.toLowerCase();
-        return users.filter(
-            (user) =>
-                user.name.toLowerCase().includes(q) || (user.reference && user.reference.toLowerCase().includes(q))
-        );
-    }, [users, query]);
+        if (!q) return users;
+        const tokens = q.split(/\s+/);
+        return users.filter((user) => {
+            const searchable = [user.name, user.reference, ROLE_LABELS[user.role]]
+                .filter(Boolean)
+                .map((value) => value!.toLowerCase());
+            return tokens.every((token) => searchable.some((value) => value.includes(token)));
+        });
+    }, [users, q]);
 
-    if (!isOpen) return null;
+    useEffect(() => {
+        setHighlightedIndex(filteredUsers.length > 0 ? 0 : -1);
+    }, [filteredUsers.length]);
+
+    const selectOption = (index: number) => {
+        const user = filteredUsers[index];
+        if (!user) return;
+        onSelect(user);
+        closePopup();
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (filteredUsers.length === 0) return;
+
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                setHighlightedIndex((prev) => (prev < filteredUsers.length - 1 ? prev + 1 : prev));
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : prev));
+                break;
+            case 'Enter':
+                e.preventDefault();
+                if (highlightedIndex >= 0) selectOption(highlightedIndex);
+                break;
+            case 'Escape':
+                e.preventDefault();
+                closePopup();
+                break;
+        }
+    };
 
     return (
-        <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-            <div className="relative z-10 w-full max-w-md bg-popup-light dark:bg-popup-dark rounded-2xl shadow-2xl overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-semibold text-light dark:text-dark">Changer d&apos;utilisateur</h3>
-                    <button
-                        onClick={onClose}
-                        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-                        aria-label="Fermer"
-                    >
-                        <IconX size={24} stroke={2} />
-                    </button>
-                </div>
-                <div className="p-4">
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Rechercher un utilisateur..."
+        <div onClick={(e) => e.stopPropagation()}>
+            <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Rechercher un utilisateur..."
+                className={twMerge(
+                    'w-full px-3 py-2 bg-transparent border-none outline-none focus:outline-none text-xl font-semibold',
+                    'text-popup-dark dark:text-popup-light placeholder:font-normal placeholder:text-gray-400'
+                )}
+                autoFocus
+                maxLength={50}
+            />
+            <div className="max-h-[55vh] overflow-y-auto">
+                {filteredUsers.map((user, index) => (
+                    <div
+                        key={`user-${user.id ?? index}`}
+                        ref={(el) => {
+                            itemRefs.current[index] = el;
+                        }}
                         className={twMerge(
-                            'w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent',
-                            'text-light dark:text-dark placeholder:text-gray-400 outline-none focus:border-main-light dark:focus:border-main-dark'
+                            optionClass,
+                            'flex items-center justify-between',
+                            highlightedIndex === index && 'bg-active-light dark:bg-active-dark'
                         )}
-                    />
-                    <div className="mt-4 max-h-[50vh] overflow-y-auto">
-                        {filteredUsers.length === 0 ? (
-                            <p className="text-center text-gray-400 py-4">Aucun utilisateur trouvé</p>
-                        ) : (
-                            <ul className="space-y-1">
-                                {filteredUsers.map((user, index) => (
-                                    <li key={user.id ?? index}>
-                                        <button
-                                            onClick={() => onSelect(user)}
-                                            className={twMerge(
-                                                'w-full text-left px-3 py-2 rounded-lg',
-                                                'hover:bg-active-light dark:hover:bg-active-dark',
-                                                'text-light dark:text-dark'
-                                            )}
-                                        >
-                                            <div className="font-medium">{user.name}</div>
-                                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                                                {ROLE_LABELS[user.role]}
-                                                {user.reference ? ` · ${user.reference}` : ''}
-                                            </div>
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
+                        onClick={() => selectOption(index)}
+                    >
+                        <div className={twMerge(styles.optionText, 'flex-1 flex items-center justify-between')}>
+                            <span>{user.name}</span>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">{ROLE_LABELS[user.role]}</span>
+                        </div>
                     </div>
-                </div>
+                ))}
             </div>
         </div>
     );

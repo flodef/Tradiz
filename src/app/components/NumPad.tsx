@@ -565,7 +565,6 @@ export const NumPad: FC = () => {
         users,
     } = useConfig();
 
-    const [isUserSwitchOpen, setIsUserSwitchOpen] = useState(false);
     const {
         total,
         amount,
@@ -944,13 +943,24 @@ export const NumPad: FC = () => {
                             <span
                                 className={twMerge(
                                     'truncate',
-                                    !currentCustomer && parameters.userSwitch && users.length > 0
-                                        ? 'cursor-pointer underline'
+                                    !currentCustomer && users.length > 1
+                                        ? 'cursor-pointer underline p-1 rounded hover:bg-active-light dark:hover:bg-active-dark'
                                         : ''
                                 )}
                                 onClick={
-                                    !currentCustomer && parameters.userSwitch && users.length > 0
-                                        ? () => setIsUserSwitchOpen(true)
+                                    !currentCustomer && users.length > 1
+                                        ? () =>
+                                              openFullscreenPopup(
+                                                  "Changer d'utilisateur",
+                                                  [
+                                                      <UserSwitchPopup
+                                                          key="userSwitch"
+                                                          onSelect={(user) => setParameters({ ...parameters, user })}
+                                                      />,
+                                                  ],
+                                                  () => {},
+                                                  true
+                                              )
                                         : undefined
                                 }
                             >
@@ -1059,15 +1069,6 @@ export const NumPad: FC = () => {
                     </div>
                 </div>
             </div>
-            <UserSwitchPopup
-                isOpen={isUserSwitchOpen}
-                users={users}
-                onClose={() => setIsUserSwitchOpen(false)}
-                onSelect={(user) => {
-                    setParameters({ ...parameters, user });
-                    setIsUserSwitchOpen(false);
-                }}
-            />
         </div>
     );
 };
