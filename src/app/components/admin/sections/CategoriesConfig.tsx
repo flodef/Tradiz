@@ -19,7 +19,7 @@ import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
-import { adminHeaderStyle } from '@/app/utils/constants';
+import { adminHeaderStyle, DEFAULT_CATEGORY } from '@/app/utils/constants';
 
 // Internal category with a stable _id for React keys and originalLabel for rename tracking
 interface InternalCategory extends Category {
@@ -311,17 +311,17 @@ export default function CategoriesConfig({
             const oldLabel = cat._originalLabel;
             const newLabel = cat.label.trim();
 
-            // If new label is empty, treat as delete (move to "Sans catégorie")
+            // If new label is empty, treat as delete (move to the default category)
             if (!newLabel) {
-                // Edge case: if old label is "Sans catégorie", just cancel (can't delete the default category)
-                if (oldLabel === 'Sans catégorie') {
+                // Edge case: if old label is the default category, just cancel (can't delete the default category)
+                if (oldLabel === DEFAULT_CATEGORY) {
                     setCategories((p) => p.map((c) => (c._id === id ? { ...c, label: oldLabel } : c)));
                     return;
                 }
                 const hasProducts = productCategories?.some((p) => p.category === oldLabel);
                 if (hasProducts) {
                     openFullscreenPopup(
-                        `Déplacer les produits de "${oldLabel}" vers "Sans catégorie" ?`,
+                        `Déplacer les produits de "${oldLabel}" vers "${DEFAULT_CATEGORY}" ?`,
                         ['Confirmer', 'Annuler'],
                         (index) => {
                             if (index === 0) {
@@ -404,7 +404,7 @@ export default function CategoriesConfig({
             const hasProducts = productCategories?.some((p) => p.category === categoryLabel);
 
             if (hasProducts) {
-                const isSansCategorie = categoryLabel === 'Sans catégorie';
+                const isSansCategorie = categoryLabel === DEFAULT_CATEGORY;
                 const options = isSansCategorie
                     ? ['Supprimer tous les produits de la catégorie', 'Renommer la catégorie']
                     : [

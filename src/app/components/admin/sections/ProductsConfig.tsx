@@ -1,6 +1,6 @@
 'use client';
 
-import { adminSortableHeaderStyle } from '@/app/utils/constants';
+import { adminSortableHeaderStyle, DEFAULT_CATEGORY } from '@/app/utils/constants';
 import { Currency } from '@/app/utils/interfaces';
 import {
     closestCenter,
@@ -128,9 +128,9 @@ export default function ProductsConfig({
     const categoryOrder = useMemo(() => {
         // Use categories prop order as the stable base order
         const order = categories.map((c) => c.label);
-        // Add any categories from products that aren't in the prop (e.g. "Sans catégorie")
+        // Add any categories from products that aren't in the prop (e.g. the default category)
         for (const p of products) {
-            const key = p.category || 'Sans catégorie';
+            const key = p.category || DEFAULT_CATEGORY;
             if (!order.includes(key)) order.push(key);
         }
         return order;
@@ -222,7 +222,7 @@ export default function ProductsConfig({
 
         // Replace this category's items in their original positions
         const catIndices = products
-            .map((p, i) => ((p.category || 'Sans catégorie') === activeCat ? i : -1))
+            .map((p, i) => ((p.category || DEFAULT_CATEGORY) === activeCat ? i : -1))
             .filter((i) => i !== -1);
         const result = [...products];
         catIndices.forEach((origIdx, slot) => {
@@ -231,7 +231,7 @@ export default function ProductsConfig({
         handleReorder(result);
     };
 
-    const handleAddProduct = (category = 'Sans catégorie') => {
+    const handleAddProduct = (category = DEFAULT_CATEGORY) => {
         const newProduct: AdminProduct = { name: '', category, stock: null, currencies: [] };
         const updated = [...products, newProduct];
         lastAddedIndexRef.current = updated.length - 1;
@@ -255,7 +255,7 @@ export default function ProductsConfig({
     const categoryGroups = useMemo(() => {
         const groups: Record<string, { p: AdminProduct; i: number }[]> = {};
         for (const item of filteredProducts) {
-            const key = item.p.category || 'Sans catégorie';
+            const key = item.p.category || DEFAULT_CATEGORY;
             if (!groups[key]) groups[key] = [];
             groups[key].push(item);
         }

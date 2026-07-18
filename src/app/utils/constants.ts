@@ -60,6 +60,7 @@ export const CATEGORY_SEPARATOR = '>';
 export const ARROW = ' ▸';
 export const TRANSACTION_TIME_OUT = 60; // Time out in seconds
 export const BACK_KEYWORD = 'RETOUR';
+export const DEFAULT_CATEGORY = 'Sans catégorie';
 
 // Default VAT rate as a percentage, applied when an item has no explicit rate
 export const DEFAULT_VAT_RATE = 20;

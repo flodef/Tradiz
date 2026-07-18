@@ -12,7 +12,14 @@ import {
     Role,
     User,
 } from '../utils/interfaces';
-import { CURRENT_USER_KEYWORD, DEBIT_KEYWORD, DEV_EMAIL, IS_DEV, PROVISION_KEYWORD } from './constants';
+import {
+    CURRENT_USER_KEYWORD,
+    DEBIT_KEYWORD,
+    DEFAULT_CATEGORY,
+    DEV_EMAIL,
+    IS_DEV,
+    PROVISION_KEYWORD,
+} from './constants';
 import './extensions';
 import { generateSimpleId } from './id';
 
@@ -415,7 +422,8 @@ async function _loadDataImpl(): Promise<Config | undefined> {
     const inventory: InventoryItem[] = [];
     let categoryOrder = 0;
     data.products.forEach((item) => {
-        const category = inventory.find(({ category }) => category === item.category);
+        const normalizedCategory = item.category || DEFAULT_CATEGORY;
+        const category = inventory.find(({ category }) => category === normalizedCategory);
         if (category) {
             category.products.push({
                 label: item.label,
@@ -427,7 +435,7 @@ async function _loadDataImpl(): Promise<Config | undefined> {
             });
         } else {
             inventory.push({
-                category: item.category,
+                category: normalizedCategory,
                 rate: item.rate,
                 order: categoryOrder++,
                 products: [
@@ -666,13 +674,14 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
         if (errorMessage) throw new Error(errorMessage);
         if (!data.currencies?.length) return;
 
-        // Ignore products missing a category or a label
-        const filtered = (data.products ?? []).filter((p) => p.category?.trim() !== '' && p.label?.trim() !== '');
+        // Ignore products missing a label, but keep products without a category
+        // (they are shown under the default category instead of being dropped).
+        const filtered = (data.products ?? []).filter((p) => p.label?.trim() !== '');
 
         return {
             products: filtered.map((p, order) => ({
                 rate: (p.rate ?? 0) * 100,
-                category: normalizedString(p.category),
+                category: p.category?.trim() ? normalizedString(p.category) : DEFAULT_CATEGORY,
                 label: normalizedString(p.label),
                 stock: p.stock ?? null,
                 reference: p.reference != null ? String(p.reference).trim() : null,

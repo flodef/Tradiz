@@ -9,7 +9,7 @@ import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { LoadingDot } from '@/app/loading';
-import { USE_DIGICARTE } from '@/app/utils/constants';
+import { DEFAULT_CATEGORY, USE_DIGICARTE } from '@/app/utils/constants';
 import { Category, InventoryItem } from '@/app/utils/interfaces';
 import { clearLoadDataCache } from '@/app/utils/processData';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -23,8 +23,9 @@ function buildInventoryFromAdminProducts(products: AdminProduct[]): InventoryIte
     for (let i = 0; i < products.length; i++) {
         const p = products[i];
         const label = (p.name || '').trim();
-        const category = (p.category || '').trim();
-        if (!label || !category) continue;
+        if (!label) continue;
+
+        const category = (p.category || '').trim() || DEFAULT_CATEGORY;
 
         if (categoryIndex[category] === undefined) {
             categoryIndex[category] = inventory.length;
@@ -53,10 +54,12 @@ function buildInventoryFromAdminProducts(products: AdminProduct[]): InventoryIte
 function buildProductsFromInventory(inventory: InventoryItem[]): AdminProduct[] {
     const products: AdminProduct[] = [];
     inventory.forEach((item) => {
+        // The UI displays an empty DB category as the default category; for editing we keep it as empty string.
+        const category = item.category === DEFAULT_CATEGORY ? '' : item.category;
         item.products.forEach((product) => {
             products.push({
                 name: product.label,
-                category: item.category,
+                category,
                 stock: product.stock ?? null,
                 currencies: product.prices.map(String),
                 vat: item.rate >= 1 ? item.rate : item.rate * 100,
@@ -100,11 +103,11 @@ export default function EditMenuPage() {
 
     // Derive categories from products — categories are local-only, not stored in DB
     // If all products in a category have the same VAT, use it; otherwise null (divers)
-    // Products with empty category appear as 'Sans catégorie'
+    // Products with empty category appear as the default category
     const categories = useMemo(() => {
         const catVats = new Map<string, Set<number>>();
         for (const p of products) {
-            const cat = p.category || 'Sans catégorie';
+            const cat = p.category || DEFAULT_CATEGORY;
             if (!catVats.has(cat)) catVats.set(cat, new Set());
             catVats.get(cat)!.add(p.vat ?? 20);
         }
@@ -252,7 +255,7 @@ export default function EditMenuPage() {
                             // Check if it's in the ProductOptionGroup format
                             if (parsed.type && Array.isArray(parsed.options)) {
                                 loadedOptions.push({
-                                    category: p.category || 'Sans catégorie',
+                                    category: p.category || DEFAULT_CATEGORY,
                                     product: p.name,
                                     type: parsed.type,
                                     options: parsed.options,
@@ -349,8 +352,8 @@ export default function EditMenuPage() {
             const updated = products.map((p) => {
                 const productCategory = (p.category || '').trim();
                 // Match by exact string comparison
-                // Special case: "Sans catégorie" maps to empty string in products
-                const oldKey = trimmedOldLabel === 'Sans catégorie' ? '' : trimmedOldLabel;
+                // Special case: default category maps to empty string in products
+                const oldKey = trimmedOldLabel === DEFAULT_CATEGORY ? '' : trimmedOldLabel;
                 if (productCategory === oldKey) return { ...p, category: trimmedNewLabel };
 
                 return p;
@@ -366,7 +369,7 @@ export default function EditMenuPage() {
     // Category delete: either remove products or move them to empty category, then save
     const handleDeleteCategoryProducts = useCallback(
         (categoryLabel: string, moveToEmpty: boolean) => {
-            const key = categoryLabel === 'Sans catégorie' ? '' : categoryLabel.trim();
+            const key = categoryLabel === DEFAULT_CATEGORY ? '' : categoryLabel.trim();
             let updated;
             if (moveToEmpty) {
                 updated = products.map((p) => ((p.category || '').trim() === key ? { ...p, category: '' } : p));
@@ -383,7 +386,7 @@ export default function EditMenuPage() {
     // Category VAT change: apply new VAT to all products in the category and save to DB
     const handleCategoryVatChange = useCallback(
         (categoryLabel: string, vat: number) => {
-            const key = categoryLabel === 'Sans catégorie' ? '' : categoryLabel.trim();
+            const key = categoryLabel === DEFAULT_CATEGORY ? '' : categoryLabel.trim();
             setProducts((prev) => {
                 const updated = prev.map((p) => ((p.category || '').trim() === key ? { ...p, vat } : p));
                 // Save immediately with full DB replace to avoid duplicates
@@ -398,7 +401,7 @@ export default function EditMenuPage() {
     const handleCategoryReorder = useCallback(
         (orderedLabels: string[]) => {
             setProducts((prev) => {
-                const labelToKey = (l: string) => (l === 'Sans catégorie' ? '' : l);
+                const labelToKey = (l: string) => (l === DEFAULT_CATEGORY ? '' : l);
                 const sorted = [
                     ...orderedLabels.flatMap((label) => prev.filter((p) => p.category === labelToKey(label))),
                     ...prev.filter((p) => !orderedLabels.map(labelToKey).includes(p.category)),
@@ -471,7 +474,7 @@ export default function EditMenuPage() {
                     isOpen={openSection === 'categories'}
                     onToggle={() => setOpenSection((prev) => (prev === 'categories' ? null : 'categories'))}
                     productCategories={products.map((p) => ({
-                        category: p.category || 'Sans catégorie',
+                        category: p.category || DEFAULT_CATEGORY,
                         available: p.stock !== 0,
                     }))}
                     onDeleteCategoryProducts={handleDeleteCategoryProducts}
@@ -497,7 +500,7 @@ export default function EditMenuPage() {
                             // Map options to products
                             const updatedProducts = products.map((p) => {
                                 const optionGroup = newOptions.find(
-                                    (o) => o.category === (p.category || 'Sans catégorie') && o.product === p.name
+                                    (o) => o.category === (p.category || DEFAULT_CATEGORY) && o.product === p.name
                                 );
                                 return {
                                     ...p,
