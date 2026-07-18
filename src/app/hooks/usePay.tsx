@@ -85,6 +85,11 @@ export const usePay = () => {
 
     const canAddProduct = useMemo(() => Boolean(amount && selectedProduct), [amount, selectedProduct]);
 
+    const canAddProvision = useMemo(
+        () => Boolean(parameters.display?.showProvision && amount > 0 && !selectedProduct && !canPay && !canAddProduct),
+        [parameters.display?.showProvision, amount, selectedProduct, canPay, canAddProduct]
+    );
+
     const printTransactionReceipt = useCallback(
         async (printerName?: string, transaction?: Transaction) => {
             // Prepare receipt data
@@ -309,11 +314,11 @@ export const usePay = () => {
             };
 
             const finalizeProvisionPayment = async (customer: Customer, selectedOption: string) => {
-                const amount = getCurrentTotal();
+                const provisionAmount = getCurrentTotal() || amount;
                 const transaction: Transaction = {
                     validator: parameters.user.name,
                     method: selectedOption,
-                    amount,
+                    amount: provisionAmount,
                     createdDate: new Date().getTime(),
                     modifiedDate: new Date().getTime(),
                     currency: currencies[currencyIndex].label,
@@ -322,7 +327,7 @@ export const usePay = () => {
                 updateTransaction(transaction);
                 closePopup();
                 if (customer.id) {
-                    await updateCustomerBalance(customer.id, amount, 'credit');
+                    await updateCustomerBalance(customer.id, provisionAmount, 'credit');
                 }
             };
 
@@ -512,8 +517,13 @@ export const usePay = () => {
             setCurrentCustomer,
             customers,
             handlePrintBalance,
+            amount,
         ]
     );
+
+    const addProvision = useCallback(() => {
+        selectPayment(PROVISION_KEYWORD, () => {});
+    }, [selectPayment]);
 
     // Function to handle partial payment
     const selectPaymentForPartial = useCallback(
@@ -688,12 +698,10 @@ export const usePay = () => {
                     allOptions.push('PAIEMENT PARTIEL');
                 }
 
-                // Add waiting, refund, provision, and debit options based on display settings (default to true if not set)
+                // Add waiting, refund, and debit options based on display settings (default to true if not set)
                 if (parameters.display?.showWaiting !== false) allOptions.push('METTRE ' + WAITING_KEYWORD);
 
                 if (parameters.display?.showRefund !== false) allOptions.push(REFUND_KEYWORD);
-
-                if (parameters.display?.showProvision !== false) allOptions.push(PROVISION_KEYWORD + ARROW);
 
                 if (parameters.display?.showDebit !== false) allOptions.push(DEBIT_KEYWORD);
 
@@ -754,7 +762,6 @@ export const usePay = () => {
         showPartialPaymentSelector,
         parameters.display?.showWaiting,
         parameters.display?.showRefund,
-        parameters.display?.showProvision,
         parameters.display?.showDebit,
         setShowPartialPaymentSelector,
         partialPaymentAmount,
@@ -768,5 +775,5 @@ export const usePay = () => {
         }
     }, [error, cancelOrConfirmPaiement, pay]);
 
-    return { pay, canPay, canAddProduct, printTransaction };
+    return { pay, canPay, canAddProduct, canAddProvision, addProvision, printTransaction };
 };

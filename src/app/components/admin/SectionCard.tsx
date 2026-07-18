@@ -19,7 +19,7 @@ interface SectionCardProps {
     isOpen: boolean | undefined;
     onToggle: (() => void) | undefined;
     icon: ReactNode;
-    onAdd: () => void;
+    onAdd: (() => void) | undefined;
     isValid: boolean;
     addLabel: string;
     isReadOnly: boolean;

@@ -134,7 +134,7 @@ export default function ParametersConfig({
             onSave={onSave ? () => onSave(config) : undefined}
             onCancel={isReadOnly || !hasChanges ? undefined : onCancel}
             hasChanges={hasChanges}
-            onAdd={() => {}}
+            onAdd={undefined}
             icon={icon}
             saveDisabled={!isSiretValid}
             isLoading={isLoading}

@@ -24,7 +24,7 @@ export async function GET(request: Request) {
         const connection = await getMainDb(shopId);
 
         const query = connection.isPostgreSQL
-            ? 'SELECT operation_mode, kitchen_view_enabled, grafana_access_enabled FROM establishment_config ORDER BY id DESC LIMIT 1'
+            ? 'SELECT operation_mode, kitchen_view_enabled, grafana_access_enabled FROM dc.establishment_config ORDER BY id DESC LIMIT 1'
             : 'SELECT mode_fonctionnement, kitchen_view_enabled, grafana_access_enabled FROM config_etablissement ORDER BY id DESC LIMIT 1';
 
         const [rows] = await connection.execute(query);

@@ -1,6 +1,14 @@
 'use client';
 
-import { IconBackspace, IconCalculator, IconSearch, IconShoppingCart, IconWallet, IconX } from '@tabler/icons-react';
+import {
+    IconBackspace,
+    IconCalculator,
+    IconPigMoney,
+    IconSearch,
+    IconShoppingCart,
+    IconWallet,
+    IconX,
+} from '@tabler/icons-react';
 import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { isDeletedTransaction } from '../contexts/dataProvider/transactionHelpers';
@@ -579,7 +587,7 @@ export const NumPad: FC = () => {
         currentCustomer,
     } = useData();
     const { openPopup, closePopup, isPopupOpen, openFullscreenPopup } = usePopup();
-    const { pay, canPay, canAddProduct } = usePay();
+    const { pay, canPay, canAddProduct, addProvision, canAddProvision } = usePay();
     const { showTransactionsSummary, showTransactionsSummaryMenu, getHistoricalTransactions, refreshHistoricalKeys } =
         useSummary();
 
@@ -878,7 +886,7 @@ export const NumPad: FC = () => {
         : '';
     const s =
         'w-[72px] h-[72px] sm:w-20 sm:h-20 rounded-2xl flex justify-center m-2.5 sm:m-3 items-center text-5xl sm:text-6xl ';
-    const sx = s + (canPay || canAddProduct ? color : 'invisible');
+    const sx = s + (canPay || canAddProduct || canAddProvision ? color : 'invisible');
 
     const f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
     const f1 = f + (hasAmount || total ? color : 'invisible');
@@ -1025,11 +1033,27 @@ export const NumPad: FC = () => {
                         <NumPadButton input={0} onInput={onInput} />
                         <NumPadButton input={!quantity ? '00' : '½'} onInput={onInput} />
                         <ImageButton
-                            icon={canPay ? IconWallet : canAddProduct ? IconShoppingCart : IconWallet}
+                            icon={
+                                canPay
+                                    ? IconWallet
+                                    : canAddProduct
+                                      ? IconShoppingCart
+                                      : canAddProvision
+                                        ? IconPigMoney
+                                        : IconWallet
+                            }
                             className={sx}
-                            onClick={canPay ? pay : canAddProduct ? addProduct : () => {}}
+                            onClick={
+                                canPay ? pay : canAddProduct ? addProduct : canAddProvision ? addProvision : () => {}
+                            }
                             onContextMenu={
-                                canPay ? () => updateTransaction(WAITING_KEYWORD) : canAddProduct ? pay : () => {}
+                                canPay
+                                    ? () => updateTransaction(WAITING_KEYWORD)
+                                    : canAddProduct
+                                      ? pay
+                                      : canAddProvision
+                                        ? addProvision
+                                        : () => {}
                             }
                         />
                     </div>
