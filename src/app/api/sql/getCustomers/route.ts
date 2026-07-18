@@ -13,19 +13,12 @@ interface CustomerRow {
     quota_share: number | null;
 }
 
-// Detects "relation/table does not exist" errors across Postgres (42P01) and MySQL/MariaDB (1146)
-function isMissingTableError(error: unknown): boolean {
-    const e = error as { code?: string; errno?: number };
-    return e?.code === '42P01' || e?.code === 'ER_NO_SUCH_TABLE' || e?.errno === 1146;
-}
-
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
     try {
         const connection = await getPosDb(shopId);
 
-        // Try query with companies join first
-        let query = connection.isPostgreSQL
+        const query = connection.isPostgreSQL
             ? `SELECT c.id, c.first_name, c.last_name, c.reference, c.email, c.phone, c.company, co.quota_share
                FROM dc_pos.customers c
                LEFT JOIN dc_pos.companies co ON c.company = co.name
@@ -35,24 +28,7 @@ export async function GET(request: Request) {
                LEFT JOIN companies co ON c.company = co.name
                ORDER BY c.last_name, c.first_name`;
 
-        let result;
-        try {
-            result = await connection.execute(query);
-        } catch (joinError) {
-            // Only fall back to a join-less query if the companies table is missing;
-            // rethrow any other error so genuine failures aren't masked.
-            if (!isMissingTableError(joinError)) throw joinError;
-            console.warn('Companies table does not exist, using fallback query');
-            query = connection.isPostgreSQL
-                ? `SELECT c.id, c.first_name, c.last_name, c.reference, c.email, c.phone, c.company, NULL as quota_share
-                   FROM dc_pos.customers c
-                   ORDER BY c.last_name, c.first_name`
-                : `SELECT c.id, c.first_name, c.last_name, c.reference, c.email, c.phone, c.company, NULL as quota_share
-                   FROM customers c
-                   ORDER BY c.last_name, c.first_name`;
-            result = await connection.execute(query);
-        }
-
+        const result = await connection.execute(query);
         const rows = result[0] as CustomerRow[];
 
         await connection.end();

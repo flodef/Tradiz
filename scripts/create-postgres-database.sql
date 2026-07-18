@@ -260,6 +260,14 @@ CREATE TABLE IF NOT EXISTS dc_pos.customers (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Companies
+CREATE TABLE IF NOT EXISTS dc_pos.companies (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    quota_share DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Balance History
 CREATE TABLE IF NOT EXISTS dc_pos.balance_history (
     id SERIAL PRIMARY KEY,
