@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { QRCode } from '../components/QRCode';
 import CustomerSearchPopup from '../components/CustomerSearchPopup';
 import { Shop } from '../contexts/ConfigProvider';
+import { floorToSeconds } from '../contexts/DataProvider';
 import { isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
 import {
     ARROW,
-    BACK_KEYWORD,
     CATEGORY_SEPARATOR,
     DEBIT_KEYWORD,
     IS_LOCAL,
@@ -72,6 +72,18 @@ export const usePay = () => {
         modeFonctionnement,
         setCustomers,
     } = useConfig();
+
+    // Finalise une transaction validée et déselectionne le client en cours.
+    const commitTransaction = useCallback(
+        (item: string | Transaction) => {
+            updateTransaction(item);
+            const method = typeof item === 'string' ? item : item.method;
+            if (method !== WAITING_KEYWORD) {
+                setCurrentCustomer(null);
+            }
+        },
+        [updateTransaction, setCurrentCustomer]
+    );
 
     // Ref local pour éviter de redemander le type de service lors de l'appel récursif à pay()
     const serviceTypeSelectedRef = useRef(false);
@@ -219,7 +231,7 @@ export const usePay = () => {
                             closePopup(init);
                         }
                     } else if (refPaymentStatus.current === PaymentStatus.Finalized) {
-                        updateTransaction('Crypto');
+                        commitTransaction('Crypto');
                         closePopup(init);
                     } else {
                         retry();
@@ -232,7 +244,7 @@ export const usePay = () => {
             );
         },
         [
-            updateTransaction,
+            commitTransaction,
             closePopup,
             generate,
             retry,
@@ -264,7 +276,7 @@ export const usePay = () => {
                             closePopup(init);
                             break;
                         case 3:
-                            updateTransaction('Crypto');
+                            commitTransaction('Crypto');
                             closePopup(init);
                             break;
                         default:
@@ -284,7 +296,7 @@ export const usePay = () => {
             retry,
             closePopup,
             init,
-            updateTransaction,
+            commitTransaction,
             currencies,
             currencyIndex,
         ]
@@ -315,16 +327,19 @@ export const usePay = () => {
 
             const finalizeProvisionPayment = async (customer: Customer, selectedOption: string) => {
                 const provisionAmount = getCurrentTotal() || amount;
+                // Floor to seconds to match SQL TIMESTAMP precision, otherwise the transaction
+                // is treated as a distinct entry when merging with SQL data (duplicate in the UI).
+                const now = floorToSeconds(new Date().getTime());
                 const transaction: Transaction = {
                     validator: parameters.user.name,
                     method: selectedOption,
                     amount: provisionAmount,
-                    createdDate: new Date().getTime(),
-                    modifiedDate: new Date().getTime(),
+                    createdDate: now,
+                    modifiedDate: now,
                     currency: currencies[currencyIndex].label,
                     products: [],
                 };
-                updateTransaction(transaction);
+                commitTransaction(transaction);
                 closePopup();
                 if (customer.id) {
                     await updateCustomerBalance(customer.id, provisionAmount, 'credit');
@@ -334,7 +349,7 @@ export const usePay = () => {
             const finalizeDebitPayment = async (customer: Customer) => {
                 // Capture the amount before updateTransaction, which may reset the current total.
                 const amount = getCurrentTotal();
-                updateTransaction(DEBIT_KEYWORD);
+                commitTransaction(DEBIT_KEYWORD);
                 closePopup();
                 if (customer.id) {
                     await updateCustomerBalance(customer.id, amount, 'debit');
@@ -409,17 +424,12 @@ export const usePay = () => {
                             m.type.toLowerCase() !== PROVISION_KEYWORD.toLowerCase()
                     )
                     .map((m) => m.type);
-                subOptions.push(BACK_KEYWORD);
-                if (subOptions.length === 1) {
+                if (subOptions.length === 0) {
                     openPopup('Erreur', ['Aucune méthode de paiement disponible']);
                     return;
                 }
                 openPopup('Mode de paiement PROVISION', subOptions, (index, selectedOption) => {
                     if (index < 0) return;
-                    if (selectedOption === BACK_KEYWORD) {
-                        closePopup(() => fallback());
-                        return;
-                    }
                     finalizeProvisionPayment(customer, selectedOption);
                 });
             };
@@ -437,24 +447,11 @@ export const usePay = () => {
                         'IBAN : ' + paymentMethods.find((item) => item.type === 'Virement')?.id,
                         ['Valider paiement', 'Annuler paiement'],
                         (index) => {
-                            if (index === 0) updateTransaction(option);
+                            if (index === 0) commitTransaction(option);
                         }
                     );
                     break;
                 case PROVISION_KEYWORD: {
-                    const subOption = option.includes(CATEGORY_SEPARATOR)
-                        ? option.split(CATEGORY_SEPARATOR).slice(1).join(CATEGORY_SEPARATOR).trim()
-                        : undefined;
-
-                    if (subOption) {
-                        if (!currentCustomer) {
-                            openCustomerSearchPopup((customer) => finalizeProvisionPayment(customer, option));
-                            return;
-                        }
-                        finalizeProvisionPayment(currentCustomer, option);
-                        return;
-                    }
-
                     if (!currentCustomer) {
                         openCustomerSearchPopup((customer) => showProvisionSubOptions(customer));
                         return;
@@ -494,7 +491,7 @@ export const usePay = () => {
                                 products.current.push(product);
                             });
 
-                            updateTransaction(option);
+                            commitTransaction(option);
                             closePopup();
                         }
                     });
@@ -507,7 +504,7 @@ export const usePay = () => {
                     break;
                 default:
                     // Pour les modes de paiement normaux, enregistrer comme payé
-                    updateTransaction(option);
+                    commitTransaction(option);
                     closePopup();
                     break;
             }
@@ -516,6 +513,7 @@ export const usePay = () => {
             openQRCode,
             cancelOrConfirmPaiement,
             generate,
+            commitTransaction,
             updateTransaction,
             closePopup,
             paymentMethods,

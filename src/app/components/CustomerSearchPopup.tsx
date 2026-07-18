@@ -80,13 +80,14 @@ const CustomerSearchPopup: FC<CustomerSearchPopupProps> = ({
         if (!option) return;
 
         if (option.type === 'customer' && option.customer) {
+            closePopup();
             onSelectCustomer(option.customer);
+            return;
         } else if (option.type === 'add') {
             closePopup();
             onCreateCustomer(trimmedQuery);
             return;
         }
-        closePopup();
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

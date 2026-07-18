@@ -971,7 +971,7 @@ export const NumPad: FC = () => {
                             {currentCustomer && (
                                 <button
                                     onClick={() => setCurrentCustomer(null)}
-                                    className="shrink-0 p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                                    className="shrink-0 p-1 hover:bg-active-light dark:hover:bg-active-dark rounded"
                                 >
                                     <IconX size={24} stroke={3} />
                                 </button>

@@ -162,7 +162,9 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                                         ? 'grid auto-cols-fr text-left pl-3 gap-4'
                                         : 'flex justify-around items-center text-center py-0',
                                     getOptionHoverStyles(isMobileDevice, typeof option === 'string'),
-                                    !isMobile && validIndex === selectedIndex ? 'bg-blue-100 dark:bg-blue-900' : '',
+                                    typeof option === 'string' && !isMobile && validIndex === selectedIndex
+                                        ? 'bg-active-light dark:bg-active-dark'
+                                        : '',
                                     popupIsSpecial && popupIsSpecial(validOption) ? 'animate-pulse' : ''
                                 )}
                                 style={

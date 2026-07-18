@@ -18,7 +18,7 @@ import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
 import { LoadingDot } from '../loading';
-import { BACK_KEYWORD, UPDATING_KEYWORD, USE_DIGICARTE, WAITING_KEYWORD } from '../utils/constants';
+import { BACK_KEYWORD, PROVISION_KEYWORD, UPDATING_KEYWORD, USE_DIGICARTE, WAITING_KEYWORD } from '../utils/constants';
 import { OrderItem, State, Transaction } from '../utils/interfaces';
 import { CLOSE, postMessageToParent } from '../utils/message';
 import { isMobileSize, useIsMobile, useIsMobileDevice } from '../utils/mobile';
@@ -387,21 +387,31 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
             const transaction = transactionIndex >= 0 ? transactions.at(transactionIndex) : undefined;
             if (isUpdatingTransaction(transaction) || !transaction?.amount || !isStateReady) return;
 
+            // A transaction with no product items is a provision: show a synthetic line so it is
+            // still visible in the details (like a product would be).
+            const isProvision = transaction.products.length === 0;
+            const productLines = isProvision
+                ? [PROVISION_KEYWORD + ' : ' + toCurrency(transaction)]
+                : transaction.products.map((product) => displayProduct(product, transaction.currency));
+
             openPopup(
                 toCurrency(transaction) +
                     ' en ' +
                     transaction.method +
                     (transaction.shortNumOrder ? ` [#${transaction.shortNumOrder}]` : ''),
 
-                transaction.products
-                    .map((product) => displayProduct(product, transaction.currency))
-                    .concat(isMobileSize() ? ['', BACK_KEYWORD] : []),
+                productLines.concat(isMobileSize() ? ['', BACK_KEYWORD] : []),
                 (i, o) =>
                     o === BACK_KEYWORD
                         ? fallback()
                         : modifyTransaction(i !== -1 ? transactionIndex : i, (i) => showBoughtProducts(i, fallback)),
                 true,
                 (productIndex) => {
+                    // Provisions have no deletable product items; open the transaction menu instead.
+                    if (isProvision) {
+                        modifyTransaction(transactionIndex, () => showBoughtProducts(transactionIndex, fallback));
+                        return;
+                    }
                     openPopup(
                         'Effacer ?',
                         ['Oui', 'Non'],
