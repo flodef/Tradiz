@@ -35,7 +35,7 @@ export type ReceiptData = {
 };
 
 export const usePay = () => {
-    const { openPopup, closePopup } = usePopup();
+    const { openPopup, closePopup, openFullscreenPopup } = usePopup();
     const {
         updateTransaction,
         getCurrentTotal,
@@ -70,7 +70,7 @@ export const usePay = () => {
         getPrinterAddresses,
         inventory,
         modeFonctionnement,
-        customers,
+        setCustomers,
     } = useConfig();
 
     // Ref local pour éviter de redemander le type de service lors de l'appel récursif à pay()
@@ -341,23 +341,36 @@ export const usePay = () => {
                 }
             };
 
-            const openCustomerSearchPopup = (onCustomerSelected: (customer: Customer) => void) => {
-                openPopup(
+            const openCustomerSearchPopup = (
+                onCustomerSelected: (customer: Customer) => void,
+                initialQuery: string = ''
+            ) => {
+                openFullscreenPopup(
                     'Sélectionner un client',
                     [
                         <CustomerSearchPopup
                             key="customerSearch"
-                            customers={customers}
-                            initialQuery=""
+                            initialQuery={initialQuery}
                             onPrintBalance={handlePrintBalance}
                             onSelectCustomer={(customer) => {
                                 setCurrentCustomer(customer);
                                 onCustomerSelected(customer);
                             }}
                             onCreateCustomer={async (customerName) => {
+                                const trimmed = customerName.trim();
+                                const spaceIndex = trimmed.indexOf(' ');
+                                if (spaceIndex === -1) {
+                                    openFullscreenPopup(
+                                        'Veuillez ajouter un nom de famille séparé par un espace',
+                                        ['OK'],
+                                        () => openCustomerSearchPopup(onCustomerSelected, trimmed),
+                                        false
+                                    );
+                                    return;
+                                }
                                 const newCustomer: Customer = {
-                                    firstName: customerName.split(' ')[0] || customerName,
-                                    lastName: customerName.split(' ').slice(1).join(' ') || '',
+                                    firstName: trimmed.slice(0, spaceIndex),
+                                    lastName: trimmed.slice(spaceIndex + 1),
                                 };
                                 try {
                                     const response = await fetch('/api/sql/addCustomer', {
@@ -367,6 +380,7 @@ export const usePay = () => {
                                     });
                                     const result = await response.json();
                                     if (result.success) {
+                                        setCustomers((prev) => [...prev, result.customer]);
                                         setCurrentCustomer(result.customer);
                                         onCustomerSelected(result.customer);
                                     } else {
@@ -379,10 +393,10 @@ export const usePay = () => {
                                     openPopup('Erreur', ['Erreur lors de la création du client']);
                                 }
                             }}
-                            onSelectNoCustomer={() => closePopup()}
                         />,
                     ],
-                    () => closePopup()
+                    () => {},
+                    true
                 );
             };
 
@@ -515,9 +529,10 @@ export const usePay = () => {
             reverseTransaction,
             currentCustomer,
             setCurrentCustomer,
-            customers,
+            setCustomers,
             handlePrintBalance,
             amount,
+            openFullscreenPopup,
         ]
     );
 

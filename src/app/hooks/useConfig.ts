@@ -36,6 +36,7 @@ export interface ConfigContextState {
     getPrintersNames: () => string[];
     getPrinterAddresses: (name?: string) => string[];
     customers: Customer[];
+    setCustomers: (value: Customer[] | ((prev: Customer[]) => Customer[])) => void;
     users: User[];
 }
 

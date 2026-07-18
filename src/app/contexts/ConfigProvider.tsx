@@ -140,7 +140,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     const [discounts, setDiscounts] = useState<Discount[]>([]);
     const [colors, setColors] = useState<Color[]>([]);
     const [printers, setPrinters] = useState<Printer[]>([]);
-    const [customers, setCustomers] = useState<Customer[]>([]);
+    const [customers, setCustomersState] = useState<Customer[]>([]);
     const [users, setUsers] = useState<User[]>([]);
 
     const isStateReady = useMemo(() => state === State.preloaded || state === State.loaded, [state]);
@@ -184,6 +184,18 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
         [currencies]
     );
 
+    const setCustomers = useCallback(
+        (value: Customer[] | ((prev: Customer[]) => Customer[])) => {
+            setCustomersState(value);
+            setConfig((prevConfig) => {
+                if (!prevConfig) return prevConfig;
+                const newCustomers = typeof value === 'function' ? value(prevConfig.customers) : value;
+                return { ...prevConfig, customers: newCustomers };
+            });
+        },
+        [setConfig]
+    );
+
     const getPrintersNames = useCallback(() => {
         const printersNames = printers.filter(({ label: name }) => name !== LOCAL_PRINTER_KEYWORD);
         if (!printersNames.length) return [];
@@ -220,7 +232,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
         setDiscounts(data.discounts);
         setColors(data.colors);
         setPrinters(data.printers);
-        setCustomers(data.customers);
+        setCustomersState(data.customers);
         setUsers(data.users);
 
         setState(State.preloaded);
@@ -400,6 +412,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                 getPrintersNames,
                 getPrinterAddresses,
                 customers,
+                setCustomers,
                 users,
             }}
         >
