@@ -62,6 +62,7 @@ const SortableRow = memo(function SortableRow({
                     type="number"
                     value={String(discount.amount)}
                     onChange={(value) => onAmountChange(discount._id, Number(value))}
+                    validation={(value) => Number(value) > 0}
                     min={0}
                     ref={(el) => {
                         if (el) {
@@ -226,41 +227,44 @@ export default function DiscountsConfig({
             onToggle={onToggle}
             onAdd={handleAddDiscount}
             isValid={isValid}
+            saveDisabled={!isValid}
             addLabel="Ajouter une réduction"
             isReadOnly={isReadOnly}
         >
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={discounts.map((d) => d._id)} strategy={verticalListSortingStrategy}>
-                    <div className="overflow-x-auto">
-                        <table className="w-full border-collapse">
-                            <thead>
-                                <tr className="border-b-2 border-gray-300 dark:border-gray-600">
-                                    {!isReadOnly && <th className="w-12"></th>}
-                                    <th className={adminHeaderStyle + ' min-w-24'}>Montant</th>
-                                    <th className={adminHeaderStyle + ' min-w-16 w-16'}>Unité</th>
-                                    {!isReadOnly && <th className="w-16"></th>}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {discounts.map((discount, index) => (
-                                    <SortableRow
-                                        key={discount._id}
-                                        discount={discount}
-                                        isReadOnly={isReadOnly}
-                                        units={units}
-                                        onAmountChange={handleAmountChange}
-                                        onUnitChange={handleUnitChange}
-                                        onDelete={handleDeleteDiscount}
-                                        amountInputRefs={amountInputRefs}
-                                        lastAddedIndexRef={lastAddedIndexRef}
-                                        index={index}
-                                    />
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </SortableContext>
-            </DndContext>
+            {discounts.length > 0 && (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={discounts.map((d) => d._id)} strategy={verticalListSortingStrategy}>
+                        <div className="overflow-x-auto">
+                            <table className="w-full border-collapse">
+                                <thead>
+                                    <tr className="border-b-2 border-gray-300 dark:border-gray-600">
+                                        {!isReadOnly && <th className="w-12"></th>}
+                                        <th className={adminHeaderStyle + ' min-w-24'}>Montant</th>
+                                        <th className={adminHeaderStyle + ' min-w-16 w-16'}>Unité</th>
+                                        {!isReadOnly && <th className="w-16"></th>}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {discounts.map((discount, index) => (
+                                        <SortableRow
+                                            key={discount._id}
+                                            discount={discount}
+                                            isReadOnly={isReadOnly}
+                                            units={units}
+                                            onAmountChange={handleAmountChange}
+                                            onUnitChange={handleUnitChange}
+                                            onDelete={handleDeleteDiscount}
+                                            amountInputRefs={amountInputRefs}
+                                            lastAddedIndexRef={lastAddedIndexRef}
+                                            index={index}
+                                        />
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </SortableContext>
+                </DndContext>
+            )}
         </SectionCard>
     );
 }

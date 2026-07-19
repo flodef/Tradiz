@@ -32,7 +32,7 @@ import {
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { useIsMobile } from '@/app/utils/mobile';
 import { clearLoadDataCache, defaultParameters, getPublicKey } from '@/app/utils/processData';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LoadingDot } from '@/app/loading';
 import {
     IconSettings,
@@ -68,6 +68,7 @@ export default function SettingsPage() {
     const [settings, setSettings] = useState<Parameters>(defaultParameters);
     const [isAdmin, setIsAdmin] = useState(isConfigAdmin);
     const [discounts, setDiscounts] = useState<Discount[]>([]);
+    const isDiscountsValid = useMemo(() => discounts.every((d) => d.amount > 0), [discounts]);
     const [currenciesConfig, setCurrenciesConfig] = useState<Currency[]>([]);
     const [paymentsConfig, setPaymentsConfig] = useState<PaymentMethod[]>([]);
     const [colorsConfig, setColorsConfig] = useState<Color[]>([]);
@@ -136,6 +137,7 @@ export default function SettingsPage() {
     const [isDevicesValid, setIsDevicesValid] = useState(true);
     const [isCustomersValid, setIsCustomersValid] = useState(true);
     const [isCompaniesValid, setIsCompaniesValid] = useState(true);
+    const [isPrintersValid, setIsPrintersValid] = useState(true);
     const [originalSettings, setOriginalSettings] = useState<Parameters>(defaultParameters);
     const [originalDiscounts, setOriginalDiscounts] = useState<Discount[]>([]);
     const [originalCurrencies, setOriginalCurrencies] = useState<Currency[]>([]);
@@ -632,14 +634,14 @@ export default function SettingsPage() {
         // Save all changed sections
         setIsSaving(true);
         if (hasSettingsChanges) await handleParametersSave(settings);
-        if (hasDiscountsChanges) await handleDiscountsSave(discounts);
+        if (hasDiscountsChanges && isDiscountsValid) await handleDiscountsSave(discounts);
         if (hasCurrenciesChanges) await handleCurrenciesSave(currenciesConfig);
         if (hasPaymentsChanges) await handlePaymentsSave(paymentsConfig);
         if (hasCustomersChanges) await handleCustomersSave(customersConfig);
         if (hasColorsChanges) await handleColorsSave(colorsConfig);
         if (hasUsersChanges && isUsersValid) await handleUsersSave(usersConfig);
         if (hasDevicesChanges && isDevicesValid) await handleDevicesSave(devicesConfig);
-        if (hasPrintersChanges) await handlePrintersSave(printersConfig);
+        if (hasPrintersChanges && isPrintersValid) await handlePrintersSave(printersConfig);
         if (hasCompaniesChanges && isCompaniesValid) await handleCompaniesSave(companiesConfig);
         setIsSaving(false);
     };
@@ -754,16 +756,19 @@ export default function SettingsPage() {
 
             if (!response.ok) throw new Error('Failed to save parameters');
 
+            // Preserve the runtime-resolved user; it is not stored in the parameters DB table.
+            const dataWithUser = { ...data, user: parameters.user };
+
             // Update local state without refetching
-            setSettings(data);
-            setOriginalSettings(data);
+            setSettings(dataWithUser);
+            setOriginalSettings(dataWithUser);
             setHasSettingsChanges(false);
 
             // Update ConfigProvider parameters directly
-            setParameters(data);
+            setParameters(dataWithUser);
 
             // Update ConfigProvider to sync with main app
-            setConfig(buildConfig({ parameters: { ...data, lastModified: Date.now().toString() } }));
+            setConfig(buildConfig({ parameters: { ...dataWithUser, lastModified: Date.now().toString() } }));
 
             // Invalidate the loadData cache so other ConfigProvider instances
             // (e.g. the POS app) re-fetch fresh parameters from the DB on next mount
@@ -1147,6 +1152,20 @@ export default function SettingsPage() {
                 onValidation={setIsCompaniesValid}
             />
 
+            <PrintersConfig
+                config={printersConfig}
+                onChange={setPrintersConfig}
+                onSave={handlePrintersSave}
+                onCancel={handleCancel}
+                hasChanges={hasPrintersChanges}
+                isReadOnly={isReadOnly}
+                isLoading={isSavingPrinters}
+                isOpen={openSection === 'printers'}
+                onToggle={() => setOpenSection((prev) => (prev === 'printers' ? null : 'printers'))}
+                icon={<IconPrinter size={24} />}
+                onValidation={setIsPrintersValid}
+            />
+
             <ColorsConfig
                 config={colorsConfig}
                 onChange={setColorsConfig}
@@ -1166,19 +1185,6 @@ export default function SettingsPage() {
                 icon={<IconPalette size={24} />}
             />
 
-            <PrintersConfig
-                config={printersConfig}
-                onChange={setPrintersConfig}
-                onSave={handlePrintersSave}
-                onCancel={handleCancel}
-                hasChanges={hasPrintersChanges}
-                isReadOnly={isReadOnly}
-                isLoading={isSavingPrinters}
-                isOpen={openSection === 'printers'}
-                onToggle={() => setOpenSection((prev) => (prev === 'printers' ? null : 'printers'))}
-                icon={<IconPrinter size={24} />}
-            />
-
             {!isReadOnly && hasChanges && (
                 <div className="mt-6 flex justify-end gap-4">
                     {!isSaving && (
@@ -1189,7 +1195,15 @@ export default function SettingsPage() {
                     <AdminButton
                         onClick={handleSaveAll}
                         isLoading={isSaving}
-                        disabled={!isSiretValid || !isUsersValid || !isDevicesValid || !isCustomersValid || isSaving}
+                        disabled={
+                            !isSiretValid ||
+                            !isUsersValid ||
+                            !isDevicesValid ||
+                            !isCustomersValid ||
+                            !isDiscountsValid ||
+                            !isPrintersValid ||
+                            isSaving
+                        }
                         variant="save"
                         className={isMobile ? 'px-3 py-2' : ''}
                     >

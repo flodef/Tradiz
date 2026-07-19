@@ -53,7 +53,7 @@ export default function SectionCard({
                 className="cursor-pointer select-none"
                 onClick={() => (onToggle ? onToggle() : setInternalOpen((o) => !o))}
             >
-                <div className="flex justify-between items-start px-6 py-4 gap-4">
+                <div className="flex justify-between items-start px-2 md:px-6 py-4 gap-2">
                     <div className="flex items-center gap-2">
                         <svg
                             className={`w-5 h-5 transition-transform duration-200 ${open ? 'rotate-90' : 'rotate-0'}`}
@@ -102,7 +102,7 @@ export default function SectionCard({
                 </div>
             </div>
             {open && (
-                <div className="px-6 pb-6 pt-2 border-t border-black/10 dark:border-white/10 space-y-4">
+                <div className="px-2 md:px-6 pb-4 pt-2 border-t border-black/10 dark:border-white/10 space-y-4">
                     {children}
                     {onAdd && !isReadOnly && (
                         <AdminButton variant="add" onClick={onAdd} disabled={!isValid}>
