@@ -235,6 +235,7 @@ CREATE TABLE IF NOT EXISTS `currencies` (
 CREATE TABLE IF NOT EXISTS `transactions` (
   `id` int(16) NOT NULL AUTO_INCREMENT,
   `order_id` varchar(50) NOT NULL,
+  `customer_name` varchar(255) DEFAULT NULL,
   `user_name` VARCHAR(255) NOT NULL DEFAULT 'Cashier',
   `payment_method` varchar(50) NOT NULL DEFAULT '',
   `amount` float NOT NULL,
@@ -246,7 +247,8 @@ CREATE TABLE IF NOT EXISTS `transactions` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `hash` (`hash`),
   KEY `payment_method` (`payment_method`),
-  KEY `currency` (`currency`)
+  KEY `currency` (`currency`),
+  KEY `customer_name` (`customer_name`)
 ) ENGINE=InnoDB AUTO_INCREMENT=209 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Transaction Items (was: facturation_article)

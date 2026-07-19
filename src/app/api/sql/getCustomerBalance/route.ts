@@ -20,7 +20,7 @@ export async function GET(request: Request) {
             : 'SELECT balance FROM customers WHERE id = ?';
 
         const [rows] = await connection.execute(getQuery, [customerId]);
-        const balance = (rows as { balance: number }[])[0]?.balance || 0;
+        const balance = Number((rows as { balance: number }[])[0]?.balance ?? 0);
 
         // Get balance history (last 50 entries)
         const historyQuery = connection.isPostgreSQL
@@ -36,13 +36,21 @@ export async function GET(request: Request) {
                LIMIT 50`;
 
         const [historyRows] = await connection.execute(historyQuery, [customerId]);
-        const history = historyRows as Array<{
-            amount: number;
-            operation: 'credit' | 'debit';
-            previous_balance: number;
-            new_balance: number;
-            created_at: string;
-        }>;
+        const history = (
+            historyRows as Array<{
+                amount: number;
+                operation: 'credit' | 'debit';
+                previous_balance: number;
+                new_balance: number;
+                created_at: string;
+            }>
+        ).map((entry) => ({
+            amount: Number(entry.amount),
+            operation: entry.operation,
+            previous_balance: Number(entry.previous_balance),
+            new_balance: Number(entry.new_balance),
+            created_at: entry.created_at,
+        }));
 
         await connection.end();
 

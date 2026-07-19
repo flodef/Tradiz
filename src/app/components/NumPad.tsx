@@ -27,6 +27,7 @@ import { getPopupStyles, getOptionHoverStyles } from '../utils/popupStyles';
 import { Digits } from '../utils/types';
 import { Amount } from './Amount';
 import { Calculator } from './Calculator';
+import CustomerDetailsPopup from './CustomerDetailsPopup';
 import { useAddPopupClass } from './Popup';
 import { UserSwitchPopup } from './UserSwitchPopup';
 
@@ -943,25 +944,34 @@ export const NumPad: FC = () => {
                             <span
                                 className={twMerge(
                                     'truncate',
-                                    !currentCustomer && parameters.userSwitch !== false && users.length > 1
+                                    currentCustomer ||
+                                        (!currentCustomer && parameters.userSwitch !== false && users.length > 1)
                                         ? 'cursor-pointer underline p-1 rounded hover:bg-active-light dark:hover:bg-active-dark'
                                         : ''
                                 )}
                                 onClick={
-                                    !currentCustomer && parameters.userSwitch !== false && users.length > 1
+                                    currentCustomer
                                         ? () =>
                                               openFullscreenPopup(
-                                                  "Changer d'utilisateur",
-                                                  [
-                                                      <UserSwitchPopup
-                                                          key="userSwitch"
-                                                          onSelect={(user) => setParameters({ ...parameters, user })}
-                                                      />,
-                                                  ],
+                                                  `${currentCustomer.firstName} ${currentCustomer.lastName}`,
+                                                  [<CustomerDetailsPopup key="details" customer={currentCustomer} />],
                                                   () => {},
                                                   true
                                               )
-                                        : undefined
+                                        : !currentCustomer && parameters.userSwitch !== false && users.length > 1
+                                          ? () =>
+                                                openFullscreenPopup(
+                                                    "Changer d'utilisateur",
+                                                    [
+                                                        <UserSwitchPopup
+                                                            key="userSwitch"
+                                                            onSelect={(user) => setParameters({ ...parameters, user })}
+                                                        />,
+                                                    ],
+                                                    () => {},
+                                                    true
+                                                )
+                                          : undefined
                                 }
                             >
                                 {currentCustomer

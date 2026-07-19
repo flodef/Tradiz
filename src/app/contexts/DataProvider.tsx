@@ -747,6 +747,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         transaction: {
                             id: index,
                             order_id: orderId || String(transaction.createdDate),
+                            customer_name: currentCustomer
+                                ? `${currentCustomer.firstName} ${currentCustomer.lastName}`.trim() || null
+                                : null,
                             user_name: transaction.validator,
                             payment_method: transaction.method,
                             amount: transaction.amount,
@@ -853,6 +856,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             setLocalStorageItem,
             currencies,
             orderId,
+            currentCustomer,
             contextTableId,
             setShortNumOrder,
             storeTransaction,
@@ -882,9 +886,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 (typeof element !== 'number' && element.hasOwnProperty('currency')
                     ? currencies.find(({ label }) => label === (element as { currency: string }).currency)
                     : undefined) ?? currencies[currencyIndex];
-            const amount = element.hasOwnProperty('amount')
-                ? (element as { amount: number }).amount
-                : (element as number);
+            const amount = Number(
+                element.hasOwnProperty('amount') ? (element as { amount: number }).amount : (element as number)
+            );
             return amount.toCurrency(currency.decimals, currency.symbol);
         },
         [currencies, currencyIndex]

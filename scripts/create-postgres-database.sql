@@ -319,6 +319,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.payment_methods (
 CREATE TABLE IF NOT EXISTS dc_pos.transactions (
     id SERIAL PRIMARY KEY,
     order_id VARCHAR(255),
+    customer_name VARCHAR(255) DEFAULT NULL,
     user_name VARCHAR(255) NOT NULL DEFAULT 'Cashier',
     payment_method VARCHAR(50) NOT NULL DEFAULT '',
     amount NUMERIC(10,2) NOT NULL DEFAULT 0,
@@ -331,6 +332,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.transactions (
 CREATE INDEX IF NOT EXISTS idx_transactions_payment_method ON dc_pos.transactions(payment_method);
 CREATE INDEX IF NOT EXISTS idx_transactions_currency ON dc_pos.transactions(currency);
 CREATE INDEX IF NOT EXISTS idx_transactions_hash ON dc_pos.transactions(hash);
+CREATE INDEX IF NOT EXISTS idx_transactions_customer_name ON dc_pos.transactions(customer_name);
 
 -- Transaction Items (was: facturation_article) - with DECIMAL quantity support
 CREATE TABLE IF NOT EXISTS dc_pos.transaction_items (

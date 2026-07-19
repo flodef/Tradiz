@@ -16,6 +16,7 @@ interface TransactionProduct {
 
 interface TransactionData {
     order_id: string;
+    customer_name?: string | null;
     user_name: string;
     payment_method: string;
     amount: number;
@@ -125,17 +126,18 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
     // Insert into transactions table (payment_method, currency, and user_name are strings)
     const insertTransactionQuery = connection.isPostgreSQL
         ? `
-        INSERT INTO dc_pos.transactions (order_id, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        INSERT INTO dc_pos.transactions (order_id, customer_name, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING id
     `
         : `
-        INSERT INTO transactions (order_id, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO transactions (order_id, customer_name, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const params = [
         transaction.order_id,
+        transaction.customer_name ?? null,
         userName,
         transaction.payment_method,
         transaction.amount,
@@ -244,15 +246,16 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
     const updateQuery = connection.isPostgreSQL
         ? `
         UPDATE dc_pos.transactions
-         SET user_name = $1, payment_method = $2, amount = $3, currency = $4, note = $5, hash = $6, updated_at = $7
-         WHERE id = $8
+         SET customer_name = $1, user_name = $2, payment_method = $3, amount = $4, currency = $5, note = $6, hash = $7, updated_at = $8
+         WHERE id = $9
     `
         : `
         UPDATE transactions
-         SET user_name = ?, payment_method = ?, amount = ?, currency = ?, note = ?, hash = ?, updated_at = ?
+         SET customer_name = ?, user_name = ?, payment_method = ?, amount = ?, currency = ?, note = ?, hash = ?, updated_at = ?
          WHERE id = ?
     `;
     await connection.execute(updateQuery, [
+        transaction.customer_name ?? null,
         userName,
         transaction.payment_method,
         transaction.amount,
