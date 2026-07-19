@@ -2,6 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 import { generateProductReference } from '@/app/utils/productReference';
+import { normalizeFirstName, normalizeFamilyName } from '@/app/utils/regex';
 
 interface Customer {
     firstName: string;
@@ -24,8 +25,8 @@ export async function POST(request: Request) {
 
         const connection = await getPosDb(shopId);
 
-        const firstName = customer.firstName;
-        const lastName = customer.lastName;
+        const firstName = normalizeFirstName(customer.firstName);
+        const lastName = normalizeFamilyName(customer.lastName);
         const reference = customer.reference || generateProductReference(Date.now());
         const email = customer.email || null;
         const phone = customer.phone || null;
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
         await connection.end();
 
         return NextResponse.json(
-            { success: true, customerId, customer: { ...customer, id: customerId, reference } },
+            { success: true, customerId, customer: { ...customer, firstName, lastName, id: customerId, reference } },
             { status: 200 }
         );
     } catch (error) {

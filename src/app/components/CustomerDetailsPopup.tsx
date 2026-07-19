@@ -6,11 +6,24 @@ import { BACK_KEYWORD, PROVISION_KEYWORD } from '@/app/utils/constants';
 
 interface BalanceEntry {
     amount: number;
-    operation: 'credit' | 'debit';
+    operation: 'credit' | 'debit' | 'deleted';
     previous_balance: number;
     new_balance: number;
     created_at: string;
 }
+
+interface CachedDetails {
+    balance: number;
+    history: BalanceEntry[];
+    transactions: Transaction[];
+    purchaseCount: number;
+    totalAmount: number;
+    totalDiscount: number;
+    timestamp: number;
+}
+
+const CACHE_TTL_MS = 30000;
+const customerDetailsCache = new Map<number, CachedDetails>();
 
 interface CustomerDetailsPopupProps {
     customer: Customer;
@@ -23,47 +36,85 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
     const [history, setHistory] = useState<BalanceEntry[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [purchaseCount, setPurchaseCount] = useState(0);
+    const [totalAmount, setTotalAmount] = useState(0);
     const [totalDiscount, setTotalDiscount] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
 
     const customerName = `${customer.firstName} ${customer.lastName}`.trim();
 
+    const customerId = customer.id;
+
     useEffect(() => {
-        if (!customer.id || !customerName) return;
+        if (!customerId || !customerName) return;
+
+        const cached = customerDetailsCache.get(customerId);
+        const shouldFetch = !cached || Date.now() - cached.timestamp > CACHE_TTL_MS;
+
+        if (cached) {
+            setBalance(cached.balance);
+            setHistory(cached.history);
+            setTransactions(cached.transactions);
+            setPurchaseCount(cached.purchaseCount);
+            setTotalAmount(cached.totalAmount);
+            setTotalDiscount(cached.totalDiscount);
+        }
+
+        if (!shouldFetch) return;
+
         setIsLoading(true);
         Promise.all([
-            fetch(`/api/sql/getCustomerBalance?customerId=${customer.id}`).then((res) => res.json()),
-            fetch(`/api/sql/getCustomerTransactions?customerName=${encodeURIComponent(customerName)}`).then((res) =>
-                res.json()
-            ),
+            fetch(`/api/sql/getCustomerBalance?customerId=${customerId}`).then((res) => res.json()),
+            fetch(
+                `/api/sql/getCustomerTransactions?customerName=${encodeURIComponent(customerName)}&customerId=${customerId}`
+            ).then((res) => res.json()),
         ])
             .then(
                 ([
                     { balance: currentBalance, history: currentHistory },
-                    { transactions: customerTransactions, purchaseCount: count, totalDiscount: discount },
+                    {
+                        transactions: customerTransactions,
+                        purchaseCount: count,
+                        totalAmount: amount,
+                        totalDiscount: discount,
+                    },
                 ]: [
                     { balance: number; history: BalanceEntry[] },
-                    { transactions: Transaction[]; purchaseCount: number; totalDiscount: number },
+                    { transactions: Transaction[]; purchaseCount: number; totalAmount: number; totalDiscount: number },
                 ]) => {
-                    setBalance(Number(currentBalance ?? 0));
-                    setHistory(
-                        (currentHistory ?? []).map((entry) => ({
-                            ...entry,
-                            amount: Number(entry.amount),
-                            previous_balance: Number(entry.previous_balance),
-                            new_balance: Number(entry.new_balance),
-                        }))
-                    );
-                    setTransactions(customerTransactions ?? []);
-                    setPurchaseCount(Number(count ?? 0));
-                    setTotalDiscount(Number(discount ?? 0));
+                    const balanceValue = Number(currentBalance ?? 0);
+                    const historyValue = (currentHistory ?? []).map((entry) => ({
+                        ...entry,
+                        amount: Number(entry.amount),
+                        previous_balance: Number(entry.previous_balance),
+                        new_balance: Number(entry.new_balance),
+                    }));
+                    const transactionsValue = customerTransactions ?? [];
+                    const purchaseCountValue = Number(count ?? 0);
+                    const totalAmountValue = Number(amount ?? 0);
+                    const totalDiscountValue = Number(discount ?? 0);
+
+                    setBalance(balanceValue);
+                    setHistory(historyValue);
+                    setTransactions(transactionsValue);
+                    setPurchaseCount(purchaseCountValue);
+                    setTotalAmount(totalAmountValue);
+                    setTotalDiscount(totalDiscountValue);
+
+                    customerDetailsCache.set(customerId, {
+                        balance: balanceValue,
+                        history: historyValue,
+                        transactions: transactionsValue,
+                        purchaseCount: purchaseCountValue,
+                        totalAmount: totalAmountValue,
+                        totalDiscount: totalDiscountValue,
+                        timestamp: Date.now(),
+                    });
                 }
             )
             .catch((error) => console.error('Failed to load customer details:', error))
             .finally(() => setIsLoading(false));
-    }, [customer.id, customerName]);
+    }, [customerId, customerName]);
 
-    const totalAmount = history.reduce((sum, entry) => sum + entry.amount, 0);
     const clientSince = history.length > 0 ? history[history.length - 1].created_at : null;
 
     const openCustomerDetails = () => {
@@ -75,29 +126,48 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
         );
     };
 
+    const getBalanceChangeText = (transaction: Transaction) => {
+        if (transaction.previousBalance == null || transaction.newBalance == null) return '—';
+        return `${toCurrency({
+            amount: transaction.previousBalance,
+            currency: transaction.currency,
+        })} -> ${toCurrency({
+            amount: transaction.newBalance,
+            currency: transaction.currency,
+        })}`;
+    };
+
     const openTransactionDetails = (transaction: Transaction) => {
         const isProvision = transaction.products.length === 0;
-        const productLines = isProvision
-            ? [PROVISION_KEYWORD + ' : ' + toCurrency(transaction)]
-            : transaction.products.map((product) => displayProduct(product, transaction.currency));
+        const title =
+            toCurrency(transaction) +
+            ' en ' +
+            transaction.method +
+            (transaction.shortNumOrder ? ` [#${transaction.shortNumOrder}]` : '');
+
+        if (isProvision) {
+            const lines = [PROVISION_KEYWORD, '', BACK_KEYWORD];
+            openFullscreenPopup(title, lines, (_, option) => {
+                if (option === BACK_KEYWORD) openCustomerDetails();
+            });
+            return;
+        }
 
         openFullscreenPopup(
-            toCurrency(transaction) +
-                ' en ' +
-                transaction.method +
-                (transaction.shortNumOrder ? ` [#${transaction.shortNumOrder}]` : ''),
-            productLines.concat(['', BACK_KEYWORD]),
+            title,
+            transaction.products
+                .map((product) => displayProduct(product, transaction.currency))
+                .concat(['', BACK_KEYWORD]),
             (_, option) => {
                 if (option === BACK_KEYWORD) {
                     openCustomerDetails();
                 }
-            },
-            true
+            }
         );
     };
 
     const getTransactionLabel = (transaction: Transaction) => {
-        if (transaction.products.length === 0) return 'Provision';
+        if (transaction.products.length === 0) return PROVISION_KEYWORD;
         return `${transaction.products.length} article${transaction.products.length > 1 ? 's' : ''}`;
     };
 
@@ -107,14 +177,21 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
                 <p className="text-center">Chargement...</p>
             ) : (
                 <>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-0">
                         <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Solde actuel</p>
-                            <p className="text-lg font-semibold">{toCurrency(balance)}</p>
+                            <p
+                                className={
+                                    'text-lg font-semibold' +
+                                    (balance < 0 ? ' text-red-600 dark:text-red-400 animate-pulse' : '')
+                                }
+                            >
+                                {balance < 0 ? `- ${toCurrency(balance)}` : toCurrency(balance)}
+                            </p>
                         </div>
                         <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Référence</p>
-                            <p className="text-lg font-semibold">{customer.reference || '—'}</p>
+                            <p className="text-sm md:text-base font-semibold break-all">{customer.reference || '—'}</p>
                         </div>
                         <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Nombre d&apos;achats</p>
@@ -135,28 +212,36 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
                             <p className="text-lg font-semibold">{toCurrency(totalDiscount)}</p>
                         </div>
                     </div>
-                    <h3 className="text-lg font-semibold border-b border-gray-300 dark:border-gray-600 pb-2">
-                        10 dernières opérations
-                    </h3>
-                    <ul className="space-y-2 max-h-64 overflow-y-auto">
-                        {transactions.length === 0 ? (
-                            <li className="text-sm text-gray-500 dark:text-gray-400">Aucune opération</li>
-                        ) : (
-                            transactions.map((transaction, index) => (
-                                <li
-                                    key={index}
-                                    className="flex justify-between border-b border-gray-200 dark:border-gray-700 py-1 cursor-pointer"
-                                    onClick={() => openTransactionDetails(transaction)}
-                                >
-                                    <span className="text-sm">
-                                        {new Date(transaction.createdDate).toLocaleString('fr-FR')} -{' '}
-                                        {getTransactionLabel(transaction)}
-                                    </span>
-                                    <span className="text-sm font-medium">{toCurrency(transaction)}</span>
-                                </li>
-                            ))
+                    <div>
+                        {transactions.length > 0 && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400 pb-2 border-b border-gray-300 dark:border-gray-600">
+                                10 dernières opérations
+                            </p>
                         )}
-                    </ul>
+                        <ul className="space-y-2 max-h-64 overflow-y-auto pt-2">
+                            {transactions.length === 0 ? (
+                                <li className="text-sm text-gray-500 dark:text-gray-400">Aucune opération</li>
+                            ) : (
+                                transactions.map((transaction, index) => (
+                                    <li
+                                        key={index}
+                                        className="flex justify-between border-b border-gray-200 dark:border-gray-700 py-1 hover:bg-orange-100 dark:hover:bg-orange-900/30 cursor-pointer"
+                                        onClick={() => openTransactionDetails(transaction)}
+                                    >
+                                        <span className="text-sm">
+                                            {new Date(transaction.createdDate).toLocaleString('fr-FR')} -{' '}
+                                            {getTransactionLabel(transaction)}
+                                        </span>
+                                        <span className="text-sm font-medium">
+                                            {transaction.products.length === 0
+                                                ? getBalanceChangeText(transaction)
+                                                : toCurrency(transaction)}
+                                        </span>
+                                    </li>
+                                ))
+                            )}
+                        </ul>
+                    </div>
                 </>
             )}
         </div>

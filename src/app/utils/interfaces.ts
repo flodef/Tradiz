@@ -144,6 +144,9 @@ export type Transaction = {
     currency: string;
     products: Product[];
     shortNumOrder?: string;
+    customerName?: string;
+    previousBalance?: number;
+    newBalance?: number;
 };
 
 export type TransactionSet = {

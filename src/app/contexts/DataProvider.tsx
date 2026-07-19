@@ -747,9 +747,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         transaction: {
                             id: index,
                             order_id: orderId || String(transaction.createdDate),
-                            customer_name: currentCustomer
-                                ? `${currentCustomer.firstName} ${currentCustomer.lastName}`.trim() || null
-                                : null,
+                            customer_name: transaction.customerName
+                                ? transaction.customerName
+                                : currentCustomer
+                                  ? `${currentCustomer.firstName} ${currentCustomer.lastName}`.trim() || null
+                                  : null,
                             user_name: transaction.validator,
                             payment_method: transaction.method,
                             amount: transaction.amount,

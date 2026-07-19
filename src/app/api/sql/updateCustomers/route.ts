@@ -2,6 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 import { generateProductReference } from '@/app/utils/productReference';
+import { normalizeFirstName, normalizeFamilyName } from '@/app/utils/regex';
 
 interface Customer {
     id?: number;
@@ -45,8 +46,8 @@ export async function POST(request: Request) {
 
         // Upsert customers
         for (const customer of customers) {
-            const firstName = customer.firstName;
-            const lastName = customer.lastName;
+            const firstName = normalizeFirstName(customer.firstName);
+            const lastName = normalizeFamilyName(customer.lastName);
             // Auto-generate reference if not provided
             const reference = customer.reference || generateProductReference(Date.now());
             const email = customer.email || null;

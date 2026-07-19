@@ -195,8 +195,11 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
                         {
                             label: 'Effacer',
                             action: (index: number) => {
-                                deleteTransaction(index);
-                                closePopup();
+                                openPopup(
+                                    '⚠️ Confirmer la suppression ?',
+                                    ['Continuer', 'Annuler'],
+                                    (i, option) => option === 'Continuer' && deleteTransaction(index)
+                                );
                             },
                         },
                         {
@@ -212,6 +215,7 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
             deleteTransaction,
             pay,
             printTransaction,
+            openPopup,
             closePopup,
             getPrintersNames,
         ]
@@ -391,7 +395,7 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
             // still visible in the details (like a product would be).
             const isProvision = transaction.products.length === 0;
             const productLines = isProvision
-                ? [PROVISION_KEYWORD + ' : ' + toCurrency(transaction)]
+                ? [PROVISION_KEYWORD + ' : ' + (transaction.customerName ?? '')]
                 : transaction.products.map((product) => displayProduct(product, transaction.currency));
 
             openPopup(

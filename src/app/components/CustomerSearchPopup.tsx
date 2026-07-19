@@ -8,6 +8,7 @@ import { usePopup } from '../hooks/usePopup';
 import { useConfig } from '../hooks/useConfig';
 import { useIsMobileDevice } from '../utils/mobile';
 import { getPopupStyles, getOptionHoverStyles } from '../utils/popupStyles';
+import { normalizeFirstName, normalizeFamilyName } from '../utils/regex';
 
 interface CustomerSearchPopupProps {
     initialQuery?: string;
@@ -85,7 +86,13 @@ const CustomerSearchPopup: FC<CustomerSearchPopupProps> = ({
             return;
         } else if (option.type === 'add') {
             closePopup();
-            onCreateCustomer(trimmedQuery);
+            const spaceIndex = trimmedQuery.indexOf(' ');
+            if (spaceIndex === -1) {
+                onCreateCustomer(trimmedQuery);
+            } else {
+                const normalized = `${normalizeFirstName(trimmedQuery.slice(0, spaceIndex))} ${normalizeFamilyName(trimmedQuery.slice(spaceIndex + 1))}`;
+                onCreateCustomer(normalized);
+            }
             return;
         }
     };

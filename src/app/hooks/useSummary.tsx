@@ -92,7 +92,6 @@ export const useSummary = () => {
         return t.filter(
             (transaction) =>
                 matchesCurrency(transaction.currency) &&
-                !!transaction.products.length &&
                 !isDeletedTransaction(transaction) &&
                 !isWaitingTransaction(transaction)
         );
@@ -185,8 +184,7 @@ export const useSummary = () => {
         const payments: DataElement[] = [];
 
         transactions.forEach((transaction) => {
-            if (!transaction.products.length) return;
-
+            // Include provision transactions in payments (they have no products but still have a payment method)
             const payment = payments.find((payment) => payment.category === transaction.method);
             if (payment) {
                 payment.quantity++;
@@ -199,19 +197,22 @@ export const useSummary = () => {
                 });
             }
 
-            transaction.products.forEach((product) => {
-                const transaction = categories.find((transaction) => transaction.category === product.category);
-                if (transaction) {
-                    transaction.quantity += product.quantity;
-                    transaction.amount += product.total ?? 0;
-                } else {
-                    categories.unshift({
-                        category: product.category,
-                        quantity: product.quantity,
-                        amount: product.total ?? 0,
-                    });
-                }
-            });
+            // Only process products for non-provision transactions
+            if (transaction.products.length) {
+                transaction.products.forEach((product) => {
+                    const transaction = categories.find((transaction) => transaction.category === product.category);
+                    if (transaction) {
+                        transaction.quantity += product.quantity;
+                        transaction.amount += product.total ?? 0;
+                    } else {
+                        categories.unshift({
+                            category: product.category,
+                            quantity: product.quantity,
+                            amount: product.total ?? 0,
+                        });
+                    }
+                });
+            }
         });
 
         return { categories, payments };
@@ -885,17 +886,10 @@ export const useSummary = () => {
                 .sort((a, b) => b.createdDate - a.createdDate)
                 .map(({ products, amount, modifiedDate }) => {
                     const { frenchDateStr, frenchTimeStr } = formatFrenchDate(new Date(modifiedDate));
-                    return (
-                        products.length +
-                        ' produit' +
-                        (products.length > 1 ? 's' : '') +
-                        ' ==> ' +
-                        toCurrency(amount) +
-                        ' le ' +
-                        frenchDateStr +
-                        ' à ' +
-                        frenchTimeStr
-                    );
+                    const label = products.length
+                        ? `${products.length} produit${products.length > 1 ? 's' : ''}`
+                        : 'Provision';
+                    return label + ' ==> ' + toCurrency(amount) + ' le ' + frenchDateStr + ' à ' + frenchTimeStr;
                 });
 
             openPopup(

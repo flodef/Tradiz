@@ -304,32 +304,12 @@ export const usePay = () => {
 
     const selectPayment = useCallback(
         (option: string, fallback: () => void) => {
-            const updateCustomerBalance = async (customerId: number, amount: number, operation: 'credit' | 'debit') => {
-                try {
-                    const response = await fetch('/api/sql/updateCustomerBalance', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ customerId, amount, operation }),
-                    });
-                    if (!response.ok) {
-                        const result = (await response.json().catch(() => ({}))) as { error?: string };
-                        throw new Error(result.error || `HTTP ${response.status}`);
-                    }
-                } catch (error) {
-                    console.error(`Failed to ${operation} customer balance:`, error);
-                    // Surface the failure so staff know the balance is out of sync and can fix it manually.
-                    openPopup('Erreur', [
-                        "Le solde du client n'a pas pu être mis à jour.",
-                        'Veuillez le corriger manuellement.',
-                    ]);
-                }
-            };
-
             const finalizeProvisionPayment = async (customer: Customer, selectedOption: string) => {
                 const provisionAmount = getCurrentTotal() || amount;
                 // Floor to seconds to match SQL TIMESTAMP precision, otherwise the transaction
                 // is treated as a distinct entry when merging with SQL data (duplicate in the UI).
                 const now = floorToSeconds(new Date().getTime());
+                const fullName = `${customer.firstName} ${customer.lastName}`.trim();
                 const transaction: Transaction = {
                     validator: parameters.user.name,
                     method: selectedOption,
@@ -338,22 +318,31 @@ export const usePay = () => {
                     modifiedDate: now,
                     currency: currencies[currencyIndex].label,
                     products: [],
+                    customerName: fullName,
                 };
+                setCurrentCustomer(customer);
                 commitTransaction(transaction);
                 closePopup();
-                if (customer.id) {
-                    await updateCustomerBalance(customer.id, provisionAmount, 'credit');
-                }
             };
 
             const finalizeDebitPayment = async (customer: Customer) => {
                 // Capture the amount before updateTransaction, which may reset the current total.
-                const amount = getCurrentTotal();
-                commitTransaction(DEBIT_KEYWORD);
+                const debitAmount = getCurrentTotal();
+                const now = floorToSeconds(new Date().getTime());
+                const fullName = `${customer.firstName} ${customer.lastName}`.trim();
+                const transaction: Transaction = {
+                    validator: parameters.user.name,
+                    method: DEBIT_KEYWORD,
+                    amount: debitAmount,
+                    createdDate: now,
+                    modifiedDate: now,
+                    currency: currencies[currencyIndex].label,
+                    products: products.current,
+                    customerName: fullName,
+                };
+                setCurrentCustomer(customer);
+                commitTransaction(transaction);
                 closePopup();
-                if (customer.id) {
-                    await updateCustomerBalance(customer.id, amount, 'debit');
-                }
             };
 
             const openCustomerSearchPopup = (
@@ -471,7 +460,7 @@ export const usePay = () => {
                     printTransaction(option);
                     break;
                 case REFUND_KEYWORD:
-                    openPopup('⚠️​ Confirmer le remboursement ?', ['Continuer', 'Annuler'], (index, option) => {
+                    openPopup('⚠️​ Confirmer le remboursement ?', ['Continuer', 'Annuler'], (_, option) => {
                         if (option === 'Continuer') {
                             // Use reverseTransaction to properly reverse quantities using computeQuantity
                             const currentTransaction: Transaction = {

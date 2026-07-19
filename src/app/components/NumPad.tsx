@@ -585,6 +585,7 @@ export const NumPad: FC = () => {
         addProduct: _addProduct,
         setCurrentCustomer,
         currentCustomer,
+        toCurrency,
     } = useData();
     const { openPopup, closePopup, isPopupOpen, openFullscreenPopup } = usePopup();
     const { pay, canPay, canAddProduct, addProvision, canAddProvision } = usePay();
@@ -630,6 +631,19 @@ export const NumPad: FC = () => {
     const regExp = useMemo(() => new RegExp('^\\d*([.,]\\d{0,' + maxDecimals + '})?$'), [maxDecimals]);
 
     const [value, setValue] = useState('0');
+    const [customerBalance, setCustomerBalance] = useState<number | null>(currentCustomer?.balance ?? null);
+
+    useEffect(() => {
+        if (!currentCustomer?.id) {
+            setCustomerBalance(null);
+            return;
+        }
+        setCustomerBalance(currentCustomer.balance ?? null);
+        fetch(`/api/sql/getCustomerBalance?customerId=${currentCustomer.id}`)
+            .then((res) => res.json())
+            .then(({ balance }: { balance?: number }) => setCustomerBalance(Number(balance ?? 0)))
+            .catch((error) => console.error('Failed to fetch customer balance:', error));
+    }, [currentCustomer?.id, currentCustomer?.balance]);
 
     // Get window parameters for layout calculations
     const { width, height } = useWindowParam();
@@ -921,6 +935,8 @@ export const NumPad: FC = () => {
                 : 'flex flex-col justify-center items-center top-20 md:top-0')
     );
 
+    const isNegativeBalance = customerBalance !== null && customerBalance < 0;
+
     return (
         <div
             className={numPadClass}
@@ -946,7 +962,7 @@ export const NumPad: FC = () => {
                                     'truncate',
                                     currentCustomer ||
                                         (!currentCustomer && parameters.userSwitch !== false && users.length > 1)
-                                        ? 'cursor-pointer underline p-1 rounded hover:bg-active-light dark:hover:bg-active-dark'
+                                        ? 'cursor-pointer p-1 rounded hover:bg-active-light dark:hover:bg-active-dark'
                                         : ''
                                 )}
                                 onClick={
@@ -975,8 +991,20 @@ export const NumPad: FC = () => {
                                 }
                             >
                                 {currentCustomer
-                                    ? `Client : ${currentCustomer.firstName} ${currentCustomer.lastName}`
+                                    ? `${isNegativeBalance && '⚠️'} Client : ${currentCustomer.firstName} ${currentCustomer.lastName}`
                                     : parameters.user.name}
+                                {currentCustomer && customerBalance !== null && (
+                                    <span
+                                        className={twMerge(
+                                            'text-sm font-semibold whitespace-nowrap',
+                                            isNegativeBalance && 'text-red-600 dark:text-red-400 animate-pulse'
+                                        )}
+                                    >
+                                        {isNegativeBalance
+                                            ? ` (- ${toCurrency(Math.abs(customerBalance))})`
+                                            : ` (${toCurrency(customerBalance)})`}
+                                    </span>
+                                )}
                             </span>
                             {currentCustomer && (
                                 <button

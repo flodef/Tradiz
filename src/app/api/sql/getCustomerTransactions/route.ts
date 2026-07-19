@@ -16,6 +16,8 @@ interface TransactionRow {
     modifieddate: number;
     createdDate?: number;
     modifiedDate?: number;
+    previous_balance: number | null;
+    new_balance: number | null;
 }
 
 interface ProductRow {
@@ -34,32 +36,55 @@ export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
     const { searchParams } = new URL(request.url);
     const customerName = searchParams.get('customerName');
+    const customerIdParam = searchParams.get('customerId');
+    const customerId = customerIdParam ? parseInt(customerIdParam, 10) : null;
 
     if (!customerName) {
         return NextResponse.json({ error: 'Missing customerName parameter' }, { status: 400 });
+    }
+    if (customerIdParam && (customerId === null || isNaN(customerId))) {
+        return NextResponse.json({ error: 'Invalid customerId parameter' }, { status: 400 });
     }
 
     try {
         const connection = await getPosDb(shopId);
         const isPg = connection.isPostgreSQL;
 
-        // Aggregate totals: number of non-provision purchases and total discount value.
+        // Aggregate totals: number of purchases, total purchase amount, and total discount value.
         const totalsQuery = isPg
             ? `
             SELECT
-                COUNT(DISTINCT t.id) FILTER (WHERE ti.id IS NOT NULL) AS purchase_count,
-                COALESCE(SUM((ti.amount * ti.quantity) - ti.total), 0) AS total_discount
-            FROM dc_pos.transactions t
-            LEFT JOIN dc_pos.transaction_items ti ON ti.transaction_id = t.id
-            WHERE t.customer_name = $1 AND t.payment_method != $2
+                COUNT(*) AS purchase_count,
+                COALESCE(SUM(transaction_amount), 0) AS total_amount,
+                COALESCE(SUM(discount), 0) AS total_discount
+            FROM (
+                SELECT
+                    t.id,
+                    t.amount AS transaction_amount,
+                    COALESCE(SUM((ti.amount * ti.quantity) - ti.total), 0) AS discount
+                FROM dc_pos.transactions t
+                LEFT JOIN dc_pos.transaction_items ti ON ti.transaction_id = t.id
+                WHERE t.customer_name = $1 AND t.payment_method != $2
+                GROUP BY t.id, t.amount
+                HAVING COUNT(ti.id) > 0
+            ) sub
         `
             : `
             SELECT
-                COUNT(DISTINCT CASE WHEN ti.id IS NOT NULL THEN t.id END) AS purchase_count,
-                COALESCE(SUM((ti.amount * ti.quantity) - ti.total), 0) AS total_discount
-            FROM transactions t
-            LEFT JOIN transaction_items ti ON ti.transaction_id = t.id
-            WHERE t.customer_name = ? AND t.payment_method != ?
+                COUNT(*) AS purchase_count,
+                COALESCE(SUM(transaction_amount), 0) AS total_amount,
+                COALESCE(SUM(discount), 0) AS total_discount
+            FROM (
+                SELECT
+                    t.id,
+                    t.amount AS transaction_amount,
+                    COALESCE(SUM((ti.amount * ti.quantity) - ti.total), 0) AS discount
+                FROM transactions t
+                LEFT JOIN transaction_items ti ON ti.transaction_id = t.id
+                WHERE t.customer_name = ? AND t.payment_method != ?
+                GROUP BY t.id, t.amount
+                HAVING COUNT(ti.id) > 0
+            ) sub
         `;
 
         const [[totals]] = await connection.execute(totalsQuery, [customerName, DELETED_KEYWORD]);
@@ -77,9 +102,20 @@ export async function GET(request: Request) {
                 t.currency,
                 t.note,
                 (EXTRACT(EPOCH FROM t.created_at) * 1000)::bigint as createddate,
-                (EXTRACT(EPOCH FROM t.updated_at) * 1000)::bigint as modifieddate
+                (EXTRACT(EPOCH FROM t.updated_at) * 1000)::bigint as modifieddate,
+                bh.previous_balance,
+                bh.new_balance
             FROM dc_pos.transactions t
             LEFT JOIN dc.orders o ON o.id::text = t.order_id
+            LEFT JOIN LATERAL (
+                SELECT previous_balance, new_balance
+                FROM dc_pos.balance_history bh2
+                WHERE bh2.customer_id = $4::int
+                  AND bh2.amount = t.amount
+                  AND ABS(EXTRACT(EPOCH FROM bh2.created_at) - EXTRACT(EPOCH FROM t.created_at)) < 60
+                ORDER BY ABS(EXTRACT(EPOCH FROM bh2.created_at) - EXTRACT(EPOCH FROM t.created_at))
+                LIMIT 1
+            ) bh ON true
             WHERE t.customer_name = $1 AND t.payment_method != $3
             ORDER BY t.created_at DESC
             LIMIT 10
@@ -95,7 +131,17 @@ export async function GET(request: Request) {
                 t.currency,
                 t.note,
                 (UNIX_TIMESTAMP(t.created_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as createdDate,
-                (UNIX_TIMESTAMP(t.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate
+                (UNIX_TIMESTAMP(t.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate,
+                (SELECT previous_balance FROM balance_history bh2
+                 WHERE bh2.customer_id = ? AND bh2.amount = t.amount
+                   AND ABS(TIMESTAMPDIFF(SECOND, bh2.created_at, t.created_at)) < 60
+                 ORDER BY ABS(TIMESTAMPDIFF(SECOND, bh2.created_at, t.created_at))
+                 LIMIT 1) as previous_balance,
+                (SELECT new_balance FROM balance_history bh2
+                 WHERE bh2.customer_id = ? AND bh2.amount = t.amount
+                   AND ABS(TIMESTAMPDIFF(SECOND, bh2.created_at, t.created_at)) < 60
+                 ORDER BY ABS(TIMESTAMPDIFF(SECOND, bh2.created_at, t.created_at))
+                 LIMIT 1) as new_balance
             FROM transactions t
             LEFT JOIN \`DC\`.orders o ON o.id = t.order_id
             WHERE t.customer_name = ? AND t.payment_method != ?
@@ -104,8 +150,8 @@ export async function GET(request: Request) {
         `;
 
         const params = isPg
-            ? [customerName, DEFAULT_USER, DELETED_KEYWORD]
-            : [DEFAULT_USER, customerName, DELETED_KEYWORD];
+            ? [customerName, DEFAULT_USER, DELETED_KEYWORD, customerId]
+            : [DEFAULT_USER, customerId, customerId, customerName, DELETED_KEYWORD];
         const [transactionRows] = await connection.execute(transactionsQuery, params);
         const rows = transactionRows as TransactionRow[];
 
@@ -152,6 +198,8 @@ export async function GET(request: Request) {
                     Number(row.modifieddate ?? row.modifiedDate) || Number(row.createddate ?? row.createdDate),
                 products,
                 ...(row.short_num_order ? { shortNumOrder: String(row.short_num_order) } : {}),
+                ...(row.previous_balance !== null ? { previousBalance: Number(row.previous_balance) } : {}),
+                ...(row.new_balance !== null ? { newBalance: Number(row.new_balance) } : {}),
             };
         });
 
@@ -161,6 +209,7 @@ export async function GET(request: Request) {
             {
                 transactions,
                 purchaseCount: Number((totals as { purchase_count: number | string }).purchase_count ?? 0),
+                totalAmount: Number((totals as { total_amount: number | string }).total_amount ?? 0),
                 totalDiscount: Number((totals as { total_discount: number | string }).total_discount ?? 0),
             },
             { status: 200 }
