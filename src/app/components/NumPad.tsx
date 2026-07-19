@@ -943,12 +943,12 @@ export const NumPad: FC = () => {
                             <span
                                 className={twMerge(
                                     'truncate',
-                                    !currentCustomer && users.length > 1
+                                    !currentCustomer && parameters.userSwitch !== false && users.length > 1
                                         ? 'cursor-pointer underline p-1 rounded hover:bg-active-light dark:hover:bg-active-dark'
                                         : ''
                                 )}
                                 onClick={
-                                    !currentCustomer && users.length > 1
+                                    !currentCustomer && parameters.userSwitch !== false && users.length > 1
                                         ? () =>
                                               openFullscreenPopup(
                                                   "Changer d'utilisateur",

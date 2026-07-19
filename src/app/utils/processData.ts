@@ -385,9 +385,11 @@ async function _loadDataImpl(): Promise<Config | undefined> {
         throw new MissingDataError('Produits', isAdmin);
     }
 
-    // Fetch customers and users. The full user list is needed for user switching.
+    // Fetch customers. The full user list is only exposed to the client when user
+    // switching is enabled; otherwise resolveUser already returned the single device user.
     const customers = await fetchData(dataNames.customers).then(convertCustomersData);
-    const users = await fetchData(dataNames.users).then(convertUsersData);
+    const userSwitchEnabled = (parameters.userSwitch ?? true) as boolean;
+    const users = userSwitchEnabled ? await fetchData(dataNames.users).then(convertUsersData) : [];
 
     // Prefer the user persisted in localStorage if it still exists in the users list.
     const savedUserJson = typeof window !== 'undefined' ? localStorage.getItem(CURRENT_USER_KEYWORD) : null;
