@@ -4,6 +4,7 @@ import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
 import CategoriesConfig from '@/app/components/admin/sections/CategoriesConfig';
 import OptionsConfig, { ProductOptionGroup } from '@/app/components/admin/sections/OptionsConfig';
 import ProductsConfig, { AdminProduct } from '@/app/components/admin/sections/ProductsConfig';
+import FormulasConfig, { AdminFormula, FormulaElement } from '@/app/components/admin/sections/FormulasConfig';
 import { Config, ProductsSettings } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
@@ -13,8 +14,51 @@ import { DEFAULT_CATEGORY, USE_DIGICARTE } from '@/app/utils/constants';
 import { Category, InventoryItem } from '@/app/utils/interfaces';
 import { clearLoadDataCache } from '@/app/utils/processData';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IconCategory, IconListDetails, IconBox } from '@tabler/icons-react';
+import { IconCategory, IconListDetails, IconBox, IconMathFunction } from '@tabler/icons-react';
 import { useSearchParams } from 'next/navigation';
+
+const FORMULA_CATEGORY = 'Formule';
+
+function adminProductToFormula(product: AdminProduct): AdminFormula | null {
+    if (!product.options) return { name: product.name, price: product.currencies[0] || '0', elements: [] };
+    try {
+        const parsed = JSON.parse(product.options);
+        if (!parsed.formula || !Array.isArray(parsed.elements)) {
+            return { name: product.name, price: product.currencies[0] || '0', elements: [] };
+        }
+        return {
+            name: product.name,
+            price: product.currencies[0] || '0',
+            elements: parsed.elements as FormulaElement[],
+        };
+    } catch {
+        return { name: product.name, price: product.currencies[0] || '0', elements: [] };
+    }
+}
+
+function formulaToAdminProduct(formula: AdminFormula): AdminProduct {
+    return {
+        name: formula.name,
+        category: FORMULA_CATEGORY,
+        stock: null,
+        currencies: [formula.price],
+        options: JSON.stringify({ formula: true, elements: formula.elements }),
+    };
+}
+
+function splitFormulas(allProducts: AdminProduct[]): { products: AdminProduct[]; formulas: AdminFormula[] } {
+    const products: AdminProduct[] = [];
+    const formulas: AdminFormula[] = [];
+    for (const p of allProducts) {
+        if (p.category === FORMULA_CATEGORY) {
+            const formula = adminProductToFormula(p);
+            if (formula) formulas.push(formula);
+        } else {
+            products.push(p);
+        }
+    }
+    return { products, formulas };
+}
 
 function buildInventoryFromAdminProducts(products: AdminProduct[]): InventoryItem[] {
     const inventory: InventoryItem[] = [];
@@ -88,6 +132,9 @@ export default function EditMenuPage() {
     const searchParams = useSearchParams();
     const [products, setProducts] = useState<AdminProduct[]>([]);
     const [originalProducts, setOriginalProducts] = useState<AdminProduct[]>([]);
+    const [formulas, setFormulas] = useState<AdminFormula[]>([]);
+    const [originalFormulas, setOriginalFormulas] = useState<AdminFormula[]>([]);
+    const [hasFormulasChanges, setHasFormulasChanges] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isReadOnly, setIsReadOnly] = useState(true);
     const [dbConfigChecked, setDbConfigChecked] = useState(false);
@@ -158,8 +205,11 @@ export default function EditMenuPage() {
         if (isStateReady && inventory?.length && currencies?.length) {
             seededRef.current = true;
             const allProducts = buildProductsFromInventory(inventory);
-            setProducts(allProducts);
-            setOriginalProducts(allProducts);
+            const { products: nonFormula, formulas: formulaList } = splitFormulas(allProducts);
+            setProducts(nonFormula);
+            setOriginalProducts(nonFormula);
+            setFormulas(formulaList);
+            setOriginalFormulas(formulaList);
             setIsLoading(false);
         }
     }, [isStateReady, inventory, currencies]);
@@ -183,8 +233,11 @@ export default function EditMenuPage() {
                     }
                     dataLoadedRef.current = true;
                     const allProducts = buildProductsFromInventory(inventory);
-                    setProducts(allProducts);
-                    setOriginalProducts(allProducts);
+                    const { products: nonFormula, formulas: formulaList } = splitFormulas(allProducts);
+                    setProducts(nonFormula);
+                    setOriginalProducts(nonFormula);
+                    setFormulas(formulaList);
+                    setOriginalFormulas(formulaList);
                     setIsLoading(false);
                     return;
                 }
@@ -243,12 +296,15 @@ export default function EditMenuPage() {
                     }
                 }
 
-                setProducts(loadedProducts);
-                setOriginalProducts(loadedProducts);
+                const { products: nonFormula, formulas: formulaList } = splitFormulas(loadedProducts);
+                setProducts(nonFormula);
+                setOriginalProducts(nonFormula);
+                setFormulas(formulaList);
+                setOriginalFormulas(formulaList);
 
                 // Initialize options from products
                 const loadedOptions: ProductOptionGroup[] = [];
-                loadedProducts.forEach((p) => {
+                nonFormula.forEach((p) => {
                     if (p.options) {
                         try {
                             const parsed = JSON.parse(p.options);
@@ -287,6 +343,21 @@ export default function EditMenuPage() {
         },
         [isReadOnly]
     );
+
+    const handleFormulasChange = useCallback(
+        (data: AdminFormula[]) => {
+            if (!isReadOnly) {
+                setFormulas(data);
+                setHasFormulasChanges(JSON.stringify(data) !== JSON.stringify(originalFormulas));
+            }
+        },
+        [isReadOnly, originalFormulas]
+    );
+
+    const handleFormulasCancel = useCallback(() => {
+        setFormulas(originalFormulas);
+        setHasFormulasChanges(false);
+    }, [originalFormulas]);
 
     const handleProductsSave = useCallback(
         async (data: AdminProduct[], category?: string) => {
@@ -341,6 +412,20 @@ export default function EditMenuPage() {
             customers,
             users,
         ]
+    );
+
+    const handleFormulasSave = useCallback(
+        async (data: AdminFormula[]) => {
+            const formulaProducts = data.map(formulaToAdminProduct);
+            const combined = [...products, ...formulaProducts];
+            await handleProductsSave(combined, undefined);
+            const filtered = combined.filter((p) => p.category !== FORMULA_CATEGORY);
+            setProducts(filtered);
+            setOriginalProducts(filtered);
+            setOriginalFormulas(data);
+            setHasFormulasChanges(false);
+        },
+        [products, handleProductsSave]
     );
 
     // Category rename: update all products with the old category name and save to DB
@@ -415,7 +500,7 @@ export default function EditMenuPage() {
     );
 
     const hasProductsChanges = JSON.stringify(products) !== JSON.stringify(originalProducts);
-    const hasChanges = hasProductsChanges;
+    const hasChanges = hasProductsChanges || hasFormulasChanges || hasOptionsChanges;
 
     // Warn about unsaved changes when leaving page
     useEffect(() => {
@@ -431,6 +516,8 @@ export default function EditMenuPage() {
     const handleCancel = () => {
         setProducts(originalProducts);
     };
+
+    const nonFormulaProducts = useMemo(() => products.filter((p) => p.category !== FORMULA_CATEGORY), [products]);
 
     // Redirect if using Digicarte
     if (USE_DIGICARTE) return null;
@@ -527,7 +614,7 @@ export default function EditMenuPage() {
                 )}
 
                 <ProductsConfig
-                    config={products}
+                    config={nonFormulaProducts}
                     onChange={handleProductsChange}
                     onSave={isReadOnly ? undefined : handleProductsSave}
                     onCancel={handleCancel}
@@ -540,7 +627,23 @@ export default function EditMenuPage() {
                     onToggle={() => setOpenSection((prev) => (prev === 'products' ? null : 'products'))}
                     productsSettings={productsSettings}
                     icon={<IconBox size={24} />}
-                    showHeader={products.length > 0}
+                    showHeader={nonFormulaProducts.length > 0}
+                />
+
+                <FormulasConfig
+                    config={formulas}
+                    categories={categories.map((c) => c.label)}
+                    products={nonFormulaProducts}
+                    currencies={currencies}
+                    onChange={handleFormulasChange}
+                    onSave={isReadOnly ? undefined : handleFormulasSave}
+                    onCancel={handleFormulasCancel}
+                    hasChanges={hasFormulasChanges}
+                    isReadOnly={isReadOnly}
+                    isLoading={isSavingProducts}
+                    isOpen={openSection === 'formulas'}
+                    onToggle={() => setOpenSection((prev) => (prev === 'formulas' ? null : 'formulas'))}
+                    icon={<IconMathFunction size={24} />}
                 />
             </div>
         </AdminPageLayout>

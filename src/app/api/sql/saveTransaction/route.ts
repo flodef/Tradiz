@@ -2,6 +2,7 @@ import {
     DEBIT_KEYWORD,
     DELETED_KEYWORD,
     PROCESSING_KEYWORD,
+    REFUND_KEYWORD,
     DEFAULT_USER,
     DEFAULT_VAT_RATE,
 } from '@/app/utils/constants';
@@ -118,11 +119,13 @@ function affectsBalance(paymentMethod: string, productCount: number): boolean {
 }
 
 function getBalanceOperation(paymentMethod: string): 'credit' | 'debit' {
-    return paymentMethod === DEBIT_KEYWORD ? 'debit' : 'credit';
+    return paymentMethod === DEBIT_KEYWORD || paymentMethod === REFUND_KEYWORD ? 'debit' : 'credit';
 }
 
 function getBalanceDelta(paymentMethod: string, amount: number): number {
-    return paymentMethod === DEBIT_KEYWORD ? -amount : amount;
+    if (paymentMethod === DEBIT_KEYWORD) return -amount;
+    if (paymentMethod === REFUND_KEYWORD) return amount; // refund amount is already negative
+    return amount;
 }
 
 async function findCustomerIdByName(
@@ -234,7 +237,7 @@ async function addBalanceEffect(connection: Connection, transaction: Transaction
     await insertBalanceHistory(
         connection,
         customerId,
-        transaction.amount,
+        Math.abs(transaction.amount),
         operation,
         previousBalance,
         newBalance,
@@ -255,7 +258,13 @@ async function revertBalanceEffect(
     const operation = getBalanceOperation(transaction.payment_method);
     const delta = getBalanceDelta(transaction.payment_method, transaction.amount);
 
-    await markBalanceHistoryDeleted(connection, customerId, operation, transaction.amount, transaction.created_at);
+    await markBalanceHistoryDeleted(
+        connection,
+        customerId,
+        operation,
+        Math.abs(transaction.amount),
+        transaction.created_at
+    );
     await updateCustomerBalanceById(connection, customerId, -delta);
 }
 

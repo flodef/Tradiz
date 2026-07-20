@@ -10,9 +10,11 @@ import {
     DEBIT_KEYWORD,
     IS_LOCAL,
     PRINT_KEYWORD,
+    PROCESSING_KEYWORD,
     PROVISION_KEYWORD,
     REFUND_KEYWORD,
     SEPARATOR,
+    UPDATING_KEYWORD,
     WAITING_KEYWORD,
 } from '../utils/constants';
 import { Currency, Customer, InventoryItem, SERVICE_TYPE_LABELS, ServiceType, Transaction } from '../utils/interfaces';
@@ -462,14 +464,21 @@ export const usePay = () => {
                 case REFUND_KEYWORD:
                     openPopup('⚠️​ Confirmer le remboursement ?', ['Continuer', 'Annuler'], (_, option) => {
                         if (option === 'Continuer') {
+                            const originalTransaction = transactions.find(
+                                (t) => t.method === PROCESSING_KEYWORD || t.method === UPDATING_KEYWORD
+                            );
+                            // For provision refunds there are no products, so fall back to the original transaction amount.
+                            const refundAmount = getCurrentTotal() || originalTransaction?.amount || 0;
+
                             // Use reverseTransaction to properly reverse quantities using computeQuantity
                             const currentTransaction: Transaction = {
                                 validator: parameters.user.name,
-                                method: option,
-                                amount: getCurrentTotal(),
+                                method: REFUND_KEYWORD,
+                                amount: refundAmount,
                                 createdDate: new Date().getTime(),
                                 modifiedDate: 0,
                                 currency: currencies[currencyIndex].label,
+                                customerName: originalTransaction?.customerName,
                                 products: products.current,
                             };
 
@@ -480,7 +489,7 @@ export const usePay = () => {
                                 products.current.push(product);
                             });
 
-                            commitTransaction(option);
+                            commitTransaction(reversedTransaction);
                             closePopup();
                         }
                     });
@@ -520,6 +529,7 @@ export const usePay = () => {
             handlePrintBalance,
             amount,
             openFullscreenPopup,
+            transactions,
         ]
     );
 

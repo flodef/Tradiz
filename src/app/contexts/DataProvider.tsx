@@ -1103,6 +1103,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!item || (typeof item === 'string' && !products.current.length)) return;
 
             const currentTime = floorToSeconds(new Date().getTime()); // floor to seconds to match SQL TIMESTAMP precision
+            const existingTransaction =
+                typeof item === 'string' && transactionId.current
+                    ? transactions.find((tx) => tx.createdDate === transactionId.current)
+                    : undefined;
+
             const transaction: Transaction =
                 typeof item === 'object'
                     ? item
@@ -1113,6 +1118,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                           createdDate: transactionId.current || currentTime,
                           modifiedDate: transactionId.current,
                           currency: currencies[currencyIndex].label,
+                          customerName: existingTransaction?.customerName,
                           products: products.current,
                           ...(shortNumOrder ? { shortNumOrder } : {}),
                       };
@@ -1132,6 +1138,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             storeTransaction,
             parameters,
             shortNumOrder,
+            transactions,
         ]
     );
 
