@@ -2,6 +2,7 @@ import { DELETED_KEYWORD, DEFAULT_USER } from '@/app/utils/constants';
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
+import { getBalanceAffectingEntries } from '../customerBalanceHelpers';
 
 interface TransactionRow {
     id: number;
@@ -16,8 +17,6 @@ interface TransactionRow {
     modifieddate: number;
     createdDate?: number;
     modifiedDate?: number;
-    previous_balance: number | null;
-    new_balance: number | null;
 }
 
 interface ProductRow {
@@ -102,20 +101,9 @@ export async function GET(request: Request) {
                 t.currency,
                 t.note,
                 (EXTRACT(EPOCH FROM t.created_at) * 1000)::bigint as createddate,
-                (EXTRACT(EPOCH FROM t.updated_at) * 1000)::bigint as modifieddate,
-                bh.previous_balance,
-                bh.new_balance
+                (EXTRACT(EPOCH FROM t.updated_at) * 1000)::bigint as modifieddate
             FROM dc_pos.transactions t
             LEFT JOIN dc.orders o ON o.id::text = t.order_id
-            LEFT JOIN LATERAL (
-                SELECT previous_balance, new_balance
-                FROM dc_pos.balance_history bh2
-                WHERE bh2.customer_id = $4::int
-                  AND bh2.amount = t.amount
-                  AND ABS(EXTRACT(EPOCH FROM bh2.created_at) - EXTRACT(EPOCH FROM t.created_at)) < 60
-                ORDER BY ABS(EXTRACT(EPOCH FROM bh2.created_at) - EXTRACT(EPOCH FROM t.created_at))
-                LIMIT 1
-            ) bh ON true
             WHERE t.customer_name = $1 AND t.payment_method != $3
             ORDER BY t.created_at DESC
             LIMIT 10
@@ -131,17 +119,7 @@ export async function GET(request: Request) {
                 t.currency,
                 t.note,
                 (UNIX_TIMESTAMP(t.created_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as createdDate,
-                (UNIX_TIMESTAMP(t.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate,
-                (SELECT previous_balance FROM balance_history bh2
-                 WHERE bh2.customer_id = ? AND bh2.amount = t.amount
-                   AND ABS(TIMESTAMPDIFF(SECOND, bh2.created_at, t.created_at)) < 60
-                 ORDER BY ABS(TIMESTAMPDIFF(SECOND, bh2.created_at, t.created_at))
-                 LIMIT 1) as previous_balance,
-                (SELECT new_balance FROM balance_history bh2
-                 WHERE bh2.customer_id = ? AND bh2.amount = t.amount
-                   AND ABS(TIMESTAMPDIFF(SECOND, bh2.created_at, t.created_at)) < 60
-                 ORDER BY ABS(TIMESTAMPDIFF(SECOND, bh2.created_at, t.created_at))
-                 LIMIT 1) as new_balance
+                (UNIX_TIMESTAMP(t.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate
             FROM transactions t
             LEFT JOIN \`DC\`.orders o ON o.id = t.order_id
             WHERE t.customer_name = ? AND t.payment_method != ?
@@ -150,10 +128,15 @@ export async function GET(request: Request) {
         `;
 
         const params = isPg
-            ? [customerName, DEFAULT_USER, DELETED_KEYWORD, customerId]
-            : [DEFAULT_USER, customerId, customerId, customerName, DELETED_KEYWORD];
+            ? [customerName, DEFAULT_USER, DELETED_KEYWORD]
+            : [DEFAULT_USER, customerName, DELETED_KEYWORD];
         const [transactionRows] = await connection.execute(transactionsQuery, params);
         const rows = transactionRows as TransactionRow[];
+
+        // Running balances are derived from the transactions table (single source of truth),
+        // then attached to the balance-affecting transactions by id.
+        const { entries } = await getBalanceAffectingEntries(connection, customerName);
+        const balanceById = new Map(entries.map((entry) => [String(entry.id), entry]));
 
         const ids = rows.map((r) => r.id);
         const itemsByTx = new Map<number, ProductRow[]>();
@@ -188,6 +171,8 @@ export async function GET(request: Request) {
                 vatRate: p.vat_rate != null ? Number(p.vat_rate) : 20,
             }));
 
+            const balanceEntry = balanceById.get(String(row.id));
+
             return {
                 validator: row.validator || '',
                 method: row.method || '',
@@ -198,8 +183,8 @@ export async function GET(request: Request) {
                     Number(row.modifieddate ?? row.modifiedDate) || Number(row.createddate ?? row.createdDate),
                 products,
                 ...(row.short_num_order ? { shortNumOrder: String(row.short_num_order) } : {}),
-                ...(row.previous_balance !== null ? { previousBalance: Number(row.previous_balance) } : {}),
-                ...(row.new_balance !== null ? { newBalance: Number(row.new_balance) } : {}),
+                ...(balanceEntry ? { previousBalance: balanceEntry.previousBalance } : {}),
+                ...(balanceEntry ? { newBalance: balanceEntry.newBalance } : {}),
             };
         });
 

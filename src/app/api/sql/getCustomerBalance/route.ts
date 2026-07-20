@@ -1,7 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
-import { DEBIT_KEYWORD, DELETED_KEYWORD } from '@/app/utils/constants';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
+import { getBalanceAffectingEntries } from '../customerBalanceHelpers';
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
@@ -24,73 +24,21 @@ export async function GET(request: Request) {
         const [customerNameRows] = await connection.execute(customerNameQuery, [customerId]);
         const customerName = (customerNameRows as { full_name: string }[])[0]?.full_name;
 
-        // Compute balance from the transactions table: provisions (no products) minus debits.
-        let balance = 0;
-        if (customerName) {
-            const balanceQuery = isPg
-                ? `
-                SELECT
-                    COALESCE(SUM(CASE WHEN agg.payment_method != $2 AND NOT has_items THEN agg.amount ELSE 0 END), 0) -
-                    COALESCE(SUM(CASE WHEN agg.payment_method = $2 THEN agg.amount ELSE 0 END), 0) AS balance
-                FROM (
-                    SELECT t.amount, t.payment_method, EXISTS (
-                        SELECT 1 FROM dc_pos.transaction_items ti WHERE ti.transaction_id = t.id
-                    ) AS has_items
-                    FROM dc_pos.transactions t
-                    WHERE t.customer_name = $1 AND t.payment_method != $3
-                ) agg
-            `
-                : `
-                SELECT
-                    COALESCE(SUM(CASE WHEN agg.payment_method != ? AND NOT has_items THEN agg.amount ELSE 0 END), 0) -
-                    COALESCE(SUM(CASE WHEN agg.payment_method = ? THEN agg.amount ELSE 0 END), 0) AS balance
-                FROM (
-                    SELECT t.amount, t.payment_method, EXISTS (
-                        SELECT 1 FROM transaction_items ti WHERE ti.transaction_id = t.id
-                    ) AS has_items
-                    FROM transactions t
-                    WHERE t.customer_name = ? AND t.payment_method != ?
-                ) agg
-            `;
+        // Balance and history are derived entirely from the transactions table so they always
+        // reflect the current state (deletions/edits included), with no separate ledger to drift.
+        const { balance, entries } = await getBalanceAffectingEntries(connection, customerName);
 
-            const [balanceRows] = await connection.execute(
-                balanceQuery,
-                isPg
-                    ? [customerName, DEBIT_KEYWORD, DELETED_KEYWORD]
-                    : [DEBIT_KEYWORD, DEBIT_KEYWORD, customerName, DELETED_KEYWORD]
-            );
-            balance = Number((balanceRows as { balance: number | string }[])[0]?.balance ?? 0);
-        }
-
-        // Get balance history (last 50 entries)
-        const historyQuery = connection.isPostgreSQL
-            ? `SELECT amount, operation, previous_balance, new_balance, created_at 
-               FROM dc_pos.balance_history 
-               WHERE customer_id = $1 
-               ORDER BY created_at DESC 
-               LIMIT 50`
-            : `SELECT amount, operation, previous_balance, new_balance, created_at 
-               FROM balance_history 
-               WHERE customer_id = ? 
-               ORDER BY created_at DESC 
-               LIMIT 50`;
-
-        const [historyRows] = await connection.execute(historyQuery, [customerId]);
-        const history = (
-            historyRows as Array<{
-                amount: number;
-                operation: 'credit' | 'debit' | 'deleted';
-                previous_balance: number;
-                new_balance: number;
-                created_at: string;
-            }>
-        ).map((entry) => ({
-            amount: Number(entry.amount),
-            operation: entry.operation,
-            previous_balance: Number(entry.previous_balance),
-            new_balance: Number(entry.new_balance),
-            created_at: entry.created_at,
-        }));
+        // Most recent first, capped at 50 entries (matching the previous behaviour).
+        const history = entries
+            .map((entry) => ({
+                amount: Math.abs(entry.amount),
+                operation: entry.operation,
+                previous_balance: entry.previousBalance,
+                new_balance: entry.newBalance,
+                created_at: entry.createdAt,
+            }))
+            .reverse()
+            .slice(0, 50);
 
         await connection.end();
 
