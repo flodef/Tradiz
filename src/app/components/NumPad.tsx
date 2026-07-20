@@ -991,7 +991,7 @@ export const NumPad: FC = () => {
                                 }
                             >
                                 {currentCustomer
-                                    ? `${isNegativeBalance && '⚠️'} Client : ${currentCustomer.firstName} ${currentCustomer.lastName}`
+                                    ? `${isNegativeBalance ? '⚠️' : ''} Client : ${currentCustomer.firstName} ${currentCustomer.lastName}`
                                     : parameters.user.name}
                                 {currentCustomer && customerBalance !== null && (
                                     <span

@@ -27,6 +27,55 @@ import { LoadingDot } from '../loading';
 type OptionDef = { type: string; options: { value: string; price: number | string }[] };
 type OptionSel = { type: string; value: string; price: number };
 
+type FormulaDefinition = {
+    formula: true;
+    elements: { name: string; category?: string; products?: string[] }[];
+};
+
+function buildCatalogFormula(
+    product: InventoryItem['products'][number],
+    parsed: FormulaDefinition,
+    inventory: InventoryItem[],
+    currencyIndex: number
+): CatalogFormula | null {
+    const price = product.prices[currencyIndex] ?? product.prices[0] ?? 0;
+    const elements = parsed.elements
+        .map((element, index) => {
+            let choices: InventoryItem['products'] = [];
+            if (element.category) {
+                inventory.forEach((category) => {
+                    if (category.category === element.category) {
+                        choices.push(...category.products);
+                    }
+                });
+            } else if (element.products?.length) {
+                inventory.forEach((category) => {
+                    category.products.forEach((p) => {
+                        if (element.products?.includes(p.label)) {
+                            choices.push(p);
+                        }
+                    });
+                });
+            }
+            if (choices.length === 0) return null;
+            choices = choices.filter((p, i, arr) => arr.findIndex((x) => x.label === p.label) === i);
+            return {
+                id: `${product.label}-${index}`,
+                nom: element.name,
+                articles: choices.map((p, articleIndex) => ({
+                    id: articleIndex,
+                    nom: p.label,
+                    prix: p.prices[currencyIndex] ?? p.prices[0] ?? 0,
+                    options: p.options || null,
+                })),
+            };
+        })
+        .filter(Boolean) as CatalogFormula['elements'];
+
+    if (elements.length === 0) return null;
+    return { id: product.label, nom: product.label, prix: price, elements };
+}
+
 interface CategoryInputButton {
     input: string;
     onInput: (input: string, eventType: string) => void;
@@ -183,7 +232,8 @@ export const Category: FC = () => {
 
     // ── Unified handler: look up catalog then trigger wizard or direct add ──
     const handleProductSelection = (item: InventoryItem, label: string) => {
-        const price = item.products.find((p) => p.label === label)?.prices[currencyIndex];
+        const product = item.products.find((p) => p.label === label);
+        const price = product?.prices[currencyIndex];
         const isNewPrice = amount && amount !== selectedProduct?.amount;
         const baseAmount = isNewPrice ? amount : price || 0;
 
@@ -197,6 +247,21 @@ export const Category: FC = () => {
                 vatRate: item.rate,
                 ...(options && options.length > 0 ? { options: JSON.stringify(options) } : {}),
             });
+
+        if (product?.options) {
+            try {
+                const parsed = JSON.parse(product.options) as FormulaDefinition;
+                if (parsed.formula && Array.isArray(parsed.elements)) {
+                    const formula = buildCatalogFormula(product, parsed, inventory, currencyIndex);
+                    if (formula && formula.elements.length > 0) {
+                        selectFormulaElements(formula, 0, [], 0, (elements, extra) => doAdd(extra, elements));
+                        return;
+                    }
+                }
+            } catch {
+                // Not a formula definition, continue with catalog lookup
+            }
+        }
 
         loadCatalog()
             .then((catalog) => {
