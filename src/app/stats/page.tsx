@@ -2,17 +2,20 @@
 
 import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
 import { SHOP_ID } from '@/app/constants/shop';
+import { useConfig } from '@/app/hooks/useConfig';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import {
     DELETED_KEYWORD,
+    DEFAULT_VAT_RATE,
     PROCESSING_KEYWORD,
     REFUND_KEYWORD,
     USE_DIGICARTE,
     WAITING_KEYWORD,
 } from '@/app/utils/constants';
 import '@/app/utils/extensions';
-import type { Transaction } from '@/app/utils/interfaces';
+import type { BillingReport, Company, Transaction } from '@/app/utils/interfaces';
 import { idbGetAllTransactionSets } from '@/app/utils/transactionStore';
+import { printBillingDetail, printBillingSummary } from '@/app/utils/posPrinter';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Bar,
@@ -64,12 +67,23 @@ interface StatisticsData {
 
 export default function StatsPage() {
     const { isCashier } = useUserRole();
+    const { parameters, currencies, currencyIndex, getPrinterAddresses } = useConfig();
+    const currency = currencies[currencyIndex];
+    const shop = parameters.shop;
+
     const [stats, setStats] = useState<StatisticsData | null>(null);
     const [loading, setLoading] = useState(true);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const maxDate = new Date().toISOString().split('T')[0];
     const hasLoadedRef = useRef(false);
+
+    const [companies, setCompanies] = useState<Company[]>([]);
+    const [selectedCompany, setSelectedCompany] = useState('');
+    const [vatRate, setVatRate] = useState(DEFAULT_VAT_RATE);
+    const [billingReport, setBillingReport] = useState<BillingReport | null>(null);
+    const [billingLoading, setBillingLoading] = useState(false);
+    const [billingError, setBillingError] = useState('');
 
     type DatePreset = 'week' | 'month' | 'quarter' | 'semester' | 'year' | 'ytd';
 
@@ -268,6 +282,68 @@ export default function StatsPage() {
         }
     }, [startDate, endDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Load companies for billing report
+    useEffect(() => {
+        const fetchCompanies = async () => {
+            try {
+                const response = await fetch('/api/sql/getCompanies');
+                const data = await response.json();
+                if (data.companies) {
+                    setCompanies(data.companies);
+                    if (data.companies.length > 0) {
+                        setSelectedCompany(data.companies[0].name);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching companies:', error);
+            }
+        };
+        fetchCompanies();
+    }, []);
+
+    const generateBillingReport = useCallback(async () => {
+        if (!selectedCompany || !startDate || !endDate) return;
+
+        setBillingLoading(true);
+        setBillingError('');
+        setBillingReport(null);
+
+        try {
+            const params = new URLSearchParams({
+                companyName: selectedCompany,
+                startDate,
+                endDate,
+                vatRate: String(vatRate),
+            });
+            const response = await fetch(`/api/sql/getBillingReport?${params.toString()}`);
+            const data = await response.json();
+
+            if (!response.ok || data.error) {
+                setBillingError(data.error || 'Une erreur est survenue');
+                return;
+            }
+
+            setBillingReport(data.report);
+        } catch (error) {
+            console.error('Error generating billing report:', error);
+            setBillingError('Impossible de générer le rapport de facturation');
+        } finally {
+            setBillingLoading(false);
+        }
+    }, [selectedCompany, startDate, endDate, vatRate]);
+
+    const handlePrintSummary = useCallback(() => {
+        if (!billingReport || !currency || !shop) return;
+        const addresses = getPrinterAddresses();
+        printBillingSummary(addresses, billingReport, shop, currency);
+    }, [billingReport, currency, getPrinterAddresses, shop]);
+
+    const handlePrintDetail = useCallback(() => {
+        if (!billingReport || !currency || !shop) return;
+        const addresses = getPrinterAddresses();
+        printBillingDetail(addresses, billingReport, shop, currency);
+    }, [billingReport, currency, getPrinterAddresses, shop]);
+
     // Redirect to Grafana dashboard if using Digicarte
     if (USE_DIGICARTE) {
         if (typeof window !== 'undefined') window.location.href = '/stats/d/vue-dc-1/vue-dc';
@@ -333,37 +409,37 @@ export default function StatsPage() {
                 <div className="flex flex-wrap gap-2">
                     <button
                         onClick={() => applyDatePreset('week')}
-                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-[80px]"
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-20"
                     >
                         Semaine
                     </button>
                     <button
                         onClick={() => applyDatePreset('month')}
-                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-[80px]"
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-20"
                     >
                         Mois
                     </button>
                     <button
                         onClick={() => applyDatePreset('quarter')}
-                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-[80px]"
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-20"
                     >
                         Trimestre
                     </button>
                     <button
                         onClick={() => applyDatePreset('semester')}
-                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-[80px]"
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-20"
                     >
                         Semestre
                     </button>
                     <button
                         onClick={() => applyDatePreset('year')}
-                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-[80px]"
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-20"
                     >
                         Année
                     </button>
                     <button
                         onClick={() => applyDatePreset('ytd')}
-                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-[80px]"
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-20"
                     >
                         {new Date().getFullYear()}
                     </button>
@@ -382,6 +458,136 @@ export default function StatsPage() {
                     <h3 className="text-sm font-semibold mb-1">Nombre de commandes</h3>
                     <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.totalOrders}</p>
                 </div>
+            </div>
+
+            {/* Billing Report Section */}
+            <div className="mb-6 bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                <h2 className="text-xl font-bold mb-4">Facturation entreprise</h2>
+                <div className="flex flex-col md:flex-row gap-4 mb-4">
+                    <div className="flex-1">
+                        <label className="block text-sm font-medium mb-1">Entreprise</label>
+                        <select
+                            value={selectedCompany}
+                            onChange={(e) => setSelectedCompany(e.target.value)}
+                            className="w-full px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
+                        >
+                            {companies.length === 0 && <option value="">Aucune entreprise</option>}
+                            {companies.map((company) => (
+                                <option key={company.id || company.name} value={company.name}>
+                                    {company.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="w-32">
+                        <label className="block text-sm font-medium mb-1">TVA (%)</label>
+                        <input
+                            type="number"
+                            value={vatRate}
+                            min={0}
+                            step={0.5}
+                            onChange={(e) => setVatRate(Number(e.target.value))}
+                            className="w-full px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
+                        />
+                    </div>
+                    <div className="flex items-end">
+                        <button
+                            onClick={generateBillingReport}
+                            disabled={billingLoading || !selectedCompany || !startDate || !endDate}
+                            className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold py-2 px-4 rounded"
+                        >
+                            {billingLoading ? 'Calcul...' : 'Calculer'}
+                        </button>
+                    </div>
+                </div>
+
+                {billingError && (
+                    <div className="p-3 mb-4 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded">
+                        {billingError}
+                    </div>
+                )}
+
+                {billingReport && (
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                            <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
+                                <p className="text-sm text-gray-600 dark:text-gray-300">Compte n°</p>
+                                <p className="text-lg font-bold">{billingReport.companyId}</p>
+                            </div>
+                            <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
+                                <p className="text-sm text-gray-600 dark:text-gray-300">Prix / Quote part</p>
+                                <p className="text-lg font-bold">{billingReport.mealPrice.toFixed(2)} €</p>
+                            </div>
+                            <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
+                                <p className="text-sm text-gray-600 dark:text-gray-300">Total repas</p>
+                                <p className="text-lg font-bold">{billingReport.mealCount}</p>
+                            </div>
+                            <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
+                                <p className="text-sm text-gray-600 dark:text-gray-300">Total HT</p>
+                                <p className="text-lg font-bold">{billingReport.totalHT.toFixed(2)} €</p>
+                            </div>
+                            <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
+                                <p className="text-sm text-gray-600 dark:text-gray-300">Total TVA</p>
+                                <p className="text-lg font-bold">{billingReport.totalTVA.toFixed(2)} €</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handlePrintSummary}
+                                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                            >
+                                Imprimer total TVA
+                            </button>
+                            <button
+                                onClick={handlePrintDetail}
+                                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                            >
+                                Imprimer détail par salarié
+                            </button>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="border-b dark:border-gray-700">
+                                        <th className="text-left py-2">N° Cpt</th>
+                                        <th className="text-left py-2">Désignation</th>
+                                        <th className="text-right py-2">Qté</th>
+                                        <th className="text-right py-2">CA</th>
+                                        <th className="text-right py-2">TVA</th>
+                                        <th className="text-right py-2">TTC</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {billingReport.customers.map((customer) => (
+                                        <tr key={customer.customerId} className="border-b dark:border-gray-700">
+                                            <td className="py-2 font-mono">
+                                                {customer.reference || String(customer.customerId).padStart(6, '0')}
+                                            </td>
+                                            <td className="py-2">
+                                                {customer.lastName} {customer.firstName}
+                                            </td>
+                                            <td className="py-2 text-right">{customer.mealCount}</td>
+                                            <td className="py-2 text-right">{customer.totalAmount.toFixed(2)} €</td>
+                                            <td className="py-2 text-right">{customer.totalTVA.toFixed(2)} €</td>
+                                            <td className="py-2 text-right">{customer.totalAmount.toFixed(2)} €</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot>
+                                    <tr className="font-bold border-b dark:border-gray-700">
+                                        <td className="py-2">Total</td>
+                                        <td className="py-2" />
+                                        <td className="py-2 text-right">{billingReport.mealCount}</td>
+                                        <td className="py-2 text-right">{billingReport.totalAmount.toFixed(2)} €</td>
+                                        <td className="py-2 text-right">{billingReport.totalTVA.toFixed(2)} €</td>
+                                        <td className="py-2 text-right">{billingReport.totalAmount.toFixed(2)} €</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Daily Revenue Chart */}

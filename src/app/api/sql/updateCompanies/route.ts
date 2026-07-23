@@ -1,11 +1,12 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
+import { ensureBillingSchema } from '../billingHelpers';
 
 interface Company {
     id?: number;
     name: string;
-    quotaShare: number;
+    mealPrice: number;
 }
 
 export async function POST(request: Request) {
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
         }
 
         const connection = await getPosDb(shopId);
+        await ensureBillingSchema(connection);
 
         // Delete all existing companies
         const deleteQuery = connection.isPostgreSQL ? 'DELETE FROM dc_pos.companies' : 'DELETE FROM companies';
@@ -26,20 +28,20 @@ export async function POST(request: Request) {
         // Insert new companies
         for (const company of companies) {
             const name = company.name;
-            const quotaShare = company.quotaShare;
+            const mealPrice = company.mealPrice ?? 0;
 
             if (connection.isPostgreSQL) {
                 const insertQuery = `
-                    INSERT INTO dc_pos.companies (name, quota_share)
+                    INSERT INTO dc_pos.companies (name, meal_price)
                     VALUES ($1, $2)
                 `;
-                await connection.execute(insertQuery, [name, quotaShare]);
+                await connection.execute(insertQuery, [name, mealPrice]);
             } else {
                 const insertQuery = `
-                    INSERT INTO companies (name, quota_share)
+                    INSERT INTO companies (name, meal_price)
                     VALUES (?, ?)
                 `;
-                await connection.execute(insertQuery, [name, quotaShare]);
+                await connection.execute(insertQuery, [name, mealPrice]);
             }
         }
 

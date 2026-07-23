@@ -83,14 +83,13 @@ const SortableRow = memo(function SortableRow({
             </td>
             <td className="p-2">
                 {isReadOnly ? (
-                    <div className="text-sm">{company.quotaShare} €</div>
+                    <div className="text-sm">{company.mealPrice} €</div>
                 ) : (
                     <ValidatedInput
                         type="number"
-                        value={company.quotaShare}
-                        onChange={(value) => onFieldChange(company._id, 'quotaShare', Number(value))}
+                        value={company.mealPrice}
+                        onChange={(value) => onFieldChange(company._id, 'mealPrice', Number(value))}
                         min={0}
-                        max={100}
                         step={0.01}
                         className="w-24"
                         validation={(value) => Number(value) > 0}
@@ -152,8 +151,8 @@ export default function CompaniesConfig({
 
     const strip = useCallback((items: InternalCompany[]): Company[] => items.map(({ _id: _, ...rest }) => rest), []);
 
-    // Check if all companies have valid name and quotaShare
-    const isValid = companies.every((company) => company.name?.trim() && company.quotaShare > 0);
+    // Check if all companies have valid name and mealPrice
+    const isValid = companies.every((company) => company.name?.trim() && company.mealPrice > 0);
 
     // Notify parent of validation state
     useEffect(() => {
@@ -187,7 +186,7 @@ export default function CompaniesConfig({
 
     const handleAddCompany = useCallback(() => {
         setCompanies((prev) => {
-            const updated = [...prev, { name: '', quotaShare: 0, _id: nextIdRef.current++ }];
+            const updated = [...prev, { name: '', mealPrice: 0, _id: nextIdRef.current++ }];
             lastAddedIndexRef.current = updated.length - 1;
             notifyParent(updated);
             return updated;
@@ -283,7 +282,7 @@ export default function CompaniesConfig({
                                     <tr className="border-b-2 border-gray-300 dark:border-gray-600">
                                         {!isReadOnly && <th className="w-12"></th>}
                                         <th className={adminHeaderStyle}>Nom</th>
-                                        <th className={adminHeaderStyle + ' w-32'}>Quote Part (€)</th>
+                                        <th className={adminHeaderStyle + ' w-32'}>Prix Repas (€)</th>
                                         {!isReadOnly && <th className="w-16"></th>}
                                     </tr>
                                 </thead>

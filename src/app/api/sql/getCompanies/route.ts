@@ -1,11 +1,12 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
+import { ensureBillingSchema } from '../billingHelpers';
 
 interface CompanyRow {
     id: number;
     name: string;
-    quota_share: number;
+    meal_price: number;
 }
 
 // Detects "relation/table does not exist" errors across Postgres (42P01) and MySQL/MariaDB (1146)
@@ -18,10 +19,11 @@ export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
     try {
         const connection = await getPosDb(shopId);
+        await ensureBillingSchema(connection);
 
         const query = connection.isPostgreSQL
-            ? 'SELECT id, name, quota_share FROM dc_pos.companies ORDER BY name'
-            : 'SELECT id, name, quota_share FROM companies ORDER BY name';
+            ? 'SELECT id, name, meal_price FROM dc_pos.companies ORDER BY name'
+            : 'SELECT id, name, meal_price FROM companies ORDER BY name';
 
         const result = await connection.execute(query);
         const rows = result[0] as CompanyRow[];
@@ -31,7 +33,7 @@ export async function GET(request: Request) {
         const companies = rows.map((row) => ({
             id: row.id,
             name: String(row.name),
-            quotaShare: Number(row.quota_share),
+            mealPrice: Number(row.meal_price ?? 0),
         }));
 
         return NextResponse.json({ companies });

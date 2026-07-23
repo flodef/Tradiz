@@ -8,7 +8,7 @@ import { ReceiptData } from '../hooks/usePay';
 import { SummaryData } from '../hooks/useSummary';
 import { DEFAULT_VAT_RATE, IS_DEV } from './constants';
 import { formatFrenchDate, generateReceiptNumber } from './date';
-import { Currency, SERVICE_TYPE_LABELS } from './interfaces';
+import { BillingReport, Currency, SERVICE_TYPE_LABELS } from './interfaces';
 import { createMockPrinter } from './mockPrinter';
 
 type PrintResponse = {
@@ -466,5 +466,203 @@ export async function printSummary(printerAddresses: string[], summaryData: Summ
     } catch (error) {
         console.error('Failed to print summary:', error);
         return { error: "Erreur lors de l'impression du ticket Z" };
+    }
+}
+
+const BANNER_WIDTH = 48;
+
+function centerText(text: string, width: number): string {
+    const pad = Math.max(0, width - text.length);
+    const left = Math.floor(pad / 2);
+    const right = pad - left;
+    return ' '.repeat(left) + text + ' '.repeat(right);
+}
+
+function toFrenchAmount(amount: number): string {
+    const [int, dec] = amount.toFixed(2).split('.');
+    const intWithSpaces = int.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    return `${intWithSpaces},${dec}`;
+}
+
+function formatAccountNumber(reference: string): string {
+    const trimmed = reference.trim();
+    if (!trimmed) return '';
+    const num = Number(trimmed);
+    if (!Number.isNaN(num) && Number.isFinite(num)) {
+        return String(num).padStart(6, '0');
+    }
+    return trimmed;
+}
+
+function printShopBanner(printer: ThermalPrinter, shop: Shop): void {
+    const name = shop.name.toUpperCase();
+    printer.println('*'.repeat(BANNER_WIDTH));
+    printer.println('*' + centerText(name, BANNER_WIDTH - 2) + '*');
+    printer.println('*'.repeat(BANNER_WIDTH));
+    printer.newLine();
+}
+
+function printBillingHeader(printer: ThermalPrinter, title: string, report: BillingReport, shop: Shop): void {
+    const currentDate = new Date();
+    const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
+    const startLabel = new Date(report.startDate).toLocaleDateString('fr-FR');
+    const endLabel = new Date(report.endDate).toLocaleDateString('fr-FR');
+    const timeLabel = `${frenchTimeStr.split(':')[0]}h${frenchTimeStr.split(':')[1]}`;
+
+    printShopBanner(printer, shop);
+
+    printer.alignCenter();
+    printer.setTextDoubleHeight();
+    printer.bold(true);
+    printer.println(title);
+    printer.bold(false);
+    printer.setTextNormal();
+    printer.newLine();
+
+    printer.alignLeft();
+    printer.println(`Compta n° ${report.companyId} du ${startLabel} au ${endLabel} ${timeLabel}`);
+    printer.println(`Imprimé le ${frenchDateStr} à ${timeLabel}`);
+    printer.newLine();
+}
+
+/**
+ * Server action to print the billing summary report including VAT.
+ */
+export async function printBillingSummary(
+    printerAddresses: string[],
+    report: BillingReport,
+    shop: Shop,
+    _currency: Currency
+): Promise<PrintResponse> {
+    try {
+        const { printer, error } = await initPrinter(printerAddresses);
+        if (!printer || error) return { error };
+
+        printBillingHeader(printer, `Ventes Facturées : Statistiques de Caisses - ${report.companyName}`, report, shop);
+
+        const vatPercent = Number(report.vatRate * 100).toFixed(0);
+
+        printer.drawLine();
+        printer.setTextDoubleHeight();
+        printer.bold(true);
+        printer.leftRight('TOTAL REPAS', `${report.mealCount}`);
+        printer.setTextNormal();
+        printer.bold(false);
+        printer.drawLine();
+
+        printer.tableCustom([
+            { text: 'Qté', align: 'RIGHT', cols: 6 },
+            { text: 'CA', align: 'RIGHT', cols: 42 },
+        ]);
+        printer.drawLine();
+
+        printer.tableCustom([
+            { text: String(report.mealCount), align: 'RIGHT', cols: 6 },
+            { text: toFrenchAmount(report.totalAmount), align: 'RIGHT', cols: 42 },
+        ]);
+        printer.newLine();
+        printer.drawLine();
+
+        printer.leftRight(`CA en TVA ${vatPercent}%`, toFrenchAmount(report.totalAmount));
+        printer.leftRight(`Total TVA ${vatPercent}%`, toFrenchAmount(report.totalTVA));
+        printer.leftRight('TOTAL HT', toFrenchAmount(report.totalHT));
+        printer.newLine();
+
+        printer.drawLine();
+        printer.bold(true);
+        printer.println('----VENTILATIONS----');
+        printer.bold(false);
+        printer.tableCustom([
+            { text: report.companyId.toString(), align: 'LEFT', cols: 6 },
+            { text: report.companyName, align: 'LEFT', cols: 25 },
+            { text: String(report.mealCount), align: 'RIGHT', cols: 6 },
+            { text: toFrenchAmount(report.totalAmount), align: 'RIGHT', cols: 11 },
+        ]);
+        printer.newLine();
+
+        printer.drawLine();
+        printer.println('Document comptable');
+        printer.newLine();
+        printer.cut();
+
+        await printer.execute();
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to print billing summary:', error);
+        return { error: "Erreur lors de l'impression du total TVA" };
+    }
+}
+
+/**
+ * Server action to print the detailed per-customer billing report.
+ */
+export async function printBillingDetail(
+    printerAddresses: string[],
+    report: BillingReport,
+    shop: Shop,
+    _currency: Currency
+): Promise<PrintResponse> {
+    try {
+        const { printer, error } = await initPrinter(printerAddresses);
+        if (!printer || error) return { error };
+
+        printBillingHeader(
+            printer,
+            `Ventes Facturées par Client - Famille PART EMPLOYEUR - ${report.companyName} - Compte n° ${report.companyId}`,
+            report,
+            shop
+        );
+
+        if (report.customers && report.customers.length > 0) {
+            printer.tableCustom([
+                { text: 'N° Cpt', align: 'LEFT', cols: 8 },
+                { text: 'Désignation', align: 'LEFT', cols: 20 },
+                { text: 'Qté', align: 'RIGHT', cols: 6 },
+                { text: 'CA', align: 'RIGHT', cols: 14 },
+            ]);
+            printer.drawLine();
+
+            for (const customer of report.customers) {
+                const account = formatAccountNumber(customer.reference ?? '');
+                const fullName = `${customer.lastName} ${customer.firstName}`.trim();
+                const name = fullName.length > 20 ? fullName.slice(0, 17) + '...' : fullName;
+                const qty = String(customer.mealCount);
+                const ca = toFrenchAmount(customer.totalAmount);
+
+                // Avoid overflow by trimming cells to column width
+                printer.tableCustom([
+                    { text: account.slice(-8), align: 'LEFT', cols: 8 },
+                    { text: name, align: 'LEFT', cols: 20 },
+                    { text: qty, align: 'RIGHT', cols: 6 },
+                    { text: ca.length <= 14 ? ca : ca.slice(0, 14), align: 'RIGHT', cols: 14 },
+                ]);
+            }
+
+            printer.newLine();
+            printer.drawLine();
+            printer.setTextDoubleHeight();
+            printer.bold(true);
+            printer.tableCustom([
+                { text: 'TOTAUX', align: 'LEFT', cols: 28 },
+                { text: String(report.mealCount), align: 'RIGHT', cols: 6 },
+                { text: toFrenchAmount(report.totalAmount), align: 'RIGHT', cols: 14 },
+            ]);
+            printer.bold(false);
+            printer.setTextNormal();
+        } else {
+            printer.println('Aucun repas pour cette période');
+        }
+
+        printer.newLine();
+        printer.drawLine();
+        printer.println('Document comptable');
+        printer.newLine();
+        printer.cut();
+
+        await printer.execute();
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to print billing detail:', error);
+        return { error: "Erreur lors de l'impression du détail par salarié" };
     }
 }

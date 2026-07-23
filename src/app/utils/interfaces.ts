@@ -45,7 +45,32 @@ export interface Device {
 export interface Company {
     id?: number;
     name: string;
-    quotaShare: number;
+    mealPrice: number;
+}
+
+export interface BillingReport {
+    companyId: number;
+    companyName: string;
+    startDate: string;
+    endDate: string;
+    mealPrice: number;
+    vatRate: number;
+    mealCount: number;
+    totalAmount: number;
+    totalHT: number;
+    totalTVA: number;
+    customers: BillingReportCustomer[];
+}
+
+export interface BillingReportCustomer {
+    customerId: number;
+    reference?: string;
+    firstName: string;
+    lastName: string;
+    mealCount: number;
+    totalAmount: number;
+    totalHT: number;
+    totalTVA: number;
 }
 
 export interface Customer {
@@ -56,7 +81,6 @@ export interface Customer {
     email?: string;
     phone?: string;
     company?: string;
-    quotaShare?: number;
     balance?: number;
 }
 

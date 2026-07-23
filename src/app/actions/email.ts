@@ -2,6 +2,7 @@
 
 import nodemailer, { SendMailOptions } from 'nodemailer';
 import { SummaryData } from '../hooks/useSummary';
+import { BillingReport } from '../utils/interfaces';
 import { DEV_EMAIL, IS_DEV } from '../utils/constants';
 
 // Configure nodemailer transporter
@@ -137,6 +138,64 @@ export async function sendFatalErrorEmail(error: string): Promise<boolean> {
         <div style="font-family: Arial, sans-serif; max-width: 600px;">
           <p>L'erreur suivante est survenue :</p>
           <p>${error}</p>
+          <p>Merci,<br>L'équipe Tradiz</p>
+        </div>
+      `,
+    });
+}
+
+/**
+ * Send a billing report by email
+ */
+export async function sendBillingReportEmail(report: BillingReport, to?: string): Promise<boolean> {
+    const vatRatePercent = (report.vatRate * 100).toFixed(0);
+    const startLabel = new Date(report.startDate).toLocaleDateString('fr-FR');
+    const endLabel = new Date(report.endDate).toLocaleDateString('fr-FR');
+
+    const mealPrice = Number(report.mealPrice ?? 0).toFixed(2);
+    const totalHT = Number(report.totalHT ?? 0).toFixed(2);
+    const totalTVA = Number(report.totalTVA ?? 0).toFixed(2);
+    const totalAmount = Number(report.totalAmount ?? 0).toFixed(2);
+
+    const rows =
+        report.customers && report.customers.length > 0
+            ? report.customers
+                  .map(
+                      (customer) => `
+                <tr>
+                    <td style="padding: 5px; border: 1px solid #ccc;">${customer.reference || String(customer.customerId).padStart(6, '0')}</td>
+                    <td style="padding: 5px; border: 1px solid #ccc;">${customer.lastName} ${customer.firstName}</td>
+                    <td style="padding: 5px; border: 1px solid #ccc; text-align: center;">${customer.mealCount}</td>
+                    <td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${Number(customer.totalAmount ?? 0).toFixed(2)} €</td>
+                </tr>`
+                  )
+                  .join('')
+            : '<tr><td colspan="4" style="padding: 5px; text-align: center;">Aucun repas</td></tr>';
+
+    return await sendEmail({
+        to: to || process.env.SMTP_USER || DEV_EMAIL,
+        subject: `Facture ${report.companyName} - ${startLabel} au ${endLabel}`,
+        html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px;">
+          <p>Bonjour,</p>
+          <p>Voici la facture pour <strong>${report.companyName}</strong> du ${startLabel} au ${endLabel}.</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #ccc;">
+            <tr><td style="padding: 5px; border: 1px solid #ccc;">Prix / Quote part TTC</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${mealPrice} €</td></tr>
+            <tr><td style="padding: 5px; border: 1px solid #ccc;">Nombre total de repas</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${report.mealCount}</td></tr>
+            <tr><td style="padding: 5px; border: 1px solid #ccc;">Total HT ${vatRatePercent}%</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${totalHT} €</td></tr>
+            <tr><td style="padding: 5px; border: 1px solid #ccc;">TVA ${vatRatePercent}%</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${totalTVA} €</td></tr>
+            <tr><td style="padding: 5px; border: 1px solid #ccc;"><strong>Total TTC à facturer</strong></td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;"><strong>${totalAmount} €</strong></td></tr>
+          </table>
+          <p>Détail par personne :</p>
+          <table style="width: 100%; border-collapse: collapse; border: 1px solid #ccc;">
+            <tr style="background-color: #f0f0f0;">
+              <th style="padding: 5px; border: 1px solid #ccc; text-align: left;">N° Cpt</th>
+              <th style="padding: 5px; border: 1px solid #ccc; text-align: left;">Désignation</th>
+              <th style="padding: 5px; border: 1px solid #ccc;">Qté</th>
+              <th style="padding: 5px; border: 1px solid #ccc; text-align: right;">CA</th>
+            </tr>
+            ${rows}
+          </table>
           <p>Merci,<br>L'équipe Tradiz</p>
         </div>
       `,
