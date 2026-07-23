@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS dc.products (
     price NUMERIC(8,2) NOT NULL DEFAULT 0.00,
     photo VARCHAR(50) NOT NULL DEFAULT '',
     stock INTEGER DEFAULT NULL,
-    reference VARCHAR(255) DEFAULT NULL,
+    reference VARCHAR(255) DEFAULT NULL UNIQUE,
     category VARCHAR(50) NOT NULL DEFAULT '',
     description VARCHAR(300) DEFAULT '',
     options VARCHAR(1000) DEFAULT '',
@@ -234,7 +234,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.users (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'Cashier',
-    reference VARCHAR(255) DEFAULT NULL,
+    reference VARCHAR(255) DEFAULT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -252,7 +252,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.customers (
     id SERIAL PRIMARY KEY,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
-    reference VARCHAR(255) DEFAULT NULL,
+    reference VARCHAR(255) DEFAULT NULL UNIQUE,
     email VARCHAR(255) DEFAULT NULL,
     phone VARCHAR(20) DEFAULT NULL,
     company VARCHAR(255) DEFAULT NULL,
@@ -289,7 +289,6 @@ CREATE TABLE IF NOT EXISTS dc_pos.parameters (
     id SERIAL PRIMARY KEY,
     param_key VARCHAR(255) NOT NULL,
     param_value TEXT,
-    reference VARCHAR(255) DEFAULT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

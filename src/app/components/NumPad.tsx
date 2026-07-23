@@ -63,7 +63,7 @@ const NumPadButton: FC<NumPadButtonProps> = ({ input, onInput }) => {
     return (
         <div
             className={twMerge(
-                'w-[72px] h-[72px] sm:w-20 sm:h-20 relative flex justify-center m-2.5 sm:m-3 items-center font-semibold text-2xl sm:text-3xl border-[3px] rounded-2xl',
+                'w-18 h-18 sm:w-20 sm:h-20 relative flex justify-center m-2.5 sm:m-3 items-center font-semibold text-2xl sm:text-3xl border-[3px] rounded-2xl',
                 'border-secondary-light dark:border-secondary-dark shadow-xl',
                 isStateReady
                     ? 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light'
@@ -950,7 +950,7 @@ export const NumPad: FC = () => {
                         shouldUseOverflow
                             ? isPopupOpen
                                 ? 'fixed top-0 right-0 max-w-lg md:right-0 '
-                                : 'fixed top-[76px] right-0 max-w-lg md:top-0 md:z-10 md:right-1/2 '
+                                : 'fixed top-19 right-0 max-w-lg md:top-0 md:z-10 md:right-1/2 '
                             : 'static max-w-lg w-full '
                     }
                     style={shouldUseOverflow ? { left: left } : {}}
@@ -1019,7 +1019,7 @@ export const NumPad: FC = () => {
                     <div className="flex justify-around text-4xl text-center font-bold pt-0 max-w-lg w-full self-center">
                         <Amount
                             className={
-                                'min-w-[145px] text-right leading-normal ' +
+                                'min-w-36.25 text-right leading-normal ' +
                                 ((selectedProduct && !amount) || (quantity === 0 && amount) ? 'animate-blink' : '')
                             }
                             value={selectedProduct?.total ?? amount}

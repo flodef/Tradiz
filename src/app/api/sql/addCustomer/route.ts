@@ -27,13 +27,14 @@ export async function POST(request: Request) {
 
         const firstName = normalizeFirstName(customer.firstName);
         const lastName = normalizeFamilyName(customer.lastName);
-        const reference = customer.reference || generateProductReference(Date.now());
+        const reference = customer.reference ? String(customer.reference) : null;
         const email = customer.email || null;
         const phone = customer.phone || null;
         const company = customer.company || null;
         const balance = customer.balance || 0;
 
         let customerId;
+        let generatedReference: string;
         if (connection.isPostgreSQL) {
             const insertQuery = `
                 INSERT INTO dc_pos.customers (first_name, last_name, reference, email, phone, company, balance)
@@ -50,6 +51,12 @@ export async function POST(request: Request) {
                 balance,
             ]);
             customerId = (result as { id: number }[])[0].id;
+
+            generatedReference = customer.reference ? String(customer.reference) : generateProductReference(customerId);
+            await connection.execute('UPDATE dc_pos.customers SET reference = $1 WHERE id = $2', [
+                generatedReference,
+                customerId,
+            ]);
         } else {
             const insertQuery = `
                 INSERT INTO customers (first_name, last_name, reference, email, phone, company, balance)
@@ -65,12 +72,22 @@ export async function POST(request: Request) {
                 balance,
             ]);
             customerId = (result as unknown as { insertId: number }).insertId;
+
+            generatedReference = customer.reference ? String(customer.reference) : generateProductReference(customerId);
+            await connection.execute('UPDATE customers SET reference = ? WHERE id = ?', [
+                generatedReference,
+                customerId,
+            ]);
         }
 
         await connection.end();
 
         return NextResponse.json(
-            { success: true, customerId, customer: { ...customer, firstName, lastName, id: customerId, reference } },
+            {
+                success: true,
+                customerId,
+                customer: { ...customer, firstName, lastName, id: customerId, reference: generatedReference },
+            },
             { status: 200 }
         );
     } catch (error) {

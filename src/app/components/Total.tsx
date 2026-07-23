@@ -591,7 +591,7 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
                     </div>
                 </div>
                 <div
-                    className="md:w-1/2 fixed top-[65px] md:top-[73px] left-0 w-full overflow-hidden"
+                    className="md:w-1/2 fixed top-16.25 md:top-18.25 left-0 w-full overflow-hidden"
                     style={{ left: left, height: height - 19 }}
                 >
                     <OrderItemsSelector orderId={orderId} onSelectionChange={handleOrderItemsChange} />
@@ -648,8 +648,7 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
 
             <div
                 className={
-                    'md:w-1/2 fixed top-[76px] left-0 w-1/2 text-center text-2xl ' +
-                    'font-bold hidden md:flex md:flex-col'
+                    'md:w-1/2 fixed top-19 left-0 w-1/2 text-center text-2xl ' + 'font-bold hidden md:flex md:flex-col'
                 }
                 style={{ left: left, height: height }}
             >

@@ -10,6 +10,7 @@ interface CustomerRow {
     email: string | null;
     phone: string | null;
     company: string | null;
+    balance: number | string;
 }
 
 export async function GET(request: Request) {
@@ -18,10 +19,10 @@ export async function GET(request: Request) {
         const connection = await getPosDb(shopId);
 
         const query = connection.isPostgreSQL
-            ? `SELECT id, first_name, last_name, reference, email, phone, company
+            ? `SELECT id, first_name, last_name, reference, email, phone, company, balance
                FROM dc_pos.customers
                ORDER BY last_name, first_name`
-            : `SELECT id, first_name, last_name, reference, email, phone, company
+            : `SELECT id, first_name, last_name, reference, email, phone, company, balance
                FROM customers
                ORDER BY last_name, first_name`;
 
@@ -38,6 +39,7 @@ export async function GET(request: Request) {
             email: row.email ?? undefined,
             phone: row.phone ?? undefined,
             company: row.company ?? undefined,
+            balance: Number(row.balance ?? 0),
         }));
 
         return NextResponse.json({ customers });

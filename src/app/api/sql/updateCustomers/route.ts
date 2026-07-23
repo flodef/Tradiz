@@ -2,7 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 import { generateProductReference } from '@/app/utils/productReference';
-import { normalizeFirstName, normalizeFamilyName } from '@/app/utils/regex';
+import { normalizeFirstName, normalizeFamilyName, emailRegex, frenchPhoneRegex } from '@/app/utils/regex';
 
 interface Customer {
     id?: number;
@@ -48,8 +48,21 @@ export async function POST(request: Request) {
         for (const customer of customers) {
             const firstName = normalizeFirstName(customer.firstName);
             const lastName = normalizeFamilyName(customer.lastName);
-            // Auto-generate reference if not provided
-            const reference = customer.reference || generateProductReference(Date.now());
+
+            if (!firstName || !lastName) {
+                await connection.end();
+                return NextResponse.json({ error: 'Each customer must have a first and last name' }, { status: 400 });
+            }
+
+            if (customer.email && !emailRegex.test(customer.email)) {
+                await connection.end();
+                return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
+            }
+
+            if (customer.phone && !frenchPhoneRegex.test(customer.phone)) {
+                await connection.end();
+                return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 });
+            }
             const email = customer.email || null;
             const phone = customer.phone || null;
             // Ensure company is a string, not an object
@@ -60,6 +73,9 @@ export async function POST(request: Request) {
 
             if (typeof customer.id === 'number') {
                 // Update existing customer - never touch balance (managed separately)
+                const reference = customer.reference
+                    ? String(customer.reference)
+                    : generateProductReference(customer.id);
                 if (connection.isPostgreSQL) {
                     await connection.execute(
                         `UPDATE ${table}
@@ -76,20 +92,31 @@ export async function POST(request: Request) {
                     );
                 }
             } else {
-                // Insert new customer
+                // Insert new customer with a temporary NULL reference, then generate from the new id
                 const balance = customer.balance || 0;
+                let newId: number;
                 if (connection.isPostgreSQL) {
-                    await connection.execute(
+                    const [insertResult] = await connection.execute(
                         `INSERT INTO ${table} (first_name, last_name, reference, email, phone, company, balance)
-                         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-                        [firstName, lastName, reference, email, phone, company, balance]
+                         VALUES ($1, $2, $3, $4, $5, $6, $7)
+                         RETURNING id`,
+                        [firstName, lastName, null, email, phone, company, balance]
                     );
+                    newId = (insertResult as { id: number }[])[0].id;
                 } else {
-                    await connection.execute(
+                    const [insertResult] = await connection.execute(
                         `INSERT INTO ${table} (first_name, last_name, reference, email, phone, company, balance)
                          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                        [firstName, lastName, reference, email, phone, company, balance]
+                        [firstName, lastName, null, email, phone, company, balance]
                     );
+                    newId = (insertResult as unknown as { insertId: number }).insertId;
+                }
+
+                const reference = generateProductReference(newId);
+                if (connection.isPostgreSQL) {
+                    await connection.execute(`UPDATE ${table} SET reference = $1 WHERE id = $2`, [reference, newId]);
+                } else {
+                    await connection.execute(`UPDATE ${table} SET reference = ? WHERE id = ?`, [reference, newId]);
                 }
             }
         }

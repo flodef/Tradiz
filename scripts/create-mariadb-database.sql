@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS `products` (
   `options` varchar(1000) DEFAULT '',
   `order_count` int(11) NOT NULL DEFAULT 0,
   `vat_rate` decimal(5,2) NOT NULL DEFAULT 20.00,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `reference` (`reference`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1018 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Establishment Config (was: config_etablissement)
@@ -274,7 +275,6 @@ CREATE TABLE IF NOT EXISTS `parameters` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `param_key` varchar(100) NOT NULL,
   `param_value` varchar(255) DEFAULT NULL,
-  `reference` varchar(255) DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `param_key` (`param_key`)
@@ -320,7 +320,8 @@ CREATE TABLE IF NOT EXISTS `users` (
   `reference` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
-  UNIQUE KEY `id_temp` (`id`)
+  UNIQUE KEY `id_temp` (`id`),
+  UNIQUE KEY `reference` (`reference`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Devices (public keys) - a user can be on multiple devices
@@ -341,7 +342,7 @@ CREATE TABLE IF NOT EXISTS `customers` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `first_name` varchar(100) NOT NULL,
   `last_name` varchar(100) NOT NULL,
-  `reference` varchar(255) DEFAULT NULL,
+  `reference` varchar(255) DEFAULT NULL UNIQUE,
   `email` varchar(255) DEFAULT NULL,
   `phone` varchar(20) DEFAULT NULL,
   `company` varchar(255) DEFAULT NULL,

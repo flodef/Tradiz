@@ -95,7 +95,7 @@ export async function POST(request: Request) {
                 const price = parseFloat(product.currencies[0]) || 0;
                 const stock = product.stock;
                 const vatRate = product.vat ?? DEFAULT_VAT_RATE;
-                const reference = product.reference ?? generateProductReference(sortOrder);
+                const reference = product.reference?.trim() || generateProductReference(sortOrder);
                 const photo = product.photo ?? '';
                 const description = product.description ?? '';
                 const options = product.options ?? '';
