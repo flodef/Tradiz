@@ -513,9 +513,7 @@ export const usePay = () => {
                                     key="cashPayment"
                                     total={cashTotal}
                                     onCancel={fallback}
-                                    onConfirm={(cashAmount) => {
-                                        const decimals = currencies[currencyIndex].decimals;
-                                        const changeAmount = (cashAmount - cashTotal).clean(decimals);
+                                    onConfirm={(cashAmount, changeAmount) => {
                                         const now = floorToSeconds(new Date().getTime());
                                         const transaction: Transaction = {
                                             validator: parameters.user.name,
@@ -733,9 +731,7 @@ export const usePay = () => {
                             key="cashPaymentPartial"
                             total={total}
                             onCancel={() => setShowPartialPaymentSelector(true)}
-                            onConfirm={(cashAmount) => {
-                                const decimals = currencies[currencyIndex].decimals;
-                                const changeAmount = (cashAmount - total).clean(decimals);
+                            onConfirm={(cashAmount, changeAmount) => {
                                 processPartialPayment(cashAmount, changeAmount);
                             }}
                         />,

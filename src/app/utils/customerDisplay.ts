@@ -11,6 +11,15 @@ function formatAmount(amount: number, currency: Currency): string {
     return amount.toCurrency(currency.decimals, currency.symbol).replace(/\s/g, '');
 }
 
+// Build a 20-char line with the label on the left and the amount right-aligned.
+// The amount is prioritised: if space is tight the label is truncated, never the value.
+function formatLine(label: string, value: string): string {
+    const maxLabel = Math.max(0, DISPLAY_WIDTH - value.length - 1);
+    const trimmedLabel = label.slice(0, maxLabel);
+    const padding = Math.max(1, DISPLAY_WIDTH - trimmedLabel.length - value.length);
+    return `${trimmedLabel}${' '.repeat(padding)}${value}`.slice(0, DISPLAY_WIDTH);
+}
+
 export function buildCustomerDisplay(
     total: number,
     cashAmount: number,
@@ -20,9 +29,8 @@ export function buildCustomerDisplay(
     const totalStr = formatAmount(total, currency);
     const changeStr = formatAmount(change, currency);
 
-    // Keep within 20 chars per line, left/right aligned where possible.
-    const line1 = `TOTAL ${totalStr}`.slice(0, DISPLAY_WIDTH).padEnd(DISPLAY_WIDTH);
-    const line2 = `RENDU ${changeStr}`.slice(0, DISPLAY_WIDTH).padEnd(DISPLAY_WIDTH);
-
-    return { line1, line2 };
+    return {
+        line1: formatLine('TOTAL', totalStr),
+        line2: formatLine('RENDU', changeStr),
+    };
 }

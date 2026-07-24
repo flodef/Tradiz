@@ -1,7 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
-import { ensureBillingSchema } from '../billingHelpers';
 
 interface CompanyRow {
     id: number;
@@ -19,7 +18,6 @@ export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
     try {
         const connection = await getPosDb(shopId);
-        await ensureBillingSchema(connection);
 
         const query = connection.isPostgreSQL
             ? 'SELECT id, name, meal_price FROM dc_pos.companies ORDER BY name'

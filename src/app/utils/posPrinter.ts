@@ -514,8 +514,9 @@ function printShopBanner(printer: ThermalPrinter, shop: Shop): void {
 function printBillingHeader(printer: ThermalPrinter, title: string, report: BillingReport, shop: Shop): void {
     const currentDate = new Date();
     const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
-    const startLabel = new Date(report.startDate).toLocaleDateString('fr-FR');
-    const endLabel = new Date(report.endDate).toLocaleDateString('fr-FR');
+    // Dates arrive as 'YYYY-MM-DD'; parse as local time to avoid a UTC off-by-one day shift.
+    const startLabel = new Date(`${report.startDate}T00:00:00`).toLocaleDateString('fr-FR');
+    const endLabel = new Date(`${report.endDate}T00:00:00`).toLocaleDateString('fr-FR');
     const timeLabel = `${frenchTimeStr.split(':')[0]}h${frenchTimeStr.split(':')[1]}`;
 
     printShopBanner(printer, shop);

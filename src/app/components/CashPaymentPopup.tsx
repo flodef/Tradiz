@@ -1,6 +1,6 @@
 'use client';
 
-import { FC, MouseEventHandler, useCallback, useMemo, useState } from 'react';
+import { FC, MouseEventHandler, useCallback, useMemo, useRef, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { IconBackspace, IconWallet, IconX } from '@tabler/icons-react';
 import { useConfig } from '../hooks/useConfig';
@@ -11,7 +11,7 @@ import { Amount } from './Amount';
 interface CashPaymentPopupProps {
     total: number;
     onCancel: () => void;
-    onConfirm: (cashAmount: number) => void;
+    onConfirm: (cashAmount: number, change: number) => void;
 }
 
 type NumpadKey =
@@ -78,6 +78,7 @@ export const CashPaymentPopup: FC<CashPaymentPopupProps> = ({ total, onCancel, o
 
     const change = useMemo(() => (cashAmount - total).clean(decimals), [cashAmount, total, decimals]);
     const isValid = cashAmount >= total;
+    const confirmedRef = useRef(false);
 
     const handleInput = useCallback(
         (key: NumpadKey) => {
@@ -117,10 +118,11 @@ export const CashPaymentPopup: FC<CashPaymentPopupProps> = ({ total, onCancel, o
     );
 
     const handleConfirm = useCallback(() => {
-        if (!isValid) return;
+        if (!isValid || confirmedRef.current) return;
+        confirmedRef.current = true;
         closePopup();
-        onConfirm(cashAmount);
-    }, [isValid, closePopup, onConfirm, cashAmount]);
+        onConfirm(cashAmount, change);
+    }, [isValid, closePopup, onConfirm, cashAmount, change]);
 
     const handleCancel = useCallback(() => {
         closePopup();

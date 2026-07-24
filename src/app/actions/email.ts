@@ -144,13 +144,29 @@ export async function sendFatalErrorEmail(error: string): Promise<boolean> {
     });
 }
 
+// Escape user-provided values before interpolating them into the email HTML.
+function escapeHtml(value: string | number): string {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Dates arrive as 'YYYY-MM-DD'; parse as local time to avoid a UTC off-by-one day shift.
+function formatReportDate(date: string): string {
+    return new Date(`${date}T00:00:00`).toLocaleDateString('fr-FR');
+}
+
 /**
  * Send a billing report by email
  */
 export async function sendBillingReportEmail(report: BillingReport, to?: string): Promise<boolean> {
     const vatRatePercent = (report.vatRate * 100).toFixed(0);
-    const startLabel = new Date(report.startDate).toLocaleDateString('fr-FR');
-    const endLabel = new Date(report.endDate).toLocaleDateString('fr-FR');
+    const startLabel = formatReportDate(report.startDate);
+    const endLabel = formatReportDate(report.endDate);
+    const companyName = escapeHtml(report.companyName);
 
     const mealPrice = Number(report.mealPrice ?? 0).toFixed(2);
     const totalHT = Number(report.totalHT ?? 0).toFixed(2);
@@ -163,9 +179,9 @@ export async function sendBillingReportEmail(report: BillingReport, to?: string)
                   .map(
                       (customer) => `
                 <tr>
-                    <td style="padding: 5px; border: 1px solid #ccc;">${customer.reference || String(customer.customerId).padStart(6, '0')}</td>
-                    <td style="padding: 5px; border: 1px solid #ccc;">${customer.lastName} ${customer.firstName}</td>
-                    <td style="padding: 5px; border: 1px solid #ccc; text-align: center;">${customer.mealCount}</td>
+                    <td style="padding: 5px; border: 1px solid #ccc;">${escapeHtml(customer.reference || String(customer.customerId).padStart(6, '0'))}</td>
+                    <td style="padding: 5px; border: 1px solid #ccc;">${escapeHtml(`${customer.lastName} ${customer.firstName}`)}</td>
+                    <td style="padding: 5px; border: 1px solid #ccc; text-align: center;">${escapeHtml(customer.mealCount)}</td>
                     <td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${Number(customer.totalAmount ?? 0).toFixed(2)} €</td>
                 </tr>`
                   )
@@ -178,7 +194,7 @@ export async function sendBillingReportEmail(report: BillingReport, to?: string)
         html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px;">
           <p>Bonjour,</p>
-          <p>Voici la facture pour <strong>${report.companyName}</strong> du ${startLabel} au ${endLabel}.</p>
+          <p>Voici la facture pour <strong>${companyName}</strong> du ${startLabel} au ${endLabel}.</p>
           <table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #ccc;">
             <tr><td style="padding: 5px; border: 1px solid #ccc;">Prix / Quote part TTC</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${mealPrice} €</td></tr>
             <tr><td style="padding: 5px; border: 1px solid #ccc;">Nombre total de repas</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${report.mealCount}</td></tr>

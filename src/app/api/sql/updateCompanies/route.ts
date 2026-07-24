@@ -1,7 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
-import { ensureBillingSchema } from '../billingHelpers';
 
 interface Company {
     id?: number;
@@ -19,7 +18,6 @@ export async function POST(request: Request) {
         }
 
         const connection = await getPosDb(shopId);
-        await ensureBillingSchema(connection);
 
         // Delete all existing companies
         const deleteQuery = connection.isPostgreSQL ? 'DELETE FROM dc_pos.companies' : 'DELETE FROM companies';

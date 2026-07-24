@@ -2,6 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { isDeletedTransaction } from '@/app/contexts/dataProvider/transactionHelpers';
 import { DEFAULT_USER, DEFAULT_VAT_RATE } from '@/app/utils/constants';
 import { Transaction } from '@/app/utils/interfaces';
+import { parseCashNote } from '@/app/utils/transactionNote';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
@@ -159,6 +160,8 @@ export async function GET(request: Request) {
             const createdDate = Number(row.createddate ?? row.createdDate);
             if (!createdDate) continue; // skip rows with null/invalid created_at
 
+            const { cashAmount, change } = parseCashNote(row.note);
+
             transactions.push({
                 validator: row.validator || '',
                 method: row.method || '',
@@ -168,6 +171,8 @@ export async function GET(request: Request) {
                 modifiedDate: Number(row.modifieddate ?? row.modifiedDate) || createdDate,
                 products,
                 ...(row.short_num_order ? { shortNumOrder: String(row.short_num_order) } : {}),
+                ...(cashAmount !== undefined ? { cashAmount } : {}),
+                ...(change !== undefined ? { change } : {}),
             });
         }
 

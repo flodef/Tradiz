@@ -32,6 +32,7 @@ import {
     idbSetTransactions,
 } from '../utils/transactionStore';
 import { checkDbConfig } from '../utils/processData';
+import { encodeCashNote } from '../utils/transactionNote';
 import { mergeTransactionArrays } from './dataProvider/syncUtils';
 import {
     isDeletedTransaction,
@@ -434,7 +435,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         payment_method: transaction.method,
                         amount: transaction.amount,
                         currency: transaction.currency,
-                        note: '',
+                        note: encodeCashNote(transaction.cashAmount, transaction.change),
                         created_at: toSQLDateTime(transaction.createdDate),
                         updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
                         products: transaction.products.map((product) => ({
@@ -756,7 +757,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             payment_method: transaction.method,
                             amount: transaction.amount,
                             currency: transaction.currency,
-                            note: '',
+                            note: encodeCashNote(transaction.cashAmount, transaction.change),
                             created_at: toSQLDateTime(transaction.createdDate),
                             updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
                             products: transaction.products.map((product) => ({
@@ -1110,7 +1111,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             const transaction: Transaction =
                 typeof item === 'object'
-                    ? item
+                    ? { ...item, ...(shortNumOrder && !item.shortNumOrder ? { shortNumOrder } : {}) }
                     : {
                           validator: parameters.user.name,
                           method: item,

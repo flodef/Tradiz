@@ -2,8 +2,8 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { DEFAULT_VAT_RATE } from '@/app/utils/constants';
 import { toSQLDateTime } from '@/app/utils/date';
 import { NextResponse } from 'next/server';
-import { getPosDb } from '../db';
-import { ensureBillingSchema, aggregateMealsByCustomer } from '../billingHelpers';
+import { getPosDb, DbConnection } from '../db';
+import { aggregateMealsByCustomer } from '../billingHelpers';
 
 function normalizeVatRate(raw: number): number {
     return raw >= 1 ? raw / 100 : raw;
@@ -25,9 +25,9 @@ export async function GET(request: Request) {
         );
     }
 
+    let connection: DbConnection | undefined;
     try {
-        const connection = await getPosDb(shopId);
-        await ensureBillingSchema(connection);
+        connection = await getPosDb(shopId);
 
         const companyQuery = connection.isPostgreSQL
             ? 'SELECT id, meal_price FROM dc_pos.companies WHERE name = $1'
@@ -36,13 +36,11 @@ export async function GET(request: Request) {
         const company = (companyRows as { id: number; meal_price: number }[])[0];
 
         if (!company) {
-            await connection.end();
             return NextResponse.json({ error: 'Company not found' }, { status: 404 });
         }
 
         const mealPrice = Number(company.meal_price ?? 0);
         if (mealPrice <= 0) {
-            await connection.end();
             return NextResponse.json({ error: 'Company meal price is not set' }, { status: 400 });
         }
 
@@ -52,8 +50,6 @@ export async function GET(request: Request) {
         const endAt = toSQLDateTime(end);
 
         const aggregation = await aggregateMealsByCustomer(connection, companyName, startAt, endAt);
-
-        await connection.end();
 
         const customers = aggregation.customers.map((c) => {
             const totalAmount = Number(c.meal_count) * mealPrice;
@@ -71,10 +67,12 @@ export async function GET(request: Request) {
             };
         });
 
+        // Aggregate from the already-rounded per-customer values so the grand total
+        // always matches the sum of the detail rows (no 1-cent rounding drift).
         const mealCount = customers.reduce((sum, c) => sum + c.mealCount, 0);
-        const totalAmount = Number((mealCount * mealPrice).toFixed(2));
-        const totalHT = Number((totalAmount / (1 + vatRate)).toFixed(2));
-        const totalTVA = Number((totalAmount - totalHT).toFixed(2));
+        const totalAmount = Number(customers.reduce((sum, c) => sum + c.totalAmount, 0).toFixed(2));
+        const totalHT = Number(customers.reduce((sum, c) => sum + c.totalHT, 0).toFixed(2));
+        const totalTVA = Number(customers.reduce((sum, c) => sum + c.totalTVA, 0).toFixed(2));
 
         const report = {
             companyId: Number(company.id),
@@ -94,5 +92,7 @@ export async function GET(request: Request) {
     } catch (error) {
         console.error('Error fetching billing report:', error);
         return NextResponse.json({ error: 'An error occurred while fetching the billing report' }, { status: 500 });
+    } finally {
+        if (connection) await connection.end();
     }
 }
