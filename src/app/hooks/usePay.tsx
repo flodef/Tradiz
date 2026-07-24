@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { QRCode } from '../components/QRCode';
 import CustomerSearchPopup from '../components/CustomerSearchPopup';
+import { CashPaymentPopup } from '../components/CashPaymentPopup';
+import { ChangeDisplayPopup } from '../components/ChangeDisplayPopup';
 import { Shop } from '../contexts/ConfigProvider';
 import { floorToSeconds } from '../contexts/DataProvider';
 import { isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
@@ -18,8 +20,9 @@ import {
     WAITING_KEYWORD,
 } from '../utils/constants';
 import { Currency, Customer, InventoryItem, SERVICE_TYPE_LABELS, ServiceType, Transaction } from '../utils/interfaces';
-import { CLOSE, postMessageToParent, REFRESH } from '../utils/message';
+import { CLOSE, CUSTOMER_DISPLAY, postMessageToParent, REFRESH } from '../utils/message';
 import { printBalanceStatement, printReceipt } from '../utils/posPrinter';
+import { buildCustomerDisplay } from '../utils/customerDisplay';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
 import { useData } from './useData';
@@ -500,6 +503,72 @@ export const usePay = () => {
                     updateTransaction(WAITING_KEYWORD);
                     closePopup();
                     break;
+                case 'Espèces':
+                    if (parameters.display?.showChange !== false) {
+                        const cashTotal = getCurrentTotal().clean(currencies[currencyIndex].decimals);
+                        openFullscreenPopup(
+                            'Paiement en espèces',
+                            [
+                                <CashPaymentPopup
+                                    key="cashPayment"
+                                    total={cashTotal}
+                                    onCancel={fallback}
+                                    onConfirm={(cashAmount) => {
+                                        const decimals = currencies[currencyIndex].decimals;
+                                        const changeAmount = (cashAmount - cashTotal).clean(decimals);
+                                        const now = floorToSeconds(new Date().getTime());
+                                        const transaction: Transaction = {
+                                            validator: parameters.user.name,
+                                            method: option,
+                                            amount: cashTotal,
+                                            createdDate: now,
+                                            modifiedDate: now,
+                                            currency: currencies[currencyIndex].label,
+                                            products: products.current,
+                                            cashAmount,
+                                            change: changeAmount,
+                                        };
+                                        commitTransaction(transaction);
+
+                                        // Notify the customer-facing (back) display
+                                        postMessageToParent(
+                                            CUSTOMER_DISPLAY,
+                                            buildCustomerDisplay(
+                                                cashTotal,
+                                                cashAmount,
+                                                changeAmount,
+                                                currencies[currencyIndex]
+                                            )
+                                        );
+
+                                        openFullscreenPopup(
+                                            'Monnaie à rendre',
+                                            [
+                                                <ChangeDisplayPopup
+                                                    key="changeDisplay"
+                                                    total={cashTotal}
+                                                    cashAmount={cashAmount}
+                                                    change={changeAmount}
+                                                    onClose={closePopup}
+                                                />,
+                                            ],
+                                            () => {},
+                                            true
+                                        );
+                                    }}
+                                />,
+                            ],
+                            (index) => {
+                                if (index < 0) fallback();
+                            },
+                            true
+                        );
+                    } else {
+                        // Legacy cash behaviour: just commit the transaction
+                        commitTransaction(option);
+                        closePopup();
+                    }
+                    break;
                 default:
                     // Pour les modes de paiement normaux, enregistrer comme payé
                     commitTransaction(option);
@@ -522,6 +591,7 @@ export const usePay = () => {
             currencyIndex,
             getCurrentTotal,
             parameters.user.name,
+            parameters.display?.showChange,
             reverseTransaction,
             currentCustomer,
             setCurrentCustomer,
@@ -542,53 +612,14 @@ export const usePay = () => {
         async (paymentMethod: string) => {
             if (!orderId || selectedOrderItems.length === 0) return;
 
-            openPopup('Paiement partiel', ['Traitement du paiement...']);
+            const showSuccess = (result: { success: boolean; message?: string }) => {
+                closePopup();
 
-            try {
-                const paidItems = selectedOrderItems.map((item) => ({
-                    id: item.id,
-                    type: item.type,
-                }));
-
-                const response = await fetch('/api/sql/savePartialPayment', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        orderId,
-                        paidItems,
-                        paymentMethod,
-                    }),
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    // Reload order data to update paid status
-                    try {
-                        const orderResponse = await fetch(`/api/sql/getOrderItemsForPayment?orderId=${orderId}`);
-                        if (orderResponse.ok) {
-                            const updatedOrderData = await orderResponse.json();
-                            setOrderData(updatedOrderData);
-                        }
-                    } catch (err) {
-                        console.error('Failed to reload order data:', err);
-                    }
-
-                    // Notify parent window (kitchen view) to refresh orders
-                    // Use REFRESH_ORDERS instead of PAYMENT_COMPLETE to avoid closing the cashier
-                    postMessageToParent(REFRESH);
-
-                    // Reset selection after successful payment
-                    setSelectedOrderItems([]);
-                    setPartialPaymentAmount(0);
-                    setShowPartialPaymentSelector(false);
-
-                    closePopup();
-
-                    // Show success message
-                    openPopup('Paiement réussi', [result.message, 'Fermer la caisse'], (index, option) => {
+                // Show success message
+                openPopup(
+                    'Paiement réussi',
+                    [result.message || 'Paiement enregistré', 'Fermer la caisse'],
+                    (index, option) => {
                         // Reset selection state always
                         setSelectedOrderItems([]);
                         setPartialPaymentAmount(0);
@@ -602,14 +633,122 @@ export const usePay = () => {
                             postMessageToParent(CLOSE);
                         }
                         // If X is clicked (index < 0), keep orderId/orderData to prevent full payment
+                    }
+                );
+            };
+
+            const processPartialPayment = async (cashAmount?: number, changeAmount?: number) => {
+                openPopup('Paiement partiel', ['Traitement du paiement...']);
+
+                try {
+                    const paidItems = selectedOrderItems.map((item) => ({
+                        id: item.id,
+                        type: item.type,
+                    }));
+
+                    const response = await fetch('/api/sql/savePartialPayment', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            orderId,
+                            paidItems,
+                            paymentMethod,
+                        }),
                     });
-                } else {
-                    openPopup('Erreur', ['Échec du paiement : ' + (result.error || 'Erreur inconnue')]);
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        // Reload order data to update paid status
+                        try {
+                            const orderResponse = await fetch(`/api/sql/getOrderItemsForPayment?orderId=${orderId}`);
+                            if (orderResponse.ok) {
+                                const updatedOrderData = await orderResponse.json();
+                                setOrderData(updatedOrderData);
+                            }
+                        } catch (err) {
+                            console.error('Failed to reload order data:', err);
+                        }
+
+                        // Notify parent window (kitchen view) to refresh orders
+                        // Use REFRESH_ORDERS instead of PAYMENT_COMPLETE to avoid closing the cashier
+                        postMessageToParent(REFRESH);
+
+                        if (cashAmount !== undefined && changeAmount !== undefined) {
+                            // Show the change on the customer-facing display before the success popup
+                            postMessageToParent(
+                                CUSTOMER_DISPLAY,
+                                buildCustomerDisplay(
+                                    partialPaymentAmount,
+                                    cashAmount,
+                                    changeAmount,
+                                    currencies[currencyIndex]
+                                )
+                            );
+
+                            openFullscreenPopup(
+                                'Monnaie à rendre',
+                                [
+                                    <ChangeDisplayPopup
+                                        key="changeDisplayPartial"
+                                        total={partialPaymentAmount}
+                                        cashAmount={cashAmount}
+                                        change={changeAmount}
+                                        onClose={() => {
+                                            setSelectedOrderItems([]);
+                                            setPartialPaymentAmount(0);
+                                            setShowPartialPaymentSelector(false);
+                                            showSuccess(result);
+                                        }}
+                                    />,
+                                ],
+                                () => {},
+                                true
+                            );
+                        } else {
+                            // Reset selection after successful payment
+                            setSelectedOrderItems([]);
+                            setPartialPaymentAmount(0);
+                            setShowPartialPaymentSelector(false);
+
+                            showSuccess(result);
+                        }
+                    } else {
+                        openPopup('Erreur', ['Échec du paiement : ' + (result.error || 'Erreur inconnue')]);
+                    }
+                } catch (error) {
+                    console.error('Error processing partial payment:', error);
+                    openPopup('Erreur', ['Erreur lors du traitement du paiement']);
                 }
-            } catch (error) {
-                console.error('Error processing partial payment:', error);
-                openPopup('Erreur', ['Erreur lors du traitement du paiement']);
+            };
+
+            if (paymentMethod === 'Espèces' && parameters.display?.showChange !== false) {
+                const total = partialPaymentAmount;
+                openFullscreenPopup(
+                    'Paiement en espèces',
+                    [
+                        <CashPaymentPopup
+                            key="cashPaymentPartial"
+                            total={total}
+                            onCancel={() => setShowPartialPaymentSelector(true)}
+                            onConfirm={(cashAmount) => {
+                                const decimals = currencies[currencyIndex].decimals;
+                                const changeAmount = (cashAmount - total).clean(decimals);
+                                processPartialPayment(cashAmount, changeAmount);
+                            }}
+                        />,
+                    ],
+                    (index) => {
+                        if (index < 0) setShowPartialPaymentSelector(true);
+                    },
+                    true
+                );
+                return;
             }
+
+            processPartialPayment();
         },
         [
             orderId,
@@ -621,6 +760,11 @@ export const usePay = () => {
             setSelectedOrderItems,
             setPartialPaymentAmount,
             setShowPartialPaymentSelector,
+            currencies,
+            currencyIndex,
+            openFullscreenPopup,
+            partialPaymentAmount,
+            parameters.display?.showChange,
         ]
     );
 

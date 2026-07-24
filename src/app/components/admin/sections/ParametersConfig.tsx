@@ -123,6 +123,7 @@ export default function ParametersConfig({
                 showRefund: true,
                 showProvision: true,
                 showDebit: true,
+                showChange: true,
             }),
             [field]: checked,
         } as DisplaySettings);
@@ -511,6 +512,16 @@ export default function ParametersConfig({
                             isReadOnly={isReadOnly}
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Débit</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.display?.showChange ?? true}
+                            onChange={(checked) => handleDisplayChange('showChange', checked)}
+                            isReadOnly={isReadOnly}
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                            Calculer et afficher la monnaie
+                        </span>
                     </div>
                 </div>
             </div>

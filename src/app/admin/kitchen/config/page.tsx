@@ -366,6 +366,7 @@ export default function SettingsPage() {
                                         showRefund: parsed.showRefund ?? true,
                                         showProvision: parsed.showProvision ?? true,
                                         showDebit: parsed.showDebit ?? true,
+                                        showChange: parsed.showChange ?? true,
                                     };
                                 }
                             }

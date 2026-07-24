@@ -68,6 +68,7 @@ export interface DisplaySettings {
     showRefund: boolean;
     showProvision: boolean;
     showDebit: boolean;
+    showChange: boolean;
 }
 
 export interface Parameters {

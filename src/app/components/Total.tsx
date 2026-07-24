@@ -647,9 +647,7 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
             </div>
 
             <div
-                className={
-                    'md:w-1/2 fixed top-19 left-0 w-1/2 text-center text-2xl ' + 'font-bold hidden md:flex md:flex-col'
-                }
+                className="md:w-1/2 fixed top-19 left-0 w-1/2 text-center text-2xl font-bold hidden md:flex md:flex-col"
                 style={{ left: left, height: height }}
             >
                 <div className="flex-1 overflow-y-auto">

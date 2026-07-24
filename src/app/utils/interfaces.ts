@@ -171,6 +171,8 @@ export type Transaction = {
     customerName?: string;
     previousBalance?: number;
     newBalance?: number;
+    cashAmount?: number;
+    change?: number;
 };
 
 export type TransactionSet = {

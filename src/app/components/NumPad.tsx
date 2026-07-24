@@ -854,7 +854,7 @@ export const NumPad: FC = () => {
 
     const openCalculator = useCallback(() => {
         const currentValue = selectedProduct?.total ?? amount;
-        openPopup(
+        openFullscreenPopup(
             'Calculatrice',
             [
                 <Calculator
@@ -876,7 +876,7 @@ export const NumPad: FC = () => {
             () => {},
             true
         );
-    }, [openPopup, closePopup, setValue, setAmount, maxDecimals, amount, selectedProduct, computeQuantity]);
+    }, [openFullscreenPopup, closePopup, setValue, setAmount, maxDecimals, amount, selectedProduct, computeQuantity]);
 
     useEffect(() => {
         setAmount(parseInt(value) / Math.pow(10, maxDecimals));

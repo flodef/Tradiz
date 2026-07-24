@@ -200,6 +200,7 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
                             showRefund: parsed.showRefund ?? true,
                             showProvision: parsed.showProvision ?? true,
                             showDebit: parsed.showDebit ?? true,
+                            showChange: parsed.showChange ?? true,
                         };
                     }
                 }
@@ -279,6 +280,7 @@ export const defaultParameters: Parameters = {
         showRefund: true,
         showProvision: true,
         showDebit: true,
+        showChange: true,
     },
 };
 

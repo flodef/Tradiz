@@ -243,6 +243,15 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
         // Print payment method if available
         printer.alignCenter();
         printer.println(paymentMethod ? `Mode de paiement: ${paymentMethod}` : 'À RÉGLER');
+
+        // Print cash details and change for cash payments
+        if (receiptData.transaction.cashAmount !== undefined) {
+            printer.leftRight('MONTANT REÇU', toCurrency(receiptData.transaction.cashAmount, currency));
+            if (receiptData.transaction.change !== undefined && receiptData.transaction.change > 0) {
+                printer.leftRight('MONNAIE À RENDRE', toCurrency(receiptData.transaction.change, currency));
+            }
+        }
+
         printer.newLine();
 
         // Print legal mention
