@@ -1,6 +1,11 @@
 appId: fr.tradiz.app
 productName: Tradiz
 copyright: Copyright © 2024 Tradiz
+publish:
+    provider: github
+    owner: flodef
+    repo: Tradiz
+    releaseType: release
 directories:
     output: dist
 files:
@@ -26,13 +31,15 @@ extraResources:
       filter:
           - '**/*'
 asar: false
+npmRebuild: false
+nodeGypRebuild: false
 win:
     target:
         - target: nsis
           arch:
               - x64
-              - ia32
-    icon: public/icons/favicon.ico
+    artifactName: ${productName}-${version}-win.${ext}
+    icon: public/icons/icons-512.png
 nsis:
     oneClick: false
     perMachine: false

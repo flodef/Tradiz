@@ -1,0 +1,44 @@
+name: Build Windows Installer
+
+on:
+    push:
+        branches: [main]
+    workflow_dispatch:
+    release:
+        types: [published]
+
+permissions:
+    contents: write
+
+jobs:
+    build:
+        runs-on: windows-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: latest
+
+            - name: Install dependencies
+              run: bun install
+
+            - name: Build Windows installer
+              if: github.event_name != 'release'
+              run: bun electron:dist:win:ci
+
+            - name: Build and publish Windows installer
+              if: github.event_name == 'release'
+              run: bun electron:publish:win
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Upload installer artifact
+              if: github.event_name != 'release'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: tradiz-windows-installer
+                  path: dist/*.exe

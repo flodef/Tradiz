@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 
 const PORT = 3001;
@@ -61,6 +62,52 @@ function loadWithRetry(window, url, attempts = 30) {
             });
         };
         tryLoad(attempts);
+    });
+}
+
+function initAutoUpdater() {
+    // Auto-updater only works in packaged Windows builds.
+    if (isDev || process.platform !== 'win32') return;
+
+    autoUpdater.on('update-available', (info) => {
+        dialog
+            .showMessageBox(mainWindow || undefined, {
+                type: 'info',
+                title: 'Mise à jour disponible',
+                message: `Une nouvelle version de Tradiz (${info.version}) est disponible.`,
+                detail: "Voulez-vous la télécharger et l'installer maintenant ?",
+                buttons: ['Oui', 'Plus tard'],
+                defaultId: 0,
+                cancelId: 1,
+            })
+            .then(({ response }) => {
+                if (response === 0) {
+                    autoUpdater.downloadUpdate();
+                }
+            });
+    });
+
+    autoUpdater.on('update-downloaded', () => {
+        dialog
+            .showMessageBox(mainWindow || undefined, {
+                type: 'info',
+                title: 'Mise à jour prête',
+                message: 'La mise à jour a été téléchargée.',
+                detail: "L'application va redémarrer pour installer la mise à jour.",
+                buttons: ['Redémarrer maintenant'],
+                defaultId: 0,
+            })
+            .then(() => {
+                autoUpdater.quitAndInstall(true, true);
+            });
+    });
+
+    autoUpdater.on('error', (err) => {
+        console.error('Auto-updater error:', err.message);
+    });
+
+    autoUpdater.checkForUpdates().catch((err) => {
+        console.error('Auto-updater check failed:', err.message);
     });
 }
 
@@ -130,6 +177,7 @@ app.whenReady().then(async () => {
     try {
         await startServer();
         createMainWindow();
+        initAutoUpdater();
     } catch (err) {
         console.error('Failed to start server:', err);
     }

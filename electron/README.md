@@ -23,12 +23,24 @@ bun electron:dist:win
 
 ## Windows 10
 
-L'installateur NSIS genere `dist/Tradiz Setup 1.138.exe`. Il peut etre distribue et installe sur un poste Windows 10/11.
+L'installateur NSIS genere `dist/Tradiz-<version>-win.exe`. Il peut etre distribue et installe sur un poste Windows 10/11.
 
 La premiere fois, l'utilisateur doit configurer :
 
 -   l'adresse IP de l'imprimante thermique dans les Parametres,
 -   eventuellement executer `electron/drivers/install-printer-drivers.ps1` en tant qu'administrateur si l'imprimante est en USB avec un pilote generique.
+
+## Deploiement automatique (GitHub Actions)
+
+Le workflow `.github/workflows/build-windows-installer.yml` :
+
+-   compile l'application sur un runner Windows a chaque `push` sur `main` et fournit le `.exe` en artefact,
+-   lors d'une **Release GitHub** publiee, il attache l'installateur et le metadonnees `latest.yml` a la release,
+-   `dist/standalone` est dedouble avant packaging pour eviter les liens symboliques crees par Next.js.
+
+## Mises a jour automatiques (Windows)
+
+L'application Electron Windows verifie au demarrage les dernieres releases GitHub du depot `flodef/Tradiz`. Si une version plus recente est disponible, elle propose automatiquement de telecharger et installer la mise a jour.
 
 ## Peripheriques
 
