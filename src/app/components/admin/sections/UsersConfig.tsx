@@ -3,7 +3,7 @@
 import { Role, User } from '@/app/utils/interfaces';
 import { adminHeaderStyle, ROLE_LABELS } from '@/app/utils/constants';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IconChevronDown, IconChevronUp, IconSelector, IconUpload } from '@tabler/icons-react';
+import { IconChevronDown, IconChevronUp, IconPrinter, IconSelector, IconUpload } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import { useIsMobile } from '@/app/utils/mobile';
 import SectionCard from '../SectionCard';
@@ -13,6 +13,8 @@ import AdminSelect from '../AdminSelect';
 import AdminButton from '../AdminButton';
 import { twMerge } from 'tailwind-merge';
 import { usePopup } from '@/app/hooks/usePopup';
+import { useConfig } from '@/app/hooks/useConfig';
+import { EmployeeListReport } from '@/app/components/EmployeeListReport';
 
 type SortField = 'name' | 'reference' | 'role';
 type SortDirection = 'asc' | 'desc' | 'none';
@@ -114,6 +116,7 @@ export default function UsersConfig({
     onValidation,
 }: UsersConfigProps) {
     const { openFullscreenPopup, closePopup } = usePopup();
+    const { parameters } = useConfig();
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
@@ -360,10 +363,36 @@ export default function UsersConfig({
         setOriginalConfig(savedUsers);
     };
 
+    const handlePrintEmployeeList = useCallback(() => {
+        const usersToPrint = strip(users).filter((u) => u.role !== Role.admin && u.name?.trim());
+        openFullscreenPopup(
+            'Liste des employés',
+            [
+                <EmployeeListReport
+                    key="employeeListReport"
+                    users={usersToPrint}
+                    shop={parameters.shop}
+                    onClose={closePopup}
+                />,
+            ],
+            undefined,
+            true
+        );
+    }, [users, parameters.shop, openFullscreenPopup, closePopup]);
+
     const isMobile = useIsMobile();
 
     const headerExtra = (
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
+            {users.length > 0 && (
+                <AdminButton
+                    variant="primary"
+                    onClick={handlePrintEmployeeList}
+                    className={twMerge(isMobile ? 'px-3 py-1.5' : 'px-3 py-1', 'mt-0')}
+                >
+                    {isMobile ? <IconPrinter size={24} /> : 'Imprimer la liste'}
+                </AdminButton>
+            )}
             {!isReadOnly && !hasChanges && (
                 <>
                     <input

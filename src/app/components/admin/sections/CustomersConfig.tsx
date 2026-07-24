@@ -3,7 +3,7 @@
 import { Customer, Company } from '@/app/utils/interfaces';
 import { adminHeaderStyle } from '@/app/utils/constants';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IconChevronDown, IconChevronUp, IconSelector, IconUpload } from '@tabler/icons-react';
+import { IconChevronDown, IconChevronUp, IconPrinter, IconSelector, IconUpload } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import { useIsMobile } from '@/app/utils/mobile';
 import SectionCard from '../SectionCard';
@@ -14,6 +14,8 @@ import AdminButton from '../AdminButton';
 import { normalizeFirstName, normalizeFamilyName, emailRegex, frenchPhoneRegex } from '@/app/utils/regex';
 import { twMerge } from 'tailwind-merge';
 import { usePopup } from '@/app/hooks/usePopup';
+import { useConfig } from '@/app/hooks/useConfig';
+import { CustomerListReport } from '@/app/components/CustomerListReport';
 
 type SortField = 'firstName' | 'lastName' | 'reference' | 'email' | 'phone' | 'company';
 type SortDirection = 'asc' | 'desc' | 'none';
@@ -224,6 +226,7 @@ export default function CustomersConfig({
     onCompaniesChange,
 }: CustomersConfigProps) {
     const { openFullscreenPopup, closePopup } = usePopup();
+    const { parameters } = useConfig();
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
@@ -598,10 +601,35 @@ export default function CustomersConfig({
         setOriginalConfig(strip(customers));
     };
 
+    const handlePrintCustomerList = useCallback(() => {
+        openFullscreenPopup(
+            'Liste des clients',
+            [
+                <CustomerListReport
+                    key="customerListReport"
+                    customers={strip(customers)}
+                    shop={parameters.shop}
+                    onClose={closePopup}
+                />,
+            ],
+            undefined,
+            true
+        );
+    }, [customers, parameters.shop, openFullscreenPopup, closePopup]);
+
     const isMobile = useIsMobile();
 
     const headerExtra = (
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
+            {customers.length > 0 && (
+                <AdminButton
+                    variant="primary"
+                    onClick={handlePrintCustomerList}
+                    className={twMerge(isMobile ? 'px-3 py-1.5' : 'px-3 py-1', 'mt-0')}
+                >
+                    {isMobile ? <IconPrinter size={24} /> : 'Imprimer la liste'}
+                </AdminButton>
+            )}
             {!isReadOnly && !hasChanges && (
                 <>
                     <input
