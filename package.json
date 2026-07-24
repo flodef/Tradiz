@@ -1,10 +1,13 @@
 {
   "name": "tradiz",
-  "version": "1.138",
+  "version": "1.139",
+  "description": "Tradiz cash register and management application",
+  "author": "Tradiz",
   "private": true,
   "license": "MIT",
+  "main": "electron/main.js",
   "scripts": {
-    "clean": "shx rm -rf .next",
+    "clean": "shx rm -rf .next dist",
     "dev": "next dev",
     "build": "next build",
     "start": "next start -p 3001",
@@ -15,7 +18,13 @@
     "prepare": "husky",
     "migrate": "bun scripts/migrate-sheets-to-postgres.ts",
     "export-firestore": "bun scripts/firestore-to-postgres.ts",
-    "test-db": "bun scripts/test-postgres-connection.ts"
+    "test-db": "bun scripts/test-postgres-connection.ts",
+    "electron:dev": "electron .",
+    "electron:build": "next build",
+    "electron:dist": "next build && shx rm -rf dist && bun electron/scripts/prepare-standalone.js && electron-builder",
+    "electron:dist:win": "next build && shx rm -rf dist && bun electron/scripts/prepare-standalone.js && electron-builder --win",
+    "electron:dist:win:ci": "next build && shx rm -rf dist && bun electron/scripts/prepare-standalone.js && electron-builder --win --publish never",
+    "electron:publish:win": "next build && shx rm -rf dist && bun electron/scripts/prepare-standalone.js && electron-builder --win --publish always"
   },
   "dependencies": {
     "@dnd-kit/core": "latest",
@@ -32,6 +41,7 @@
     "bignumber.js": "9.1.2",
     "caniuse-lite": "latest",
     "dotenv": "latest",
+    "electron-updater": "^6.8.9",
     "eslint-plugin-jsx-a11y": "latest",
     "mysql2": "latest",
     "next": "latest",
@@ -61,6 +71,8 @@
     "@typescript-eslint/eslint-plugin": "latest",
     "@vitest/coverage-v8": "latest",
     "baseline-browser-mapping": "latest",
+    "electron": "latest",
+    "electron-builder": "latest",
     "encoding": "latest",
     "eslint": "latest",
     "eslint-config-next": "latest",
@@ -78,6 +90,8 @@
   },
   "trustedDependencies": [
     "protobufjs",
-    "unrs-resolver"
+    "unrs-resolver",
+    "electron",
+    "electron-builder"
   ]
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Customer, InventoryItem, User } from '../utils/interfaces';
 
 interface UseBarcodeScannerProps {
@@ -27,6 +27,40 @@ export function useBarcodeScanner({
     const bufferRef = useRef('');
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+    const processCode = useCallback(
+        (code: string) => {
+            // Match against products
+            const productMatch = inventory
+                .flatMap((cat) =>
+                    cat.products.map((p) => ({ ...p, category: cat.category })).filter((p) => p.reference === code)
+                )
+                .at(0);
+
+            if (productMatch) {
+                onMatchProduct({
+                    category: productMatch.category,
+                    label: productMatch.label,
+                    amount: productMatch.prices[0],
+                });
+                return;
+            }
+
+            // Match against customers
+            const customerMatch = customers.find((c) => c.reference === code);
+            if (customerMatch) {
+                onMatchCustomer(customerMatch);
+                return;
+            }
+
+            // Match against users
+            const userMatch = users.find((u) => u.reference === code);
+            if (userMatch) {
+                onMatchUser(userMatch);
+            }
+        },
+        [inventory, customers, users, onMatchProduct, onMatchCustomer, onMatchUser]
+    );
+
     useEffect(() => {
         if (!enabled) return;
 
@@ -46,38 +80,7 @@ export function useBarcodeScanner({
                 if (bufferRef.current) {
                     const code = bufferRef.current;
                     bufferRef.current = '';
-
-                    // Match against products
-                    const productMatch = inventory
-                        .flatMap((cat) =>
-                            cat.products
-                                .map((p) => ({ ...p, category: cat.category }))
-                                .filter((p) => p.reference === code)
-                        )
-                        .at(0);
-
-                    if (productMatch) {
-                        onMatchProduct({
-                            category: productMatch.category,
-                            label: productMatch.label,
-                            amount: productMatch.prices[0],
-                        });
-                        return;
-                    }
-
-                    // Match against customers
-                    const customerMatch = customers.find((c) => c.reference === code);
-                    if (customerMatch) {
-                        onMatchCustomer(customerMatch);
-                        return;
-                    }
-
-                    // Match against users
-                    const userMatch = users.find((u) => u.reference === code);
-                    if (userMatch) {
-                        onMatchUser(userMatch);
-                        return;
-                    }
+                    processCode(code);
                 }
                 return;
             }
@@ -101,5 +104,13 @@ export function useBarcodeScanner({
             window.removeEventListener('keydown', handleKeyDown);
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
         };
-    }, [enabled, inventory, customers, users, onMatchProduct, onMatchCustomer, onMatchUser]);
+    }, [enabled, processCode]);
+
+    useEffect(() => {
+        if (!enabled) return;
+        if (typeof window === 'undefined' || !window.electronAPI?.onBarcodeScan) return;
+
+        const unsubscribe = window.electronAPI.onBarcodeScan(processCode);
+        return unsubscribe;
+    }, [enabled, processCode]);
 }

@@ -1,0 +1,52 @@
+appId: fr.tradiz.app
+productName: Tradiz
+copyright: Copyright © 2024 Tradiz
+directories:
+    output: dist
+files:
+    - electron/**/*
+    - package.json
+    - '!node_modules'
+    - '!src'
+    - '!__tests__'
+    - '!scripts'
+    - '!coverage'
+    - '!dist'
+    - '!out'
+    - '!build'
+    - '!*.log'
+    - '!.env*.local'
+extraResources:
+    - from: .next/standalone
+      to: standalone
+      filter:
+          - '**/*'
+    - from: electron/drivers
+      to: drivers
+      filter:
+          - '**/*'
+asar: false
+win:
+    target:
+        - target: nsis
+          arch:
+              - x64
+              - ia32
+    icon: public/icons/favicon.ico
+nsis:
+    oneClick: false
+    perMachine: false
+    allowToChangeInstallationDirectory: true
+    uninstallDisplayName: Tradiz
+    createDesktopShortcut: true
+    createStartMenuShortcut: true
+    shortcutName: Tradiz
+mac:
+    target:
+        - dmg
+    icon: public/icons/icons-512.png
+linux:
+    target:
+        - AppImage
+        - deb
+    icon: public/icons/icons-512.png
