@@ -113,6 +113,7 @@ export default function SettingsPage() {
     const dbConfigCheckedRef = useRef(false);
     const dataLoadedRef = useRef(false);
     const seededRef = useRef(false);
+    const dbDataLoadedRef = useRef(false);
     const [isSavingParameters, setIsSavingParameters] = useState(false);
     const [isSavingDiscounts, setIsSavingDiscounts] = useState(false);
     const [isSavingCurrencies, setIsSavingCurrencies] = useState(false);
@@ -218,6 +219,7 @@ export default function SettingsPage() {
     // Note: devices, companies and theme metadata are NOT part of the cached Config
     // and are only available from the DB (loaded in fetchParameters).
     const seedFromCache = useCallback(() => {
+        if (dbDataLoadedRef.current) return;
         if (parameters?.lastModified) {
             setSettings(parameters);
             setOriginalSettings(parameters);
@@ -276,116 +278,119 @@ export default function SettingsPage() {
             const response = await fetch('/api/sql/getParameters');
             const data = await response.json();
 
-            if (data.parameters && data.parameters.length > 0) {
-                const paramMap = new Map<string, string>();
-                data.parameters.forEach(({ key, value }: { key: string; value: string }) => {
-                    paramMap.set(key, value);
-                });
-
-                // Helper function to get parameter value (handles both English and French keys)
-                const getParam = (enKey: string, frKey: string): string => {
-                    return paramMap.get(enKey) || paramMap.get(frKey) || '';
-                };
-
-                const loadedSettings: Parameters = {
-                    shop: {
-                        name: getParam('name', 'Nom du commerce'),
-                        address: getParam('address', 'Adresse'),
-                        zipCode: getParam('zipCode', 'Code postal'),
-                        city: getParam('city', 'Ville'),
-                        serial: getParam('serial', 'SIRET'),
-                        id: getParam('id', 'Identifiant'),
-                        email: getParam('email', 'Email de contact'),
-                    },
-                    thanksMessage: getParam('thanksMessage', 'Message de remerciement') || 'Merci de votre visite !',
-                    mercurial: (getParam('mercurial', 'Mercuriale quadratique') || Mercurial.none) as Mercurial,
-                    closingHour: Math.max(0, Math.min(23, Number(getParam('closingHour', 'Heure de fermeture')) || 0)),
-                    yearStartDate: (() => {
-                        try {
-                            const value = getParam('yearStartDate', 'Année fiscale');
-                            if (value) {
-                                const parsed = JSON.parse(value);
-                                if (parsed && typeof parsed.month === 'number' && typeof parsed.day === 'number') {
-                                    return parsed;
-                                }
-                            }
-                        } catch {
-                            // Invalid JSON
-                        }
-                        return { month: 1, day: 1 };
-                    })(),
-                    lastModified: getParam('lastModified', 'Dernière modification') || Date.now().toString(),
-                    user: parameters?.user || { name: '', role: 0 },
-                    products: (() => {
-                        try {
-                            const value = getParam('productsSettings', 'Paramètres produits');
-                            if (value) {
-                                const parsed = JSON.parse(value);
-                                if (parsed && typeof parsed === 'object') {
-                                    return {
-                                        useVatPerProduct: parsed.useVatPerProduct ?? false,
-                                        useReference: parsed.useReference ?? false,
-                                        useStock: parsed.useStock ?? false,
-                                        usePhoto: parsed.usePhoto ?? false,
-                                        useDescription: parsed.useDescription ?? false,
-                                        useOptions: parsed.useOptions ?? false,
-                                    };
-                                }
-                            }
-                        } catch {
-                            // Invalid JSON
-                        }
-                        return undefined;
-                    })(),
-                    search: (() => {
-                        try {
-                            const value = getParam('searchSettings', 'Paramètres recherche');
-                            if (value) {
-                                const parsed = JSON.parse(value);
-                                if (parsed && typeof parsed === 'object') {
-                                    return {
-                                        searchCustomers: parsed.searchCustomers ?? false,
-                                        searchProducts: parsed.searchProducts ?? false,
-                                        searchUsers: parsed.searchUsers ?? false,
-                                    };
-                                }
-                            }
-                        } catch {
-                            // Invalid JSON
-                        }
-                        return undefined;
-                    })(),
-                    display: (() => {
-                        try {
-                            const value = getParam('displaySettings', 'Paramètres affichage');
-                            if (value) {
-                                const parsed = JSON.parse(value);
-                                if (parsed && typeof parsed === 'object') {
-                                    return {
-                                        showWaiting: parsed.showWaiting ?? true,
-                                        showRefund: parsed.showRefund ?? true,
-                                        showProvision: parsed.showProvision ?? true,
-                                        showDebit: parsed.showDebit ?? true,
-                                        showChange: parsed.showChange ?? true,
-                                        expandFirstCategory: parsed.expandFirstCategory ?? false,
-                                    };
-                                }
-                            }
-                        } catch {
-                            // Invalid JSON
-                        }
-                        return undefined;
-                    })(),
-                    userSwitch: (() => {
-                        const value = getParam('userSwitch', 'Changement utilisateur');
-                        if (value === '') return undefined;
-                        return value === 'true';
-                    })(),
-                };
-
-                setSettings(loadedSettings);
-                setOriginalSettings(loadedSettings);
+            if (!response.ok) {
+                throw new Error(data.error || `HTTP ${response.status}`);
             }
+
+            const paramMap = new Map<string, string>();
+            (data.parameters || []).forEach(({ key, value }: { key: string; value: string }) => {
+                paramMap.set(key, value);
+            });
+
+            // Helper function to get parameter value (handles both English and French keys)
+            const getParam = (enKey: string, frKey: string): string => {
+                return paramMap.get(enKey) || paramMap.get(frKey) || '';
+            };
+
+            const loadedSettings: Parameters = {
+                shop: {
+                    name: getParam('name', 'Nom du commerce'),
+                    address: getParam('address', 'Adresse'),
+                    zipCode: getParam('zipCode', 'Code postal'),
+                    city: getParam('city', 'Ville'),
+                    serial: getParam('serial', 'SIRET'),
+                    id: getParam('id', 'Identifiant'),
+                    email: getParam('email', 'Email de contact'),
+                },
+                thanksMessage: getParam('thanksMessage', 'Message de remerciement') || 'Merci de votre visite !',
+                mercurial: (getParam('mercurial', 'Mercuriale quadratique') || Mercurial.none) as Mercurial,
+                closingHour: Math.max(0, Math.min(23, Number(getParam('closingHour', 'Heure de fermeture')) || 0)),
+                yearStartDate: (() => {
+                    try {
+                        const value = getParam('yearStartDate', 'Année fiscale');
+                        if (value) {
+                            const parsed = JSON.parse(value);
+                            if (parsed && typeof parsed.month === 'number' && typeof parsed.day === 'number') {
+                                return parsed;
+                            }
+                        }
+                    } catch {
+                        // Invalid JSON
+                    }
+                    return { month: 1, day: 1 };
+                })(),
+                lastModified: getParam('lastModified', 'Dernière modification') || Date.now().toString(),
+                user: parameters?.user || { name: '', role: 0 },
+                products: (() => {
+                    try {
+                        const value = getParam('productsSettings', 'Paramètres produits');
+                        if (value) {
+                            const parsed = JSON.parse(value);
+                            if (parsed && typeof parsed === 'object') {
+                                return {
+                                    useVatPerProduct: parsed.useVatPerProduct ?? false,
+                                    useReference: parsed.useReference ?? false,
+                                    useStock: parsed.useStock ?? false,
+                                    usePhoto: parsed.usePhoto ?? false,
+                                    useDescription: parsed.useDescription ?? false,
+                                    useOptions: parsed.useOptions ?? false,
+                                };
+                            }
+                        }
+                    } catch {
+                        // Invalid JSON
+                    }
+                    return undefined;
+                })(),
+                search: (() => {
+                    try {
+                        const value = getParam('searchSettings', 'Paramètres recherche');
+                        if (value) {
+                            const parsed = JSON.parse(value);
+                            if (parsed && typeof parsed === 'object') {
+                                return {
+                                    searchCustomers: parsed.searchCustomers ?? false,
+                                    searchProducts: parsed.searchProducts ?? false,
+                                    searchUsers: parsed.searchUsers ?? false,
+                                };
+                            }
+                        }
+                    } catch {
+                        // Invalid JSON
+                    }
+                    return undefined;
+                })(),
+                display: (() => {
+                    try {
+                        const value = getParam('displaySettings', 'Paramètres affichage');
+                        if (value) {
+                            const parsed = JSON.parse(value);
+                            if (parsed && typeof parsed === 'object') {
+                                return {
+                                    showWaiting: parsed.showWaiting ?? true,
+                                    showRefund: parsed.showRefund ?? true,
+                                    showProvision: parsed.showProvision ?? true,
+                                    showDebit: parsed.showDebit ?? true,
+                                    showChange: parsed.showChange ?? true,
+                                    expandFirstCategory: parsed.expandFirstCategory ?? false,
+                                };
+                            }
+                        }
+                    } catch {
+                        // Invalid JSON
+                    }
+                    return undefined;
+                })(),
+                userSwitch: (() => {
+                    const value = getParam('userSwitch', 'Changement utilisateur');
+                    if (value === '') return undefined;
+                    return value === 'true';
+                })(),
+            };
+
+            setSettings(loadedSettings);
+            setOriginalSettings(loadedSettings);
+            dbDataLoadedRef.current = true;
 
             // Load discounts from DB
             try {
@@ -530,7 +535,17 @@ export default function SettingsPage() {
             }
         } catch (error) {
             console.error('Error fetching parameters:', error);
-            if (parameters) setSettings(parameters);
+            if (parameters) {
+                setSettings(parameters);
+                setOriginalSettings(parameters);
+            }
+            openFullscreenPopup(
+                'Erreur de chargement',
+                [
+                    "Les paramètres n'ont pas pu être chargés depuis la base de données. Veuillez rafraîchir la page ou vérifier la connexion.",
+                ],
+                () => {}
+            );
         } finally {
             setIsLoading(false);
         }
@@ -543,6 +558,7 @@ export default function SettingsPage() {
         configColors,
         isStateReady,
         seedFromCache,
+        openFullscreenPopup,
     ]);
 
     // Step 2a: seed the UI instantly from cached config (no loading dots) as soon as it's ready.

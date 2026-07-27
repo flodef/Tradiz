@@ -32,7 +32,7 @@ import {
     idbRemoveTransactions,
     idbSetTransactions,
 } from '../utils/transactionStore';
-import { checkDbConfig } from '../utils/processData';
+import { checkDbConfig, getPublicKey } from '../utils/processData';
 import { encodeCashNote } from '../utils/transactionNote';
 import { mergeTransactionArrays } from './dataProvider/syncUtils';
 import {
@@ -629,14 +629,33 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     useEffect(() => {
         if (!transactionsFilename || !SHOP_ID) return;
 
-        // Initial sync, then poll while the app is visible/online.
+        const shouldRunSync = async () => {
+            if (syncInProgress.current) return;
+            try {
+                const publicKey = getPublicKey();
+                const heartbeat = await fetch('/api/sql/heartbeat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ publicKey }),
+                });
+                if (!heartbeat.ok) return;
+                const { otherDevices } = (await heartbeat.json()) as { otherDevices?: number };
+                if (otherDevices && otherDevices > 0) {
+                    await syncNow();
+                }
+            } catch (error) {
+                console.error('Presence heartbeat failed:', error);
+            }
+        };
+
+        // Initial sync, then heartbeat-only polling.
         syncNow();
-        const interval = setInterval(syncNow, SYNC_INTERVAL_MS);
+        const interval = setInterval(shouldRunSync, SYNC_INTERVAL_MS);
 
         const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') syncNow();
+            if (document.visibilityState === 'visible') shouldRunSync();
         };
-        const handleOnline = () => syncNow();
+        const handleOnline = () => shouldRunSync();
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
         window.addEventListener('online', handleOnline);

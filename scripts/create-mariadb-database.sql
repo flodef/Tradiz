@@ -330,6 +330,8 @@ CREATE TABLE IF NOT EXISTS `devices` (
   `label` varchar(255) NOT NULL,
   `public_key` varchar(255) NOT NULL,
   `user_id` int(11) DEFAULT NULL,
+  `connected` tinyint(1) NOT NULL DEFAULT 0,
+  `last_seen` datetime DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `public_key` (`public_key`),

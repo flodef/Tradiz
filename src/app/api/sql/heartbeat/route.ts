@@ -1,0 +1,57 @@
+import { getShopIdFromRequest } from '@/app/constants/shop';
+import { NextResponse } from 'next/server';
+import { getPosDb } from '../db';
+
+export async function POST(request: Request) {
+    const shopId = getShopIdFromRequest(request);
+    let publicKey: string | undefined;
+
+    try {
+        const body = await request.json();
+        publicKey = body.publicKey;
+    } catch {
+        return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    if (!publicKey) {
+        return NextResponse.json({ error: 'Missing publicKey' }, { status: 400 });
+    }
+
+    try {
+        const connection = await getPosDb(shopId);
+
+        // Mark devices that haven't been seen recently as disconnected.
+        const markStaleQuery = connection.isPostgreSQL
+            ? `UPDATE dc_pos.devices SET connected = false, last_seen = NULL WHERE last_seen < NOW() - INTERVAL '2 minutes' OR last_seen IS NULL`
+            : `UPDATE devices SET connected = false, last_seen = NULL WHERE last_seen < DATE_SUB(NOW(), INTERVAL 2 MINUTE) OR last_seen IS NULL`;
+        await connection.execute(markStaleQuery);
+
+        // Register this device's heartbeat.
+        const heartbeatQuery = connection.isPostgreSQL
+            ? `UPDATE dc_pos.devices SET connected = true, last_seen = NOW() WHERE public_key = $1`
+            : `UPDATE devices SET connected = true, last_seen = NOW() WHERE public_key = ?`;
+        await connection.execute(heartbeatQuery, [publicKey]);
+
+        // Count other devices that are currently active.
+        const countQuery = connection.isPostgreSQL
+            ? `
+            SELECT COUNT(*)::int AS count
+            FROM dc_pos.devices
+            WHERE public_key != $1 AND connected = true AND last_seen > NOW() - INTERVAL '30 seconds'
+        `
+            : `
+            SELECT COUNT(*) AS count
+            FROM devices
+            WHERE public_key != ? AND connected = true AND last_seen > DATE_SUB(NOW(), INTERVAL 30 SECOND)
+        `;
+
+        const [rows] = await connection.execute(countQuery, [publicKey]);
+        await connection.end();
+
+        const count = Number((rows as { count: number }[])[0]?.count ?? 0);
+        return NextResponse.json({ otherDevices: count }, { status: 200 });
+    } catch (error) {
+        console.error('Heartbeat failed:', error);
+        return NextResponse.json({ error: 'Failed to process heartbeat' }, { status: 500 });
+    }
+}
