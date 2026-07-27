@@ -9,6 +9,7 @@ import {
     DELETED_KEYWORD,
     OTHER_KEYWORD,
     PROCESSING_KEYWORD,
+    SYNC_INTERVAL_MS,
     TRANSACTIONS_KEYWORD,
     USE_DIGICARTE,
 } from '../utils/constants';
@@ -101,6 +102,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // Set to true by clearTotal to prevent the product-restore effect from re-adding
     // stale items from PROCESSING transactions when transactions load asynchronously.
     const clearRequestedRef = useRef(false);
+    const syncInProgress = useRef(false);
+    const lastServerSyncTime = useRef<string | undefined>(undefined);
     const [orderId, setOrderId] = useState('');
     const [shortNumOrder, setShortNumOrder] = useState('');
     const [orderData, setOrderData] = useState<OrderData | null>(null);
@@ -465,17 +468,27 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
                 // Include deleted transactions so deletions propagate across devices
                 const sqlTransactions: Transaction[] = [];
+                let latestServerNow: string | undefined;
                 if (syncPeriod === SyncPeriod.day) {
                     const today = new Date().toISOString().split('T')[0];
-                    const response = await fetch(
-                        `/api/sql/getTransactions?period=day&date=${today}&includeDeleted=true`
-                    );
+                    const urlParams = new URLSearchParams({
+                        period: 'day',
+                        date: today,
+                        includeDeleted: 'true',
+                    });
+                    if (lastServerSyncTime.current) {
+                        // Overlap by 5s to be tolerant of clock skew / second precision.
+                        const sinceMs = new Date(lastServerSyncTime.current).getTime() - 5000;
+                        urlParams.append('since', new Date(sinceMs).toISOString());
+                    }
+                    const response = await fetch(`/api/sql/getTransactions?${urlParams.toString()}`);
                     if (!response.ok) {
                         console.error('SQL DB sync error:', await response.json());
                         return 0;
                     }
                     const data = await response.json();
                     sqlTransactions.push(...(data.transactions as Transaction[]));
+                    if (data.serverNow) latestServerNow = data.serverNow as string;
                     onProgress?.(30);
                 } else {
                     // Full sync: fetch in batches to avoid timeouts / oversized responses
@@ -493,6 +506,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         const data = await response.json();
                         const batch = data.transactions as Transaction[];
                         sqlTransactions.push(...batch);
+                        if (data.serverNow) latestServerNow = data.serverNow as string;
                         hasMore = Boolean(data.hasMore);
                         batchOffset += BATCH_SIZE;
                         // Progress 5% → 40% during fetch (cap so it keeps moving)
@@ -500,7 +514,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     }
                 }
 
+                // If nothing changed and no local changes need to be pushed, just record the
+                // server time and bail out.
                 if (!sqlTransactions.length) {
+                    if (latestServerNow) lastServerSyncTime.current = latestServerNow;
                     return 0;
                 }
 
@@ -517,6 +534,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 const dateKeys = Array.from(groupedByDate.keys());
                 const totalDays = dateKeys.length;
                 let syncedDays = 0;
+                let syncedCount = 0;
 
                 for (const dateKey of dateKeys) {
                     const dayTransactions = groupedByDate.get(dateKey)!;
@@ -526,39 +544,50 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             transactions: dayTransactions,
                         },
                     ];
-                    await fullSync(cloudTransactionSets, syncPeriod);
+                    syncedCount += await fullSync(cloudTransactionSets, syncPeriod);
                     syncedDays++;
                     // Progress from 40% to 70% based on days synced
                     onProgress?.(40 + Math.floor((syncedDays / totalDays) * 30));
                 }
 
-                // Local→SQL push: reconcile local transactions with SQL for current day only
+                // Local→SQL push: only push local transactions that changed since the last
+                // successful server sync. Because we fetch incrementally, sqlTransactions may
+                // not contain unchanged rows, so we use the timestamp instead of presence in the
+                // fetched list to decide what needs uploading.
                 onProgress?.(70);
                 const localTransactions = await idbGetTransactions(transactionsFilename);
-                if (localTransactions.length) {
-                    const totalLocal = localTransactions.length;
+                let pushedCount = 0;
+                const lastSyncMs = latestServerNow ? new Date(latestServerNow).getTime() : 0;
+                const pushSinceMs = lastSyncMs ? lastSyncMs - 5000 : 0;
+                const changedLocal = localTransactions.filter(
+                    (tx) => !isProcessingTransaction(tx) && (tx.modifiedDate || tx.createdDate) > pushSinceMs
+                );
+                if (changedLocal.length) {
+                    const totalLocal = changedLocal.length;
                     let processedLocal = 0;
-                    for (const localTx of localTransactions) {
+                    for (const localTx of changedLocal) {
                         processedLocal++;
-                        if (isProcessingTransaction(localTx)) continue;
                         const localTs = floorToSeconds(localTx.createdDate);
                         const sqlTx = sqlTransactions.find(
                             (s) => s.createdDate === localTs || s.createdDate === localTx.createdDate
                         );
                         if (!sqlTx) {
-                            // Local-only → push to SQL
+                            // Not seen in the incremental window → safe to push (server version is older).
                             await pushTransactionToSQL(localTx, 'add');
+                            pushedCount++;
                         } else if (localTx.modifiedDate > sqlTx.modifiedDate) {
-                            // Local is newer → update SQL (full replace)
+                            // Local is newer than the version returned by the server.
                             await pushTransactionToSQL(localTx, 'sync');
+                            pushedCount++;
                         }
                         // Progress from 70% to 90% based on local transactions processed
                         onProgress?.(70 + Math.floor((processedLocal / totalLocal) * 20));
                     }
                 }
 
+                if (latestServerNow) lastServerSyncTime.current = latestServerNow;
                 onProgress?.(100);
-                return sqlTransactions.length;
+                return syncedCount + pushedCount;
             } catch (error) {
                 console.error('Error syncing from SQL DB:', error);
                 return 0;
@@ -579,10 +608,45 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [transactionsFilename, processSyncFromSQL]
     );
 
+    const syncNow = useCallback(async () => {
+        if (syncInProgress.current) return;
+        if (!isOnline || !transactionsFilename || !SHOP_ID) return;
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+
+        const hasDbConfig = await checkDbConfig();
+        if (!hasDbConfig && !USE_DIGICARTE) return;
+
+        syncInProgress.current = true;
+        try {
+            await syncTransactions(SyncPeriod.day);
+        } catch (error) {
+            console.error('Real-time sync failed:', error);
+        } finally {
+            syncInProgress.current = false;
+        }
+    }, [isOnline, transactionsFilename, syncTransactions]);
+
     useEffect(() => {
-        if (!transactionsFilename) return;
-        syncTransactions(SyncPeriod.day);
-    }, [transactionsFilename]); // eslint-disable-line react-hooks/exhaustive-deps
+        if (!transactionsFilename || !SHOP_ID) return;
+
+        // Initial sync, then poll while the app is visible/online.
+        syncNow();
+        const interval = setInterval(syncNow, SYNC_INTERVAL_MS);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') syncNow();
+        };
+        const handleOnline = () => syncNow();
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('online', handleOnline);
+
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('online', handleOnline);
+        };
+    }, [transactionsFilename, syncNow]);
 
     const exportTransactions = useCallback(async () => {
         const localTransactionSets = await getLocalTransactions();

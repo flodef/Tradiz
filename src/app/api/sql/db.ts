@@ -1,6 +1,6 @@
 import { DC, DC_POS, USE_DIGICARTE } from '@/app/utils/constants';
 import mysql from 'mysql2/promise';
-import { Client } from 'pg';
+import { PoolClient } from 'pg';
 import { getMainPgDb, getPosPgDb, isPgConfigured } from './pg-db';
 
 // Unified database connection interface
@@ -57,13 +57,14 @@ class PostgreSQLConnectionWrapper implements DbConnection {
     private connected = false;
     private searchPathSet = false;
 
-    constructor(private client: Client) {}
+    constructor(private client: PoolClient) {
+        // Pool clients are already connected when handed to the wrapper.
+        this.connected = true;
+    }
 
     private async ensureConnected(): Promise<void> {
-        if (!this.connected) {
-            await this.client.connect();
-            this.connected = true;
-        }
+        // Pool clients are already connected; nothing to do.
+        return;
     }
 
     private async setSearchPath(): Promise<void> {
@@ -106,7 +107,9 @@ class PostgreSQLConnectionWrapper implements DbConnection {
 
     async end(): Promise<void> {
         if (this.connected) {
-            await this.client.end();
+            this.client.release();
+            this.connected = false;
+            this.searchPathSet = false;
         }
     }
 }
@@ -120,7 +123,7 @@ const dbConfig = {
 export async function getMainDb(shopId?: string): Promise<DbConnection> {
     // If USE_DIGICARTE is false and PostgreSQL is configured, use PostgreSQL
     if (!USE_DIGICARTE && isPgConfigured(shopId)) {
-        return new PostgreSQLConnectionWrapper(getMainPgDb(shopId));
+        return new PostgreSQLConnectionWrapper(await getMainPgDb(shopId));
     }
 
     // Otherwise use MariaDB
@@ -134,7 +137,7 @@ export async function getMainDb(shopId?: string): Promise<DbConnection> {
 export async function getPosDb(shopId?: string): Promise<DbConnection> {
     // If USE_DIGICARTE is false and PostgreSQL is configured, use PostgreSQL
     if (!USE_DIGICARTE && isPgConfigured(shopId)) {
-        return new PostgreSQLConnectionWrapper(getPosPgDb(shopId));
+        return new PostgreSQLConnectionWrapper(await getPosPgDb(shopId));
     }
 
     // Otherwise use MariaDB

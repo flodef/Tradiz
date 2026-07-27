@@ -3,6 +3,7 @@ import { isDeletedTransaction } from '@/app/contexts/dataProvider/transactionHel
 import { DEFAULT_USER, DEFAULT_VAT_RATE } from '@/app/utils/constants';
 import { Transaction } from '@/app/utils/interfaces';
 import { parseCashNote } from '@/app/utils/transactionNote';
+import { toSQLDateTime } from '@/app/utils/date';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
@@ -39,6 +40,7 @@ export async function GET(request: Request) {
     const date = searchParams.get('date'); // Format: YYYY-MM-DD
     const period = searchParams.get('period'); // 'day' or 'full'
     const includeDeleted = searchParams.get('includeDeleted') === 'true';
+    const sinceParam = searchParams.get('since'); // ISO 8601 timestamp: only return rows updated after this
     // Pagination (used for 'full' sync to avoid huge responses / timeouts)
     const limitParam = searchParams.get('limit');
     const offsetParam = searchParams.get('offset');
@@ -49,6 +51,15 @@ export async function GET(request: Request) {
         const connection = await getPosDb(shopId);
         const isPg = connection.isPostgreSQL;
 
+        // Normalise the optional incremental-sync timestamp to SQL datetime format (UTC).
+        let since: string | undefined;
+        if (sinceParam) {
+            const sinceMs = Date.parse(sinceParam);
+            if (!Number.isNaN(sinceMs)) {
+                since = toSQLDateTime(sinceMs);
+            }
+        }
+
         let whereClause = '1=1';
         const params: (string | number)[] = [DEFAULT_USER];
         let paramIndex = 2; // $1 is reserved for DEFAULT_USER in the validator COALESCE
@@ -57,6 +68,13 @@ export async function GET(request: Request) {
         if (date && period === 'day') {
             whereClause += isPg ? ` AND DATE(t.created_at) = $${paramIndex}` : ' AND DATE(t.created_at) = ?';
             params.push(date);
+            paramIndex++;
+        }
+
+        // Incremental sync: only return rows updated after the provided timestamp
+        if (since) {
+            whereClause += isPg ? ` AND t.updated_at >= $${paramIndex}` : ' AND t.updated_at >= ?';
+            params.push(since);
             paramIndex++;
         }
 
@@ -176,12 +194,23 @@ export async function GET(request: Request) {
             });
         }
 
+        // Capture the server time before ending the connection so the client knows from what
+        // timestamp to request the next incremental sync.
+        let serverNow: string | undefined;
+        try {
+            const { rows } = await connection.query('SELECT NOW() as now');
+            const rawNow = (rows[0] as { now: string | Date } | undefined)?.now;
+            serverNow = rawNow ? new Date(rawNow).toISOString() : undefined;
+        } catch (error) {
+            console.error('Failed to capture server time:', error);
+        }
+
         await connection.end();
 
         // hasMore tells the client (for paginated 'full' sync) to fetch the next batch.
         const hasMore = limit !== null ? transactionRows.length === limit : false;
 
-        return NextResponse.json({ transactions, hasMore }, { status: 200 });
+        return NextResponse.json({ transactions, hasMore, serverNow }, { status: 200 });
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching transactions' }, { status: 500 });
