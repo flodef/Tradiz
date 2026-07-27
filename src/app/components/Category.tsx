@@ -18,7 +18,7 @@ import {
     USE_DIGICARTE,
 } from '../utils/constants';
 import { Catalog, CatalogFormula, EmptyDiscount, InventoryItem, Role, State } from '../utils/interfaces';
-import { useIsMobileDevice } from '../utils/mobile';
+import { useIsMobile, useIsMobileDevice } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
 import { useAddPopupClass } from './Popup';
 import { LoadingDot } from '../loading';
@@ -611,6 +611,31 @@ export const Category: FC = () => {
                 .filter((item) => item.products.length > 0 || true), // keep category even if empty (for OTHER_KEYWORD)
         [inventory]
     );
+
+    // ── Large-screen UX: auto-expand the first category's product popup ──
+    const isMobile = useIsMobile();
+    const hasAutoExpandedRef = useRef(false);
+
+    useEffect(() => {
+        if (hasAutoExpandedRef.current) return;
+        if (state !== State.loaded && state !== State.preloaded) return;
+        if (isMobile || !parameters.display?.expandFirstCategory) return;
+        if (!displayInventory.length) return;
+
+        hasAutoExpandedRef.current = true;
+        const first = displayInventory[0];
+        if (first.products.length > 1) {
+            openProductListPopup(first);
+        } else if (first.products.length === 1) {
+            const product = first.products[0];
+            if (product.options) {
+                openOptionsSubPopup(first, product);
+            } else {
+                handleProductSelection(first, product.label);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [state, isMobile, parameters.display?.expandFirstCategory, displayInventory]);
 
     const categories = useMemo(() => displayInventory.map(({ category }) => category), [displayInventory]);
 

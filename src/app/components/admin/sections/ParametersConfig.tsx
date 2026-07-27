@@ -124,6 +124,7 @@ export default function ParametersConfig({
                 showProvision: true,
                 showDebit: true,
                 showChange: true,
+                expandFirstCategory: false,
             }),
             [field]: checked,
         } as DisplaySettings);
@@ -454,27 +455,6 @@ export default function ParametersConfig({
                 </div>
             </div>
 
-            {/* Subsection: Utilisateur */}
-            {users.length > 1 && (
-                <div>
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
-                        Utilisateur
-                    </h3>
-                    <div className="flex flex-wrap gap-6">
-                        <div className="flex items-center gap-3">
-                            <Switch
-                                checked={config.userSwitch ?? true}
-                                onChange={(checked) => handleChange('userSwitch', checked)}
-                                isReadOnly={isReadOnly}
-                            />
-                            <span className="text-sm text-gray-700 dark:text-gray-300">
-                                Autoriser le changement d&apos;utilisateur
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Subsection: Paiements */}
             <div>
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
@@ -521,6 +501,37 @@ export default function ParametersConfig({
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">
                             Calculer et afficher la monnaie
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Subsection: Autres */}
+            <div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
+                    Autres
+                </h3>
+                <div className="flex flex-wrap gap-6">
+                    {users.length > 1 && (
+                        <div className="flex items-center gap-3">
+                            <Switch
+                                checked={config.userSwitch ?? true}
+                                onChange={(checked) => handleChange('userSwitch', checked)}
+                                isReadOnly={isReadOnly}
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">
+                                Autoriser le changement d&apos;utilisateur
+                            </span>
+                        </div>
+                    )}
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.display?.expandFirstCategory ?? false}
+                            onChange={(checked) => handleDisplayChange('expandFirstCategory', checked)}
+                            isReadOnly={isReadOnly}
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                            Afficher les produits par défaut (grand écran)
                         </span>
                     </div>
                 </div>

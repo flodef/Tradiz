@@ -201,6 +201,7 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
                             showProvision: parsed.showProvision ?? true,
                             showDebit: parsed.showDebit ?? true,
                             showChange: parsed.showChange ?? true,
+                            expandFirstCategory: parsed.expandFirstCategory ?? false,
                         };
                     }
                 }
@@ -281,6 +282,7 @@ export const defaultParameters: Parameters = {
         showProvision: true,
         showDebit: true,
         showChange: true,
+        expandFirstCategory: false,
     },
 };
 

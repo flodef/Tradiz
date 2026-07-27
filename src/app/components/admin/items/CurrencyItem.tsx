@@ -29,7 +29,7 @@ export default function CurrencyItem({
             <div className={adminContainerStyle(true)}>
                 <div className="flex flex-col">
                     <span className={adminTextStyle}>Label</span>
-                    <span className="font-medium truncate max-w-[150px]">{currency.label}</span>
+                    <span className="font-medium truncate max-w-37.5">{currency.label}</span>
                 </div>
                 <div className="flex flex-col">
                     <span className={adminTextStyle}>Symb.</span>

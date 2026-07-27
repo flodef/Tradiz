@@ -69,6 +69,7 @@ export interface DisplaySettings {
     showProvision: boolean;
     showDebit: boolean;
     showChange: boolean;
+    expandFirstCategory: boolean;
 }
 
 export interface Parameters {
