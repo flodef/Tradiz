@@ -7,8 +7,6 @@ const DEV_URL = `http://localhost:${PORT}`;
 
 let mainWindow;
 let miniWindow;
-let scannerBuffer = '';
-let scannerTimer = null;
 
 const isDev = !app.isPackaged;
 
@@ -211,38 +209,7 @@ ipcMain.on('send-to-mini', (_event, data) => {
     }
 });
 
-// Global barcode scanner support: most scanners emulate a keyboard and send
-// digits very quickly, ending with Enter. We aggregate consecutive key events
-// and forward the scanned string to the renderer when Enter is pressed.
-function handleBeforeInput(input, window) {
-    if (!window || window.isDestroyed()) return;
-
-    if (input.type === 'keyDown') {
-        const isDigit = input.key >= '0' && input.key <= '9';
-        const isEnter = input.key === 'Enter';
-
-        if (isDigit) {
-            scannerBuffer += input.key;
-            if (scannerTimer) clearTimeout(scannerTimer);
-            scannerTimer = setTimeout(() => {
-                scannerBuffer = '';
-            }, 100);
-        } else if (isEnter) {
-            if (scannerTimer) clearTimeout(scannerTimer);
-            if (scannerBuffer.length >= 5) {
-                window.webContents.send('barcode-scan', scannerBuffer);
-            }
-            scannerBuffer = '';
-        } else {
-            // Any non-digit, non-Enter key resets the buffer.
-            if (scannerTimer) clearTimeout(scannerTimer);
-            scannerBuffer = '';
-        }
-    }
-}
-
-app.on('browser-window-created', (_event, window) => {
-    window.webContents.on('before-input-event', (_event, input) => {
-        handleBeforeInput(input, window);
-    });
-});
+// Barcode scanner support is handled entirely in the renderer via the
+// useBarcodeScanner keydown hook. It works in the Electron window like any
+// browser, and it correctly ignores focused input fields, so no duplicate
+// main-process aggregation is needed here.

@@ -363,14 +363,15 @@ export default function UsersConfig({
         setOriginalConfig(savedUsers);
     };
 
+    const printableUsers = useMemo(() => strip(users).filter((u) => u.role !== Role.admin && u.name?.trim()), [users]);
+
     const handlePrintEmployeeList = useCallback(() => {
-        const usersToPrint = strip(users).filter((u) => u.role !== Role.admin && u.name?.trim());
         openFullscreenPopup(
             'Liste des employés',
             [
                 <EmployeeListReport
                     key="employeeListReport"
-                    users={usersToPrint}
+                    users={printableUsers}
                     shop={parameters.shop}
                     onClose={closePopup}
                 />,
@@ -378,13 +379,13 @@ export default function UsersConfig({
             undefined,
             true
         );
-    }, [users, parameters.shop, openFullscreenPopup, closePopup]);
+    }, [printableUsers, parameters.shop, openFullscreenPopup, closePopup]);
 
     const isMobile = useIsMobile();
 
     const headerExtra = (
         <div className="flex items-center gap-2">
-            {users.length > 0 && (
+            {printableUsers.length > 0 && (
                 <AdminButton
                     variant="primary"
                     onClick={handlePrintEmployeeList}

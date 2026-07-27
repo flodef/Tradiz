@@ -11,7 +11,6 @@ interface ElectronAPI {
     closeMiniDisplay: () => void;
     sendToMini: (data: unknown) => void;
     onMiniMessage: (callback: (data: unknown) => void) => () => void;
-    onBarcodeScan: (callback: (code: string) => void) => () => void;
 }
 
 declare global {

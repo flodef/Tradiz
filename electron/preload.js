@@ -10,9 +10,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.on('mini-message', handler);
         return () => ipcRenderer.removeListener('mini-message', handler);
     },
-    onBarcodeScan: (callback) => {
-        const handler = (_event, code) => callback(code);
-        ipcRenderer.on('barcode-scan', handler);
-        return () => ipcRenderer.removeListener('barcode-scan', handler);
-    },
 });

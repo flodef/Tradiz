@@ -14,6 +14,7 @@ interface UseBarcodeScannerProps {
 }
 
 const BARCODE_TIMEOUT = 100; // ms between keystrokes to consider it a barcode scan
+const BARCODE_MIN_LENGTH = 3; // ignore shorter buffers that are likely manual keystrokes
 
 export function useBarcodeScanner({
     inventory,
@@ -76,10 +77,10 @@ export function useBarcodeScanner({
 
             // Enter key triggers the scan
             if (e.key === 'Enter') {
-                e.preventDefault();
-                if (bufferRef.current) {
-                    const code = bufferRef.current;
-                    bufferRef.current = '';
+                const code = bufferRef.current;
+                bufferRef.current = '';
+                if (code.length >= BARCODE_MIN_LENGTH) {
+                    e.preventDefault();
                     processCode(code);
                 }
                 return;
@@ -104,13 +105,5 @@ export function useBarcodeScanner({
             window.removeEventListener('keydown', handleKeyDown);
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
         };
-    }, [enabled, processCode]);
-
-    useEffect(() => {
-        if (!enabled) return;
-        if (typeof window === 'undefined' || !window.electronAPI?.onBarcodeScan) return;
-
-        const unsubscribe = window.electronAPI.onBarcodeScan(processCode);
-        return unsubscribe;
     }, [enabled, processCode]);
 }

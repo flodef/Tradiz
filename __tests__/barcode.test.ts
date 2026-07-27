@@ -43,4 +43,17 @@ describe('barcode', () => {
         expect(svg).toContain('not-a-code');
         expect(svg).not.toContain('<rect');
     });
+
+    it('encodes set B (even-parity) digits 5/6/7/9 correctly', () => {
+        // First digit 5 => parity ABBABB, so left digits at positions 2,3,5,6
+        // are encoded with set B. This value places 5,6,7,9 in those positions,
+        // exercising the G-codes that must equal the bit-reverse of the C-codes.
+        const value = '5056079000002';
+        expect(validateEan13(value)).toBe(true);
+
+        const svg = generateEan13Barcode(value);
+        const rectCount = (svg.match(/<rect/g) || []).length;
+        // 6 guard modules + 18 left black modules + 24 right black modules.
+        expect(rectCount).toBe(48);
+    });
 });
