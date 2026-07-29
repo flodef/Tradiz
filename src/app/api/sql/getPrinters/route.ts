@@ -1,6 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getPosDb } from '../db';
+import { getPosDb, DbConnection } from '../db';
 
 interface PrinterRow {
     name: string;
@@ -9,8 +9,9 @@ interface PrinterRow {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    let connection: DbConnection | undefined;
     try {
-        const connection = await getPosDb(shopId);
+        connection = await getPosDb(shopId);
 
         // Compat schema: if note_enabled exists, only expose printers enabled for note tickets.
         // Check if column exists (works for both MySQL and PostgreSQL)
@@ -67,5 +68,7 @@ export async function GET(request: Request) {
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching data' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

@@ -5,7 +5,7 @@ import { Transaction } from '@/app/utils/interfaces';
 import { parseCashNote } from '@/app/utils/transactionNote';
 import { toSQLDateTime } from '@/app/utils/date';
 import { NextResponse } from 'next/server';
-import { getPosDb } from '../db';
+import { getPosDb, DbConnection } from '../db';
 
 interface TransactionRow {
     id: number;
@@ -47,8 +47,10 @@ export async function GET(request: Request) {
     const limit = limitParam ? Math.max(1, parseInt(limitParam, 10)) : null;
     const offset = offsetParam ? Math.max(0, parseInt(offsetParam, 10)) : 0;
 
+    let dbConn: DbConnection | undefined;
     try {
         const connection = await getPosDb(shopId);
+        dbConn = connection;
         const isPg = connection.isPostgreSQL;
 
         // Normalise the optional incremental-sync timestamp to SQL datetime format (UTC).
@@ -205,8 +207,6 @@ export async function GET(request: Request) {
             console.error('Failed to capture server time:', error);
         }
 
-        await connection.end();
-
         // hasMore tells the client (for paginated 'full' sync) to fetch the next batch.
         const hasMore = limit !== null ? transactionRows.length === limit : false;
 
@@ -214,5 +214,7 @@ export async function GET(request: Request) {
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching transactions' }, { status: 500 });
+    } finally {
+        await dbConn?.end();
     }
 }

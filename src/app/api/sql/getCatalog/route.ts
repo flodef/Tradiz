@@ -1,7 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { RowDataPacket } from 'mysql2';
-import { getMainDb } from '../db';
+import { getMainDb, DbConnection } from '../db';
 
 interface ArticleRow extends RowDataPacket {
     id: number;
@@ -28,8 +28,9 @@ interface FormulaRow extends RowDataPacket {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    let connection: DbConnection | undefined;
     try {
-        const connection = await getMainDb(shopId);
+        connection = await getMainDb(shopId);
 
         // Articles with their options definition and category
         const [articleRows] = await connection.execute(`
@@ -104,5 +105,7 @@ export async function GET(request: Request) {
     } catch (error) {
         console.error('getCatalog error:', error);
         return NextResponse.json({ error: 'An error occurred' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

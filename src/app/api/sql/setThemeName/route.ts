@@ -1,9 +1,10 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getMainDb } from '../db';
+import { getMainDb, DbConnection } from '../db';
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    let connection: DbConnection | undefined;
     try {
         const { name } = await request.json();
 
@@ -11,7 +12,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid theme name' }, { status: 400 });
         }
 
-        const connection = await getMainDb(shopId);
+        connection = await getMainDb(shopId);
 
         const query = connection.isPostgreSQL
             ? `
@@ -32,5 +33,7 @@ export async function POST(request: Request) {
     } catch (error) {
         console.error('Error updating theme name:', error);
         return NextResponse.json({ error: 'An error occurred while updating theme name' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

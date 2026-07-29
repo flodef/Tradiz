@@ -1,6 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getPosDb } from '../db';
+import { getPosDb, DbConnection } from '../db';
 
 interface UserRow {
     id: number;
@@ -11,8 +11,9 @@ interface UserRow {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    let connection: DbConnection | undefined;
     try {
-        const connection = await getPosDb(shopId);
+        connection = await getPosDb(shopId);
 
         const result = await connection.execute(
             connection.isPostgreSQL
@@ -34,5 +35,7 @@ export async function GET(request: Request) {
     } catch (error) {
         console.error('Error fetching users:', error);
         return NextResponse.json({ error: 'An error occurred while fetching users' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

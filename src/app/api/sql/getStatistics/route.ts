@@ -1,6 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getPosDb } from '../db';
+import { getPosDb, DbConnection } from '../db';
 
 interface DailySalesRow {
     date: string;
@@ -33,8 +33,10 @@ export async function GET(request: Request) {
     const startDate = searchParams.get('startDate'); // Format: YYYY-MM-DD
     const endDate = searchParams.get('endDate'); // Format: YYYY-MM-DD
 
+    let dbConn: DbConnection | undefined;
     try {
         const connection = await getPosDb(shopId);
+        dbConn = connection;
 
         // Non-paid payment methods
         const nonPaidMethods = ['EFFACÉE', 'REMBOURSEMENT', 'EN COURS', 'EN ATTENTE'];
@@ -245,5 +247,7 @@ export async function GET(request: Request) {
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching statistics' }, { status: 500 });
+    } finally {
+        await dbConn?.end();
     }
 }

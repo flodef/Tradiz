@@ -1,6 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getPosDb } from '../db';
+import { getPosDb, DbConnection } from '../db';
 
 interface DiscountRow {
     value: number;
@@ -9,8 +9,9 @@ interface DiscountRow {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    let connection: DbConnection | undefined;
     try {
-        const connection = await getPosDb(shopId);
+        connection = await getPosDb(shopId);
 
         // Fetch discounts: unity column contains either '%' or currency symbol
         const query = connection.isPostgreSQL
@@ -29,5 +30,7 @@ export async function GET(request: Request) {
     } catch (error) {
         console.error('Error fetching discounts:', error);
         return NextResponse.json({ error: 'An error occurred while fetching data' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

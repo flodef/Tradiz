@@ -1,10 +1,11 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getPosDb } from '../db';
+import { getPosDb, DbConnection } from '../db';
 import { getBalanceAffectingEntries } from '../customerBalanceHelpers';
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    let connection: DbConnection | undefined;
     try {
         const { searchParams } = new URL(request.url);
         const customerId = searchParams.get('customerId');
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Missing customerId parameter' }, { status: 400 });
         }
 
-        const connection = await getPosDb(shopId);
+        connection = await getPosDb(shopId);
         const isPg = connection.isPostgreSQL;
 
         // Resolve the customer's full name from the customers table.
@@ -46,5 +47,7 @@ export async function GET(request: Request) {
     } catch (error) {
         console.error('Error getting customer balance:', error);
         return NextResponse.json({ error: 'An error occurred while getting customer balance' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

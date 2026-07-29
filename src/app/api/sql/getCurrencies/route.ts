@@ -1,6 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getPosDb } from '../db';
+import { getPosDb, DbConnection } from '../db';
 
 export interface CurrencyRow {
     label: string;
@@ -15,8 +15,9 @@ const defaultCurrencies = [{ label: 'Euro', maxValue: 999.99, symbol: '€', dec
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    let connection: DbConnection | undefined;
     try {
-        const connection = await getPosDb(shopId);
+        connection = await getPosDb(shopId);
 
         // Try to query with all columns first (MariaDB schema)
         // If it fails, fall back to basic columns (PostgreSQL schema)
@@ -45,5 +46,7 @@ export async function GET(request: Request) {
     } catch (error) {
         console.error('Error fetching currencies:', error);
         return NextResponse.json({ currencies: defaultCurrencies }, { status: 200 });
+    } finally {
+        await connection?.end();
     }
 }

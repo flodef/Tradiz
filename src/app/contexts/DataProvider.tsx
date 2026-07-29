@@ -514,40 +514,38 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     }
                 }
 
-                // If nothing changed and no local changes need to be pushed, just record the
-                // server time and bail out.
-                if (!sqlTransactions.length) {
-                    if (latestServerNow) lastServerSyncTime.current = latestServerNow;
-                    return 0;
-                }
-
-                // Group SQL transactions by their creation date
-                const groupedByDate = new Map<string, Transaction[]>();
-                sqlTransactions.forEach((tx) => {
-                    const date = new Date(tx.createdDate);
-                    const dateKey = getTransactionFileName(SHOP_ID, date);
-                    if (!groupedByDate.has(dateKey)) groupedByDate.set(dateKey, []);
-                    groupedByDate.get(dateKey)!.push(tx);
-                });
-
-                // Sync each day's transactions separately
-                const dateKeys = Array.from(groupedByDate.keys());
-                const totalDays = dateKeys.length;
-                let syncedDays = 0;
+                // Merge any server-side changes into local storage. When the server returned
+                // nothing we still fall through to the local→SQL push below, so that local
+                // transactions whose earlier immediate push failed get retried.
                 let syncedCount = 0;
+                if (sqlTransactions.length) {
+                    // Group SQL transactions by their creation date
+                    const groupedByDate = new Map<string, Transaction[]>();
+                    sqlTransactions.forEach((tx) => {
+                        const date = new Date(tx.createdDate);
+                        const dateKey = getTransactionFileName(SHOP_ID, date);
+                        if (!groupedByDate.has(dateKey)) groupedByDate.set(dateKey, []);
+                        groupedByDate.get(dateKey)!.push(tx);
+                    });
 
-                for (const dateKey of dateKeys) {
-                    const dayTransactions = groupedByDate.get(dateKey)!;
-                    const cloudTransactionSets: TransactionSet[] = [
-                        {
-                            id: dateKey,
-                            transactions: dayTransactions,
-                        },
-                    ];
-                    syncedCount += await fullSync(cloudTransactionSets, syncPeriod);
-                    syncedDays++;
-                    // Progress from 40% to 70% based on days synced
-                    onProgress?.(40 + Math.floor((syncedDays / totalDays) * 30));
+                    // Sync each day's transactions separately
+                    const dateKeys = Array.from(groupedByDate.keys());
+                    const totalDays = dateKeys.length;
+                    let syncedDays = 0;
+
+                    for (const dateKey of dateKeys) {
+                        const dayTransactions = groupedByDate.get(dateKey)!;
+                        const cloudTransactionSets: TransactionSet[] = [
+                            {
+                                id: dateKey,
+                                transactions: dayTransactions,
+                            },
+                        ];
+                        syncedCount += await fullSync(cloudTransactionSets, syncPeriod);
+                        syncedDays++;
+                        // Progress from 40% to 70% based on days synced
+                        onProgress?.(40 + Math.floor((syncedDays / totalDays) * 30));
+                    }
                 }
 
                 // Local→SQL push: only push local transactions that changed since the last

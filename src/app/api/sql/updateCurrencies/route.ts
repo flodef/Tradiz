@@ -1,10 +1,11 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getPosDb } from '../db';
+import { getPosDb, DbConnection } from '../db';
 import { Currency } from '@/app/utils/interfaces';
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    let connection: DbConnection | undefined;
     try {
         const { currencies } = await request.json();
 
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid currencies format' }, { status: 400 });
         }
 
-        const connection = await getPosDb(shopId);
+        connection = await getPosDb(shopId);
 
         // Check if currencies table exists, if not create it
         const createTableQuery = connection.isPostgreSQL
@@ -71,5 +72,7 @@ export async function POST(request: Request) {
     } catch (error) {
         console.error('Database update error:', error);
         return NextResponse.json({ error: 'An error occurred while updating currencies' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

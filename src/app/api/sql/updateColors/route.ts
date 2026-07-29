@@ -1,6 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getMainDb } from '../db';
+import { getMainDb, DbConnection } from '../db';
 
 interface Color {
     label: string;
@@ -17,6 +17,7 @@ interface UpdateColorsRequest {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    let connection: DbConnection | undefined;
     try {
         const { colors, themeName, selectedThemeIndex, customThemeNames } =
             (await request.json()) as UpdateColorsRequest;
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid colors data' }, { status: 400 });
         }
 
-        const connection = await getMainDb(shopId);
+        connection = await getMainDb(shopId);
 
         // Group colors by theme (every 7 colors is one theme)
         const themes: Color[][] = [];
@@ -36,14 +37,15 @@ export async function POST(request: Request) {
         // Delete all existing themes and re-insert
         // First, unselect all themes
         const unselectQuery = connection.isPostgreSQL
-            ? "UPDATE theme_admin SET selected = false"
-            : "UPDATE theme_admin SET selected = 0";
+            ? 'UPDATE theme_admin SET selected = false'
+            : 'UPDATE theme_admin SET selected = 0';
         await connection.execute(unselectQuery);
 
         // Insert/update all themes
         for (let themeIndex = 0; themeIndex < themes.length; themeIndex++) {
             const theme = themes[themeIndex];
-            const name = themeIndex === 0 ? themeName || 'Défaut' : customThemeNames[themeIndex] || `Thème ${themeIndex + 1}`;
+            const name =
+                themeIndex === 0 ? themeName || 'Défaut' : customThemeNames[themeIndex] || `Thème ${themeIndex + 1}`;
             const isSelected = themeIndex === selectedThemeIndex;
 
             // Find color values by label
@@ -62,10 +64,7 @@ export async function POST(request: Request) {
 
             if (connection.isPostgreSQL) {
                 // Check if theme exists by name
-                const [existing] = await connection.execute(
-                    'SELECT id FROM theme_admin WHERE name = $1',
-                    [name]
-                );
+                const [existing] = await connection.execute('SELECT id FROM theme_admin WHERE name = $1', [name]);
 
                 if (Array.isArray(existing) && existing.length > 0) {
                     // Update existing theme
@@ -137,10 +136,7 @@ export async function POST(request: Request) {
                 }
             } else {
                 // MariaDB
-                const [existing] = await connection.execute(
-                    'SELECT id FROM theme_admin WHERE name = ?',
-                    [name]
-                );
+                const [existing] = await connection.execute('SELECT id FROM theme_admin WHERE name = ?', [name]);
 
                 if (Array.isArray(existing) && existing.length > 0) {
                     // Update existing theme
@@ -236,9 +232,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true }, { status: 200 });
     } catch (error) {
         console.error('Error updating colors:', error);
-        return NextResponse.json(
-            { error: 'An error occurred while updating colors' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'An error occurred while updating colors' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

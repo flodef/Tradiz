@@ -1,7 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { RowDataPacket } from 'mysql2';
-import { getMainDb } from '../db';
+import { getMainDb, DbConnection } from '../db';
 
 type OperationMode = 'restaurant' | 'fastfood' | 'lite';
 
@@ -20,8 +20,9 @@ const SAFE_DEFAULTS = {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    let connection: DbConnection | undefined;
     try {
-        const connection = await getMainDb(shopId);
+        connection = await getMainDb(shopId);
 
         const query = connection.isPostgreSQL
             ? 'SELECT operation_mode, kitchen_view_enabled, grafana_access_enabled FROM dc.establishment_config ORDER BY id DESC LIMIT 1'
@@ -49,5 +50,7 @@ export async function GET(request: Request) {
     } catch (error) {
         console.error('getEtabConfig error:', error);
         return NextResponse.json(SAFE_DEFAULTS, { status: 200 });
+    } finally {
+        await connection?.end();
     }
 }

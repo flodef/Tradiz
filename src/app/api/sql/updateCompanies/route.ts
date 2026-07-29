@@ -1,6 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getPosDb } from '../db';
+import { getPosDb, DbConnection } from '../db';
 
 interface Company {
     id?: number;
@@ -10,6 +10,7 @@ interface Company {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    let connection: DbConnection | undefined;
     try {
         const { companies } = (await request.json()) as { companies: Company[] };
 
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid companies data' }, { status: 400 });
         }
 
-        const connection = await getPosDb(shopId);
+        connection = await getPosDb(shopId);
 
         // Delete all existing companies
         const deleteQuery = connection.isPostgreSQL ? 'DELETE FROM dc_pos.companies' : 'DELETE FROM companies';
@@ -49,5 +50,7 @@ export async function POST(request: Request) {
     } catch (error) {
         console.error('Error updating companies:', error);
         return NextResponse.json({ error: 'An error occurred while updating companies' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

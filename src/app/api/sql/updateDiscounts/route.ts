@@ -1,6 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getPosDb } from '../db';
+import { getPosDb, DbConnection } from '../db';
 
 interface DiscountUpdate {
     amount: number;
@@ -9,6 +9,7 @@ interface DiscountUpdate {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    let connection: DbConnection | undefined;
     try {
         const { discounts } = await request.json();
 
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid discounts format' }, { status: 400 });
         }
 
-        const connection = await getPosDb(shopId);
+        connection = await getPosDb(shopId);
 
         // Clear existing discounts
         const deleteQuery = connection.isPostgreSQL ? 'DELETE FROM dc_pos.discounts' : 'DELETE FROM discounts';
@@ -42,5 +43,7 @@ export async function POST(request: Request) {
     } catch (error) {
         console.error('Database update error:', error);
         return NextResponse.json({ error: 'An error occurred while updating discounts' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

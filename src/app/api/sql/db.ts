@@ -17,6 +17,7 @@ export interface DbConnection {
 // Wrapper for MySQL connection to match our interface
 class MySQLConnectionWrapper implements DbConnection {
     isPostgreSQL = false;
+    private closed = false;
 
     constructor(private connection: mysql.Connection) {}
 
@@ -45,6 +46,8 @@ class MySQLConnectionWrapper implements DbConnection {
     }
 
     async end(): Promise<void> {
+        if (this.closed) return;
+        this.closed = true;
         await this.connection.end();
     }
 }
@@ -146,6 +149,33 @@ export async function getPosDb(shopId?: string): Promise<DbConnection> {
         database: DC_POS,
     });
     return new MySQLConnectionWrapper(connection);
+}
+
+// Acquire a POS connection, run the callback, and always release the connection
+// (even on error). Prevents pool exhaustion when a query throws before end() is reached.
+export async function withPosDb<T>(
+    shopId: string | undefined,
+    fn: (connection: DbConnection) => Promise<T>
+): Promise<T> {
+    const connection = await getPosDb(shopId);
+    try {
+        return await fn(connection);
+    } finally {
+        await connection.end();
+    }
+}
+
+// Same as withPosDb but for the main (DC) database.
+export async function withMainDb<T>(
+    shopId: string | undefined,
+    fn: (connection: DbConnection) => Promise<T>
+): Promise<T> {
+    const connection = await getMainDb(shopId);
+    try {
+        return await fn(connection);
+    } finally {
+        await connection.end();
+    }
 }
 
 // Run a set of statements inside a real transaction, rolling back on any error.

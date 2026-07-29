@@ -33,6 +33,7 @@ interface IdRow {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    let connection: Connection | undefined;
     try {
         const body = await request.json();
         const { action, transaction } = body;
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
         if (!action || !transaction)
             return NextResponse.json({ error: 'Action and transaction data are required' }, { status: 400 });
 
-        const connection = await getPosDb(shopId);
+        connection = await getPosDb(shopId);
 
         await connection.beginTransaction();
 
@@ -77,6 +78,8 @@ export async function POST(request: Request) {
             { error: 'An error occurred while saving transaction', details: String(error) },
             { status: 500 }
         );
+    } finally {
+        await connection?.end();
     }
 }
 

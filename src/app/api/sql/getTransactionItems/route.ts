@@ -1,7 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { Product, EmptyDiscount } from '@/app/utils/interfaces';
-import { getMainDb } from '../db';
+import { getMainDb, DbConnection } from '../db';
 
 interface OrderItemRow {
     label: string;
@@ -17,8 +17,9 @@ export async function GET(request: Request) {
 
     if (!orderId) return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
 
+    let connection: DbConnection | undefined;
     try {
-        const connection = await getMainDb(shopId);
+        connection = await getMainDb(shopId);
 
         // Query 1: Get articles
         const queryArticles = connection.isPostgreSQL
@@ -72,5 +73,7 @@ export async function GET(request: Request) {
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching data' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

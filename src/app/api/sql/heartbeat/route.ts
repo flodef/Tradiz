@@ -1,6 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getPosDb } from '../db';
+import { getPosDb, DbConnection } from '../db';
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
@@ -17,13 +17,15 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Missing publicKey' }, { status: 400 });
     }
 
+    let connection: DbConnection | undefined;
     try {
-        const connection = await getPosDb(shopId);
+        connection = await getPosDb(shopId);
 
         // Mark devices that haven't been seen recently as disconnected.
+        // Keep last_seen so it can still be used for diagnostics.
         const markStaleQuery = connection.isPostgreSQL
-            ? `UPDATE dc_pos.devices SET connected = false, last_seen = NULL WHERE last_seen < NOW() - INTERVAL '2 minutes' OR last_seen IS NULL`
-            : `UPDATE devices SET connected = false, last_seen = NULL WHERE last_seen < DATE_SUB(NOW(), INTERVAL 2 MINUTE) OR last_seen IS NULL`;
+            ? `UPDATE dc_pos.devices SET connected = false WHERE connected = true AND last_seen < NOW() - INTERVAL '2 minutes'`
+            : `UPDATE devices SET connected = false WHERE connected = true AND last_seen < DATE_SUB(NOW(), INTERVAL 2 MINUTE)`;
         await connection.execute(markStaleQuery);
 
         // Register this device's heartbeat.
@@ -46,12 +48,13 @@ export async function POST(request: Request) {
         `;
 
         const [rows] = await connection.execute(countQuery, [publicKey]);
-        await connection.end();
 
         const count = Number((rows as { count: number }[])[0]?.count ?? 0);
         return NextResponse.json({ otherDevices: count }, { status: 200 });
     } catch (error) {
         console.error('Heartbeat failed:', error);
         return NextResponse.json({ error: 'Failed to process heartbeat' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

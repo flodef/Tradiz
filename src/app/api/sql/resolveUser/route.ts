@@ -1,6 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextRequest, NextResponse } from 'next/server';
-import { getPosDb } from '../db';
+import { getPosDb, DbConnection } from '../db';
 
 interface UserRow {
     id: number;
@@ -183,6 +183,7 @@ async function logAccessAttempt(
  */
 export async function POST(request: NextRequest) {
     const shopId = getShopIdFromRequest(request);
+    let connection: DbConnection | undefined;
     try {
         const { publicKey, browserData } = await request.json();
 
@@ -209,7 +210,7 @@ export async function POST(request: NextRequest) {
         const latitude = browserData?.latitude || null;
         const longitude = browserData?.longitude || null;
 
-        const connection = await getPosDb(shopId);
+        connection = await getPosDb(shopId);
 
         // Immediately block users not from Europe/Paris timezone
         if (timezone !== 'Europe/Paris') {
@@ -303,5 +304,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('Error resolving user:', error);
         return NextResponse.json({ error: 'An error occurred while resolving user' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

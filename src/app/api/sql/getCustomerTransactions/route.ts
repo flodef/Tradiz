@@ -1,7 +1,7 @@
 import { DELETED_KEYWORD, DEFAULT_USER } from '@/app/utils/constants';
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getPosDb } from '../db';
+import { getPosDb, DbConnection } from '../db';
 import { getBalanceAffectingEntries } from '../customerBalanceHelpers';
 
 interface TransactionRow {
@@ -45,8 +45,9 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Invalid customerId parameter' }, { status: 400 });
     }
 
+    let connection: DbConnection | undefined;
     try {
-        const connection = await getPosDb(shopId);
+        connection = await getPosDb(shopId);
         const isPg = connection.isPostgreSQL;
 
         // Aggregate totals: number of purchases, total purchase amount, and total discount value.
@@ -202,5 +203,7 @@ export async function GET(request: Request) {
     } catch (error) {
         console.error('Error getting customer transactions:', error);
         return NextResponse.json({ error: 'An error occurred while getting customer transactions' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

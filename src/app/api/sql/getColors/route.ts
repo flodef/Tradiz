@@ -1,6 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getMainDb } from '../db';
+import { getMainDb, DbConnection } from '../db';
 
 interface ThemeRow {
     name: string;
@@ -22,8 +22,9 @@ interface ThemeRow {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    let connection: DbConnection | undefined;
     try {
-        const connection = await getMainDb(shopId);
+        connection = await getMainDb(shopId);
 
         const query = `
             SELECT
@@ -87,5 +88,7 @@ export async function GET(request: Request) {
     } catch (error) {
         console.error('Error fetching colors:', error);
         return NextResponse.json({ error: 'An error occurred while fetching data' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

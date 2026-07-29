@@ -1,11 +1,12 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getPosDb } from '../db';
+import { getPosDb, DbConnection } from '../db';
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    let connection: DbConnection | undefined;
     try {
-        const connection = await getPosDb(shopId);
+        connection = await getPosDb(shopId);
 
         // Note: no user_name filter here to stay consistent with getTransactions,
         // which returns transactions for all users. Dates are formatted as YYYY-MM-DD
@@ -33,5 +34,7 @@ export async function GET(request: Request) {
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching available dates' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }

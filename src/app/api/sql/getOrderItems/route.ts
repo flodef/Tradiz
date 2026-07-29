@@ -2,7 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { RowDataPacket } from 'mysql2';
 import { Product, EmptyDiscount } from '@/app/utils/interfaces';
-import { getMainDb } from '../db';
+import { getMainDb, DbConnection } from '../db';
 
 interface FormuleRow extends RowDataPacket {
     rpf_id: number;
@@ -67,8 +67,10 @@ export async function GET(request: Request) {
 
     if (!orderId) return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
 
+    let dbConn: DbConnection | undefined;
     try {
         const connection = await getMainDb(shopId);
+        dbConn = connection;
 
         // Query 1: Get articles
         const queryArticles = connection.isPostgreSQL
@@ -217,5 +219,7 @@ export async function GET(request: Request) {
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching data' }, { status: 500 });
+    } finally {
+        await dbConn?.end();
     }
 }

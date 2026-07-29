@@ -1,6 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getPosDb } from '../db';
+import { getPosDb, DbConnection } from '../db';
 
 interface CompanyRow {
     id: number;
@@ -16,8 +16,9 @@ function isMissingTableError(error: unknown): boolean {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    let connection: DbConnection | undefined;
     try {
-        const connection = await getPosDb(shopId);
+        connection = await getPosDb(shopId);
 
         const query = connection.isPostgreSQL
             ? 'SELECT id, name, meal_price FROM dc_pos.companies ORDER BY name'
@@ -43,5 +44,7 @@ export async function GET(request: Request) {
         }
         console.error('Error fetching companies:', error);
         return NextResponse.json({ error: 'An error occurred while fetching companies' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }
