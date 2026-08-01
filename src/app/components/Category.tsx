@@ -30,7 +30,19 @@ type OptionSel = { type: string; value: string; price: number };
 type FormulaDefinition = {
     formula: true;
     elements: { name: string; category?: string; products?: string[] }[];
+    originalName?: string;
 };
+
+function isSingleElementFormula(options: string | null | undefined): boolean {
+    if (!options) return false;
+    try {
+        const parsed = JSON.parse(options) as FormulaDefinition;
+        if (!parsed.formula || !Array.isArray(parsed.elements) || parsed.elements.length === 0) return false;
+        return parsed.elements.length === 1;
+    } catch {
+        return false;
+    }
+}
 
 function buildCatalogFormula(
     product: InventoryItem['products'][number],
@@ -62,6 +74,7 @@ function buildCatalogFormula(
             return {
                 id: `${product.label}-${index}`,
                 nom: element.name,
+                category: element.category,
                 articles: choices.map((p, articleIndex) => ({
                     id: articleIndex,
                     nom: p.label,
@@ -73,7 +86,7 @@ function buildCatalogFormula(
         .filter(Boolean) as CatalogFormula['elements'];
 
     if (elements.length === 0) return null;
-    return { id: product.label, nom: product.label, prix: price, elements };
+    return { id: product.label, nom: parsed.originalName || product.label, prix: price, elements };
 }
 
 interface CategoryInputButton {
@@ -194,8 +207,20 @@ export const Category: FC = () => {
             return;
         }
         const elem = formula.elements[elemIdx];
+        // Products-based element: auto-add all articles without a popup
+        if (!elem.category) {
+            const newElements = elem.articles.map((art) => ({
+                type: 'element' as const,
+                value: art.nom,
+                price: 0,
+            }));
+            selectFormulaElements(formula, elemIdx + 1, [...elements, ...newElements], extraAmount, onDone);
+            return;
+        }
+        // Category-based element: show popup for user to choose
+        const elementLabel = elem.nom ? `${formula.nom} - ${elem.nom}` : formula.nom;
         openPopup(
-            `${elem.nom} (${elemIdx + 1}/${formula.elements.length})`,
+            `${elementLabel} (${elemIdx + 1}/${formula.elements.length})`,
             elem.articles.map((a) => a.nom),
             (i) => {
                 if (i < 0) return; // X button → abort
@@ -431,7 +456,9 @@ export const Category: FC = () => {
     // ── Build the product list popup content for a category ──
     const buildProductListPopup = (item: InventoryItem) => {
         const sorted = [...item.products].sort((a, b) => a.label.localeCompare(b.label));
-        const entries: string[] = sorted.map((p) => (p.options ? `${p.label}${ARROW}` : p.label));
+        const entries: string[] = sorted.map((p) =>
+            p.options && !isSingleElementFormula(p.options) ? `${p.label}${ARROW}` : p.label
+        );
         entries.push('', OTHER_KEYWORD);
 
         const action = (index: number, option: string) => {
@@ -446,7 +473,7 @@ export const Category: FC = () => {
                 return;
             }
             const product = sorted[index];
-            if (product.options) {
+            if (product.options && !isSingleElementFormula(product.options)) {
                 productListScrollRef.current = getPopupScroll();
                 openOptionsSubPopup(item, product);
             } else {

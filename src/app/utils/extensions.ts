@@ -166,3 +166,12 @@ Array.prototype.removeEmpty = function (...index: (undefined | number | number[]
         }
     });
 };
+
+/**
+ * Validates if a value is a valid non-negative price
+ * @param value - The value to validate (string or number)
+ * @returns true if the value is a valid non-negative number
+ */
+export function isValidPrice(value: string | number): boolean {
+    return !isNaN(parseFloat(value.toString())) && parseFloat(value.toString()) >= 0;
+}

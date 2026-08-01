@@ -1,4 +1,6 @@
 import { CashRegisterApp } from '@/app/components/CashRegisterApp';
+import { headers } from 'next/headers';
+import { getShopIdFromHostname } from '@/app/constants/shop';
 
 type PageProps = {
     searchParams: Promise<{ shop?: string }>;
@@ -6,7 +8,12 @@ type PageProps = {
 
 export default async function AdminTradizPage({ searchParams }: PageProps) {
     const params = await searchParams;
-    const shop = params.shop ?? process.env.DEFAULT_SHOP ?? process.env.NEXT_PUBLIC_DEFAULT_SHOP;
+    const headersList = await headers();
+    const hostname = headersList.get('host') || '';
+
+    // Use proper shop ID extraction from shop.ts
+    const shopFromSubdomain = getShopIdFromHostname(hostname);
+    const shop = params.shop ?? shopFromSubdomain;
 
     if (!shop) {
         return (

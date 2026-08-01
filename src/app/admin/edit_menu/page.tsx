@@ -11,6 +11,7 @@ import { usePopup } from '@/app/hooks/usePopup';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { LoadingDot } from '@/app/loading';
 import { DEFAULT_CATEGORY, USE_DIGICARTE } from '@/app/utils/constants';
+import { SHOP_ID } from '@/app/constants/shop';
 import { Category, InventoryItem } from '@/app/utils/interfaces';
 import { clearLoadDataCache } from '@/app/utils/processData';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -20,30 +21,28 @@ import { useSearchParams } from 'next/navigation';
 const FORMULA_CATEGORY = 'Formule';
 
 function adminProductToFormula(product: AdminProduct): AdminFormula | null {
-    if (!product.options) return { name: product.name, price: product.currencies[0] || '0', elements: [] };
+    if (!product.options) {
+        return { name: product.name, price: product.currencies[0] || '0', mode: 'products', elements: [] };
+    }
     try {
         const parsed = JSON.parse(product.options);
         if (!parsed.formula || !Array.isArray(parsed.elements)) {
-            return { name: product.name, price: product.currencies[0] || '0', elements: [] };
+            return { name: product.name, price: product.currencies[0] || '0', mode: 'products', elements: [] };
         }
+        const elements = parsed.elements as FormulaElement[];
+        const mode = elements.some((el) => el.category) ? 'category' : 'products';
+        // For product mode, flatten all products into a single element
+        const normalizedElements =
+            mode === 'products' ? [{ name: '', products: elements.flatMap((el) => el.products || []) }] : elements;
         return {
-            name: product.name,
+            name: parsed.originalName || product.name,
             price: product.currencies[0] || '0',
-            elements: parsed.elements as FormulaElement[],
+            mode,
+            elements: normalizedElements,
         };
     } catch {
-        return { name: product.name, price: product.currencies[0] || '0', elements: [] };
+        return { name: product.name, price: product.currencies[0] || '0', mode: 'products', elements: [] };
     }
-}
-
-function formulaToAdminProduct(formula: AdminFormula): AdminProduct {
-    return {
-        name: formula.name,
-        category: FORMULA_CATEGORY,
-        stock: null,
-        currencies: [formula.price],
-        options: JSON.stringify({ formula: true, elements: formula.elements }),
-    };
 }
 
 function splitFormulas(allProducts: AdminProduct[]): { products: AdminProduct[]; formulas: AdminFormula[] } {
@@ -95,6 +94,36 @@ function buildInventoryFromAdminProducts(products: AdminProduct[]): InventoryIte
     return inventory;
 }
 
+function buildInventoryFromAdminFormulas(formulas: AdminFormula[]): InventoryItem[] {
+    const inventory: InventoryItem[] = [];
+    const category = FORMULA_CATEGORY;
+
+    inventory.push({
+        category: category.toFirstUpperCase(),
+        rate: 20, // Default VAT for formulas
+        order: 0,
+        products: [],
+    });
+
+    const item = inventory[0];
+    for (let i = 0; i < formulas.length; i++) {
+        const f = formulas[i];
+        const label = (f.name || '').trim();
+        if (!label) continue;
+
+        item.products.push({
+            label: label.toFirstUpperCase(),
+            prices: [Number(f.price) || 0].filter((price) => Number.isFinite(price)),
+            options: JSON.stringify({ formula: true, elements: f.elements }),
+            stock: null,
+            order: i,
+            reference: null,
+        });
+    }
+
+    return inventory;
+}
+
 function buildProductsFromInventory(inventory: InventoryItem[]): AdminProduct[] {
     const products: AdminProduct[] = [];
     inventory.forEach((item) => {
@@ -139,6 +168,7 @@ export default function EditMenuPage() {
     const [isReadOnly, setIsReadOnly] = useState(true);
     const [dbConfigChecked, setDbConfigChecked] = useState(false);
     const [isSavingProducts, setIsSavingProducts] = useState(false);
+    const [isSavingFormulas, setIsSavingFormulas] = useState(false);
     const [productsSettings, setProductsSettings] = useState<ProductsSettings | undefined>(parameters?.products);
     const [openSection, setOpenSection] = useState<string | null>('products');
     const [options, setOptions] = useState<ProductOptionGroup[]>([]);
@@ -238,6 +268,22 @@ export default function EditMenuPage() {
                     setOriginalProducts(nonFormula);
                     setFormulas(formulaList);
                     setOriginalFormulas(formulaList);
+
+                    // Build inventory from ALL products (including formulas) for main app
+                    const inventoryFromDb = buildInventoryFromAdminProducts(allProducts);
+                    const config: Config = {
+                        parameters: { ...parameters, lastModified: Date.now().toString() },
+                        currencies,
+                        paymentMethods,
+                        inventory: inventoryFromDb,
+                        discounts,
+                        colors,
+                        printers,
+                        customers,
+                        users,
+                    };
+                    setConfig(config);
+
                     setIsLoading(false);
                     return;
                 }
@@ -296,13 +342,29 @@ export default function EditMenuPage() {
                     }
                 }
 
+                // Split formulas for admin editing, but build inventory from all products
                 const { products: nonFormula, formulas: formulaList } = splitFormulas(loadedProducts);
                 setProducts(nonFormula);
                 setOriginalProducts(nonFormula);
                 setFormulas(formulaList);
                 setOriginalFormulas(formulaList);
 
-                // Initialize options from products
+                // Build inventory from ALL products (including formulas) for main app
+                const inventoryFromDb = buildInventoryFromAdminProducts(loadedProducts);
+                const config: Config = {
+                    parameters: { ...parameters, lastModified: Date.now().toString() },
+                    currencies,
+                    paymentMethods,
+                    inventory: inventoryFromDb,
+                    discounts,
+                    colors,
+                    printers,
+                    customers,
+                    users,
+                };
+                setConfig(config);
+
+                // Initialize options from products (excluding formulas)
                 const loadedOptions: ProductOptionGroup[] = [];
                 nonFormula.forEach((p) => {
                     if (p.options) {
@@ -333,7 +395,21 @@ export default function EditMenuPage() {
         };
 
         fetchData();
-    }, [dbConfigChecked, isReadOnly, openFullscreenPopup, inventory, currencies]);
+    }, [
+        dbConfigChecked,
+        isReadOnly,
+        openFullscreenPopup,
+        inventory,
+        currencies,
+        parameters,
+        paymentMethods,
+        discounts,
+        colors,
+        printers,
+        customers,
+        users,
+        setConfig,
+    ]);
 
     const handleProductsChange = useCallback(
         (data: AdminProduct[]) => {
@@ -381,7 +457,7 @@ export default function EditMenuPage() {
                     parameters: { ...parameters, lastModified: Date.now().toString() },
                     currencies,
                     paymentMethods,
-                    inventory: buildInventoryFromAdminProducts(data),
+                    inventory: [...buildInventoryFromAdminProducts(data), ...buildInventoryFromAdminFormulas(formulas)],
                     discounts,
                     colors,
                     printers,
@@ -411,35 +487,74 @@ export default function EditMenuPage() {
             printers,
             customers,
             users,
+            formulas,
         ]
     );
 
     const handleFormulasSave = useCallback(
         async (data: AdminFormula[]) => {
-            const formulaProducts = data.map(formulaToAdminProduct);
-            const combined = [...products, ...formulaProducts];
-            await handleProductsSave(combined, undefined);
-            const filtered = combined.filter((p) => p.category !== FORMULA_CATEGORY);
-            setProducts(filtered);
-            setOriginalProducts(filtered);
-            setOriginalFormulas(data);
-            setHasFormulasChanges(false);
+            if (!SHOP_ID) {
+                console.error('No shop ID configured');
+                return;
+            }
+
+            setIsSavingFormulas(true);
+            try {
+                const response = await fetch(`/api/sql/updateFormulas?shop=${SHOP_ID}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+
+                if (!response.ok) {
+                    const errorBody = await response.json().catch(() => ({}));
+                    console.error('Formula save failed:', errorBody);
+                    throw new Error(errorBody.error || errorBody.details || 'Failed to save formulas');
+                }
+
+                setOriginalFormulas(data);
+                setHasFormulasChanges(false);
+
+                // Update inventory with new formulas
+                const config: Config = {
+                    parameters: { ...parameters, lastModified: Date.now().toString() },
+                    currencies,
+                    paymentMethods,
+                    inventory: [...buildInventoryFromAdminProducts(products), ...buildInventoryFromAdminFormulas(data)],
+                    discounts,
+                    colors,
+                    printers,
+                    customers,
+                    users,
+                };
+                setConfig(config);
+                clearLoadDataCache();
+            } catch (error) {
+                console.error('Error saving formulas:', error);
+                throw error;
+            } finally {
+                setIsSavingFormulas(false);
+            }
         },
-        [products, handleProductsSave]
+        [parameters, currencies, paymentMethods, products, discounts, colors, printers, customers, users, setConfig]
     );
 
-    // Category rename: update all products with the old category name and save to DB
+    // Category rename: update all products and formula elements with the old category name
     const handleCategoryRename = useCallback(
         (oldLabel: string, newLabel: string) => {
             const trimmedNewLabel = newLabel.trim();
             const trimmedOldLabel = oldLabel.trim();
+            console.log('Category rename:', { oldLabel, newLabel, trimmedOldLabel, trimmedNewLabel, DEFAULT_CATEGORY });
             // Update products and save immediately
             const updated = products.map((p) => {
                 const productCategory = (p.category || '').trim();
                 // Match by exact string comparison
                 // Special case: default category maps to empty string in products
                 const oldKey = trimmedOldLabel === DEFAULT_CATEGORY ? '' : trimmedOldLabel;
-                if (productCategory === oldKey) return { ...p, category: trimmedNewLabel };
+                // Also match if old label is DEFAULT_CATEGORY and product has no category
+                if (productCategory === oldKey || (trimmedOldLabel === DEFAULT_CATEGORY && !p.category)) {
+                    return { ...p, category: trimmedNewLabel };
+                }
 
                 return p;
             });
@@ -447,8 +562,36 @@ export default function EditMenuPage() {
             setOriginalProducts(updated);
             // Pass undefined to do a full DB replace (delete all, insert all) to avoid duplicates
             handleProductsSave(updated, undefined);
+
+            // Update formula elements that reference the old category name
+            const oldKey = trimmedOldLabel === DEFAULT_CATEGORY ? '' : trimmedOldLabel;
+            const updatedFormulas = formulas.map((f) => ({
+                ...f,
+                elements: f.elements.map((el) => {
+                    const elCat = (el.category || '').trim();
+                    if (elCat === oldKey || (trimmedOldLabel === DEFAULT_CATEGORY && !el.category)) {
+                        return { ...el, category: trimmedNewLabel };
+                    }
+                    return el;
+                }),
+            }));
+            const formulasChanged = JSON.stringify(updatedFormulas) !== JSON.stringify(formulas);
+            if (formulasChanged) {
+                setFormulas(updatedFormulas);
+                setOriginalFormulas(updatedFormulas);
+                setHasFormulasChanges(false);
+                // Save formulas to DB directly (avoid handleFormulasSave to prevent
+                // stale products closure and setConfig race condition with handleProductsSave)
+                if (SHOP_ID) {
+                    fetch(`/api/sql/updateFormulas?shop=${SHOP_ID}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updatedFormulas),
+                    }).catch((err) => console.error('Failed to save formulas during category rename:', err));
+                }
+            }
         },
-        [products, handleProductsSave]
+        [products, handleProductsSave, formulas]
     );
 
     // Category delete: either remove products or move them to empty category, then save
@@ -640,7 +783,7 @@ export default function EditMenuPage() {
                     onCancel={handleFormulasCancel}
                     hasChanges={hasFormulasChanges}
                     isReadOnly={isReadOnly}
-                    isLoading={isSavingProducts}
+                    isLoading={isSavingFormulas}
                     isOpen={openSection === 'formulas'}
                     onToggle={() => setOpenSection((prev) => (prev === 'formulas' ? null : 'formulas'))}
                     icon={<IconMathFunction size={24} />}

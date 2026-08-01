@@ -4,6 +4,7 @@ import AdminSelect from '../AdminSelect';
 import AvailabilityToggle from '../AvailabilityToggle';
 import { AdminProduct } from '../sections/ProductsConfig';
 import ValidatedInput from '../ValidatedInput';
+import PriceInput from '../PriceInput';
 
 interface ProductItemProps {
     product: AdminProduct;
@@ -37,9 +38,16 @@ export default function ProductItem({
                             Prix {currencies[0] ? `(${currencies[0].symbol})` : ''}
                         </label>
                         <div className="text-sm font-medium">
-                            {product.currencies[0] && product.currencies[0] !== '0'
-                                ? parseFloat(product.currencies[0]).toFixed(currencies[0]?.decimals ?? 2)
-                                : ''}
+                            {product.currencies[0] && product.currencies[0] !== '0' ? (
+                                <PriceInput
+                                    value={product.currencies[0]}
+                                    onChange={() => {}}
+                                    currencies={currencies}
+                                    isReadOnly={true}
+                                />
+                            ) : (
+                                ''
+                            )}
                         </div>
                     </div>
                     <div>
@@ -88,16 +96,15 @@ export default function ProductItem({
                     />
                 </div>
                 <div>
-                    <ValidatedInput
-                        label={`Prix ${currencies[0] ? `(${currencies[0].symbol})` : ''}`}
-                        type="number"
-                        value={product.currencies[0] ?? ''}
+                    <PriceInput
+                        label="Prix"
+                        value={product.currencies[0] ?? '0'}
                         onChange={(value) => {
                             const updated = [...product.currencies];
                             updated[0] = String(value);
                             onChange({ ...product, currencies: updated });
                         }}
-                        placeholder={(0).toFixed(currencies[0]?.decimals ?? 2)}
+                        currencies={currencies}
                         isReadOnly={isReadOnly}
                     />
                 </div>

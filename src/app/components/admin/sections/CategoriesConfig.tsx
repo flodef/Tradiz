@@ -214,8 +214,13 @@ export default function CategoriesConfig({
     }, [productCategories]);
 
     // Notify parent whenever local categories change (for new locally-added ones)
+    const lastLabelsRef = useRef<string[]>([]);
     useEffect(() => {
-        onLocalCategoriesChange?.(categories.map((c) => c.label).filter(Boolean));
+        const labels = categories.map((c) => c.label).filter(Boolean);
+        const prev = lastLabelsRef.current;
+        if (prev.length === labels.length && prev.every((l, i) => l === labels[i])) return;
+        lastLabelsRef.current = labels;
+        onLocalCategoriesChange?.(labels);
     }, [categories, onLocalCategoriesChange]);
 
     const isValid = categories.every((c) => c.label?.trim() && c.vat !== null && c.vat !== undefined && c.vat >= 0);
@@ -272,6 +277,19 @@ export default function CategoriesConfig({
                 if (!p._originalLabel && !result.find((r) => r._id === p._id)) {
                     result.push(p);
                 }
+            }
+            // Bail out if nothing actually changed (prevents infinite loop with notify effect)
+            if (
+                prev.length === result.length &&
+                prev.every(
+                    (p, i) =>
+                        p._id === result[i]._id &&
+                        p.label === result[i].label &&
+                        p.vat === result[i].vat &&
+                        p._originalLabel === result[i]._originalLabel
+                )
+            ) {
+                return prev;
             }
             return result;
         });

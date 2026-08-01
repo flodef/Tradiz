@@ -212,8 +212,12 @@ export async function GET(request: Request) {
 
         return NextResponse.json({ transactions, hasMore, serverNow }, { status: 200 });
     } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         console.error('Database query error:', error);
-        return NextResponse.json({ error: 'An error occurred while fetching transactions' }, { status: 500 });
+        return NextResponse.json(
+            { error: 'An error occurred while fetching transactions', detail: message },
+            { status: 500 }
+        );
     } finally {
         await dbConn?.end();
     }

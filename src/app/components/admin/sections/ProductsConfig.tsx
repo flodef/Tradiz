@@ -21,7 +21,7 @@ import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
-import { getMainCurrencyStep } from '@/app/utils/priceStep';
+import PriceInput from '../PriceInput';
 
 type SortField =
     | 'order'
@@ -689,10 +689,8 @@ export default function ProductsConfig({
                                                                 </td>
                                                             )}
                                                             <td className="p-2">
-                                                                <ValidatedInput
-                                                                    type="number"
-                                                                    value={p.currencies[0] ?? ''}
-                                                                    step={getMainCurrencyStep(currencies)}
+                                                                <PriceInput
+                                                                    value={p.currencies[0] ?? '0'}
                                                                     onChange={(value) => {
                                                                         const updated = [...p.currencies];
                                                                         updated[0] = String(value);
@@ -701,6 +699,8 @@ export default function ProductsConfig({
                                                                             currencies: updated,
                                                                         });
                                                                     }}
+                                                                    currencies={currencies}
+                                                                    isReadOnly={isReadOnly}
                                                                     ref={(el) => {
                                                                         if (el) {
                                                                             priceInputRefs.current.set(i, el);
@@ -712,7 +712,6 @@ export default function ProductsConfig({
                                                                             priceInputRefs.current.delete(i);
                                                                         }
                                                                     }}
-                                                                    isReadOnly={isReadOnly}
                                                                 />
                                                             </td>
                                                             {productsSettings?.useVatPerProduct && (

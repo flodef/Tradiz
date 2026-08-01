@@ -58,7 +58,7 @@ export async function GET(request: Request) {
         await connection.end();
 
         // Build formula map preserving element order
-        type ElemMap = Map<string, { id: string; nom: string; articles: object[] }>;
+        type ElemMap = Map<string, { id: string; nom: string; category: string; articles: object[] }>;
         const formulaMap = new Map<string, { id: string; nom: string; prix: number; elementMap: ElemMap }>();
 
         for (const row of formulaRows as FormulaRow[]) {
@@ -74,7 +74,7 @@ export async function GET(request: Request) {
             const f = formulaMap.get(fKey)!;
             const eKey = String(row.eid);
             if (!f.elementMap.has(eKey)) {
-                f.elementMap.set(eKey, { id: eKey, nom: String(row.enom), articles: [] });
+                f.elementMap.set(eKey, { id: eKey, nom: String(row.enom), category: String(row.enom), articles: [] });
             }
             f.elementMap.get(eKey)!.articles.push({
                 id: Number(row.aid),

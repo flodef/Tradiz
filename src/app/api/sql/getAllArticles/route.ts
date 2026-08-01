@@ -15,6 +15,32 @@ interface ArticleRow {
     description: string;
 }
 
+interface FormulaElement {
+    name: string;
+    category: string | null;
+    products: string[];
+}
+
+interface FormulaData {
+    label: string;
+    amount: string;
+    rate: string;
+    category: string;
+    elements: Map<number, FormulaElement>;
+}
+
+interface FormulaRow {
+    label: string;
+    amount: string;
+    rate: string;
+    category: string;
+    formula_id: number;
+    element_id: number | null;
+    element_name: string | null;
+    element_category: string | null;
+    product_name: string | null;
+}
+
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
     let connection: Awaited<ReturnType<typeof getMainDb>> | undefined;
@@ -34,15 +60,53 @@ export async function GET(request: Request) {
             ORDER BY sort_order ASC
         `;
 
-        // Query 2: Get all formulas
+        // Query 2: Get all formulas with their elements
         const queryFormulas = connection.isPostgreSQL
             ? `
-            SELECT name as label, price as amount, '20' as rate, 'Formule' as category, '' as options, NULL as stock, '' as reference, '' as photo, '' as description
-            FROM dc.formulas
+            SELECT 
+                f.name as label, 
+                f.price as amount, 
+                '20' as rate, 
+                'Formule' as category, 
+                NULL as options, 
+                NULL as stock, 
+                '' as reference, 
+                '' as photo, 
+                '' as description,
+                f.id as formula_id,
+                fe.id as element_id,
+                fe.name as element_name,
+                fe.category as element_category,
+                p.name as product_name
+            FROM dc.formulas f
+            LEFT JOIN dc.rel_formula_element_formula ref ON f.id = ref.formula_id
+            LEFT JOIN dc.formula_elements fe ON ref.formula_element_id = fe.id
+            LEFT JOIN dc.rel_formula_element_product rep ON fe.id = rep.formula_element_id
+            LEFT JOIN dc.products p ON rep.product_id = p.id
+            ORDER BY f.sort_order, ref.sort_order, rep.sort_order
         `
             : `
-            SELECT name as label, price as amount, '20' as rate, 'Formule' as category, '' as options, NULL as stock, '' as reference, '' as photo, '' as description
-            FROM formulas
+            SELECT 
+                f.name as label, 
+                f.price as amount, 
+                '20' as rate, 
+                'Formule' as category, 
+                NULL as options, 
+                NULL as stock, 
+                '' as reference, 
+                '' as photo, 
+                '' as description,
+                f.id as formula_id,
+                fe.id as element_id,
+                fe.name as element_name,
+                fe.category as element_category,
+                p.name as product_name
+            FROM formulas f
+            LEFT JOIN rel_formula_element_formula ref ON f.id = ref.formula_id
+            LEFT JOIN formula_elements fe ON ref.formula_element_id = fe.id
+            LEFT JOIN rel_formula_element_product rep ON fe.id = rep.formula_element_id
+            LEFT JOIN products p ON rep.product_id = p.id
+            ORDER BY f.sort_order, ref.sort_order, rep.sort_order
         `;
 
         // Execute both queries. The products query is required; the formulas query is
@@ -56,13 +120,11 @@ export async function GET(request: Request) {
             console.warn('Could not load formulas, continuing without them:', formulaError);
         }
 
-        // Combine all rows
-        const allRows = [...(productsRows as ArticleRow[]), ...(formulasRows as ArticleRow[])];
-
         // Currency columns follow the fixed product fields. Only Euro is supported for now.
         const currencies = ['Euro (€)'];
 
-        const products = allRows.map((row) => {
+        // Process products
+        const products = (productsRows as ArticleRow[]).map((row) => {
             const rate = row.rate != null ? Number(row.rate) / 100 : null;
             const price = Number((Number(row.amount) || 0).toFixed(2));
             return {
@@ -78,7 +140,64 @@ export async function GET(request: Request) {
             };
         });
 
-        return NextResponse.json({ products, currencies }, { status: 200 });
+        // Process formulas - group by formula_id and reconstruct elements
+        const formulaMap = new Map<number, FormulaData>();
+        for (const row of formulasRows as FormulaRow[]) {
+            const formulaId = row.formula_id;
+            if (!formulaMap.has(formulaId)) {
+                formulaMap.set(formulaId, {
+                    label: row.label,
+                    amount: row.amount,
+                    rate: row.rate,
+                    category: row.category,
+                    elements: new Map<number, FormulaElement>(),
+                });
+            }
+            const formula = formulaMap.get(formulaId);
+            if (!formula) continue;
+
+            if (row.element_id) {
+                if (!formula.elements.has(row.element_id)) {
+                    formula.elements.set(row.element_id, {
+                        name: row.element_name || '',
+                        category: row.element_category,
+                        products: [],
+                    });
+                }
+                const element = formula.elements.get(row.element_id);
+                if (element && row.product_name) {
+                    element.products.push(row.product_name);
+                }
+            }
+        }
+
+        // Convert formulas to product format with options JSON
+        const formulaProducts = Array.from(formulaMap.values()).map((formula: FormulaData) => {
+            const elements = Array.from(formula.elements.values()).map((el: FormulaElement) => ({
+                name: el.name,
+                category: el.category,
+                products: el.products,
+            }));
+            const rate = formula.rate != null ? Number(formula.rate) / 100 : null;
+            const price = Number((Number(formula.amount) || 0).toFixed(2));
+
+            return {
+                rate: rate !== null && Number.isFinite(rate) ? rate : null,
+                category: String(formula.category),
+                label: String(formula.label),
+                stock: null,
+                reference: '',
+                photo: '',
+                description: '',
+                prices: [Number.isFinite(price) ? price : 0],
+                options: JSON.stringify({ formula: true, elements, originalName: formula.label }),
+            };
+        });
+
+        // Combine products and formulas
+        const allProducts = [...products, ...formulaProducts];
+
+        return NextResponse.json({ products: allProducts, currencies }, { status: 200 });
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching data' }, { status: 500 });

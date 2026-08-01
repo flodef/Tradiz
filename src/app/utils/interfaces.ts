@@ -241,6 +241,7 @@ export interface CatalogArticle {
 export interface CatalogFormulaElement {
     id: string;
     nom: string;
+    category?: string;
     articles: Omit<CatalogArticle, 'categorie'>[];
 }
 

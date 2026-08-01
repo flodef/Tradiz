@@ -1168,6 +1168,7 @@ export default function SettingsPage() {
                 icon={<IconBuilding size={24} />}
                 customers={customersConfig}
                 onValidation={setIsCompaniesValid}
+                currencies={currenciesConfig}
             />
 
             <PrintersConfig

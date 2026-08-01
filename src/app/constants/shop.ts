@@ -27,10 +27,18 @@ export function getShopFromHostname(hostname: string): string {
 }
 
 /**
+ * Extracts shop ID from a hostname string, with fallback to environment variable for local/digicarte mode.
+ * This is the server-side version that combines getShopFromHostname with the environment fallback.
+ */
+export function getShopIdFromHostname(hostname: string): string {
+    return IS_LOCAL || USE_DIGICARTE ? process.env.NEXT_PUBLIC_SHOP_ID || '' : getShopFromHostname(hostname);
+}
+
+/**
  * Extracts shop ID from a Next.js Request object for server-side multi-tenancy.
  * Falls back to environment variable for local/digicarte mode.
  */
 export function getShopIdFromRequest(request: Request): string {
     const hostname = request.headers.get('host') || '';
-    return IS_LOCAL || USE_DIGICARTE ? process.env.NEXT_PUBLIC_SHOP_ID || '' : getShopFromHostname(hostname);
+    return getShopIdFromHostname(hostname);
 }

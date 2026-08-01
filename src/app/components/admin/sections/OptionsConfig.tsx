@@ -18,8 +18,8 @@ import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
+import PriceInput from '../PriceInput';
 import AdminSelect from '../AdminSelect';
-import { getMainCurrencyStep } from '@/app/utils/priceStep';
 
 export interface ProductOption {
     value: string;
@@ -51,7 +51,7 @@ interface SortableRowProps {
     group: InternalOptionGroup;
     isReadOnly: boolean;
     canDelete: boolean;
-    priceStep: number;
+    currencies: CurrencyInfo[];
     categories: CategoryOption[];
     products: ProductOptionInfo[];
     onCategoryChange: (id: number, category: string) => void;
@@ -68,7 +68,7 @@ const SortableRow = memo(function SortableRow({
     group,
     isReadOnly,
     canDelete,
-    priceStep,
+    currencies,
     categories,
     products,
     onCategoryChange,
@@ -157,7 +157,12 @@ const SortableRow = memo(function SortableRow({
                             {isReadOnly ? (
                                 <>
                                     <span className="text-sm">{option.value}</span>
-                                    <span className="text-sm text-gray-500">({option.price}€)</span>
+                                    <PriceInput
+                                        value={option.price}
+                                        onChange={() => {}}
+                                        currencies={currencies}
+                                        isReadOnly={true}
+                                    />
                                 </>
                             ) : (
                                 <>
@@ -169,15 +174,11 @@ const SortableRow = memo(function SortableRow({
                                         className="flex-1 min-w-0"
                                         isReadOnly={isReadOnly}
                                     />
-                                    <ValidatedInput
-                                        type="number"
+                                    <PriceInput
                                         value={option.price}
                                         onChange={(value) => handleOptionChange(index, 'price', value)}
-                                        placeholder="Prix"
-                                        min={0}
-                                        step={priceStep}
-                                        className="w-16"
-                                        isReadOnly={isReadOnly}
+                                        currencies={currencies}
+                                        className="w-18"
                                     />
                                     {group.options.length > 1 && (
                                         <button
@@ -208,6 +209,7 @@ interface CurrencyInfo {
     rate: number;
     decimals: number;
     label?: string;
+    symbol?: string;
 }
 
 interface OptionsConfigProps {
@@ -388,9 +390,6 @@ export default function OptionsConfig({
         })
     );
 
-    // Calculate price step from main currency
-    const priceStep = getMainCurrencyStep(currencies);
-
     return (
         <SectionCard
             title="Options"
@@ -430,7 +429,7 @@ export default function OptionsConfig({
                                         group={group}
                                         isReadOnly={isReadOnly}
                                         canDelete={groups.length > 0}
-                                        priceStep={priceStep}
+                                        currencies={currencies}
                                         categories={categories}
                                         products={products}
                                         onCategoryChange={handleCategoryChange}

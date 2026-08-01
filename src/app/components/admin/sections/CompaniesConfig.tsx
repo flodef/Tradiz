@@ -19,6 +19,7 @@ import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
+import PriceInput from '../PriceInput';
 
 interface InternalCompany extends Company {
     _id: number;
@@ -28,6 +29,7 @@ interface SortableRowProps {
     company: InternalCompany;
     isReadOnly: boolean;
     canDelete: boolean;
+    currencies: { rate: number; decimals: number; symbol?: string }[];
     onFieldChange: (id: number, field: keyof Company, value: string | number) => void;
     onDelete: (id: number) => void;
     nameInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
@@ -39,6 +41,7 @@ const SortableRow = memo(function SortableRow({
     company,
     isReadOnly,
     canDelete,
+    currencies,
     onFieldChange,
     onDelete,
     nameInputRefs,
@@ -82,19 +85,14 @@ const SortableRow = memo(function SortableRow({
                 )}
             </td>
             <td className="p-2">
-                {isReadOnly ? (
-                    <div className="text-sm">{company.mealPrice} €</div>
-                ) : (
-                    <ValidatedInput
-                        type="number"
-                        value={company.mealPrice}
-                        onChange={(value) => onFieldChange(company._id, 'mealPrice', Number(value))}
-                        min={0}
-                        step={0.01}
-                        className="w-24"
-                        validation={(value) => Number(value) > 0}
-                    />
-                )}
+                <PriceInput
+                    value={company.mealPrice}
+                    onChange={(value) => onFieldChange(company._id, 'mealPrice', Number(value))}
+                    currencies={currencies}
+                    isReadOnly={isReadOnly}
+                    className="w-24"
+                    validation={(value) => Number(value) > 0}
+                />
             </td>
             <DeleteButtonCell isReadOnly={isReadOnly} onDelete={() => onDelete(company._id)} canDelete={canDelete} />
         </tr>
@@ -113,6 +111,7 @@ export default function CompaniesConfig({
     icon,
     customers,
     onValidation,
+    currencies,
 }: {
     config: Company[];
     onChange: (data: Company[]) => void;
@@ -126,6 +125,7 @@ export default function CompaniesConfig({
     icon?: React.ReactNode;
     customers?: Customer[];
     onValidation?: (isValid: boolean) => void;
+    currencies: { rate: number; decimals: number; symbol?: string }[];
 }) {
     const { openFullscreenPopup } = usePopup();
     const nextIdRef = useRef(0);
@@ -294,6 +294,7 @@ export default function CompaniesConfig({
                                         company={company}
                                         isReadOnly={isReadOnly}
                                         canDelete={companies.length > 0}
+                                        currencies={currencies}
                                         onFieldChange={handleFieldChange}
                                         onDelete={handleDeleteCompany}
                                         nameInputRefs={nameInputRefs}
