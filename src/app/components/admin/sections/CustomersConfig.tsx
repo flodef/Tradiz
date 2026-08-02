@@ -203,7 +203,7 @@ function Row({
                     }
                     options={companyOptions}
                     className="min-w-40"
-                    isReadOnly={isReadOnly}
+                    isReadOnly={isReadOnly || !companies?.length}
                 />
             </td>
             <DeleteButtonCell isReadOnly={isReadOnly} onDelete={onDelete} title="Supprimer le client" />

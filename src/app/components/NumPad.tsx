@@ -500,6 +500,7 @@ const SearchPopup: FC<SearchPopupProps> = ({
                                         >
                                             <div className={styles.optionText}>
                                                 {item.firstName} {item.lastName}
+                                                {item.company ? ` (${item.company})` : ''}
                                             </div>
                                         </div>
                                     );
@@ -956,10 +957,10 @@ export const NumPad: FC = () => {
                     style={shouldUseOverflow ? { left: left } : {}}
                 >
                     {(currentCustomer || parameters.user) && (
-                        <div className="flex items-center justify-center gap-2 text-lg font-semibold px-2">
+                        <div className="flex items-center justify-center gap-2 text-lg font-semibold">
                             <span
                                 className={twMerge(
-                                    'truncate',
+                                    'whitespace-nowrap overflow-hidden',
                                     currentCustomer ||
                                         (!currentCustomer && parameters.userSwitch !== false && users.length > 1)
                                         ? 'cursor-pointer p-1 rounded hover:bg-active-light dark:hover:bg-active-dark'
@@ -969,7 +970,7 @@ export const NumPad: FC = () => {
                                     currentCustomer
                                         ? () =>
                                               openFullscreenPopup(
-                                                  `${currentCustomer.firstName} ${currentCustomer.lastName}`,
+                                                  `${currentCustomer.firstName} ${currentCustomer.lastName}${currentCustomer.company ? ` (${currentCustomer.company})` : ''}`,
                                                   [<CustomerDetailsPopup key="details" customer={currentCustomer} />],
                                                   () => {},
                                                   true
@@ -991,7 +992,7 @@ export const NumPad: FC = () => {
                                 }
                             >
                                 {currentCustomer
-                                    ? `${isNegativeBalance ? '⚠️' : ''} Client : ${currentCustomer.firstName} ${currentCustomer.lastName}`
+                                    ? `${isNegativeBalance ? '⚠️' : ''} Client : ${isMobileSize() ? `${currentCustomer.firstName.charAt(0)}.` : currentCustomer.firstName} ${currentCustomer.lastName}${currentCustomer.company ? ` (${currentCustomer.company})` : ''}`
                                     : parameters.user.name}
                                 {currentCustomer && customerBalance !== null && (
                                     <span
@@ -1001,8 +1002,8 @@ export const NumPad: FC = () => {
                                         )}
                                     >
                                         {isNegativeBalance
-                                            ? ` (- ${toCurrency(Math.abs(customerBalance))})`
-                                            : ` (${toCurrency(customerBalance)})`}
+                                            ? ` [- ${toCurrency(Math.abs(customerBalance))}]`
+                                            : ` [${toCurrency(customerBalance)}]`}
                                     </span>
                                 )}
                             </span>

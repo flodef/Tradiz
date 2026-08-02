@@ -158,6 +158,7 @@ const CustomerSearchPopup: FC<CustomerSearchPopupProps> = ({
                 >
                     <div className={twMerge(styles.optionText, 'flex-1 text-left')}>
                         {customer.firstName} {customer.lastName}
+                        {customer.company ? ` (${customer.company})` : ''}
                     </div>
                     {onPrintBalance && (
                         <button

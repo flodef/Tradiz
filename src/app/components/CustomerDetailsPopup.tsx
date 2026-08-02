@@ -41,6 +41,7 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
     const [isLoading, setIsLoading] = useState(false);
 
     const customerName = `${customer.firstName} ${customer.lastName}`.trim();
+    const companySuffix = customer.company ? ` (${customer.company})` : '';
 
     const customerId = customer.id;
 
@@ -119,7 +120,7 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
 
     const openCustomerDetails = () => {
         openFullscreenPopup(
-            `${customer.firstName} ${customer.lastName}`,
+            `${customer.firstName} ${customer.lastName}${companySuffix}`,
             [<CustomerDetailsPopup key="details" customer={customer} />],
             () => {},
             true
