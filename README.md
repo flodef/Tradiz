@@ -383,6 +383,46 @@ Pour en savoir plus sur Next.js, vous pouvez consulter les ressources suivantes 
 -   [Next.js Documentation](https://nextjs.org/docs) - apprenez les fonctionnalités et l'API de Next.js.
 -   [Learn Next.js](https://nextjs.org/learn) - un tutoriel intéractif Next.js.
 
+# Fonctionnalités
+
+## Écran client (backscreen)
+
+L'application pilote un écran client face au client via `postMessage` vers la fenêtre parente. L'affichage s'adapte automatiquement selon l'état de la caisse :
+
+-   **En veille (caisse fermée)** : affiche « Fermé » sur la deuxième ligne.
+-   **En veille (caisse ouverte)** : affiche le nom du commerce sur les deux lignes (40 caractères, 2 × 20).
+-   **En transaction** : affiche le produit en cours sur la première ligne et le total sur la deuxième.
+-   **En paiement** : affiche un message spécifique au moyen de paiement (ex. « Insérez votre carte », « Règlement en espèces », « Scannez le QR code ») et le total restant à payer.
+-   **Rendu monnaie** : le montant rendu reste affiché jusqu'au début de la transaction suivante.
+
+Les messages de paiement sont matchés de façon robuste : les libellés sont normalisés (minuscules, sans accents) et comparés à des alias connus (cb, carte, visa, espèces, chèque, etc.).
+
+L'envoi des messages d'affichage est indépendant du mode DigiCarte : l'application tente toujours de communiquer avec l'écran client, et ignore silencieusement les erreurs si aucun écran n'est présent.
+
+## Suppression de produit et mise à jour du total
+
+Lors de la suppression d'un produit sélectionné, la sélection se déplace automatiquement sur le produit précédent et le total est recalculé immédiatement (correction du bug de total obsolète).
+
+## Propagation des catégories
+
+Les renommages et suppressions de catégories sont automatiquement propagués aux formules :
+
+-   **Renommage** : les éléments de formule associés à la catégorie sont mis à jour.
+-   **Suppression** : les éléments de formule sont déplacés vers la catégorie par défaut (« Sans catégorie »), et les formules qui n'ont plus aucun élément sont supprimées.
+
+## Clavier numérique (NumPad)
+
+Le bouton de suppression du NumPad est rétabli. Un appui simple sur « Supprimer » alors qu'aucun produit n'est sélectionné et que le montant est à 0 demande la confirmation de la suppression de la commande entière.
+
+# Intégration continue (CI)
+
+Le projet dispose de deux workflows GitHub Actions :
+
+-   **[Node.js CI](https://github.com/flodef/Tradiz/actions/workflows/node.js.yml)** — à chaque push et pull request : installe les dépendances avec Bun et lance les tests Vitest sur Node.js 22.
+-   **[Build Windows Installer](https://github.com/flodef/Tradiz/actions/workflows/build-windows-installer.yml)** — à chaque push sur `main`, release publiée ou déclenchement manuel : construit l'installateur Windows (`electron-builder`) et publie l'artefact ou la release GitHub.
+
+Les deux workflows utilisent Node.js 22.x, Bun et les versions récentes des actions GitHub (`checkout@v5`, `setup-node@v4`, `setup-bun@v2`).
+
 # Contribuer au projet
 
 Toutes contributions, retours ou idées sont les bienvenus. 🙏🏻🙏🏻🙏🏻
