@@ -342,7 +342,7 @@ export default function CategoriesConfig({
                 const hasProducts = productCategories?.some((p) => isSameCategory(p.category, oldLabel));
                 if (hasProducts) {
                     openFullscreenPopup(
-                        `Déplacer les produits de "${oldLabel}" vers "${DEFAULT_CATEGORY}" ?`,
+                        `Déplacer les produits et formules de "${oldLabel}" vers "${DEFAULT_CATEGORY}" ?`,
                         ['Confirmer', 'Annuler'],
                         (index) => {
                             if (index === 0) {
@@ -369,7 +369,7 @@ export default function CategoriesConfig({
                 return;
             }
             openFullscreenPopup(
-                `Renommer "${oldLabel}" en "${newLabel}" pour tous les produits ?`,
+                `Renommer "${oldLabel}" en "${newLabel}" pour tous les produits et formules ?`,
                 ['Confirmer', 'Annuler'],
                 (index) => {
                     if (index === 0) {
@@ -437,19 +437,23 @@ export default function CategoriesConfig({
                           'Supprimer la catégorie mais conserver les produits',
                           'Renommer la catégorie',
                       ];
-                openFullscreenPopup(`La catégorie "${category.label}" contient des produits`, options, (index) => {
-                    if (index === 0) {
-                        onDeleteCategoryProducts?.(categoryLabel, false);
-                    } else if (!isSansCategorie && index === 1) {
-                        onDeleteCategoryProducts?.(categoryLabel, true);
-                    } else {
-                        const input = inputRefs.current.get(id);
-                        if (input) {
-                            input.focus();
-                            input.select();
+                openFullscreenPopup(
+                    `La catégorie "${category.label}" contient des produits et/ou formules`,
+                    options,
+                    (index) => {
+                        if (index === 0) {
+                            onDeleteCategoryProducts?.(categoryLabel, false);
+                        } else if (!isSansCategorie && index === 1) {
+                            onDeleteCategoryProducts?.(categoryLabel, true);
+                        } else {
+                            const input = inputRefs.current.get(id);
+                            if (input) {
+                                input.focus();
+                                input.select();
+                            }
                         }
                     }
-                });
+                );
             } else {
                 // No products — just remove locally (it will disappear from derived categories)
                 setCategories((prev) => prev.filter((c) => c._id !== id));

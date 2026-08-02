@@ -605,17 +605,34 @@ export default function EditMenuPage() {
         [products, formulas, handleProductsSave]
     );
 
-    // Category delete: either remove products or move them to empty category, then save
+    // Category delete: either remove products or move them to empty category, then save.
+    // Also updates formula elements that referenced the deleted category.
     const handleDeleteCategoryProducts = useCallback(
         (categoryLabel: string, moveToEmpty: boolean) => {
             const updated = moveToEmpty
                 ? products.map((p) => (isSameCategory(p.category, categoryLabel) ? { ...p, category: '' } : p))
                 : products.filter((p) => !isSameCategory(p.category, categoryLabel));
+
+            // Update formula elements referencing the deleted category:
+            // - moveToEmpty: move elements to the default category
+            // - !moveToEmpty: remove elements entirely
+            const updatedFormulas = formulas.map((f) => ({
+                ...f,
+                elements: moveToEmpty
+                    ? f.elements.map((el) =>
+                          el.category && isSameCategory(el.category, categoryLabel) ? { ...el, category: '' } : el
+                      )
+                    : f.elements.filter((el) => !el.category || !isSameCategory(el.category, categoryLabel)),
+            }));
+
             setProducts(updated);
             setOriginalProducts(updated);
-            handleProductsSave(updated, undefined);
+            setFormulas(updatedFormulas);
+            setOriginalFormulas(updatedFormulas);
+            setHasFormulasChanges(false);
+            handleProductsSave(updated, undefined, updatedFormulas);
         },
-        [products, handleProductsSave]
+        [products, formulas, handleProductsSave]
     );
 
     // Category VAT change: apply new VAT to all products in the category and save to DB
