@@ -41,6 +41,10 @@ export const INTERNAL_PAYMENT_METHODS = [
     DELETED_KEYWORD,
 ];
 
+// Cashier actions offered alongside payment methods that are not a payment taken from the
+// customer, and must therefore never reach the customer-facing display.
+export const NON_PAYMENT_KEYWORDS = [PRINT_KEYWORD, WAITING_KEYWORD, 'METTRE ' + WAITING_KEYWORD, REFUND_KEYWORD];
+
 export const PAYMENT_TYPES = [
     'Carte Bancaire',
     'Espèces',

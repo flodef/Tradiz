@@ -350,6 +350,12 @@ export default function FormulasConfig({
         setFormulas((config || []).map((f) => ({ ...f, _id: nextIdRef.current++ })));
     }, [config]);
 
+    // Ref callbacks run before effects, so a target that is still set here was never rendered
+    // and must be dropped to avoid stealing focus later.
+    useEffect(() => {
+        focusAfterDeleteRef.current = null;
+    }, [formulas]);
+
     const strip = (items: InternalFormula[]): AdminFormula[] => items.map(({ _id: _, ...rest }) => rest);
 
     const notifyParent = useCallback(

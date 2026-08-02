@@ -11,7 +11,7 @@ import { usePopup } from '@/app/hooks/usePopup';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { LoadingDot } from '@/app/loading';
 import { DEFAULT_CATEGORY, USE_DIGICARTE } from '@/app/utils/constants';
-import { isSameCategory } from '@/app/utils/category';
+import { applyCategoryDeletionToFormulas, isSameCategory, renameFormulaCategory } from '@/app/utils/category';
 import { SHOP_ID } from '@/app/constants/shop';
 import { Category, InventoryItem } from '@/app/utils/interfaces';
 import { clearLoadDataCache } from '@/app/utils/processData';
@@ -583,12 +583,7 @@ export default function EditMenuPage() {
             );
 
             // Formula elements reference categories by label; rename them too.
-            const updatedFormulas = formulas.map((f) => ({
-                ...f,
-                elements: f.elements.map((el) =>
-                    el.category && isSameCategory(el.category, oldLabel) ? { ...el, category: trimmedNewLabel } : el
-                ),
-            }));
+            const updatedFormulas = renameFormulaCategory(formulas, oldLabel, trimmedNewLabel);
 
             setProducts(updatedProducts);
             setOriginalProducts(updatedProducts);
@@ -613,17 +608,9 @@ export default function EditMenuPage() {
                 ? products.map((p) => (isSameCategory(p.category, categoryLabel) ? { ...p, category: '' } : p))
                 : products.filter((p) => !isSameCategory(p.category, categoryLabel));
 
-            // Update formula elements referencing the deleted category:
-            // - moveToEmpty: move elements to the default category
-            // - !moveToEmpty: remove elements entirely
-            const updatedFormulas = formulas.map((f) => ({
-                ...f,
-                elements: moveToEmpty
-                    ? f.elements.map((el) =>
-                          el.category && isSameCategory(el.category, categoryLabel) ? { ...el, category: '' } : el
-                      )
-                    : f.elements.filter((el) => !el.category || !isSameCategory(el.category, categoryLabel)),
-            }));
+            // Formula elements referencing the deleted category are moved to the default category
+            // or dropped, mirroring what happens to the products.
+            const updatedFormulas = applyCategoryDeletionToFormulas(formulas, categoryLabel, moveToEmpty);
 
             setProducts(updated);
             setOriginalProducts(updated);

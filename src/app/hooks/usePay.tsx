@@ -11,6 +11,7 @@ import {
     CATEGORY_SEPARATOR,
     DEBIT_KEYWORD,
     IS_LOCAL,
+    NON_PAYMENT_KEYWORDS,
     PRINT_KEYWORD,
     PROCESSING_KEYWORD,
     PROVISION_KEYWORD,
@@ -20,9 +21,9 @@ import {
     WAITING_KEYWORD,
 } from '../utils/constants';
 import { Currency, Customer, InventoryItem, SERVICE_TYPE_LABELS, ServiceType, Transaction } from '../utils/interfaces';
-import { CLOSE, CUSTOMER_DISPLAY, postMessageToParent, REFRESH } from '../utils/message';
+import { CLOSE, postCustomerDisplay, postMessageToParent, REFRESH } from '../utils/message';
 import { printBalanceStatement, printReceipt } from '../utils/posPrinter';
-import { buildCustomerDisplay, buildPaymentDisplay } from '../utils/customerDisplay';
+import { buildCustomerDisplay, buildPaymentDisplay, holdChangeDisplay } from '../utils/customerDisplay';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
 import { useData } from './useData';
@@ -430,11 +431,11 @@ export const usePay = () => {
 
             const paymentType = option.split(SEPARATOR)[0].split(ARROW)[0].split(CATEGORY_SEPARATOR)[0].trim();
 
-            // Notify the customer-facing display about the payment type
-            postMessageToParent(
-                CUSTOMER_DISPLAY,
-                buildPaymentDisplay(paymentType, getCurrentTotal(), currencies[currencyIndex])
-            );
+            // Notify the customer-facing display about the payment type. Internal actions
+            // (printing, putting on hold, refunding...) are not payments and must not be shown.
+            if (!NON_PAYMENT_KEYWORDS.includes(paymentType)) {
+                postCustomerDisplay(buildPaymentDisplay(paymentType, getCurrentTotal(), currencies[currencyIndex]));
+            }
 
             switch (paymentType) {
                 case Crypto.Solana:
@@ -534,9 +535,10 @@ export const usePay = () => {
                                         };
                                         commitTransaction(transaction);
 
-                                        // Notify the customer-facing (back) display
-                                        postMessageToParent(
-                                            CUSTOMER_DISPLAY,
+                                        // Notify the customer-facing (back) display and keep the
+                                        // change on screen until the next transaction starts
+                                        holdChangeDisplay();
+                                        postCustomerDisplay(
                                             buildCustomerDisplay(
                                                 cashTotal,
                                                 cashAmount,
@@ -617,10 +619,7 @@ export const usePay = () => {
             if (!orderId || selectedOrderItems.length === 0) return;
 
             // Notify the customer-facing display about the payment type
-            postMessageToParent(
-                CUSTOMER_DISPLAY,
-                buildPaymentDisplay(paymentMethod, partialPaymentAmount, currencies[currencyIndex])
-            );
+            postCustomerDisplay(buildPaymentDisplay(paymentMethod, partialPaymentAmount, currencies[currencyIndex]));
 
             const showSuccess = (result: { success: boolean; message?: string }) => {
                 closePopup();
@@ -688,8 +687,8 @@ export const usePay = () => {
 
                         if (cashAmount !== undefined && changeAmount !== undefined) {
                             // Show the change on the customer-facing display before the success popup
-                            postMessageToParent(
-                                CUSTOMER_DISPLAY,
+                            holdChangeDisplay();
+                            postCustomerDisplay(
                                 buildCustomerDisplay(
                                     partialPaymentAmount,
                                     cashAmount,

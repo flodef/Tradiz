@@ -11,8 +11,13 @@ import { Category } from './Category';
 import { NumPad } from './NumPad';
 import { OrderBadge } from './OrderBadge';
 import { Total } from './Total';
-import { CUSTOMER_DISPLAY, postMessageToParent } from '../utils/message';
-import { buildIdleDisplay, buildTransactionDisplay } from '../utils/customerDisplay';
+import { postCustomerDisplay } from '../utils/message';
+import {
+    buildIdleDisplay,
+    buildTransactionDisplay,
+    isChangeDisplayHeld,
+    releaseChangeDisplay,
+} from '../utils/customerDisplay';
 
 interface PendingOrder {
     orderId: number;
@@ -37,30 +42,37 @@ export const MainContent: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdmi
         checkAndPerformDayReset,
         products,
         total,
+        selectedProduct,
     } = useData();
     const [showTransverseMode, setShowTransverseMode] = useState(false);
     const [showOrderWithTable, setShowOrderWithTable] = useState(false);
 
-    // Send display to the customer-facing backscreen:
-    // - App not ready: shop name + "Fermé"
-    // - Products added and no popup open: last product + total
-    // - Popup open (payment): the payment flow handles the display via usePay
-    // - No products and app ready: shop name only
+    // `products` is a ref used as a mutable store, so the count and the last entry are read here to
+    // give the display effect a dependency that also changes for zero-priced products.
+    const productCount = products.current.length;
+    const currentProduct = selectedProduct ?? products.current.at(-1);
+    const currency = currencies[currencyIndex];
+
+    // Drive the customer-facing backscreen:
+    // - App not ready: "Fermé"
+    // - Products in the basket and no popup open: current product + total
+    // - Popup open (payment): the payment flow owns the display via usePay
+    // - Basket empty: shop name, unless change owed is still being shown
     useEffect(() => {
         if (!isStateReady) {
-            postMessageToParent(CUSTOMER_DISPLAY, buildIdleDisplay(parameters.shop.name, true));
+            releaseChangeDisplay();
+            postCustomerDisplay(buildIdleDisplay(parameters.shop.name, true));
             return;
         }
-        if (isPopupOpen) return; // Payment flow manages the display
-        if (products.current.length > 0) {
-            postMessageToParent(
-                CUSTOMER_DISPLAY,
-                buildTransactionDisplay(products.current, total, currencies[currencyIndex])
-            );
-        } else {
-            postMessageToParent(CUSTOMER_DISPLAY, buildIdleDisplay(parameters.shop.name, false));
+        if (isPopupOpen) return;
+        if (productCount > 0 && currency) {
+            releaseChangeDisplay();
+            postCustomerDisplay(buildTransactionDisplay(currentProduct, total, currency));
+            return;
         }
-    }, [isStateReady, isPopupOpen, parameters.shop.name, products, total, currencies, currencyIndex]);
+        if (isChangeDisplayHeld()) return;
+        postCustomerDisplay(buildIdleDisplay(parameters.shop.name, false));
+    }, [isStateReady, isPopupOpen, parameters.shop.name, productCount, currentProduct, total, currency]);
 
     // Listen for ORDER_ID messages from parent (kitchen iframe)
     useEffect(() => {

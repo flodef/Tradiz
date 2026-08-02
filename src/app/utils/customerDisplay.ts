@@ -51,33 +51,70 @@ export function buildIdleDisplay(shopName: string, isClosed: boolean): CustomerD
     };
 }
 
-// Transaction display: last product name on line1, total on line2.
+// Transaction display: the product being rung up on line1, running total on line2.
 export function buildTransactionDisplay(
-    products: Product[],
+    product: Product | undefined,
     total: number,
     currency: Currency
 ): CustomerDisplayPayload {
-    const lastProduct = products.at(-1);
-    const productLabel = lastProduct?.label ?? '';
     const totalStr = formatAmount(total, currency);
     return {
-        line1: padLine(productLabel),
+        line1: padLine(product?.label ?? ''),
         line2: formatLine('TOTAL', totalStr),
     };
 }
 
-// Payment display: shows a payment-specific message.
+// Payment method labels are free text coming from the database (see PAYMENT_TYPES for the
+// canonical ones), so they are matched on a normalised (lowercased, accent-free) form against
+// known aliases rather than exact keys. Order matters: the first matching entry wins.
+const PAYMENT_MESSAGES: { aliases: string[]; message: string }[] = [
+    { aliases: ['vacances'], message: 'Chèque vacances' },
+    { aliases: ['ticket', 'resto'], message: 'Titre restaurant' },
+    { aliases: ['cb', 'carte', 'bancaire', 'visa', 'mastercard', 'tpe'], message: 'Insérez votre carte' },
+    { aliases: ['espece', 'cash', 'liquide'], message: 'Règlement en espèces' },
+    { aliases: ['cheque'], message: 'Règlement par chèque' },
+    { aliases: ['virement', 'iban'], message: 'Virement bancaire' },
+    { aliases: ['solana', 'june', 'crypto'], message: 'Scannez le QR code' },
+    { aliases: ['debit'], message: 'Paiement sur compte' },
+    { aliases: ['provision'], message: 'Approvisionnement' },
+];
+
+function normalize(value: string): string {
+    return value
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '');
+}
+
+// Resolve the customer-facing message for a payment method label.
+// Falls back to the label itself, which is always more useful than a generic wording.
+export function getPaymentMessage(paymentType: string): string {
+    const normalized = normalize(paymentType);
+    const match = PAYMENT_MESSAGES.find(({ aliases }) => aliases.some((alias) => normalized.includes(alias)));
+    return match?.message ?? paymentType;
+}
+
+// Payment display: shows a payment-specific instruction on line1, total on line2.
 export function buildPaymentDisplay(paymentType: string, total: number, currency: Currency): CustomerDisplayPayload {
     const totalStr = formatAmount(total, currency);
-    const messages: Record<string, string> = {
-        Espèces: 'Reglement',
-        CB: 'Inserez votre CB',
-        'Carte bancaire': 'Inserez votre CB',
-        Virement: 'Virement',
-    };
-    const msg = messages[paymentType] ?? `Paiement ${paymentType}`;
     return {
-        line1: padLine(msg),
+        line1: padLine(getPaymentMessage(paymentType)),
         line2: formatLine('TOTAL', totalStr),
     };
+}
+
+// The change owed must stay on the screen until the next transaction starts, otherwise it is
+// wiped as soon as the cashier acknowledges the change popup.
+let changeDisplayHeld = false;
+
+export function holdChangeDisplay() {
+    changeDisplayHeld = true;
+}
+
+export function releaseChangeDisplay() {
+    changeDisplayHeld = false;
+}
+
+export function isChangeDisplayHeld(): boolean {
+    return changeDisplayHeld;
 }

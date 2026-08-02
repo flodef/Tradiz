@@ -151,6 +151,12 @@ export default function ProductsConfig({
         setExpandedCategories(new Set(categoryOrder));
     }, [categoryOrder]);
 
+    // Ref callbacks run before effects, so a target that is still set here was never rendered
+    // (collapsed category or filtered out) and must be dropped to avoid stealing focus later.
+    useEffect(() => {
+        focusAfterDeleteRef.current = null;
+    }, [products]);
+
     const toggleCategory = (cat: string) => {
         setExpandedCategories((prev) => {
             const next = new Set(prev);

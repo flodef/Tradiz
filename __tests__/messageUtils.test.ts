@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CLOSE, postMessageToParent, REFRESH } from '../src/app/utils/message';
+import { CLOSE, CUSTOMER_DISPLAY, postCustomerDisplay, postMessageToParent, REFRESH } from '../src/app/utils/message';
 
-// Mock USE_DIGICARTE to be true for all tests
+// Mock USE_DIGICARTE to be true so the DigiCarte-gated messages are exercised
 vi.mock('../src/app/utils/constants', () => ({
     USE_DIGICARTE: true,
 }));
@@ -63,5 +63,32 @@ describe('postMessageToParent', () => {
 
         postMessageToParent('test');
         expect(mockPostMessage).toHaveBeenCalledWith(expect.any(Object), '*');
+    });
+});
+
+describe('postCustomerDisplay', () => {
+    const originalWindow = global.window;
+
+    afterEach(() => {
+        global.window = originalWindow;
+    });
+
+    it('posts the payload under the CUSTOMER_DISPLAY type', () => {
+        const mockPostMessage = vi.fn();
+        global.window = { parent: { postMessage: mockPostMessage } } as any;
+
+        const payload = { line1: 'a', line2: 'b' };
+        postCustomerDisplay(payload);
+
+        expect(mockPostMessage).toHaveBeenCalledWith({ type: CUSTOMER_DISPLAY, payload }, '*');
+    });
+
+    it('stays silent when there is no host frame to receive it', () => {
+        const mockPostMessage = vi.fn();
+        global.window = { parent: { postMessage: mockPostMessage } } as any;
+        global.window.parent = global.window;
+
+        expect(() => postCustomerDisplay({ line1: '', line2: '' })).not.toThrow();
+        expect(mockPostMessage).not.toHaveBeenCalled();
     });
 });

@@ -43,6 +43,7 @@ import {
     isWaitingTransaction,
 } from './dataProvider/transactionHelpers';
 import { useMercurial } from './dataProvider/useMercurial';
+import { resolveSelectionAfterDelete } from './dataProvider/productHelpers';
 import { SHOP_ID } from '../constants/shop';
 
 enum DatabaseAction {
@@ -1073,24 +1074,33 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!products.current.length || !products.current.at(index)) return;
 
             const wasSelected = products.current.at(index) === selectedProduct;
-            products.current.splice(index, 1).at(0);
+            products.current.splice(index, 1);
 
             if (!products.current.length) {
                 deleteTransaction();
             }
 
-            // Move focus/selection to the previous item (or the item now at the same index)
-            if (wasSelected && products.current.length) {
-                const newIndex = Math.max(0, index - 1);
-                const newSelected = products.current.at(newIndex);
-                setSelectedProduct(newSelected);
-                setAmount(newSelected?.amount ?? 0);
-                setQuantity(newSelected?.amount ? -1 : 0);
+            const selection = resolveSelectionAfterDelete(products.current, index, wasSelected);
+            if (selection) {
+                setSelectedProduct(selection.selectedProduct);
+                setAmount(selection.amount);
+                setQuantity(selection.quantity);
+                // clearAmount() is skipped here, so the total must be refreshed explicitly
+                updateTotal();
             } else {
                 clearAmount();
             }
         },
-        [products, selectedProduct, clearAmount, deleteTransaction, setSelectedProduct, setAmount, setQuantity]
+        [
+            products,
+            selectedProduct,
+            clearAmount,
+            deleteTransaction,
+            setSelectedProduct,
+            setAmount,
+            setQuantity,
+            updateTotal,
+        ]
     );
 
     const removeProduct = useCallback(

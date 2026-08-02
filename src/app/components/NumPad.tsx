@@ -690,18 +690,6 @@ export const NumPad: FC = () => {
         ]
     );
 
-    const onClear = useCallback(() => {
-        if (selectedProduct) {
-            if (quantity || !amount) {
-                removeProduct();
-            } else {
-                setAmount(0);
-            }
-        } else {
-            clearAmount();
-        }
-    }, [removeProduct, clearAmount, selectedProduct, quantity, setAmount, amount]);
-
     const onClearTotal = useCallback(() => {
         if (total > 0) {
             openPopup('Supprimer commande ?', ['Oui', 'Non'], (i) => {
@@ -713,6 +701,23 @@ export const NumPad: FC = () => {
             removeProduct();
         }
     }, [removeProduct, clearTotal, openPopup, total]);
+
+    const onClear = useCallback(() => {
+        if (selectedProduct) {
+            if (quantity || !amount) {
+                removeProduct();
+            } else {
+                setAmount(0);
+            }
+            return;
+        }
+        // Nothing selected and nothing typed: there is nothing to erase, so offer to drop the order
+        if (!amount) {
+            onClearTotal();
+            return;
+        }
+        clearAmount();
+    }, [removeProduct, clearAmount, selectedProduct, quantity, setAmount, amount, onClearTotal]);
 
     const addProduct = useCallback(() => {
         if (selectedProduct?.amount && quantity) {
@@ -904,7 +909,7 @@ export const NumPad: FC = () => {
     const sx = s + (canPay || canAddProduct || canAddProvision ? color : 'invisible');
 
     const f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
-    const f1 = f + (hasAmount ? color : 'invisible');
+    const f1 = f + (hasAmount || total ? color : 'invisible');
     const f2 =
         f +
         (hasAmount

@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { isSameCategory, normalizeCategory } from '@/app/utils/category';
+import {
+    applyCategoryDeletionToFormulas,
+    isSameCategory,
+    normalizeCategory,
+    renameFormulaCategory,
+} from '@/app/utils/category';
 import { DEFAULT_CATEGORY } from '@/app/utils/constants';
 
-// Mirrors the rename logic in src/app/admin/edit_menu/page.tsx so the matching
-// rules are covered without mounting the whole admin page.
+// Only the product half of the propagation is mirrored here; the formula half uses the same
+// helpers as src/app/admin/edit_menu/page.tsx so the two can never drift apart.
 interface TestProduct {
     name: string;
     category: string;
@@ -14,6 +19,7 @@ interface TestElement {
 }
 interface TestFormula {
     name: string;
+    mode: 'category' | 'products';
     elements: TestElement[];
 }
 
@@ -21,14 +27,7 @@ function renameProducts(products: TestProduct[], oldLabel: string, newLabel: str
     return products.map((p) => (isSameCategory(p.category, oldLabel) ? { ...p, category: newLabel } : p));
 }
 
-function renameFormulaElements(formulas: TestFormula[], oldLabel: string, newLabel: string): TestFormula[] {
-    return formulas.map((f) => ({
-        ...f,
-        elements: f.elements.map((el) =>
-            el.category && isSameCategory(el.category, oldLabel) ? { ...el, category: newLabel } : el
-        ),
-    }));
-}
+const renameFormulaElements = renameFormulaCategory<TestElement, TestFormula>;
 
 describe('normalizeCategory', () => {
     it('maps the empty stored category to the default label', () => {
@@ -93,6 +92,7 @@ describe('category rename propagation', () => {
         const formulas: TestFormula[] = [
             {
                 name: 'Menu',
+                mode: 'category',
                 elements: [
                     { name: 'Boisson', category: DEFAULT_CATEGORY },
                     { name: 'Plat', category: 'Plats' },
@@ -102,6 +102,7 @@ describe('category rename propagation', () => {
         expect(renameFormulaElements(formulas, DEFAULT_CATEGORY, 'Chaud')).toEqual([
             {
                 name: 'Menu',
+                mode: 'category',
                 elements: [
                     { name: 'Boisson', category: 'Chaud' },
                     { name: 'Plat', category: 'Plats' },
@@ -111,13 +112,15 @@ describe('category rename propagation', () => {
     });
 
     it('leaves product-mode elements (no category) untouched', () => {
-        const formulas: TestFormula[] = [{ name: 'Menu', elements: [{ name: '' }] }];
+        const formulas: TestFormula[] = [{ name: 'Menu', mode: 'products', elements: [{ name: '' }] }];
         expect(renameFormulaElements(formulas, DEFAULT_CATEGORY, 'Chaud')).toEqual(formulas);
     });
 
     it('renames products and formula elements consistently in one pass', () => {
         const products: TestProduct[] = [{ name: 'Café', category: '' }];
-        const formulas: TestFormula[] = [{ name: 'Menu', elements: [{ name: 'Boisson', category: DEFAULT_CATEGORY }] }];
+        const formulas: TestFormula[] = [
+            { name: 'Menu', mode: 'category', elements: [{ name: 'Boisson', category: DEFAULT_CATEGORY }] },
+        ];
 
         const renamedProducts = renameProducts(products, DEFAULT_CATEGORY, 'Chaud');
         const renamedFormulas = renameFormulaElements(formulas, DEFAULT_CATEGORY, 'Chaud');
@@ -126,5 +129,101 @@ describe('category rename propagation', () => {
         expect(renamedFormulas[0].elements[0].category).toBe('Chaud');
         // The formula element category must still resolve to the products' category
         expect(isSameCategory(renamedProducts[0].category, renamedFormulas[0].elements[0].category)).toBe(true);
+    });
+});
+
+describe('applyCategoryDeletionToFormulas', () => {
+    const menu = (elements: TestElement[]): TestFormula => ({ name: 'Menu', mode: 'category', elements });
+
+    it('moves affected elements to the default label, not to an empty string', () => {
+        const result = applyCategoryDeletionToFormulas<TestElement, TestFormula>(
+            [menu([{ name: 'Boisson', category: 'Boissons' }])],
+            'Boissons',
+            true
+        );
+
+        // An empty category is treated as "unset" by the formula editor and would make the
+        // formula permanently invalid.
+        expect(result[0].elements[0].category).toBe(DEFAULT_CATEGORY);
+        expect(result[0].elements[0].category).not.toBe('');
+    });
+
+    it('leaves elements of other categories untouched when moving', () => {
+        const result = applyCategoryDeletionToFormulas<TestElement, TestFormula>(
+            [
+                menu([
+                    { name: 'Boisson', category: 'Boissons' },
+                    { name: 'Plat', category: 'Plats' },
+                ]),
+            ],
+            'Boissons',
+            true
+        );
+
+        expect(result[0].elements).toEqual([
+            { name: 'Boisson', category: DEFAULT_CATEGORY },
+            { name: 'Plat', category: 'Plats' },
+        ]);
+    });
+
+    it('drops an element that would duplicate an existing default-category element', () => {
+        const result = applyCategoryDeletionToFormulas<TestElement, TestFormula>(
+            [
+                menu([
+                    { name: 'Divers', category: DEFAULT_CATEGORY },
+                    { name: 'Boisson', category: 'Boissons' },
+                ]),
+            ],
+            'Boissons',
+            true
+        );
+
+        // A formula may only reference a given category once
+        expect(result[0].elements).toEqual([{ name: 'Divers', category: DEFAULT_CATEGORY }]);
+    });
+
+    it('removes affected elements when not moving them', () => {
+        const result = applyCategoryDeletionToFormulas<TestElement, TestFormula>(
+            [
+                menu([
+                    { name: 'Boisson', category: 'Boissons' },
+                    { name: 'Plat', category: 'Plats' },
+                ]),
+            ],
+            'Boissons',
+            false
+        );
+
+        expect(result[0].elements).toEqual([{ name: 'Plat', category: 'Plats' }]);
+    });
+
+    it('drops a category formula left without any element', () => {
+        const result = applyCategoryDeletionToFormulas<TestElement, TestFormula>(
+            [menu([{ name: 'Boisson', category: 'Boissons' }])],
+            'Boissons',
+            false
+        );
+
+        // A category formula with no element can never satisfy the editor validation again
+        expect(result).toEqual([]);
+    });
+
+    it('never touches product-mode formulas', () => {
+        const formulas: TestFormula[] = [{ name: 'Duo', mode: 'products', elements: [{ name: '' }] }];
+
+        expect(applyCategoryDeletionToFormulas<TestElement, TestFormula>(formulas, 'Boissons', false)).toEqual(
+            formulas
+        );
+        expect(applyCategoryDeletionToFormulas<TestElement, TestFormula>(formulas, 'Boissons', true)).toEqual(formulas);
+    });
+
+    it('matches the default category stored as an empty string', () => {
+        const result = applyCategoryDeletionToFormulas<TestElement, TestFormula>(
+            [menu([{ name: 'Divers', category: DEFAULT_CATEGORY }])],
+            '',
+            false
+        );
+
+        expect(result).toEqual([]);
     });
 });
