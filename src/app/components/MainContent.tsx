@@ -11,6 +11,8 @@ import { Category } from './Category';
 import { NumPad } from './NumPad';
 import { OrderBadge } from './OrderBadge';
 import { Total } from './Total';
+import { CUSTOMER_DISPLAY, postMessageToParent } from '../utils/message';
+import { buildIdleDisplay, buildTransactionDisplay } from '../utils/customerDisplay';
 
 interface PendingOrder {
     orderId: number;
@@ -20,8 +22,8 @@ interface PendingOrder {
 }
 
 export const MainContent: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav = false }) => {
-    const { isStateReady } = useConfig();
-    const { openPopup, closePopup } = usePopup();
+    const { isStateReady, parameters, currencies, currencyIndex } = useConfig();
+    const { openPopup, closePopup, isPopupOpen } = usePopup();
     const {
         setOrderId,
         setOrderData,
@@ -33,9 +35,32 @@ export const MainContent: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdmi
         setContextTableId,
         contextTableId,
         checkAndPerformDayReset,
+        products,
+        total,
     } = useData();
     const [showTransverseMode, setShowTransverseMode] = useState(false);
     const [showOrderWithTable, setShowOrderWithTable] = useState(false);
+
+    // Send display to the customer-facing backscreen:
+    // - App not ready: shop name + "Fermé"
+    // - Products added and no popup open: last product + total
+    // - Popup open (payment): the payment flow handles the display via usePay
+    // - No products and app ready: shop name only
+    useEffect(() => {
+        if (!isStateReady) {
+            postMessageToParent(CUSTOMER_DISPLAY, buildIdleDisplay(parameters.shop.name, true));
+            return;
+        }
+        if (isPopupOpen) return; // Payment flow manages the display
+        if (products.current.length > 0) {
+            postMessageToParent(
+                CUSTOMER_DISPLAY,
+                buildTransactionDisplay(products.current, total, currencies[currencyIndex])
+            );
+        } else {
+            postMessageToParent(CUSTOMER_DISPLAY, buildIdleDisplay(parameters.shop.name, false));
+        }
+    }, [isStateReady, isPopupOpen, parameters.shop.name, products, total, currencies, currencyIndex]);
 
     // Listen for ORDER_ID messages from parent (kitchen iframe)
     useEffect(() => {

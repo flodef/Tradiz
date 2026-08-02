@@ -22,7 +22,7 @@ import {
 import { Currency, Customer, InventoryItem, SERVICE_TYPE_LABELS, ServiceType, Transaction } from '../utils/interfaces';
 import { CLOSE, CUSTOMER_DISPLAY, postMessageToParent, REFRESH } from '../utils/message';
 import { printBalanceStatement, printReceipt } from '../utils/posPrinter';
-import { buildCustomerDisplay } from '../utils/customerDisplay';
+import { buildCustomerDisplay, buildPaymentDisplay } from '../utils/customerDisplay';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
 import { useData } from './useData';
@@ -430,6 +430,12 @@ export const usePay = () => {
 
             const paymentType = option.split(SEPARATOR)[0].split(ARROW)[0].split(CATEGORY_SEPARATOR)[0].trim();
 
+            // Notify the customer-facing display about the payment type
+            postMessageToParent(
+                CUSTOMER_DISPLAY,
+                buildPaymentDisplay(paymentType, getCurrentTotal(), currencies[currencyIndex])
+            );
+
             switch (paymentType) {
                 case Crypto.Solana:
                 case Crypto.June:
@@ -609,6 +615,12 @@ export const usePay = () => {
     const selectPaymentForPartial = useCallback(
         async (paymentMethod: string) => {
             if (!orderId || selectedOrderItems.length === 0) return;
+
+            // Notify the customer-facing display about the payment type
+            postMessageToParent(
+                CUSTOMER_DISPLAY,
+                buildPaymentDisplay(paymentMethod, partialPaymentAmount, currencies[currencyIndex])
+            );
 
             const showSuccess = (result: { success: boolean; message?: string }) => {
                 closePopup();

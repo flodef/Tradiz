@@ -1,4 +1,4 @@
-import { Currency } from './interfaces';
+import { Currency, Product } from './interfaces';
 
 export interface CustomerDisplayPayload {
     line1: string;
@@ -20,6 +20,10 @@ function formatLine(label: string, value: string): string {
     return `${trimmedLabel}${' '.repeat(padding)}${value}`.slice(0, DISPLAY_WIDTH);
 }
 
+function padLine(text: string): string {
+    return text.slice(0, DISPLAY_WIDTH).padEnd(DISPLAY_WIDTH, ' ');
+}
+
 export function buildCustomerDisplay(
     total: number,
     cashAmount: number,
@@ -32,5 +36,48 @@ export function buildCustomerDisplay(
     return {
         line1: formatLine('TOTAL', totalStr),
         line2: formatLine('RENDU', changeStr),
+    };
+}
+
+// Idle display: shop name across 2 lines of 20 chars (40 total), or "Fermé" if closed.
+export function buildIdleDisplay(shopName: string, isClosed: boolean): CustomerDisplayPayload {
+    if (isClosed) {
+        return { line1: padLine(''), line2: padLine('Fermé') };
+    }
+    const name = shopName.slice(0, DISPLAY_WIDTH * 2);
+    return {
+        line1: padLine(name.slice(0, DISPLAY_WIDTH)),
+        line2: padLine(name.slice(DISPLAY_WIDTH)),
+    };
+}
+
+// Transaction display: last product name on line1, total on line2.
+export function buildTransactionDisplay(
+    products: Product[],
+    total: number,
+    currency: Currency
+): CustomerDisplayPayload {
+    const lastProduct = products.at(-1);
+    const productLabel = lastProduct?.label ?? '';
+    const totalStr = formatAmount(total, currency);
+    return {
+        line1: padLine(productLabel),
+        line2: formatLine('TOTAL', totalStr),
+    };
+}
+
+// Payment display: shows a payment-specific message.
+export function buildPaymentDisplay(paymentType: string, total: number, currency: Currency): CustomerDisplayPayload {
+    const totalStr = formatAmount(total, currency);
+    const messages: Record<string, string> = {
+        Espèces: 'Reglement',
+        CB: 'Inserez votre CB',
+        'Carte bancaire': 'Inserez votre CB',
+        Virement: 'Virement',
+    };
+    const msg = messages[paymentType] ?? `Paiement ${paymentType}`;
+    return {
+        line1: padLine(msg),
+        line2: formatLine('TOTAL', totalStr),
     };
 }
