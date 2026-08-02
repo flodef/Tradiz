@@ -93,6 +93,7 @@ const SortableFormula = memo(function SortableFormula({
     onModeChange,
     onDelete,
     hasElements,
+    nameInputRef,
 }: {
     formula: InternalFormula;
     isReadOnly: boolean;
@@ -105,6 +106,7 @@ const SortableFormula = memo(function SortableFormula({
     onModeChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
     onDelete: () => void;
     hasElements: boolean;
+    nameInputRef?: (el: HTMLInputElement | null) => void;
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: formula._id,
@@ -141,6 +143,7 @@ const SortableFormula = memo(function SortableFormula({
                         isNameField
                         maxLength={50}
                         validation={(value) => value.toString().trim().length > 0}
+                        ref={nameInputRef}
                     />
                 </div>
                 {!isReadOnly && (
@@ -322,6 +325,8 @@ export default function FormulasConfig({
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
     const selfUpdateRef = useRef(false);
     const { openFullscreenPopup } = usePopup();
+    const formulaNameInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
+    const focusAfterDeleteRef = useRef<number | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -396,14 +401,13 @@ export default function FormulasConfig({
     const handleAddFormula = () => {
         setFormulas((prev) => {
             const mode = (categories.length > 0 ? 'category' : 'products') as 'category' | 'products';
-            const elements = mode === 'products' ? [{ name: '', products: [''] }] : [];
             const updated = [
                 ...prev,
                 {
                     name: '',
                     price: (0).toFixed(decimals),
                     mode,
-                    elements,
+                    elements: [],
                     _id: nextIdRef.current++,
                 },
             ];
@@ -415,6 +419,9 @@ export default function FormulasConfig({
     const handleDeleteFormula = (index: number) => {
         setFormulas((prev) => {
             const updated = prev.filter((_, i) => i !== index);
+            if (updated.length > 0) {
+                focusAfterDeleteRef.current = Math.max(0, index - 1);
+            }
             notifyParent(updated);
             return updated;
         });
@@ -622,7 +629,7 @@ export default function FormulasConfig({
                                           mode,
                                           name: '',
                                           price: (0).toFixed(decimals),
-                                          elements: mode === 'products' ? [{ name: '', products: [''] }] : [],
+                                          elements: [],
                                       }
                                     : f
                             );
@@ -636,11 +643,7 @@ export default function FormulasConfig({
         }
 
         setFormulas((prev) => {
-            const updated = prev.map((f, i) =>
-                i === formulaIndex
-                    ? { ...f, mode, elements: mode === 'products' ? [{ name: '', products: [''] }] : [] }
-                    : f
-            );
+            const updated = prev.map((f, i) => (i === formulaIndex ? { ...f, mode, elements: [] } : f));
             notifyParent(updated);
             return updated;
         });
@@ -680,6 +683,18 @@ export default function FormulasConfig({
                                 }
                                 onDelete={() => handleDeleteFormula(formulaIndex)}
                                 hasElements={hasElements(formula)}
+                                nameInputRef={(el) => {
+                                    if (el) {
+                                        formulaNameInputRefs.current.set(formulaIndex, el);
+                                        if (focusAfterDeleteRef.current === formulaIndex) {
+                                            el.focus();
+                                            el.select();
+                                            focusAfterDeleteRef.current = null;
+                                        }
+                                    } else {
+                                        formulaNameInputRefs.current.delete(formulaIndex);
+                                    }
+                                }}
                             >
                                 <div className="space-y-2 pl-2 border-l-2 border-gray-200 dark:border-gray-700">
                                     {formula.mode === 'products' ? (
@@ -791,7 +806,7 @@ export default function FormulasConfig({
                                                     {!isReadOnly && (
                                                         <AdminButton
                                                             variant="add"
-                                                            className="py-1 px-2 text-xs mt-0 w-fit"
+                                                            className="py-1 px-2 text-xs shrink-0 w-fit mt-1"
                                                             onClick={() => handleAddElement(formulaIndex)}
                                                             disabled={formula.elements.length >= categories.length}
                                                         >

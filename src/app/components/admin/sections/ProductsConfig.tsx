@@ -115,6 +115,7 @@ export default function ProductsConfig({
     const nameInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const priceInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const focusPriceIndexRef = useRef<number | null>(null);
+    const focusAfterDeleteRef = useRef<number | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -186,6 +187,9 @@ export default function ProductsConfig({
 
     const handleDeleteProduct = (index: number) => {
         const newProducts = products.filter((_, i) => i !== index);
+        if (newProducts.length > 0) {
+            focusAfterDeleteRef.current = Math.max(0, index - 1);
+        }
         setProducts(newProducts);
         notifyParent(newProducts);
     };
@@ -652,6 +656,11 @@ export default function ProductsConfig({
                                                                             if (lastAddedIndexRef.current === i) {
                                                                                 el.focus();
                                                                                 lastAddedIndexRef.current = null;
+                                                                            }
+                                                                            if (focusAfterDeleteRef.current === i) {
+                                                                                el.focus();
+                                                                                el.select();
+                                                                                focusAfterDeleteRef.current = null;
                                                                             }
                                                                         } else {
                                                                             nameInputRefs.current.delete(i);
