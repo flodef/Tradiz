@@ -1072,15 +1072,25 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         (index: number) => {
             if (!products.current.length || !products.current.at(index)) return;
 
+            const wasSelected = products.current.at(index) === selectedProduct;
             products.current.splice(index, 1).at(0);
 
             if (!products.current.length) {
                 deleteTransaction();
             }
 
-            clearAmount();
+            // Move focus/selection to the previous item (or the item now at the same index)
+            if (wasSelected && products.current.length) {
+                const newIndex = Math.max(0, index - 1);
+                const newSelected = products.current.at(newIndex);
+                setSelectedProduct(newSelected);
+                setAmount(newSelected?.amount ?? 0);
+                setQuantity(newSelected?.amount ? -1 : 0);
+            } else {
+                clearAmount();
+            }
         },
-        [products, clearAmount, deleteTransaction]
+        [products, selectedProduct, clearAmount, deleteTransaction, setSelectedProduct, setAmount, setQuantity]
     );
 
     const removeProduct = useCallback(
