@@ -903,7 +903,7 @@ export const NumPad: FC = () => {
     const sx = s + (canPay || canAddProduct || canAddProvision ? color : 'invisible');
 
     const f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
-    const f1 = f + (hasAmount || total ? color : 'invisible');
+    const f1 = f + (hasAmount ? color : 'invisible');
     const f2 =
         f +
         (hasAmount
