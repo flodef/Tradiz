@@ -1,9 +1,8 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { RowDataPacket } from 'mysql2';
 import { getMainDb, DbConnection } from '../db';
 
-interface ArticleRow extends RowDataPacket {
+interface ArticleRow {
     id: number;
     nom: string;
     prix: number;
@@ -11,13 +10,14 @@ interface ArticleRow extends RowDataPacket {
     options: string | null;
 }
 
-interface FormulaRow extends RowDataPacket {
+interface FormulaRow {
     fid: number;
     fnom: string;
     fprix: number;
     fordre: number;
     eid: number;
     enom: string;
+    ecategory: string | null;
     eordre: number;
     aid: number;
     anom: string;
@@ -32,30 +32,39 @@ export async function GET(request: Request) {
     try {
         connection = await getMainDb(shopId);
 
+        const isPg = connection.isPostgreSQL;
+
         // Articles with their options definition and category
-        const [articleRows] = await connection.execute(`
-            SELECT a.id, a.nom, a.prix, c.nom AS categorie, a.options
-            FROM article a
-            JOIN categorie c ON c.id = a.categorie
-            ORDER BY c.nom, a.nom
-        `);
+        const queryArticles = isPg
+            ? `SELECT id, name AS nom, price AS prix, category AS categorie, options FROM dc.products ORDER BY category, name`
+            : `SELECT id, name AS nom, price AS prix, category AS categorie, options FROM products ORDER BY category, name`;
+        const [articleRows] = await connection.execute(queryArticles);
 
         // Formula structure: one flat row per formula × element × article
-        const [formulaRows] = await connection.execute(`
-            SELECT
-                f.id AS fid, f.nom AS fnom, f.prix AS fprix, f.ordre AS fordre,
-                ef.id AS eid, ef.nom AS enom, ref.ordre AS eordre,
-                a.id AS aid, a.nom AS anom, a.prix AS aprix, a.options AS aoptions,
-                rea.ordre AS aordre
-            FROM formule f
-            JOIN rel_ef_formule ref ON ref.id_formule = f.id
-            JOIN element_formule ef ON ef.id = ref.id_element_formule
-            JOIN rel_ef_article rea ON rea.id_element_formule = ef.id
-            JOIN article a ON a.id = rea.id_article
-            ORDER BY f.ordre, ref.ordre, rea.ordre
-        `);
-
-        await connection.end();
+        const queryFormulas = isPg
+            ? `SELECT
+                   f.id AS fid, f.name AS fnom, f.price AS fprix, f.sort_order AS fordre,
+                   fe.id AS eid, fe.name AS enom, fe.category AS ecategory, ref.sort_order AS eordre,
+                   p.id AS aid, p.name AS anom, p.price AS aprix, p.options AS aoptions,
+                   rep.sort_order AS aordre
+               FROM dc.formulas f
+               JOIN dc.rel_formula_element_formula ref ON ref.formula_id = f.id
+               JOIN dc.formula_elements fe ON fe.id = ref.formula_element_id
+               JOIN dc.rel_formula_element_product rep ON rep.formula_element_id = fe.id
+               JOIN dc.products p ON p.id = rep.product_id
+               ORDER BY f.sort_order, ref.sort_order, rep.sort_order`
+            : `SELECT
+                   f.id AS fid, f.name AS fnom, f.price AS fprix, f.sort_order AS fordre,
+                   fe.id AS eid, fe.name AS enom, fe.category AS ecategory, ref.sort_order AS eordre,
+                   p.id AS aid, p.name AS anom, p.price AS aprix, p.options AS aoptions,
+                   rep.sort_order AS aordre
+               FROM formulas f
+               JOIN rel_formula_element_formula ref ON ref.formula_id = f.id
+               JOIN formula_elements fe ON fe.id = ref.formula_element_id
+               JOIN rel_formula_element_product rep ON rep.formula_element_id = fe.id
+               JOIN products p ON p.id = rep.product_id
+               ORDER BY f.sort_order, ref.sort_order, rep.sort_order`;
+        const [formulaRows] = await connection.execute(queryFormulas);
 
         // Build formula map preserving element order
         type ElemMap = Map<string, { id: string; nom: string; category: string; articles: object[] }>;
@@ -74,7 +83,12 @@ export async function GET(request: Request) {
             const f = formulaMap.get(fKey)!;
             const eKey = String(row.eid);
             if (!f.elementMap.has(eKey)) {
-                f.elementMap.set(eKey, { id: eKey, nom: String(row.enom), category: String(row.enom), articles: [] });
+                f.elementMap.set(eKey, {
+                    id: eKey,
+                    nom: String(row.enom),
+                    category: row.ecategory ?? '',
+                    articles: [],
+                });
             }
             f.elementMap.get(eKey)!.articles.push({
                 id: Number(row.aid),

@@ -37,7 +37,7 @@ export default function ProductItem({
                         <label className={adminTextStyle}>
                             Prix {currencies[0] ? `(${currencies[0].symbol})` : ''}
                         </label>
-                        <div className="text-sm font-medium">
+                        <div>
                             {product.currencies[0] && product.currencies[0] !== '0' ? (
                                 <PriceInput
                                     value={product.currencies[0]}

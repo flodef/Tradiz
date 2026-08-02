@@ -36,10 +36,10 @@ export default function PriceInput({
     const mainCurrency = currencies.find((c) => c.rate === 1) ?? currencies[0];
     const decimals = mainCurrency?.decimals ?? 2;
     const priceStep = getMainCurrencyStep(currencies);
-    const formattedValue = parseFloat(String(value || '0')).toFixed(decimals);
     const symbol = mainCurrency?.symbol ?? '';
 
     if (isReadOnly) {
+        const formattedValue = parseFloat(String(value || '0')).toFixed(decimals);
         return (
             <span className="text-sm text-gray-500">
                 {formattedValue}
@@ -51,7 +51,7 @@ export default function PriceInput({
     return (
         <ValidatedInput
             type="number"
-            value={formattedValue}
+            value={value}
             onChange={onChange}
             placeholder={placeholder ?? (0).toFixed(decimals)}
             min={0}

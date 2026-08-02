@@ -11,6 +11,7 @@ import { usePopup } from '@/app/hooks/usePopup';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { LoadingDot } from '@/app/loading';
 import { DEFAULT_CATEGORY, USE_DIGICARTE } from '@/app/utils/constants';
+import { isSameCategory } from '@/app/utils/category';
 import { SHOP_ID } from '@/app/constants/shop';
 import { Category, InventoryItem } from '@/app/utils/interfaces';
 import { clearLoadDataCache } from '@/app/utils/processData';
@@ -435,8 +436,24 @@ export default function EditMenuPage() {
         setHasFormulasChanges(false);
     }, [originalFormulas]);
 
+    // Persists formulas to the DB. Kept separate from handleFormulasSave so callers
+    // that already own the config update (e.g. handleProductsSave) don't race on setConfig.
+    const saveFormulasToDb = useCallback(async (data: AdminFormula[]) => {
+        if (!SHOP_ID) return;
+        const response = await fetch(`/api/sql/updateFormulas?shop=${SHOP_ID}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            throw new Error(body.error || body.details || 'Failed to save formulas');
+        }
+    }, []);
+
     const handleProductsSave = useCallback(
-        async (data: AdminProduct[], category?: string) => {
+        async (data: AdminProduct[], category?: string, formulasOverride?: AdminFormula[]) => {
+            const formulasToPersist = formulasOverride ?? formulas;
             setIsSavingProducts(true);
             try {
                 const response = await fetch('/api/sql/updateArticles', {
@@ -450,6 +467,13 @@ export default function EditMenuPage() {
                     throw new Error(body.error || 'Failed to save products');
                 }
 
+                // A full replace runs `DELETE FROM products`, and rel_formula_element_product
+                // has ON DELETE CASCADE on product_id — so every formula→product link was just
+                // wiped. Re-save the formulas to rebuild them against the new product rows.
+                if (category === undefined && formulasToPersist.length > 0) {
+                    await saveFormulasToDb(formulasToPersist);
+                }
+
                 setProducts(data);
                 setOriginalProducts(data);
 
@@ -457,7 +481,10 @@ export default function EditMenuPage() {
                     parameters: { ...parameters, lastModified: Date.now().toString() },
                     currencies,
                     paymentMethods,
-                    inventory: [...buildInventoryFromAdminProducts(data), ...buildInventoryFromAdminFormulas(formulas)],
+                    inventory: [
+                        ...buildInventoryFromAdminProducts(data),
+                        ...buildInventoryFromAdminFormulas(formulasToPersist),
+                    ],
                     discounts,
                     colors,
                     printers,
@@ -470,7 +497,7 @@ export default function EditMenuPage() {
                 console.error("Erreur lors de l'enregistrement:", error);
                 const msg = error instanceof Error ? error.message : "Erreur lors de l'enregistrement des produits.";
                 openFullscreenPopup(`${msg}\nVoulez-vous réessayer ?`, ['Réessayer', 'Annuler'], (index) => {
-                    if (index === 0) handleProductsSave(data, category);
+                    if (index === 0) handleProductsSave(data, category, formulasOverride);
                 });
             } finally {
                 setIsSavingProducts(false);
@@ -488,6 +515,7 @@ export default function EditMenuPage() {
             customers,
             users,
             formulas,
+            saveFormulasToDb,
         ]
     );
 
@@ -500,17 +528,7 @@ export default function EditMenuPage() {
 
             setIsSavingFormulas(true);
             try {
-                const response = await fetch(`/api/sql/updateFormulas?shop=${SHOP_ID}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data),
-                });
-
-                if (!response.ok) {
-                    const errorBody = await response.json().catch(() => ({}));
-                    console.error('Formula save failed:', errorBody);
-                    throw new Error(errorBody.error || errorBody.details || 'Failed to save formulas');
-                }
+                await saveFormulasToDb(data);
 
                 setOriginalFormulas(data);
                 setHasFormulasChanges(false);
@@ -536,74 +554,63 @@ export default function EditMenuPage() {
                 setIsSavingFormulas(false);
             }
         },
-        [parameters, currencies, paymentMethods, products, discounts, colors, printers, customers, users, setConfig]
+        [
+            parameters,
+            currencies,
+            paymentMethods,
+            products,
+            discounts,
+            colors,
+            printers,
+            customers,
+            users,
+            setConfig,
+            saveFormulasToDb,
+        ]
     );
 
     // Category rename: update all products and formula elements with the old category name
     const handleCategoryRename = useCallback(
         (oldLabel: string, newLabel: string) => {
             const trimmedNewLabel = newLabel.trim();
-            const trimmedOldLabel = oldLabel.trim();
-            console.log('Category rename:', { oldLabel, newLabel, trimmedOldLabel, trimmedNewLabel, DEFAULT_CATEGORY });
-            // Update products and save immediately
-            const updated = products.map((p) => {
-                const productCategory = (p.category || '').trim();
-                // Match by exact string comparison
-                // Special case: default category maps to empty string in products
-                const oldKey = trimmedOldLabel === DEFAULT_CATEGORY ? '' : trimmedOldLabel;
-                // Also match if old label is DEFAULT_CATEGORY and product has no category
-                if (productCategory === oldKey || (trimmedOldLabel === DEFAULT_CATEGORY && !p.category)) {
-                    return { ...p, category: trimmedNewLabel };
-                }
+            if (!trimmedNewLabel || isSameCategory(oldLabel, trimmedNewLabel)) return;
 
-                return p;
-            });
-            setProducts(updated);
-            setOriginalProducts(updated);
-            // Pass undefined to do a full DB replace (delete all, insert all) to avoid duplicates
-            handleProductsSave(updated, undefined);
+            // Products store the default category as an empty string while the UI (and
+            // formula elements) reference it by its label, so matching goes through
+            // isSameCategory rather than a raw string comparison.
+            const updatedProducts = products.map((p) =>
+                isSameCategory(p.category, oldLabel) ? { ...p, category: trimmedNewLabel } : p
+            );
 
-            // Update formula elements that reference the old category name
-            const oldKey = trimmedOldLabel === DEFAULT_CATEGORY ? '' : trimmedOldLabel;
+            // Formula elements reference categories by label; rename them too.
             const updatedFormulas = formulas.map((f) => ({
                 ...f,
-                elements: f.elements.map((el) => {
-                    const elCat = (el.category || '').trim();
-                    if (elCat === oldKey || (trimmedOldLabel === DEFAULT_CATEGORY && !el.category)) {
-                        return { ...el, category: trimmedNewLabel };
-                    }
-                    return el;
-                }),
+                elements: f.elements.map((el) =>
+                    el.category && isSameCategory(el.category, oldLabel) ? { ...el, category: trimmedNewLabel } : el
+                ),
             }));
-            const formulasChanged = JSON.stringify(updatedFormulas) !== JSON.stringify(formulas);
-            if (formulasChanged) {
-                setFormulas(updatedFormulas);
-                setOriginalFormulas(updatedFormulas);
-                setHasFormulasChanges(false);
-                // Save formulas to DB directly (avoid handleFormulasSave to prevent
-                // stale products closure and setConfig race condition with handleProductsSave)
-                if (SHOP_ID) {
-                    fetch(`/api/sql/updateFormulas?shop=${SHOP_ID}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(updatedFormulas),
-                    }).catch((err) => console.error('Failed to save formulas during category rename:', err));
-                }
-            }
+
+            setProducts(updatedProducts);
+            setOriginalProducts(updatedProducts);
+            setFormulas(updatedFormulas);
+            setOriginalFormulas(updatedFormulas);
+            setHasFormulasChanges(false);
+
+            // Full replace (category === undefined) so renamed rows can't be left behind
+            // as duplicates. handleProductsSave re-saves the formulas afterwards, which
+            // both persists the renamed element categories and rebuilds the
+            // formula→product links that the product DELETE cascaded away.
+            handleProductsSave(updatedProducts, undefined, updatedFormulas);
         },
-        [products, handleProductsSave, formulas]
+        [products, formulas, handleProductsSave]
     );
 
     // Category delete: either remove products or move them to empty category, then save
     const handleDeleteCategoryProducts = useCallback(
         (categoryLabel: string, moveToEmpty: boolean) => {
-            const key = categoryLabel === DEFAULT_CATEGORY ? '' : categoryLabel.trim();
-            let updated;
-            if (moveToEmpty) {
-                updated = products.map((p) => ((p.category || '').trim() === key ? { ...p, category: '' } : p));
-            } else {
-                updated = products.filter((p) => (p.category || '').trim() !== key);
-            }
+            const updated = moveToEmpty
+                ? products.map((p) => (isSameCategory(p.category, categoryLabel) ? { ...p, category: '' } : p))
+                : products.filter((p) => !isSameCategory(p.category, categoryLabel));
             setProducts(updated);
             setOriginalProducts(updated);
             handleProductsSave(updated, undefined);
@@ -614,9 +621,8 @@ export default function EditMenuPage() {
     // Category VAT change: apply new VAT to all products in the category and save to DB
     const handleCategoryVatChange = useCallback(
         (categoryLabel: string, vat: number) => {
-            const key = categoryLabel === DEFAULT_CATEGORY ? '' : categoryLabel.trim();
             setProducts((prev) => {
-                const updated = prev.map((p) => ((p.category || '').trim() === key ? { ...p, vat } : p));
+                const updated = prev.map((p) => (isSameCategory(p.category, categoryLabel) ? { ...p, vat } : p));
                 // Save immediately with full DB replace to avoid duplicates
                 handleProductsSave(updated, undefined);
                 return updated;
@@ -629,10 +635,10 @@ export default function EditMenuPage() {
     const handleCategoryReorder = useCallback(
         (orderedLabels: string[]) => {
             setProducts((prev) => {
-                const labelToKey = (l: string) => (l === DEFAULT_CATEGORY ? '' : l);
                 const sorted = [
-                    ...orderedLabels.flatMap((label) => prev.filter((p) => p.category === labelToKey(label))),
-                    ...prev.filter((p) => !orderedLabels.map(labelToKey).includes(p.category)),
+                    ...orderedLabels.flatMap((label) => prev.filter((p) => isSameCategory(p.category, label))),
+                    // Anything not covered by the new order keeps its relative position at the end
+                    ...prev.filter((p) => !orderedLabels.some((label) => isSameCategory(p.category, label))),
                 ];
                 // Save immediately with full DB replace to avoid duplicates
                 handleProductsSave(sorted, undefined);

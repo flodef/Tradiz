@@ -20,6 +20,7 @@ import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
 import { adminHeaderStyle, DEFAULT_CATEGORY } from '@/app/utils/constants';
+import { isSameCategory } from '@/app/utils/category';
 
 // Internal category with a stable _id for React keys and originalLabel for rename tracking
 interface InternalCategory extends Category {
@@ -246,7 +247,7 @@ export default function CategoriesConfig({
         // Clear pending renames whose new label has propagated into the config.
         if (renamingRef.current.size > 0) {
             for (const [id, newLabel] of renamingRef.current) {
-                if (incoming.some((c) => c.label === newLabel)) {
+                if (incoming.some((c) => isSameCategory(c.label, newLabel))) {
                     renamingRef.current.delete(id);
                 }
             }
@@ -327,7 +328,9 @@ export default function CategoriesConfig({
             const cat = categories.find((c) => c._id === id);
             if (!cat || !cat._originalLabel || cat._originalLabel === cat.label) return;
             const oldLabel = cat._originalLabel;
-            const newLabel = cat.label.trim();
+            // Apply the same normalization ValidatedInput performs on blur, so the label
+            // written to the products matches the one rendered back from the config.
+            const newLabel = cat.label.toFirstUpperCase();
 
             // If new label is empty, treat as delete (move to the default category)
             if (!newLabel) {
@@ -336,7 +339,7 @@ export default function CategoriesConfig({
                     setCategories((p) => p.map((c) => (c._id === id ? { ...c, label: oldLabel } : c)));
                     return;
                 }
-                const hasProducts = productCategories?.some((p) => p.category === oldLabel);
+                const hasProducts = productCategories?.some((p) => isSameCategory(p.category, oldLabel));
                 if (hasProducts) {
                     openFullscreenPopup(
                         `Déplacer les produits de "${oldLabel}" vers "${DEFAULT_CATEGORY}" ?`,
@@ -357,10 +360,12 @@ export default function CategoriesConfig({
                 return;
             }
 
-            const hasProducts = productCategories?.some((p) => p.category === oldLabel);
+            const hasProducts = productCategories?.some((p) => isSameCategory(p.category, oldLabel));
             if (!hasProducts) {
                 // No products — just update the label silently
-                setCategories((p) => p.map((c) => (c._id === id ? { ...c, _originalLabel: newLabel } : c)));
+                setCategories((p) =>
+                    p.map((c) => (c._id === id ? { ...c, label: newLabel, _originalLabel: newLabel } : c))
+                );
                 return;
             }
             openFullscreenPopup(
@@ -371,8 +376,10 @@ export default function CategoriesConfig({
                         // Track the pending rename; the sync effect clears it once the
                         // parent config reflects the new label (deterministic, no timers).
                         renamingRef.current.set(id, newLabel);
-                        // Update _originalLabel immediately
-                        setCategories((p) => p.map((c) => (c._id === id ? { ...c, _originalLabel: newLabel } : c)));
+                        // Show the normalized label immediately
+                        setCategories((p) =>
+                            p.map((c) => (c._id === id ? { ...c, label: newLabel, _originalLabel: newLabel } : c))
+                        );
                         // Then call the parent to update products
                         onRenameCategory?.(oldLabel, newLabel);
                     } else {
