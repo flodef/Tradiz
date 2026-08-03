@@ -168,8 +168,6 @@ function loadEnv() {
     }
 }
 
-loadEnv();
-
 const PORT = 3001;
 const DEV_URL = `http://localhost:${PORT}`;
 
@@ -186,15 +184,21 @@ function startServer() {
     const standaloneDir = path.join(process.resourcesPath, 'standalone');
     const serverPath = path.join(standaloneDir, 'server.js');
 
+    if (!fs.existsSync(serverPath)) {
+        return Promise.reject(new Error(`Server file not found: ${serverPath}`));
+    }
+
     process.chdir(standaloneDir);
     process.env.NODE_ENV = 'production';
+
+    console.log(`Starting standalone server from: ${standaloneDir}`);
 
     return new Promise((resolve, reject) => {
         try {
             // The standalone server bundle starts listening immediately.
             require(serverPath);
             // Give the server a moment to bind before loading the UI.
-            setTimeout(resolve, 1500);
+            setTimeout(resolve, 2000);
         } catch (err) {
             reject(err);
         }
@@ -343,14 +347,21 @@ function createMiniWindow() {
 }
 
 app.whenReady().then(async () => {
+    loadEnv();
+
     try {
         await startServer();
-        createMainWindow();
-        initAutoUpdater();
-        initDisplay();
     } catch (err) {
         console.error('Failed to start server:', err);
+        dialog.showErrorBox(
+            'Erreur de démarrage Tradiz',
+            `Le serveur n'a pas pu démarrer.\n\nErreur: ${err.message}\n\nStandalone dir: ${path.join(process.resourcesPath || 'N/A', 'standalone')}`
+        );
     }
+
+    createMainWindow();
+    initAutoUpdater();
+    initDisplay();
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
