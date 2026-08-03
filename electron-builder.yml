@@ -11,6 +11,24 @@ directories:
 files:
     - electron/**/*
     - package.json
+    # Only include node_modules needed by the Electron main process.
+    # The Next.js standalone server bundles its own dependencies separately.
+    - node_modules/electron-updater/**/*
+    - node_modules/builder-util-runtime/**/*
+    - node_modules/lazy-val/**/*
+    - node_modules/js-yaml/**/*
+    - node_modules/argparse/**/*
+    - node_modules/sax/**/*
+    - node_modules/semver/**/*
+    - node_modules/tiny-typed-emitter/**/*
+    - node_modules/fs-extra/**/*
+    - node_modules/jsonfile/**/*
+    - node_modules/universalify/**/*
+    - node_modules/graceful-fs/**/*
+    - node_modules/debug/**/*
+    - node_modules/serialport/**/*
+    - node_modules/@serialport/**/*
+    - '!node_modules/**'
     - '!src'
     - '!__tests__'
     - '!scripts'
