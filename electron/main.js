@@ -1,6 +1,167 @@
 const { app, BrowserWindow, ipcMain, screen, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
+const fs = require('fs');
+
+// --- Customer display (serial LCD 2x20) ---
+let displayPort = null;
+let displayReconnectTimer = null;
+
+// ESC/POS commands for customer displays
+const DISPLAY_CMD = {
+    INIT: Buffer.from([0x1b, 0x40]), // ESC @ — initialize / clear screen
+    LINE2: Buffer.from([0x1b, 0x4a, 0x02]), // ESC J 2 — move cursor to line 2 (some displays)
+    CR: Buffer.from([0x0d]), // carriage return
+    LF: Buffer.from([0x0a]), // line feed
+};
+
+async function findDisplayPort() {
+    let SerialPort;
+    try {
+        SerialPort = require('serialport');
+    } catch {
+        console.log('SerialPort module not available, customer display disabled');
+        return null;
+    }
+
+    // If a specific port is configured, use it directly
+    const configuredPort = process.env.TRADIZ_DISPLAY_PORT;
+    if (configuredPort) {
+        try {
+            const port = new SerialPort({
+                path: configuredPort,
+                baudRate: parseInt(process.env.TRADIZ_DISPLAY_BAUDRATE || '9600', 10),
+                autoOpen: false,
+            });
+            await new Promise((resolve, reject) => {
+                port.open((err) => (err ? reject(err) : resolve()));
+            });
+            console.log(`Customer display opened on ${configuredPort}`);
+            return port;
+        } catch (err) {
+            console.log(`Could not open configured display port ${configuredPort}: ${err.message}`);
+            return null;
+        }
+    }
+
+    // Auto-detect: look for common POS display vendor IDs
+    try {
+        const ports = await SerialPort.list();
+        // Common POS customer display patterns: USB serial adapters, COM ports with "Prolific", "FTDI", "Silicon Labs"
+        const displayCandidates = ports.filter((p) => {
+            const vendorId = (p.vendorId || '').toLowerCase();
+            const manufacturer = (p.manufacturer || '').toLowerCase();
+            // Common USB-to-serial chips used in POS displays
+            return (
+                vendorId === '067b' || // Prolific
+                vendorId === '0403' || // FTDI
+                vendorId === '10c4' || // Silicon Labs CP210x
+                vendorId === '1a86' || // CH340
+                manufacturer.includes('prolific') ||
+                manufacturer.includes('ftdi') ||
+                manufacturer.includes('silicon labs') ||
+                manufacturer.includes('ch340')
+            );
+        });
+
+        for (const candidate of displayCandidates) {
+            try {
+                const port = new SerialPort({
+                    path: candidate.path,
+                    baudRate: 9600,
+                    autoOpen: false,
+                });
+                await new Promise((resolve, reject) => {
+                    port.open((err) => (err ? reject(err) : resolve()));
+                });
+                console.log(`Customer display auto-detected on ${candidate.path}`);
+                return port;
+            } catch {
+                // try next candidate
+            }
+        }
+    } catch (err) {
+        console.log(`Serial port listing failed: ${err.message}`);
+    }
+
+    return null;
+}
+
+function writeToDisplay(line1, line2) {
+    if (!displayPort || !displayPort.isOpen) return;
+
+    // Clear screen and home cursor
+    displayPort.write(DISPLAY_CMD.INIT, (err) => {
+        if (err) console.error('Display write error (init):', err.message);
+    });
+
+    // Write line 1 (padded to 20 chars)
+    displayPort.write(line1.slice(0, 20).padEnd(20, ' '), (err) => {
+        if (err) console.error('Display write error (line1):', err.message);
+    });
+
+    // Move to line 2 — CR + LF works on most 2-line displays
+    displayPort.write(Buffer.from([0x0d, 0x0a]), (err) => {
+        if (err) console.error('Display write error (line feed):', err.message);
+    });
+
+    // Write line 2 (padded to 20 chars)
+    displayPort.write(line2.slice(0, 20).padEnd(20, ' '), (err) => {
+        if (err) console.error('Display write error (line2):', err.message);
+    });
+}
+
+async function initDisplay() {
+    displayPort = await findDisplayPort();
+    if (displayPort) {
+        displayPort.on('error', (err) => {
+            console.error('Display port error:', err.message);
+            displayPort = null;
+        });
+        displayPort.on('close', () => {
+            console.log('Display port closed, will retry in 5s');
+            displayPort = null;
+            if (displayReconnectTimer) clearTimeout(displayReconnectTimer);
+            displayReconnectTimer = setTimeout(initDisplay, 5000);
+        });
+    } else {
+        // No display found, retry periodically
+        if (displayReconnectTimer) clearTimeout(displayReconnectTimer);
+        displayReconnectTimer = setTimeout(initDisplay, 10000);
+    }
+}
+
+// Load .env.local from the app directory (development) or from the user data
+// directory (production, next to the executable).
+function loadEnv() {
+    const envPaths = [path.join(process.cwd(), '.env.local'), path.join(app.getPath('userData'), '.env.local')];
+    if (!app.isPackaged) {
+        envPaths.unshift(path.join(__dirname, '..', '.env.local'));
+    }
+    for (const envPath of envPaths) {
+        if (fs.existsSync(envPath)) {
+            const content = fs.readFileSync(envPath, 'utf8');
+            for (const line of content.split('\n')) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('#')) continue;
+                const eqIndex = trimmed.indexOf('=');
+                if (eqIndex === -1) continue;
+                const key = trimmed.slice(0, eqIndex).trim();
+                const value = trimmed
+                    .slice(eqIndex + 1)
+                    .trim()
+                    .replace(/^["']|["']$/g, '');
+                if (!process.env[key]) {
+                    process.env[key] = value;
+                }
+            }
+            console.log(`Loaded env from: ${envPath}`);
+            break;
+        }
+    }
+}
+
+loadEnv();
 
 const PORT = 3001;
 const DEV_URL = `http://localhost:${PORT}`;
@@ -110,6 +271,8 @@ function initAutoUpdater() {
 }
 
 function createMainWindow() {
+    const fullscreen = process.env.TRADIZ_FULLSCREEN !== 'false';
+
     mainWindow = new BrowserWindow({
         width: 1400,
         height: 900,
@@ -117,6 +280,7 @@ function createMainWindow() {
         minHeight: 700,
         title: 'Tradiz',
         icon: path.join(__dirname, '..', 'public', 'favicon.ico'),
+        fullscreen: fullscreen,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -176,6 +340,7 @@ app.whenReady().then(async () => {
         await startServer();
         createMainWindow();
         initAutoUpdater();
+        initDisplay();
     } catch (err) {
         console.error('Failed to start server:', err);
     }
@@ -206,6 +371,12 @@ ipcMain.on('close-mini-display', () => {
 ipcMain.on('send-to-mini', (_event, data) => {
     if (miniWindow && !miniWindow.isDestroyed()) {
         miniWindow.webContents.send('mini-message', data);
+    }
+});
+
+ipcMain.on('customer-display', (_event, payload) => {
+    if (payload && payload.line1 !== undefined && payload.line2 !== undefined) {
+        writeToDisplay(payload.line1, payload.line2);
     }
 });
 

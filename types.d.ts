@@ -11,6 +11,7 @@ interface ElectronAPI {
     closeMiniDisplay: () => void;
     sendToMini: (data: unknown) => void;
     onMiniMessage: (callback: (data: unknown) => void) => () => void;
+    sendCustomerDisplay: (payload: { line1: string; line2: string }) => void;
 }
 
 declare global {

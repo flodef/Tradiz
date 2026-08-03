@@ -39,9 +39,16 @@ jobs:
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Upload installer artifact
+            - name: Upload 64-bit installer
               if: github.event_name != 'release'
               uses: actions/upload-artifact@v4
               with:
-                  name: tradiz-windows-installer
-                  path: dist/*.exe
+                  name: tradiz-windows-installer-x64
+                  path: dist/*-win.exe
+
+            - name: Upload 32-bit installer
+              if: github.event_name != 'release'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: tradiz-windows-installer-ia32
+                  path: dist/*-win-ia32.exe

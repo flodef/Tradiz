@@ -10,4 +10,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.on('mini-message', handler);
         return () => ipcRenderer.removeListener('mini-message', handler);
     },
+    sendCustomerDisplay: (payload) => ipcRenderer.send('customer-display', payload),
 });

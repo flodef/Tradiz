@@ -16,55 +16,48 @@ Le projet étant open source, il est possible de le cloner et de l'utiliser pour
 
 ## Création des données
 
-> **🆕 Migration PostgreSQL disponible !**  
-> Vous pouvez maintenant migrer vos données vers une base PostgreSQL (Neon) pour de meilleures performances.  
-> Consultez le guide rapide : [`scripts/QUICK_START.md`](scripts/QUICK_START.md)
+Les données de l'application sont stockées dans une base de données PostgreSQL. Consultez le guide rapide pour créer votre base de données : [`scripts/QUICK_START.md`](scripts/QUICK_START.md)
 
-### Importer les données de démonstration
+### Structure de la base de données
 
-Les données nécessaires pour utiliser l'application sont stockées dans un fichier Google Sheets ou une base de données PostgreSQL. Pour Google Sheets, il est nécessaire d'avoir un compte Google.
+Les scripts de création de la base de données sont disponibles dans le répertoire `scripts/` :
 
-Ensuite, il faut importer le fichier de données de démonstration dans son propre Google Drive, en allant sur le lien suivant : [https://docs.google.com/spreadsheets/d/1XW4zcU3maFGeOu8tznoDHiHnd0qj0Fxy_DVq2Vkrcnw/edit?usp=sharing](https://docs.google.com/spreadsheets/d/1XW4zcU3maFGeOu8tznoDHiHnd0qj0Fxy_DVq2Vkrcnw/edit?usp=sharing)
-
-Une fois le fichier ouvert, cliquer sur le menu **Fichier** puis **Créer une copie**.
-
-### Créer son propre fichier de données
+-   [`create-postgres-database.sql`](scripts/create-postgres-database.sql) pour PostgreSQL
+-   [`create-mariadb-database.sql`](scripts/create-mariadb-database.sql) pour MariaDB
 
 #### Catégories
 
-L'onglet **Catégories** contient la liste des catégories de produits, ainsi que les taxes afférentes.
+La table **Catégories** contient la liste des catégories de produits, ainsi que les taxes afférentes.
 
 Afin d'avoir une interface épurée, il est recommandé de créer un maximum de 6 catégories.
 
 #### Monnaies
 
-Par défaut, la seule monnaie disponible est l'Euro. Il est possible d'ajouter d'autres monnaies, en ajoutant une ligne en dessous.
+Par défaut, la seule monnaie disponible est l'Euro. Il est possible d'ajouter d'autres monnaies.
 Il est également possible d'ajouter la même monnaie avec une mercuriale différente (par exemple, pour afficher des prix différents pour les locaux et les touristes).
 
 Enfin, il faut paramètrer le nom de la devise, son symbole, la valeur maximale lors d'un achat ainsi que le nombre de décimales à afficher.
 
 #### Produits
 
-L'onglet **Produits** contient la liste des produits, avec la catégorie associée, sa disponibilité, le nom du produit et son prix.
+La table **Produits** contient la liste des produits, avec la catégorie associée, sa disponibilité, le nom du produit et son prix.
 
-Il est possible d'ajouter des prix différents pour un même produit. Pour cela, il faut avoir au préalable ajouté une autre monnaie (voir chapitre ci-dessus).
+Il est possible d'ajouter des prix différents pour un même produit en configurant plusieurs monnaies.
 
-Il faut ensuite ajouter une nouvelle colonne tout à droite : clic droit dans la colonne puis **Insérer une colonne à droite**. Puis ajouter le nom de la devise en haut de la colonne en la sélectionnant.
-
-Si un produit est inutilisé périodiquement, il est possible de le cacher de l'interface en cochant la colonne **Indisponible**.
+Si un produit est inutilisé périodiquement, il est possible de le cacher de l'interface en le marquant comme indisponible.
 
 #### Paiements
 
-L'onglet **Paiements** contient la liste des moyens de paiements possibles.
+La table **Paiements** contient la liste des moyens de paiements possibles.
 
-Pour les paiements en monnaie numérique nécessitant un QR code, il est nécessaire d'ajouter une adresse publique vers laquelle envoyer le paiement dans la colonne **Adresse**.
-Pour les virements, il est également nécessaire de renseigner un IBAN dans cette colonne.
+Pour les paiements en monnaie numérique nécessitant un QR code, il est nécessaire d'ajouter une adresse publique vers laquelle envoyer le paiement.
+Pour les virements, il est également nécessaire de renseigner un IBAN.
 
-Il est enfin possible de cacher une méthode de paiement en cochant la colonne **Caché**.
+Il est enfin possible de cacher une méthode de paiement.
 
 #### Utilisateurs
 
-L'onglet **Utilisateurs** contient la liste des utilisateurs de l'application. Cela permet de restreindre l'accès à l'application, ainsi que de donner des droits différents à chaque utilisateur en fonction de son rôle : caisse, service ou cuisine.
+La table **Utilisateurs** contient la liste des utilisateurs de l'application. Cela permet de restreindre l'accès à l'application, ainsi que de donner des droits différents à chaque utilisateur en fonction de son rôle : caisse, service ou cuisine.
 
 Chaque utilisateur doit avoir :
 
@@ -74,40 +67,13 @@ Chaque utilisateur doit avoir :
 
 #### Paramètres
 
-L'onglet **Paramètres** contient les différents paramètres de l'application :
+La table **Paramètres** contient les différents paramètres de l'application :
 
 -   **le nom du commerce**
 -   **l'email du commerce** : pour recevoir les demandes d'accès à l'application si vous en restreignez l'accès
 -   **un message de remerciement à afficher après un paiement**
 -   **une mercuriale quadratique à utiliser lors d'un paiement** : la mercuriale quadratique est une fonction mathématique permettant de calculer le prix d'un produit en fonction de la quantité achetée
 -   **la dernière date de mise à jour des données** : se calcule automatiquement, à ne pas modifier
-
-### Partager le fichier de données
-
-#### Donner accès au fichier de données
-
-Une fois le fichier de données créé, il faut le partager afin que l'application puisse y accéder.
-
-Pour cela, cliquer sur le menu **Fichier** puis **Partager** et **Partager avec d'autres**.
-
-Dans le popup qui s'ouvre, cliquer sur **Restreint** sous **Accès général** puis **Tout le monde ayant le lien**.
-
-#### Demander une autorisation d'accès
-
-Afin que l'application puisse accéder au fichier de données, il est nécessaire de demander une autorisation d'accès.
-
-Alternativement, vous pouvez déployer très facilement votre propre application. Dans ce cas-là, passez au chapitre suivant **Création de l'application**
-
-Pour demander une autorisation d'accès, cliquer sur le bouton **Copier le lien** puis envoyer par email
-
--   le lien copié vers le fichier Google Sheet
--   un identifiant de votre choix
-
-à l'adresse suivante : [flo@fims.fi](mailto:flo@fims.fi&subject=Accès%20au%20fichier%20de%20données%20FiMs%20POS).
-
-#### Accéder à l'application
-
-Après traitement de votre demande (environ 1 jour), vous recevrez un mail de confirmation avec l'adresse d'accès. Celle-ci sera : pos.fims.fi/Votre_Identifiant
 
 ## Déploiement de l'application
 
@@ -116,25 +82,6 @@ Le déploiement de l'application permet, entre autres :
 -   de s'affranchir d'une demande d'autorisation d'accès
 -   de choisir son propre domaine / site web
 -   d'être autonome et indépendant
-
-Il sera nécessaire de créer sa propre clé d'accès au fichier de données sur [Google console](https://console.cloud.google.com/)
-
-### Paramètres d'accès au fichier de données
-
-#### Récupération de l'identifiant du fichier
-
-L'identifiant est inclus dans l'adresse web du fichier Google Sheet contenant les données.
-Exemple : dans https://docs.google.com/spreadsheets/d/1XW4zcU3maFGeOu8tznoDHiHnd0qj0Fxy_DVq2Vkrcnw/edit#gid=0, l'identifiant du fichier est **1XW4zcU3maFGeOu8tznoDHiHnd0qj0Fxy_DVq2Vkrcnw** (compris entre `.../d/` et `/edit#gid=...`)
-
-#### Récupération de la clé d'accès au fichier
-
-Aller sur https://console.cloud.google.com/
-
-Dans le menu en haut à gauche, sélectionner le menu **Api & Services** puis sous-menu **Credentials**.
-
-Une fois dans la page **Credentials**, cliquer tout en haut de la page sur **+ Create Credentials** , puis **API key**.
-
-La clé est affichée dans un popup où vous pouvez la copier.
 
 ### Déployer avec Vercel
 
@@ -156,17 +103,15 @@ Afin de paramétrer l'application, il faut accéder au Dashboard en cliquant sur
 
 Une fois dans le Dashboard, cliquer sur le projet puis aller dans les variables d'environnement : menu **Settings**, puis sous-menu **Environment Variables**.
 
-Il y a 2 paramètres à entrer afin d'accéder aux données contenues dans le fichier Google Sheet :
+Il y a 5 paramètres à entrer afin de connecter l'application à votre base de données PostgreSQL :
 
--   **GOOGLE_SPREADSHEET_ID** : l'identifiant pointant vers le fichier
--   **GOOGLE_API_KEY** : la clé permettant l'accès vers le fichier
+-   **PG_HOST** : l'hôte du serveur PostgreSQL
+-   **PG_USER** : l'utilisateur PostgreSQL
+-   **PG_PASSWORD** : le mot de passe PostgreSQL
+-   **PG_DATABASE** : le nom de la base de données
+-   **NEXT_PUBLIC_SHOP_ID** : l'identifiant de votre commerce
 
-Pour ce faire :
-
--   entrer dans le champ **Key** : `GOOGLE_SPREADSHEET_ID` et dans le champ **Value** : _Votre_Identifiant_Fichier_
--   entrer dans le champ **Key** : `GOOGLE_API_KEY` et dans le champ **Value** : _Votre_Clé_Accès_Fichier_
-
-Il existe également d'autres **paramètres optionnels** permettant de personnaliser l'application uniquement si vous utilisez le réseau Solana pour les paiements :
+Il existe également d'autres **paramètres optionnels** permettant de personnaliser l'application :
 
 -   **NEXT_PUBLIC_CLUSTER_ENDPOINT** est l'adresse d'un serveur permettant de gérer les interactions avec le réseau Solana.
 -   **NEXT_PUBLIC_IS_DEV** est un booléen permettant de définir si l'application est en mode développement ou production. Cela permet d'effectuer des tests sans dépenser de SOL. _Par défaut, false. Valeur possible : true ou false._

@@ -21,6 +21,11 @@ export function postMessageToParent(type: string, payload?: unknown) {
 
 // The customer-facing backscreen is driven by the host regardless of the DigiCarte integration:
 // always try to push, and stay silent when there is no host to receive it.
+// In Electron, route through IPC to the main process which drives the serial LCD display.
 export function postCustomerDisplay(payload: CustomerDisplayPayload) {
+    if (typeof window !== 'undefined' && window.electronAPI?.sendCustomerDisplay) {
+        window.electronAPI.sendCustomerDisplay(payload);
+        return;
+    }
     post(CUSTOMER_DISPLAY, payload);
 }

@@ -11,6 +11,9 @@ directories:
 files:
     - electron/**/*
     - package.json
+    - node_modules/electron-updater/**/*
+    - node_modules/serialport/**/*
+    - node_modules/@serialport/**/*
     - '!node_modules'
     - '!src'
     - '!__tests__'
