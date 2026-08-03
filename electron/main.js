@@ -1,7 +1,14 @@
 const { app, BrowserWindow, ipcMain, screen, dialog } = require('electron');
-const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
+
+// electron-updater is optional — the app works without auto-updates.
+let autoUpdater = null;
+try {
+    autoUpdater = require('electron-updater').autoUpdater;
+} catch {
+    console.log('electron-updater not available, auto-updates disabled');
+}
 
 // --- Customer display (serial LCD 2x20) ---
 let displayPort = null;
@@ -225,8 +232,8 @@ function loadWithRetry(window, url, attempts = 30) {
 }
 
 function initAutoUpdater() {
-    // Auto-updater only works in packaged Windows builds.
-    if (isDev || process.platform !== 'win32') return;
+    // Auto-updater only works in packaged Windows builds with electron-updater available.
+    if (!autoUpdater || isDev || process.platform !== 'win32') return;
 
     autoUpdater.on('update-available', (info) => {
         dialog
