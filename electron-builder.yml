@@ -74,4 +74,6 @@ linux:
     target:
         - AppImage
         - deb
+    artifactName: ${productName}-${version}-linux-${arch}.${ext}
     icon: public/icons/icons-512.png
+    category: Office

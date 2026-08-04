@@ -1,6 +1,6 @@
 {
   "name": "tradiz",
-  "version": "1.178.0",
+  "version": "1.180.0",
   "description": "Tradiz cash register and management application",
   "author": "Tradiz",
   "private": true,
@@ -24,7 +24,10 @@
     "electron:dist": "next build && shx rm -rf dist && bun electron/scripts/prepare-standalone.js && electron-builder",
     "electron:dist:win": "next build && shx rm -rf dist && bun electron/scripts/prepare-standalone.js && electron-builder --win",
     "electron:dist:win:ci": "next build && shx rm -rf dist && bun electron/scripts/prepare-standalone.js && electron-builder --win --publish never",
-    "electron:publish:win": "next build && shx rm -rf dist && bun electron/scripts/prepare-standalone.js && electron-builder --win --publish always"
+    "electron:publish:win": "next build && shx rm -rf dist && bun electron/scripts/prepare-standalone.js && electron-builder --win --publish always",
+    "electron:dist:linux": "next build && shx rm -rf dist && bun electron/scripts/prepare-standalone.js && electron-builder --linux",
+    "electron:dist:linux:ci": "next build && shx rm -rf dist && bun electron/scripts/prepare-standalone.js && electron-builder --linux --publish never",
+    "electron:publish:linux": "next build && shx rm -rf dist && bun electron/scripts/prepare-standalone.js && electron-builder --linux --publish always"
   },
   "dependencies": {
     "@dnd-kit/core": "latest",

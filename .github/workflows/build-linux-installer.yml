@@ -1,0 +1,54 @@
+name: Build Linux Installer
+
+on:
+    push:
+        branches: [main]
+    workflow_dispatch:
+    release:
+        types: [published]
+
+permissions:
+    contents: write
+
+jobs:
+    build:
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22.x
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v2
+
+            - name: Install dependencies
+              run: bun install
+
+            - name: Build Linux installer
+              if: github.event_name != 'release'
+              run: bun electron:dist:linux:ci
+
+            - name: Build and publish Linux installer
+              if: github.event_name == 'release'
+              run: bun electron:publish:linux
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Upload AppImage
+              if: github.event_name != 'release'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: tradiz-linux-appimage
+                  path: dist/*.AppImage
+
+            - name: Upload deb
+              if: github.event_name != 'release'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: tradiz-linux-deb
+                  path: dist/*.deb

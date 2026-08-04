@@ -208,6 +208,7 @@ const DEV_URL = `http://localhost:${PORT}`;
 
 let mainWindow;
 let miniWindow;
+let serverProcess = null;
 
 const isDev = !app.isPackaged;
 
@@ -216,36 +217,70 @@ function startServer() {
         return Promise.resolve();
     }
 
-    const standaloneDir = path.join(process.resourcesPath, 'standalone');
-    const serverPath = path.join(standaloneDir, 'server.js');
+    var standaloneDir = path.join(process.resourcesPath, 'standalone');
+    var serverPath = path.join(standaloneDir, 'server.js');
 
     if (!fs.existsSync(serverPath)) {
         return Promise.reject(new Error('Server file not found: ' + serverPath));
     }
 
-    process.chdir(standaloneDir);
     process.env.NODE_ENV = 'production';
     process.env.PORT = String(PORT);
 
-    // Ensure require resolves modules from the standalone directory, not electron/.
-    var standaloneNodeModules = path.join(standaloneDir, 'node_modules');
-    if (fs.existsSync(standaloneNodeModules)) {
-        module.paths.unshift(standaloneNodeModules);
-    }
-
     console.log('Starting standalone server from: ' + standaloneDir);
-    console.log('Standalone node_modules: ' + standaloneNodeModules);
-    console.log('Exists node_modules/next: ' + fs.existsSync(path.join(standaloneNodeModules, 'next')));
+    console.log('Exists node_modules/next: ' + fs.existsSync(path.join(standaloneDir, 'node_modules', 'next')));
+
+    var spawn = require('child_process').spawn;
+    serverProcess = spawn(process.execPath, [serverPath], {
+        cwd: standaloneDir,
+        env: process.env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    serverProcess.stdout.on('data', function (data) {
+        console.log('[server] ' + String(data).trim());
+    });
+
+    serverProcess.stderr.on('data', function (data) {
+        console.error('[server] ' + String(data).trim());
+    });
+
+    serverProcess.on('exit', function (code) {
+        console.log('Server process exited with code ' + code);
+        serverProcess = null;
+    });
 
     return new Promise(function (resolve, reject) {
-        try {
-            // The standalone server bundle starts listening immediately.
-            require(serverPath);
-            // Give the server a moment to bind before loading the UI.
-            setTimeout(resolve, 2000);
-        } catch (err) {
-            reject(err);
-        }
+        // Wait for the server to be ready by checking the port.
+        var http = require('http');
+        var attempts = 0;
+        var maxAttempts = 30;
+        var checkReady = function () {
+            var req = http.get('http://localhost:' + PORT + '/', function () {
+                req.destroy();
+                console.log('Server is ready');
+                resolve();
+            });
+            req.on('error', function () {
+                req.destroy();
+                attempts++;
+                if (attempts >= maxAttempts) {
+                    reject(new Error('Server failed to start within ' + maxAttempts + ' attempts'));
+                } else {
+                    setTimeout(checkReady, 500);
+                }
+            });
+            req.setTimeout(1000, function () {
+                req.destroy();
+                attempts++;
+                if (attempts >= maxAttempts) {
+                    reject(new Error('Server failed to start within ' + maxAttempts + ' attempts'));
+                } else {
+                    setTimeout(checkReady, 500);
+                }
+            });
+        };
+        setTimeout(checkReady, 500);
     });
 }
 
@@ -280,8 +315,8 @@ function loadWithRetry(window, url, attempts = 30) {
 }
 
 function initAutoUpdater() {
-    // Auto-updater only works in packaged Windows builds with electron-updater available.
-    if (!autoUpdater || isDev || process.platform !== 'win32') return;
+    // Auto-updater works in packaged builds with electron-updater available.
+    if (!autoUpdater || isDev) return;
 
     autoUpdater.on('update-available', (info) => {
         dialog
@@ -442,6 +477,10 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+    if (serverProcess) {
+        serverProcess.kill();
+        serverProcess = null;
+    }
     if (process.platform !== 'darwin') {
         app.quit();
     }
