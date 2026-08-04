@@ -220,15 +220,24 @@ function startServer() {
     const serverPath = path.join(standaloneDir, 'server.js');
 
     if (!fs.existsSync(serverPath)) {
-        return Promise.reject(new Error(`Server file not found: ${serverPath}`));
+        return Promise.reject(new Error('Server file not found: ' + serverPath));
     }
 
     process.chdir(standaloneDir);
     process.env.NODE_ENV = 'production';
+    process.env.PORT = String(PORT);
 
-    console.log(`Starting standalone server from: ${standaloneDir}`);
+    // Ensure require resolves modules from the standalone directory, not electron/.
+    var standaloneNodeModules = path.join(standaloneDir, 'node_modules');
+    if (fs.existsSync(standaloneNodeModules)) {
+        module.paths.unshift(standaloneNodeModules);
+    }
 
-    return new Promise((resolve, reject) => {
+    console.log('Starting standalone server from: ' + standaloneDir);
+    console.log('Standalone node_modules: ' + standaloneNodeModules);
+    console.log('Exists node_modules/next: ' + fs.existsSync(path.join(standaloneNodeModules, 'next')));
+
+    return new Promise(function (resolve, reject) {
         try {
             // The standalone server bundle starts listening immediately.
             require(serverPath);
