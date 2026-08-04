@@ -2,6 +2,36 @@ const { app, BrowserWindow, ipcMain, screen, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+// Redirect console output to a log file for debugging on POS hardware.
+const logFilePath = path.join(app.getPath('userData'), 'tradiz.log');
+const logStream = fs.createWriteStream(logFilePath, { flags: 'a' });
+function formatArgs(args) {
+    return args
+        .map(function (a) {
+            if (typeof a === 'object') {
+                try {
+                    return JSON.stringify(a);
+                } catch {
+                    return String(a);
+                }
+            }
+            return String(a);
+        })
+        .join(' ');
+}
+const origLog = console.log;
+const origErr = console.error;
+console.log = function () {
+    var msg = formatArgs(Array.prototype.slice.call(arguments));
+    logStream.write('[INFO] ' + new Date().toISOString() + ' ' + msg + '\n');
+    origLog.apply(console, arguments);
+};
+console.error = function () {
+    var msg = formatArgs(Array.prototype.slice.call(arguments));
+    logStream.write('[ERROR] ' + new Date().toISOString() + ' ' + msg + '\n');
+    origErr.apply(console, arguments);
+};
+
 // electron-updater is optional — the app works without auto-updates.
 let autoUpdater = null;
 try {
@@ -9,6 +39,11 @@ try {
 } catch {
     console.log('electron-updater not available, auto-updates disabled');
 }
+
+// Catch any uncaught errors so they appear in the log file.
+process.on('uncaughtException', function (err) {
+    console.error('Uncaught exception:', err && err.stack ? err.stack : err);
+});
 
 // --- Customer display (serial LCD 2x20) ---
 let displayPort = null;
@@ -292,6 +327,7 @@ function createMainWindow() {
         title: 'Tradiz',
         icon: path.join(__dirname, '..', 'public', 'favicon.ico'),
         fullscreen: fullscreen,
+        show: true,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -299,16 +335,34 @@ function createMainWindow() {
         },
     });
 
+    // Show the window immediately even before content loads.
+    mainWindow.show();
+    mainWindow.focus();
+
     const targetUrl = DEV_URL;
     loadWithRetry(mainWindow, targetUrl).catch((err) => {
         console.error('Failed to load application:', err.message);
+        dialog.showErrorBox(
+            'Erreur de chargement Tradiz',
+            `Impossible de charger l'application.\n\nURL: ${targetUrl}\nErreur: ${err.message}\n\nVérifiez que le serveur a bien démarré.`
+        );
     });
+
+    // Open DevTools in dev mode for debugging.
+    if (isDev) {
+        mainWindow.webContents.openDevTools();
+    }
 
     mainWindow.on('closed', () => {
         mainWindow = null;
         if (miniWindow && !miniWindow.isDestroyed()) {
             miniWindow.close();
         }
+    });
+
+    // Log any load errors to a visible dialog in production.
+    mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+        console.error(`Load failed: ${errorCode} ${errorDescription} for ${validatedURL}`);
     });
 }
 
@@ -349,8 +403,14 @@ function createMiniWindow() {
 app.whenReady().then(async () => {
     loadEnv();
 
+    console.log('Tradiz starting...');
+    console.log(`isDev: ${isDev}, isPackaged: ${app.isPackaged}`);
+    console.log(`TRADIZ_FULLSCREEN: ${process.env.TRADIZ_FULLSCREEN}`);
+    console.log(`resourcesPath: ${process.resourcesPath || 'N/A'}`);
+
     try {
         await startServer();
+        console.log('Server started successfully');
     } catch (err) {
         console.error('Failed to start server:', err);
         dialog.showErrorBox(
@@ -359,9 +419,11 @@ app.whenReady().then(async () => {
         );
     }
 
+    console.log('Creating main window...');
     createMainWindow();
     initAutoUpdater();
     initDisplay();
+    console.log('App initialized');
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
