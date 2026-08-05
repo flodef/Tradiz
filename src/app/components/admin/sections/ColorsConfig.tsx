@@ -7,6 +7,8 @@ import DeleteButton from '../DeleteButton';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
 
+const PRESET_THEME_NAMES = ['Défaut', 'Océan', 'Coucher de soleil', 'Lavande', 'Forêt', 'Cerise'];
+
 export default function ColorsConfig({
     config,
     onChange,
@@ -99,7 +101,8 @@ export default function ColorsConfig({
 
     // Generate theme names for all themes
     const getThemeName = (index: number) => {
-        if (index === 0) return themeName || 'Défaut';
+        if (index === 0) return themeName || PRESET_THEME_NAMES[0] || 'Défaut';
+        if (index < PRESET_THEME_NAMES.length) return customThemeNames[index] || PRESET_THEME_NAMES[index];
         return customThemeNames[index] || `Thème ${index + 1}`;
     };
 

@@ -175,15 +175,19 @@ export const createMockPrinter = async () => {
         },
         cut: () => Promise.resolve(),
         execute: () => {
-            console.log('\n=== PRINTER MOCKUP (DEV MODE) ===');
-            console.log('Receipt:');
-            console.log('|' + '='.repeat(MAX_WIDTH + 2) + '|');
+            const now = new Date().toLocaleTimeString('fr-FR');
+            const border = '='.repeat(MAX_WIDTH + 4);
+            console.log('\n');
+            console.log('\x1b[36m' + border + '\x1b[0m');
+            console.log(
+                `\x1b[36m│\x1b[0m \x1b[1mPRINTER MOCKUP ${now}\x1b[0m${' '.repeat(Math.max(0, MAX_WIDTH - 17 - now.length))} \x1b[36m│\x1b[0m`
+            );
+            console.log('\x1b[36m' + border + '\x1b[0m');
             textBuffer.forEach((line) => {
-                console.log('| ' + line.padEnd(MAX_WIDTH) + ' |');
+                console.log('\x1b[36m│\x1b[0m ' + line.padEnd(MAX_WIDTH) + ' \x1b[36m│\x1b[0m');
             });
-            console.log('|' + '='.repeat(MAX_WIDTH + 2) + '|');
-
-            console.log('In dev mode, printer output is shown above instead of printing to a physical device.');
+            console.log('\x1b[36m' + border + '\x1b[0m');
+            console.log(`\x1b[2m(${textBuffer.length} lines — dev mode, no physical printer)\x1b[0m\n`);
 
             return Promise.resolve();
         },

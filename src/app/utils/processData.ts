@@ -250,6 +250,7 @@ const dataNames: { [key: string]: string } = {
 };
 
 export const defaultColors: Color[] = [
+    // Theme 0: Défaut (Orange/Lime — original)
     { label: 'Texte', light: '#d97706', dark: '#facc15' },
     { label: 'Fond début dégradé', light: '#fff7ed', dark: '#65a30d' },
     { label: 'Fond fin dégradé', light: '#fed7aa', dark: '#14532d' },
@@ -257,6 +258,46 @@ export const defaultColors: Color[] = [
     { label: 'Activé', light: '#fdba74', dark: '#84cc16' },
     { label: 'Secondaire', light: '#84cc16', dark: '#fdba74' },
     { label: 'Secondaire activé', light: '#a3e635', dark: '#f97316' },
+    // Theme 1: Océan (Blue/Teal)
+    { label: 'Texte', light: '#0e7490', dark: '#22d3ee' },
+    { label: 'Fond début dégradé', light: '#ecfeff', dark: '#0e7490' },
+    { label: 'Fond fin dégradé', light: '#a5f3fc', dark: '#083344' },
+    { label: 'Popup', light: '#f0f9ff', dark: '#164e63' },
+    { label: 'Activé', light: '#67e8f9', dark: '#06b6d4' },
+    { label: 'Secondaire', light: '#06b6d4', dark: '#67e8f9' },
+    { label: 'Secondaire activé', light: '#22d3ee', dark: '#0891b2' },
+    // Theme 2: Coucher de soleil (Rose/Purple)
+    { label: 'Texte', light: '#c026d3', dark: '#f0abfc' },
+    { label: 'Fond début dégradé', light: '#fdf4ff', dark: '#a21caf' },
+    { label: 'Fond fin dégradé', light: '#f5d0fe', dark: '#4a044e' },
+    { label: 'Popup', light: '#fdf2f8', dark: '#701a75' },
+    { label: 'Activé', light: '#f0abfc', dark: '#e879f9' },
+    { label: 'Secondaire', light: '#e879f9', dark: '#f0abfc' },
+    { label: 'Secondaire activé', light: '#f5d0fe', dark: '#d946ef' },
+    // Theme 3: Lavande (Violet/Indigo)
+    { label: 'Texte', light: '#6d28d9', dark: '#c4b5fd' },
+    { label: 'Fond début dégradé', light: '#f5f3ff', dark: '#5b21b6' },
+    { label: 'Fond fin dégradé', light: '#ddd6fe', dark: '#2e1065' },
+    { label: 'Popup', light: '#f5f3ff', dark: '#4c1d95' },
+    { label: 'Activé', light: '#c4b5fd', dark: '#8b5cf6' },
+    { label: 'Secondaire', light: '#8b5cf6', dark: '#c4b5fd' },
+    { label: 'Secondaire activé', light: '#a78bfa', dark: '#7c3aed' },
+    // Theme 4: Forêt (Green/Emerald)
+    { label: 'Texte', light: '#15803d', dark: '#86efac' },
+    { label: 'Fond début dégradé', light: '#f0fdf4', dark: '#166534' },
+    { label: 'Fond fin dégradé', light: '#bbf7d0', dark: '#052e16' },
+    { label: 'Popup', light: '#f0fdf4', dark: '#14532d' },
+    { label: 'Activé', light: '#86efac', dark: '#22c55e' },
+    { label: 'Secondaire', light: '#22c55e', dark: '#86efac' },
+    { label: 'Secondaire activé', light: '#4ade80', dark: '#16a34a' },
+    // Theme 5: Cerise (Red/Rose)
+    { label: 'Texte', light: '#be123c', dark: '#fb7185' },
+    { label: 'Fond début dégradé', light: '#fff1f2', dark: '#9f1239' },
+    { label: 'Fond fin dégradé', light: '#fecdd3', dark: '#4c0519' },
+    { label: 'Popup', light: '#fff1f2', dark: '#881337' },
+    { label: 'Activé', light: '#fda4af', dark: '#f43f5e' },
+    { label: 'Secondaire', light: '#f43f5e', dark: '#fda4af' },
+    { label: 'Secondaire activé', light: '#fb7185', dark: '#e11d48' },
 ];
 
 export const defaultParameters: Parameters = {

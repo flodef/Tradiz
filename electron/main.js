@@ -292,9 +292,84 @@ const DEV_URL = `http://localhost:${PORT}`;
 
 let mainWindow;
 let miniWindow;
+let splashWindow = null;
 let serverProcess = null;
 
 const isDev = !app.isPackaged;
+
+function createSplashScreen() {
+    splashWindow = new BrowserWindow({
+        width: 480,
+        height: 360,
+        frame: false,
+        resizable: false,
+        minimizable: false,
+        maximizable: false,
+        center: true,
+        show: true,
+        alwaysOnTop: true,
+        skipTaskbar: true,
+        transparent: false,
+        webPreferences: {
+            contextIsolation: true,
+            nodeIntegration: false,
+        },
+    });
+
+    const splashHtml = [
+        '<!DOCTYPE html>',
+        '<html lang="fr">',
+        '<head>',
+        '<meta charset="utf-8">',
+        '<meta name="viewport" content="width=device-width, initial-scale=1">',
+        '<style>',
+        '  * { margin: 0; padding: 0; box-sizing: border-box; }',
+        '  body {',
+        '    display: flex; flex-direction: column; align-items: center; justify-content: center;',
+        '    height: 100vh; width: 100vw; overflow: hidden;',
+        '    background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);',
+        '    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;',
+        '  }',
+        '  .logo {',
+        '    font-size: 48px; font-weight: 800; color: #d97706; letter-spacing: -1px;',
+        '    margin-bottom: 8px;',
+        '  }',
+        '  .subtitle { font-size: 14px; color: #92400e; margin-bottom: 32px; }',
+        '  .spinner {',
+        '    width: 40px; height: 40px;',
+        '    border: 4px solid #fed7aa;',
+        '    border-top-color: #d97706;',
+        '    border-radius: 50%;',
+        '    animation: spin 0.8s linear infinite;',
+        '  }',
+        '  .loading-text { margin-top: 20px; font-size: 13px; color: #92400e; }',
+        '  .version { position: absolute; bottom: 16px; font-size: 11px; color: #c4a484; }',
+        '  @keyframes spin { to { transform: rotate(360deg); } }',
+        '</style>',
+        '</head>',
+        '<body>',
+        '  <div class="logo">Tradiz</div>',
+        '  <div class="subtitle">Caisse &amp; Gestion</div>',
+        '  <div class="spinner"></div>',
+        '  <div class="loading-text">Démarrage en cours…</div>',
+        '  <div class="version">v' + app.getVersion() + '</div>',
+        '</body>',
+        '</html>',
+    ].join('\n');
+
+    splashWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(splashHtml));
+
+    splashWindow.on('closed', function () {
+        splashWindow = null;
+    });
+}
+
+function closeSplashScreen() {
+    if (splashWindow && !splashWindow.isDestroyed()) {
+        splashWindow.close();
+        splashWindow = null;
+    }
+}
 
 function startServer() {
     if (isDev) {
@@ -568,7 +643,7 @@ function createMainWindow() {
         title: 'Tradiz',
         icon: path.join(__dirname, '..', 'public', 'favicon.ico'),
         fullscreen: fullscreen,
-        show: true,
+        show: false,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -576,13 +651,10 @@ function createMainWindow() {
         },
     });
 
-    // Show the window immediately even before content loads.
-    mainWindow.show();
-    mainWindow.focus();
-
     var targetUrl = DEV_URL;
     loadWithRetry(mainWindow, targetUrl).catch(function (err) {
         console.error('Failed to load application:', err.message);
+        closeSplashScreen();
         if (!loadErrorShown) {
             loadErrorShown = true;
             dialog.showErrorBox(
@@ -613,6 +685,47 @@ function createMainWindow() {
         console.error(`Load failed: ${errorCode} ${errorDescription} for ${validatedURL}`);
     });
 
+    // Inject touch-drag-to-scroll for touch screen POS (no mouse, only touch).
+    // Only active on /admin pages where the VirtualKeyboard is used.
+    // Converts touch-drag gestures into native scrolling so users don't need the scrollbar.
+    mainWindow.webContents.on('did-finish-load', function () {
+        mainWindow.webContents
+            .executeJavaScript(
+                '(function () {' +
+                    '  if (window.__tradizTouchScroll) return;' +
+                    '  window.__tradizTouchScroll = true;' +
+                    '  var target = null, startX = 0, startY = 0, startScrollTop = 0, startScrollLeft = 0;' +
+                    '  function isAdmin() {' +
+                    '    return window.location.pathname.indexOf("/admin") !== -1;' +
+                    '  }' +
+                    "  document.addEventListener('touchstart', function (e) {" +
+                    '    if (!isAdmin() || e.touches.length !== 1) { target = null; return; }' +
+                    '    var el = e.target;' +
+                    '    while (el && el !== document.body) {' +
+                    '      var style = getComputedStyle(el);' +
+                    "      if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && el.scrollHeight > el.clientHeight) {" +
+                    '        target = el; break;' +
+                    '      }' +
+                    '      el = el.parentElement;' +
+                    '    }' +
+                    '    if (!target) target = document.scrollingElement || document.documentElement;' +
+                    '    startX = e.touches[0].clientX;' +
+                    '    startY = e.touches[0].clientY;' +
+                    '    startScrollTop = target.scrollTop;' +
+                    '    startScrollLeft = target.scrollLeft;' +
+                    '  }, { passive: true });' +
+                    "  document.addEventListener('touchmove', function (e) {" +
+                    '    if (!target || e.touches.length !== 1) return;' +
+                    '    var dx = e.touches[0].clientX - startX;' +
+                    '    var dy = e.touches[0].clientY - startY;' +
+                    '    target.scrollTop = startScrollTop - dy;' +
+                    '    target.scrollLeft = startScrollLeft - dx;' +
+                    '  }, { passive: true });' +
+                    '})();'
+            )
+            .catch(function () {});
+    });
+
     // Log client-side console messages to the log file for debugging.
     mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
         var levelStr = ['LOG', 'WARN', 'ERROR'][level] || 'LOG';
@@ -621,6 +734,9 @@ function createMainWindow() {
 
     mainWindow.webContents.on('did-finish-load', () => {
         console.log('Page finished loading');
+        mainWindow.show();
+        mainWindow.focus();
+        closeSplashScreen();
     });
 
     mainWindow.webContents.on('render-process-gone', (_event, details) => {
@@ -671,6 +787,9 @@ app.whenReady().then(async () => {
 
     console.log('Tradiz v' + app.getVersion() + ' starting...');
 
+    // Show splash screen immediately so the user sees feedback during server startup.
+    createSplashScreen();
+
     // Launch at OS startup when packaged
     if (app.isPackaged) {
         app.setLoginItemSettings({
@@ -688,6 +807,7 @@ app.whenReady().then(async () => {
         console.log('Server started successfully');
     } catch (err) {
         console.error('Failed to start server:', err);
+        closeSplashScreen();
         dialog.showErrorBox(
             'Erreur de démarrage Tradiz',
             `Le serveur n'a pas pu démarrer.\n\nErreur: ${err.message}\n\nStandalone dir: ${path.join(process.resourcesPath || 'N/A', 'standalone')}`
