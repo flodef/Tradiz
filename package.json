@@ -1,8 +1,8 @@
 {
   "name": "tradiz",
-  "version": "1.180.0",
+  "version": "1.215.0",
   "description": "Tradiz cash register and management application",
-  "author": "Tradiz",
+  "author": "Tradiz <contact@tradiz.fr>",
   "private": true,
   "license": "MIT",
   "main": "electron/main.js",
@@ -55,7 +55,7 @@
     "react": "latest",
     "react-dom": "latest",
     "recharts": "latest",
-    "serialport": "latest",
+    "serialport": "^13.0.0",
     "tailwind-merge": "latest",
     "tailwindcss": "latest",
     "xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz"

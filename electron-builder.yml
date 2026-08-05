@@ -28,6 +28,7 @@ files:
     - node_modules/debug/**/*
     - node_modules/serialport/**/*
     - node_modules/@serialport/**/*
+    - node_modules/node-gyp-build/**/*
     - '!node_modules'
     - '!src'
     - '!__tests__'
@@ -39,10 +40,8 @@ files:
     - '!*.log'
     - '!.env*.local'
 extraResources:
-    - from: .next/standalone
+    - from: electron/standalone-build
       to: standalone
-      filter:
-          - '**/*'
     - from: electron/drivers
       to: drivers
       filter:
@@ -66,6 +65,7 @@ nsis:
     createDesktopShortcut: true
     createStartMenuShortcut: true
     shortcutName: Tradiz
+    differentialPackage: true
 mac:
     target:
         - dmg
@@ -77,3 +77,4 @@ linux:
     artifactName: ${productName}-${version}-linux-${arch}.${ext}
     icon: public/icons/icons-512.png
     category: Office
+    maintainer: Tradiz <contact@tradiz.fr>

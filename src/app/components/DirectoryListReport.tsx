@@ -1,11 +1,13 @@
 'use client';
 
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { twMerge } from 'tailwind-merge';
-import { IconPrinter, IconX } from '@tabler/icons-react';
+import { IconPrinter } from '@tabler/icons-react';
 import { formatFrenchDate } from '@/app/utils/date';
-import { generateEan13Barcode } from '@/app/utils/barcode';
+import { escapeHtml, generateEan13Barcode } from '@/app/utils/barcode';
 import { Shop } from '@/app/contexts/ConfigProvider';
+import AdminButton from './admin/AdminButton';
+import { usePopup } from '../hooks/usePopup';
+import { useIsMobile } from '../utils/mobile';
 
 export interface DirectoryEntry {
     id: number;
@@ -17,28 +19,19 @@ export interface DirectoryListReportProps {
     title: string;
     entries: DirectoryEntry[];
     shop: Shop;
-    onClose: () => void;
     printLabel?: string;
-}
-
-function escapeHtml(value: string): string {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
 }
 
 export const DirectoryListReport: FC<DirectoryListReportProps> = ({
     title,
     entries,
     shop,
-    onClose,
     printLabel = 'Imprimer / PDF',
 }) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const [isReady, setIsReady] = useState(false);
+    const { setPopupHeaderExtra, setPopupWide } = usePopup();
+    const isMobile = useIsMobile();
 
     const rows = useMemo(
         () =>
@@ -62,11 +55,9 @@ export const DirectoryListReport: FC<DirectoryListReportProps> = ({
             .join(', ');
         const bodyRows = rows
             .map(
-                (e, index) => `
+                (e) => `
                 <tr>
-                    <td>${index + 1}</td>
                     <td>${escapeHtml(e.name)}</td>
-                    <td>${escapeHtml(e.reference)}</td>
                     <td class="barcode-cell">${e.barcodeSvg}</td>
                 </tr>`
             )
@@ -97,11 +88,9 @@ export const DirectoryListReport: FC<DirectoryListReportProps> = ({
         th { background: #f0f0f0; font-weight: bold; font-size: 10pt; }
         td { font-size: 10pt; }
         .barcode-cell { text-align: center; padding: 6px; }
-        .barcode-cell svg { max-width: 100%; height: 42px; }
-        .col-index { width: 40px; text-align: center; }
+        .barcode-cell svg { max-width: 100%; height: 56px; }
         .col-name { width: auto; }
-        .col-ref { width: 120px; }
-        .col-barcode { width: 180px; }
+        .col-barcode { width: 200px; }
         .footer { margin-top: 24px; font-size: 9pt; color: #666; text-align: center; }
         @media print {
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -118,14 +107,12 @@ export const DirectoryListReport: FC<DirectoryListReportProps> = ({
     <table>
         <thead>
             <tr>
-                <th class="col-index">N°</th>
                 <th class="col-name">Nom</th>
-                <th class="col-ref">Référence</th>
                 <th class="col-barcode">Code-barres</th>
             </tr>
         </thead>
         <tbody>
-            ${bodyRows || '<tr><td colspan="4" style="text-align:center;">Aucune entrée</td></tr>'}
+            ${bodyRows || '<tr><td colspan="2" style="text-align:center;">Aucune entrée</td></tr>'}
         </tbody>
     </table>
     <div class="footer">Document généré par Tradiz</div>
@@ -151,36 +138,33 @@ export const DirectoryListReport: FC<DirectoryListReportProps> = ({
         win.print();
     }, []);
 
-    const handleClose = useCallback(() => {
-        onClose();
-    }, [onClose]);
-
-    return (
-        <div className="flex flex-col items-stretch w-full max-w-4xl mx-auto p-4">
-            <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-popup-dark dark:text-popup-dark">{title}</h2>
-                <div className="flex gap-2">
-                    <button
-                        onClick={handlePrint}
-                        disabled={!isReady || rows.length === 0}
-                        className={twMerge(
-                            'flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-white',
-                            'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed'
-                        )}
-                    >
+    useEffect(() => {
+        if (!setPopupHeaderExtra) return;
+        setPopupWide?.(true);
+        setPopupHeaderExtra(
+            <AdminButton
+                onClick={handlePrint}
+                disabled={!isReady || rows.length === 0}
+                className={isMobile ? 'px-3 py-1.5 mt-0' : 'px-3 py-1 mt-0'}
+            >
+                {isMobile ? (
+                    <IconPrinter size={24} />
+                ) : (
+                    <>
                         <IconPrinter size={20} />
                         {printLabel}
-                    </button>
-                    <button
-                        onClick={handleClose}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-white bg-gray-500 hover:bg-gray-600 active:bg-gray-700"
-                    >
-                        <IconX size={20} />
-                        Fermer
-                    </button>
-                </div>
-            </div>
+                    </>
+                )}
+            </AdminButton>
+        );
+        return () => {
+            setPopupHeaderExtra(undefined);
+            setPopupWide?.(false);
+        };
+    }, [setPopupHeaderExtra, setPopupWide, handlePrint, isReady, rows.length, isMobile, printLabel]);
 
+    return (
+        <div className="flex flex-col items-stretch w-full max-w-6xl mx-auto p-4">
             <div className="bg-white text-black rounded-lg p-6 shadow-md overflow-x-auto print-area">
                 <div className="text-center mb-4">
                     <div className="font-bold text-lg">{shop.name}</div>
@@ -197,27 +181,36 @@ export const DirectoryListReport: FC<DirectoryListReportProps> = ({
                 <table className="w-full border-collapse border border-gray-300">
                     <thead>
                         <tr className="bg-gray-100">
-                            <th className="border border-gray-300 px-3 py-2 text-left w-12">N°</th>
+                            {!isMobile && <th className="border border-gray-300 px-3 py-2 text-left w-12">N°</th>}
                             <th className="border border-gray-300 px-3 py-2 text-left">Nom</th>
-                            <th className="border border-gray-300 px-3 py-2 text-left w-36">Référence</th>
+                            {!isMobile && (
+                                <th className="border border-gray-300 px-3 py-2 text-left w-36">Référence</th>
+                            )}
                             <th className="border border-gray-300 px-3 py-2 text-center w-48">Code-barres</th>
                         </tr>
                     </thead>
                     <tbody>
                         {rows.length === 0 ? (
                             <tr>
-                                <td colSpan={4} className="border border-gray-300 px-3 py-4 text-center text-gray-500">
+                                <td
+                                    colSpan={isMobile ? 2 : 4}
+                                    className="border border-gray-300 px-3 py-4 text-center text-gray-500"
+                                >
                                     Aucune entrée
                                 </td>
                             </tr>
                         ) : (
                             rows.map((row, index) => (
                                 <tr key={row.id || index} className="even:bg-gray-50">
-                                    <td className="border border-gray-300 px-3 py-2 text-center">{index + 1}</td>
+                                    {!isMobile && (
+                                        <td className="border border-gray-300 px-3 py-2 text-center">{index + 1}</td>
+                                    )}
                                     <td className="border border-gray-300 px-3 py-2">{row.name}</td>
-                                    <td className="border border-gray-300 px-3 py-2 font-mono text-sm">
-                                        {row.reference}
-                                    </td>
+                                    {!isMobile && (
+                                        <td className="border border-gray-300 px-3 py-2 font-mono text-sm">
+                                            {row.reference}
+                                        </td>
+                                    )}
                                     <td className="border border-gray-300 px-3 py-2">
                                         <div
                                             className="flex justify-center"

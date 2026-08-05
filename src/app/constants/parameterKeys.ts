@@ -20,6 +20,7 @@ export const PARAMETER_KEYS = {
     SEARCH_SETTINGS: 'searchSettings',
     DISPLAY_SETTINGS: 'displaySettings',
     USER_SWITCH: 'userSwitch',
+    USE_VIRTUAL_KEYBOARD: 'useVirtualKeyboard',
 } as const;
 
 export const PARAMETER_KEY_LIST = Object.values(PARAMETER_KEYS);

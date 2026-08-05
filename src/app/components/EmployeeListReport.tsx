@@ -8,15 +8,14 @@ import { Shop } from '@/app/contexts/ConfigProvider';
 interface EmployeeListReportProps {
     users: User[];
     shop: Shop;
-    onClose: () => void;
 }
 
-export const EmployeeListReport: FC<EmployeeListReportProps> = ({ users, shop, onClose }) => {
+export const EmployeeListReport: FC<EmployeeListReportProps> = ({ users, shop }) => {
     const entries = users.map((u) => ({
         id: u.id ?? 0,
         name: u.name?.trim() || '',
         reference: u.reference || '',
     }));
 
-    return <DirectoryListReport title="Liste des employés" entries={entries} shop={shop} onClose={onClose} />;
+    return <DirectoryListReport title="Liste des employés" entries={entries} shop={shop} />;
 };

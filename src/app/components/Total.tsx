@@ -134,7 +134,7 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
         setShowPartialPaymentSelector,
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
-    const { openPopup, closePopup } = usePopup();
+    const { openPopup, openFullscreenPopup, closePopup } = usePopup();
     const { pay, printTransaction } = usePay();
     const { state, isStateReady, getPrintersNames, modeFonctionnement } = useConfig();
 
@@ -639,6 +639,25 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
                     {USE_DIGICARTE && modeFonctionnement !== 'lite' && (
                         <CloseButton
                             onClose={() => postMessageToParent(CLOSE)}
+                            className="pt-0 active:bg-light dark:active:bg-dark text-light dark:text-dark"
+                            size="xl"
+                        />
+                    )}
+                    {typeof window !== 'undefined' && window.electronAPI?.closeApp && (
+                        <CloseButton
+                            onClose={() => {
+                                openFullscreenPopup(
+                                    'Voulez-vous vraiment fermer Tradiz ?',
+                                    ['Annuler', 'Fermer'],
+                                    (index) => {
+                                        if (index === 1) {
+                                            window.electronAPI?.closeApp();
+                                        } else {
+                                            closePopup();
+                                        }
+                                    }
+                                );
+                            }}
                             className="pt-0 active:bg-light dark:active:bg-dark text-light dark:text-dark"
                             size="xl"
                         />

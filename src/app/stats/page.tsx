@@ -1,8 +1,10 @@
 'use client';
 
 import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
+import AdminButton from '@/app/components/admin/AdminButton';
 import { SHOP_ID } from '@/app/constants/shop';
 import { useConfig } from '@/app/hooks/useConfig';
+import { usePopup } from '@/app/hooks/usePopup';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import {
     DELETED_KEYWORD,
@@ -68,6 +70,7 @@ interface StatisticsData {
 export default function StatsPage() {
     const { isCashier } = useUserRole();
     const { parameters, currencies, currencyIndex, getPrinterAddresses } = useConfig();
+    const { openFullscreenPopup, closePopup } = usePopup();
     const currency = currencies[currencyIndex];
     const shop = parameters.shop;
 
@@ -84,6 +87,7 @@ export default function StatsPage() {
     const [billingReport, setBillingReport] = useState<BillingReport | null>(null);
     const [billingLoading, setBillingLoading] = useState(false);
     const [billingError, setBillingError] = useState('');
+    const [printLoading, setPrintLoading] = useState(false);
 
     type DatePreset = 'week' | 'month' | 'quarter' | 'semester' | 'year' | 'ytd';
 
@@ -332,17 +336,34 @@ export default function StatsPage() {
         }
     }, [selectedCompany, startDate, endDate, vatRate]);
 
-    const handlePrintSummary = useCallback(() => {
-        if (!billingReport || !currency || !shop) return;
-        const addresses = getPrinterAddresses();
-        printBillingSummary(addresses, billingReport, shop, currency);
-    }, [billingReport, currency, getPrinterAddresses, shop]);
+    const runBillingPrint = useCallback(
+        async (print: typeof printBillingSummary) => {
+            if (!billingReport || !currency || !shop) return;
 
-    const handlePrintDetail = useCallback(() => {
-        if (!billingReport || !currency || !shop) return;
-        const addresses = getPrinterAddresses();
-        printBillingDetail(addresses, billingReport, shop, currency);
-    }, [billingReport, currency, getPrinterAddresses, shop]);
+            const showError = (message: string) => openFullscreenPopup(message, ['OK'], () => closePopup());
+
+            const addresses = getPrinterAddresses();
+            if (addresses.length === 0) {
+                showError('Aucune imprimante configurée. Ajoutez une imprimante dans la configuration.');
+                return;
+            }
+
+            setPrintLoading(true);
+            try {
+                const response = await print(addresses, billingReport, shop, currency);
+                if (!response.success) showError(response.error || "Impossible d'imprimer");
+            } catch {
+                showError("Impossible d'imprimer");
+            } finally {
+                setPrintLoading(false);
+            }
+        },
+        [billingReport, currency, getPrinterAddresses, shop, openFullscreenPopup, closePopup]
+    );
+
+    const handlePrintSummary = useCallback(() => runBillingPrint(printBillingSummary), [runBillingPrint]);
+
+    const handlePrintDetail = useCallback(() => runBillingPrint(printBillingDetail), [runBillingPrint]);
 
     // Redirect to Grafana dashboard if using Digicarte
     if (USE_DIGICARTE) {
@@ -407,42 +428,24 @@ export default function StatsPage() {
                     </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <button
-                        onClick={() => applyDatePreset('week')}
-                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-20"
-                    >
+                    <AdminButton onClick={() => applyDatePreset('week')} className="text-sm flex-1 min-w-20">
                         Semaine
-                    </button>
-                    <button
-                        onClick={() => applyDatePreset('month')}
-                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-20"
-                    >
+                    </AdminButton>
+                    <AdminButton onClick={() => applyDatePreset('month')} className="text-sm flex-1 min-w-20">
                         Mois
-                    </button>
-                    <button
-                        onClick={() => applyDatePreset('quarter')}
-                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-20"
-                    >
+                    </AdminButton>
+                    <AdminButton onClick={() => applyDatePreset('quarter')} className="text-sm flex-1 min-w-20">
                         Trimestre
-                    </button>
-                    <button
-                        onClick={() => applyDatePreset('semester')}
-                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-20"
-                    >
+                    </AdminButton>
+                    <AdminButton onClick={() => applyDatePreset('semester')} className="text-sm flex-1 min-w-20">
                         Semestre
-                    </button>
-                    <button
-                        onClick={() => applyDatePreset('year')}
-                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-20"
-                    >
+                    </AdminButton>
+                    <AdminButton onClick={() => applyDatePreset('year')} className="text-sm flex-1 min-w-20">
                         Année
-                    </button>
-                    <button
-                        onClick={() => applyDatePreset('ytd')}
-                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm flex-1 min-w-20"
-                    >
+                    </AdminButton>
+                    <AdminButton onClick={() => applyDatePreset('ytd')} className="text-sm flex-1 min-w-20">
                         {new Date().getFullYear()}
-                    </button>
+                    </AdminButton>
                 </div>
             </div>
 
@@ -490,14 +493,24 @@ export default function StatsPage() {
                             className="w-full px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
                         />
                     </div>
-                    <div className="flex items-end">
-                        <button
+                    <div className="flex items-end gap-2 flex-wrap">
+                        <AdminButton
                             onClick={generateBillingReport}
                             disabled={billingLoading || !selectedCompany || !startDate || !endDate}
-                            className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold py-2 px-4 rounded"
+                            isLoading={billingLoading}
                         >
                             {billingLoading ? 'Calcul...' : 'Calculer'}
-                        </button>
+                        </AdminButton>
+                        {billingReport && (
+                            <>
+                                <AdminButton onClick={handlePrintSummary} isLoading={printLoading}>
+                                    Imprimer total TVA
+                                </AdminButton>
+                                <AdminButton onClick={handlePrintDetail} isLoading={printLoading}>
+                                    Imprimer détail par salarié
+                                </AdminButton>
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -531,21 +544,6 @@ export default function StatsPage() {
                                 <p className="text-lg font-bold">{billingReport.totalTVA.toFixed(2)} €</p>
                             </div>
                         </div>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={handlePrintSummary}
-                                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                            >
-                                Imprimer total TVA
-                            </button>
-                            <button
-                                onClick={handlePrintDetail}
-                                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                            >
-                                Imprimer détail par salarié
-                            </button>
-                        </div>
-
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead>

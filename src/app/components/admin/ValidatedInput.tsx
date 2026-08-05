@@ -2,6 +2,7 @@
 
 import { useState, ChangeEvent, useEffect } from 'react';
 import AdminInput from './AdminInput';
+import { useVirtualKeyboardContext } from './VirtualKeyboardProvider';
 
 interface ValidatedInputProps {
     value: string | number;
@@ -42,6 +43,7 @@ export default function ValidatedInput({
     ref,
     isNameField = false,
 }: ValidatedInputProps) {
+    const vkContext = useVirtualKeyboardContext();
     // Initialize validation state based on current value
     const [isValid, setIsValid] = useState(() => {
         if (!validation) return true;
@@ -78,7 +80,7 @@ export default function ValidatedInput({
         onChange(newValue);
     };
 
-    const handleBlur = () => {
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
         if (isNameField && typeof value === 'string') {
             // Normalize on blur: trim and apply first letter uppercase
             const normalized = value.toFirstUpperCase();
@@ -86,11 +88,20 @@ export default function ValidatedInput({
                 onChange(normalized);
             }
         }
+        if (vkContext) {
+            vkContext.unregisterInput(e.target);
+        }
         if (onBlur) onBlur();
     };
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
         e.target.select();
+        if (vkContext) {
+            vkContext.registerInput(e.target, (newValue: string) => {
+                if (validation) setIsValid(validation(newValue));
+                onChange(newValue);
+            });
+        }
         if (onFocus) onFocus(e);
     };
 

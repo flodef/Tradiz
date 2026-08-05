@@ -34,6 +34,7 @@ import {
     defaultParameters,
     defaultPaymentMethods,
     getPublicKey,
+    initPublicKey,
     loadData,
     resolveUserFromKey,
 } from '../utils/processData';
@@ -81,6 +82,7 @@ export interface Parameters {
     yearStartDate?: { month: number; day: number }; // Optional, defaults to { month: 1, day: 1 } (January 1st)
     user: User;
     userSwitch?: boolean;
+    useVirtualKeyboard?: boolean;
     products?: ProductsSettings;
     search?: SearchSettings;
     display?: DisplaySettings;
@@ -322,9 +324,11 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
         // Skip loading data if on admin config page - it has its own loading logic.
         // Still resolve the user so the TopNav and admin pages know the role.
         if (window.location.pathname.includes(ADMIN_CONFIG_URL)) {
-            resolveUserFromKey(getPublicKey()).then(({ user }) => {
-                if (user) setParameters((prev) => ({ ...prev, user }));
-                setState(State.loaded);
+            initPublicKey().then(() => {
+                resolveUserFromKey(getPublicKey()).then(({ user }) => {
+                    if (user) setParameters((prev) => ({ ...prev, user }));
+                    setState(State.loaded);
+                });
             });
             return;
         }
@@ -343,9 +347,11 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
             setState(State.loading);
         }
 
-        // Always load fresh data from DB in background
-        loadData()
+        // Always load fresh data from DB in background (init key from file first for Electron)
+        initPublicKey()
+            .then(() => loadData())
             .then((data) => {
+                console.log('[ConfigProvider] loadData returned:', data ? 'data' : 'null');
                 if (!data) {
                     // If we have cached data, stay in preloaded state
                     if (config) return;
@@ -355,7 +361,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                 storeData(data);
             })
             .catch((error) => {
-                console.error(error);
+                console.error('[ConfigProvider] loadData error:', error.message, error.constructor.name);
 
                 // Record the error on parameters via a proper state update (no direct mutation).
                 setParameters((prev) => {

@@ -30,6 +30,10 @@ export interface PopupContextState {
     popupSpecialAction?: (index: number) => void;
     popupIsSpecial?: (option: string) => boolean;
     popupIsFullscreen: boolean;
+    popupHeaderExtra?: ReactNode;
+    setPopupHeaderExtra?: (extra: ReactNode) => void;
+    popupWide: boolean;
+    setPopupWide?: (wide: boolean) => void;
 }
 
 export const PopupContext = createContext<PopupContextState>({} as PopupContextState);

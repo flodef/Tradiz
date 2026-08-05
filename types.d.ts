@@ -9,6 +9,9 @@ interface ElectronAPI {
     platform: string;
     openMiniDisplay: () => void;
     closeMiniDisplay: () => void;
+    closeApp: () => void;
+    getPublicKey: () => Promise<string | null>;
+    setPublicKey: (key: string) => Promise<void>;
     sendToMini: (data: unknown) => void;
     onMiniMessage: (callback: (data: unknown) => void) => () => void;
     sendCustomerDisplay: (payload: { line1: string; line2: string }) => void;

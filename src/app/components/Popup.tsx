@@ -26,6 +26,8 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
         popupSpecialAction,
         popupIsSpecial,
         popupIsFullscreen,
+        popupHeaderExtra,
+        popupWide,
         closePopup,
         isPopupOpen,
     } = usePopup();
@@ -135,13 +137,16 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                 id="popup" // id is mandatory for the screenshot to work
                 className={twMerge(
                     styles.container,
-                    !isMobile && !popupIsFullscreen ? getDesktopContainerStyles(popupIsFullscreen) : ''
+                    !isMobile ? getDesktopContainerStyles(popupIsFullscreen, popupWide) : ''
                 )}
             >
                 <div>
                     <div className={styles.header}>
                         <div className={styles.title}>{popupTitle}</div>
-                        <CloseButton onClose={close} />
+                        <div className="flex items-center">
+                            {popupHeaderExtra}
+                            <CloseButton onClose={close} />
+                        </div>
                     </div>
                 </div>
                 <div>

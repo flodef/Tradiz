@@ -250,7 +250,14 @@ export async function POST(request: NextRequest) {
 
         // Check if IP is blocked due to too many failed attempts
         // Only apply block if user is NOT authenticated (not found in system)
-        if (!foundUser) {
+        // Skip blocking for localhost (Electron app requests come from localhost with no forwarding headers)
+        if (
+            !foundUser &&
+            ipAddress !== '::1' &&
+            ipAddress !== '::ffff:127.0.0.1' &&
+            ipAddress !== '127.0.0.1' &&
+            ipAddress !== 'unknown'
+        ) {
             const blocked = await isIpBlocked(connection, ipAddress);
             if (blocked) {
                 await connection.end();

@@ -4,12 +4,21 @@ import prettier from 'eslint-plugin-prettier';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
 const eslintConfig = [
     js.configs.recommended,
     ...tseslint.configs.recommended,
     {
         files: ['**/*.{js,jsx,ts,tsx}'],
+        languageOptions: {
+            parserOptions: {
+                tsconfigRootDir: rootDir,
+            },
+        },
         plugins: {
             prettier,
             'jsx-a11y': jsxA11y,
@@ -50,7 +59,16 @@ const eslintConfig = [
         },
     },
     {
-        ignores: ['.next/**', 'node_modules/**', 'out/**', 'build/**', 'dist/**', 'coverage/**', 'next-env.d.ts'],
+        ignores: [
+            '.next/**',
+            'node_modules/**',
+            'out/**',
+            'build/**',
+            'dist/**',
+            'coverage/**',
+            'electron/standalone-build/**',
+            'next-env.d.ts',
+        ],
     },
 ];
 

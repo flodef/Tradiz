@@ -215,6 +215,11 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             if (value === '') return undefined;
             return value !== 'false';
         })(),
+        useVirtualKeyboard: (() => {
+            const value = getParamValue('useVirtualKeyboard', 16);
+            if (value === '') return undefined;
+            return value === 'true';
+        })(),
     };
 }
 
@@ -263,6 +268,7 @@ export const defaultParameters: Parameters = {
     yearStartDate: { month: 1, day: 1 }, // January 1st by default
     user: { name: '', role: Role.service },
     userSwitch: true,
+    useVirtualKeyboard: false,
     products: {
         useVatPerProduct: false,
         useReference: false,
@@ -314,12 +320,28 @@ export const defaultPaymentMethods: PaymentMethod[] = [
     },
 ];
 
+let electronPublicKey: string | null = null;
+
+export async function initPublicKey() {
+    if (typeof window !== 'undefined' && window.electronAPI?.getPublicKey) {
+        electronPublicKey = await window.electronAPI.getPublicKey();
+    }
+}
+
 export function getPublicKey() {
+    if (electronPublicKey) return electronPublicKey;
+
     let publicKey = localStorage.getItem('PublicKey');
     if (!publicKey) {
         publicKey = generateSimpleId();
         localStorage.setItem('PublicKey', publicKey);
     }
+
+    if (typeof window !== 'undefined' && window.electronAPI?.setPublicKey) {
+        window.electronAPI.setPublicKey(publicKey);
+        electronPublicKey = publicKey;
+    }
+
     return publicKey;
 }
 

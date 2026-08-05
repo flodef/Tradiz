@@ -534,6 +534,16 @@ export default function ParametersConfig({
                             Afficher les produits par défaut (grand écran)
                         </span>
                     </div>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.useVirtualKeyboard ?? false}
+                            onChange={(checked) => handleChange('useVirtualKeyboard', checked)}
+                            isReadOnly={isReadOnly}
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                            Clavier virtuel (sans clavier physique)
+                        </span>
+                    </div>
                 </div>
             </div>
         </SectionCard>

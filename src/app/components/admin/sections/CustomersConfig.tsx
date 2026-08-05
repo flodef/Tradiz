@@ -604,18 +604,11 @@ export default function CustomersConfig({
     const handlePrintCustomerList = useCallback(() => {
         openFullscreenPopup(
             'Liste des clients',
-            [
-                <CustomerListReport
-                    key="customerListReport"
-                    customers={strip(customers)}
-                    shop={parameters.shop}
-                    onClose={closePopup}
-                />,
-            ],
+            [<CustomerListReport key="customerListReport" customers={strip(customers)} shop={parameters.shop} />],
             undefined,
             true
         );
-    }, [customers, parameters.shop, openFullscreenPopup, closePopup]);
+    }, [customers, parameters.shop, openFullscreenPopup]);
 
     const isMobile = useIsMobile();
 

@@ -201,7 +201,14 @@ export const MainContent: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdmi
         if (isStateReady && !isFullscreen() && !IS_DEV && !USE_DIGICARTE) requestFullscreen();
     };
 
-    if (!isStateReady) return <LoadingDot />;
+    if (!isStateReady) {
+        return (
+            <div className="z-10 flex flex-col justify-between">
+                <LoadingDot />
+                <Category />
+            </div>
+        );
+    }
 
     return (
         <div className="z-10 flex flex-col justify-between" onClick={handleClick}>

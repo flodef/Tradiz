@@ -8,15 +8,14 @@ import { Shop } from '@/app/contexts/ConfigProvider';
 interface CustomerListReportProps {
     customers: Customer[];
     shop: Shop;
-    onClose: () => void;
 }
 
-export const CustomerListReport: FC<CustomerListReportProps> = ({ customers, shop, onClose }) => {
+export const CustomerListReport: FC<CustomerListReportProps> = ({ customers, shop }) => {
     const entries = customers.map((c) => ({
         id: c.id ?? 0,
         name: `${c.lastName?.trim() || ''} ${c.firstName?.trim() || ''}`.trim(),
         reference: c.reference || '',
     }));
 
-    return <DirectoryListReport title="Liste des clients" entries={entries} shop={shop} onClose={onClose} />;
+    return <DirectoryListReport title="Liste des clients" entries={entries} shop={shop} />;
 };

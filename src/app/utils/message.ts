@@ -23,8 +23,17 @@ export function postMessageToParent(type: string, payload?: unknown) {
 // always try to push, and stay silent when there is no host to receive it.
 // In Electron, route through IPC to the main process which drives the serial LCD display.
 export function postCustomerDisplay(payload: CustomerDisplayPayload) {
-    if (typeof window !== 'undefined' && window.electronAPI?.sendCustomerDisplay) {
-        window.electronAPI.sendCustomerDisplay(payload);
+    if (typeof window !== 'undefined' && window.electronAPI) {
+        if (window.electronAPI.sendCustomerDisplay) {
+            window.electronAPI.sendCustomerDisplay(payload);
+        }
+        if (window.electronAPI.sendToMini) {
+            window.electronAPI.sendToMini({
+                message: payload.line1,
+                total: payload.line2,
+                change: '',
+            });
+        }
         return;
     }
     post(CUSTOMER_DISPLAY, payload);

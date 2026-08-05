@@ -15,6 +15,7 @@ interface SectionCardProps {
     hasChanges?: boolean;
     defaultOpen?: boolean;
     headerExtra?: ReactNode;
+    extraActions?: ReactNode;
     isLoading: boolean;
     isOpen: boolean | undefined;
     onToggle: (() => void) | undefined;
@@ -34,6 +35,7 @@ export default function SectionCard({
     hasChanges = false,
     defaultOpen = true,
     headerExtra,
+    extraActions,
     isLoading = false,
     isOpen,
     onToggle,
@@ -104,6 +106,7 @@ export default function SectionCard({
             {open && (
                 <div className="px-2 md:px-6 pb-4 pt-2 border-t border-black/10 dark:border-white/10 space-y-4">
                     {children}
+                    {extraActions}
                     {onAdd && !isReadOnly && (
                         <AdminButton variant="add" onClick={onAdd} disabled={!isValid}>
                             {addLabel}

@@ -368,18 +368,11 @@ export default function UsersConfig({
     const handlePrintEmployeeList = useCallback(() => {
         openFullscreenPopup(
             'Liste des employés',
-            [
-                <EmployeeListReport
-                    key="employeeListReport"
-                    users={printableUsers}
-                    shop={parameters.shop}
-                    onClose={closePopup}
-                />,
-            ],
+            [<EmployeeListReport key="employeeListReport" users={printableUsers} shop={parameters.shop} />],
             undefined,
             true
         );
-    }, [printableUsers, parameters.shop, openFullscreenPopup, closePopup]);
+    }, [printableUsers, parameters.shop, openFullscreenPopup]);
 
     const isMobile = useIsMobile();
 

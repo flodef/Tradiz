@@ -1,5 +1,10 @@
 import { Printer } from '@/app/utils/interfaces';
 import { useEffect, useRef, useState } from 'react';
+import { IconSearch, IconLoader2, IconPrinter } from '@tabler/icons-react';
+import { usePopup } from '@/app/hooks/usePopup';
+import { testPrint } from '@/app/utils/posPrinter';
+import Switch from '../Switch';
+import AdminSelect from '../AdminSelect';
 import {
     closestCenter,
     DndContext,
@@ -16,15 +21,27 @@ import SectionCard from '../SectionCard';
 import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
 import ValidatedInput from '../ValidatedInput';
+import AdminButton from '../AdminButton';
 
 interface InternalPrinter extends Printer {
     _id: number;
 }
 
 const ipV4Validation = (ip: string) => {
-    const regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-    return regex.test(ip);
+    const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    return ipv4Regex.test(ip);
 };
+
+const comPortRegex = /^COM\d+$/i;
+
+function isComPort(address: string): boolean {
+    return comPortRegex.test(address.trim());
+}
+
+function getComPortNumber(address: string): string {
+    const match = address.match(/COM(\d+)/i);
+    return match ? match[1] : '';
+}
 
 function PrinterRow({
     printer,
@@ -35,6 +52,7 @@ function PrinterRow({
     onDelete,
     labelInputRefs,
     lastAddedIndexRef,
+    availableComPorts,
 }: {
     printer: InternalPrinter;
     id: number;
@@ -44,8 +62,15 @@ function PrinterRow({
     onDelete: () => void;
     labelInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
     lastAddedIndexRef: React.MutableRefObject<number | null>;
+    availableComPorts: number[];
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    const [isTesting, setIsTesting] = useState(false);
+    const [testResult, setTestResult] = useState<string | null>(null);
+    const isCom = isComPort(printer.ipAddress);
+    const comNum = isCom ? getComPortNumber(printer.ipAddress) : '';
+    const isAddressValid = isCom ? comPortRegex.test(printer.ipAddress) : ipV4Validation(printer.ipAddress);
+    const comPortsAvailable = availableComPorts.length > 0;
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
@@ -83,14 +108,75 @@ function PrinterRow({
                 />
             </td>
             <td className="p-2">
-                <ValidatedInput
-                    type="text"
-                    value={printer.ipAddress}
-                    onChange={(value) => onChange({ ...printer, ipAddress: String(value) })}
-                    placeholder="192.168.0.1"
-                    isReadOnly={isReadOnly}
-                    validation={(value) => ipV4Validation(String(value))}
-                />
+                <div className="flex items-center gap-2">
+                    {comPortsAvailable && (
+                        <>
+                            <Switch
+                                checked={isCom}
+                                onChange={(checked) => {
+                                    setTestResult(null);
+                                    if (checked) {
+                                        onChange({ ...printer, ipAddress: `COM${availableComPorts[0]}` });
+                                    } else {
+                                        onChange({ ...printer, ipAddress: '' });
+                                    }
+                                }}
+                                isReadOnly={isReadOnly}
+                            />
+                            <span className="text-xs text-gray-500 dark:text-gray-400 w-6">{isCom ? 'COM' : 'IP'}</span>
+                        </>
+                    )}
+                    {isCom && comPortsAvailable ? (
+                        <AdminSelect
+                            value={Number(comNum) || availableComPorts[0]}
+                            onChange={(e) => {
+                                const port = e.target.value;
+                                setTestResult(null);
+                                onChange({ ...printer, ipAddress: `COM${port}` });
+                            }}
+                            isReadOnly={isReadOnly}
+                            className="w-24"
+                            options={availableComPorts.map((p) => ({ label: `COM${p}`, value: p }))}
+                        />
+                    ) : (
+                        <ValidatedInput
+                            type="text"
+                            value={printer.ipAddress}
+                            onChange={(value) => {
+                                setTestResult(null);
+                                onChange({ ...printer, ipAddress: String(value) });
+                            }}
+                            placeholder="192.168.0.1"
+                            isReadOnly={isReadOnly}
+                            validation={(value) => ipV4Validation(String(value))}
+                        />
+                    )}
+                </div>
+            </td>
+            <td className="p-2">
+                <div className="flex items-center gap-2">
+                    <AdminButton
+                        onClick={async () => {
+                            setIsTesting(true);
+                            setTestResult(null);
+                            const res = await testPrint(printer.ipAddress);
+                            setTestResult(res.success ? 'OK' : res.error || 'Erreur');
+                            setIsTesting(false);
+                        }}
+                        disabled={isTesting || !printer.ipAddress || !isAddressValid}
+                        className="text-xs py-1.5 px-2.5"
+                    >
+                        {isTesting ? <IconLoader2 size={16} className="animate-spin" /> : <IconPrinter size={16} />}
+                        Test
+                    </AdminButton>
+                    {testResult && (
+                        <span
+                            className={`text-2xl font-bold ${testResult === 'OK' ? 'text-green-600' : 'text-red-500'}`}
+                        >
+                            {testResult === 'OK' ? '✓' : '✗'}
+                        </span>
+                    )}
+                </div>
             </td>
             <DeleteButtonCell isReadOnly={isReadOnly} onDelete={onDelete} title="Supprimer l'imprimante" />
         </tr>
@@ -129,6 +215,11 @@ export default function PrintersConfig({
     const [printers, setPrinters] = useState<InternalPrinter[]>(() =>
         (config || []).map((p) => ({ ...p, _id: nextIdRef.current++ }))
     );
+    const [isScanning, setIsScanning] = useState(false);
+    const [availableComPorts, setAvailableComPorts] = useState<number[]>([]);
+    const scanAbortRef = useRef(false);
+    const foundPrintersRef = useRef<{ ip: string; label: string }[]>([]);
+    const { openFullscreenPopup, closePopup } = usePopup();
 
     useEffect(() => {
         if (selfUpdateRef.current) {
@@ -138,14 +229,28 @@ export default function PrintersConfig({
         setPrinters((config || []).map((p) => ({ ...p, _id: nextIdRef.current++ })));
     }, [config]);
 
+    useEffect(() => {
+        if (isReadOnly) return;
+        fetch('/api/list-com-ports')
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.ports && Array.isArray(data.ports)) {
+                    setAvailableComPorts(data.ports);
+                }
+            })
+            .catch(() => {});
+    }, [isReadOnly]);
+
     const notifyParent = (items: InternalPrinter[]) => {
         selfUpdateRef.current = true;
         onChange(items.map(({ _id: _, ...rest }) => rest));
     };
 
-    const isValid = printers.every(
-        (p) => p.label?.trim().length > 0 && p.label?.trim().length <= 25 && ipV4Validation(p.ipAddress)
-    );
+    const isValid = printers.every((p) => {
+        const labelOk = p.label?.trim().length > 0 && p.label?.trim().length <= 25;
+        const addrOk = isComPort(p.ipAddress) ? comPortRegex.test(p.ipAddress) : ipV4Validation(p.ipAddress);
+        return labelOk && addrOk;
+    });
 
     useEffect(() => {
         onValidation?.(isValid);
@@ -184,6 +289,124 @@ export default function PrintersConfig({
         });
     };
 
+    const addFoundPrinters = (newOnes: { ip: string; label: string }[]) => {
+        if (newOnes.length === 0) return;
+        setPrinters((prev) => {
+            const existingIps = new Set(prev.map((p) => p.ipAddress));
+            const toAdd = newOnes
+                .filter((p) => !existingIps.has(p.ip))
+                .map((p) => ({ label: p.label, ipAddress: p.ip, _id: nextIdRef.current++ }));
+            if (toAdd.length === 0) return prev;
+            const updated = [...prev, ...toAdd];
+            notifyParent(updated);
+            return updated;
+        });
+    };
+
+    const handleAutoDetect = async () => {
+        setIsScanning(true);
+        foundPrintersRef.current = [];
+        scanAbortRef.current = false;
+
+        // Test COM ports in parallel and update available list
+        fetch('/api/list-com-ports')
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.ports && Array.isArray(data.ports)) {
+                    setAvailableComPorts(data.ports);
+                }
+            })
+            .catch(() => {});
+
+        try {
+            const res = await fetch('/api/scan-printers');
+            if (!res.body) {
+                openFullscreenPopup('Erreur: pas de réponse du serveur', ['OK']);
+                setIsScanning(false);
+                return;
+            }
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let subnet = '';
+            let firstFound = true;
+
+            const processEvent = (eventType: string, data: string) => {
+                const parsed = JSON.parse(data);
+
+                if (eventType === 'start') {
+                    subnet = parsed.subnet;
+                } else if (eventType === 'printer') {
+                    foundPrintersRef.current = [...foundPrintersRef.current, parsed];
+
+                    if (firstFound) {
+                        firstFound = false;
+                        openFullscreenPopup(
+                            `Imprimante détectée : ${parsed.ip}`,
+                            ['Ajouter et arrêter', 'Continuer le scan', 'Ignorer'],
+                            (index) => {
+                                if (index === 0) {
+                                    scanAbortRef.current = true;
+                                    addFoundPrinters(foundPrintersRef.current);
+                                    openFullscreenPopup(
+                                        `${foundPrintersRef.current.length} imprimante(s) ajoutée(s) sur ${subnet}`,
+                                        ['OK']
+                                    );
+                                    setIsScanning(false);
+                                    closePopup();
+                                } else if (index === 1) {
+                                    closePopup();
+                                } else {
+                                    foundPrintersRef.current = [];
+                                    closePopup();
+                                }
+                            }
+                        );
+                    }
+                } else if (eventType === 'done') {
+                    if (!scanAbortRef.current && foundPrintersRef.current.length > 0) {
+                        addFoundPrinters(foundPrintersRef.current);
+                        openFullscreenPopup(
+                            `${foundPrintersRef.current.length} imprimante(s) détectée(s) sur ${subnet}`,
+                            ['OK']
+                        );
+                    } else if (!scanAbortRef.current && foundPrintersRef.current.length === 0) {
+                        openFullscreenPopup(
+                            `Aucune imprimante trouvée sur ${subnet}. Vérifiez que l'imprimante est allumée et connectée au même réseau.`,
+                            ['OK']
+                        );
+                    }
+                }
+            };
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+
+                const events = buffer.split('\n\n');
+                buffer = events.pop() || '';
+
+                for (const eventBlock of events) {
+                    const lines = eventBlock.split('\n');
+                    let eventType = '';
+                    let dataLine = '';
+                    for (const line of lines) {
+                        if (line.startsWith('event: ')) eventType = line.slice(7);
+                        else if (line.startsWith('data: ')) dataLine = line.slice(6);
+                    }
+                    if (eventType && dataLine) {
+                        processEvent(eventType, dataLine);
+                    }
+                }
+            }
+        } catch {
+            openFullscreenPopup("Erreur lors de la recherche d'imprimantes", ['OK']);
+        }
+        setIsScanning(false);
+    };
+
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(TouchSensor, {
@@ -208,6 +431,15 @@ export default function PrintersConfig({
             isOpen={isOpen}
             onToggle={onToggle}
             icon={icon}
+            headerExtra={
+                !isReadOnly ? (
+                    <AdminButton onClick={handleAutoDetect} disabled={isScanning} className="py-1">
+                        {isScanning ? <IconLoader2 size={16} className="animate-spin" /> : <IconSearch size={16} />}
+                        {isScanning ? 'Recherche...' : 'Détecter automatiquement'}
+                    </AdminButton>
+                ) : undefined
+            }
+            extraActions={undefined}
         >
             {printers.length > 0 && (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -218,7 +450,8 @@ export default function PrintersConfig({
                                     <tr className="border-b-2 border-gray-300 dark:border-gray-600">
                                         {!isReadOnly && <th className="w-12"></th>}
                                         <th className={adminHeaderStyle + ' min-w-24'}>Label</th>
-                                        <th className={adminHeaderStyle + ' min-w-20 w-36'}>Adresse IP</th>
+                                        <th className={adminHeaderStyle + ' min-w-36 w-36'}>Adresse</th>
+                                        {!isReadOnly && <th className={adminHeaderStyle + ' w-12'}>Test</th>}
                                         {!isReadOnly && <th className="w-16"></th>}
                                     </tr>
                                 </thead>
@@ -234,6 +467,7 @@ export default function PrintersConfig({
                                             onDelete={() => handleDeletePrinter(index)}
                                             labelInputRefs={labelInputRefs}
                                             lastAddedIndexRef={lastAddedIndexRef}
+                                            availableComPorts={availableComPorts}
                                         />
                                     ))}
                                 </tbody>

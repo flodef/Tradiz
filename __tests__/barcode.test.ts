@@ -44,6 +44,24 @@ describe('barcode', () => {
         expect(svg).not.toContain('<rect');
     });
 
+    it('renders real bars for a short numeric reference by left-padding to 12 digits', () => {
+        // Regression: short references used to fall back to plain text, so the
+        // report showed the raw number instead of a scannable barcode.
+        const svg = generateEan13Barcode('12345', 200, 80);
+        expect(svg).toContain('<rect');
+        expect(svg).toContain(computeEan13Checksum('000000012345'));
+    });
+
+    it('ignores non-digit separators when building the barcode', () => {
+        expect(generateEan13Barcode('300-000-000-000')).toBe(generateEan13Barcode('300000000000'));
+    });
+
+    it('escapes the fallback text so the SVG cannot be broken out of', () => {
+        const svg = generateEan13Barcode('<script>alert("x")</script>');
+        expect(svg).not.toContain('<script>');
+        expect(svg).toContain('&lt;script&gt;');
+    });
+
     it('encodes set B (even-parity) digits 5/6/7/9 correctly', () => {
         // First digit 5 => parity ABBABB, so left digits at positions 2,3,5,6
         // are encoded with set B. This value places 5,6,7,9 in those positions,

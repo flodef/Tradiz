@@ -2,6 +2,7 @@
 
 import { CharacterSet, PrinterTypes, ThermalPrinter } from 'node-thermal-printer';
 import { networkInterfaces } from 'os';
+import fs from 'fs';
 import { Shop } from '../contexts/ConfigProvider';
 import { isProcessingTransaction, isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
 import { ReceiptData } from '../hooks/usePay';
@@ -16,17 +17,75 @@ type PrintResponse = {
     error?: string;
 };
 
+const COM_PORT_REGEX = /^COM\d+$/i;
+
+function isComPort(address: string): boolean {
+    return COM_PORT_REGEX.test(address.trim());
+}
+
 /**
- * Checks if the printer is on the same subnet as the device
+ * Writes a raw buffer to a COM port using fs (Windows only).
+ * Works without the serialport native module.
  */
-const initPrinter = async (printerIPAddresses: string[]) => {
+function writeToComPort(comPort: string, buffer: Buffer): void {
+    const path = '\\\\.\\' + comPort.trim().toUpperCase();
+    console.log(`[PRINTER] Opening ${path} for writing, buffer size: ${buffer.length} bytes`);
+    const fd = fs.openSync(path, 'r+');
+    try {
+        fs.writeSync(fd, buffer, 0, buffer.length, null);
+        console.log(`[PRINTER] Wrote ${buffer.length} bytes to ${comPort}`);
+    } finally {
+        fs.closeSync(fd);
+        console.log(`[PRINTER] Closed ${comPort}`);
+    }
+}
+
+/**
+ * Executes the print: if the printer has a _comPort attached, writes the
+ * ESC/POS buffer directly to the COM port via fs. Otherwise, uses the
+ * normal TCP/IP execute() method.
+ */
+async function executePrint(printer: ThermalPrinter): Promise<void> {
+    const comPort = (printer as unknown as { _comPort?: string })._comPort;
+    if (comPort) {
+        const buffer = printer.getBuffer();
+        writeToComPort(comPort, buffer);
+        return;
+    }
+    await printer.execute();
+}
+
+/**
+ * Checks if the printer is on the same subnet as the device, or a COM port
+ */
+const initPrinter = async (printerAddresses: string[]) => {
     // If in DEV mode, return a mock printer that prints to the console
     if (IS_DEV) return { printer: await createMockPrinter() };
 
-    // Normal printer initialization for production
+    // Try COM port first (serial printer)
+    const comPort = printerAddresses.find((addr) => isComPort(addr));
+    if (comPort) {
+        try {
+            const printer = new ThermalPrinter({
+                type: PrinterTypes.EPSON,
+                interface: 'COM', // dummy, we won't call execute()
+                width: 48,
+                characterSet: CharacterSet.PC858_EURO,
+                removeSpecialCharacters: false,
+                lineCharacter: '-',
+            });
+            // Attach COM port info so executePrint knows to use fs
+            (printer as unknown as { _comPort: string })._comPort = comPort.trim().toUpperCase();
+            return { printer };
+        } catch (err) {
+            return { error: "Impossible d'ouvrir le port " + comPort + ': ' + (err as Error).message };
+        }
+    }
+
+    // Normal printer initialization for production (TCP/IP)
     const myIp = getLocalIp();
     if (!myIp) return { error: "Vous n'êtes pas sur un réseau local" };
-    const connectedPrinterIPAddress = printerIPAddresses.find((address) => isSameSubnet(myIp, address));
+    const connectedPrinterIPAddress = printerAddresses.find((address) => isSameSubnet(myIp, address));
     if (!connectedPrinterIPAddress) return { error: 'Aucune imprimante connectée sur le même réseau que ' + myIp };
 
     const printer = await getPrinter(connectedPrinterIPAddress);
@@ -35,7 +94,7 @@ const initPrinter = async (printerIPAddresses: string[]) => {
 };
 
 /**
- * Creates a printer instance and checks connection
+ * Creates a printer instance and checks connection (TCP/IP only)
  */
 const getPrinter = async (printerIPAddress: string) => {
     const printer = new ThermalPrinter({
@@ -270,7 +329,7 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
         printer.cut();
 
         // Execute print
-        await printer.execute();
+        await executePrint(printer);
         return { success: true };
     } catch (error) {
         console.error('Failed to print receipt:', error);
@@ -367,7 +426,7 @@ export async function printBalanceStatement(
         printer.cut();
 
         // Execute print
-        await printer.execute();
+        await executePrint(printer);
         return { success: true };
     } catch (error) {
         console.error('Failed to print balance statement:', error);
@@ -470,7 +529,7 @@ export async function printSummary(printerAddresses: string[], summaryData: Summ
         printer.cut();
 
         // Execute print
-        await printer.execute();
+        await executePrint(printer);
         return { success: true };
     } catch (error) {
         console.error('Failed to print summary:', error);
@@ -595,7 +654,7 @@ export async function printBillingSummary(
         printer.newLine();
         printer.cut();
 
-        await printer.execute();
+        await executePrint(printer);
         return { success: true };
     } catch (error) {
         console.error('Failed to print billing summary:', error);
@@ -669,10 +728,51 @@ export async function printBillingDetail(
         printer.newLine();
         printer.cut();
 
-        await printer.execute();
+        await executePrint(printer);
         return { success: true };
     } catch (error) {
         console.error('Failed to print billing detail:', error);
         return { error: "Erreur lors de l'impression du détail par salarié" };
+    }
+}
+
+/**
+ * Server action to test printer connectivity.
+ * Sends a small test message and cut command.
+ */
+export async function testPrint(address: string): Promise<PrintResponse> {
+    if (IS_DEV) {
+        console.log(`[MOCK] Test print to ${address}`);
+        return { success: true };
+    }
+
+    console.log(`[PRINTER] testPrint called with address: ${address}`);
+
+    try {
+        const result = await initPrinter([address]);
+        if ('error' in result) {
+            console.error(`[PRINTER] initPrinter error: ${result.error}`);
+            return { error: result.error };
+        }
+        const printer = result.printer;
+        console.log(`[PRINTER] Printer initialized, building test content...`);
+
+        printer.alignCenter();
+        printer.bold(true);
+        printer.setTextDoubleHeight();
+        printer.println('TEST TRADIZ');
+        printer.bold(false);
+        printer.setTextNormal();
+        printer.println(`Port: ${address}`);
+        printer.println(new Date().toLocaleString('fr-FR'));
+        printer.newLine();
+        printer.cut();
+
+        await executePrint(printer);
+        console.log(`[PRINTER] Test print succeeded on ${address}`);
+        return { success: true };
+    } catch (error) {
+        console.error(`[PRINTER] Test print failed on ${address}:`, error);
+        return { error: `Erreur test impression ${address}: ${(error as Error).message}` };
     }
 }

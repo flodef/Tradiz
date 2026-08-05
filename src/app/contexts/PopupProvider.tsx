@@ -16,6 +16,8 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
     const [popupSpecialAction, setPopupSpecialAction] = useState<(index: number) => void>();
     const [popupIsSpecial, setPopupIsSpecial] = useState<(option: string) => boolean>();
     const [popupIsFullscreen, setPopupIsFullscreen] = useState(false);
+    const [popupHeaderExtra, setPopupHeaderExtra] = useState<ReactNode>(undefined);
+    const [popupWide, setPopupWide] = useState(false);
 
     const openPopup = useCallback(
         (
@@ -33,6 +35,8 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
             setPopupSpecialAction(() => specialAction);
             setPopupIsSpecial(() => isSpecial);
             setPopupIsFullscreen(false);
+            setPopupHeaderExtra(undefined);
+            setPopupWide(false);
             setIsPopupOpen(true);
         },
         []
@@ -91,6 +95,10 @@ export const PopupProvider: FC<PopupProviderProps> = ({ children }) => {
                 popupSpecialAction,
                 popupIsSpecial,
                 popupIsFullscreen,
+                popupHeaderExtra,
+                setPopupHeaderExtra,
+                popupWide,
+                setPopupWide,
             }}
         >
             {children}

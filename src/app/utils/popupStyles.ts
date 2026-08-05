@@ -64,8 +64,8 @@ export function getPopupStyles(variant: PopupVariant = 'default'): PopupStyles {
 /**
  * Desktop-specific modifier styles for the container
  */
-export function getDesktopContainerStyles(isFullscreen: boolean): string {
-    if (isFullscreen) return '';
+export function getDesktopContainerStyles(isFullscreen: boolean, isWide = false): string {
+    if (isFullscreen) return isWide ? 'md:max-w-6xl' : '';
     return `
         md:border-0 md:w-1/2 md:max-w-[50%] md:max-h-full md:left-1/2 md:bottom-0 md:rounded-none
         md:border-l-4 md:border-secondary-active-light

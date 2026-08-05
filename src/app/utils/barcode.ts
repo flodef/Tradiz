@@ -30,6 +30,15 @@ const GUARDS = {
     right: '101',
 };
 
+export function escapeHtml(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 export function validateEan13(value: string): boolean {
     if (!/^\d{13}$/.test(value)) return false;
     let sum = 0;
@@ -87,18 +96,22 @@ function encodeEan13(value: string): string | null {
  */
 export function generateEan13Barcode(value: string, width = 200, height = 100): string {
     const sanitized = value.replace(/\D/g, '');
-    const ean13 = sanitized.length === 12 ? computeEan13Checksum(sanitized) : sanitized;
+    if (sanitized.length === 0) {
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="12">${escapeHtml(value)}</text></svg>`;
+    }
+    const base12 = sanitized.slice(0, 12).padStart(12, '0');
+    const ean13 = computeEan13Checksum(base12);
 
     const pattern = encodeEan13(ean13);
     if (!pattern) {
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="12">${value}</text></svg>`;
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="12">${escapeHtml(value)}</text></svg>`;
     }
 
     const quietZone = 9;
     const totalModules = quietZone * 2 + pattern.length;
     const moduleWidth = width / totalModules;
-    const barHeight = height * 0.78;
-    const textY = height - 4;
+    const barHeight = height * 0.69;
+    const textY = height - 8;
 
     let bars = '';
     let x = quietZone * moduleWidth;

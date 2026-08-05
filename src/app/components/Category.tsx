@@ -329,8 +329,8 @@ export const Category: FC = () => {
     useEffect(() => {
         switch (state) {
             case State.error:
-                // If the app is running on localhost or demo.tradiz.fr, set the state to done and don't display the error message
-                if (isLocalhost || isDemo) {
+                // If the app is running in dev (localhost without Electron) or demo.tradiz.fr, set the state to done and don't display the error message
+                if ((isLocalhost && !window.electronAPI) || isDemo) {
                     setTimeout(() => setState(State.loaded), 100);
                     return;
                 }

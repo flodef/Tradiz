@@ -1,6 +1,16 @@
 /** @type {import('next').NextConfig} */
-const { readFileSync } = require('fs');
+const { readFileSync, existsSync, rmSync } = require('fs');
 const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'));
+
+// Clean previous build outputs so the type checker and file tracer don't scan old artifacts.
+// electron/standalone-build must be removed too: if left in place, Next.js traces it into
+// .next/standalone, and prepare-standalone.js then copies that nested copy back in, so each
+// build adds another nested layer (installer bloat + broken ESLint tsconfig resolution).
+for (const dir of ['./dist', './electron/standalone-build']) {
+    if (existsSync(dir)) {
+        rmSync(dir, { recursive: true, force: true });
+    }
+}
 
 const nextConfig = {
     output: 'standalone',
