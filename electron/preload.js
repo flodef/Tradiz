@@ -14,4 +14,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
         return () => ipcRenderer.removeListener('mini-message', handler);
     },
     sendCustomerDisplay: (payload) => ipcRenderer.send('customer-display', payload),
+    onUpdateAvailable: (callback) => {
+        const handler = (_event, info) => callback(info);
+        ipcRenderer.on('update-available', handler);
+        return () => ipcRenderer.removeListener('update-available', handler);
+    },
+    onUpdateDownloaded: (callback) => {
+        const handler = (_event, info) => callback(info);
+        ipcRenderer.on('update-downloaded', handler);
+        return () => ipcRenderer.removeListener('update-downloaded', handler);
+    },
+    respondUpdate: (response) => ipcRenderer.send('update-response', response),
 });

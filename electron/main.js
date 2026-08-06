@@ -616,42 +616,37 @@ function initAutoUpdater() {
         autoUpdater.autoInstallOnAppQuit = true;
 
         autoUpdater.on('update-available', (info) => {
-            dialog
-                .showMessageBox(mainWindow || undefined, {
-                    type: 'info',
-                    title: 'Mise à jour disponible',
-                    message: `Une nouvelle version de Tradiz (${info.version}) est disponible.`,
-                    detail: "Voulez-vous la télécharger et l'installer maintenant ?",
-                    buttons: ['Oui', 'Plus tard'],
-                    defaultId: 0,
-                    cancelId: 1,
-                })
-                .then(({ response }) => {
-                    if (response === 0) {
-                        autoUpdater.downloadUpdate().catch((err) => {
-                            console.error('Auto-updater download failed:', err.message);
-                        });
-                    }
-                });
+            console.log('Auto-updater: update available v' + info.version);
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('update-available', { version: info.version });
+            }
         });
 
-        autoUpdater.on('update-downloaded', () => {
-            dialog
-                .showMessageBox(mainWindow || undefined, {
-                    type: 'info',
-                    title: 'Mise à jour prête',
-                    message: 'La mise à jour a été téléchargée.',
-                    detail: "L'application va redémarrer pour installer la mise à jour.",
-                    buttons: ['Redémarrer maintenant'],
-                    defaultId: 0,
-                })
-                .then(() => {
-                    autoUpdater.quitAndInstall(true, true);
-                });
+        autoUpdater.on('update-downloaded', (info) => {
+            console.log('Auto-updater: update downloaded, waiting before restart');
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('update-downloaded', { version: info.version });
+            }
         });
 
         autoUpdater.on('error', (err) => {
             console.error('Auto-updater error:', err.message);
+        });
+
+        // Listen for user response from the renderer popup
+        ipcMain.on('update-response', (_event, response) => {
+            if (response === 'download') {
+                autoUpdater.downloadUpdate().catch((err) => {
+                    console.error('Auto-updater download failed:', err.message);
+                });
+            } else if (response === 'install') {
+                // Delay before restarting to let the user finish what they're doing
+                console.log('Auto-updater: restarting in 10 seconds…');
+                setTimeout(() => {
+                    console.log('Auto-updater: installing now');
+                    autoUpdater.quitAndInstall(true, true);
+                }, 10000);
+            }
         });
 
         // Delay check so it doesn't interfere with app startup

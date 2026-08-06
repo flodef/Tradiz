@@ -72,6 +72,8 @@ nsis:
     createStartMenuShortcut: true
     shortcutName: Tradiz
     differentialPackage: true
+    deleteAppDataOnUninstall: false
+    runAfterFinish: true
 mac:
     target:
         - dmg

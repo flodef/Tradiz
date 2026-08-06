@@ -11,6 +11,7 @@ import {} from '../utils/extensions';
 import { MainContent } from './MainContent';
 import { OfflineBanner } from './OfflineBanner';
 import { Popup } from './Popup';
+import { UpdateListener } from './UpdateListener';
 
 // Component to conditionally render TopNav based on user role
 function TopNavController({ className, showLightAdminNav }: { className?: string; showLightAdminNav?: boolean }) {
@@ -62,6 +63,7 @@ export function CashRegisterApp({ shop, showLightAdminNav = false }: CashRegiste
                             <TopNavController className="hidden md:flex" showLightAdminNav={showLightAdminNav} />
                             <MainContent showLightAdminNav={showLightAdminNav} />
                             <Popup />
+                            <UpdateListener />
                         </CryptoProvider>
                     </PopupProvider>
                 </DataProvider>
