@@ -45,26 +45,27 @@ describe('buildIdleDisplay', () => {
         expect(buildIdleDisplay('', true).line2).toContain('é');
     });
 
-    it('shows a short shop name on the first line only', () => {
+    it('shows a short shop name centered on the second line', () => {
         const payload = buildIdleDisplay('Chez Tradiz', false);
 
-        expect(payload.line1.trim()).toBe('Chez Tradiz');
-        expect(payload.line2.trim()).toBe('');
+        expect(payload.line1.trim()).toBe('');
+        expect(payload.line2.trim()).toBe('CHEZ TRADIZ');
         expectExactWidth(payload);
     });
 
-    it('wraps a long shop name across both lines (40 chars total)', () => {
+    it('wraps a long shop name across both lines, centered and uppercased', () => {
         const payload = buildIdleDisplay('Boulangerie Patisserie du Vieux Port', false);
 
-        expect(payload.line1).toBe('Boulangerie Patisser');
-        expect(payload.line2.trim()).toBe('ie du Vieux Port');
+        expect(payload.line1.trim()).toBe('BOULANGERIE');
+        expect(payload.line2.trim()).toBe('PATISSERIE DU VIEUX');
         expectExactWidth(payload);
     });
 
     it('truncates a shop name longer than 40 chars', () => {
         const payload = buildIdleDisplay('x'.repeat(60), false);
 
-        expect(payload.line1 + payload.line2).toBe('x'.repeat(40));
+        expect(payload.line1.trim()).toBe('X'.repeat(20));
+        expect(payload.line2.trim()).toBe('X'.repeat(20));
         expectExactWidth(payload);
     });
 

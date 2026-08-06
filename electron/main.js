@@ -180,37 +180,26 @@ async function findDisplayPort() {
 function writeToDisplay(line1, line2) {
     if (!displayPort) return;
 
-    var init = DISPLAY_CMD.INIT;
-    var l1 = Buffer.from(line1.slice(0, 20).padEnd(20, ' '), 'latin1');
-    var crlf = Buffer.from([0x0d, 0x0a]);
-    var l2 = Buffer.from(line2.slice(0, 20).padEnd(20, ' '), 'latin1');
+    // Replace € with E — most serial LCD displays don't support Unicode
+    var l1 = line1.replace(/€/g, 'E').slice(0, 20).padEnd(20, ' ');
+    var l2 = line2.replace(/€/g, 'E').slice(0, 20).padEnd(20, ' ');
+
+    // Write as a single buffer: INIT + line1 (20 chars) + line2 (20 chars)
+    // The display auto-wraps to line 2 after 20 characters.
+    // Sending CRLF between lines caused the cursor to wrap back to line 1,
+    // overwriting line1 with line2 content.
+    var buf = Buffer.concat([DISPLAY_CMD.INIT, Buffer.from(l1, 'latin1'), Buffer.from(l2, 'latin1')]);
 
     if (displayPort._fsMode) {
-        // fs-based COM port write
-        writeComPort(init);
-        writeComPort(l1);
-        writeComPort(crlf);
-        writeComPort(l2);
+        writeComPort(buf);
         return;
     }
 
     // serialport module mode
     if (!displayPort.isOpen) return;
 
-    displayPort.write(init, (err) => {
-        if (err) console.error('Display write error (init):', err.message);
-    });
-
-    displayPort.write(l1, (err) => {
-        if (err) console.error('Display write error (line1):', err.message);
-    });
-
-    displayPort.write(crlf, (err) => {
-        if (err) console.error('Display write error (line feed):', err.message);
-    });
-
-    displayPort.write(l2, (err) => {
-        if (err) console.error('Display write error (line2):', err.message);
+    displayPort.write(buf, (err) => {
+        if (err) console.error('Display write error:', err.message);
     });
 }
 
@@ -514,7 +503,7 @@ function startServer() {
                 return;
             }
             var settled = false;
-            var req = http.get('http://localhost:' + PORT + '/', function () {
+            var req = http.get('http://127.0.0.1:' + PORT + '/', function () {
                 if (settled) return;
                 settled = true;
                 req.destroy();

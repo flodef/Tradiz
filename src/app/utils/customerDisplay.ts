@@ -24,6 +24,13 @@ function padLine(text: string): string {
     return text.slice(0, DISPLAY_WIDTH).padEnd(DISPLAY_WIDTH, ' ');
 }
 
+function centerLine(text: string): string {
+    const trimmed = text.slice(0, DISPLAY_WIDTH).trim();
+    const totalPadding = DISPLAY_WIDTH - trimmed.length;
+    const leftPadding = Math.floor(totalPadding / 2);
+    return ' '.repeat(leftPadding) + trimmed + ' '.repeat(totalPadding - leftPadding);
+}
+
 export function buildCustomerDisplay(
     total: number,
     cashAmount: number,
@@ -39,15 +46,23 @@ export function buildCustomerDisplay(
     };
 }
 
-// Idle display: shop name across 2 lines of 20 chars (40 total), or "Fermé" if closed.
+// Idle display: shop name in uppercase, split at word boundary, centered across 2 lines.
 export function buildIdleDisplay(shopName: string, isClosed: boolean): CustomerDisplayPayload {
     if (isClosed) {
         return { line1: padLine(''), line2: padLine('Fermé') };
     }
-    const name = shopName.slice(0, DISPLAY_WIDTH * 2);
+    const name = shopName.toUpperCase().trim();
+    if (name.length <= DISPLAY_WIDTH) {
+        return { line1: padLine(''), line2: centerLine(name) };
+    }
+    // Split at the last space within the first 20 chars
+    let splitIdx = name.lastIndexOf(' ', DISPLAY_WIDTH);
+    if (splitIdx <= 0) splitIdx = DISPLAY_WIDTH; // no space found, hard cut
+    const line1Text = name.slice(0, splitIdx).trim();
+    const line2Text = name.slice(splitIdx).trim().slice(0, DISPLAY_WIDTH);
     return {
-        line1: padLine(name.slice(0, DISPLAY_WIDTH)),
-        line2: padLine(name.slice(DISPLAY_WIDTH)),
+        line1: centerLine(line1Text),
+        line2: centerLine(line2Text),
     };
 }
 
