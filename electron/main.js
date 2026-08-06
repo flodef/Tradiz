@@ -293,6 +293,7 @@ const DEV_URL = `http://localhost:${PORT}`;
 let mainWindow;
 let miniWindow;
 let splashWindow = null;
+let splashWatchdog = null;
 let serverProcess = null;
 
 const isDev = !app.isPackaged;
@@ -309,62 +310,66 @@ function createSplashScreen() {
         show: true,
         alwaysOnTop: true,
         skipTaskbar: true,
-        transparent: false,
         webPreferences: {
             contextIsolation: true,
             nodeIntegration: false,
         },
     });
 
-    const splashHtml = [
-        '<!DOCTYPE html>',
-        '<html lang="fr">',
-        '<head>',
-        '<meta charset="utf-8">',
-        '<meta name="viewport" content="width=device-width, initial-scale=1">',
-        '<style>',
-        '  * { margin: 0; padding: 0; box-sizing: border-box; }',
-        '  body {',
-        '    display: flex; flex-direction: column; align-items: center; justify-content: center;',
-        '    height: 100vh; width: 100vw; overflow: hidden;',
-        '    background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);',
-        '    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;',
-        '  }',
-        '  .logo {',
-        '    font-size: 48px; font-weight: 800; color: #d97706; letter-spacing: -1px;',
-        '    margin-bottom: 8px;',
-        '  }',
-        '  .subtitle { font-size: 14px; color: #92400e; margin-bottom: 32px; }',
-        '  .spinner {',
-        '    width: 40px; height: 40px;',
-        '    border: 4px solid #fed7aa;',
-        '    border-top-color: #d97706;',
-        '    border-radius: 50%;',
-        '    animation: spin 0.8s linear infinite;',
-        '  }',
-        '  .loading-text { margin-top: 20px; font-size: 13px; color: #92400e; }',
-        '  .version { position: absolute; bottom: 16px; font-size: 11px; color: #c4a484; }',
-        '  @keyframes spin { to { transform: rotate(360deg); } }',
-        '</style>',
-        '</head>',
-        '<body>',
-        '  <div class="logo">Tradiz</div>',
-        '  <div class="subtitle">Caisse &amp; Gestion</div>',
-        '  <div class="spinner"></div>',
-        '  <div class="loading-text">Démarrage en cours…</div>',
-        '  <div class="version">v' + app.getVersion() + '</div>',
-        '</body>',
-        '</html>',
-    ].join('\n');
+    const splashHtml = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100vh; width: 100vw; overflow: hidden;
+    background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .logo { font-size: 48px; font-weight: 800; color: #d97706; letter-spacing: -1px; margin-bottom: 8px; }
+  .subtitle { font-size: 14px; color: #92400e; margin-bottom: 32px; }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 4px solid #fed7aa;
+    border-top-color: #d97706;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .loading-text { margin-top: 20px; font-size: 13px; color: #92400e; }
+  .version { position: absolute; bottom: 16px; font-size: 11px; color: #c4a484; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <div class="logo">Tradiz</div>
+  <div class="subtitle">Caisse &amp; Gestion</div>
+  <div class="spinner"></div>
+  <div class="loading-text">Démarrage en cours…</div>
+  <div class="version">v${app.getVersion()}</div>
+</body>
+</html>`;
 
     splashWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(splashHtml));
 
     splashWindow.on('closed', function () {
         splashWindow = null;
     });
+
+    // Watchdog: close splash after 60s no matter what, so it never becomes permanent.
+    splashWatchdog = setTimeout(function () {
+        console.error('Splash watchdog: closing splash after 60s timeout');
+        closeSplashScreen();
+    }, 60000);
 }
 
 function closeSplashScreen() {
+    if (splashWatchdog) {
+        clearTimeout(splashWatchdog);
+        splashWatchdog = null;
+    }
     if (splashWindow && !splashWindow.isDestroyed()) {
         splashWindow.close();
         splashWindow = null;
@@ -683,12 +688,20 @@ function createMainWindow() {
     // Log any load errors to a visible dialog in production.
     mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
         console.error(`Load failed: ${errorCode} ${errorDescription} for ${validatedURL}`);
+        closeSplashScreen();
     });
 
     // Inject touch-drag-to-scroll for touch screen POS (no mouse, only touch).
     // Only active on /admin pages where the VirtualKeyboard is used.
-    // Converts touch-drag gestures into native scrolling so users don't need the scrollbar.
+    // Uses Pointer Events to cover both touch and mouse-emulation digitizers.
     mainWindow.webContents.on('did-finish-load', function () {
+        console.log('Page finished loading');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.show();
+            mainWindow.focus();
+        }
+        closeSplashScreen();
+
         mainWindow.webContents
             .executeJavaScript(
                 '(function () {' +
@@ -696,31 +709,32 @@ function createMainWindow() {
                     '  window.__tradizTouchScroll = true;' +
                     '  var target = null, startX = 0, startY = 0, startScrollTop = 0, startScrollLeft = 0;' +
                     '  function isAdmin() {' +
-                    '    return window.location.pathname.indexOf("/admin") !== -1;' +
+                    '    return /(^|/)admin(/|$)/.test(window.location.pathname);' +
                     '  }' +
-                    "  document.addEventListener('touchstart', function (e) {" +
-                    '    if (!isAdmin() || e.touches.length !== 1) { target = null; return; }' +
-                    '    var el = e.target;' +
+                    '  function findScrollable(el) {' +
                     '    while (el && el !== document.body) {' +
                     '      var style = getComputedStyle(el);' +
-                    "      if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && el.scrollHeight > el.clientHeight) {" +
-                    '        target = el; break;' +
-                    '      }' +
+                    '      if ((style.overflowY === "auto" || style.overflowY === "scroll") && el.scrollHeight > el.clientHeight) return el;' +
                     '      el = el.parentElement;' +
                     '    }' +
-                    '    if (!target) target = document.scrollingElement || document.documentElement;' +
-                    '    startX = e.touches[0].clientX;' +
-                    '    startY = e.touches[0].clientY;' +
-                    '    startScrollTop = target.scrollTop;' +
-                    '    startScrollLeft = target.scrollLeft;' +
-                    '  }, { passive: true });' +
-                    "  document.addEventListener('touchmove', function (e) {" +
-                    '    if (!target || e.touches.length !== 1) return;' +
-                    '    var dx = e.touches[0].clientX - startX;' +
-                    '    var dy = e.touches[0].clientY - startY;' +
+                    '    return document.scrollingElement || document.documentElement;' +
+                    '  }' +
+                    "  document.addEventListener('pointerdown', function (e) {" +
+                    '    if (!isAdmin() || !e.isPrimary) { target = null; return; }' +
+                    '    target = findScrollable(e.target);' +
+                    '    startX = e.clientX; startY = e.clientY;' +
+                    '    startScrollTop = target.scrollTop; startScrollLeft = target.scrollLeft;' +
+                    '  });' +
+                    "  document.addEventListener('pointermove', function (e) {" +
+                    '    if (!target || !e.isPrimary) return;' +
+                    '    var dx = e.clientX - startX, dy = e.clientY - startY;' +
                     '    target.scrollTop = startScrollTop - dy;' +
-                    '    target.scrollLeft = startScrollLeft - dx;' +
-                    '  }, { passive: true });' +
+                    '    // Only scroll horizontally if the container actually has horizontal overflow.' +
+                    '    if (target.scrollWidth > target.clientWidth) target.scrollLeft = startScrollLeft - dx;' +
+                    '  });' +
+                    '  function clearTarget() { target = null; }' +
+                    "  document.addEventListener('pointerup', clearTarget);" +
+                    "  document.addEventListener('pointercancel', clearTarget);" +
                     '})();'
             )
             .catch(function () {});
@@ -732,15 +746,9 @@ function createMainWindow() {
         console.log('[client][' + levelStr + '] ' + message + ' (' + sourceId + ':' + line + ')');
     });
 
-    mainWindow.webContents.on('did-finish-load', () => {
-        console.log('Page finished loading');
-        mainWindow.show();
-        mainWindow.focus();
-        closeSplashScreen();
-    });
-
     mainWindow.webContents.on('render-process-gone', (_event, details) => {
         console.error('Render process gone: ' + JSON.stringify(details));
+        closeSplashScreen();
     });
 }
 

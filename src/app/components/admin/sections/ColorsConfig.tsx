@@ -1,13 +1,11 @@
 import { adminBaseStyle, adminHeaderStyle } from '@/app/utils/constants';
 import { Color } from '@/app/utils/interfaces';
-import { defaultColors } from '@/app/utils/processData';
+import { COLORS_PER_THEME, defaultColors, defaultThemeNames } from '@/app/utils/processData';
 import { useEffect, useRef, useState } from 'react';
 import ColorPicker from '../ColorPicker';
 import DeleteButton from '../DeleteButton';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
-
-const PRESET_THEME_NAMES = ['Défaut', 'Océan', 'Coucher de soleil', 'Lavande', 'Forêt', 'Cerise'];
 
 export default function ColorsConfig({
     config,
@@ -79,8 +77,9 @@ export default function ColorsConfig({
     };
 
     const handleAddTheme = () => {
-        // Add a new theme using the current theme as a default
-        const currentTheme = themes[selectedThemeIndex] ?? defaultColors;
+        // Add a new theme using the current theme as a default. The fallback is sliced
+        // because `defaultColors` holds several themes back to back.
+        const currentTheme = themes[selectedThemeIndex] ?? defaultColors.slice(0, COLORS_PER_THEME);
         const newTheme = currentTheme.map((color) => ({ ...color }));
         const updated = [...colors, ...newTheme];
         const newThemeIndex = themes.length;
@@ -89,10 +88,10 @@ export default function ColorsConfig({
         onChange(updated);
     };
 
-    // Group colors by theme (every 7 colors is one theme)
+    // Group colors by theme (every COLORS_PER_THEME colors is one theme)
     const themes: Color[][] = [];
-    for (let i = 0; i < colors.length; i += 7) {
-        themes.push(colors.slice(i, i + 7));
+    for (let i = 0; i < colors.length; i += COLORS_PER_THEME) {
+        themes.push(colors.slice(i, i + COLORS_PER_THEME));
     }
 
     const isValid = themes.every((theme) => {
@@ -101,9 +100,8 @@ export default function ColorsConfig({
 
     // Generate theme names for all themes
     const getThemeName = (index: number) => {
-        if (index === 0) return themeName || PRESET_THEME_NAMES[0] || 'Défaut';
-        if (index < PRESET_THEME_NAMES.length) return customThemeNames[index] || PRESET_THEME_NAMES[index];
-        return customThemeNames[index] || `Thème ${index + 1}`;
+        if (index === 0) return themeName || defaultThemeNames[0];
+        return customThemeNames[index] || defaultThemeNames[index] || `Thème ${index + 1}`;
     };
 
     const handleThemeNameChange = (index: number, value: string) => {
@@ -181,10 +179,10 @@ export default function ColorsConfig({
                                 <div onClick={(e) => e.stopPropagation()} className="mb-auto">
                                     <DeleteButton
                                         onClick={() => {
-                                            // Remove this theme (7 colors)
-                                            const startIdx = themeIndex * 7;
+                                            // Remove this theme's block of colors
+                                            const startIdx = themeIndex * COLORS_PER_THEME;
                                             const newColors = colors.filter(
-                                                (_, i) => i < startIdx || i >= startIdx + 7
+                                                (_, i) => i < startIdx || i >= startIdx + COLORS_PER_THEME
                                             );
                                             setColors(newColors);
                                             onChange(newColors);
@@ -236,7 +234,7 @@ export default function ColorsConfig({
                                 </thead>
                                 <tbody>
                                     {theme.map((color, colorIndex) => {
-                                        const globalIndex = themeIndex * 7 + colorIndex;
+                                        const globalIndex = themeIndex * COLORS_PER_THEME + colorIndex;
                                         return (
                                             <tr
                                                 key={colorIndex}

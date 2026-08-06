@@ -249,6 +249,12 @@ const dataNames: { [key: string]: string } = {
     users: 'getUsers',
 };
 
+// Each theme is a contiguous block of COLORS_PER_THEME entries in `defaultColors`,
+// and `defaultThemeNames[i]` is the name of the i-th block.
+export const COLORS_PER_THEME = 7;
+
+export const defaultThemeNames: string[] = ['Défaut', 'Océan', 'Coucher de soleil', 'Lavande', 'Forêt', 'Cerise'];
+
 export const defaultColors: Color[] = [
     // Theme 0: Défaut (Orange/Lime — original)
     { label: 'Texte', light: '#d97706', dark: '#facc15' },

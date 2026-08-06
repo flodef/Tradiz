@@ -177,17 +177,23 @@ export const createMockPrinter = async () => {
         execute: () => {
             const now = new Date().toLocaleTimeString('fr-FR');
             const border = '='.repeat(MAX_WIDTH + 4);
-            console.log('\n');
-            console.log('\x1b[36m' + border + '\x1b[0m');
-            console.log(
-                `\x1b[36m│\x1b[0m \x1b[1mPRINTER MOCKUP ${now}\x1b[0m${' '.repeat(Math.max(0, MAX_WIDTH - 17 - now.length))} \x1b[36m│\x1b[0m`
-            );
-            console.log('\x1b[36m' + border + '\x1b[0m');
+            const useColor = process.stdout.isTTY;
+            const c = (s: string) => (useColor ? `\x1b[36m${s}\x1b[0m` : s);
+            const b = (s: string) => (useColor ? `\x1b[1m${s}\x1b[0m` : s);
+            const dim = (s: string) => (useColor ? `\x1b[2m${s}\x1b[0m` : s);
+            const header = `PRINTER MOCKUP ${now}`;
+            const headerPad = ' '.repeat(Math.max(0, MAX_WIDTH - header.length));
+
+            console.log('');
+            console.log(c(border));
+            console.log(`${c('│')} ${b(header)}${headerPad} ${c('│')}`);
+            console.log(c(border));
             textBuffer.forEach((line) => {
-                console.log('\x1b[36m│\x1b[0m ' + line.padEnd(MAX_WIDTH) + ' \x1b[36m│\x1b[0m');
+                console.log(`${c('│')} ${line.padEnd(MAX_WIDTH)} ${c('│')}`);
             });
-            console.log('\x1b[36m' + border + '\x1b[0m');
-            console.log(`\x1b[2m(${textBuffer.length} lines — dev mode, no physical printer)\x1b[0m\n`);
+            console.log(c(border));
+            console.log(dim(`(${textBuffer.length} lines — dev mode, no physical printer)`));
+            console.log('');
 
             return Promise.resolve();
         },

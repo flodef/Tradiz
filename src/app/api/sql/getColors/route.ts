@@ -4,6 +4,7 @@ import { getMainDb, DbConnection } from '../db';
 
 interface ThemeRow {
     name: string;
+    selected?: boolean | number;
     text_light: string;
     text_dark: string;
     gradient_start_light: string;
@@ -20,15 +21,15 @@ interface ThemeRow {
     secondary_activated_dark: string;
 }
 
-export async function GET(request: Request) {
-    const shopId = getShopIdFromRequest(request);
-    let connection: DbConnection | undefined;
-    try {
-        connection = await getMainDb(shopId);
+interface ThemeColor {
+    label: string;
+    light: string;
+    dark: string;
+}
 
-        const query = `
-            SELECT
+const SELECT_COLUMNS = `
                 name,
+                selected,
                 text_light,
                 text_dark,
                 gradient_start_light,
@@ -42,46 +43,73 @@ export async function GET(request: Request) {
                 secondary_light,
                 secondary_dark,
                 secondary_activated_light,
-                secondary_activated_dark
+                secondary_activated_dark`;
+
+function rowToColors(row: ThemeRow): ThemeColor[] {
+    return [
+        { label: 'Texte', light: String(row.text_light), dark: String(row.text_dark) },
+        {
+            label: 'Fond début dégradé',
+            light: String(row.gradient_start_light),
+            dark: String(row.gradient_start_dark),
+        },
+        {
+            label: 'Fond fin dégradé',
+            light: String(row.gradient_end_light),
+            dark: String(row.gradient_end_dark),
+        },
+        { label: 'Popup', light: String(row.popup_light), dark: String(row.popup_dark) },
+        { label: 'Activé', light: String(row.activated_light), dark: String(row.activated_dark) },
+        { label: 'Secondaire', light: String(row.secondary_light), dark: String(row.secondary_dark) },
+        {
+            label: 'Secondaire activé',
+            light: String(row.secondary_activated_light),
+            dark: String(row.secondary_activated_dark),
+        },
+    ];
+}
+
+// MariaDB returns 0/1, PostgreSQL returns booleans.
+function isSelected(row: ThemeRow): boolean {
+    return row.selected === true || row.selected === 1;
+}
+
+export async function GET(request: Request) {
+    const shopId = getShopIdFromRequest(request);
+    // `all=1` returns every theme so the admin config page can list and pick them.
+    // The default response stays a single (selected) theme, which is what the app applies.
+    const returnAll = new URL(request.url).searchParams.get('all') === '1';
+    let connection: DbConnection | undefined;
+    try {
+        connection = await getMainDb(shopId);
+
+        const query = `
+            SELECT${SELECT_COLUMNS}
             FROM
                 theme_admin
-            WHERE
-                selected = true
+            ${returnAll ? 'ORDER BY id' : 'WHERE selected = true'}
         `;
 
         const [rows] = await connection.execute(query);
-        await connection.end();
-
         const allRows = rows as ThemeRow[];
 
-        const data: { colors: { label: string; light: string; dark: string }[]; themeName?: string } = {
-            colors: [],
-        };
+        if (returnAll) {
+            const selectedIndex = allRows.findIndex(isSelected);
+            return NextResponse.json(
+                {
+                    colors: allRows.flatMap(rowToColors),
+                    themeNames: allRows.map((row) => String(row.name)),
+                    selectedThemeIndex: selectedIndex === -1 ? 0 : selectedIndex,
+                },
+                { status: 200 }
+            );
+        }
+
+        const data: { colors: ThemeColor[]; themeName?: string } = { colors: [] };
 
         if (allRows.length > 0) {
-            const row = allRows[0];
-            data.themeName = String(row.name);
-            data.colors = [
-                { label: 'Texte', light: String(row.text_light), dark: String(row.text_dark) },
-                {
-                    label: 'Fond début dégradé',
-                    light: String(row.gradient_start_light),
-                    dark: String(row.gradient_start_dark),
-                },
-                {
-                    label: 'Fond fin dégradé',
-                    light: String(row.gradient_end_light),
-                    dark: String(row.gradient_end_dark),
-                },
-                { label: 'Popup', light: String(row.popup_light), dark: String(row.popup_dark) },
-                { label: 'Activé', light: String(row.activated_light), dark: String(row.activated_dark) },
-                { label: 'Secondaire', light: String(row.secondary_light), dark: String(row.secondary_dark) },
-                {
-                    label: 'Secondaire activé',
-                    light: String(row.secondary_activated_light),
-                    dark: String(row.secondary_activated_dark),
-                },
-            ];
+            data.themeName = String(allRows[0].name);
+            data.colors = rowToColors(allRows[0]);
         }
 
         return NextResponse.json(data, { status: 200 });

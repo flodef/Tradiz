@@ -443,18 +443,35 @@ export default function SettingsPage() {
                 }
             }
 
-            // Load colors/theme from DB
+            // Load colors/themes from DB. `all=1` returns every theme (not just the
+            // selected one) so the config page can list and switch between them.
             try {
-                const colorsResponse = await fetch('/api/sql/getColors');
+                const colorsResponse = await fetch('/api/sql/getColors?all=1');
                 const colorsData = await colorsResponse.json();
                 if (colorsData.colors && colorsData.colors.length > 0) {
                     const loaded: Color[] = colorsData.colors;
                     setColorsConfig(loaded);
                     setOriginalColors(loaded);
-                    if (colorsData.themeName) {
-                        setThemeName(String(colorsData.themeName));
-                        setOriginalThemeName(String(colorsData.themeName));
+
+                    const names: string[] = Array.isArray(colorsData.themeNames) ? colorsData.themeNames : [];
+                    if (names.length > 0) {
+                        setThemeName(names[0]);
+                        setOriginalThemeName(names[0]);
+                        // Theme 0's name lives in `themeName`; the rest in `customThemeNames`.
+                        const customNames: Record<number, string> = {};
+                        names.forEach((name, index) => {
+                            if (index > 0) customNames[index] = name;
+                        });
+                        setCustomThemeNames(customNames);
+                        setOriginalCustomThemeNames(customNames);
                     }
+
+                    const selected = Number(colorsData.selectedThemeIndex ?? 0);
+                    const themeCount = Math.ceil(loaded.length / 7);
+                    const safeSelected =
+                        Number.isInteger(selected) && selected >= 0 && selected < themeCount ? selected : 0;
+                    setSelectedThemeIndex(safeSelected);
+                    setOriginalSelectedThemeIndex(safeSelected);
                 }
             } catch {
                 if (configColors) {

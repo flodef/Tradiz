@@ -29,7 +29,12 @@ jobs:
             - name: Install dependencies
               run: bun install
 
+            - name: Build Windows installer (no publish)
+              if: github.event_name != 'release'
+              run: bun electron:dist:win:ci
+
             - name: Build and publish Windows installer
+              if: github.event_name == 'release'
               run: bun electron:publish:win
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
