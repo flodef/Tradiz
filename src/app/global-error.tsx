@@ -4,6 +4,8 @@
 import { Open_Sans } from 'next/font/google';
 import Link from 'next/link';
 import { useEffect } from 'react';
+import { CloseButton } from './components/CloseButton';
+import './globals.css';
 import { DEV_EMAIL } from './utils/constants';
 
 const openSans = Open_Sans({ subsets: ['latin'], weight: ['400', '700'] });
@@ -33,6 +35,15 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
 
     return (
         <div className={openSans.className}>
+            {typeof window !== 'undefined' && window.electronAPI?.closeApp && (
+                <div className="fixed top-4 right-4 z-20">
+                    <CloseButton
+                        onClose={() => window.electronAPI?.closeApp()}
+                        size="xl"
+                        className="text-secondary-light dark:text-secondary-dark"
+                    />
+                </div>
+            )}
             <div
                 className={
                     'w-screen h-screen overflow-hidden flex flex-col items-center justify-center font-bold ' +

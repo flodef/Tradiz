@@ -644,7 +644,7 @@ function initAutoUpdater() {
                 console.log('Auto-updater: restarting in 10 seconds…');
                 setTimeout(() => {
                     console.log('Auto-updater: installing now');
-                    autoUpdater.quitAndInstall(true, true);
+                    autoUpdater.quitAndInstall(false, true);
                 }, 10000);
             }
         });
@@ -732,7 +732,7 @@ function createMainWindow() {
                     '  window.__tradizTouchScroll = true;' +
                     '  var target = null, startX = 0, startY = 0, startScrollTop = 0, startScrollLeft = 0;' +
                     '  function isAdmin() {' +
-                    '    return /(^|/)admin(/|$)/.test(window.location.pathname);' +
+                    '    return /(^|\\/)admin(\\/|$)/.test(window.location.pathname);' +
                     '  }' +
                     '  function findScrollable(el) {' +
                     '    while (el && el !== document.body) {' +
