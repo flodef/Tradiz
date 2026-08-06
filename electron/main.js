@@ -622,11 +622,9 @@ function initAutoUpdater() {
             }
         });
 
-        autoUpdater.on('update-downloaded', (info) => {
-            console.log('Auto-updater: update downloaded, waiting before restart');
-            if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('update-downloaded', { version: info.version });
-            }
+        autoUpdater.on('update-downloaded', () => {
+            console.log('Auto-updater: update downloaded, installing now');
+            autoUpdater.quitAndInstall(false, true);
         });
 
         autoUpdater.on('error', (err) => {
@@ -639,13 +637,6 @@ function initAutoUpdater() {
                 autoUpdater.downloadUpdate().catch((err) => {
                     console.error('Auto-updater download failed:', err.message);
                 });
-            } else if (response === 'install') {
-                // Delay before restarting to let the user finish what they're doing
-                console.log('Auto-updater: restarting in 10 seconds…');
-                setTimeout(() => {
-                    console.log('Auto-updater: installing now');
-                    autoUpdater.quitAndInstall(false, true);
-                }, 10000);
             }
         });
 
