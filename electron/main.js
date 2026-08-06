@@ -342,7 +342,7 @@ function createSplashScreen() {
   @keyframes move { 0% { transform: translateX(0); } 100% { transform: translateX(45px); } }
   @keyframes grow { 0% { transform: scale(0,0); opacity: 0; } 100% { transform: scale(1,1); opacity: 1; } }
 
-  .loading-text { margin-top: 48px; font-size: 13px; color: #92400e; text-align: center; transition: opacity 0.5s ease; }
+  .loading-text { margin-top: 32px; font-size: 13px; color: #92400e; text-align: center; transition: opacity 0.5s ease; }
   .loading-text.fade { opacity: 0; }
   .version { position: absolute; bottom: 16px; font-size: 11px; color: #c4a484; }
 </style>
@@ -803,6 +803,19 @@ function createMiniWindow() {
         miniWindow = null;
     });
 }
+
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+    app.quit();
+}
+
+app.on('second-instance', () => {
+    if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+    }
+});
 
 app.whenReady().then(async () => {
     loadEnv();

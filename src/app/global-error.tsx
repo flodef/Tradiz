@@ -17,7 +17,12 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
     }, [error]);
 
     const retry = () => setTimeout(reset, 1000); // Attempt to recover by trying to re-render the segment
-    const reload = () => setTimeout(() => location.reload(), 1000); // Hard reset by reloading the page
+    const reload = () => {
+        if (typeof window !== 'undefined' && window.electronAPI?.respondUpdate) {
+            window.electronAPI.respondUpdate('download');
+        }
+        setTimeout(() => location.reload(), 1000);
+    };
 
     const zeroClassName =
         'relative before:rotate-45 before:scale-x-0 before:scale-y-75 before:animate-cross1$ ' +
