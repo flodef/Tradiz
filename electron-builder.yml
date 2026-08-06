@@ -13,22 +13,8 @@ files:
     - package.json
     # Only include node_modules needed by the Electron main process.
     # The Next.js standalone server bundles its own dependencies separately.
-    - node_modules/electron-updater/**/*
-    - node_modules/builder-util-runtime/**/*
-    - node_modules/lazy-val/**/*
-    - node_modules/js-yaml/**/*
-    - node_modules/argparse/**/*
-    - node_modules/sax/**/*
-    - node_modules/semver/**/*
-    - node_modules/tiny-typed-emitter/**/*
-    - node_modules/fs-extra/**/*
-    - node_modules/jsonfile/**/*
-    - node_modules/universalify/**/*
-    - node_modules/graceful-fs/**/*
-    - node_modules/debug/**/*
-    - node_modules/serialport/**/*
-    - node_modules/@serialport/**/*
-    - node_modules/node-gyp-build/**/*
+    # Exclude all node_modules first, then re-include only what the Electron
+    # main process requires. Order matters: negation must come before re-includes.
     - '!node_modules'
     - '!src'
     - '!__tests__'
@@ -39,6 +25,26 @@ files:
     - '!build'
     - '!*.log'
     - '!.env*.local'
+    - node_modules/electron-updater/**/*
+    - node_modules/builder-util-runtime/**/*
+    - node_modules/lazy-val/**/*
+    - node_modules/js-yaml/**/*
+    - node_modules/argparse/**/*
+    - node_modules/sax/**/*
+    - node_modules/semver/**/*
+    - node_modules/tiny-typed-emitter/**/*
+    - node_modules/lodash.escaperegexp/**/*
+    - node_modules/lodash.isequal/**/*
+    - node_modules/fs-extra/**/*
+    - node_modules/jsonfile/**/*
+    - node_modules/universalify/**/*
+    - node_modules/graceful-fs/**/*
+    - node_modules/debug/**/*
+    - node_modules/ms/**/*
+    - node_modules/serialport/**/*
+    - node_modules/@serialport/**/*
+    - node_modules/node-gyp-build/**/*
+    - node_modules/node-addon-api/**/*
 extraResources:
     - from: electron/standalone-build
       to: standalone

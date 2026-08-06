@@ -368,6 +368,64 @@ Le projet dispose de deux workflows GitHub Actions :
 
 Les deux workflows utilisent Node.js 22.x, Bun et les versions récentes des actions GitHub (`checkout@v5`, `setup-node@v4`, `setup-bun@v2`).
 
+# Application Electron (POS)
+
+Tradiz peut s'exécuter en application de bureau Electron sur Windows (32-bit et 64-bit) et Linux (64-bit).
+
+## Build local (sans GitHub CI)
+
+Pour construire un installateur localement et le copier directement sur le POS :
+
+### Windows
+
+```bash
+bun electron:dist:win:ci
+```
+
+Produit deux installateurs dans `dist/` :
+
+-   `Tradiz-<version>-win-ia32.exe` — pour les POS 32-bit (Oxhoo 2016, etc.)
+-   `Tradiz-<version>-win-x64.exe` — pour les PC 64-bit
+
+Copier le fichier `ia32` sur le POS (via clé USB ou partage réseau) et l'exécuter.
+
+### Linux
+
+```bash
+bun electron:dist:linux:ci
+```
+
+Produit dans `dist/` :
+
+-   `Tradiz-<version>-linux-x86_64.AppImage` — image portable
+-   `Tradiz-<version>-linux-amd64.deb` — paquet Debian
+
+## Publication d'une release (GitHub CI + auto-updater)
+
+Pour publier une nouvelle version qui sera construite par GitHub Actions et détectée par l'auto-updater des POS déjà installés :
+
+1.  Mettre à jour la version dans `package.json` (`"version": "x.y.z"`)
+2.  Committer et pousser sur la branche `dev`
+3.  Lancer la commande de release (fusionne `dev` vers `main`, crée le tag, pousse, et crée la release GitHub) :
+
+```bash
+VERSION=$(bun -e 'console.log(require("./package.json").version)') && \
+git checkout main && \
+git merge dev --no-edit && \
+git tag "v${VERSION}" && \
+git push origin main && \
+git push origin "v${VERSION}" && \
+gh release create "v${VERSION}" --title "v${VERSION}" --notes "Release v${VERSION}" --latest && \
+git checkout dev
+```
+
+4.  GitHub Actions construit automatiquement les installateurs Windows et les publie sur la release
+5.  L'auto-updater (`electron-updater`) détecte la nouvelle version au prochain démarrage du POS et propose la mise à jour
+
+> **Note** : l'auto-updater ne fonctionne qu'à partir d'une version incluant `electron-updater` correctement empaqueté. Si le POS exécute une version antérieure sans auto-updater, il faut installer manuellement la nouvelle version une première fois.
+
+Le détail complet est dans [`.devin/workflows/release.md`](.devin/workflows/release.md).
+
 # Contribuer au projet
 
 Toutes contributions, retours ou idées sont les bienvenus. 🙏🏻🙏🏻🙏🏻

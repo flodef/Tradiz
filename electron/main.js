@@ -42,8 +42,8 @@ console.error = function () {
 let autoUpdater = null;
 try {
     autoUpdater = require('electron-updater').autoUpdater;
-} catch {
-    console.log('electron-updater not available, auto-updates disabled');
+} catch (err) {
+    console.error('electron-updater not available, auto-updates disabled:', err.message);
 }
 
 // Catch any uncaught errors so they appear in the log file.
@@ -104,9 +104,9 @@ async function findDisplayPort() {
     // Try serialport module first (supports auto-detect)
     let SerialPort = null;
     try {
-        SerialPort = require('serialport');
+        SerialPort = require('serialport').SerialPort;
     } catch (err) {
-        console.log('SerialPort module not available, using fs fallback:', err.message);
+        console.error('SerialPort module not available, using fs fallback:', err.message);
     }
 
     if (SerialPort) {
@@ -331,24 +331,52 @@ function createSplashScreen() {
   }
   .logo { font-size: 48px; font-weight: 800; color: #d97706; letter-spacing: -1px; margin-bottom: 8px; }
   .subtitle { font-size: 14px; color: #92400e; margin-bottom: 32px; }
-  .spinner {
-    width: 40px; height: 40px;
-    border: 4px solid #fed7aa;
-    border-top-color: #d97706;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  .loading-text { margin-top: 20px; font-size: 13px; color: #92400e; }
+
+  /* LoadingDot animation — replicated from src/app/loading.tsx */
+  .dots-container { display: flex; align-items: center; justify-content: center; height: 16px; width: 112px; position: relative; }
+  .dot { height: 16px; width: 16px; border-radius: 50%; background: #d97706; }
+  .dot.grow-left { position: absolute; top: 0; left: 0; margin-right: 32px; animation: grow 500ms linear 0ms infinite; }
+  .dot.move { margin-right: 30px; animation: move 500ms linear 0ms infinite; }
+  .dot.grow-right { position: absolute; top: 0; right: 0; margin: 0; animation: grow 500ms linear 0ms infinite reverse; }
+
+  @keyframes move { 0% { transform: translateX(0); } 100% { transform: translateX(45px); } }
+  @keyframes grow { 0% { transform: scale(0,0); opacity: 0; } 100% { transform: scale(1,1); opacity: 1; } }
+
+  .loading-text { margin-top: 48px; font-size: 13px; color: #92400e; text-align: center; transition: opacity 0.5s ease; }
+  .loading-text.fade { opacity: 0; }
   .version { position: absolute; bottom: 16px; font-size: 11px; color: #c4a484; }
-  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
   <div class="logo">Tradiz</div>
   <div class="subtitle">Caisse &amp; Gestion</div>
-  <div class="spinner"></div>
-  <div class="loading-text">Démarrage en cours…</div>
+  <div class="dots-container">
+    <span class="dot grow-left"></span>
+    <span class="dot move"></span>
+    <span class="dot move"></span>
+    <span class="dot grow-right"></span>
+  </div>
+  <div class="loading-text" id="loadingText">Démarrage en cours…</div>
   <div class="version">v${app.getVersion()}</div>
+  <script>
+    var messages = [
+      "Démarrage en cours…",
+      "L'application met les petits plats dans les grands…",
+      "On y est presque…",
+      "Encore un petit instant…",
+      "À vos marques, prêt, feu…"
+    ];
+    var idx = 0;
+    var el = document.getElementById('loadingText');
+    setInterval(function () {
+      el.classList.add('fade');
+      setTimeout(function () {
+        idx = (idx + 1) % messages.length;
+        el.textContent = messages[idx];
+        el.classList.remove('fade');
+      }, 500);
+    }, 10000);
+  </script>
 </body>
 </html>`;
 
