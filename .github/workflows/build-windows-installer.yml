@@ -1,8 +1,6 @@
 name: Build Windows Installer
 
 on:
-    push:
-        branches: [main]
     workflow_dispatch:
     release:
         types: [published]
@@ -29,26 +27,7 @@ jobs:
             - name: Install dependencies
               run: bun install
 
-            - name: Build Windows installer (no publish)
-              if: github.event_name != 'release'
-              run: bun electron:dist:win:ci
-
             - name: Build and publish Windows installer
-              if: github.event_name == 'release'
               run: bun electron:publish:win
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-            - name: Upload 64-bit installer
-              if: github.event_name != 'release'
-              uses: actions/upload-artifact@v4
-              with:
-                  name: tradiz-windows-installer-x64
-                  path: dist/*-win-x64.exe
-
-            - name: Upload 32-bit installer
-              if: github.event_name != 'release'
-              uses: actions/upload-artifact@v4
-              with:
-                  name: tradiz-windows-installer-ia32
-                  path: dist/*-win-ia32.exe

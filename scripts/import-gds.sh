@@ -128,118 +128,6 @@ ok "Connection successful."
 echo ""
 
 # ------------------------------------------------------------
-# Export live DB data as INSERT statements
-# ------------------------------------------------------------
-info "Exporting live data from database (parameters, payment_methods, devices, printers, users, themes)..."
-
-# Helper: generate INSERT statements for a table using a SQL query
-# We use row_to_json + jsonb_each_text is too complex; instead we build INSERTs
-# with a dedicated SQL query per table that handles proper escaping.
-generate_inserts() {
-    local conn_str="$1"
-    psql "$conn_str" -t -A -v ON_ERROR_STOP=1 <<'SQL'
--- Generate INSERT statements for live DB data
--- We use a PL/pgSQL block to build properly escaped INSERT statements
-
-DO $$
-DECLARE
-    r RECORD;
-    sql text;
-    val text;
-BEGIN
-    -- ===== dc_pos.users =====
-    FOR r IN SELECT * FROM dc_pos.users ORDER BY id LOOP
-        sql := format(
-            'INSERT INTO dc_pos.users (id, name, role, reference, created_at) VALUES (%s, %L, %L, %L, %L) ON CONFLICT (id) DO NOTHING;',
-            r.id, r.name, r.role, r.reference, r.created_at
-        );
-        RAISE NOTICE '%', sql;
-    END LOOP;
-
-    -- ===== dc_pos.parameters =====
-    FOR r IN SELECT * FROM dc_pos.parameters ORDER BY id LOOP
-        sql := format(
-            'INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (%s, %L, %L, %L) ON CONFLICT (id) DO NOTHING;',
-            r.id, r.param_key, r.param_value, r.updated_at
-        );
-        RAISE NOTICE '%', sql;
-    END LOOP;
-
-    -- ===== dc_pos.payment_methods =====
-    FOR r IN SELECT * FROM dc_pos.payment_methods ORDER BY id LOOP
-        sql := format(
-            'INSERT INTO dc_pos.payment_methods (id, label, address, currency, hidden, created_at) VALUES (%s, %L, %L, %L, %s, %L) ON CONFLICT (id) DO NOTHING;',
-            r.id, r.label, r.address, r.currency, r.hidden, r.created_at
-        );
-        RAISE NOTICE '%', sql;
-    END LOOP;
-
-    -- ===== dc_pos.printers =====
-    FOR r IN SELECT * FROM dc_pos.printers ORDER BY id LOOP
-        sql := format(
-            'INSERT INTO dc_pos.printers (id, name, ip_address) VALUES (%s, %L, %L) ON CONFLICT (id) DO NOTHING;',
-            r.id, r.name, r.ip_address
-        );
-        RAISE NOTICE '%', sql;
-    END LOOP;
-
-    -- ===== dc_pos.devices =====
-    FOR r IN SELECT * FROM dc_pos.devices ORDER BY id LOOP
-        sql := format(
-            'INSERT INTO dc_pos.devices (id, label, public_key, user_id, connected, last_seen, created_at) VALUES (%s, %L, %L, %s, %s, %L, %L) ON CONFLICT (id) DO NOTHING;',
-            r.id, r.label, r.public_key,
-            COALESCE(r.user_id::text, 'NULL'),
-            r.connected,
-            r.last_seen, r.created_at
-        );
-        RAISE NOTICE '%', sql;
-    END LOOP;
-
-    -- ===== dc.theme_admin =====
-    FOR r IN SELECT * FROM dc.theme_admin ORDER BY id LOOP
-        sql := format(
-            'INSERT INTO dc.theme_admin (id, selected, name, text_light, text_dark, gradient_start_light, gradient_start_dark, gradient_end_light, gradient_end_dark, popup_light, popup_dark, activated_light, activated_dark, secondary_light, secondary_dark, secondary_activated_light, secondary_activated_dark) VALUES (%s, %s, %L, %L, %L, %L, %L, %L, %L, %L, %L, %L, %L, %L, %L, %L, %L) ON CONFLICT (id) DO NOTHING;',
-            r.id, r.selected, r.name,
-            r.text_light, r.text_dark,
-            r.gradient_start_light, r.gradient_start_dark,
-            r.gradient_end_light, r.gradient_end_dark,
-            r.popup_light, r.popup_dark,
-            r.activated_light, r.activated_dark,
-            r.secondary_light, r.secondary_dark,
-            r.secondary_activated_light, r.secondary_activated_dark
-        );
-        RAISE NOTICE '%', sql;
-    END LOOP;
-
-    -- ===== dc.theme_client =====
-    FOR r IN SELECT * FROM dc.theme_client ORDER BY id LOOP
-        sql := format(
-            'INSERT INTO dc.theme_client (id, name, primary_text, secondary_text, background, border, error, success, warning, is_active, theme_type) VALUES (%s, %L, %L, %L, %L, %L, %L, %L, %L, %s, %L) ON CONFLICT (id) DO NOTHING;',
-            r.id, r.name,
-            r.primary_text, r.secondary_text,
-            r.background, r.border,
-            r.error, r.success, r.warning,
-            r.is_active, r.theme_type
-        );
-        RAISE NOTICE '%', sql;
-    END LOOP;
-END $$;
-SQL
-}
-
-# Export live data
-# RAISE NOTICE outputs "NOTICE: INSERT INTO..." — strip the "NOTICE: " prefix
-LIVE_SQL="$(generate_inserts "$CONN_STR" 2>&1 | sed 's/^NOTICE: //' | grep '^INSERT INTO')"
-if [[ -z "$LIVE_SQL" ]]; then
-    error "Failed to export live data from database (no INSERT statements generated)."
-    generate_inserts "$CONN_STR" 2>&1 | sed 's/^NOTICE: //'
-    exit 1
-fi
-LIVE_COUNT=$(echo "$LIVE_SQL" | grep -c "INSERT INTO" || true)
-ok "Exported $LIVE_COUNT live INSERT statements."
-echo ""
-
-# ------------------------------------------------------------
 # Build the final SQL script
 # ------------------------------------------------------------
 info "Building final SQL script..."
@@ -300,19 +188,12 @@ info "Building final SQL script..."
         echo ""
     fi
 
-    # --- Live DB data (users first, then devices reference users) ---
+    # --- Static import data (live DB data + POS exports, all in import-gds-data.sql) ---
     echo "-- ============================================================"
-    echo "-- Live DB data (exported from current database)"
+    echo "-- Import data (live DB data + POS exports)"
     echo "-- ============================================================"
-    echo "$LIVE_SQL"
-    echo ""
-
-    # --- Static import data (companies, customers, products, formulas) ---
-    echo "-- ============================================================"
-    echo "-- Static import data (from POS exports)"
-    echo "-- ============================================================"
-    # Skip the header and BEGIN/COMMIT from the static file
-    sed -n '/^-- Ensure unique constraint/,/^COMMIT;/p' "$STATIC_SQL" | sed 's/^COMMIT;$//'
+    # Include everything from the DO $$ block to just before COMMIT
+    sed -n '/^-- Ensure unique constraint/,/^COMMIT;/{/^COMMIT;/d;p}' "$STATIC_SQL"
     echo ""
 
     # --- Commit or Rollback ---
@@ -327,7 +208,6 @@ info "Building final SQL script..."
     # --- Summary ---
     echo "-- ============================================================"
     echo "-- Import summary:"
-    echo "--   Live DB inserts:  $LIVE_COUNT"
     echo "--   Mode:             $([ "$DRY_RUN" == "yes" ] && echo 'DRY-RUN (rolled back)' || echo 'REAL (committed)')"
     echo "--   Delete existing:  $([ "$DELETE_DATA" == "yes" ] && echo 'YES' || echo 'NO')"
     echo "-- ============================================================"

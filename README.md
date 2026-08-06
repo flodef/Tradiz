@@ -361,12 +361,13 @@ Le bouton de suppression du NumPad est rétabli. Un appui simple sur « Supprime
 
 # Intégration continue (CI)
 
-Le projet dispose de deux workflows GitHub Actions :
+Le projet dispose de trois workflows GitHub Actions :
 
 -   **[Node.js CI](https://github.com/flodef/Tradiz/actions/workflows/node.js.yml)** — à chaque push et pull request : installe les dépendances avec Bun et lance les tests Vitest sur Node.js 22.
--   **[Build Windows Installer](https://github.com/flodef/Tradiz/actions/workflows/build-windows-installer.yml)** — à chaque push sur `main`, release publiée ou déclenchement manuel : construit l'installateur Windows (`electron-builder`) et publie l'artefact ou la release GitHub.
+-   **[Build Windows Installer](https://github.com/flodef/Tradiz/actions/workflows/build-windows-installer.yml)** — à chaque release publiée ou déclenchement manuel : construit l'installateur Windows (`electron-builder`) et le publie sur la release GitHub.
+-   **[Build Linux Installer](https://github.com/flodef/Tradiz/actions/workflows/build-linux-installer.yml)** — à chaque release publiée ou déclenchement manuel : construit l'installateur Linux (`electron-builder`) et le publie sur la release GitHub.
 
-Les deux workflows utilisent Node.js 22.x, Bun et les versions récentes des actions GitHub (`checkout@v5`, `setup-node@v4`, `setup-bun@v2`).
+Les trois workflows utilisent Node.js 22.x, Bun et les versions récentes des actions GitHub (`checkout@v5`, `setup-node@v4`, `setup-bun@v2`).
 
 # Application Electron (POS)
 

@@ -22,6 +22,46 @@ DO $$ BEGIN
 END $$;
 
 -- ============================================================
+-- Live DB data (exported from current database on 2026-08-06)
+-- Users, Parameters, Payment methods, Printers, Devices, Themes
+-- ============================================================
+
+-- Users (cashiers) — must come before devices (FK)
+INSERT INTO dc_pos.users (id, name, role, reference, created_at) VALUES (1, 'Gds', 'Admin', NULL, '2026-07-09 18:32:45.219436') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.users (id, name, role, reference, created_at) VALUES (2, 'Sylvie', 'Service', '3000000000021', '2026-07-15 11:25:59.566339') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.users (id, name, role, reference, created_at) VALUES (3, 'Vincent', 'Service', '3000000000038', '2026-07-15 11:25:59.566339') ON CONFLICT (id) DO NOTHING;
+
+-- Parameters (paramètres)
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (1, 'name', 'La gourmandise de Sylvie', '2026-07-11 18:10:47.341818') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (2, 'address', '115 Rue Roland Garros', '2026-07-11 18:10:47.501826') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (3, 'zipCode', '29490', '2026-07-11 18:10:47.546785') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (4, 'city', 'GUIPAVAS', '2026-07-11 18:10:47.702789') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (5, 'serial', '81996835500019', '2026-07-11 18:10:47.747818') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (6, 'id', '', '2026-07-11 18:10:47.793788') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (7, 'email', 'flo@tradiz.fr', '2026-07-11 18:10:47.950789') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (8, 'thanksMessage', 'Merci de votre visite !', '2026-07-11 18:10:47.996712') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (9, 'mercurial', 'Aucune', '2026-07-11 18:10:48.140792') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (10, 'closingHour', '0', '2026-07-11 18:10:48.185824') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (11, 'yearStartDate', '{"month":1,"day":1}', '2026-07-11 18:10:48.230764') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (12, 'lastModified', '1785946741426', '2026-07-11 18:10:48.384778') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (13, 'productsSettings', '{"useVatPerProduct":false,"useReference":false,"useStock":false,"usePhoto":false,"useDescription":false,"useOptions":false}', '2026-07-11 18:10:48.429755') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (14, 'searchSettings', '{"searchCustomers":true,"searchProducts":true,"searchUsers":false}', '2026-07-11 18:10:48.578918') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (15, 'displaySettings', '{"showWaiting":true,"showRefund":true,"showProvision":true,"showDebit":true,"showChange":true,"expandFirstCategory":false}', '2026-07-11 18:10:48.623759') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (16, 'userSwitch', 'true', '2026-07-19 13:25:12.864751') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (17, 'useVirtualKeyboard', 'true', '2026-08-05 14:19:31.010455') ON CONFLICT (id) DO NOTHING;
+
+-- Payment methods (paiements)
+INSERT INTO dc_pos.payment_methods (id, label, address, currency, hidden, created_at) VALUES (1, 'Carte Bancaire', '0', 'Euro', 'f', '2026-07-11 18:17:10.119469') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.payment_methods (id, label, address, currency, hidden, created_at) VALUES (2, 'Espèces', '0', 'Euro', 'f', '2026-07-11 18:17:10.153381') ON CONFLICT (id) DO NOTHING;
+
+-- Printers (imprimantes)
+INSERT INTO dc_pos.printers (id, name, ip_address) VALUES (1, 'Caisse', 'COM1') ON CONFLICT (id) DO NOTHING;
+
+-- Devices (appareils) — references users
+INSERT INTO dc_pos.devices (id, label, public_key, user_id, connected, last_seen, created_at) VALUES (1, 'Gds', 'aynn2aloo9kp62q1idmjd', 1, 'f', '2026-08-05 17:51:52.644778+00', '2026-07-13 23:00:33.245727') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.devices (id, label, public_key, user_id, connected, last_seen, created_at) VALUES (2, 'Caisse', '25z161thbhps1cla232wmp', 1, 't', '2026-08-06 15:39:16.488809+00', '2026-08-05 08:49:41.591531') ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================
 -- Companies
 -- ============================================================
 INSERT INTO dc_pos.companies (name, meal_price) VALUES ('Alcatel', 10.00) ON CONFLICT (name) DO NOTHING;
@@ -649,6 +689,9 @@ INSERT INTO dc_pos.customers (first_name, last_name, reference, email, phone, co
 -- ============================================================
 -- Products (146 entries)
 -- ============================================================
+-- Advance sequences past existing IDs to avoid PK conflicts
+SELECT setval('dc.products_id_seq', GREATEST(COALESCE((SELECT MAX(id) FROM dc.products), 0), 1), true);
+SELECT setval('dc.formulas_id_seq', GREATEST(COALESCE((SELECT MAX(id) FROM dc.formulas), 0), 1), true);
 INSERT INTO dc.products (sort_order, name, price, reference, category, vat_rate) VALUES (1, '++++ A EMPORTER ++++', 0.0, 'ALCAT_102', 'A EMPORTER', 20.0) ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category, vat_rate) VALUES (2, 'POKE + 33 CL + PATISSERIE', 13.0, 'GEN_188', 'A EMPORTER', 20.0) ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category, vat_rate) VALUES (3, 'SUPPLEMENT CIDRE', 1.0, 'GEN_172', 'A EMPORTER', 20.0) ON CONFLICT (reference) DO NOTHING;
@@ -989,8 +1032,13 @@ COMMIT;
 
 -- ============================================================
 -- Import summary:
---   Companies:  4
---   Customers:  613
---   Products:   146
---   Formulas:   185
+--   Users:          3
+--   Parameters:     17
+--   Payment methods: 2
+--   Printers:       1
+--   Devices:        2
+--   Companies:      4
+--   Customers:      613
+--   Products:       146
+--   Formulas:       185
 -- ============================================================
