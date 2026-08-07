@@ -18,6 +18,7 @@ interface ElectronAPI {
     onUpdateAvailable: (callback: (info: { version: string }) => void) => () => void;
     onUpdateDownloaded: (callback: () => void) => () => void;
     respondUpdate: (response: string) => void;
+    checkForUpdates: () => void;
 }
 
 declare global {

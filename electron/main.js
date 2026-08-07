@@ -671,6 +671,14 @@ function initAutoUpdater() {
             }
         });
 
+        // Allow renderer to trigger a fresh update check (e.g. from 500 error page)
+        ipcMain.on('check-for-updates', () => {
+            console.log('Auto-updater: check-for-updates requested by renderer');
+            autoUpdater.checkForUpdates().catch((err) => {
+                console.error('Auto-updater check failed:', err.message);
+            });
+        });
+
         // Check for updates every hour
         setInterval(() => {
             autoUpdater.checkForUpdates().catch((err) => {

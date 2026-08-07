@@ -21,21 +21,43 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
         console.error(error);
     }, [error]);
 
-    // Try to auto-update every 60s since the user is stuck on a 500 error
+    // Auto-update recovery: check for updates, download, and install automatically
+    // since the user is stuck on a 500 error and can't use the app.
     useEffect(() => {
-        if (typeof window === 'undefined' || !window.electronAPI?.respondUpdate) return;
+        if (typeof window === 'undefined' || !window.electronAPI) return;
+        const api = window.electronAPI;
+
+        // Trigger a fresh update check immediately
+        api.checkForUpdates?.();
+
+        // When an update is detected, auto-start the download
+        const cleanupAvailable = api.onUpdateAvailable?.(() => {
+            api.respondUpdate('download');
+        });
+
+        // When download completes, auto-install immediately
+        const cleanupDownloaded = api.onUpdateDownloaded?.(() => {
+            api.respondUpdate('install');
+        });
+
+        // Retry check every 60s in case the first check failed
         const interval = setInterval(() => {
-            window.electronAPI?.respondUpdate('download');
+            api.checkForUpdates?.();
         }, 60000);
-        return () => clearInterval(interval);
+
+        return () => {
+            cleanupAvailable?.();
+            cleanupDownloaded?.();
+            clearInterval(interval);
+        };
     }, []);
 
     const retry = () => setTimeout(reset, 1000);
     const reload = () => {
-        if (typeof window !== 'undefined' && window.electronAPI?.respondUpdate) {
-            window.electronAPI.respondUpdate('download');
+        if (typeof window !== 'undefined' && window.electronAPI) {
+            window.electronAPI.checkForUpdates?.();
         }
-        setTimeout(() => location.reload(), 1000);
+        setTimeout(() => location.reload(), 2000);
     };
 
     return (
@@ -43,7 +65,11 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
             {typeof window !== 'undefined' && window.electronAPI?.closeApp && (
                 <div className="fixed top-4 right-4 z-20">
                     <CloseButton
-                        onClose={() => window.electronAPI?.closeApp()}
+                        onClose={() => {
+                            if (window.confirm("Voulez-vous vraiment fermer l'application ?")) {
+                                window.electronAPI?.closeApp();
+                            }
+                        }}
                         size="xl"
                         className="text-secondary-light dark:text-secondary-dark"
                     />
