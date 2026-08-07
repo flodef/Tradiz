@@ -236,10 +236,36 @@ echo ""
 # Execute
 # ------------------------------------------------------------
 info "Executing SQL script..."
+
+LOG_FILE="/tmp/import-gds-output.log"
+TOTAL_LINES=$(grep -c -E '^(INSERT|DELETE|SELECT setval|DO|BEGIN|COMMIT|ROLLBACK)' "$TEMP_SQL" || true)
+
+# Run psql quietly, capture output to log, show a live progress counter
+set +e
+psql "$CONN_STR" -v ON_ERROR_STOP=1 -q -f "$TEMP_SQL" > "$LOG_FILE" 2>&1 &
+PSQL_PID=$!
+
+PROGRESS=0
+while kill -0 "$PSQL_PID" 2>/dev/null; do
+    # Count completed statements from the log (wc -l avoids grep -c multiline issues)
+    DONE=$(grep -E '^(INSERT|DELETE|SELECT|DO|BEGIN|COMMIT|ROLLBACK)' "$LOG_FILE" 2>/dev/null | wc -l | tr -d ' ')
+    DONE="${DONE:-0}"
+    if [[ "$DONE" -gt "$PROGRESS" ]]; then
+        PROGRESS=$DONE
+        echo -ne "\r${CYAN}[INFO]${NC}  Progress: ${PROGRESS}/${TOTAL_LINES} statements... "
+    fi
+    sleep 0.3
+done
+echo -ne "\r${CYAN}[INFO]${NC}  Progress: ${TOTAL_LINES}/${TOTAL_LINES} statements... done.\n"
+
+# Get exit status of the background process
+wait "$PSQL_PID"
+PSQL_EXIT=$?
+set -e
+
 echo ""
 
-if psql "$CONN_STR" -v ON_ERROR_STOP=1 -f "$TEMP_SQL" 2>&1 | tee /tmp/import-gds-output.log; then
-    echo ""
+if [[ "$PSQL_EXIT" -eq 0 ]]; then
     if [[ "$DRY_RUN" == "yes" ]]; then
         ok "Dry-run completed successfully. All changes rolled back."
         info "To apply for real, re-run this script and choose 'no' for dry-run."
@@ -265,6 +291,8 @@ if psql "$CONN_STR" -v ON_ERROR_STOP=1 -f "$TEMP_SQL" 2>&1 | tee /tmp/import-gds
     ORDER BY 1;
     "
 else
-    error "SQL execution failed. Check /tmp/import-gds-output.log for details."
+    error "SQL execution failed. Last 10 lines of log:"
+    tail -10 "$LOG_FILE"
+    error "Full log: $LOG_FILE"
     exit 1
 fi

@@ -2,7 +2,6 @@
 
 import { FC, useEffect } from 'react';
 import { usePopup } from '../hooks/usePopup';
-import { LoadingDot } from '../loading';
 
 export const UpdateListener: FC = () => {
     const { openFullscreenPopup, closePopup } = usePopup();
@@ -15,8 +14,12 @@ export const UpdateListener: FC = () => {
             openFullscreenPopup('Mise à jour disponible', ['Installer', 'Plus tard'], (index) => {
                 if (index === 0) {
                     openFullscreenPopup(
-                        'Téléchargement en cours…',
-                        [<LoadingDot key="loading" fullscreen={false} />],
+                        'Mise à jour',
+                        [
+                            <div key="msg" className="text-xl text-center py-4">
+                                Téléchargement en cours…
+                            </div>,
+                        ],
                         () => {},
                         true
                     );
@@ -26,9 +29,21 @@ export const UpdateListener: FC = () => {
         });
 
         const cleanupDownloaded = api.onUpdateDownloaded?.(() => {
-            openFullscreenPopup('Mise à jour prête', ['Redémarrer maintenant'], () => {
-                api.respondUpdate('install');
-            });
+            openFullscreenPopup(
+                'Mise à jour',
+                [
+                    <div key="msg" className="text-xl text-center py-4">
+                        Installation en cours…
+                    </div>,
+                ],
+                () => {},
+                true
+            );
+            setTimeout(() => {
+                openFullscreenPopup('Mise à jour prête', ['Redémarrer maintenant'], () => {
+                    api.respondUpdate('install');
+                });
+            }, 2000);
         });
 
         return () => {

@@ -649,6 +649,13 @@ function initAutoUpdater() {
                 console.error('Auto-updater check failed:', err.message);
             });
         }, 5000);
+
+        // Check for updates every hour
+        setInterval(() => {
+            autoUpdater.checkForUpdates().catch((err) => {
+                console.error('Auto-updater hourly check failed:', err.message);
+            });
+        }, 3600000);
     } catch (err) {
         console.error('Auto-updater init failed:', err.message);
     }
