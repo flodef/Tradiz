@@ -270,6 +270,21 @@ function loadEnv() {
                     ', DB_HOST=' +
                     (process.env.DB_HOST || 'unset')
             );
+
+            // Persist env to userData so future auto-updates (which replace
+            // resources/) don't wipe the configuration.
+            if (app.isPackaged && envPath.includes('resources')) {
+                var userDataEnv = path.join(app.getPath('userData'), '.env.local');
+                if (!fs.existsSync(userDataEnv)) {
+                    try {
+                        fs.writeFileSync(userDataEnv, content, 'utf8');
+                        console.log('Persisted env to: ' + userDataEnv);
+                    } catch (err) {
+                        console.error('Failed to persist env to userData: ' + err.message);
+                    }
+                }
+            }
+
             break;
         }
     }
@@ -455,6 +470,19 @@ function startServer() {
             console.log('Restored _env.local -> .env.local');
         } catch (err) {
             console.error('Failed to restore .env.local: ' + err.message);
+        }
+    }
+    // Fallback: if .env.local doesn't exist in standalone (e.g. after auto-update
+    // that replaced resources/), copy it from userData where it was persisted.
+    if (!fs.existsSync(envLocal)) {
+        var userDataEnv = path.join(app.getPath('userData'), '.env.local');
+        if (fs.existsSync(userDataEnv)) {
+            try {
+                fs.copyFileSync(userDataEnv, envLocal);
+                console.log('Copied .env.local from userData to standalone');
+            } catch (err) {
+                console.error('Failed to copy .env.local from userData: ' + err.message);
+            }
         }
     }
 

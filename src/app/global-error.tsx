@@ -10,33 +10,33 @@ import { DEV_EMAIL } from './utils/constants';
 
 const openSans = Open_Sans({ subsets: ['latin'], weight: ['400', '700'] });
 
+const crossBarClasses =
+    "absolute block content-[''] w-[140%] h-[10vmin] " +
+    'bg-secondary-active-light bg-linear-to-t from-secondary-active-light to-secondary-light ' +
+    'dark:bg-secondary-active-dark dark:bg-linear-to-t dark:from-secondary-active-dark dark:to-secondary-dark ' +
+    'left-[-20%] top-[45%] shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)]';
+
 export default function GlobalError({ error, reset }: { error: Error; reset: () => void }) {
     useEffect(() => {
-        // Log the error to an error reporting service
         console.error(error);
     }, [error]);
 
-    const retry = () => setTimeout(reset, 1000); // Attempt to recover by trying to re-render the segment
+    // Try to auto-update every 60s since the user is stuck on a 500 error
+    useEffect(() => {
+        if (typeof window === 'undefined' || !window.electronAPI?.respondUpdate) return;
+        const interval = setInterval(() => {
+            window.electronAPI?.respondUpdate('download');
+        }, 60000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const retry = () => setTimeout(reset, 1000);
     const reload = () => {
         if (typeof window !== 'undefined' && window.electronAPI?.respondUpdate) {
             window.electronAPI.respondUpdate('download');
         }
         setTimeout(() => location.reload(), 1000);
     };
-
-    const zeroClassName =
-        'relative before:rotate-45 before:scale-x-0 before:scale-y-75 before:animate-cross1$ ' +
-        'after:-rotate-45 after:scale-x-0 after:scale-y-75 after:animate-cross2$ ' +
-        'group-hover:before:animate-cross1Reverse group-hover:after:animate-cross2Reverse';
-    const barClassName =
-        " absolute block content-[''] w-[140%] h-[10vmin] " +
-        'bg-secondary-active-light bg-linear-to-t from-secondary-active-light to-secondary-light ' +
-        'dark:bg-secondary-active-dark dark:bg-linear-to-t dark:from-secondary-active-dark dark:to-secondary-dark ' +
-        'left-[-20%] top-[45%] shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)]';
-    const crossClassName =
-        barClassName.replaceAll(' ', ' before:').trim() + ' ' + barClassName.replaceAll(' ', ' after:').trim();
-    const zeroAClassName = zeroClassName.replaceAll('$', 'a') + ' ' + crossClassName;
-    const zeroBClassName = zeroClassName.replaceAll('$', 'b') + ' ' + crossClassName;
 
     return (
         <div className={openSans.className}>
@@ -74,42 +74,28 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
                         onClick={retry}
                     >
                         <span className="five">5</span>
-                        <span className={zeroAClassName}>0</span>
-                        <span className={zeroBClassName}>0</span>
-                        {/* <span
+                        <span
                             className={
                                 'relative before:rotate-45 before:scale-x-0 before:scale-y-75 before:animate-cross1a ' +
                                 'after:-rotate-45 after:scale-x-0 after:scale-y-75 after:animate-cross2a ' +
-                                'group-hover:before:animate-cross1Reverse group-hover:after:animate-cross2Reverse' +
-                                "before:absolute before:block before:content-[''] before:w-[140%] before:h-[10vmin] " +
-                                'before:bg-secondary-active-light before:bg-linear-to-t before:from-secondary-active-light before:to-secondary-light ' +
-                                'dark:before:bg-secondary-active-dark dark:before:bg-linear-to-t dark:before:from-secondary-active-dark dark:before:to-secondary-dark ' +
-                                'before:left-[-20%] before:top-[45%] before:shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)] ' +
-                                "after:absolute after:block after:content-[''] after:w-[140%] after:h-[10vmin] " +
-                                'after:bg-secondary-active-light after:bg-linear-to-t after:from-secondary-active-light after:to-secondary-light ' +
-                                'dark:after:bg-secondary-active-dark dark:after:bg-linear-to-t dark:after:from-secondary-active-dark dark:after:to-secondary-dark ' +
-                                'after:left-[-20%] after:top-[45%] after:shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)]'
+                                'group-hover:before:animate-cross1Reverse group-hover:after:animate-cross2Reverse ' +
+                                `before:absolute before:block ${crossBarClasses} ` +
+                                `after:absolute after:block ${crossBarClasses}`
                             }
                         >
                             0
-                        </span> */}
-                        {/* <span
+                        </span>
+                        <span
                             className={
                                 'relative before:rotate-45 before:scale-x-0 before:scale-y-75 before:animate-cross1b ' +
                                 'after:-rotate-45 after:scale-x-0 after:scale-y-75 after:animate-cross2b ' +
-                                'group-hover:before:animate-cross1Reverse group-hover:after:animate-cross2Reverse' +
-                                "before:absolute before:block before:content-[''] before:w-[140%] before:h-[10vmin] " +
-                                'before:bg-secondary-active-light before:bg-linear-to-t before:from-secondary-active-light before:to-secondary-light ' +
-                                'dark:before:bg-secondary-active-dark dark:before:bg-linear-to-t dark:before:from-secondary-active-dark dark:before:to-secondary-dark ' +
-                                'before:left-[-20%] before:top-[45%] before:shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)] ' +
-                                "after:absolute after:block after:content-[''] after:w-[140%] after:h-[10vmin] " +
-                                'after:bg-secondary-active-light after:bg-linear-to-t after:from-secondary-active-light after:to-secondary-light ' +
-                                'dark:after:bg-secondary-active-dark dark:after:bg-linear-to-t dark:after:from-secondary-active-dark dark:after:to-secondary-dark ' +
-                                'after:left-[-20%] after:top-[45%] after:shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)]'
+                                'group-hover:before:animate-cross1Reverse group-hover:after:animate-cross2Reverse ' +
+                                `before:absolute before:block ${crossBarClasses} ` +
+                                `after:absolute after:block ${crossBarClasses}`
                             }
                         >
                             0
-                        </span> */}
+                        </span>
                     </h1>
                     <p className="px-6 cursor-pointer" onClick={reload}>
                         Recharger la page
