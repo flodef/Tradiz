@@ -8,7 +8,7 @@ export interface CustomerDisplayPayload {
 const DISPLAY_WIDTH = 20;
 
 function formatAmount(amount: number, currency: Currency): string {
-    return amount.toCurrency(currency.decimals, currency.symbol).replace(/\s/g, '');
+    return amount.toCurrency(currency.decimals, currency.symbol).replace(/\s/g, '').replace(/€/g, 'EUR');
 }
 
 // Build a 20-char line with the label on the left and the amount right-aligned.
@@ -46,23 +46,40 @@ export function buildCustomerDisplay(
     };
 }
 
-// Idle display: shop name in uppercase, split at word boundary, centered across 2 lines.
+// Idle display: shop name in uppercase, centered across 2 lines.
+// Priority: show the FULL name. Split at a word boundary only if both halves
+// fit within 20 chars; otherwise hard-cut at 20 to avoid losing any letters.
 export function buildIdleDisplay(shopName: string, isClosed: boolean): CustomerDisplayPayload {
     if (isClosed) {
         return { line1: padLine(''), line2: padLine('Fermé') };
     }
-    const name = shopName.toUpperCase().trim();
+    const name = shopName
+        .toUpperCase()
+        .trim()
+        .slice(0, DISPLAY_WIDTH * 2);
     if (name.length <= DISPLAY_WIDTH) {
         return { line1: padLine(''), line2: centerLine(name) };
     }
-    // Split at the last space within the first 20 chars
-    let splitIdx = name.lastIndexOf(' ', DISPLAY_WIDTH);
-    if (splitIdx <= 0) splitIdx = DISPLAY_WIDTH; // no space found, hard cut
-    const line1Text = name.slice(0, splitIdx).trim();
-    const line2Text = name.slice(splitIdx).trim().slice(0, DISPLAY_WIDTH);
+    // Try to find a word boundary split where both halves fit in 20 chars
+    let bestSplit = -1;
+    for (let i = name.lastIndexOf(' ', DISPLAY_WIDTH); i > 0; i = name.lastIndexOf(' ', i - 1)) {
+        const left = name.slice(0, i).trim();
+        const right = name.slice(i).trim();
+        if (left.length <= DISPLAY_WIDTH && right.length <= DISPLAY_WIDTH) {
+            bestSplit = i;
+            break;
+        }
+    }
+    if (bestSplit > 0) {
+        return {
+            line1: centerLine(name.slice(0, bestSplit).trim()),
+            line2: centerLine(name.slice(bestSplit).trim()),
+        };
+    }
+    // No word boundary works — hard cut at 20 to show the full name
     return {
-        line1: centerLine(line1Text),
-        line2: centerLine(line2Text),
+        line1: centerLine(name.slice(0, DISPLAY_WIDTH)),
+        line2: centerLine(name.slice(DISPLAY_WIDTH)),
     };
 }
 

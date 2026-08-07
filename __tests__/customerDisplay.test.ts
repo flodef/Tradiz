@@ -56,8 +56,18 @@ describe('buildIdleDisplay', () => {
     it('wraps a long shop name across both lines, centered and uppercased', () => {
         const payload = buildIdleDisplay('Boulangerie Patisserie du Vieux Port', false);
 
-        expect(payload.line1.trim()).toBe('BOULANGERIE');
-        expect(payload.line2.trim()).toBe('PATISSERIE DU VIEUX');
+        // 37 chars — no word boundary split fits both halves in 20, so hard cut
+        expect(payload.line1.trim()).toBe('BOULANGERIE PATISSER');
+        expect(payload.line2.trim()).toBe('IE DU VIEUX PORT');
+        expectExactWidth(payload);
+    });
+
+    it('splits at word boundary when both halves fit', () => {
+        const payload = buildIdleDisplay('La Gourmandise de Sylvie', false);
+
+        // 25 chars — "LA GOURMANDISE DE" (17) + "SYLVIE" (6) both fit
+        expect(payload.line1.trim()).toBe('LA GOURMANDISE DE');
+        expect(payload.line2.trim()).toBe('SYLVIE');
         expectExactWidth(payload);
     });
 
@@ -83,7 +93,7 @@ describe('buildTransactionDisplay', () => {
         const payload = buildTransactionDisplay(product('Café'), 3.5, euro);
 
         expect(payload.line1.trim()).toBe('Café');
-        expect(payload.line2.trim()).toBe('TOTAL          3.50€');
+        expect(payload.line2.trim()).toBe('TOTAL        3.50EUR');
         expectExactWidth(payload);
     });
 
@@ -91,7 +101,7 @@ describe('buildTransactionDisplay', () => {
         const payload = buildTransactionDisplay(undefined, 0, euro);
 
         expect(payload.line1.trim()).toBe('');
-        expect(payload.line2).toContain('0.00€');
+        expect(payload.line2).toContain('0.00EUR');
         expectExactWidth(payload);
     });
 
@@ -105,7 +115,7 @@ describe('buildTransactionDisplay', () => {
     it('keeps the amount intact even when the total is large', () => {
         const payload = buildTransactionDisplay(product('Menu'), 12345.67, euro);
 
-        expect(payload.line2).toContain('12345.67€');
+        expect(payload.line2).toContain('12345.67EUR');
         expectExactWidth(payload);
     });
 });
@@ -163,7 +173,7 @@ describe('buildPaymentDisplay', () => {
         const payload = buildPaymentDisplay('Carte Bancaire', 10, euro);
 
         expect(payload.line1.trim()).toBe('Insérez votre carte');
-        expect(payload.line2.trim()).toBe('TOTAL         10.00€');
+        expect(payload.line2.trim()).toBe('TOTAL       10.00EUR');
         expectExactWidth(payload);
     });
 
@@ -179,15 +189,15 @@ describe('buildCustomerDisplay', () => {
     it('shows the total and the change owed', () => {
         const payload = buildCustomerDisplay(12.4, 20, 7.6, euro);
 
-        expect(payload.line1.trim()).toBe('TOTAL         12.40€');
-        expect(payload.line2.trim()).toBe('RENDU          7.60€');
+        expect(payload.line1.trim()).toBe('TOTAL       12.40EUR');
+        expect(payload.line2.trim()).toBe('RENDU        7.60EUR');
         expectExactWidth(payload);
     });
 
     it('prioritises the value over the label when space is tight', () => {
         const payload = buildCustomerDisplay(123456.78, 200000, 76543.22, euro);
 
-        expect(payload.line1).toContain('123456.78€');
+        expect(payload.line1).toContain('123456.78EUR');
         expectExactWidth(payload);
     });
 });

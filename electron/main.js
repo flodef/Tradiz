@@ -180,9 +180,8 @@ async function findDisplayPort() {
 function writeToDisplay(line1, line2) {
     if (!displayPort) return;
 
-    // Replace € with E — most serial LCD displays don't support Unicode
-    var l1 = line1.replace(/€/g, 'E').slice(0, 20).padEnd(20, ' ');
-    var l2 = line2.replace(/€/g, 'E').slice(0, 20).padEnd(20, ' ');
+    var l1 = line1.slice(0, 20).padEnd(20, ' ');
+    var l2 = line2.slice(0, 20).padEnd(20, ' ');
 
     // Write as a single buffer: INIT + line1 (20 chars) + line2 (20 chars)
     // The display auto-wraps to line 2 after 20 characters.
@@ -494,7 +493,7 @@ function startServer() {
         // Wait for the server to be ready by checking the port.
         var http = require('http');
         var attempts = 0;
-        var maxAttempts = 60;
+        var maxAttempts = 120;
         var checkReady = function () {
             if (rejected) return;
             if (!serverProcess) {
