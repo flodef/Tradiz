@@ -6,7 +6,7 @@ import { USE_DIGICARTE } from './utils/constants';
 import { conditionalManifestScript, preloadedThemeScript } from './utils/scriptUtils';
 import { VersionChecker } from './components/VersionChecker';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'], preload: false });
 
 export const metadata = {
     title: 'Tradiz',
@@ -23,7 +23,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <html lang="fr" data-theme-ready="0" suppressHydrationWarning>
             <head>
                 <script dangerouslySetInnerHTML={{ __html: preloadedThemeScript() }} />
-                <script dangerouslySetInnerHTML={{ __html: conditionalManifestScript(USE_DIGICARTE) }} />
+                {conditionalManifestScript(USE_DIGICARTE) && (
+                    <script dangerouslySetInnerHTML={{ __html: conditionalManifestScript(USE_DIGICARTE) }} />
+                )}
                 <noscript>
                     <style>{`html[data-theme-ready="0"] body { visibility: visible; }`}</style>
                 </noscript>

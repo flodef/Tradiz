@@ -8,7 +8,7 @@ import { CloseButton } from './components/CloseButton';
 import './globals.css';
 import { DEV_EMAIL } from './utils/constants';
 
-const openSans = Open_Sans({ subsets: ['latin'], weight: ['400', '700'] });
+const openSans = Open_Sans({ subsets: ['latin'], weight: ['400', '700'], preload: false });
 
 const crossBarClasses =
     "absolute block content-[''] w-[140%] h-[10vmin] " +
