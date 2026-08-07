@@ -19,5 +19,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.on('update-available', handler);
         return () => ipcRenderer.removeListener('update-available', handler);
     },
+    onUpdateDownloaded: (callback) => {
+        const handler = () => callback();
+        ipcRenderer.on('update-downloaded', handler);
+        return () => ipcRenderer.removeListener('update-downloaded', handler);
+    },
     respondUpdate: (response) => ipcRenderer.send('update-response', response),
 });

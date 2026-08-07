@@ -54,9 +54,10 @@ prompt_yes_no() {
 
 prompt_input() {
     local question="$1" default="${2:-}" response
-    echo -ne "${BOLD}${question}${NC}"
-    [[ -n "$default" ]] && echo -ne " (${default})"
-    echo -ne " "
+    # Prompt goes to stderr so it's not captured by $(...) command substitution
+    echo -ne "${BOLD}${question}${NC}" >&2
+    [[ -n "$default" ]] && echo -ne " (${default})" >&2
+    echo -ne " " >&2
     read -r response
     echo "${response:-$default}"
 }
@@ -91,28 +92,42 @@ else
 fi
 echo ""
 
-# 3. Connection
+# 3. Connection — always load .env.local for user/password, only host may differ
+if [[ ! -f "$PROJECT_DIR/.env.local" ]]; then
+    error ".env.local not found at $PROJECT_DIR/.env.local"
+    exit 1
+fi
+# shellcheck disable=SC1091
+set -a; source "$PROJECT_DIR/.env.local"; set +a
+DB_NAME="${NEXT_PUBLIC_SHOP_ID:-gds}"
+
 USE_CURRENT=yes
 CONN_STR=""
 if prompt_yes_no "Use the current .env.local connection?" "yes"; then
-    USE_CURRENT=yes
-    if [[ ! -f "$PROJECT_DIR/.env.local" ]]; then
-        error ".env.local not found at $PROJECT_DIR/.env.local"
-        exit 1
-    fi
-    # shellcheck disable=SC1091
-    set -a; source "$PROJECT_DIR/.env.local"; set +a
-    DB_NAME="${NEXT_PUBLIC_SHOP_ID:-gds}"
     CONN_STR="host=${PG_HOST} user=${PG_USER} password=${PG_PASSWORD} dbname=${DB_NAME} sslmode=require"
     info "Using connection: host=${PG_HOST} dbname=${DB_NAME}"
 else
     USE_CURRENT=no
-    PG_HOST_INPUT=$(prompt_input "PG host?" "")
-    PG_USER_INPUT=$(prompt_input "PG user?" "")
-    PG_PASSWORD_INPUT=$(prompt_input "PG password?" "")
-    DB_NAME_INPUT=$(prompt_input "Database name?" "gds")
-    CONN_STR="host=${PG_HOST_INPUT} user=${PG_USER_INPUT} password=${PG_PASSWORD_INPUT} dbname=${DB_NAME_INPUT} sslmode=require"
-    info "Using custom connection: host=${PG_HOST_INPUT} dbname=${DB_NAME_INPUT}"
+    echo ""
+    echo -e "  Paste the connection string (host only, user/password from .env.local)."
+    echo -e "  You can paste either:"
+    echo -e "    • A .env line like:  ${CYAN}PG_HOST=ep-xxx.neon.tech${NC}"
+    echo -e "    • Or a bare host:     ${CYAN}ep-xxx.neon.tech${NC}"
+    echo -e "  (anything after # is ignored)"
+    echo ""
+    HOST_INPUT=$(prompt_input "Connection string" "")
+    # Strip "PG_HOST=" prefix if present, then strip comments (#...), trim whitespace
+    HOST_INPUT="${HOST_INPUT#PG_HOST=}"
+    HOST_INPUT="${HOST_INPUT%%#*}"
+    HOST_INPUT="$(echo "$HOST_INPUT" | xargs)"
+
+    if [[ -z "$HOST_INPUT" ]]; then
+        error "No connection string provided."
+        exit 1
+    fi
+
+    CONN_STR="host=${HOST_INPUT} user=${PG_USER} password=${PG_PASSWORD} dbname=${DB_NAME} sslmode=require"
+    info "Using connection: host=${HOST_INPUT} dbname=${DB_NAME}"
 fi
 echo ""
 
