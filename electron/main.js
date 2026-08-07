@@ -425,7 +425,14 @@ function startServer() {
     var serverPath = path.join(standaloneDir, 'server.js');
 
     if (!fs.existsSync(serverPath)) {
-        return Promise.reject(new Error('Server file not found: ' + serverPath));
+        var errorMsg = 'Server file not found: ' + serverPath;
+        console.error(errorMsg);
+        if (app.isPackaged) {
+            errorMsg += '\n\nThe installation may be incomplete. Please reinstall Tradiz.';
+            dialog.showErrorBox('Tradiz - Installation Error', errorMsg);
+            app.quit();
+        }
+        return Promise.reject(new Error(errorMsg));
     }
 
     // Kill any existing process on port 3001 to avoid EADDRINUSE on restart
@@ -667,7 +674,8 @@ function initAutoUpdater() {
             } else if (response === 'install') {
                 console.log('Auto-updater: user confirmed restart, installing now');
                 // setImmediate ensures the renderer has time to finish before quit
-                setImmediate(() => autoUpdater.quitAndInstall(true, true));
+                // Use non-silent install so the user sees the NSIS progress bar
+                setImmediate(() => autoUpdater.quitAndInstall(false, true));
             }
         });
 
