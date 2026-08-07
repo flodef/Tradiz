@@ -65,11 +65,7 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
             {typeof window !== 'undefined' && window.electronAPI?.closeApp && (
                 <div className="fixed top-4 right-4 z-20">
                     <CloseButton
-                        onClose={() => {
-                            if (window.confirm("Voulez-vous vraiment fermer l'application ?")) {
-                                window.electronAPI?.closeApp();
-                            }
-                        }}
+                        onClose={() => window.electronAPI?.closeApp()}
                         size="xl"
                         className="text-secondary-light dark:text-secondary-dark"
                     />
