@@ -233,32 +233,52 @@ ok "Final SQL script built: $TEMP_SQL ($(wc -l < "$TEMP_SQL") lines)"
 echo ""
 
 # ------------------------------------------------------------
-# Execute
+# Confirm before executing
+# ------------------------------------------------------------
+# Extract display-friendly connection info from CONN_STR
+DISPLAY_HOST=$(echo "$CONN_STR" | sed -n 's/.*host=\([^ ]*\).*/\1/p')
+DISPLAY_USER=$(echo "$CONN_STR" | sed -n 's/.*user=\([^ ]*\).*/\1/p')
+DISPLAY_DB=$(echo "$CONN_STR" | sed -n 's/.*dbname=\([^ ]*\).*/\1/p')
+
+echo -e "${BOLD}╔══════════════════════════════════════════════════════╗${NC}"
+echo -e "${BOLD}║  Please confirm before proceeding:                   ║${NC}"
+echo -e "${BOLD}║${NC}  Host:     ${CYAN}${DISPLAY_HOST}${NC}"
+echo -e "${BOLD}║${NC}  User:     ${CYAN}${DISPLAY_USER}${NC}"
+echo -e "${BOLD}║${NC}  Database: ${CYAN}${DISPLAY_DB}${NC}"
+echo -e "${BOLD}║${NC}  Mode:     $([ "$DRY_RUN" == "yes" ] && echo "${YELLOW}DRY-RUN (rollback)${NC}" || echo "${RED}REAL (commit)${NC}")"
+echo -e "${BOLD}║${NC}  Delete:   $([ "$DELETE_DATA" == "yes" ] && echo "${RED}YES${NC}" || echo "no")"
+echo -e "${BOLD}╚══════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+if ! prompt_yes_no "Proceed with these settings?" "no"; then
+    warn "Aborted by user."
+    exit 0
+fi
+echo ""
+
+# ------------------------------------------------------------
+# Execute — run psql in background, show spinner, capture output
 # ------------------------------------------------------------
 info "Executing SQL script..."
 
 LOG_FILE="/tmp/import-gds-output.log"
-TOTAL_LINES=$(grep -c -E '^(INSERT|DELETE|SELECT setval|DO|BEGIN|COMMIT|ROLLBACK)' "$TEMP_SQL" || true)
+: > "$LOG_FILE"  # truncate
 
-# Run psql quietly, capture output to log, show a live progress counter
 set +e
-psql "$CONN_STR" -v ON_ERROR_STOP=1 -q -f "$TEMP_SQL" > "$LOG_FILE" 2>&1 &
+psql "$CONN_STR" -v ON_ERROR_STOP=1 -f "$TEMP_SQL" < /dev/null > "$LOG_FILE" 2>&1 &
 PSQL_PID=$!
 
-PROGRESS=0
+# Show a spinner while psql runs
+SPINNER_CHARS="|/-\\"
+SPINNER_IDX=0
 while kill -0 "$PSQL_PID" 2>/dev/null; do
-    # Count completed statements from the log (wc -l avoids grep -c multiline issues)
-    DONE=$(grep -E '^(INSERT|DELETE|SELECT|DO|BEGIN|COMMIT|ROLLBACK)' "$LOG_FILE" 2>/dev/null | wc -l | tr -d ' ')
-    DONE="${DONE:-0}"
-    if [[ "$DONE" -gt "$PROGRESS" ]]; then
-        PROGRESS=$DONE
-        echo -ne "\r${CYAN}[INFO]${NC}  Progress: ${PROGRESS}/${TOTAL_LINES} statements... "
-    fi
-    sleep 0.3
+    printf "\r${CYAN}[INFO]${NC}  Executing... [%c] " "${SPINNER_CHARS:SPINNER_IDX:1}"
+    SPINNER_IDX=$(( (SPINNER_IDX + 1) % 4 ))
+    sleep 0.2
 done
-echo -ne "\r${CYAN}[INFO]${NC}  Progress: ${TOTAL_LINES}/${TOTAL_LINES} statements... done.\n"
+printf "\r${CYAN}[INFO]${NC}  Executing... done.          \n"
 
-# Get exit status of the background process
+# Get exit status
 wait "$PSQL_PID"
 PSQL_EXIT=$?
 set -e
@@ -273,10 +293,10 @@ if [[ "$PSQL_EXIT" -eq 0 ]]; then
         ok "Import completed successfully. Changes committed."
     fi
 
-    # Show row counts
+    # Show row counts (stdin from /dev/null to prevent hanging)
     echo ""
     info "Current row counts:"
-    psql "$CONN_STR" -c "
+    psql "$CONN_STR" < /dev/null -c "
     SELECT 'companies' as table_name, count(*) FROM dc_pos.companies
     UNION ALL SELECT 'customers', count(*) FROM dc_pos.customers
     UNION ALL SELECT 'products', count(*) FROM dc.products

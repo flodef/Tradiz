@@ -639,16 +639,9 @@ function initAutoUpdater() {
             } else if (response === 'install') {
                 console.log('Auto-updater: user confirmed restart, installing now');
                 // setImmediate ensures the renderer has time to finish before quit
-                setImmediate(() => autoUpdater.quitAndInstall(false, true));
+                setImmediate(() => autoUpdater.quitAndInstall(true, true));
             }
         });
-
-        // Delay check so it doesn't interfere with app startup
-        setTimeout(() => {
-            autoUpdater.checkForUpdates().catch((err) => {
-                console.error('Auto-updater check failed:', err.message);
-            });
-        }, 5000);
 
         // Check for updates every hour
         setInterval(() => {
@@ -725,6 +718,13 @@ function createMainWindow() {
             mainWindow.focus();
         }
         closeSplashScreen();
+
+        // Check for updates now that the renderer is ready to show popups
+        if (!isDev) {
+            autoUpdater.checkForUpdates().catch((err) => {
+                console.error('Auto-updater check failed:', err.message);
+            });
+        }
 
         mainWindow.webContents
             .executeJavaScript(
