@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -672,10 +672,27 @@ function initAutoUpdater() {
                     console.error('Auto-updater download failed:', err.message);
                 });
             } else if (response === 'install') {
-                console.log('Auto-updater: user confirmed restart, installing now');
-                // setImmediate ensures the renderer has time to finish before quit
-                // Use non-silent install so the user sees the NSIS progress bar
-                setImmediate(() => autoUpdater.quitAndInstall(false, true));
+                console.log('Auto-updater: user confirmed restart, launching installer');
+                // Launch the downloaded NSIS installer externally and quit.
+                // This is more reliable than quitAndInstall() on the POS hardware —
+                // the installer runs as a separate process with its own UI, and
+                // runAfterFinish=true in electron-builder.yml restarts the app.
+                try {
+                    const installerPath = autoUpdater.downloadedUpdateHelper?.packageFile;
+                    if (installerPath && fs.existsSync(installerPath)) {
+                        console.log('Launching installer: ' + installerPath);
+                        shell.openPath(installerPath);
+                    } else {
+                        // Fallback: let electron-updater handle it
+                        console.log('Installer path not found, falling back to quitAndInstall');
+                        autoUpdater.quitAndInstall(false, true);
+                    }
+                } catch (err) {
+                    console.error('Failed to launch installer: ' + err.message);
+                    autoUpdater.quitAndInstall(false, true);
+                }
+                // Quit after launching the installer so files are released
+                setTimeout(() => app.quit(), 1000);
             }
         });
 
