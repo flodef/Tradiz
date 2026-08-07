@@ -8,13 +8,7 @@ import { CloseButton } from './components/CloseButton';
 import './globals.css';
 import { DEV_EMAIL } from './utils/constants';
 
-const openSans = Open_Sans({ subsets: ['latin'], weight: ['400', '700'], preload: false });
-
-const crossBarClasses =
-    "absolute block content-[''] w-[140%] h-[10vmin] " +
-    'bg-secondary-active-light bg-linear-to-t from-secondary-active-light to-secondary-light ' +
-    'dark:bg-secondary-active-dark dark:bg-linear-to-t dark:from-secondary-active-dark dark:to-secondary-dark ' +
-    'left-[-20%] top-[45%] shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)]';
+const openSans = Open_Sans({ subsets: ['latin'], weight: ['400', '700'] });
 
 export default function GlobalError({ error, reset }: { error: Error; reset: () => void }) {
     useEffect(() => {
@@ -60,6 +54,20 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
         setTimeout(() => location.reload(), 2000);
     };
 
+    const zeroClassName =
+        'relative before:rotate-45 before:scale-x-0 before:scale-y-75 before:animate-cross1$ ' +
+        'after:-rotate-45 after:scale-x-0 after:scale-y-75 after:animate-cross2$ ' +
+        'group-hover:before:animate-cross1Reverse group-hover:after:animate-cross2Reverse';
+    const barClassName =
+        " absolute block content-[''] w-[140%] h-[10vmin] " +
+        'bg-secondary-active-light bg-linear-to-t from-secondary-active-light to-secondary-light ' +
+        'dark:bg-secondary-active-dark dark:bg-linear-to-t dark:from-secondary-active-dark dark:to-secondary-dark ' +
+        'left-[-20%] top-[45%] shadow-[0_1vmin_5vmin_rgba(0,0,0,0.5)]';
+    const crossClassName =
+        barClassName.replaceAll(' ', ' before:').trim() + ' ' + barClassName.replaceAll(' ', ' after:').trim();
+    const zeroAClassName = zeroClassName.replaceAll('$', 'a') + ' ' + crossClassName;
+    const zeroBClassName = zeroClassName.replaceAll('$', 'b') + ' ' + crossClassName;
+
     return (
         <div className={openSans.className}>
             {typeof window !== 'undefined' && window.electronAPI?.closeApp && (
@@ -96,28 +104,8 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
                         onClick={retry}
                     >
                         <span className="five">5</span>
-                        <span
-                            className={
-                                'relative before:rotate-45 before:scale-x-0 before:scale-y-75 before:animate-cross1a ' +
-                                'after:-rotate-45 after:scale-x-0 after:scale-y-75 after:animate-cross2a ' +
-                                'group-hover:before:animate-cross1Reverse group-hover:after:animate-cross2Reverse ' +
-                                `before:absolute before:block ${crossBarClasses} ` +
-                                `after:absolute after:block ${crossBarClasses}`
-                            }
-                        >
-                            0
-                        </span>
-                        <span
-                            className={
-                                'relative before:rotate-45 before:scale-x-0 before:scale-y-75 before:animate-cross1b ' +
-                                'after:-rotate-45 after:scale-x-0 after:scale-y-75 after:animate-cross2b ' +
-                                'group-hover:before:animate-cross1Reverse group-hover:after:animate-cross2Reverse ' +
-                                `before:absolute before:block ${crossBarClasses} ` +
-                                `after:absolute after:block ${crossBarClasses}`
-                            }
-                        >
-                            0
-                        </span>
+                        <span className={zeroAClassName}>0</span>
+                        <span className={zeroBClassName}>0</span>
                     </h1>
                     <p className="px-6 cursor-pointer" onClick={reload}>
                         Recharger la page
