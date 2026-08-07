@@ -8,7 +8,12 @@ export interface CustomerDisplayPayload {
 const DISPLAY_WIDTH = 20;
 
 function formatAmount(amount: number, currency: Currency): string {
-    return amount.toCurrency(currency.decimals, currency.symbol).replace(/\s/g, '').replace(/€/g, 'EUR');
+    return amount
+        .toLocaleString('en-US', {
+            minimumFractionDigits: currency.decimals,
+            maximumFractionDigits: currency.decimals,
+        })
+        .replace(/,/g, '');
 }
 
 // Build a 20-char line with the label on the left and the amount right-aligned.
@@ -41,8 +46,8 @@ export function buildCustomerDisplay(
     const changeStr = formatAmount(change, currency);
 
     return {
-        line1: formatLine('TOTAL', totalStr),
-        line2: formatLine('RENDU', changeStr),
+        line1: formatLine('TOTAL (EUR)', totalStr),
+        line2: formatLine('ENCORE DU', changeStr),
     };
 }
 
@@ -90,9 +95,10 @@ export function buildTransactionDisplay(
     currency: Currency
 ): CustomerDisplayPayload {
     const totalStr = formatAmount(total, currency);
+    const priceStr = product ? formatAmount(product.amount, currency) : '';
     return {
-        line1: padLine(product?.label ?? ''),
-        line2: formatLine('TOTAL', totalStr),
+        line1: product ? formatLine(product.label, priceStr) : padLine(''),
+        line2: formatLine('TOTAL (EUR)', totalStr),
     };
 }
 
@@ -131,7 +137,7 @@ export function buildPaymentDisplay(paymentType: string, total: number, currency
     const totalStr = formatAmount(total, currency);
     return {
         line1: padLine(getPaymentMessage(paymentType)),
-        line2: formatLine('TOTAL', totalStr),
+        line2: formatLine('TOTAL (EUR)', totalStr),
     };
 }
 

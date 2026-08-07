@@ -92,8 +92,8 @@ describe('buildTransactionDisplay', () => {
     it('shows the product label and the running total', () => {
         const payload = buildTransactionDisplay(product('Café'), 3.5, euro);
 
-        expect(payload.line1.trim()).toBe('Café');
-        expect(payload.line2.trim()).toBe('TOTAL        3.50EUR');
+        expect(payload.line1.trim()).toBe('Café            1.00');
+        expect(payload.line2.trim()).toBe('TOTAL (EUR)     3.50');
         expectExactWidth(payload);
     });
 
@@ -101,21 +101,21 @@ describe('buildTransactionDisplay', () => {
         const payload = buildTransactionDisplay(undefined, 0, euro);
 
         expect(payload.line1.trim()).toBe('');
-        expect(payload.line2).toContain('0.00EUR');
+        expect(payload.line2).toContain('0.00');
         expectExactWidth(payload);
     });
 
     it('truncates a long product label without breaking the width', () => {
         const payload = buildTransactionDisplay(product('Grand sandwich jambon beurre cornichons'), 8, euro);
 
-        expect(payload.line1).toBe('Grand sandwich jambo');
+        expect(payload.line1).toBe('Grand sandwich  1.00');
         expectExactWidth(payload);
     });
 
     it('keeps the amount intact even when the total is large', () => {
         const payload = buildTransactionDisplay(product('Menu'), 12345.67, euro);
 
-        expect(payload.line2).toContain('12345.67EUR');
+        expect(payload.line2).toContain('12345.67');
         expectExactWidth(payload);
     });
 });
@@ -173,7 +173,7 @@ describe('buildPaymentDisplay', () => {
         const payload = buildPaymentDisplay('Carte Bancaire', 10, euro);
 
         expect(payload.line1.trim()).toBe('Insérez votre carte');
-        expect(payload.line2.trim()).toBe('TOTAL       10.00EUR');
+        expect(payload.line2.trim()).toBe('TOTAL (EUR)    10.00');
         expectExactWidth(payload);
     });
 
@@ -189,15 +189,15 @@ describe('buildCustomerDisplay', () => {
     it('shows the total and the change owed', () => {
         const payload = buildCustomerDisplay(12.4, 20, 7.6, euro);
 
-        expect(payload.line1.trim()).toBe('TOTAL       12.40EUR');
-        expect(payload.line2.trim()).toBe('RENDU        7.60EUR');
+        expect(payload.line1.trim()).toBe('TOTAL (EUR)    12.40');
+        expect(payload.line2.trim()).toBe('ENCORE DU       7.60');
         expectExactWidth(payload);
     });
 
     it('prioritises the value over the label when space is tight', () => {
         const payload = buildCustomerDisplay(123456.78, 200000, 76543.22, euro);
 
-        expect(payload.line1).toContain('123456.78EUR');
+        expect(payload.line1).toContain('123456.78');
         expectExactWidth(payload);
     });
 });
