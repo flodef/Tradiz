@@ -374,11 +374,20 @@ function createSplashScreen() {
         splashWindow = null;
     });
 
-    // Watchdog: close splash after 60s no matter what, so it never becomes permanent.
+    // Watchdog: close splash after 120s no matter what, so it never becomes permanent.
     splashWatchdog = setTimeout(function () {
-        console.error('Splash watchdog: closing splash after 60s timeout');
+        console.error('Splash watchdog: closing splash after 120s timeout');
         closeSplashScreen();
-    }, 60000);
+        if (!mainWindow || mainWindow.isDestroyed()) {
+            dialog.showErrorBox(
+                "Tradiz n'a pas pu d\u00e9marrer",
+                "L'application n'a pas r\u00e9ussi \u00e0 d\u00e9marrer dans les temps impartis.\n\n" +
+                    "Veuillez fermer cette fen\u00eatre et relancer Tradiz en double-cliquant sur l'ic\u00f4ne de l'application.\n\n" +
+                    'Si le probl\u00e8me persiste, contactez le support technique.'
+            );
+            app.quit();
+        }
+    }, 120000);
 }
 
 function closeSplashScreen() {
