@@ -98,6 +98,16 @@ export default function ValidatedInput({
         e.target.select();
         if (vkContext) {
             vkContext.registerInput(e.target, (newValue: string) => {
+                // Apply the same normalization as handleChange for number fields
+                if (type === 'number') {
+                    newValue = newValue.replace(',', '.');
+                    if (newValue.startsWith('0') && newValue.length > 1 && newValue[1] !== '.') {
+                        newValue = newValue.replace(/^0+/, '0');
+                    }
+                }
+                if (isNameField) {
+                    newValue = newValue.replace(/[0-9]/g, '');
+                }
                 if (validation) setIsValid(validation(newValue));
                 onChange(newValue);
             });

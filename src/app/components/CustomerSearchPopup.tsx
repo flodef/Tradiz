@@ -9,6 +9,7 @@ import { useConfig } from '../hooks/useConfig';
 import { useIsMobileDevice } from '../utils/mobile';
 import { getPopupStyles, getOptionHoverStyles } from '../utils/popupStyles';
 import { normalizeFirstName, normalizeFamilyName } from '../utils/regex';
+import { useVirtualKeyboardContext } from './admin/VirtualKeyboardProvider';
 
 interface CustomerSearchPopupProps {
     initialQuery?: string;
@@ -39,6 +40,7 @@ const CustomerSearchPopup: FC<CustomerSearchPopupProps> = ({
     const isMobileDevice = useIsMobileDevice();
     const styles = getPopupStyles('default');
     const optionClass = twMerge(styles.option, 'px-3', getOptionHoverStyles(isMobileDevice, true));
+    const vkContext = useVirtualKeyboardContext();
 
     useEffect(() => {
         inputRef.current?.focus();
@@ -188,6 +190,16 @@ const CustomerSearchPopup: FC<CustomerSearchPopupProps> = ({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onFocus={(e) => {
+                    if (vkContext) {
+                        vkContext.registerInput(e.target, (newValue: string) => setQuery(newValue));
+                    }
+                }}
+                onBlur={(e) => {
+                    if (vkContext) {
+                        vkContext.unregisterInput(e.target);
+                    }
+                }}
                 placeholder="Rechercher un client..."
                 className={twMerge(
                     'w-full px-3 py-2 bg-transparent border-none outline-none focus:outline-none text-xl font-semibold',

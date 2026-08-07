@@ -2,7 +2,7 @@
 
 import TopNav from '@/app/components/admin/TopNav';
 import { useUserRole } from '@/app/hooks/useUserRole';
-import { useEffect } from 'react';
+import { useEffect, ReactNode } from 'react';
 import { ConfigProvider } from '../contexts/ConfigProvider';
 import { CryptoProvider } from '../contexts/CryptoProvider';
 import { DataProvider } from '../contexts/DataProvider';
@@ -12,6 +12,8 @@ import { MainContent } from './MainContent';
 import { OfflineBanner } from './OfflineBanner';
 import { Popup } from './Popup';
 import { UpdateListener } from './UpdateListener';
+import { VirtualKeyboardProvider } from './admin/VirtualKeyboardProvider';
+import { useConfig } from '../hooks/useConfig';
 
 // Component to conditionally render TopNav based on user role
 function TopNavController({ className, showLightAdminNav }: { className?: string; showLightAdminNav?: boolean }) {
@@ -25,6 +27,13 @@ type CashRegisterAppProps = {
     shop: string;
     showLightAdminNav?: boolean;
 };
+
+function VirtualKeyboardWrapper({ children }: { children: ReactNode }) {
+    const { parameters } = useConfig();
+    return (
+        <VirtualKeyboardProvider enabled={parameters.useVirtualKeyboard ?? false}>{children}</VirtualKeyboardProvider>
+    );
+}
 
 export function CashRegisterApp({ shop, showLightAdminNav = false }: CashRegisterAppProps) {
     // Fix height issue when exiting fullscreen
@@ -60,10 +69,12 @@ export function CashRegisterApp({ shop, showLightAdminNav = false }: CashRegiste
                 <DataProvider>
                     <PopupProvider>
                         <CryptoProvider>
-                            <TopNavController className="hidden md:flex" showLightAdminNav={showLightAdminNav} />
-                            <MainContent showLightAdminNav={showLightAdminNav} />
-                            <Popup />
-                            <UpdateListener />
+                            <VirtualKeyboardWrapper>
+                                <TopNavController className="hidden md:flex" showLightAdminNav={showLightAdminNav} />
+                                <MainContent showLightAdminNav={showLightAdminNav} />
+                                <Popup />
+                                <UpdateListener />
+                            </VirtualKeyboardWrapper>
                         </CryptoProvider>
                     </PopupProvider>
                 </DataProvider>

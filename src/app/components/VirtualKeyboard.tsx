@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { twMerge } from 'tailwind-merge';
 import { IconBackspace, IconCheck, IconArrowLeft, IconArrowRight } from '@tabler/icons-react';
 
 interface VirtualKeyboardProps {
@@ -77,7 +78,7 @@ export default function VirtualKeyboard({
                     <div className="flex justify-center gap-1.5">
                         <button
                             onClick={() => setShift(!shift)}
-                            className={`${keyBtn} w-11 h-11 ${shift ? 'bg-blue-500 text-white' : ''}`}
+                            className={twMerge(keyBtn, 'w-11 h-11', shift && 'bg-blue-500 text-white')}
                         >
                             Maj
                         </button>
@@ -132,7 +133,7 @@ export default function VirtualKeyboard({
                     <div className="flex flex-col gap-1.5">
                         <button
                             onClick={() => setShowSymbols(!showSymbols)}
-                            className={`${keyBtn} px-4 h-11 ${showSymbols ? 'bg-blue-500 text-white' : ''}`}
+                            className={twMerge(keyBtn, 'px-4 h-11', showSymbols && 'bg-blue-500 text-white')}
                         >
                             {showSymbols ? '123' : '@.!?'}
                         </button>

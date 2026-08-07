@@ -8,6 +8,7 @@ import { usePopup } from '@/app/hooks/usePopup';
 import { useConfig } from '@/app/hooks/useConfig';
 import { useIsMobileDevice } from '@/app/utils/mobile';
 import { getPopupStyles, getOptionHoverStyles } from '@/app/utils/popupStyles';
+import { useVirtualKeyboardContext } from './admin/VirtualKeyboardProvider';
 
 interface UserSwitchPopupProps {
     onSelect: (user: User) => void;
@@ -24,6 +25,7 @@ export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({ onSelect, initialQue
     const isMobileDevice = useIsMobileDevice();
     const styles = getPopupStyles('default');
     const optionClass = twMerge(styles.option, 'px-3', getOptionHoverStyles(isMobileDevice, true));
+    const vkContext = useVirtualKeyboardContext();
 
     useEffect(() => {
         inputRef.current?.focus();
@@ -90,6 +92,16 @@ export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({ onSelect, initialQue
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onFocus={(e) => {
+                    if (vkContext) {
+                        vkContext.registerInput(e.target, (newValue: string) => setQuery(newValue));
+                    }
+                }}
+                onBlur={(e) => {
+                    if (vkContext) {
+                        vkContext.unregisterInput(e.target);
+                    }
+                }}
                 placeholder="Rechercher un utilisateur..."
                 className={twMerge(
                     'w-full px-3 py-2 bg-transparent border-none outline-none focus:outline-none text-xl font-semibold',

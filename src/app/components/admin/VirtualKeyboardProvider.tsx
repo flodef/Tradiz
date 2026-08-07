@@ -55,7 +55,15 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
         const el = active.element;
         const pos = el.selectionStart ?? el.value.length;
         const newValue = el.value.slice(0, pos) + key + el.value.slice(pos);
-        el.value = newValue;
+        // type=number inputs silently reject values like '3.' — temporarily
+        // switch to text to set the raw value, then restore the type.
+        if (el.type === 'number') {
+            el.type = 'text';
+            el.value = newValue;
+            el.type = 'number';
+        } else {
+            el.value = newValue;
+        }
         const newPos = pos + key.length;
         el.setSelectionRange(newPos, newPos);
         active.onChange(newValue);
@@ -68,7 +76,13 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
         const pos = el.selectionStart ?? el.value.length;
         if (pos === 0) return;
         const newValue = el.value.slice(0, pos - 1) + el.value.slice(pos);
-        el.value = newValue;
+        if (el.type === 'number') {
+            el.type = 'text';
+            el.value = newValue;
+            el.type = 'number';
+        } else {
+            el.value = newValue;
+        }
         const newPos = pos - 1;
         el.setSelectionRange(newPos, newPos);
         active.onChange(newValue);
