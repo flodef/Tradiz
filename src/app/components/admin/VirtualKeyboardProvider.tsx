@@ -53,19 +53,25 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
         const active = activeInputRef.current;
         if (!active) return;
         const el = active.element;
-        const pos = el.selectionStart ?? el.value.length;
-        const newValue = el.value.slice(0, pos) + key + el.value.slice(pos);
+        const start = el.selectionStart ?? el.value.length;
+        const end = el.selectionEnd ?? el.value.length;
+        // If there's a selection (start !== end), replace it; otherwise insert at cursor
+        const newValue = el.value.slice(0, start) + key + el.value.slice(end);
+        const isNumber = el.type === 'number';
         // type=number inputs silently reject values like '3.' — temporarily
         // switch to text to set the raw value, then restore the type.
-        if (el.type === 'number') {
+        if (isNumber) {
             el.type = 'text';
             el.value = newValue;
             el.type = 'number';
         } else {
             el.value = newValue;
         }
-        const newPos = pos + key.length;
-        el.setSelectionRange(newPos, newPos);
+        const newPos = start + key.length;
+        // setSelectionRange throws on type=number inputs
+        if (!isNumber) {
+            el.setSelectionRange(newPos, newPos);
+        }
         active.onChange(newValue);
     }, []);
 
@@ -73,18 +79,32 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
         const active = activeInputRef.current;
         if (!active) return;
         const el = active.element;
-        const pos = el.selectionStart ?? el.value.length;
-        if (pos === 0) return;
-        const newValue = el.value.slice(0, pos - 1) + el.value.slice(pos);
-        if (el.type === 'number') {
+        const start = el.selectionStart ?? el.value.length;
+        const end = el.selectionEnd ?? el.value.length;
+        const isNumber = el.type === 'number';
+        let newValue: string;
+        let newPos: number;
+        if (start !== end) {
+            // There's a selection — delete it
+            newValue = el.value.slice(0, start) + el.value.slice(end);
+            newPos = start;
+        } else if (start === 0) {
+            return;
+        } else {
+            // No selection — delete character before cursor
+            newValue = el.value.slice(0, start - 1) + el.value.slice(start);
+            newPos = start - 1;
+        }
+        if (isNumber) {
             el.type = 'text';
             el.value = newValue;
             el.type = 'number';
         } else {
             el.value = newValue;
         }
-        const newPos = pos - 1;
-        el.setSelectionRange(newPos, newPos);
+        if (!isNumber) {
+            el.setSelectionRange(newPos, newPos);
+        }
         active.onChange(newValue);
     }, []);
 
@@ -93,7 +113,9 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
         if (!active) return;
         const el = active.element;
         const pos = Math.max(0, (el.selectionStart ?? el.value.length) - 1);
-        el.setSelectionRange(pos, pos);
+        if (el.type !== 'number') {
+            el.setSelectionRange(pos, pos);
+        }
         el.focus();
     }, []);
 
@@ -102,7 +124,9 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
         if (!active) return;
         const el = active.element;
         const pos = Math.min(el.value.length, (el.selectionStart ?? el.value.length) + 1);
-        el.setSelectionRange(pos, pos);
+        if (el.type !== 'number') {
+            el.setSelectionRange(pos, pos);
+        }
         el.focus();
     }, []);
 

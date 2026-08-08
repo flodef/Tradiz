@@ -30,6 +30,7 @@ import { Calculator } from './Calculator';
 import CustomerDetailsPopup from './CustomerDetailsPopup';
 import { useAddPopupClass } from './Popup';
 import { UserSwitchPopup } from './UserSwitchPopup';
+import { useVirtualKeyboardContext } from './admin/VirtualKeyboardProvider';
 
 export const MIN_QUANTITY = 0.125;
 export const quantityHalving = (quantity: number, key: Digits | string): number =>
@@ -188,6 +189,7 @@ const SearchPopup: FC<SearchPopupProps> = ({
     const isMobileDevice = useIsMobileDevice();
     const styles = getPopupStyles('default');
     const optionClass = twMerge(styles.option, 'px-3', getOptionHoverStyles(isMobileDevice, true));
+    const vkContext = useVirtualKeyboardContext();
 
     useEffect(() => {
         inputRef.current?.focus();
@@ -426,6 +428,16 @@ const SearchPopup: FC<SearchPopupProps> = ({
                 autoFocus
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onFocus={(e) => {
+                    if (vkContext) {
+                        vkContext.registerInput(e.target, (newValue: string) => setQuery(newValue));
+                    }
+                }}
+                onBlur={(e) => {
+                    if (vkContext) {
+                        vkContext.unregisterInput(e.target);
+                    }
+                }}
             />
             {query && (
                 <div className="max-h-[55vh] overflow-y-auto">

@@ -24,7 +24,7 @@ const SYMBOLS_9: string[] = ['@', '.', '-', '_', ',', "'", '/', '!', '?'];
 const SYMBOL_FOR_0 = ':';
 
 const keyBtn =
-    'flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:bg-blue-100 dark:hover:bg-blue-900 active:bg-blue-200 dark:active:bg-blue-800 transition-colors text-lg font-medium select-none';
+    'flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-700 active:bg-gray-400 dark:active:bg-gray-600 transition-colors text-lg font-medium select-none cursor-pointer';
 
 export default function VirtualKeyboard({
     onKey,
@@ -78,7 +78,11 @@ export default function VirtualKeyboard({
                     <div className="flex justify-center gap-1.5">
                         <button
                             onClick={() => setShift(!shift)}
-                            className={twMerge(keyBtn, 'w-11 h-11', shift && 'bg-blue-500 text-white')}
+                            className={twMerge(
+                                keyBtn,
+                                'w-11 h-11',
+                                shift && 'bg-blue-500 text-white hover:bg-blue-600 dark:hover:bg-blue-700'
+                            )}
                         >
                             Maj
                         </button>
@@ -133,7 +137,7 @@ export default function VirtualKeyboard({
                     <div className="flex flex-col gap-1.5">
                         <button
                             onClick={() => setShowSymbols(!showSymbols)}
-                            className={twMerge(keyBtn, 'px-4 h-11', showSymbols && 'bg-blue-500 text-white')}
+                            className={twMerge(keyBtn, 'px-4 h-11', showSymbols && 'bg-gray-300 dark:bg-gray-700')}
                         >
                             {showSymbols ? '123' : '@.!?'}
                         </button>
