@@ -69,7 +69,7 @@ interface StatisticsData {
 
 export default function StatsPage() {
     const { isCashier } = useUserRole();
-    const { parameters, currencies, currencyIndex, getPrinterAddresses } = useConfig();
+    const { parameters, currencies, currencyIndex, resolvePrinterAddresses } = useConfig();
     const { openFullscreenPopup, closePopup } = usePopup();
     const currency = currencies[currencyIndex];
     const shop = parameters.shop;
@@ -342,7 +342,7 @@ export default function StatsPage() {
 
             const showError = (message: string) => openFullscreenPopup(message, ['OK'], () => closePopup());
 
-            const addresses = getPrinterAddresses();
+            const addresses = resolvePrinterAddresses();
             if (addresses.length === 0) {
                 showError('Aucune imprimante configurée. Ajoutez une imprimante dans la configuration.');
                 return;
@@ -358,7 +358,7 @@ export default function StatsPage() {
                 setPrintLoading(false);
             }
         },
-        [billingReport, currency, getPrinterAddresses, shop, openFullscreenPopup, closePopup]
+        [billingReport, currency, resolvePrinterAddresses, shop, openFullscreenPopup, closePopup]
     );
 
     const handlePrintSummary = useCallback(() => runBillingPrint(printBillingSummary), [runBillingPrint]);

@@ -4,12 +4,17 @@ import { CharacterSet, PrinterTypes, ThermalPrinter } from 'node-thermal-printer
 import { networkInterfaces } from 'os';
 import fs from 'fs';
 import { Shop } from '../contexts/ConfigProvider';
-import { isProcessingTransaction, isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
+import {
+    isDeletedTransaction,
+    isProcessingTransaction,
+    isRefundTransaction,
+    isWaitingTransaction,
+} from '../contexts/dataProvider/transactionHelpers';
 import { ReceiptData } from '../hooks/usePay';
 import { SummaryData } from '../hooks/useSummary';
 import { DEFAULT_VAT_RATE, IS_DEV } from './constants';
 import { formatFrenchDate, generateReceiptNumber } from './date';
-import { BillingReport, Currency, SERVICE_TYPE_LABELS } from './interfaces';
+import { BillingReport, Currency, SERVICE_TYPE_LABELS, ServiceType, Transaction } from './interfaces';
 import { createMockPrinter } from './mockPrinter';
 
 type PrintResponse = {
@@ -355,6 +360,67 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
     } catch (error) {
         console.error('Failed to print receipt:', error);
         return { error: "Erreur lors de l'impression du reçu" };
+    }
+}
+
+/**
+ * Server action to print a kitchen ticket with large font for products
+ */
+export async function printKitchenTicket(
+    printerAddresses: string[],
+    ticketData: { transaction: Transaction; serviceType?: ServiceType }
+): Promise<PrintResponse> {
+    try {
+        const { printer, error } = await initPrinter(printerAddresses);
+        if (!printer || error) return { error };
+
+        const currentDate = new Date();
+        const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
+        const isRefund = isRefundTransaction(ticketData.transaction);
+        const isDeleted = isDeletedTransaction(ticketData.transaction);
+
+        // Date and time
+        printer.alignLeft();
+        printer.println(`${frenchDateStr} ${frenchTimeStr}`);
+
+        // Customer name if any
+        if (ticketData.transaction.customerName) {
+            printer.println(`Client : ${ticketData.transaction.customerName}`);
+        }
+
+        printer.newLine();
+
+        // Service type or refund/delete in big bold font
+        printer.setTextDoubleHeight();
+        printer.bold(true);
+        if (isRefund) {
+            printer.println('REMBOURSEMENT');
+        } else if (isDeleted) {
+            printer.println('ANNULATION');
+        } else if (ticketData.serviceType) {
+            printer.println(SERVICE_TYPE_LABELS[ticketData.serviceType].toUpperCase());
+        }
+        printer.bold(false);
+        printer.setTextNormal();
+        printer.newLine();
+
+        // Product list in big bold font
+        printer.setTextDoubleHeight();
+        printer.bold(true);
+        ticketData.transaction.products.forEach((item) => {
+            printer.println(`x${item.quantity} ${item.label}`);
+        });
+        printer.bold(false);
+        printer.setTextNormal();
+
+        printer.newLine();
+        printer.cut();
+
+        await executePrint(printer);
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to print kitchen ticket:', error);
+        return { error: "Erreur lors de l'impression du ticket cuisine" };
     }
 }
 

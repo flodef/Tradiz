@@ -23,7 +23,7 @@ import {
 } from '../utils/constants';
 import { Currency, Customer, InventoryItem, SERVICE_TYPE_LABELS, ServiceType, Transaction } from '../utils/interfaces';
 import { CLOSE, postCustomerDisplay, postMessageToParent, REFRESH } from '../utils/message';
-import { printBalanceStatement, printReceipt } from '../utils/posPrinter';
+import { printBalanceStatement, printKitchenTicket, printReceipt } from '../utils/posPrinter';
 import { buildCustomerDisplay, buildPaymentDisplay, holdChangeDisplay } from '../utils/customerDisplay';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
@@ -74,7 +74,7 @@ export const usePay = () => {
         currencyIndex,
         parameters,
         getPrintersNames,
-        getPrinterAddresses,
+        resolvePrinterAddresses,
         getPrinterAddressByRole,
         inventory,
         modeFonctionnement,
@@ -145,7 +145,7 @@ export const usePay = () => {
 
             const printerAddresses = printerAddressOverride
                 ? [printerAddressOverride]
-                : getPrinterAddresses(printerName);
+                : resolvePrinterAddresses(printerName);
             if (!printerAddresses.length) return { error: 'Imprimante non trouvée' };
 
             // Print the receipt
@@ -163,12 +163,56 @@ export const usePay = () => {
         [
             parameters,
             transactions,
-            getPrinterAddresses,
+            resolvePrinterAddresses,
             inventory,
             products,
             getCurrentTotal,
             currencies,
             currencyIndex,
+            orderData,
+        ]
+    );
+
+    const printKitchenReceipt = useCallback(
+        async (transaction?: Transaction, printerAddressOverride?: string) => {
+            let currentTransaction = transaction;
+
+            if (!currentTransaction) {
+                currentTransaction = transactions
+                    .sort((a, b) => b.modifiedDate - a.modifiedDate)
+                    .find(isWaitingTransaction);
+            }
+
+            if (!currentTransaction && products.current.length > 0) {
+                currentTransaction = {
+                    validator: parameters.user.name,
+                    method: WAITING_KEYWORD,
+                    amount: getCurrentTotal(),
+                    createdDate: new Date().getTime(),
+                    modifiedDate: new Date().getTime(),
+                    currency: currencies[currencyIndex].label,
+                    products: products.current,
+                };
+            }
+
+            if (!currentTransaction) return { error: 'Aucune transaction à imprimer' };
+
+            const kitchenAddr = printerAddressOverride || getPrinterAddressByRole('Cuisine');
+            if (!kitchenAddr) return { error: 'Imprimante cuisine non configurée' };
+
+            return await printKitchenTicket([kitchenAddr], {
+                transaction: currentTransaction,
+                serviceType: orderData?.service_type,
+            });
+        },
+        [
+            transactions,
+            parameters.user.name,
+            currencies,
+            currencyIndex,
+            products,
+            getCurrentTotal,
+            getPrinterAddressByRole,
             orderData,
         ]
     );
@@ -182,12 +226,9 @@ export const usePay = () => {
             const isPaid = !isWaiting && !isRefund && method !== UPDATING_KEYWORD && method !== DELETED_KEYWORD;
 
             if (isWaiting) {
-                const kitchenAddr = getPrinterAddressByRole('Cuisine');
-                if (kitchenAddr) {
-                    printTransactionReceipt(undefined, transaction, kitchenAddr).then((response) => {
-                        if (!response.success) console.error('[autoPrint] Kitchen print failed:', response.error);
-                    });
-                }
+                printKitchenReceipt(transaction).then((response) => {
+                    if (!response.success) console.error('[autoPrint] Kitchen print failed:', response.error);
+                });
             }
 
             if (isPaid || isRefund) {
@@ -199,7 +240,7 @@ export const usePay = () => {
                 }
             }
         },
-        [getPrinterAddressByRole, printTransactionReceipt]
+        [getPrinterAddressByRole, printTransactionReceipt, printKitchenReceipt]
     );
     autoPrintRef.current = autoPrint;
 
@@ -230,7 +271,7 @@ export const usePay = () => {
                         created_at: string;
                     }>;
                 };
-                const printerAddresses = getPrinterAddresses();
+                const printerAddresses = resolvePrinterAddresses();
                 if (!printerAddresses.length) {
                     openPopup('Erreur', ['Aucune imprimante configurée']);
                     return;
@@ -258,7 +299,7 @@ export const usePay = () => {
                 openPopup('Erreur', ["Erreur lors de l'impression du relevé de solde"]);
             }
         },
-        [getPrinterAddresses, parameters.shop, currencies, currencyIndex, openPopup]
+        [resolvePrinterAddresses, parameters.shop, currencies, currencyIndex, openPopup]
     );
 
     const openQRCode = useCallback(
@@ -511,7 +552,7 @@ export const usePay = () => {
                     {
                         const kitchenAddr = getPrinterAddressByRole('Cuisine');
                         if (kitchenAddr) {
-                            printTransactionReceipt(undefined, undefined, kitchenAddr);
+                            printKitchenReceipt(undefined, kitchenAddr);
                         }
                     }
                     break;
@@ -652,6 +693,7 @@ export const usePay = () => {
             transactions,
             getPrinterAddressByRole,
             printTransactionReceipt,
+            printKitchenReceipt,
         ]
     );
 

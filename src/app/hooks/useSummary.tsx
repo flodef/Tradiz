@@ -29,7 +29,7 @@ enum HistoricalPeriod {
 }
 
 export const useSummary = () => {
-    const { currencies, currencyIndex, inventory, parameters, getPrintersNames, getPrinterAddresses } = useConfig();
+    const { currencies, currencyIndex, inventory, parameters, getPrintersNames, resolvePrinterAddresses } = useConfig();
     const {
         transactions,
         toCurrency,
@@ -1059,7 +1059,7 @@ export const useSummary = () => {
             const filteredTransactions = getFilteredTransactions();
             if (!filteredTransactions.length) return { error: 'Aucune transaction' };
 
-            const printerAddresses = getPrinterAddresses(printerName);
+            const printerAddresses = resolvePrinterAddresses(printerName);
             if (!printerAddresses.length) return { error: 'Imprimante non trouvée' };
 
             // Get transaction summary data
@@ -1083,7 +1083,7 @@ export const useSummary = () => {
             getPeriodDescription,
             getTransactionsData,
             parameters,
-            getPrinterAddresses,
+            resolvePrinterAddresses,
             currencies,
             currencyIndex,
         ]

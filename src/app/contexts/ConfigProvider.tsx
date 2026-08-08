@@ -210,7 +210,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
             ? [PRINT_KEYWORD]
             : printersNames.map(({ label: name }) => PRINT_KEYWORD + SEPARATOR + name);
     }, [printers]);
-    const getPrinterAddresses = useCallback(
+    const resolvePrinterAddresses = useCallback(
         (name?: string) => {
             const printerName = name?.split(SEPARATOR)[1];
             const printer = (
@@ -428,7 +428,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                 colors,
                 printers,
                 getPrintersNames,
-                getPrinterAddresses,
+                resolvePrinterAddresses,
                 getPrinterAddressByRole,
                 customers,
                 setCustomers,
