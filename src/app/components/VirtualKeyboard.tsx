@@ -52,7 +52,7 @@ export default function VirtualKeyboard({
 
     return (
         <div
-            className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-t-2 border-gray-300 dark:border-gray-700 shadow-2xl p-2 select-none"
+            className="fixed bottom-0 left-0 right-0 z-110 bg-white dark:bg-gray-900 border-t-2 border-gray-300 dark:border-gray-700 shadow-2xl p-2 select-none"
             onMouseDown={(e) => e.preventDefault()}
         >
             <div className="max-w-5xl mx-auto flex gap-3 items-stretch">
@@ -135,10 +135,7 @@ export default function VirtualKeyboard({
 
                     {/* Symbol, Tab, Validate column (larger) */}
                     <div className="flex flex-col gap-1.5">
-                        <button
-                            onClick={() => setShowSymbols(!showSymbols)}
-                            className={twMerge(keyBtn, 'px-4 h-11', showSymbols && 'bg-gray-300 dark:bg-gray-700')}
-                        >
+                        <button onClick={() => setShowSymbols(!showSymbols)} className={`${keyBtn} px-4 h-11`}>
                             {showSymbols ? '123' : '@.!?'}
                         </button>
                         <button onClick={showSymbols ? onTabBack : onTab} className={`${keyBtn} px-4 h-11`}>
