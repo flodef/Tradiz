@@ -31,7 +31,14 @@ export function getShopFromHostname(hostname: string): string {
  * This is the server-side version that combines getShopFromHostname with the environment fallback.
  */
 export function getShopIdFromHostname(hostname: string): string {
-    return IS_LOCAL || USE_DIGICARTE ? process.env.NEXT_PUBLIC_SHOP_ID || '' : getShopFromHostname(hostname);
+    if (IS_LOCAL || USE_DIGICARTE) {
+        // Use computed property access to bypass Next.js build-time inlining of NEXT_PUBLIC_* vars.
+        // This ensures we read the runtime value set by Electron's .env.local loader, not the
+        // build-time value (which is undefined in CI builds without .env.local).
+        const shopIdEnv = process.env['NEXT_PUBLIC_' + 'SHOP_ID'];
+        return shopIdEnv || '';
+    }
+    return getShopFromHostname(hostname);
 }
 
 /**
