@@ -28,11 +28,6 @@ interface InternalPrinter extends Printer {
     _id: number;
 }
 
-const ipV4Validation = (ip: string) => {
-    const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-    return ipv4Regex.test(ip);
-};
-
 const comPortRegex = /^COM\d+$/i;
 
 function isComPort(address: string): boolean {
@@ -44,6 +39,11 @@ function getComPortNumber(address: string): string {
     return match ? match[1] : '';
 }
 
+function isLastOctet(address: string): boolean {
+    const num = Number(address);
+    return !isNaN(num) && num >= 1 && num <= 254 && address !== '';
+}
+
 function PrinterRow({
     printer,
     id,
@@ -52,6 +52,7 @@ function PrinterRow({
     onDelete,
     availableRoles,
     availableComPorts,
+    usedComPorts,
 }: {
     printer: InternalPrinter;
     id: number;
@@ -60,14 +61,17 @@ function PrinterRow({
     onDelete: () => void;
     availableRoles: string[];
     availableComPorts: number[];
+    usedComPorts: number[];
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
     const [isTesting, setIsTesting] = useState(false);
     const [testResult, setTestResult] = useState<string | null>(null);
     const isCom = isComPort(printer.ipAddress);
     const comNum = isCom ? getComPortNumber(printer.ipAddress) : '';
-    const isAddressValid = isCom ? comPortRegex.test(printer.ipAddress) : ipV4Validation(printer.ipAddress);
+    const isAddressValid = isCom ? comPortRegex.test(printer.ipAddress) : isLastOctet(printer.ipAddress);
     const comPortsAvailable = availableComPorts.length > 0;
+    const currentComNum = isCom ? Number(comNum) : 0;
+    const freeComPorts = availableComPorts.filter((p) => !usedComPorts.includes(p) || p === currentComNum);
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
@@ -99,7 +103,10 @@ function PrinterRow({
                                 onChange={(checked) => {
                                     setTestResult(null);
                                     if (checked) {
-                                        onChange({ ...printer, ipAddress: `COM${availableComPorts[0]}` });
+                                        onChange({
+                                            ...printer,
+                                            ipAddress: `COM${freeComPorts[0] || availableComPorts[0]}`,
+                                        });
                                     } else {
                                         onChange({ ...printer, ipAddress: '' });
                                     }
@@ -111,7 +118,7 @@ function PrinterRow({
                     )}
                     {isCom && comPortsAvailable ? (
                         <AdminSelect
-                            value={Number(comNum) || availableComPorts[0]}
+                            value={Number(comNum) || freeComPorts[0] || availableComPorts[0]}
                             onChange={(e) => {
                                 const port = e.target.value;
                                 setTestResult(null);
@@ -119,19 +126,20 @@ function PrinterRow({
                             }}
                             isReadOnly={isReadOnly}
                             className="w-24"
-                            options={availableComPorts.map((p) => ({ label: `COM${p}`, value: p }))}
+                            options={freeComPorts.map((p) => ({ label: `COM${p}`, value: p }))}
                         />
                     ) : (
                         <ValidatedInput
-                            type="text"
+                            type="number"
                             value={printer.ipAddress}
                             onChange={(value) => {
                                 setTestResult(null);
                                 onChange({ ...printer, ipAddress: String(value) });
                             }}
-                            placeholder="192.168.0.1"
+                            placeholder="195"
                             isReadOnly={isReadOnly}
-                            validation={(value) => ipV4Validation(String(value))}
+                            validation={(value) => isLastOctet(String(value))}
+                            max={254}
                         />
                     )}
                 </div>
@@ -199,7 +207,7 @@ export default function PrintersConfig({
     const [isScanning, setIsScanning] = useState(false);
     const [availableComPorts, setAvailableComPorts] = useState<number[]>([]);
     const scanAbortRef = useRef(false);
-    const foundPrintersRef = useRef<{ ip: string; label: string }[]>([]);
+    const foundPrintersRef = useRef<{ ip: string; lastOctet?: number; label: string }[]>([]);
     const { openFullscreenPopup, closePopup } = usePopup();
 
     useEffect(() => {
@@ -230,7 +238,7 @@ export default function PrintersConfig({
     const isValid =
         printers.every((p) => {
             const labelOk = PRINTER_ROLES.includes(p.label as (typeof PRINTER_ROLES)[number]);
-            const addrOk = isComPort(p.ipAddress) ? comPortRegex.test(p.ipAddress) : ipV4Validation(p.ipAddress);
+            const addrOk = isComPort(p.ipAddress) ? comPortRegex.test(p.ipAddress) : isLastOctet(p.ipAddress);
             return labelOk && addrOk;
         }) && new Set(printers.map((p) => p.label)).size === printers.length;
 
@@ -248,7 +256,17 @@ export default function PrintersConfig({
         const usedRoles = new Set(printers.map((p) => p.label));
         const availableRole = PRINTER_ROLES.find((r) => !usedRoles.has(r));
         if (!availableRole) return;
-        const newPrinter: InternalPrinter = { label: availableRole, ipAddress: '', _id: nextIdRef.current++ };
+        // Default to COM mode if COM ports are available
+        const usedComPorts = new Set(
+            printers.filter((p) => isComPort(p.ipAddress)).map((p) => Number(getComPortNumber(p.ipAddress)))
+        );
+        const firstFreeCom = availableComPorts.find((p) => !usedComPorts.has(p));
+        const defaultAddress = firstFreeCom ? `COM${firstFreeCom}` : '';
+        const newPrinter: InternalPrinter = {
+            label: availableRole,
+            ipAddress: defaultAddress,
+            _id: nextIdRef.current++,
+        };
         const updated = [...printers, newPrinter];
         setPrinters(updated);
         notifyParent(updated);
@@ -273,17 +291,21 @@ export default function PrintersConfig({
         });
     };
 
-    const addFoundPrinters = (newOnes: { ip: string; label: string }[]) => {
+    const addFoundPrinters = (newOnes: { ip: string; lastOctet?: number; label: string }[]) => {
         if (newOnes.length === 0) return;
         setPrinters((prev) => {
-            const existingIps = new Set(prev.map((p) => p.ipAddress));
+            const existingAddrs = new Set(prev.map((p) => p.ipAddress));
             const usedRoles = new Set(prev.map((p) => p.label));
             const toAdd = newOnes
-                .filter((p) => !existingIps.has(p.ip))
+                .filter((p) => {
+                    const addr = p.lastOctet ? String(p.lastOctet) : p.ip;
+                    return !existingAddrs.has(addr);
+                })
                 .map((p) => {
                     const role = PRINTER_ROLES.find((r) => !usedRoles.has(r));
                     if (role) usedRoles.add(role);
-                    return { label: role || p.label, ipAddress: p.ip, _id: nextIdRef.current++ };
+                    const addr = p.lastOctet ? String(p.lastOctet) : p.ip;
+                    return { label: role || p.label, ipAddress: addr, _id: nextIdRef.current++ };
                 });
             if (toAdd.length === 0) return prev;
             const updated = [...prev, ...toAdd];
@@ -458,6 +480,11 @@ export default function PrintersConfig({
                                                     role === printer.label || !printers.some((p) => p.label === role)
                                             )}
                                             availableComPorts={availableComPorts}
+                                            usedComPorts={printers
+                                                .filter((_, i) => i !== index)
+                                                .filter((p) => isComPort(p.ipAddress))
+                                                .map((p) => Number(getComPortNumber(p.ipAddress)))
+                                                .filter((n) => !isNaN(n))}
                                         />
                                     ))}
                                 </tbody>

@@ -162,52 +162,16 @@ async function findDisplayPort() {
             }
         }
 
-        // Auto-detect: look for common POS display vendor IDs
-        try {
-            const ports = await SerialPort.list();
-            const displayCandidates = ports.filter((p) => {
-                const vendorId = (p.vendorId || '').toLowerCase();
-                const manufacturer = (p.manufacturer || '').toLowerCase();
-                return (
-                    vendorId === '067b' || // Prolific
-                    vendorId === '0403' || // FTDI
-                    vendorId === '10c4' || // Silicon Labs CP210x
-                    vendorId === '1a86' || // CH340
-                    manufacturer.includes('prolific') ||
-                    manufacturer.includes('ftdi') ||
-                    manufacturer.includes('silicon labs') ||
-                    manufacturer.includes('ch340')
-                );
-            });
-
-            for (const candidate of displayCandidates) {
-                try {
-                    const port = new SerialPort({
-                        path: candidate.path,
-                        baudRate: 9600,
-                        autoOpen: false,
-                    });
-                    await new Promise((resolve, reject) => {
-                        port.open((err) => (err ? reject(err) : resolve()));
-                    });
-                    console.log('Customer display auto-detected on ' + candidate.path);
-                    return port;
-                } catch {
-                    // try next candidate
-                }
-            }
-        } catch (err) {
-            console.log('Serial port listing failed: ' + err.message);
-        }
+        // No auto-detect: only use the explicitly configured port.
+        // Scanning COM ports would risk grabbing the thermal printer's port.
     }
 
     // Fallback: use fs to open COM port directly (Windows only)
-    // Only use the explicitly configured port — scanning all COM ports
-    // would grab the thermal printer's port and send display commands to it.
     if (configuredPort) {
         if (openComPort(configuredPort)) return { _fsMode: true };
     }
 
+    console.log('No customer display configured (set "Ecran client" role in printer config).');
     return null;
 }
 

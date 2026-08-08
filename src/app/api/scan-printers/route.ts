@@ -53,6 +53,7 @@ export async function GET() {
 
     const parts = localIp.split('.');
     const baseIp = `${parts[0]}.${parts[1]}.${parts[2]}`;
+    const ownLastOctet = Number(parts[3]);
     const printerPort = 9100;
     const timeoutMs = 800;
     const total = 254;
@@ -71,12 +72,13 @@ export async function GET() {
 
             const promises: Promise<void>[] = [];
             for (let i = 1; i <= total; i++) {
+                if (i === ownLastOctet) continue; // skip own IP
                 const host = `${baseIp}.${i}`;
                 promises.push(
                     checkPort(host, printerPort, timeoutMs).then((isOpen) => {
                         scanned++;
                         if (isOpen) {
-                            sendEvent('printer', { ip: host, label: `Imprimante ${host}` });
+                            sendEvent('printer', { ip: host, lastOctet: i, label: `Imprimante ${i}` });
                         }
                         if (scanned % 10 === 0 || scanned === total) {
                             sendEvent('progress', { scanned, total });

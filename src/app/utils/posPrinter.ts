@@ -24,6 +24,24 @@ function isComPort(address: string): boolean {
 }
 
 /**
+ * Resolves a printer address to a full IP.
+ * - COM ports are returned as-is (e.g. "COM1")
+ * - Full IPs are returned as-is (e.g. "192.168.1.195")
+ * - Last-octet numbers (e.g. "195") are expanded to full IP using the local subnet
+ */
+function resolvePrinterAddress(address: string): string {
+    const trimmed = address.trim();
+    if (isComPort(trimmed)) return trimmed;
+    // If it looks like a full IP (contains dots), return as-is
+    if (trimmed.includes('.')) return trimmed;
+    // Otherwise treat as last octet and build full IP from local subnet
+    const localIp = getLocalIp();
+    if (!localIp) return trimmed;
+    const parts = localIp.split('.');
+    return `${parts[0]}.${parts[1]}.${parts[2]}.${trimmed}`;
+}
+
+/**
  * Writes a raw buffer to a COM port using fs (Windows only).
  * Works without the serialport native module.
  */
@@ -62,8 +80,11 @@ const initPrinter = async (printerAddresses: string[]) => {
     // If in DEV mode, return a mock printer that prints to the console
     if (IS_DEV) return { printer: await createMockPrinter() };
 
+    // Resolve addresses (last-octet → full IP) and find COM port
+    const resolved = printerAddresses.map(resolvePrinterAddress);
+
     // Try COM port first (serial printer)
-    const comPort = printerAddresses.find((addr) => isComPort(addr));
+    const comPort = resolved.find((addr) => isComPort(addr));
     if (comPort) {
         try {
             const printer = new ThermalPrinter({
@@ -85,7 +106,7 @@ const initPrinter = async (printerAddresses: string[]) => {
     // Normal printer initialization for production (TCP/IP)
     const myIp = getLocalIp();
     if (!myIp) return { error: "Vous n'êtes pas sur un réseau local" };
-    const connectedPrinterIPAddress = printerAddresses.find((address) => isSameSubnet(myIp, address));
+    const connectedPrinterIPAddress = resolved.find((address) => !isComPort(address) && isSameSubnet(myIp, address));
     if (!connectedPrinterIPAddress) return { error: 'Aucune imprimante connectée sur le même réseau que ' + myIp };
 
     const printer = await getPrinter(connectedPrinterIPAddress);
@@ -749,7 +770,8 @@ export async function testPrint(address: string): Promise<PrintResponse> {
     console.log(`[PRINTER] testPrint called with address: ${address}`);
 
     try {
-        const result = await initPrinter([address]);
+        const resolvedAddress = resolvePrinterAddress(address);
+        const result = await initPrinter([resolvedAddress]);
         if ('error' in result) {
             console.error(`[PRINTER] initPrinter error: ${result.error}`);
             return { error: result.error };
@@ -763,7 +785,7 @@ export async function testPrint(address: string): Promise<PrintResponse> {
         printer.println('TEST TRADIZ');
         printer.bold(false);
         printer.setTextNormal();
-        printer.println(`Port: ${address}`);
+        printer.println(`Port: ${resolvePrinterAddress(address)}`);
         printer.println(new Date().toLocaleString('fr-FR'));
         printer.newLine();
         printer.cut();
