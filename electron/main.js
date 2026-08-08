@@ -637,9 +637,18 @@ function loadWithRetry(window, url, attempts) {
     });
 }
 
+// Store pending update info so the renderer can query it on mount,
+// avoiding the race condition where update-available fires before
+// UpdateListener has registered its IPC listeners.
+let pendingUpdateInfo = null;
+let updateDownloaded = false;
+
 function initAutoUpdater() {
     // Auto-updater works in packaged builds with electron-updater available.
-    if (!autoUpdater || isDev) return;
+    if (!autoUpdater || isDev) {
+        console.log('Auto-updater disabled: ' + (!autoUpdater ? 'module not loaded' : 'dev mode'));
+        return;
+    }
 
     try {
         autoUpdater.autoDownload = false;
@@ -647,6 +656,7 @@ function initAutoUpdater() {
 
         autoUpdater.on('update-available', (info) => {
             console.log('Auto-updater: update available v' + info.version);
+            pendingUpdateInfo = { version: info.version };
             if (mainWindow && !mainWindow.isDestroyed()) {
                 mainWindow.webContents.send('update-available', { version: info.version });
             }
@@ -654,6 +664,7 @@ function initAutoUpdater() {
 
         autoUpdater.on('update-downloaded', () => {
             console.log('Auto-updater: update downloaded, waiting for user to confirm restart');
+            updateDownloaded = true;
             if (mainWindow && !mainWindow.isDestroyed()) {
                 mainWindow.webContents.send('update-downloaded');
             }
@@ -665,6 +676,7 @@ function initAutoUpdater() {
 
         // Listen for user response from the renderer popup
         ipcMain.on('update-response', (_event, response) => {
+            if (!autoUpdater) return;
             if (response === 'download') {
                 autoUpdater.downloadUpdate().catch((err) => {
                     console.error('Auto-updater download failed:', err.message);
@@ -679,18 +691,32 @@ function initAutoUpdater() {
 
         // Allow renderer to trigger a fresh update check (e.g. from 500 error page)
         ipcMain.on('check-for-updates', () => {
+            if (!autoUpdater) {
+                console.error('Auto-updater: check-for-updates requested but module not loaded');
+                return;
+            }
             console.log('Auto-updater: check-for-updates requested by renderer');
             autoUpdater.checkForUpdates().catch((err) => {
                 console.error('Auto-updater check failed:', err.message);
             });
         });
 
-        // Check for updates every hour
+        // Renderer queries for pending update on mount to avoid missing the event
+        ipcMain.on('get-pending-update', (event) => {
+            if (pendingUpdateInfo) {
+                event.reply('update-available', pendingUpdateInfo);
+            }
+            if (updateDownloaded) {
+                event.reply('update-downloaded');
+            }
+        });
+
+        // Check for updates every 30 minutes
         setInterval(() => {
             autoUpdater.checkForUpdates().catch((err) => {
-                console.error('Auto-updater hourly check failed:', err.message);
+                console.error('Auto-updater periodic check failed:', err.message);
             });
-        }, 3600000);
+        }, 1800000);
     } catch (err) {
         console.error('Auto-updater init failed:', err.message);
     }
@@ -761,11 +787,14 @@ function createMainWindow() {
         }
         closeSplashScreen();
 
-        // Check for updates now that the renderer is ready to show popups
-        if (!isDev) {
-            autoUpdater.checkForUpdates().catch((err) => {
-                console.error('Auto-updater check failed:', err.message);
-            });
+        // Check for updates after a short delay to give the renderer time
+        // to mount UpdateListener and register IPC listeners.
+        if (!isDev && autoUpdater) {
+            setTimeout(() => {
+                autoUpdater.checkForUpdates().catch((err) => {
+                    console.error('Auto-updater initial check failed:', err.message);
+                });
+            }, 5000);
         }
 
         mainWindow.webContents

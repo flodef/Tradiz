@@ -27,4 +27,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     respondUpdate: (response) => ipcRenderer.send('update-response', response),
     checkForUpdates: () => ipcRenderer.send('check-for-updates'),
+    getPendingUpdate: () => ipcRenderer.send('get-pending-update'),
 });

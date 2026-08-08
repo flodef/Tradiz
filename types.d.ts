@@ -20,6 +20,7 @@ interface ElectronAPI {
     onUpdateDownloaded: (callback: () => void) => () => void;
     respondUpdate: (response: string) => void;
     checkForUpdates: () => void;
+    getPendingUpdate: () => void;
 }
 
 declare global {

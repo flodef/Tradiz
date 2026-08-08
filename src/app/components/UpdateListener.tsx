@@ -10,6 +10,9 @@ export const UpdateListener: FC = () => {
         const api = window.electronAPI;
         if (!api?.onUpdateAvailable || !api?.respondUpdate) return;
 
+        // Query for any pending update that was detected before this listener mounted
+        api.getPendingUpdate?.();
+
         const cleanupAvailable = api.onUpdateAvailable(() => {
             openFullscreenPopup('Mise à jour disponible', ['Installer', 'Plus tard'], (index) => {
                 if (index === 0) {
