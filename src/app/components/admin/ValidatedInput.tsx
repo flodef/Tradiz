@@ -68,6 +68,10 @@ export default function ValidatedInput({
             if (newValue.startsWith('0') && newValue.length > 1 && newValue[1] !== '.') {
                 newValue = newValue.replace(/^0+/, '0');
             }
+            // Clamp to max if specified
+            if (max !== undefined && newValue !== '' && newValue !== '-' && !isNaN(Number(newValue))) {
+                if (Number(newValue) > max) newValue = String(max);
+            }
         }
 
         // Handle text fields (names): reject numbers but don't normalize yet
@@ -104,6 +108,10 @@ export default function ValidatedInput({
                     if (newValue.startsWith('0') && newValue.length > 1 && newValue[1] !== '.') {
                         newValue = newValue.replace(/^0+/, '0');
                     }
+                    // Clamp to max if specified
+                    if (max !== undefined && newValue !== '' && newValue !== '-' && !isNaN(Number(newValue))) {
+                        if (Number(newValue) > max) newValue = String(max);
+                    }
                 }
                 if (isNameField) {
                     newValue = newValue.replace(/[0-9]/g, '');
@@ -126,7 +134,8 @@ export default function ValidatedInput({
 
     return (
         <AdminInput
-            type={type}
+            type={type === 'number' ? 'text' : type}
+            inputMode={type === 'number' ? 'decimal' : undefined}
             value={value}
             onChange={handleChange}
             placeholder={placeholder}

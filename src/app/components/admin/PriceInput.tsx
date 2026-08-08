@@ -7,6 +7,7 @@ import ValidatedInput from './ValidatedInput';
 interface PriceCurrency {
     rate: number;
     decimals: number;
+    maxValue?: number;
     symbol?: string;
 }
 
@@ -55,6 +56,7 @@ export default function PriceInput({
             onChange={onChange}
             placeholder={placeholder ?? (0).toFixed(decimals)}
             min={0}
+            max={mainCurrency?.maxValue}
             step={priceStep}
             isReadOnly={isReadOnly}
             className={className}

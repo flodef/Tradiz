@@ -17,12 +17,6 @@ export function useVirtualKeyboardContext() {
 interface ActiveInput {
     element: HTMLInputElement;
     onChange: (value: string) => void;
-    // For number inputs, selectionStart/selectionEnd return null and
-    // el.value may be normalized by the browser (e.g. "3." → "").
-    // We track the raw value and cursor position ourselves.
-    trackedValue: string;
-    cursorPos: number;
-    hasSelection: boolean;
 }
 
 export function VirtualKeyboardProvider({ children, enabled }: { children: ReactNode; enabled: boolean }) {
@@ -33,26 +27,7 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
     const registerInput = useCallback(
         (input: HTMLInputElement, onChange: (value: string) => void) => {
             if (!enabled) return;
-            const isNumber = input.type === 'number';
-            let trackedValue = input.value;
-            let cursorPos: number;
-            let hasSelection: boolean;
-            if (isNumber) {
-                // Detect selection by temporarily switching to text
-                input.type = 'text';
-                const start = input.selectionStart ?? input.value.length;
-                const end = input.selectionEnd ?? input.value.length;
-                input.type = 'number';
-                trackedValue = input.value;
-                cursorPos = end;
-                hasSelection = start !== end;
-            } else {
-                const start = input.selectionStart ?? input.value.length;
-                const end = input.selectionEnd ?? input.value.length;
-                cursorPos = end;
-                hasSelection = start !== end;
-            }
-            const active: ActiveInput = { element: input, onChange, trackedValue, cursorPos, hasSelection };
+            const active: ActiveInput = { element: input, onChange };
             activeInputRef.current = active;
             setActiveInput(active);
             // Scroll input into view above the keyboard
@@ -78,37 +53,12 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
         const active = activeInputRef.current;
         if (!active) return;
         const el = active.element;
-        const isNumber = el.type === 'number';
-        let currentValue: string;
-        let start: number;
-        let end: number;
-        if (isNumber) {
-            currentValue = active.trackedValue;
-            if (active.hasSelection) {
-                start = 0;
-                end = currentValue.length;
-            } else {
-                start = active.cursorPos;
-                end = active.cursorPos;
-            }
-        } else {
-            currentValue = el.value;
-            start = el.selectionStart ?? currentValue.length;
-            end = el.selectionEnd ?? currentValue.length;
-        }
-        const newValue = currentValue.slice(0, start) + key + currentValue.slice(end);
+        const start = el.selectionStart ?? el.value.length;
+        const end = el.selectionEnd ?? el.value.length;
+        const newValue = el.value.slice(0, start) + key + el.value.slice(end);
+        el.value = newValue;
         const newPos = start + key.length;
-        if (isNumber) {
-            el.type = 'text';
-            el.value = newValue;
-            el.type = 'number';
-        } else {
-            el.value = newValue;
-            el.setSelectionRange(newPos, newPos);
-        }
-        active.trackedValue = newValue;
-        active.cursorPos = newPos;
-        active.hasSelection = false;
+        el.setSelectionRange(newPos, newPos);
         active.onChange(newValue);
     }, []);
 
@@ -116,46 +66,21 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
         const active = activeInputRef.current;
         if (!active) return;
         const el = active.element;
-        const isNumber = el.type === 'number';
-        let currentValue: string;
-        let start: number;
-        let end: number;
-        if (isNumber) {
-            currentValue = active.trackedValue;
-            if (active.hasSelection) {
-                start = 0;
-                end = currentValue.length;
-            } else {
-                start = active.cursorPos;
-                end = active.cursorPos;
-            }
-        } else {
-            currentValue = el.value;
-            start = el.selectionStart ?? currentValue.length;
-            end = el.selectionEnd ?? currentValue.length;
-        }
+        const start = el.selectionStart ?? el.value.length;
+        const end = el.selectionEnd ?? el.value.length;
         let newValue: string;
         let newPos: number;
         if (start !== end) {
-            newValue = currentValue.slice(0, start) + currentValue.slice(end);
+            newValue = el.value.slice(0, start) + el.value.slice(end);
             newPos = start;
         } else if (start === 0) {
             return;
         } else {
-            newValue = currentValue.slice(0, start - 1) + currentValue.slice(start);
+            newValue = el.value.slice(0, start - 1) + el.value.slice(start);
             newPos = start - 1;
         }
-        if (isNumber) {
-            el.type = 'text';
-            el.value = newValue;
-            el.type = 'number';
-        } else {
-            el.value = newValue;
-            el.setSelectionRange(newPos, newPos);
-        }
-        active.trackedValue = newValue;
-        active.cursorPos = newPos;
-        active.hasSelection = false;
+        el.value = newValue;
+        el.setSelectionRange(newPos, newPos);
         active.onChange(newValue);
     }, []);
 
@@ -163,14 +88,8 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
         const active = activeInputRef.current;
         if (!active) return;
         const el = active.element;
-        const isNumber = el.type === 'number';
-        if (isNumber) {
-            active.cursorPos = Math.max(0, active.cursorPos - 1);
-            active.hasSelection = false;
-        } else {
-            const pos = Math.max(0, (el.selectionStart ?? el.value.length) - 1);
-            el.setSelectionRange(pos, pos);
-        }
+        const pos = Math.max(0, (el.selectionStart ?? el.value.length) - 1);
+        el.setSelectionRange(pos, pos);
         el.focus();
     }, []);
 
@@ -178,14 +97,8 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
         const active = activeInputRef.current;
         if (!active) return;
         const el = active.element;
-        const isNumber = el.type === 'number';
-        if (isNumber) {
-            active.cursorPos = Math.min(active.trackedValue.length, active.cursorPos + 1);
-            active.hasSelection = false;
-        } else {
-            const pos = Math.min(el.value.length, (el.selectionStart ?? el.value.length) + 1);
-            el.setSelectionRange(pos, pos);
-        }
+        const pos = Math.min(el.value.length, (el.selectionStart ?? el.value.length) + 1);
+        el.setSelectionRange(pos, pos);
         el.focus();
     }, []);
 
