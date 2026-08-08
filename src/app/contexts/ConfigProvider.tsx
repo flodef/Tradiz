@@ -201,7 +201,9 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     );
 
     const getPrintersNames = useCallback(() => {
-        const printersNames = printers.filter(({ label: name }) => name !== LOCAL_PRINTER_KEYWORD);
+        const printersNames = printers.filter(
+            ({ label: name }) => name !== LOCAL_PRINTER_KEYWORD && name !== 'Ecran client'
+        );
         if (!printersNames.length) return [];
 
         return printersNames.length === 1
@@ -217,8 +219,8 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                           printers.find(({ label: n }) => n === printerName),
                           printers.find(({ label: n }) => n === LOCAL_PRINTER_KEYWORD),
                       ]
-                    : printers
-            ).filter(Boolean) as Printer[]; // If no printer name is provided, return all printers
+                    : printers.filter(({ label }) => label === 'Caisse')
+            ).filter(Boolean) as Printer[]; // Default to Caisse printer only
             if (!printer.length) return [];
 
             return printer.map(({ ipAddress: address }) => address);
