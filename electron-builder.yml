@@ -64,14 +64,13 @@ win:
     artifactName: ${productName}-${version}-win-${arch}.${ext}
     icon: public/icons/icons-512.png
 nsis:
-    oneClick: false
+    oneClick: true
     perMachine: false
-    allowToChangeInstallationDirectory: true
     uninstallDisplayName: Tradiz
     createDesktopShortcut: true
     createStartMenuShortcut: true
     shortcutName: Tradiz
-    differentialPackage: false
+    differentialPackage: true
     deleteAppDataOnUninstall: false
     runAfterFinish: true
 mac:
