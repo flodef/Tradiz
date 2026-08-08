@@ -122,11 +122,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const [hasDbConfig, setHasDbConfig] = useState(false);
     const [resolvedShopId, setResolvedShopId] = useState(SHOP_ID);
+    const [shopIdFetchDone, setShopIdFetchDone] = useState(!!SHOP_ID);
 
     useEffect(() => {
         if (!SHOP_ID) {
             fetchShopId().then((id) => {
                 if (id) setResolvedShopId(id);
+                setShopIdFetchDone(true);
             });
         }
     }, []);
@@ -180,6 +182,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
         // Validate shop ID when using SQL database
         if (!resolvedShopId) {
+            if (!shopIdFetchDone) return; // still fetching, wait
             console.error('[DataProvider] ERROR: shop.id is required when USE_DIGICARTE is enabled');
             openFullscreenPopup(
                 'Configuration Error: Shop ID is missing. Please configure the shop ID in the database parameters.',
@@ -292,6 +295,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         getResetTimes,
         openFullscreenPopup,
         resolvedShopId,
+        shopIdFetchDone,
     ]);
 
     const performDayReset = useCallback(() => {
