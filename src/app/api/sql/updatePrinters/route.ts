@@ -23,54 +23,22 @@ export async function POST(request: Request) {
 
         connection = await getPosDb(shopId);
 
-        // Check if note_enabled column exists
-        let hasNoteEnabled = false;
-        try {
-            const [checkCols] = await connection.execute(`
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'printers' AND column_name = 'note_enabled'
-            `);
-            hasNoteEnabled = Array.isArray(checkCols) && checkCols.length > 0;
-        } catch {
-            try {
-                const [columns] = await connection.execute("SHOW COLUMNS FROM printers LIKE 'note_enabled'");
-                hasNoteEnabled = Array.isArray(columns) && columns.length > 0;
-            } catch {
-                hasNoteEnabled = false;
-            }
-        }
-
         // Delete all existing printers and re-insert
         if (connection.isPostgreSQL) {
             await connection.execute('DELETE FROM dc_pos.printers');
             for (const printer of printers) {
-                if (hasNoteEnabled) {
-                    await connection.execute(
-                        'INSERT INTO dc_pos.printers (name, ip_address, note_enabled) VALUES ($1, $2, true)',
-                        [printer.label, printer.ipAddress]
-                    );
-                } else {
-                    await connection.execute(
-                        'INSERT INTO dc_pos.printers (name, ip_address) VALUES ($1, $2)',
-                        [printer.label, printer.ipAddress]
-                    );
-                }
+                await connection.execute('INSERT INTO dc_pos.printers (name, ip_address) VALUES ($1, $2)', [
+                    printer.label,
+                    printer.ipAddress,
+                ]);
             }
         } else {
             await connection.execute('DELETE FROM printers');
             for (const printer of printers) {
-                if (hasNoteEnabled) {
-                    await connection.execute(
-                        'INSERT INTO printers (name, ip_address, note_enabled) VALUES (?, ?, 1)',
-                        [printer.label, printer.ipAddress]
-                    );
-                } else {
-                    await connection.execute(
-                        'INSERT INTO printers (name, ip_address) VALUES (?, ?)',
-                        [printer.label, printer.ipAddress]
-                    );
-                }
+                await connection.execute('INSERT INTO printers (name, ip_address) VALUES (?, ?)', [
+                    printer.label,
+                    printer.ipAddress,
+                ]);
             }
         }
 

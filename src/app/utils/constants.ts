@@ -10,6 +10,9 @@ export const TRANSACTIONS_KEYWORD = 'Transactions';
 export const PRINT_KEYWORD = 'Impression';
 export const LOCAL_PRINTER_KEYWORD = 'Local';
 
+// Printer roles (used in PrintersConfig as dropdown options)
+export const PRINTER_ROLES = ['Caisse', 'Cuisine', 'Ecran client'] as const;
+
 // Role labels (French translations)
 export const ROLE_LABELS: Record<Role, string> = {
     [Role.cashier]: 'Caissier',

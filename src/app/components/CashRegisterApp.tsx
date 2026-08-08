@@ -66,8 +66,8 @@ export function CashRegisterApp({ shop, showLightAdminNav = false }: CashRegiste
         >
             <OfflineBanner />
             <ConfigProvider shop={shop}>
-                <DataProvider>
-                    <PopupProvider>
+                <PopupProvider>
+                    <DataProvider>
                         <CryptoProvider>
                             <VirtualKeyboardWrapper>
                                 <TopNavController className="hidden md:flex" showLightAdminNav={showLightAdminNav} />
@@ -76,8 +76,8 @@ export function CashRegisterApp({ shop, showLightAdminNav = false }: CashRegiste
                                 <UpdateListener />
                             </VirtualKeyboardWrapper>
                         </CryptoProvider>
-                    </PopupProvider>
-                </DataProvider>
+                    </DataProvider>
+                </PopupProvider>
             </ConfigProvider>
         </main>
     );

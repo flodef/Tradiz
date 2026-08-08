@@ -99,7 +99,41 @@ function writeComPort(data) {
 }
 
 async function findDisplayPort() {
-    const configuredPort = process.env.TRADIZ_DISPLAY_PORT;
+    let configuredPort = process.env.TRADIZ_DISPLAY_PORT;
+
+    // If no env-configured port, try to fetch the 'Ecran client' printer from the API
+    if (!configuredPort) {
+        try {
+            var http = require('http');
+            var port = process.env.PORT || 3001;
+            var displayConfig = await new Promise((resolve) => {
+                var req = http.get('http://127.0.0.1:' + port + '/api/sql/getPrinters', (res) => {
+                    var body = '';
+                    res.on('data', (chunk) => (body += chunk));
+                    res.on('end', () => {
+                        try {
+                            var data = JSON.parse(body);
+                            var screen = (data.printers || []).find((p) => p.label === 'Ecran client');
+                            resolve(screen ? screen.ipAddress : null);
+                        } catch {
+                            resolve(null);
+                        }
+                    });
+                });
+                req.on('error', () => resolve(null));
+                req.setTimeout(3000, () => {
+                    req.destroy();
+                    resolve(null);
+                });
+            });
+            if (displayConfig) {
+                configuredPort = displayConfig;
+                console.log('Found Ecran client port from API: ' + configuredPort);
+            }
+        } catch {
+            // API not available yet, continue with auto-detect
+        }
+    }
 
     // Try serialport module first (supports auto-detect)
     let SerialPort = null;

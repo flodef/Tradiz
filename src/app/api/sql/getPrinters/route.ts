@@ -13,48 +13,9 @@ export async function GET(request: Request) {
     try {
         connection = await getPosDb(shopId);
 
-        // Compat schema: if note_enabled exists, only expose printers enabled for note tickets.
-        // Check if column exists (works for both MySQL and PostgreSQL)
-        let hasNoteEnabled = false;
-        try {
-            // Try PostgreSQL syntax first
-            const [checkCols] = await connection.execute(`
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'printers' AND column_name = 'note_enabled'
-            `);
-            hasNoteEnabled = Array.isArray(checkCols) && checkCols.length > 0;
-        } catch {
-            // Fallback to MySQL syntax
-            try {
-                const [columns] = await connection.execute("SHOW COLUMNS FROM printers LIKE 'note_enabled'");
-                hasNoteEnabled = Array.isArray(columns) && columns.length > 0;
-            } catch {
-                hasNoteEnabled = false;
-            }
-        }
-
-        const query = hasNoteEnabled
-            ? connection.isPostgreSQL
-                ? `
-                SELECT name, ip_address
-                FROM dc_pos.printers
-                WHERE note_enabled = true
-            `
-                : `
-                SELECT name, ip_address
-                FROM printers
-                WHERE note_enabled = true
-            `
-            : connection.isPostgreSQL
-              ? `
-                SELECT name, ip_address
-                FROM dc_pos.printers
-            `
-              : `
-                SELECT name, ip_address
-                FROM printers
-            `;
+        const query = connection.isPostgreSQL
+            ? `SELECT name, ip_address FROM dc_pos.printers`
+            : `SELECT name, ip_address FROM printers`;
 
         const [rows] = await connection.execute(query);
         await connection.end();

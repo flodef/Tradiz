@@ -44,7 +44,7 @@ import {
 } from './dataProvider/transactionHelpers';
 import { useMercurial } from './dataProvider/useMercurial';
 import { resolveSelectionAfterDelete } from './dataProvider/productHelpers';
-import { SHOP_ID } from '../constants/shop';
+import { SHOP_ID, fetchShopId } from '../constants/shop';
 
 enum DatabaseAction {
     add,
@@ -121,6 +121,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, []);
 
     const [hasDbConfig, setHasDbConfig] = useState(false);
+    const [resolvedShopId, setResolvedShopId] = useState(SHOP_ID);
+
+    useEffect(() => {
+        if (!SHOP_ID) {
+            fetchShopId().then((id) => {
+                if (id) setResolvedShopId(id);
+            });
+        }
+    }, []);
 
     useEffect(() => {
         const checkDb = async () => {
@@ -154,8 +163,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, []);
 
     const getLocalTransactions = useCallback(async () => {
-        return idbGetAllTransactionSets(SHOP_ID || TRANSACTIONS_KEYWORD);
-    }, []);
+        return idbGetAllTransactionSets(resolvedShopId || TRANSACTIONS_KEYWORD);
+    }, [resolvedShopId]);
 
     const setLocalStorageItem = useCallback(async (key: string, transactions: Transaction[]) => {
         await idbSetTransactions(key, transactions);
@@ -170,7 +179,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         if (!parameters.shop.name || areTransactionLoaded.current) return;
 
         // Validate shop ID when using SQL database
-        if (!SHOP_ID) {
+        if (!resolvedShopId) {
             console.error('[DataProvider] ERROR: shop.id is required when USE_DIGICARTE is enabled');
             openFullscreenPopup(
                 'Configuration Error: Shop ID is missing. Please configure the shop ID in the database parameters.',
@@ -179,14 +188,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             return;
         }
 
-        const filename = getTransactionFileName(SHOP_ID);
+        const filename = getTransactionFileName(resolvedShopId);
 
         const loadTransactions = async () => {
             // Auto-migrate ALL transaction keys from localStorage to IndexedDB
             const keysToMigrate: string[] = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key && key.split('_')[0] === SHOP_ID) {
+                if (key && key.split('_')[0] === resolvedShopId) {
                     keysToMigrate.push(key);
                 }
             }
@@ -241,7 +250,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         oldTransactions.forEach((tx) => {
                             const date = new Date(tx.createdDate);
                             const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                            const key = `${SHOP_ID}_${dateKey}`;
+                            const key = `${resolvedShopId}_${dateKey}`;
                             if (!groupedByDay.has(key)) groupedByDay.set(key, []);
                             groupedByDay.get(key)!.push(tx);
                         });
@@ -282,6 +291,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         setLocalStorageItem,
         getResetTimes,
         openFullscreenPopup,
+        resolvedShopId,
     ]);
 
     const performDayReset = useCallback(() => {
@@ -524,7 +534,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     const groupedByDate = new Map<string, Transaction[]>();
                     sqlTransactions.forEach((tx) => {
                         const date = new Date(tx.createdDate);
-                        const dateKey = getTransactionFileName(SHOP_ID, date);
+                        const dateKey = getTransactionFileName(resolvedShopId, date);
                         if (!groupedByDate.has(dateKey)) groupedByDate.set(dateKey, []);
                         groupedByDate.get(dateKey)!.push(tx);
                     });
@@ -592,7 +602,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 return 0;
             }
         },
-        [fullSync, transactionsFilename, pushTransactionToSQL]
+        [fullSync, transactionsFilename, pushTransactionToSQL, resolvedShopId]
     );
 
     const syncTransactions = useCallback(
@@ -609,7 +619,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const syncNow = useCallback(async () => {
         if (syncInProgress.current) return;
-        if (!isOnline || !transactionsFilename || !SHOP_ID) return;
+        if (!isOnline || !transactionsFilename || !resolvedShopId) return;
         if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
 
         const hasDbConfig = await checkDbConfig();
@@ -623,10 +633,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         } finally {
             syncInProgress.current = false;
         }
-    }, [isOnline, transactionsFilename, syncTransactions]);
+    }, [isOnline, transactionsFilename, syncTransactions, resolvedShopId]);
 
     useEffect(() => {
-        if (!transactionsFilename || !SHOP_ID) return;
+        if (!transactionsFilename || !resolvedShopId) return;
 
         const shouldRunSync = async () => {
             if (syncInProgress.current) return;
@@ -664,7 +674,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('online', handleOnline);
         };
-    }, [transactionsFilename, syncNow]);
+    }, [transactionsFilename, syncNow, resolvedShopId]);
 
     const exportTransactions = useCallback(async () => {
         const localTransactionSets = await getLocalTransactions();
@@ -722,7 +732,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             event?: ChangeEvent<HTMLInputElement>,
             onProgress?: (percent: number) => void
         ): Promise<number> => {
-            const filename = date ? getTransactionFileName(SHOP_ID, date) : transactionsFilename;
+            const filename = date ? getTransactionFileName(resolvedShopId, date) : transactionsFilename;
             switch (syncAction) {
                 case SyncAction.fullsync:
                     return await syncTransactions(SyncPeriod.full, undefined, onProgress);
@@ -739,7 +749,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             }
             return 0;
         },
-        [syncTransactions, exportTransactions, importTransactions, transactionsFilename]
+        [syncTransactions, exportTransactions, importTransactions, transactionsFilename, resolvedShopId]
     );
 
     const getAvailableDaysFromSQL = useCallback(async (): Promise<string[]> => {
@@ -758,35 +768,38 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         }
     }, []);
 
-    const syncSpecificDayFromSQL = useCallback(async (date: string): Promise<number> => {
-        if (!SHOP_ID) return 0;
-        const filename = `${SHOP_ID}_${date}`;
+    const syncSpecificDayFromSQL = useCallback(
+        async (date: string): Promise<number> => {
+            if (!resolvedShopId) return 0;
+            const filename = `${resolvedShopId}_${date}`;
 
-        try {
-            // Delete from IndexedDB
-            await idbRemoveTransactions(filename);
+            try {
+                // Delete from IndexedDB
+                await idbRemoveTransactions(filename);
 
-            // Fetch from SQL
-            const response = await fetch(`/api/sql/getTransactions?date=${date}&period=day`);
-            if (!response.ok) {
-                const error = await response.json();
-                console.error('SQL DB sync error:', error);
+                // Fetch from SQL
+                const response = await fetch(`/api/sql/getTransactions?date=${date}&period=day`);
+                if (!response.ok) {
+                    const error = await response.json();
+                    console.error('SQL DB sync error:', error);
+                    return 0;
+                }
+                const data = await response.json();
+                const transactions = data.transactions as Transaction[];
+
+                // Store in IndexedDB
+                if (transactions.length) {
+                    await idbSetTransactions(filename, transactions);
+                }
+
+                return transactions.length;
+            } catch (error) {
+                console.error('Error syncing specific day from SQL:', error);
                 return 0;
             }
-            const data = await response.json();
-            const transactions = data.transactions as Transaction[];
-
-            // Store in IndexedDB
-            if (transactions.length) {
-                await idbSetTransactions(filename, transactions);
-            }
-
-            return transactions.length;
-        } catch (error) {
-            console.error('Error syncing specific day from SQL:', error);
-            return 0;
-        }
-    }, []);
+        },
+        [resolvedShopId]
+    );
 
     const saveTransactions = useCallback(
         async (action: DatabaseAction, transaction: Transaction) => {

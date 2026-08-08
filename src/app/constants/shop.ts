@@ -42,3 +42,19 @@ export function getShopIdFromRequest(request: Request): string {
     const hostname = request.headers.get('host') || '';
     return getShopIdFromHostname(hostname);
 }
+
+/**
+ * Fetches the shop ID from the server API at runtime.
+ * Use this on the client when the build-time NEXT_PUBLIC_SHOP_ID is not baked
+ * (e.g. CI builds without .env.local).
+ */
+export async function fetchShopId(): Promise<string> {
+    try {
+        const res = await fetch('/api/shop-id');
+        if (!res.ok) return '';
+        const data = await res.json();
+        return data.shopId || '';
+    } catch {
+        return '';
+    }
+}

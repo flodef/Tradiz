@@ -10,6 +10,7 @@ import {
     ARROW,
     CATEGORY_SEPARATOR,
     DEBIT_KEYWORD,
+    DELETED_KEYWORD,
     IS_LOCAL,
     NON_PAYMENT_KEYWORDS,
     PRINT_KEYWORD,
@@ -74,19 +75,25 @@ export const usePay = () => {
         parameters,
         getPrintersNames,
         getPrinterAddresses,
+        getPrinterAddressByRole,
         inventory,
         modeFonctionnement,
         setCustomers,
     } = useConfig();
+
+    // Ref to hold autoPrint so commitTransaction can call it without ordering issues.
+    const autoPrintRef = useRef<(method: string, transaction?: Transaction) => void>(() => {});
 
     // Finalise une transaction validée et déselectionne le client en cours.
     const commitTransaction = useCallback(
         (item: string | Transaction) => {
             updateTransaction(item);
             const method = typeof item === 'string' ? item : item.method;
+            const transaction = typeof item === 'string' ? undefined : item;
             if (method !== WAITING_KEYWORD) {
                 setCurrentCustomer(null);
             }
+            autoPrintRef.current(method, transaction);
         },
         [updateTransaction, setCurrentCustomer]
     );
@@ -109,7 +116,7 @@ export const usePay = () => {
     );
 
     const printTransactionReceipt = useCallback(
-        async (printerName?: string, transaction?: Transaction) => {
+        async (printerName?: string, transaction?: Transaction, printerAddressOverride?: string) => {
             // Prepare receipt data
             let currentTransaction = transaction;
             const currency = currencies[currencyIndex];
@@ -136,7 +143,9 @@ export const usePay = () => {
 
             if (!currentTransaction) return { error: 'Aucune transaction à imprimer' };
 
-            const printerAddresses = getPrinterAddresses(printerName);
+            const printerAddresses = printerAddressOverride
+                ? [printerAddressOverride]
+                : getPrinterAddresses(printerName);
             if (!printerAddresses.length) return { error: 'Imprimante non trouvée' };
 
             // Print the receipt
@@ -163,6 +172,36 @@ export const usePay = () => {
             orderData,
         ]
     );
+
+    // Auto-print to kitchen when order is put in waiting/processing state.
+    // Auto-print to cashier when order is fully paid or refunded.
+    const autoPrint = useCallback(
+        (method: string, transaction?: Transaction) => {
+            const isWaiting = method === WAITING_KEYWORD || method === PROCESSING_KEYWORD;
+            const isRefund = method === REFUND_KEYWORD;
+            const isPaid = !isWaiting && !isRefund && method !== UPDATING_KEYWORD && method !== DELETED_KEYWORD;
+
+            if (isWaiting) {
+                const kitchenAddr = getPrinterAddressByRole('Cuisine');
+                if (kitchenAddr) {
+                    printTransactionReceipt(undefined, transaction, kitchenAddr).then((response) => {
+                        if (!response.success) console.error('[autoPrint] Kitchen print failed:', response.error);
+                    });
+                }
+            }
+
+            if (isPaid || isRefund) {
+                const cashierAddr = getPrinterAddressByRole('Caisse');
+                if (cashierAddr) {
+                    printTransactionReceipt(undefined, transaction, cashierAddr).then((response) => {
+                        if (!response.success) console.error('[autoPrint] Cashier print failed:', response.error);
+                    });
+                }
+            }
+        },
+        [getPrinterAddressByRole, printTransactionReceipt]
+    );
+    autoPrintRef.current = autoPrint;
 
     const printTransaction = useCallback(
         (printerName?: string, transaction?: Transaction) => {
@@ -469,7 +508,12 @@ export const usePay = () => {
                     break;
                 case PRINT_KEYWORD:
                     updateTransaction(WAITING_KEYWORD);
-                    printTransaction(option);
+                    {
+                        const kitchenAddr = getPrinterAddressByRole('Cuisine');
+                        if (kitchenAddr) {
+                            printTransactionReceipt(undefined, undefined, kitchenAddr);
+                        }
+                    }
                     break;
                 case REFUND_KEYWORD:
                     openPopup('⚠️​ Confirmer le remboursement ?', ['Continuer', 'Annuler'], (_, option) => {
@@ -508,6 +552,7 @@ export const usePay = () => {
                 case 'METTRE ' + WAITING_KEYWORD:
                     // Sauvegarder la transaction avec le statut EN ATTENTE
                     updateTransaction(WAITING_KEYWORD);
+                    autoPrintRef.current(WAITING_KEYWORD);
                     closePopup();
                     break;
                 case 'Espèces':
@@ -591,7 +636,6 @@ export const usePay = () => {
             closePopup,
             paymentMethods,
             openPopup,
-            printTransaction,
             products,
             currencies,
             currencyIndex,
@@ -606,6 +650,8 @@ export const usePay = () => {
             amount,
             openFullscreenPopup,
             transactions,
+            getPrinterAddressByRole,
+            printTransactionReceipt,
         ]
     );
 
@@ -850,8 +896,8 @@ export const usePay = () => {
                     .filter((item) => item.currency === currencies[currencyIndex].label)
                     .map((item) => item.type);
 
-                // Add printer options for printing before payment
-                const printerOptions = getPrintersNames();
+                // Add print option for manual printing before payment
+                const printerOptions = getPrintersNames().length > 0 ? [PRINT_KEYWORD] : [];
 
                 // Add separator and additional options
                 const allOptions = paymentMethodsLabels.concat(printerOptions).concat(['']);

@@ -226,6 +226,14 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
         [printers]
     );
 
+    const getPrinterAddressByRole = useCallback(
+        (role: string) => {
+            const printer = printers.find(({ label }) => label === role);
+            return printer?.ipAddress;
+        },
+        [printers]
+    );
+
     const loadConfig = useCallback((data: Config | undefined) => {
         if (!data) return;
 
@@ -419,6 +427,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                 printers,
                 getPrintersNames,
                 getPrinterAddresses,
+                getPrinterAddressByRole,
                 customers,
                 setCustomers,
                 users,

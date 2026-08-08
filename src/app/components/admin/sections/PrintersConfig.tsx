@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { IconSearch, IconLoader2, IconPrinter } from '@tabler/icons-react';
 import { usePopup } from '@/app/hooks/usePopup';
 import { testPrint } from '@/app/utils/posPrinter';
+import { PRINTER_ROLES } from '@/app/utils/constants';
 import Switch from '../Switch';
 import AdminSelect from '../AdminSelect';
 import {
@@ -46,22 +47,18 @@ function getComPortNumber(address: string): string {
 function PrinterRow({
     printer,
     id,
-    index,
     isReadOnly,
     onChange,
     onDelete,
-    labelInputRefs,
-    lastAddedIndexRef,
+    availableRoles,
     availableComPorts,
 }: {
     printer: InternalPrinter;
     id: number;
-    index: number;
     isReadOnly: boolean;
     onChange: (printer: InternalPrinter) => void;
     onDelete: () => void;
-    labelInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
-    lastAddedIndexRef: React.MutableRefObject<number | null>;
+    availableRoles: string[];
     availableComPorts: number[];
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -77,34 +74,20 @@ function PrinterRow({
         opacity: isDragging ? 0.5 : 1,
     };
 
-    const labelValidation = (value: string | number) => {
-        const label = String(value).trim();
-        return label.length > 0 && label.length <= 25;
-    };
-
     return (
         <tr ref={setNodeRef} style={style} className="border-b border-gray-200 dark:border-gray-700">
             <DragHandleCell isReadOnly={isReadOnly} attributes={attributes} listeners={listeners} />
             <td className="p-2">
-                <ValidatedInput
-                    type="text"
+                <AdminSelect
                     value={printer.label}
-                    onChange={(value) => onChange({ ...printer, label: String(value) })}
-                    placeholder="Label de l'imprimante"
-                    isReadOnly={isReadOnly}
-                    maxLength={25}
-                    validation={labelValidation}
-                    ref={(el) => {
-                        if (el) {
-                            labelInputRefs.current.set(index, el);
-                            if (lastAddedIndexRef.current === index) {
-                                el.focus();
-                                lastAddedIndexRef.current = null;
-                            }
-                        } else {
-                            labelInputRefs.current.delete(index);
-                        }
+                    onChange={(e) => {
+                        const value = String(e.target.value);
+                        setTestResult(null);
+                        onChange({ ...printer, label: value });
                     }}
+                    isReadOnly={isReadOnly}
+                    className="w-36"
+                    options={availableRoles.map((role) => ({ label: role, value: role }))}
                 />
             </td>
             <td className="p-2">
@@ -210,8 +193,6 @@ export default function PrintersConfig({
 }) {
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
-    const lastAddedIndexRef = useRef<number | null>(null);
-    const labelInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const [printers, setPrinters] = useState<InternalPrinter[]>(() =>
         (config || []).map((p) => ({ ...p, _id: nextIdRef.current++ }))
     );
@@ -246,11 +227,12 @@ export default function PrintersConfig({
         onChange(items.map(({ _id: _, ...rest }) => rest));
     };
 
-    const isValid = printers.every((p) => {
-        const labelOk = p.label?.trim().length > 0 && p.label?.trim().length <= 25;
-        const addrOk = isComPort(p.ipAddress) ? comPortRegex.test(p.ipAddress) : ipV4Validation(p.ipAddress);
-        return labelOk && addrOk;
-    });
+    const isValid =
+        printers.every((p) => {
+            const labelOk = PRINTER_ROLES.includes(p.label as (typeof PRINTER_ROLES)[number]);
+            const addrOk = isComPort(p.ipAddress) ? comPortRegex.test(p.ipAddress) : ipV4Validation(p.ipAddress);
+            return labelOk && addrOk;
+        }) && new Set(printers.map((p) => p.label)).size === printers.length;
 
     useEffect(() => {
         onValidation?.(isValid);
@@ -263,9 +245,11 @@ export default function PrintersConfig({
     };
 
     const handleAddPrinter = () => {
-        const newPrinter: InternalPrinter = { label: '', ipAddress: '', _id: nextIdRef.current++ };
+        const usedRoles = new Set(printers.map((p) => p.label));
+        const availableRole = PRINTER_ROLES.find((r) => !usedRoles.has(r));
+        if (!availableRole) return;
+        const newPrinter: InternalPrinter = { label: availableRole, ipAddress: '', _id: nextIdRef.current++ };
         const updated = [...printers, newPrinter];
-        lastAddedIndexRef.current = updated.length - 1;
         setPrinters(updated);
         notifyParent(updated);
     };
@@ -293,9 +277,14 @@ export default function PrintersConfig({
         if (newOnes.length === 0) return;
         setPrinters((prev) => {
             const existingIps = new Set(prev.map((p) => p.ipAddress));
+            const usedRoles = new Set(prev.map((p) => p.label));
             const toAdd = newOnes
                 .filter((p) => !existingIps.has(p.ip))
-                .map((p) => ({ label: p.label, ipAddress: p.ip, _id: nextIdRef.current++ }));
+                .map((p) => {
+                    const role = PRINTER_ROLES.find((r) => !usedRoles.has(r));
+                    if (role) usedRoles.add(role);
+                    return { label: role || p.label, ipAddress: p.ip, _id: nextIdRef.current++ };
+                });
             if (toAdd.length === 0) return prev;
             const updated = [...prev, ...toAdd];
             notifyParent(updated);
@@ -418,14 +407,14 @@ export default function PrintersConfig({
 
     return (
         <SectionCard
-            title="Imprimantes"
+            title="Imprimantes / Ecran"
             onSave={onSave ? () => onSave(printers.map(({ _id: _, ...rest }) => rest)) : undefined}
             onCancel={onCancel}
             hasChanges={hasChanges}
             onAdd={handleAddPrinter}
             isValid={isValid}
             saveDisabled={!isValid}
-            addLabel="Ajouter une imprimante"
+            addLabel="Ajouter une imprimante / écran"
             isReadOnly={isReadOnly}
             isLoading={isLoading}
             isOpen={isOpen}
@@ -449,7 +438,7 @@ export default function PrintersConfig({
                                 <thead>
                                     <tr className="border-b-2 border-gray-300 dark:border-gray-600">
                                         {!isReadOnly && <th className="w-12"></th>}
-                                        <th className={adminHeaderStyle + ' min-w-24'}>Label</th>
+                                        <th className={adminHeaderStyle + ' min-w-24'}>Rôle</th>
                                         <th className={adminHeaderStyle + ' min-w-36 w-36'}>Adresse</th>
                                         {!isReadOnly && <th className={adminHeaderStyle + ' w-12'}>Test</th>}
                                         {!isReadOnly && <th className="w-16"></th>}
@@ -460,13 +449,14 @@ export default function PrintersConfig({
                                         <PrinterRow
                                             key={printer._id}
                                             id={printer._id}
-                                            index={index}
                                             printer={printer}
                                             isReadOnly={isReadOnly}
                                             onChange={(updatedPrinter) => handlePrinterChange(index, updatedPrinter)}
                                             onDelete={() => handleDeletePrinter(index)}
-                                            labelInputRefs={labelInputRefs}
-                                            lastAddedIndexRef={lastAddedIndexRef}
+                                            availableRoles={PRINTER_ROLES.filter(
+                                                (role) =>
+                                                    role === printer.label || !printers.some((p) => p.label === role)
+                                            )}
                                             availableComPorts={availableComPorts}
                                         />
                                     ))}
