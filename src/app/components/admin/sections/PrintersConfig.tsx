@@ -1,6 +1,6 @@
 import { Printer } from '@/app/utils/interfaces';
 import { useEffect, useRef, useState } from 'react';
-import { IconSearch, IconLoader2, IconPrinter } from '@tabler/icons-react';
+import { IconSearch, IconLoader2, IconPrinter, IconDeviceTv } from '@tabler/icons-react';
 import { usePopup } from '@/app/hooks/usePopup';
 import { testPrint } from '@/app/utils/posPrinter';
 import { PRINTER_ROLES } from '@/app/utils/constants';
@@ -72,6 +72,7 @@ function PrinterRow({
     const comPortsAvailable = availableComPorts.length > 0;
     const currentComNum = isCom ? Number(comNum) : 0;
     const freeComPorts = availableComPorts.filter((p) => !usedComPorts.includes(p) || p === currentComNum);
+    const isScreen = printer.label === 'Ecran client';
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
@@ -96,7 +97,7 @@ function PrinterRow({
             </td>
             <td className="p-2">
                 <div className="flex items-center gap-2">
-                    {comPortsAvailable && (
+                    {comPortsAvailable && !isScreen && (
                         <>
                             <Switch
                                 checked={isCom}
@@ -116,7 +117,8 @@ function PrinterRow({
                             <span className="text-xs text-gray-500 dark:text-gray-400 w-6">{isCom ? 'COM' : 'IP'}</span>
                         </>
                     )}
-                    {isCom && comPortsAvailable ? (
+                    {isScreen ? <span className="text-xs text-gray-500 dark:text-gray-400 w-6">COM</span> : null}
+                    {(isCom || isScreen) && comPortsAvailable ? (
                         <AdminSelect
                             value={Number(comNum) || freeComPorts[0] || availableComPorts[0]}
                             onChange={(e) => {
@@ -150,14 +152,26 @@ function PrinterRow({
                         onClick={async () => {
                             setIsTesting(true);
                             setTestResult(null);
-                            const res = await testPrint(printer.ipAddress);
-                            setTestResult(res.success ? 'OK' : res.error || 'Erreur');
-                            setIsTesting(false);
+                            if (isScreen) {
+                                window.electronAPI?.testDisplay?.();
+                                setTestResult('OK');
+                                setIsTesting(false);
+                            } else {
+                                const res = await testPrint(printer.ipAddress);
+                                setTestResult(res.success ? 'OK' : res.error || 'Erreur');
+                                setIsTesting(false);
+                            }
                         }}
                         disabled={isTesting || !printer.ipAddress || !isAddressValid}
                         className="text-xs py-1.5 px-2.5"
                     >
-                        {isTesting ? <IconLoader2 size={16} className="animate-spin" /> : <IconPrinter size={16} />}
+                        {isTesting ? (
+                            <IconLoader2 size={16} className="animate-spin" />
+                        ) : isScreen ? (
+                            <IconDeviceTv size={16} />
+                        ) : (
+                            <IconPrinter size={16} />
+                        )}
                         Test
                     </AdminButton>
                     {testResult && (
@@ -294,23 +308,41 @@ export default function PrintersConfig({
     const addFoundPrinters = (newOnes: { ip: string; lastOctet?: number; label: string }[]) => {
         if (newOnes.length === 0) return;
         setPrinters((prev) => {
-            const existingAddrs = new Set(prev.map((p) => p.ipAddress));
-            const usedRoles = new Set(prev.map((p) => p.label));
-            const toAdd = newOnes
-                .filter((p) => {
-                    const addr = p.lastOctet ? String(p.lastOctet) : p.ip;
-                    return !existingAddrs.has(addr);
-                })
-                .map((p) => {
-                    const role = PRINTER_ROLES.find((r) => !usedRoles.has(r));
-                    if (role) usedRoles.add(role);
-                    const addr = p.lastOctet ? String(p.lastOctet) : p.ip;
-                    return { label: role || p.label, ipAddress: addr, _id: nextIdRef.current++ };
-                });
-            if (toAdd.length === 0) return prev;
-            const updated = [...prev, ...toAdd];
-            notifyParent(updated);
-            return updated;
+            // Priority: assign to existing Cuisine first, then Caisse
+            const assignmentPriority = ['Cuisine', 'Caisse'];
+            const updated = [...prev];
+            let foundIdx = 0;
+
+            for (const role of assignmentPriority) {
+                if (foundIdx >= newOnes.length) break;
+                const printerIdx = updated.findIndex((p) => p.label === role);
+                if (printerIdx !== -1) {
+                    const found = newOnes[foundIdx];
+                    const addr = found.lastOctet ? String(found.lastOctet) : found.ip;
+                    updated[printerIdx] = { ...updated[printerIdx], ipAddress: addr };
+                    foundIdx++;
+                }
+            }
+
+            // Any remaining found printers get added as new entries
+            const usedRoles = new Set(updated.map((p) => p.label));
+            const existingAddrs = new Set(updated.map((p) => p.ipAddress));
+            const toAdd: InternalPrinter[] = [];
+            for (let i = foundIdx; i < newOnes.length; i++) {
+                const found = newOnes[i];
+                const addr = found.lastOctet ? String(found.lastOctet) : found.ip;
+                if (existingAddrs.has(addr)) continue;
+                const role = PRINTER_ROLES.find((r) => !usedRoles.has(r));
+                if (role) {
+                    usedRoles.add(role);
+                    toAdd.push({ label: role, ipAddress: addr, _id: nextIdRef.current++ });
+                }
+            }
+
+            const finalList = [...updated, ...toAdd];
+            if (finalList.length === prev.length && foundIdx === 0) return prev;
+            notifyParent(finalList);
+            return finalList;
         });
     };
 
@@ -354,14 +386,14 @@ export default function PrintersConfig({
                     if (firstFound) {
                         firstFound = false;
                         openFullscreenPopup(
-                            `Imprimante détectée : ${parsed.ip}`,
-                            ['Ajouter et arrêter', 'Continuer le scan', 'Ignorer'],
+                            `Imprimante détectée : ${parsed.lastOctet || parsed.ip}`,
+                            ['Affecter et arrêter', 'Continuer le scan', 'Ignorer'],
                             (index) => {
                                 if (index === 0) {
                                     scanAbortRef.current = true;
                                     addFoundPrinters(foundPrintersRef.current);
                                     openFullscreenPopup(
-                                        `${foundPrintersRef.current.length} imprimante(s) ajoutée(s) sur ${subnet}`,
+                                        `${foundPrintersRef.current.length} imprimante(s) affectée(s)`,
                                         ['OK']
                                     );
                                     setIsScanning(false);
@@ -378,10 +410,7 @@ export default function PrintersConfig({
                 } else if (eventType === 'done') {
                     if (!scanAbortRef.current && foundPrintersRef.current.length > 0) {
                         addFoundPrinters(foundPrintersRef.current);
-                        openFullscreenPopup(
-                            `${foundPrintersRef.current.length} imprimante(s) détectée(s) sur ${subnet}`,
-                            ['OK']
-                        );
+                        openFullscreenPopup(`${foundPrintersRef.current.length} imprimante(s) affectée(s)`, ['OK']);
                     } else if (!scanAbortRef.current && foundPrintersRef.current.length === 0) {
                         openFullscreenPopup(
                             `Aucune imprimante trouvée sur ${subnet}. Vérifiez que l'imprimante est allumée et connectée au même réseau.`,

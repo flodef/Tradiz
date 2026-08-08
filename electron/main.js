@@ -984,6 +984,10 @@ ipcMain.on('customer-display', (_event, payload) => {
     }
 });
 
+ipcMain.on('test-display', () => {
+    writeToDisplay('TEST ECRAN CLIENT', 'Tradiz 2x20 LCD');
+});
+
 // Barcode scanner support is handled entirely in the renderer via the
 // useBarcodeScanner keydown hook. It works in the Electron window like any
 // browser, and it correctly ignores focused input fields, so no duplicate
