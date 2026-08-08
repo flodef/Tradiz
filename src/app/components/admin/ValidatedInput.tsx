@@ -50,6 +50,10 @@ export default function ValidatedInput({
         return validation(value);
     });
 
+    // While focused, keep a draft value so incomplete decimals like "3."
+    // are not stripped by the parent converting to Number().
+    const [draftValue, setDraftValue] = useState<string | null>(null);
+
     // Re-validate when value changes externally
     useEffect(() => {
         if (validation) setIsValid(validation(value));
@@ -81,10 +85,12 @@ export default function ValidatedInput({
         }
 
         if (validation) setIsValid(validation(newValue));
+        setDraftValue(newValue);
         onChange(newValue);
     };
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+        setDraftValue(null);
         if (isNameField && typeof value === 'string') {
             // Normalize on blur: trim and apply first letter uppercase
             const normalized = value.toFirstUpperCase();
@@ -117,6 +123,7 @@ export default function ValidatedInput({
                     newValue = newValue.replace(/[0-9]/g, '');
                 }
                 if (validation) setIsValid(validation(newValue));
+                setDraftValue(newValue);
                 onChange(newValue);
             });
         }
@@ -136,7 +143,7 @@ export default function ValidatedInput({
         <AdminInput
             type={type === 'number' ? 'text' : type}
             inputMode={type === 'number' ? 'decimal' : undefined}
-            value={value}
+            value={draftValue !== null ? draftValue : value}
             onChange={handleChange}
             placeholder={placeholder}
             maxLength={maxLength}
