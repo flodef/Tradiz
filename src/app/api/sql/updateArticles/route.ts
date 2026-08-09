@@ -14,6 +14,7 @@ interface Product {
     photo?: string;
     description?: string;
     options?: string;
+    color?: string;
 }
 
 // Compute encoded sort_order: (categoryIndex + 1) * 10000 + (positionWithinCategory + 1)
@@ -84,7 +85,8 @@ export async function POST(request: Request) {
                     ? (products as Product[]).filter((p) => p.category === scopedCategory)
                     : (products as Product[]);
 
-            const cols = 'name, price, category, stock, reference, photo, description, sort_order, vat_rate, options';
+            const cols =
+                'name, price, category, stock, reference, photo, description, sort_order, vat_rate, options, color';
             const rowValues: unknown[] = [];
             const placeholders: string[] = [];
 
@@ -99,11 +101,12 @@ export async function POST(request: Request) {
                 const photo = product.photo ?? '';
                 const description = product.description ?? '';
                 const options = product.options ?? '';
+                const color = product.color ?? '';
 
                 const start = rowValues.length + 1;
                 const row = connection.isPostgreSQL
-                    ? Array.from({ length: 10 }, (_, j) => `$${start + j}`).join(', ')
-                    : '?, ?, ?, ?, ?, ?, ?, ?, ?, ?';
+                    ? Array.from({ length: 11 }, (_, j) => `$${start + j}`).join(', ')
+                    : '?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?';
                 placeholders.push(`(${row})`);
                 rowValues.push(
                     product.name,
@@ -115,7 +118,8 @@ export async function POST(request: Request) {
                     description,
                     sortOrder,
                     vatRate,
-                    options
+                    options,
+                    color
                 );
             }
 

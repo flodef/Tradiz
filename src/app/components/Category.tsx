@@ -20,6 +20,7 @@ import {
 import { Catalog, CatalogFormula, EmptyDiscount, InventoryItem, Role, State } from '../utils/interfaces';
 import { useIsMobile, useIsMobileDevice } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
+import { colorToHex } from '../utils/colors';
 import { useAddPopupClass } from './Popup';
 import { LoadingDot } from '../loading';
 
@@ -127,9 +128,9 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length, sizeC
     );
 };
 
-export const Category: FC = () => {
+export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false }) => {
     const { inventory, state, setState, currencyIndex, parameters } = useConfig();
-    const { addProduct, amount, setSelectedProduct, clearAmount, selectedProduct } = useData();
+    const { addProduct, amount, setSelectedProduct, clearAmount, selectedProduct, toCurrency } = useData();
     const { openPopup, updatePopup, openFullscreenPopup, closePopup } = usePopup();
     const { isLocalhost, isDemo } = useWindowParam();
 
@@ -639,30 +640,19 @@ export const Category: FC = () => {
         [inventory]
     );
 
-    // ── Large-screen UX: auto-expand the first category's product popup ──
+    // ── Large-screen UX: catalog mode uses inline grid, not popups ──
     const isMobile = useIsMobile();
-    const hasAutoExpandedRef = useRef(false);
+    const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
 
     useEffect(() => {
-        if (hasAutoExpandedRef.current) return;
+        if (isMobile || !catalogMode) return;
         if (state !== State.loaded && state !== State.preloaded) return;
-        if (isMobile || !parameters.display?.expandFirstCategory) return;
         if (!displayInventory.length) return;
-
-        hasAutoExpandedRef.current = true;
-        const first = displayInventory[0];
-        if (first.products.length > 1) {
-            openProductListPopup(first);
-        } else if (first.products.length === 1) {
-            const product = first.products[0];
-            if (product.options) {
-                openOptionsSubPopup(first, product);
-            } else {
-                handleProductSelection(first, product.label);
-            }
+        // Ensure selected category index is valid
+        if (selectedCategoryIndex >= displayInventory.length) {
+            setSelectedCategoryIndex(0);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [state, isMobile, parameters.display?.expandFirstCategory, displayInventory]);
+    }, [state, isMobile, catalogMode, displayInventory, selectedCategoryIndex]);
 
     const categories = useMemo(() => displayInventory.map(({ category }) => category), [displayInventory]);
 
@@ -676,7 +666,9 @@ export const Category: FC = () => {
     const rowClassName = 'flex justify-evenly divide-x divide-active-light dark:divide-active-dark';
 
     const popupClass = useAddPopupClass(
-        'inset-x-0 border-t-[3px] absolute bottom-0 md:w-1/2 border-active-light dark:border-active-dark overflow-hidden'
+        catalogMode
+            ? 'inset-x-0 relative shrink-0 overflow-hidden'
+            : 'inset-x-0 border-t-[3px] absolute bottom-0 md:w-1/2 border-active-light dark:border-active-dark overflow-hidden'
     );
 
     if (state === State.init || state === State.loading || state === State.error) {
@@ -687,11 +679,116 @@ export const Category: FC = () => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    height: MAX_VISIBLE_ROWS * ROW_HEIGHT,
+                    height: catalogMode ? '100%' : MAX_VISIBLE_ROWS * ROW_HEIGHT,
                 }}
             >
                 <div className="md:hidden block">
                     <LoadingDot fullscreen={false} />
+                </div>
+            </div>
+        );
+    }
+
+    // ── Catalog mode: horizontal categories + 6×6 product grid ──
+    if (catalogMode) {
+        const selectedItem = displayInventory[selectedCategoryIndex] ?? displayInventory[0];
+        const products = selectedItem?.products ?? [];
+        const GRID_COLS = 6;
+        const GRID_ROWS = 6;
+        const MAX_PRODUCTS = GRID_COLS * GRID_ROWS;
+
+        // Build a 6×6 grid positioned by sortOrder encoding:
+        // hundreds = category (ignored), tens = row (1-6), units = column (1-6)
+        const gridSlots: ((typeof products)[number] | null)[] = new Array(MAX_PRODUCTS).fill(null);
+        let fallbackIndex = 0;
+        for (const product of products) {
+            const so = product.sortOrder ?? 0;
+            const row = Math.floor(so / 10) % 10;
+            const col = so % 10;
+            if (row >= 1 && row <= GRID_ROWS && col >= 1 && col <= GRID_COLS) {
+                const slotIndex = (row - 1) * GRID_COLS + (col - 1);
+                if (!gridSlots[slotIndex]) {
+                    gridSlots[slotIndex] = product;
+                    continue;
+                }
+            }
+            // Fallback: place in next available slot
+            while (fallbackIndex < MAX_PRODUCTS && gridSlots[fallbackIndex]) fallbackIndex++;
+            if (fallbackIndex < MAX_PRODUCTS) {
+                gridSlots[fallbackIndex] = product;
+                fallbackIndex++;
+            }
+        }
+
+        return (
+            <div className={popupClass + ' flex flex-col'}>
+                {/* Horizontal category bar */}
+                <div className="flex overflow-x-auto border-b-[3px] border-active-light dark:border-active-dark shrink-0">
+                    {categories.map((category, index) => (
+                        <div
+                            key={index}
+                            className={twMerge(
+                                'flex-1 min-w-fit px-4 py-2 font-semibold text-lg text-center cursor-pointer whitespace-nowrap',
+                                'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light',
+                                'hover:bg-active-light dark:hover:bg-active-dark',
+                                index === selectedCategoryIndex
+                                    ? 'bg-active-light dark:bg-active-dark text-popup-dark dark:text-popup-light'
+                                    : ''
+                            )}
+                            onClick={() => setSelectedCategoryIndex(index)}
+                        >
+                            {category}
+                        </div>
+                    ))}
+                </div>
+
+                {/* 6×6 product grid — positioned by sortOrder, show price + color */}
+                <div className="grid grid-cols-6 auto-rows-20 gap-1 p-1 overflow-y-auto">
+                    {gridSlots.map((product, index) => {
+                        if (!product) {
+                            return <div key={index} className="h-20" />;
+                        }
+                        const hasOptions = product.options && !isSingleElementFormula(product.options);
+                        const bgColor = colorToHex(product.color);
+                        const price = product.prices[currencyIndex] ?? product.prices[0] ?? 0;
+                        return (
+                            <div
+                                key={index}
+                                className={twMerge(
+                                    'relative h-20 flex flex-col text-center font-semibold text-base border-[3px] rounded-2xl select-none',
+                                    'border-secondary-light dark:border-secondary-dark shadow-xl cursor-pointer',
+                                    bgColor
+                                        ? 'text-black dark:text-white'
+                                        : 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light hover:bg-active-light dark:hover:bg-active-dark'
+                                )}
+                                style={bgColor ? { backgroundColor: bgColor } : undefined}
+                                onClick={() => {
+                                    if (hasOptions) {
+                                        openProductListPopup(selectedItem);
+                                    } else {
+                                        handleProductSelection(selectedItem, product.label);
+                                    }
+                                }}
+                                onContextMenu={(e) => {
+                                    e.preventDefault();
+                                    onInput(selectedItem.category, 'contextmenu');
+                                }}
+                            >
+                                <div
+                                    className="h-15 flex items-center justify-center line-clamp-3 leading-tight hyphens-auto text-center"
+                                    lang="fr"
+                                >
+                                    {product.label}
+                                    {Boolean(hasOptions) && <span className="text-xs opacity-70"> ▸</span>}
+                                </div>
+                                {price > 0 && (
+                                    <div className="h-5 flex items-center justify-end text-sm font-normal leading-none pr-2">
+                                        {toCurrency(price)}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         );

@@ -565,7 +565,7 @@ const SearchPopup: FC<SearchPopupProps> = ({
     );
 };
 
-export const NumPad: FC = () => {
+export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) => {
     const {
         currencies,
         currencyIndex,
@@ -945,12 +945,14 @@ export const NumPad: FC = () => {
 
     // Call useAddPopupClass before any conditional return
     const numPadClass = useAddPopupClass(
-        `inset-0 min-w-[375px] w-full self-center absolute md:top-10 md:w-1/2 md:justify-center md:max-w-[50%] ` +
-            (shouldUseOverflow
-                ? isPopupOpen
-                    ? 'top-[76px] '
-                    : 'top-32 block overflow-auto '
-                : 'flex flex-col justify-center items-center top-20 md:top-0')
+        displayOnly
+            ? 'relative w-1/2 h-full flex flex-col items-center justify-center '
+            : `inset-0 min-w-[375px] w-full self-center absolute md:top-10 md:w-1/2 md:justify-center md:max-w-[50%] ` +
+                  (shouldUseOverflow
+                      ? isPopupOpen
+                          ? 'top-[76px] '
+                          : 'top-32 block overflow-auto '
+                      : 'flex flex-col justify-center items-center top-20 md:top-0')
     );
 
     const isNegativeBalance = customerBalance !== null && customerBalance < 0;
@@ -959,19 +961,21 @@ export const NumPad: FC = () => {
         <div
             className={numPadClass}
             style={{
-                bottom: `${sizeConfig.numPadBottom}px`,
+                bottom: displayOnly ? 'auto' : `${sizeConfig.numPadBottom}px`,
             }}
         >
             <div className="flex flex-col justify-center items-center w-full">
                 <div
                     className={
-                        shouldUseOverflow
-                            ? isPopupOpen
-                                ? 'fixed top-0 right-0 max-w-lg md:right-0 '
-                                : 'fixed top-19 right-0 max-w-lg md:top-0 md:z-10 md:right-1/2 '
-                            : 'static max-w-lg w-full '
+                        displayOnly
+                            ? 'static w-full '
+                            : shouldUseOverflow
+                              ? isPopupOpen
+                                  ? 'fixed top-0 right-0 max-w-lg md:right-0 '
+                                  : 'fixed top-19 right-0 max-w-lg md:top-0 md:z-10 md:right-1/2 '
+                              : 'static max-w-lg w-full '
                     }
-                    style={shouldUseOverflow ? { left: left } : {}}
+                    style={displayOnly ? {} : shouldUseOverflow ? { left: left } : {}}
                 >
                     {(currentCustomer || parameters.user) && (
                         <div className="flex items-center justify-center gap-2 text-lg font-semibold">
@@ -1051,12 +1055,45 @@ export const NumPad: FC = () => {
                             onContextMenu={onClearTotal}
                         />
                         {hasAmount ? (
-                            <FunctionButton
-                                className={f2}
-                                input="&times;"
-                                onInput={multiply}
-                                onContextMenu={discount ?? mercuriale}
-                            />
+                            displayOnly ? (
+                                <ImageButton
+                                    icon={
+                                        canPay
+                                            ? IconWallet
+                                            : canAddProduct
+                                              ? IconShoppingCart
+                                              : canAddProvision
+                                                ? IconPigMoney
+                                                : IconWallet
+                                    }
+                                    className={f + (canPay || canAddProduct || canAddProvision ? color : 'invisible')}
+                                    onClick={
+                                        canPay
+                                            ? pay
+                                            : canAddProduct
+                                              ? addProduct
+                                              : canAddProvision
+                                                ? addProvision
+                                                : () => {}
+                                    }
+                                    onContextMenu={
+                                        canPay
+                                            ? () => updateTransaction(WAITING_KEYWORD)
+                                            : canAddProduct
+                                              ? pay
+                                              : canAddProvision
+                                                ? addProvision
+                                                : () => {}
+                                    }
+                                />
+                            ) : (
+                                <FunctionButton
+                                    className={f2}
+                                    input="&times;"
+                                    onInput={multiply}
+                                    onContextMenu={discount ?? mercuriale}
+                                />
+                            )
                         ) : hasSearchEnabled ? (
                             <ImageButton
                                 icon={IconSearch}
@@ -1082,48 +1119,56 @@ export const NumPad: FC = () => {
                     </div>
                 </div>
 
-                <div
-                    className={
-                        'max-w-lg w-full self-center md:top-14 overflow-auto bottom-0 ' +
-                        (shouldUseOverflow ? (isPopupOpen ? ' top-14 absolute ' : ' top-0 absolute ') : ' static ')
-                    }
-                >
-                    {NumPadList.map((row, index) => (
-                        <div className="flex justify-evenly" key={index}>
-                            {row.map((input) => (
-                                <NumPadButton input={input} onInput={onInput} key={input} />
-                            ))}
+                {!displayOnly && (
+                    <div
+                        className={
+                            'max-w-lg w-full self-center md:top-14 overflow-auto bottom-0 ' +
+                            (shouldUseOverflow ? (isPopupOpen ? ' top-14 absolute ' : ' top-0 absolute ') : ' static ')
+                        }
+                    >
+                        {NumPadList.map((row, index) => (
+                            <div className="flex justify-evenly" key={index}>
+                                {row.map((input) => (
+                                    <NumPadButton input={input} onInput={onInput} key={input} />
+                                ))}
+                            </div>
+                        ))}
+                        <div className="flex justify-evenly">
+                            <NumPadButton input={0} onInput={onInput} />
+                            <NumPadButton input={!quantity ? '00' : '½'} onInput={onInput} />
+                            <ImageButton
+                                icon={
+                                    canPay
+                                        ? IconWallet
+                                        : canAddProduct
+                                          ? IconShoppingCart
+                                          : canAddProvision
+                                            ? IconPigMoney
+                                            : IconWallet
+                                }
+                                className={sx}
+                                onClick={
+                                    canPay
+                                        ? pay
+                                        : canAddProduct
+                                          ? addProduct
+                                          : canAddProvision
+                                            ? addProvision
+                                            : () => {}
+                                }
+                                onContextMenu={
+                                    canPay
+                                        ? () => updateTransaction(WAITING_KEYWORD)
+                                        : canAddProduct
+                                          ? pay
+                                          : canAddProvision
+                                            ? addProvision
+                                            : () => {}
+                                }
+                            />
                         </div>
-                    ))}
-                    <div className="flex justify-evenly">
-                        <NumPadButton input={0} onInput={onInput} />
-                        <NumPadButton input={!quantity ? '00' : '½'} onInput={onInput} />
-                        <ImageButton
-                            icon={
-                                canPay
-                                    ? IconWallet
-                                    : canAddProduct
-                                      ? IconShoppingCart
-                                      : canAddProvision
-                                        ? IconPigMoney
-                                        : IconWallet
-                            }
-                            className={sx}
-                            onClick={
-                                canPay ? pay : canAddProduct ? addProduct : canAddProvision ? addProvision : () => {}
-                            }
-                            onContextMenu={
-                                canPay
-                                    ? () => updateTransaction(WAITING_KEYWORD)
-                                    : canAddProduct
-                                      ? pay
-                                      : canAddProvision
-                                        ? addProvision
-                                        : () => {}
-                            }
-                        />
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );

@@ -1,6 +1,7 @@
 'use client';
 
 import { adminSortableHeaderStyle, DEFAULT_CATEGORY } from '@/app/utils/constants';
+import { colorToHex } from '@/app/utils/colors';
 import { Currency } from '@/app/utils/interfaces';
 import {
     closestCenter,
@@ -34,6 +35,7 @@ type SortField =
     | 'photo'
     | 'description'
     | 'options'
+    | 'color'
     | 'availability';
 type SortDirection = 'asc' | 'desc' | 'none';
 
@@ -47,6 +49,7 @@ export interface AdminProduct {
     photo?: string;
     description?: string;
     options?: string;
+    color?: string;
 }
 
 type AvailabilityFilter = 'all' | 'available' | 'unavailable';
@@ -100,6 +103,7 @@ export default function ProductsConfig({
         usePhoto: boolean;
         useDescription: boolean;
         useOptions: boolean;
+        useColor: boolean;
     };
     icon?: React.ReactNode;
     showHeader?: boolean;
@@ -296,6 +300,8 @@ export default function ProductsConfig({
                     comparison = (a.p.description ?? '').localeCompare(b.p.description ?? '');
                 } else if (sortField === 'options') {
                     comparison = (a.p.options ?? '').localeCompare(b.p.options ?? '');
+                } else if (sortField === 'color') {
+                    comparison = (a.p.color ?? '').localeCompare(b.p.color ?? '');
                 } else if (sortField === 'availability') {
                     comparison = (a.p.stock === 0 ? 1 : 0) - (b.p.stock === 0 ? 1 : 0); // null = available, 0 = unavailable
                 }
@@ -577,6 +583,17 @@ export default function ProductsConfig({
                                                 </div>
                                             </th>
                                         )}
+                                        {productsSettings?.useColor && (
+                                            <th
+                                                className={adminSortableHeaderStyle + ' min-w-24 w-24'}
+                                                onClick={() => handleSort('color')}
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    Couleur
+                                                    <SortIcon field="color" />
+                                                </div>
+                                            </th>
+                                        )}
                                         {!productsSettings?.useStock && (
                                             <th
                                                 className={adminSortableHeaderStyle + ' min-w-20 w-20'}
@@ -609,6 +626,7 @@ export default function ProductsConfig({
                                                         if (productsSettings?.usePhoto) count++;
                                                         if (productsSettings?.useDescription) count++;
                                                         if (productsSettings?.useOptions) count++;
+                                                        if (productsSettings?.useColor) count++;
                                                         return count;
                                                     })()}
                                                     className="p-2 font-semibold text-sm"
@@ -823,6 +841,34 @@ export default function ProductsConfig({
                                                                         }
                                                                         maxLength={300}
                                                                     />
+                                                                </td>
+                                                            )}
+                                                            {productsSettings?.useColor && (
+                                                                <td className="p-2">
+                                                                    <div className="flex items-center gap-2">
+                                                                        {colorToHex(p.color) && (
+                                                                            <div
+                                                                                className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600 shrink-0"
+                                                                                style={{
+                                                                                    backgroundColor: colorToHex(
+                                                                                        p.color
+                                                                                    ),
+                                                                                }}
+                                                                            />
+                                                                        )}
+                                                                        <ValidatedInput
+                                                                            isReadOnly={isReadOnly}
+                                                                            type="text"
+                                                                            value={p.color ?? ''}
+                                                                            onChange={(value) =>
+                                                                                handleProductChange(i, {
+                                                                                    ...p,
+                                                                                    color: String(value),
+                                                                                })
+                                                                            }
+                                                                            maxLength={50}
+                                                                        />
+                                                                    </div>
                                                                 </td>
                                                             )}
                                                             {!productsSettings?.useStock && (

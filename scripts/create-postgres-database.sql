@@ -57,7 +57,8 @@ CREATE TABLE IF NOT EXISTS dc.products (
     description VARCHAR(300) DEFAULT '',
     options VARCHAR(1000) DEFAULT '',
     order_count INTEGER NOT NULL DEFAULT 0,
-    vat_rate NUMERIC(5,2) NOT NULL DEFAULT 20.00
+    vat_rate NUMERIC(5,2) NOT NULL DEFAULT 20.00,
+    color VARCHAR(50) NOT NULL DEFAULT ''
 );
 
 -- Formulas (was: formule)
@@ -66,7 +67,8 @@ CREATE TABLE IF NOT EXISTS dc.formulas (
     name VARCHAR(255) NOT NULL,
     price NUMERIC(10,2) NOT NULL DEFAULT 0,
     sort_order INTEGER NOT NULL DEFAULT 0,
-    order_count INTEGER NOT NULL DEFAULT 0
+    order_count INTEGER NOT NULL DEFAULT 0,
+    color VARCHAR(50) NOT NULL DEFAULT ''
 );
 
 -- Formula Elements (was: element_formule)
@@ -325,7 +327,8 @@ CREATE TABLE IF NOT EXISTS dc_pos.transactions (
     payment_method VARCHAR(50) NOT NULL DEFAULT '',
     amount NUMERIC(10,2) NOT NULL DEFAULT 0,
     currency VARCHAR(10) NOT NULL DEFAULT '',
-    note TEXT,
+    change VARCHAR(255) DEFAULT '',
+    take_out BOOLEAN NOT NULL DEFAULT true,
     hash VARCHAR(64) UNIQUE,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL

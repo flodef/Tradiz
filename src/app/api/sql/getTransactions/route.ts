@@ -15,7 +15,8 @@ interface TransactionRow {
     method: string;
     amount: number;
     currency: string;
-    note: string;
+    change: string;
+    take_out: boolean;
     createddate?: number; // PostgreSQL lowercases unquoted aliases
     modifieddate?: number;
     createdDate?: number; // MariaDB preserves case
@@ -109,7 +110,8 @@ export async function GET(request: Request) {
                 t.payment_method as method,
                 t.amount,
                 t.currency,
-                t.note,
+                t.change,
+                t.take_out,
                 (EXTRACT(EPOCH FROM t.created_at) * 1000)::bigint as createddate,
                 (EXTRACT(EPOCH FROM t.updated_at) * 1000)::bigint as modifieddate
             FROM dc_pos.transactions t
@@ -126,7 +128,8 @@ export async function GET(request: Request) {
                 t.payment_method as method,
                 t.amount,
                 t.currency,
-                t.note,
+                t.change,
+                t.take_out,
                 (UNIX_TIMESTAMP(t.created_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as createdDate,
                 (UNIX_TIMESTAMP(t.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate
             FROM transactions t
@@ -180,7 +183,7 @@ export async function GET(request: Request) {
             const createdDate = Number(row.createddate ?? row.createdDate);
             if (!createdDate) continue; // skip rows with null/invalid created_at
 
-            const { cashAmount, change } = parseCashNote(row.note);
+            const { cashAmount, change: parsedChange } = parseCashNote(row.change);
 
             transactions.push({
                 validator: row.validator || '',
@@ -192,7 +195,8 @@ export async function GET(request: Request) {
                 products,
                 ...(row.short_num_order ? { shortNumOrder: String(row.short_num_order) } : {}),
                 ...(cashAmount !== undefined ? { cashAmount } : {}),
-                ...(change !== undefined ? { change } : {}),
+                ...(parsedChange !== undefined ? { change: parsedChange } : {}),
+                ...(row.take_out ? { takeOut: true } : {}),
             });
         }
 

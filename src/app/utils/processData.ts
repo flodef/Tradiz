@@ -163,6 +163,7 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
                             usePhoto: parsed.usePhoto ?? false,
                             useDescription: parsed.useDescription ?? false,
                             useOptions: parsed.useOptions ?? false,
+                            useColor: parsed.useColor ?? false,
                         };
                     }
                 }
@@ -201,7 +202,8 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
                             showProvision: parsed.showProvision ?? true,
                             showDebit: parsed.showDebit ?? true,
                             showChange: parsed.showChange ?? true,
-                            expandFirstCategory: parsed.expandFirstCategory ?? false,
+                            catalogMode: parsed.catalogMode ?? parsed.expandFirstCategory ?? false,
+                            useTakeOut: parsed.useTakeOut ?? true,
                         };
                     }
                 }
@@ -233,6 +235,8 @@ interface ProductData {
         stock?: number | null;
         order: number;
         reference?: string | null;
+        color?: string;
+        sortOrder?: number;
     }[];
     currencies: string[];
 }
@@ -323,6 +327,7 @@ export const defaultParameters: Parameters = {
         usePhoto: false,
         useDescription: false,
         useOptions: false,
+        useColor: false,
     },
     search: {
         searchCustomers: false,
@@ -335,7 +340,8 @@ export const defaultParameters: Parameters = {
         showProvision: true,
         showDebit: true,
         showChange: true,
-        expandFirstCategory: false,
+        catalogMode: false,
+        useTakeOut: true,
     },
 };
 
@@ -505,6 +511,8 @@ async function _loadDataImpl(): Promise<Config | undefined> {
                 stock: item.stock ?? null,
                 order: item.order,
                 reference: item.reference ?? null,
+                color: item.color ?? '',
+                sortOrder: item.sortOrder ?? 0,
             });
         } else {
             inventory.push({
@@ -519,6 +527,8 @@ async function _loadDataImpl(): Promise<Config | undefined> {
                         stock: item.stock ?? null,
                         order: item.order,
                         reference: item.reference ?? null,
+                        color: item.color ?? '',
+                        sortOrder: item.sortOrder ?? 0,
                     },
                 ],
             });
@@ -733,8 +743,10 @@ interface RawProduct {
     reference: string | null;
     photo: string;
     description: string;
+    color: string;
     prices: number[];
     options: string | null;
+    sortOrder?: number;
 }
 
 async function convertProductsData(response: void | Response): Promise<ProductData | undefined> {
@@ -758,9 +770,11 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
                 label: normalizedString(p.label),
                 stock: p.stock ?? null,
                 reference: p.reference != null ? String(p.reference).trim() : null,
+                color: p.color ?? '',
                 order,
                 prices: p.prices.map((price) => Number(price)),
                 options: p.options ?? null,
+                sortOrder: p.sortOrder ?? 0,
             })),
             currencies: data.currencies.map((currency) => String(currency).trim()),
         };

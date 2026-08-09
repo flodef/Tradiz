@@ -198,6 +198,7 @@ info "Building final SQL script..."
         echo "SELECT setval('dc_pos.companies_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.companies), 1), true);"
         echo "SELECT setval('dc.products_id_seq', COALESCE((SELECT MAX(id) FROM dc.products), 1), true);"
         echo "SELECT setval('dc.formulas_id_seq', COALESCE((SELECT MAX(id) FROM dc.formulas), 1), true);"
+        echo "SELECT setval('dc.formula_elements_id_seq', COALESCE((SELECT MAX(id) FROM dc.formula_elements), 1), true);"
         echo "SELECT setval('dc.theme_admin_id_seq', COALESCE((SELECT MAX(id) FROM dc.theme_admin), 1), true);"
         echo "SELECT setval('dc.theme_client_id_seq', COALESCE((SELECT MAX(id) FROM dc.theme_client), 1), true);"
         echo ""
@@ -301,6 +302,7 @@ if [[ "$PSQL_EXIT" -eq 0 ]]; then
     UNION ALL SELECT 'customers', count(*) FROM dc_pos.customers
     UNION ALL SELECT 'products', count(*) FROM dc.products
     UNION ALL SELECT 'formulas', count(*) FROM dc.formulas
+    UNION ALL SELECT 'formula_elements', count(*) FROM dc.formula_elements
     UNION ALL SELECT 'users', count(*) FROM dc_pos.users
     UNION ALL SELECT 'parameters', count(*) FROM dc_pos.parameters
     UNION ALL SELECT 'payment_methods', count(*) FROM dc_pos.payment_methods

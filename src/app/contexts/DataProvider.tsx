@@ -453,7 +453,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         payment_method: transaction.method,
                         amount: transaction.amount,
                         currency: transaction.currency,
-                        note: encodeCashNote(transaction.cashAmount, transaction.change),
+                        change: encodeCashNote(transaction.cashAmount, transaction.change),
+                        takeOut: transaction.takeOut ?? false,
                         created_at: toSQLDateTime(transaction.createdDate),
                         updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
                         products: transaction.products.map((product) => ({
@@ -856,7 +857,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             payment_method: transaction.method,
                             amount: transaction.amount,
                             currency: transaction.currency,
-                            note: encodeCashNote(transaction.cashAmount, transaction.change),
+                            change: encodeCashNote(transaction.cashAmount, transaction.change),
+                            takeOut: transaction.takeOut ?? false,
                             created_at: toSQLDateTime(transaction.createdDate),
                             updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
                             products: transaction.products.map((product) => ({
@@ -1239,6 +1241,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                           currency: currencies[currencyIndex].label,
                           customerName: existingTransaction?.customerName,
                           products: products.current,
+                          takeOut: counterServiceTypeRef.current === 'emporter',
                           ...(shortNumOrder ? { shortNumOrder } : {}),
                       };
 

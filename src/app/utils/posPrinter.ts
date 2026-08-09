@@ -53,7 +53,18 @@ function resolvePrinterAddress(address: string): string {
 function writeToComPort(comPort: string, buffer: Buffer): void {
     const path = '\\\\.\\' + comPort.trim().toUpperCase();
     console.log(`[PRINTER] Opening ${path} for writing, buffer size: ${buffer.length} bytes`);
-    const fd = fs.openSync(path, 'r+');
+    let fd: number;
+    try {
+        fd = fs.openSync(path, 'r+');
+    } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code === 'ENOENT') {
+            throw new Error(`Port ${comPort} introuvable (COM ports sont disponibles sur Windows uniquement)`, {
+                cause: err,
+            });
+        }
+        throw err;
+    }
     try {
         fs.writeSync(fd, buffer, 0, buffer.length, null);
         console.log(`[PRINTER] Wrote ${buffer.length} bytes to ${comPort}`);
@@ -359,7 +370,9 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
         return { success: true };
     } catch (error) {
         console.error('Failed to print receipt:', error);
-        return { error: "Erreur lors de l'impression du reçu" };
+        return {
+            error: `Erreur lors de l'impression du reçu: ${error instanceof Error ? error.message : String(error)}`,
+        };
     }
 }
 
@@ -379,6 +392,15 @@ export async function printKitchenTicket(
         const isRefund = isRefundTransaction(ticketData.transaction);
         const isDeleted = isDeletedTransaction(ticketData.transaction);
 
+        // Resolve service type: explicit parameter takes priority, then transaction.takeOut
+        const serviceType: ServiceType | undefined =
+            ticketData.serviceType ??
+            (ticketData.transaction.takeOut === true
+                ? 'emporter'
+                : ticketData.transaction.takeOut === false
+                  ? 'sur_place'
+                  : undefined);
+
         // Date and time
         printer.alignLeft();
         printer.println(`${frenchDateStr} ${frenchTimeStr}`);
@@ -397,8 +419,8 @@ export async function printKitchenTicket(
             printer.println('REMBOURSEMENT');
         } else if (isDeleted) {
             printer.println('ANNULATION');
-        } else if (ticketData.serviceType) {
-            printer.println(SERVICE_TYPE_LABELS[ticketData.serviceType].toUpperCase());
+        } else if (serviceType) {
+            printer.println(SERVICE_TYPE_LABELS[serviceType].toUpperCase());
         }
         printer.bold(false);
         printer.setTextNormal();

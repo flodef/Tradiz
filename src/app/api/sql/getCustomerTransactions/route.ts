@@ -12,7 +12,8 @@ interface TransactionRow {
     method: string;
     amount: number;
     currency: string;
-    note: string | null;
+    change: string | null;
+    take_out: boolean;
     createddate: number;
     modifieddate: number;
     createdDate?: number;
@@ -100,7 +101,8 @@ export async function GET(request: Request) {
                 t.payment_method as method,
                 t.amount,
                 t.currency,
-                t.note,
+                t.change,
+                t.take_out,
                 (EXTRACT(EPOCH FROM t.created_at) * 1000)::bigint as createddate,
                 (EXTRACT(EPOCH FROM t.updated_at) * 1000)::bigint as modifieddate
             FROM dc_pos.transactions t
@@ -118,7 +120,8 @@ export async function GET(request: Request) {
                 t.payment_method as method,
                 t.amount,
                 t.currency,
-                t.note,
+                t.change,
+                t.take_out,
                 (UNIX_TIMESTAMP(t.created_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as createdDate,
                 (UNIX_TIMESTAMP(t.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate
             FROM transactions t

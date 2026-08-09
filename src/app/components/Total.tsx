@@ -18,7 +18,14 @@ import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
 import { LoadingDot } from '../loading';
-import { BACK_KEYWORD, PROVISION_KEYWORD, UPDATING_KEYWORD, USE_DIGICARTE, WAITING_KEYWORD } from '../utils/constants';
+import {
+    BACK_KEYWORD,
+    PROVISION_KEYWORD,
+    REFUND_KEYWORD,
+    UPDATING_KEYWORD,
+    USE_DIGICARTE,
+    WAITING_KEYWORD,
+} from '../utils/constants';
 import { OrderItem, State, Transaction } from '../utils/interfaces';
 import { CLOSE, postMessageToParent } from '../utils/message';
 import { isMobileSize, useIsMobile, useIsMobileDevice } from '../utils/mobile';
@@ -106,7 +113,10 @@ const Item: FC<ItemProps> = ({ label, onClick = () => {}, onContextMenu, classNa
     );
 };
 
-export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav = false }) => {
+export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
+    showLightAdminNav = false,
+    compact = false,
+}) => {
     const isMobileDevice = useIsMobileDevice();
     const [navExpanded, setNavExpanded] = useState(false);
     const {
@@ -202,6 +212,22 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
                                 );
                             },
                         },
+                    ])
+                    .concat(
+                        !isWaiting && !isRefundTransaction(transaction)
+                            ? [
+                                  { label: '', action: () => {} },
+                                  {
+                                      label: REFUND_KEYWORD,
+                                      action: (index: number) => {
+                                          editTransactionWithReversal(index);
+                                          closePopup(() => setTimeout(pay, 100));
+                                      },
+                                  },
+                              ]
+                            : []
+                    )
+                    .concat([
                         {
                             label: 'Annuler',
                             action: (index: number) => fallback(index),
@@ -541,8 +567,14 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
     );
 
     const { width: screenWidth, height: screenHeight } = useWindowParam();
-    const left = useMemo(() => (!isMobileSize() && screenWidth > 0 ? screenWidth / 2 : 0), [screenWidth]);
-    const height = useMemo(() => (!isMobileSize() && screenHeight > 0 ? screenHeight - 76 : 0), [screenHeight]);
+    const left = useMemo(
+        () => (compact ? 0 : !isMobileSize() && screenWidth > 0 ? screenWidth / 2 : 0),
+        [compact, screenWidth]
+    );
+    const height = useMemo(
+        () => (compact ? 0 : !isMobileSize() && screenHeight > 0 ? screenHeight - 76 : 0),
+        [compact, screenHeight]
+    );
 
     // Handler for order items selection change
     const handleOrderItemsChange = useCallback(
@@ -553,18 +585,18 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
         [setSelectedOrderItems, setPartialPaymentAmount]
     );
 
-    // Call all hooks BEFORE any conditional return
     const popupClass = useAddPopupClass(
-        'inset-x-0 h-[70px] md:absolute md:left-1/2 md:h-full md:border-l-4 overflow-hidden ' +
-            'md:border-secondary-active-light md:dark:border-secondary-active-dark '
+        compact
+            ? 'relative w-1/2 h-full overflow-hidden border-l-4 border-active-light dark:border-active-dark flex flex-col '
+            : 'inset-x-0 h-[70px] md:absolute md:left-1/2 md:h-full md:border-l-4 overflow-hidden ' +
+                  'md:border-secondary-active-light md:dark:border-secondary-active-dark '
     );
     const isMobile = useIsMobile();
 
-    // Show loading animation while state is init, loading, or error (after all hooks are called)
     if (state === State.init || state === State.loading || state === State.error) {
         return (
             <div className={popupClass} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div className="hidden md:block">
+                <div className={compact ? 'block' : 'hidden md:block'}>
                     <LoadingDot />
                 </div>
             </div>
@@ -601,12 +633,18 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
     }
 
     return (
-        <div className={twMerge(popupClass, 'overflow-y-auto')}>
+        <div className={popupClass}>
             <div
                 className={twMerge(
-                    'md:w-1/2 w-full fixed text-center font-bold',
+                    compact ? 'w-full' : 'md:w-1/2 w-full',
+                    compact ? 'relative' : 'fixed',
+                    'top-0 left-0 text-center font-bold',
                     'border-b-4 border-active-light dark:border-active-dark',
-                    isMobile ? 'md:hidden text-4xl py-1' : 'hidden md:block text-5xl py-3',
+                    compact
+                        ? 'block text-4xl py-1 shrink-0'
+                        : isMobile
+                          ? 'md:hidden text-4xl py-1'
+                          : 'hidden md:block text-5xl py-3',
                     !isMobile && ((canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length))
                         ? clickClassName
                         : ''
@@ -666,8 +704,12 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
             </div>
 
             <div
-                className="md:w-1/2 fixed top-19 left-0 w-1/2 text-center text-2xl font-bold hidden md:flex md:flex-col"
-                style={{ left: left, height: height }}
+                className={twMerge(
+                    compact
+                        ? 'w-full flex-1 relative flex flex-col text-center text-2xl font-bold min-h-0'
+                        : 'md:w-1/2 fixed top-19 left-0 w-1/2 text-center text-2xl font-bold hidden md:flex md:flex-col'
+                )}
+                style={{ left: compact ? 0 : left, height: compact ? 'auto' : height }}
             >
                 <div className="flex-1 overflow-y-auto">
                     {canDisplayTotal
@@ -679,7 +721,7 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
                               .map(({ product, isSelectedProduct }, index) => (
                                   <Item
                                       className={twMerge(
-                                          'py-2 ml-1',
+                                          'pt-1 pb-1 pl-2',
                                           clickClassName,
                                           isSelectedProduct ? 'animate-pulse' : ''
                                       )}
@@ -699,7 +741,7 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
                                   transaction ? (
                                       <Item
                                           className={twMerge(
-                                              'py-2 ml-1',
+                                              'pt-1 pb-1 pl-2',
                                               isWaitingTransaction || isUpdatingTransaction ? 'animate-pulse' : '',
                                               isUpdatingTransaction ? 'cursor-not-allowed' : clickClassName
                                           )}
@@ -720,7 +762,7 @@ export const Total: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav =
                                   )
                               )}
                 </div>
-                {!canDisplayTotal && (
+                {!canDisplayTotal && !compact && (
                     <div className="shrink-0 pt-1 border-t-4 border-secondary-active-light dark:border-secondary-active-dark bg-primary-light dark:bg-primary-dark">
                         {displayTransactionsTitle()}
                     </div>

@@ -72,7 +72,7 @@ describe('generateTransactionHash', () => {
         expect(hash1).not.toBe(hash2);
     });
 
-    it('handles missing note field', () => {
+    it('handles missing change field', () => {
         const tx = {
             order_id: '12345',
             user_name: 'TestUser',
@@ -86,7 +86,7 @@ describe('generateTransactionHash', () => {
         expect(hash).toBeTruthy();
     });
 
-    it('handles empty string note', () => {
+    it('handles empty string change', () => {
         const tx = {
             order_id: '12345',
             user_name: 'TestUser',
@@ -95,13 +95,13 @@ describe('generateTransactionHash', () => {
             currency: 'EUR',
             created_at: '2026-05-16 12:00:00',
             updated_at: '2026-05-16 12:00:00',
-            note: '',
+            change: '',
         };
         const hash = generateTransactionHash(tx);
         expect(hash).toBeTruthy();
     });
 
-    it('includes note in hash when provided', () => {
+    it('includes change in hash when provided', () => {
         const tx1 = {
             order_id: '12345',
             user_name: 'TestUser',
@@ -110,7 +110,7 @@ describe('generateTransactionHash', () => {
             currency: 'EUR',
             created_at: '2026-05-16 12:00:00',
             updated_at: '2026-05-16 12:00:00',
-            note: 'Test note',
+            change: 'Test change',
         };
         const tx2 = {
             order_id: '12345',
@@ -120,7 +120,7 @@ describe('generateTransactionHash', () => {
             currency: 'EUR',
             created_at: '2026-05-16 12:00:00',
             updated_at: '2026-05-16 12:00:00',
-            note: 'Different note',
+            change: 'Different change',
         };
         expect(generateTransactionHash(tx1)).not.toBe(generateTransactionHash(tx2));
     });

@@ -21,7 +21,8 @@ interface TransactionData {
     payment_method: string;
     amount: number;
     currency: string;
-    note?: string;
+    change?: string;
+    takeOut?: boolean;
     created_at: string;
     updated_at: string;
     products?: TransactionProduct[];
@@ -93,7 +94,7 @@ export function generateTransactionHash(transaction: TransactionData, transactio
         transaction.amount,
         transaction.currency,
         transaction.created_at,
-        transaction.note || '',
+        transaction.change || '',
     ].join('|');
 
     // Simple hash function for demo - in production use crypto
@@ -129,13 +130,13 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
     // Insert into transactions table (payment_method, currency, and user_name are strings)
     const insertTransactionQuery = connection.isPostgreSQL
         ? `
-        INSERT INTO dc_pos.transactions (order_id, customer_name, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        INSERT INTO dc_pos.transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, hash, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING id
     `
         : `
-        INSERT INTO transactions (order_id, customer_name, user_name, payment_method, amount, currency, note, hash, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, hash, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const params = [
@@ -145,7 +146,8 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
         transaction.payment_method,
         transaction.amount,
         transaction.currency,
-        transaction.note || '',
+        transaction.change || '',
+        transaction.takeOut ?? false,
         hash,
         transaction.created_at,
         transaction.updated_at,
@@ -242,12 +244,12 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
     const updateQuery = isPg
         ? `
         UPDATE ${prefix}transactions
-         SET customer_name = $1, user_name = $2, payment_method = $3, amount = $4, currency = $5, note = $6, hash = $7, updated_at = $8
-         WHERE id = $9
+         SET customer_name = $1, user_name = $2, payment_method = $3, amount = $4, currency = $5, change = $6, take_out = $7, hash = $8, updated_at = $9
+         WHERE id = $10
     `
         : `
         UPDATE ${prefix}transactions
-         SET customer_name = ?, user_name = ?, payment_method = ?, amount = ?, currency = ?, note = ?, hash = ?, updated_at = ?
+         SET customer_name = ?, user_name = ?, payment_method = ?, amount = ?, currency = ?, change = ?, take_out = ?, hash = ?, updated_at = ?
          WHERE id = ?
     `;
     await connection.execute(updateQuery, [
@@ -256,7 +258,8 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
         transaction.payment_method,
         transaction.amount,
         transaction.currency,
-        transaction.note || '',
+        transaction.change || '',
+        transaction.takeOut ?? false,
         hash,
         transaction.updated_at,
         transactionId,

@@ -89,6 +89,7 @@ function buildInventoryFromAdminProducts(products: AdminProduct[]): InventoryIte
             stock: p.stock ?? null,
             order: item.products.length,
             reference: p.reference ? String(p.reference).trim() : null,
+            color: p.color ?? '',
         });
     }
 
@@ -119,6 +120,7 @@ function buildInventoryFromAdminFormulas(formulas: AdminFormula[]): InventoryIte
             stock: null,
             order: i,
             reference: null,
+            color: '',
         });
     }
 
@@ -137,6 +139,9 @@ function buildProductsFromInventory(inventory: InventoryItem[]): AdminProduct[] 
                 stock: product.stock ?? null,
                 currencies: product.prices.map(String),
                 vat: item.rate >= 1 ? item.rate : item.rate * 100,
+                reference: product.reference ?? undefined,
+                options: product.options ?? undefined,
+                color: product.color ?? undefined,
             });
         });
     });
@@ -317,6 +322,7 @@ export default function EditMenuPage() {
                                     usePhoto: parsed.usePhoto ?? false,
                                     useDescription: parsed.useDescription ?? false,
                                     useOptions: parsed.useOptions ?? false,
+                                    useColor: parsed.useColor ?? false,
                                 });
                             }
                         } catch {
@@ -338,6 +344,7 @@ export default function EditMenuPage() {
                             photo: p.photo ? String(p.photo) : undefined,
                             description: p.description ? String(p.description) : undefined,
                             options: p.options ? String(p.options) : undefined,
+                            color: p.color ? String(p.color) : undefined,
                             currencies: (p.prices ?? []).map(String),
                         });
                     }

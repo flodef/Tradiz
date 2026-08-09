@@ -1,4 +1,5 @@
 import { adminTextStyle } from '@/app/utils/constants';
+import { colorToHex } from '@/app/utils/colors';
 import { Currency } from '@/app/utils/interfaces';
 import AdminSelect from '../AdminSelect';
 import AvailabilityToggle from '../AvailabilityToggle';
@@ -53,6 +54,18 @@ export default function ProductItem({
                     <div>
                         <label className={adminTextStyle}>Catégorie</label>
                         <div className="text-sm font-medium">{product.category}</div>
+                    </div>
+                    <div>
+                        <label className={adminTextStyle}>Couleur</label>
+                        <div className="flex items-center gap-2">
+                            {colorToHex(product.color) && (
+                                <div
+                                    className="w-5 h-5 rounded border border-gray-300 dark:border-gray-600 shrink-0"
+                                    style={{ backgroundColor: colorToHex(product.color) }}
+                                />
+                            )}
+                            <span className="text-sm font-medium">{product.color || '—'}</span>
+                        </div>
                     </div>
                     <div>
                         <label className={adminTextStyle}>Disponibilité</label>
@@ -116,6 +129,16 @@ export default function ProductItem({
                         onChange={(value) =>
                             onChange({ ...product, category: Array.isArray(value) ? value[0] : value })
                         }
+                        isReadOnly={isReadOnly}
+                    />
+                </div>
+                <div>
+                    <ValidatedInput
+                        label="Couleur"
+                        value={product.color ?? ''}
+                        onChange={(value) => onChange({ ...product, color: String(value) })}
+                        placeholder="Couleur"
+                        maxLength={50}
                         isReadOnly={isReadOnly}
                     />
                 </div>

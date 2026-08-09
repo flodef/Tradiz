@@ -13,6 +13,8 @@ interface ArticleRow {
     reference: string | null;
     photo: string;
     description: string;
+    color: string;
+    sort_order: number;
 }
 
 interface FormulaElement {
@@ -26,6 +28,7 @@ interface FormulaData {
     amount: string;
     rate: string;
     category: string;
+    color: string;
     elements: Map<number, FormulaElement>;
 }
 
@@ -34,6 +37,7 @@ interface FormulaRow {
     amount: string;
     rate: string;
     category: string;
+    color: string;
     formula_id: number;
     element_id: number | null;
     element_name: string | null;
@@ -50,12 +54,12 @@ export async function GET(request: Request) {
         // Query 1: Get all products
         const queryProducts = connection.isPostgreSQL
             ? `
-            SELECT name as label, price as amount, vat_rate as rate, category, options, stock, reference, photo, description
+            SELECT name as label, price as amount, vat_rate as rate, category, options, stock, reference, photo, description, color, sort_order
             FROM dc.products
             ORDER BY sort_order ASC
         `
             : `
-            SELECT name as label, price as amount, vat_rate as rate, category, options, stock, reference, photo, description
+            SELECT name as label, price as amount, vat_rate as rate, category, options, stock, reference, photo, description, color, sort_order
             FROM products
             ORDER BY sort_order ASC
         `;
@@ -63,15 +67,16 @@ export async function GET(request: Request) {
         // Query 2: Get all formulas with their elements
         const queryFormulas = connection.isPostgreSQL
             ? `
-            SELECT 
-                f.name as label, 
-                f.price as amount, 
-                '20' as rate, 
-                'Formule' as category, 
-                NULL as options, 
-                NULL as stock, 
-                '' as reference, 
-                '' as photo, 
+            SELECT
+                f.name as label,
+                f.price as amount,
+                '20' as rate,
+                'Formule' as category,
+                f.color as color,
+                NULL as options,
+                NULL as stock,
+                '' as reference,
+                '' as photo,
                 '' as description,
                 f.id as formula_id,
                 fe.id as element_id,
@@ -86,15 +91,16 @@ export async function GET(request: Request) {
             ORDER BY f.sort_order, ref.sort_order, rep.sort_order
         `
             : `
-            SELECT 
-                f.name as label, 
-                f.price as amount, 
-                '20' as rate, 
-                'Formule' as category, 
-                NULL as options, 
-                NULL as stock, 
-                '' as reference, 
-                '' as photo, 
+            SELECT
+                f.name as label,
+                f.price as amount,
+                '20' as rate,
+                'Formule' as category,
+                f.color as color,
+                NULL as options,
+                NULL as stock,
+                '' as reference,
+                '' as photo,
                 '' as description,
                 f.id as formula_id,
                 fe.id as element_id,
@@ -135,8 +141,10 @@ export async function GET(request: Request) {
                 reference: row.reference != null ? String(row.reference) : null,
                 photo: String(row.photo),
                 description: String(row.description),
+                color: String(row.color ?? ''),
                 prices: [Number.isFinite(price) ? price : 0],
                 options: row.options || null,
+                sortOrder: Number(row.sort_order) || 0,
             };
         });
 
@@ -150,6 +158,7 @@ export async function GET(request: Request) {
                     amount: row.amount,
                     rate: row.rate,
                     category: row.category,
+                    color: String(row.color ?? ''),
                     elements: new Map<number, FormulaElement>(),
                 });
             }
@@ -189,8 +198,10 @@ export async function GET(request: Request) {
                 reference: '',
                 photo: '',
                 description: '',
+                color: String(formula.color ?? ''),
                 prices: [Number.isFinite(price) ? price : 0],
                 options: JSON.stringify({ formula: true, elements, originalName: formula.label }),
+                sortOrder: 0,
             };
         });
 

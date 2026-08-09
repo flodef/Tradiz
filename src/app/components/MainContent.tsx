@@ -6,6 +6,7 @@ import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { IS_DEV, USE_DIGICARTE, WEB_URL } from '../utils/constants';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
+import { isAtLeast, useScreenSize } from '../utils/screenSizeConfig';
 import { LoadingDot } from '../loading';
 import { Category } from './Category';
 import { NumPad } from './NumPad';
@@ -201,17 +202,27 @@ export const MainContent: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdmi
         if (isStateReady && !isFullscreen() && !IS_DEV && !USE_DIGICARTE) requestFullscreen();
     };
 
+    const { widthSize, heightSize } = useScreenSize();
+    const catalogMode =
+        (parameters.display?.catalogMode ?? false) && isAtLeast(widthSize, 'sm') && isAtLeast(heightSize, 'sm');
+
     if (!isStateReady) {
         return (
             <div className="z-10 flex flex-col justify-between">
                 <LoadingDot />
-                <Category />
             </div>
         );
     }
 
     return (
-        <div className="z-10 flex flex-col justify-between" onClick={handleClick}>
+        <div
+            className={
+                catalogMode
+                    ? 'z-10 flex flex-col absolute inset-0 overflow-hidden'
+                    : 'z-10 flex flex-col justify-between'
+            }
+            onClick={handleClick}
+        >
             <OrderBadge
                 orderId={orderId}
                 shortNumOrder={shortNumOrder}
@@ -219,9 +230,18 @@ export const MainContent: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdmi
                 showTransverseMode={showTransverseMode}
                 showOrderWithTable={showOrderWithTable}
             />
-            <Total showLightAdminNav={showLightAdminNav} />
-            <NumPad />
-            <Category />
+            {catalogMode ? (
+                <div className="flex-1 flex relative min-h-0">
+                    <NumPad displayOnly={catalogMode} />
+                    <Total showLightAdminNav={showLightAdminNav} compact={catalogMode} />
+                </div>
+            ) : (
+                <>
+                    <Total showLightAdminNav={showLightAdminNav} />
+                    <NumPad />
+                </>
+            )}
+            <Category catalogMode={catalogMode} />
         </div>
     );
 };

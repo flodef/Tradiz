@@ -124,7 +124,8 @@ export default function ParametersConfig({
                 showProvision: true,
                 showDebit: true,
                 showChange: true,
-                expandFirstCategory: false,
+                catalogMode: false,
+                useTakeOut: true,
             }),
             [field]: checked,
         } as DisplaySettings);
@@ -284,6 +285,7 @@ export default function ParametersConfig({
                                         usePhoto: false,
                                         useDescription: false,
                                         useOptions: false,
+                                        useColor: false,
                                     }),
                                     useVatPerProduct: checked,
                                 } as ProductsSettings)
@@ -304,6 +306,7 @@ export default function ParametersConfig({
                                         usePhoto: false,
                                         useDescription: false,
                                         useOptions: false,
+                                        useColor: false,
                                     }),
                                     useReference: checked,
                                 } as ProductsSettings)
@@ -324,6 +327,7 @@ export default function ParametersConfig({
                                         usePhoto: false,
                                         useDescription: false,
                                         useOptions: false,
+                                        useColor: false,
                                     }),
                                     useStock: checked,
                                 } as ProductsSettings)
@@ -344,6 +348,7 @@ export default function ParametersConfig({
                                         usePhoto: false,
                                         useDescription: false,
                                         useOptions: false,
+                                        useColor: false,
                                     }),
                                     usePhoto: checked,
                                 } as ProductsSettings)
@@ -364,6 +369,7 @@ export default function ParametersConfig({
                                         usePhoto: false,
                                         useDescription: false,
                                         useOptions: false,
+                                        useColor: false,
                                     }),
                                     useDescription: checked,
                                 } as ProductsSettings)
@@ -384,6 +390,7 @@ export default function ParametersConfig({
                                         usePhoto: false,
                                         useDescription: false,
                                         useOptions: false,
+                                        useColor: false,
                                     }),
                                     useOptions: checked,
                                 } as ProductsSettings)
@@ -391,6 +398,27 @@ export default function ParametersConfig({
                             isReadOnly={isReadOnly}
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser options</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.products?.useColor ?? false}
+                            onChange={(checked) =>
+                                handleChange('products', {
+                                    ...(config.products ?? {
+                                        useVatPerProduct: false,
+                                        useReference: false,
+                                        useStock: false,
+                                        usePhoto: false,
+                                        useDescription: false,
+                                        useOptions: false,
+                                        useColor: false,
+                                    }),
+                                    useColor: checked,
+                                } as ProductsSettings)
+                            }
+                            isReadOnly={isReadOnly}
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser couleur produit</span>
                     </div>
                 </div>
             </div>
@@ -503,6 +531,14 @@ export default function ParametersConfig({
                             Calculer et afficher la monnaie
                         </span>
                     </div>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.display?.useTakeOut ?? true}
+                            onChange={(checked) => handleDisplayChange('useTakeOut', checked)}
+                            isReadOnly={isReadOnly}
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Sur place / À emporter</span>
+                    </div>
                 </div>
             </div>
 
@@ -526,13 +562,11 @@ export default function ParametersConfig({
                     )}
                     <div className="flex items-center gap-3">
                         <Switch
-                            checked={config.display?.expandFirstCategory ?? false}
-                            onChange={(checked) => handleDisplayChange('expandFirstCategory', checked)}
+                            checked={config.display?.catalogMode ?? false}
+                            onChange={(checked) => handleDisplayChange('catalogMode', checked)}
                             isReadOnly={isReadOnly}
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                            Afficher les produits par défaut (grand écran)
-                        </span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Mode catalogue</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Switch
@@ -540,9 +574,7 @@ export default function ParametersConfig({
                             onChange={(checked) => handleChange('useVirtualKeyboard', checked)}
                             isReadOnly={isReadOnly}
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                            Clavier virtuel (sans clavier physique)
-                        </span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Clavier virtuel</span>
                     </div>
                 </div>
             </div>

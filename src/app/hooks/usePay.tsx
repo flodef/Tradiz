@@ -64,6 +64,7 @@ export const usePay = () => {
         showPartialPaymentSelector,
         setShowPartialPaymentSelector,
         setCounterServiceType,
+        counterServiceType,
         currentCustomer,
         setCurrentCustomer,
     } = useData();
@@ -87,15 +88,39 @@ export const usePay = () => {
     // Finalise une transaction validée et déselectionne le client en cours.
     const commitTransaction = useCallback(
         (item: string | Transaction) => {
-            updateTransaction(item);
             const method = typeof item === 'string' ? item : item.method;
-            const transaction = typeof item === 'string' ? undefined : item;
+            let transaction: Transaction | undefined;
+            if (typeof item === 'object') {
+                transaction = item;
+            } else {
+                const now = floorToSeconds(new Date().getTime());
+                transaction = {
+                    validator: parameters.user.name,
+                    method,
+                    amount: getCurrentTotal(),
+                    createdDate: now,
+                    modifiedDate: now,
+                    currency: currencies[currencyIndex].label,
+                    products: [...products.current],
+                    takeOut: counterServiceType === 'emporter',
+                };
+            }
+            updateTransaction(item);
             if (method !== WAITING_KEYWORD) {
                 setCurrentCustomer(null);
             }
             autoPrintRef.current(method, transaction);
         },
-        [updateTransaction, setCurrentCustomer]
+        [
+            updateTransaction,
+            setCurrentCustomer,
+            parameters.user.name,
+            getCurrentTotal,
+            currencies,
+            currencyIndex,
+            products,
+            counterServiceType,
+        ]
     );
 
     // Ref local pour éviter de redemander le type de service lors de l'appel récursif à pay()
@@ -192,6 +217,7 @@ export const usePay = () => {
                     modifiedDate: new Date().getTime(),
                     currency: currencies[currencyIndex].label,
                     products: products.current,
+                    takeOut: counterServiceType === 'emporter',
                 };
             }
 
@@ -202,7 +228,13 @@ export const usePay = () => {
 
             return await printKitchenTicket([kitchenAddr], {
                 transaction: currentTransaction,
-                serviceType: orderData?.service_type,
+                serviceType:
+                    orderData?.service_type ??
+                    (currentTransaction.takeOut === true
+                        ? 'emporter'
+                        : currentTransaction.takeOut === false
+                          ? 'sur_place'
+                          : undefined),
             });
         },
         [
@@ -214,10 +246,11 @@ export const usePay = () => {
             getCurrentTotal,
             getPrinterAddressByRole,
             orderData,
+            counterServiceType,
         ]
     );
 
-    // Auto-print to kitchen when order is put in waiting/processing state.
+    // Auto-print to kitchen when order is put in waiting/processing state or paid.
     // Auto-print to cashier when order is fully paid or refunded.
     const autoPrint = useCallback(
         (method: string, transaction?: Transaction) => {
@@ -225,7 +258,7 @@ export const usePay = () => {
             const isRefund = method === REFUND_KEYWORD;
             const isPaid = !isWaiting && !isRefund && method !== UPDATING_KEYWORD && method !== DELETED_KEYWORD;
 
-            if (isWaiting) {
+            if (isWaiting || isPaid) {
                 printKitchenReceipt(transaction).then((response) => {
                     if (!response.success) console.error('[autoPrint] Kitchen print failed:', response.error);
                 });
@@ -692,7 +725,6 @@ export const usePay = () => {
             openFullscreenPopup,
             transactions,
             getPrinterAddressByRole,
-            printTransactionReceipt,
             printKitchenReceipt,
         ]
     );
@@ -903,11 +935,13 @@ export const usePay = () => {
 
             // En mode fastfood, demander le type de service avant le paiement comptoir.
             // En mode restaurant/lite, on force sur_place de facon transparente.
-            if (!orderId && modeFonctionnement !== 'fastfood') {
+            // Si useTakeOut est activé, demander le type de service quel que soit le mode.
+            const useTakeOut = parameters.display?.useTakeOut !== false;
+            if (!orderId && modeFonctionnement !== 'fastfood' && !useTakeOut) {
                 setCounterServiceType('sur_place');
             }
 
-            if (modeFonctionnement === 'fastfood' && !orderId && !serviceTypeSelectedRef.current) {
+            if (!orderId && !serviceTypeSelectedRef.current && (modeFonctionnement === 'fastfood' || useTakeOut)) {
                 openPopup(
                     'Type de service',
                     Object.values(SERVICE_TYPE_LABELS),
@@ -1014,6 +1048,7 @@ export const usePay = () => {
         parameters.display?.showWaiting,
         parameters.display?.showRefund,
         parameters.display?.showDebit,
+        parameters.display?.useTakeOut,
         setShowPartialPaymentSelector,
         partialPaymentAmount,
         modeFonctionnement,

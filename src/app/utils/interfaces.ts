@@ -111,6 +111,8 @@ export interface InventoryItem {
         stock: number | null;
         order: number;
         reference?: string | null;
+        color?: string;
+        sortOrder?: number;
     }[];
 }
 
@@ -173,6 +175,7 @@ export type Transaction = {
     newBalance?: number;
     cashAmount?: number;
     change?: number;
+    takeOut?: boolean;
 };
 
 export type TransactionSet = {

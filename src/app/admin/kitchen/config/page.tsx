@@ -335,6 +335,7 @@ export default function SettingsPage() {
                                     usePhoto: parsed.usePhoto ?? false,
                                     useDescription: parsed.useDescription ?? false,
                                     useOptions: parsed.useOptions ?? false,
+                                    useColor: parsed.useColor ?? false,
                                 };
                             }
                         }
@@ -373,7 +374,8 @@ export default function SettingsPage() {
                                     showProvision: parsed.showProvision ?? true,
                                     showDebit: parsed.showDebit ?? true,
                                     showChange: parsed.showChange ?? true,
-                                    expandFirstCategory: parsed.expandFirstCategory ?? false,
+                                    catalogMode: parsed.catalogMode ?? parsed.expandFirstCategory ?? false,
+                                    useTakeOut: parsed.useTakeOut ?? true,
                                 };
                             }
                         }

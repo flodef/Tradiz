@@ -1,6 +1,12 @@
 import { useWindowParam } from '../hooks/useWindowParam';
 import { Size } from './types';
 
+const SIZE_ORDER: Size[] = ['xs', 'sm', 'md', 'lg', 'xl'];
+
+export function isAtLeast(size: Size, min: Size): boolean {
+    return SIZE_ORDER.indexOf(size) >= SIZE_ORDER.indexOf(min);
+}
+
 interface ScreenSizeConfigItem {
     height: number;
     tailwindClass: string;
@@ -30,10 +36,10 @@ export type ScreenSizeConfig = (typeof SCREEN_SIZE_CONFIG)[Size];
 // Get screen size from screen width (Tailwind breakpoints: sm: 640px, md: 768px, lg: 1024px, xl: 1280px)
 export const getScreenWidth = (width: number): Size => {
     if (width === -1) return 'xl';
-    if (width < 640) return 'xs';
-    if (width < 768) return 'sm';
-    if (width < 1024) return 'md';
-    if (width < 1280) return 'lg';
+    if (width <= 640) return 'xs';
+    if (width <= 768) return 'sm';
+    if (width <= 1024) return 'md';
+    if (width <= 1280) return 'lg';
     return 'xl';
 };
 
@@ -55,4 +61,13 @@ export const useScreenSizeConfig = () => {
     const { height } = useWindowParam();
 
     return SCREEN_SIZE_CONFIG[getScreenHeight(height)];
+};
+
+// Hook: returns width and height Size for eligibility checks (hydration-safe)
+export const useScreenSize = () => {
+    const { width, height } = useWindowParam();
+    return {
+        widthSize: getScreenWidth(width),
+        heightSize: getScreenHeight(height),
+    };
 };

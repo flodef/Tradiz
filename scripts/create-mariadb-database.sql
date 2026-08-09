@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS `products` (
   `options` varchar(1000) DEFAULT '',
   `order_count` int(11) NOT NULL DEFAULT 0,
   `vat_rate` decimal(5,2) NOT NULL DEFAULT 20.00,
+  `color` varchar(50) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`),
   UNIQUE KEY `reference` (`reference`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1018 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -64,6 +65,7 @@ CREATE TABLE IF NOT EXISTS `formulas` (
   `price` decimal(8,2) NOT NULL DEFAULT 0.00,
   `sort_order` int(11) NOT NULL,
   `order_count` int(11) NOT NULL DEFAULT 0,
+  `color` varchar(50) NOT NULL DEFAULT '',
   KEY `Index 1` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -241,7 +243,8 @@ CREATE TABLE IF NOT EXISTS `transactions` (
   `payment_method` varchar(50) NOT NULL DEFAULT '',
   `amount` float NOT NULL,
   `currency` varchar(10) NOT NULL DEFAULT '',
-  `note` varchar(300) DEFAULT NULL,
+  `change` varchar(255) DEFAULT '',
+  `take_out` tinyint(1) NOT NULL DEFAULT 1,
   `hash` varchar(64) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),

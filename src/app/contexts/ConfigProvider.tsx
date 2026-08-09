@@ -56,6 +56,7 @@ export interface ProductsSettings {
     usePhoto: boolean;
     useDescription: boolean;
     useOptions: boolean;
+    useColor: boolean;
 }
 
 export interface SearchSettings {
@@ -70,7 +71,8 @@ export interface DisplaySettings {
     showProvision: boolean;
     showDebit: boolean;
     showChange: boolean;
-    expandFirstCategory: boolean;
+    catalogMode: boolean;
+    useTakeOut: boolean;
 }
 
 export interface Parameters {
