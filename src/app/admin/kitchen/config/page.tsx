@@ -374,7 +374,7 @@ export default function SettingsPage() {
                                     showProvision: parsed.showProvision ?? true,
                                     showDebit: parsed.showDebit ?? true,
                                     showChange: parsed.showChange ?? true,
-                                    catalogMode: parsed.catalogMode ?? parsed.expandFirstCategory ?? false,
+                                    catalogMode: parsed.catalogMode ?? false,
                                     useTakeOut: parsed.useTakeOut ?? true,
                                 };
                             }

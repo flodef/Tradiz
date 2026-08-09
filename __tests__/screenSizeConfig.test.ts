@@ -113,27 +113,31 @@ describe('getScreenWidth', () => {
 });
 
 describe('getScreenHeight', () => {
-    it('returns xs for height <= 667 (iPhone SE)', () => {
+    it('returns xs for height < 667 (iPhone SE)', () => {
         expect(getScreenHeight(600)).toBe('xs');
-        expect(getScreenHeight(667)).toBe('xs');
+        expect(getScreenHeight(666)).toBe('xs');
     });
 
-    it('returns sm for height 668-768', () => {
+    it('returns sm for height 667-767', () => {
+        expect(getScreenHeight(667)).toBe('sm');
         expect(getScreenHeight(700)).toBe('sm');
-        expect(getScreenHeight(768)).toBe('sm');
+        expect(getScreenHeight(767)).toBe('sm');
     });
 
-    it('returns md for height 769-896', () => {
+    it('returns md for height 768-895', () => {
+        expect(getScreenHeight(768)).toBe('md');
         expect(getScreenHeight(800)).toBe('md');
-        expect(getScreenHeight(896)).toBe('md');
+        expect(getScreenHeight(895)).toBe('md');
     });
 
-    it('returns lg for height 897-1024', () => {
+    it('returns lg for height 896-1023', () => {
+        expect(getScreenHeight(896)).toBe('lg');
         expect(getScreenHeight(1000)).toBe('lg');
-        expect(getScreenHeight(1024)).toBe('lg');
+        expect(getScreenHeight(1023)).toBe('lg');
     });
 
-    it('returns xl for height > 1024 (iPad Pro)', () => {
+    it('returns xl for height >= 1024 (iPad Pro)', () => {
+        expect(getScreenHeight(1024)).toBe('xl');
         expect(getScreenHeight(1025)).toBe('xl');
     });
 });

@@ -391,15 +391,7 @@ export async function printKitchenTicket(
         const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
         const isRefund = isRefundTransaction(ticketData.transaction);
         const isDeleted = isDeletedTransaction(ticketData.transaction);
-
-        // Resolve service type: explicit parameter takes priority, then transaction.takeOut
-        const serviceType: ServiceType | undefined =
-            ticketData.serviceType ??
-            (ticketData.transaction.takeOut === true
-                ? 'emporter'
-                : ticketData.transaction.takeOut === false
-                  ? 'sur_place'
-                  : undefined);
+        const serviceType = ticketData.serviceType;
 
         // Date and time
         printer.alignLeft();
