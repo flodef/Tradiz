@@ -44,7 +44,7 @@ import {
 } from './dataProvider/transactionHelpers';
 import { useMercurial } from './dataProvider/useMercurial';
 import { resolveSelectionAfterDelete } from './dataProvider/productHelpers';
-import { SHOP_ID, fetchShopId } from '../constants/shop';
+import { useShopId } from '../hooks/useShopId';
 
 enum DatabaseAction {
     add,
@@ -121,17 +121,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, []);
 
     const [hasDbConfig, setHasDbConfig] = useState(false);
-    const [resolvedShopId, setResolvedShopId] = useState(SHOP_ID);
-    const [shopIdFetchDone, setShopIdFetchDone] = useState(!!SHOP_ID);
-
-    useEffect(() => {
-        if (!SHOP_ID) {
-            fetchShopId().then((id) => {
-                if (id) setResolvedShopId(id);
-                setShopIdFetchDone(true);
-            });
-        }
-    }, []);
+    const { shopId: resolvedShopId, isResolved: shopIdFetchDone } = useShopId();
 
     useEffect(() => {
         const checkDb = async () => {

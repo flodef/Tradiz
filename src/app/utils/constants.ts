@@ -10,8 +10,16 @@ export const TRANSACTIONS_KEYWORD = 'Transactions';
 export const PRINT_KEYWORD = 'Impression';
 export const LOCAL_PRINTER_KEYWORD = 'Local';
 
-// Printer roles (used in PrintersConfig as dropdown options)
-export const PRINTER_ROLES = ['Caisse', 'Cuisine', 'Ecran client'] as const;
+// Printer roles. These labels are persisted in the DB, so always reference them
+// through PRINTER_ROLE instead of hardcoding the strings at call sites.
+export const PRINTER_ROLE = {
+    cashier: 'Caisse',
+    kitchen: 'Cuisine',
+    customerDisplay: 'Ecran client',
+} as const;
+
+// Ordered list used in PrintersConfig as dropdown options
+export const PRINTER_ROLES = [PRINTER_ROLE.cashier, PRINTER_ROLE.kitchen, PRINTER_ROLE.customerDisplay] as const;
 
 // Role labels (French translations)
 export const ROLE_LABELS: Record<Role, string> = {

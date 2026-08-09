@@ -14,6 +14,7 @@ import {
     IS_LOCAL,
     NON_PAYMENT_KEYWORDS,
     PRINT_KEYWORD,
+    PRINTER_ROLE,
     PROCESSING_KEYWORD,
     PROVISION_KEYWORD,
     REFUND_KEYWORD,
@@ -223,7 +224,7 @@ export const usePay = () => {
 
             if (!currentTransaction) return { error: 'Aucune transaction à imprimer' };
 
-            const kitchenAddr = printerAddressOverride || getPrinterAddressByRole('Cuisine');
+            const kitchenAddr = printerAddressOverride || getPrinterAddressByRole(PRINTER_ROLE.kitchen);
             if (!kitchenAddr) return { error: 'Imprimante cuisine non configurée' };
 
             return await printKitchenTicket([kitchenAddr], {
@@ -265,7 +266,7 @@ export const usePay = () => {
             }
 
             if (isPaid || isRefund) {
-                const cashierAddr = getPrinterAddressByRole('Caisse');
+                const cashierAddr = getPrinterAddressByRole(PRINTER_ROLE.cashier);
                 if (cashierAddr) {
                     printTransactionReceipt(undefined, transaction, cashierAddr).then((response) => {
                         if (!response.success) console.error('[autoPrint] Cashier print failed:', response.error);
@@ -583,7 +584,7 @@ export const usePay = () => {
                 case PRINT_KEYWORD:
                     updateTransaction(WAITING_KEYWORD);
                     {
-                        const kitchenAddr = getPrinterAddressByRole('Cuisine');
+                        const kitchenAddr = getPrinterAddressByRole(PRINTER_ROLE.kitchen);
                         if (kitchenAddr) {
                             printKitchenReceipt(undefined, kitchenAddr);
                         }

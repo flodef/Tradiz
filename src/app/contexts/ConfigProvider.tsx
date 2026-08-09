@@ -22,6 +22,7 @@ import {
     CURRENT_USER_KEYWORD,
     LOCAL_PRINTER_KEYWORD,
     PRINT_KEYWORD,
+    PRINTER_ROLE,
     SEPARATOR,
     USE_DIGICARTE,
 } from '../utils/constants';
@@ -204,7 +205,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
 
     const getPrintersNames = useCallback(() => {
         const printersNames = printers.filter(
-            ({ label: name }) => name !== LOCAL_PRINTER_KEYWORD && name !== 'Ecran client'
+            ({ label: name }) => name !== LOCAL_PRINTER_KEYWORD && name !== PRINTER_ROLE.customerDisplay
         );
         if (!printersNames.length) return [];
 
@@ -221,8 +222,8 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                           printers.find(({ label: n }) => n === printerName),
                           printers.find(({ label: n }) => n === LOCAL_PRINTER_KEYWORD),
                       ]
-                    : printers.filter(({ label }) => label === 'Caisse')
-            ).filter(Boolean) as Printer[]; // Default to Caisse printer only
+                    : printers.filter(({ label }) => label === PRINTER_ROLE.cashier)
+            ).filter(Boolean) as Printer[]; // Default to the cashier printer only
             if (!printer.length) return [];
 
             return printer.map(({ ipAddress: address }) => address);

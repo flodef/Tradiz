@@ -2,8 +2,8 @@
 
 import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
 import AdminButton from '@/app/components/admin/AdminButton';
-import { SHOP_ID } from '@/app/constants/shop';
 import { useConfig } from '@/app/hooks/useConfig';
+import { useShopId } from '@/app/hooks/useShopId';
 import { usePopup } from '@/app/hooks/usePopup';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import {
@@ -70,6 +70,7 @@ interface StatisticsData {
 export default function StatsPage() {
     const { isCashier } = useUserRole();
     const { parameters, currencies, currencyIndex, resolvePrinterAddresses } = useConfig();
+    const { shopId, isResolved: isShopIdResolved } = useShopId();
     const { openFullscreenPopup, closePopup } = usePopup();
     const currency = currencies[currencyIndex];
     const shop = parameters.shop;
@@ -142,7 +143,7 @@ export default function StatsPage() {
         const start = startDate ? new Date(startDate).getTime() : 0;
         const end = endDate ? new Date(endDate + 'T23:59:59').getTime() : Infinity;
 
-        const sets = await idbGetAllTransactionSets(SHOP_ID);
+        const sets = await idbGetAllTransactionSets(shopId);
         const paid: Transaction[] = [];
         const all: Transaction[] = [];
 
@@ -224,7 +225,7 @@ export default function StatsPage() {
             totalOrders,
             recentOrders,
         });
-    }, [startDate, endDate]);
+    }, [startDate, endDate, shopId]);
 
     const fetchStatistics = useCallback(
         async (showLoading = true) => {
@@ -271,13 +272,13 @@ export default function StatsPage() {
     const fetchStatisticsRef = useRef(fetchStatistics);
     fetchStatisticsRef.current = fetchStatistics;
 
-    // Initial load with loading indicator
+    // Initial load with loading indicator. Waits for the shop ID so the IndexedDB
+    // read is keyed on the same value DataProvider used when writing.
     useEffect(() => {
-        if (!hasLoadedRef.current) {
-            hasLoadedRef.current = true;
-            fetchStatistics(true);
-        }
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+        if (!isShopIdResolved || hasLoadedRef.current) return;
+        hasLoadedRef.current = true;
+        fetchStatistics(true);
+    }, [isShopIdResolved]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Auto-update on date change without loading indicator
     useEffect(() => {

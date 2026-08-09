@@ -27,17 +27,35 @@ export function getShopFromHostname(hostname: string): string {
 }
 
 /**
+ * Env var names holding the shop ID, in priority order.
+ *
+ * `SHOP_ID` is preferred because, lacking the `NEXT_PUBLIC_` prefix, it is never a
+ * candidate for build-time inlining and is therefore always read at runtime.
+ * `NEXT_PUBLIC_SHOP_ID` is kept as a fallback for existing `.env.local` files.
+ */
+const SHOP_ID_ENV_KEYS = ['SHOP_ID', 'NEXT_PUBLIC_SHOP_ID'] as const;
+
+/**
+ * Reads the shop ID from the environment at runtime.
+ *
+ * Server-side only. The lookup uses a dynamic key so the bundler cannot inline the
+ * value at build time — this ensures we read what Electron's `.env.local` loader put
+ * in `process.env`, not the build-time value (undefined in CI builds without `.env.local`).
+ */
+function readShopIdFromEnv(): string {
+    for (const key of SHOP_ID_ENV_KEYS) {
+        const value = process.env[key];
+        if (value) return value;
+    }
+    return '';
+}
+
+/**
  * Extracts shop ID from a hostname string, with fallback to environment variable for local/digicarte mode.
  * This is the server-side version that combines getShopFromHostname with the environment fallback.
  */
 export function getShopIdFromHostname(hostname: string): string {
-    if (IS_LOCAL || USE_DIGICARTE) {
-        // Use computed property access to bypass Next.js build-time inlining of NEXT_PUBLIC_* vars.
-        // This ensures we read the runtime value set by Electron's .env.local loader, not the
-        // build-time value (which is undefined in CI builds without .env.local).
-        const shopIdEnv = process.env['NEXT_PUBLIC_' + 'SHOP_ID'];
-        return shopIdEnv || '';
-    }
+    if (IS_LOCAL || USE_DIGICARTE) return readShopIdFromEnv();
     return getShopFromHostname(hostname);
 }
 

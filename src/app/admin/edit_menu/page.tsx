@@ -12,7 +12,6 @@ import { useUserRole } from '@/app/hooks/useUserRole';
 import { LoadingDot } from '@/app/loading';
 import { DEFAULT_CATEGORY, USE_DIGICARTE } from '@/app/utils/constants';
 import { applyCategoryDeletionToFormulas, isSameCategory, renameFormulaCategory } from '@/app/utils/category';
-import { SHOP_ID } from '@/app/constants/shop';
 import { Category, InventoryItem } from '@/app/utils/interfaces';
 import { clearLoadDataCache } from '@/app/utils/processData';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -445,9 +444,9 @@ export default function EditMenuPage() {
 
     // Persists formulas to the DB. Kept separate from handleFormulasSave so callers
     // that already own the config update (e.g. handleProductsSave) don't race on setConfig.
+    // The shop is resolved server-side from the request host, so no shop ID is sent here.
     const saveFormulasToDb = useCallback(async (data: AdminFormula[]) => {
-        if (!SHOP_ID) return;
-        const response = await fetch(`/api/sql/updateFormulas?shop=${SHOP_ID}`, {
+        const response = await fetch('/api/sql/updateFormulas', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
@@ -528,11 +527,6 @@ export default function EditMenuPage() {
 
     const handleFormulasSave = useCallback(
         async (data: AdminFormula[]) => {
-            if (!SHOP_ID) {
-                console.error('No shop ID configured');
-                return;
-            }
-
             setIsSavingFormulas(true);
             try {
                 await saveFormulasToDb(data);

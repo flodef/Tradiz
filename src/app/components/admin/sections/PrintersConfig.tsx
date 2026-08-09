@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { IconSearch, IconLoader2, IconPrinter, IconDeviceTv } from '@tabler/icons-react';
 import { usePopup } from '@/app/hooks/usePopup';
 import { testPrint } from '@/app/utils/posPrinter';
-import { PRINTER_ROLES } from '@/app/utils/constants';
+import { PRINTER_ROLE, PRINTER_ROLES } from '@/app/utils/constants';
 import Switch from '../Switch';
 import AdminSelect from '../AdminSelect';
 import {
@@ -72,7 +72,7 @@ function PrinterRow({
     const comPortsAvailable = availableComPorts.length > 0;
     const currentComNum = isCom ? Number(comNum) : 0;
     const freeComPorts = availableComPorts.filter((p) => !usedComPorts.includes(p) || p === currentComNum);
-    const isScreen = printer.label === 'Ecran client';
+    const isScreen = printer.label === PRINTER_ROLE.customerDisplay;
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
@@ -309,7 +309,7 @@ export default function PrintersConfig({
         if (newOnes.length === 0) return;
         setPrinters((prev) => {
             // Priority: assign to existing Cuisine first, then Caisse
-            const assignmentPriority = ['Cuisine', 'Caisse'];
+            const assignmentPriority = [PRINTER_ROLE.kitchen, PRINTER_ROLE.cashier];
             const updated = [...prev];
             let foundIdx = 0;
 
