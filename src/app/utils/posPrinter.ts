@@ -549,10 +549,12 @@ export async function printSummary(printerAddresses: string[], summaryData: Summ
         // Calculate average ticket amount
         const totalAmount = summaryData.transactions.reduce((total, transaction) => total + transaction.amount, 0);
         const transactionCount = summaryData.transactions.length;
-        const productCount = summaryData.transactions.reduce(
-            (total, transaction) =>
-                total + transaction.products.reduce((total, product) => total + product.quantity, 0),
-            0
+        const productCount = Math.round(
+            summaryData.transactions.reduce(
+                (total, transaction) =>
+                    total + transaction.products.reduce((total, product) => total + product.quantity, 0),
+                0
+            )
         );
         const averageTicket = transactionCount > 0 ? totalAmount / transactionCount : 0;
         const currency = summaryData.currency;

@@ -1,15 +1,7 @@
 'use client';
 
-import {
-    IconBackspace,
-    IconCalculator,
-    IconPigMoney,
-    IconSearch,
-    IconShoppingCart,
-    IconWallet,
-    IconX,
-} from '@tabler/icons-react';
-import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { IconBackspace, IconCalculator, IconSearch, IconWallet, IconX } from '@tabler/icons-react';
+import { FC, MouseEventHandler, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { isDeletedTransaction } from '../contexts/dataProvider/transactionHelpers';
 import { useConfig } from '../hooks/useConfig';
@@ -601,7 +593,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
         toCurrency,
     } = useData();
     const { openPopup, closePopup, isPopupOpen, openFullscreenPopup } = usePopup();
-    const { pay, canPay, canAddProduct, addProvision, canAddProvision } = usePay();
+    const { pay, canPay } = usePay();
     const { showTransactionsSummary, showTransactionsSummaryMenu, getHistoricalTransactions, refreshHistoricalKeys } =
         useSummary();
 
@@ -730,14 +722,6 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
         }
         clearAmount();
     }, [removeProduct, clearAmount, selectedProduct, quantity, setAmount, amount, onClearTotal]);
-
-    const addProduct = useCallback(() => {
-        if (selectedProduct?.amount && quantity) {
-            computeQuantity(selectedProduct, selectedProduct.quantity + 1);
-        } else {
-            _addProduct();
-        }
-    }, [selectedProduct, computeQuantity, _addProduct, quantity]);
 
     const showCurrencies = useCallback(() => {
         if (currencies.length < 2) return;
@@ -918,9 +902,16 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
         : '';
     const s =
         'w-[72px] h-[72px] sm:w-20 sm:h-20 rounded-2xl flex justify-center m-2.5 sm:m-3 items-center text-5xl sm:text-6xl ';
-    const sx = s + (canPay || canAddProduct || canAddProvision ? color : 'invisible');
+    const sx = s + (canPay ? color : 'invisible');
 
     const f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
+
+    // Shared props for the wallet/cart/provision action button (used in both displayOnly and non-displayOnly layouts)
+    const actionButtonProps = {
+        icon: IconWallet,
+        onClick: canPay ? pay : () => {},
+        onContextMenu: canPay ? () => updateTransaction(WAITING_KEYWORD) : () => {},
+    };
     const f1 = f + (hasAmount || total ? color : 'invisible');
     const f2 =
         f +
@@ -943,10 +934,31 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
     );
     const left = useMemo(() => Math.max(((isMobileSize() ? width : width / 2) - 512) / 2, 0), [width]);
 
+    // Measure container height for displayOnly vertical positioning
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [containerHeight, setContainerHeight] = useState(0);
+    useLayoutEffect(() => {
+        if (!displayOnly || !containerRef.current) return;
+        const el = containerRef.current;
+        const update = () => setContainerHeight(el.clientHeight);
+        update();
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [displayOnly]);
+
+    // NumPad vertical positioning in catalog mode:
+    // - container < 164px: align to bottom (justify-end)
+    // - container >= 164px: top at 72px (justify-start + padding-top)
+    const NUMPAD_HEIGHT = 92;
+    const TOPNAV_BOTTOM = 72;
+    const displayJustify = containerHeight < TOPNAV_BOTTOM + NUMPAD_HEIGHT ? 'justify-end' : 'justify-start';
+    const displayPaddingTop = containerHeight >= TOPNAV_BOTTOM + NUMPAD_HEIGHT ? TOPNAV_BOTTOM : 0;
+
     // Call useAddPopupClass before any conditional return
     const numPadClass = useAddPopupClass(
         displayOnly
-            ? 'relative w-1/2 h-full flex flex-col items-center justify-center '
+            ? `relative w-1/2 h-full flex flex-col items-center ${displayJustify} `
             : `inset-0 min-w-[375px] w-full self-center absolute md:top-10 md:w-1/2 md:justify-center md:max-w-[50%] ` +
                   (shouldUseOverflow
                       ? isPopupOpen
@@ -959,9 +971,11 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
 
     return (
         <div
+            ref={displayOnly ? containerRef : undefined}
             className={numPadClass}
             style={{
                 bottom: displayOnly ? 'auto' : `${sizeConfig.numPadBottom}px`,
+                paddingTop: displayOnly ? `${displayPaddingTop}px` : undefined,
             }}
         >
             <div className="flex flex-col justify-center items-center w-full">
@@ -1056,36 +1070,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                         />
                         {hasAmount ? (
                             displayOnly ? (
-                                <ImageButton
-                                    icon={
-                                        canPay
-                                            ? IconWallet
-                                            : canAddProduct
-                                              ? IconShoppingCart
-                                              : canAddProvision
-                                                ? IconPigMoney
-                                                : IconWallet
-                                    }
-                                    className={f + (canPay || canAddProduct || canAddProvision ? color : 'invisible')}
-                                    onClick={
-                                        canPay
-                                            ? pay
-                                            : canAddProduct
-                                              ? addProduct
-                                              : canAddProvision
-                                                ? addProvision
-                                                : () => {}
-                                    }
-                                    onContextMenu={
-                                        canPay
-                                            ? () => updateTransaction(WAITING_KEYWORD)
-                                            : canAddProduct
-                                              ? pay
-                                              : canAddProvision
-                                                ? addProvision
-                                                : () => {}
-                                    }
-                                />
+                                <ImageButton {...actionButtonProps} className={f + (canPay ? color : 'invisible')} />
                             ) : (
                                 <FunctionButton
                                     className={f2}
@@ -1136,36 +1121,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                         <div className="flex justify-evenly">
                             <NumPadButton input={0} onInput={onInput} />
                             <NumPadButton input={!quantity ? '00' : '½'} onInput={onInput} />
-                            <ImageButton
-                                icon={
-                                    canPay
-                                        ? IconWallet
-                                        : canAddProduct
-                                          ? IconShoppingCart
-                                          : canAddProvision
-                                            ? IconPigMoney
-                                            : IconWallet
-                                }
-                                className={sx}
-                                onClick={
-                                    canPay
-                                        ? pay
-                                        : canAddProduct
-                                          ? addProduct
-                                          : canAddProvision
-                                            ? addProvision
-                                            : () => {}
-                                }
-                                onContextMenu={
-                                    canPay
-                                        ? () => updateTransaction(WAITING_KEYWORD)
-                                        : canAddProduct
-                                          ? pay
-                                          : canAddProvision
-                                            ? addProvision
-                                            : () => {}
-                                }
-                            />
+                            <ImageButton {...actionButtonProps} className={sx} />
                         </div>
                     </div>
                 )}

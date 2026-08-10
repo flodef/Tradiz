@@ -15,6 +15,19 @@ CREATE DATABASE IF NOT EXISTS `DC` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLAT
 
 USE `DC`;
 
+-- Categories
+CREATE TABLE IF NOT EXISTS `categories` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `company_id` int(11) DEFAULT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`),
+  KEY `company_id` (`company_id`),
+  CONSTRAINT `fk_categories_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Products (was: article)
 CREATE TABLE IF NOT EXISTS `products` (
   `id` int(5) NOT NULL AUTO_INCREMENT,
@@ -24,14 +37,18 @@ CREATE TABLE IF NOT EXISTS `products` (
   `photo` varchar(50) NOT NULL DEFAULT '',
   `stock` int(11) DEFAULT NULL,
   `reference` varchar(255) DEFAULT NULL,
-  `category` varchar(50) NOT NULL DEFAULT '',
+  `category_id` int(11) DEFAULT NULL,
   `description` varchar(300) DEFAULT '',
   `options` varchar(1000) DEFAULT '',
   `order_count` int(11) NOT NULL DEFAULT 0,
   `vat_rate` decimal(5,2) NOT NULL DEFAULT 20.00,
   `color` varchar(50) NOT NULL DEFAULT '',
+  `category_key` int GENERATED ALWAYS AS (COALESCE(`category_id`, 0)) STORED,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `reference` (`reference`)
+  UNIQUE KEY `reference` (`reference`),
+  UNIQUE KEY `name_category` (`name`, `category_key`),
+  KEY `category_id` (`category_id`),
+  CONSTRAINT `fk_products_category` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=1018 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Establishment Config (was: config_etablissement)
@@ -66,7 +83,9 @@ CREATE TABLE IF NOT EXISTS `formulas` (
   `sort_order` int(11) NOT NULL,
   `order_count` int(11) NOT NULL DEFAULT 0,
   `color` varchar(50) NOT NULL DEFAULT '',
-  KEY `Index 1` (`id`)
+  `category_id` int(11) DEFAULT NULL,
+  KEY `Index 1` (`id`),
+  CONSTRAINT `fk_formulas_category` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Walls (was: mur)

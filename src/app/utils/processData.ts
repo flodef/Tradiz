@@ -11,6 +11,7 @@ import {
     Printer,
     Role,
     User,
+    CategoryData,
 } from '../utils/interfaces';
 import {
     CURRENT_USER_KEYWORD,
@@ -251,6 +252,7 @@ const dataNames: { [key: string]: string } = {
     products: 'getAllArticles',
     customers: 'getCustomers',
     users: 'getUsers',
+    categories: 'getCategories',
 };
 
 // Each theme is a contiguous block of COLORS_PER_THEME entries in `defaultColors`,
@@ -444,6 +446,9 @@ async function _loadDataImpl(): Promise<Config | undefined> {
     const discounts = await fetchData(dataNames.discounts).then(convertDiscountsData);
     const colors = await fetchData(dataNames.colors).then(convertColorsData);
     const printers = await fetchData(dataNames.printers).then(convertPrintersData);
+    const categories = await fetchData(dataNames.categories)
+        .then(convertCategoriesData)
+        .catch(() => []);
 
     let data = await fetchData(dataNames.products).then(convertProductsData);
 
@@ -498,6 +503,13 @@ async function _loadDataImpl(): Promise<Config | undefined> {
         return currency;
     });
 
+    // Build a category sort-order map from dc.categories (source of truth).
+    // Categories not in the DB get a high order so they appear at the end.
+    const categorySortOrder = new Map<string, number>();
+    categories.forEach((c, i) => {
+        categorySortOrder.set(c.name, c.sortOrder ?? i);
+    });
+
     const inventory: InventoryItem[] = [];
     let categoryOrder = 0;
     data.products.forEach((item) => {
@@ -535,6 +547,16 @@ async function _loadDataImpl(): Promise<Config | undefined> {
         }
     });
 
+    // Sort inventory by dc.categories.sort_order (fall back to insertion order)
+    inventory.sort((a, b) => {
+        const orderA = categorySortOrder.get(a.category);
+        const orderB = categorySortOrder.get(b.category);
+        if (orderA !== undefined && orderB !== undefined) return orderA - orderB;
+        if (orderA !== undefined) return -1;
+        if (orderB !== undefined) return 1;
+        return a.order - b.order;
+    });
+
     return {
         parameters,
         currencies,
@@ -545,6 +567,7 @@ async function _loadDataImpl(): Promise<Config | undefined> {
         printers,
         customers,
         users,
+        categories,
     };
 }
 
@@ -729,6 +752,18 @@ async function convertUsersData(response: void | Response): Promise<User[]> {
         const data: { users?: User[]; error?: { message: string } } = await response.json();
         if (data.error?.message) throw new Error(data.error.message);
         return data.users ?? [];
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
+}
+
+async function convertCategoriesData(response: void | Response): Promise<CategoryData[]> {
+    try {
+        if (typeof response === 'undefined') return [];
+        const data: { categories?: CategoryData[]; error?: { message: string } } = await response.json();
+        if (data.error?.message) throw new Error(data.error.message);
+        return data.categories ?? [];
     } catch (error) {
         console.error(error);
         return [];

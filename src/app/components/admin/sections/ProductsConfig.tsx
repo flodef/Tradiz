@@ -1,7 +1,6 @@
 'use client';
 
 import { adminSortableHeaderStyle, DEFAULT_CATEGORY } from '@/app/utils/constants';
-import { colorToHex } from '@/app/utils/colors';
 import { Currency } from '@/app/utils/interfaces';
 import {
     closestCenter,
@@ -18,6 +17,7 @@ import { IconChevronDown, IconChevronUp, IconInfoCircle, IconSelector } from '@t
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AdminSelect from '../AdminSelect';
 import AvailabilityToggle from '../AvailabilityToggle';
+import ColorSwatchPicker from '../ColorSwatchPicker';
 import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
@@ -340,11 +340,16 @@ export default function ProductsConfig({
 
     const totalFiltered = filteredProducts.length;
 
+    // Duplicate detection: same name + same category is not allowed.
+    // Products with the same name but different categories are fine.
     const duplicateNames = useMemo(() => {
         const counts: Record<string, number> = {};
         for (const p of products) {
-            const key = p.name.trim().toLowerCase();
-            if (key) counts[key] = (counts[key] || 0) + 1;
+            const nameKey = p.name.trim().toLowerCase();
+            if (!nameKey) continue;
+            const catKey = (p.category || '').trim().toLowerCase();
+            const key = `${nameKey}\0${catKey}`;
+            counts[key] = (counts[key] || 0) + 1;
         }
         return new Set(Object.keys(counts).filter((k) => counts[k] > 1));
     }, [products]);
@@ -671,7 +676,7 @@ export default function ProductsConfig({
                                                                     maxLength={50}
                                                                     validation={(v) =>
                                                                         !duplicateNames.has(
-                                                                            String(v).trim().toLowerCase()
+                                                                            `${String(v).trim().toLowerCase()}\0${(p.category || '').trim().toLowerCase()}`
                                                                         )
                                                                     }
                                                                     ref={(el) => {
@@ -845,30 +850,16 @@ export default function ProductsConfig({
                                                             )}
                                                             {productsSettings?.useColor && (
                                                                 <td className="p-2">
-                                                                    <div className="flex items-center gap-2">
-                                                                        {colorToHex(p.color) && (
-                                                                            <div
-                                                                                className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600 shrink-0"
-                                                                                style={{
-                                                                                    backgroundColor: colorToHex(
-                                                                                        p.color
-                                                                                    ),
-                                                                                }}
-                                                                            />
-                                                                        )}
-                                                                        <ValidatedInput
-                                                                            isReadOnly={isReadOnly}
-                                                                            type="text"
-                                                                            value={p.color ?? ''}
-                                                                            onChange={(value) =>
-                                                                                handleProductChange(i, {
-                                                                                    ...p,
-                                                                                    color: String(value),
-                                                                                })
-                                                                            }
-                                                                            maxLength={50}
-                                                                        />
-                                                                    </div>
+                                                                    <ColorSwatchPicker
+                                                                        color={p.color ?? ''}
+                                                                        isReadOnly={isReadOnly}
+                                                                        onChange={(newColor) =>
+                                                                            handleProductChange(i, {
+                                                                                ...p,
+                                                                                color: newColor,
+                                                                            })
+                                                                        }
+                                                                    />
                                                                 </td>
                                                             )}
                                                             {!productsSettings?.useStock && (

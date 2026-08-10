@@ -51,27 +51,33 @@ export async function GET(request: Request) {
     try {
         connection = await getMainDb(shopId);
 
-        // Query 1: Get all products
+        // Query 1: Get all products (JOIN categories to get category name)
         const queryProducts = connection.isPostgreSQL
             ? `
-            SELECT name as label, price as amount, vat_rate as rate, category, options, stock, reference, photo, description, color, sort_order
-            FROM dc.products
-            ORDER BY sort_order ASC
+            SELECT p.name as label, p.price as amount, p.vat_rate as rate,
+                   COALESCE(c.name, '') as category, p.options, p.stock, p.reference,
+                   p.photo, p.description, p.color, p.sort_order
+            FROM dc.products p
+            LEFT JOIN dc.categories c ON p.category_id = c.id
+            ORDER BY p.sort_order ASC
         `
             : `
-            SELECT name as label, price as amount, vat_rate as rate, category, options, stock, reference, photo, description, color, sort_order
-            FROM products
-            ORDER BY sort_order ASC
+            SELECT p.name as label, p.price as amount, p.vat_rate as rate,
+                   COALESCE(c.name, '') as category, p.options, p.stock, p.reference,
+                   p.photo, p.description, p.color, p.sort_order
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.id
+            ORDER BY p.sort_order ASC
         `;
 
-        // Query 2: Get all formulas with their elements
+        // Query 2: Get all formulas with their elements (JOIN categories for formula category)
         const queryFormulas = connection.isPostgreSQL
             ? `
             SELECT
                 f.name as label,
                 f.price as amount,
                 '20' as rate,
-                'Formule' as category,
+                COALESCE(fc.name, 'Formule') as category,
                 f.color as color,
                 NULL as options,
                 NULL as stock,
@@ -84,6 +90,7 @@ export async function GET(request: Request) {
                 fe.category as element_category,
                 p.name as product_name
             FROM dc.formulas f
+            LEFT JOIN dc.categories fc ON f.category_id = fc.id
             LEFT JOIN dc.rel_formula_element_formula ref ON f.id = ref.formula_id
             LEFT JOIN dc.formula_elements fe ON ref.formula_element_id = fe.id
             LEFT JOIN dc.rel_formula_element_product rep ON fe.id = rep.formula_element_id
@@ -95,7 +102,7 @@ export async function GET(request: Request) {
                 f.name as label,
                 f.price as amount,
                 '20' as rate,
-                'Formule' as category,
+                COALESCE(fc.name, 'Formule') as category,
                 f.color as color,
                 NULL as options,
                 NULL as stock,
@@ -108,6 +115,7 @@ export async function GET(request: Request) {
                 fe.category as element_category,
                 p.name as product_name
             FROM formulas f
+            LEFT JOIN categories fc ON f.category_id = fc.id
             LEFT JOIN rel_formula_element_formula ref ON f.id = ref.formula_id
             LEFT JOIN formula_elements fe ON ref.formula_element_id = fe.id
             LEFT JOIN rel_formula_element_product rep ON fe.id = rep.formula_element_id

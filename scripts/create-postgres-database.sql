@@ -44,6 +44,15 @@ CREATE TABLE IF NOT EXISTS dc.establishment_config (
     note_printer_id INTEGER DEFAULT NULL
 );
 
+-- Categories
+CREATE TABLE IF NOT EXISTS dc.categories (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    company_id INTEGER REFERENCES dc_pos.companies(id) ON DELETE SET NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Products (was: article)
 CREATE TABLE IF NOT EXISTS dc.products (
     id SERIAL PRIMARY KEY,
@@ -53,13 +62,18 @@ CREATE TABLE IF NOT EXISTS dc.products (
     photo VARCHAR(50) NOT NULL DEFAULT '',
     stock INTEGER DEFAULT NULL,
     reference VARCHAR(255) DEFAULT NULL UNIQUE,
-    category VARCHAR(50) NOT NULL DEFAULT '',
+    category_id INTEGER REFERENCES dc.categories(id) ON DELETE SET NULL,
     description VARCHAR(300) DEFAULT '',
     options VARCHAR(1000) DEFAULT '',
     order_count INTEGER NOT NULL DEFAULT 0,
     vat_rate NUMERIC(5,2) NOT NULL DEFAULT 20.00,
     color VARCHAR(50) NOT NULL DEFAULT ''
 );
+
+-- Prevent duplicate (name, category) pairs. category_id is nullable, so two
+-- partial indexes cover both the NULL and non-NULL cases.
+CREATE UNIQUE INDEX IF NOT EXISTS products_name_category_unique ON dc.products (name, category_id) WHERE category_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS products_name_null_category_unique ON dc.products (name) WHERE category_id IS NULL;
 
 -- Formulas (was: formule)
 CREATE TABLE IF NOT EXISTS dc.formulas (
@@ -68,7 +82,8 @@ CREATE TABLE IF NOT EXISTS dc.formulas (
     price NUMERIC(10,2) NOT NULL DEFAULT 0,
     sort_order INTEGER NOT NULL DEFAULT 0,
     order_count INTEGER NOT NULL DEFAULT 0,
-    color VARCHAR(50) NOT NULL DEFAULT ''
+    color VARCHAR(50) NOT NULL DEFAULT '',
+    category_id INTEGER REFERENCES dc.categories(id) ON DELETE SET NULL
 );
 
 -- Formula Elements (was: element_formule)

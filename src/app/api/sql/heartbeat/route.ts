@@ -32,7 +32,19 @@ export async function POST(request: Request) {
         const heartbeatQuery = connection.isPostgreSQL
             ? `UPDATE dc_pos.devices SET connected = true, last_seen = NOW() WHERE public_key = $1`
             : `UPDATE devices SET connected = true, last_seen = NOW() WHERE public_key = ?`;
-        await connection.execute(heartbeatQuery, [publicKey]);
+        const [result] = await connection.execute(heartbeatQuery, [publicKey]);
+
+        // If the device isn't registered yet (UPDATE affected 0 rows), insert it
+        // so other devices can detect it via the count query below.
+        const affectedRows = connection.isPostgreSQL
+            ? (result as { rowCount?: number }).rowCount ?? 0
+            : (result as { affectedRows?: number }).affectedRows ?? 0;
+        if (affectedRows === 0) {
+            const insertQuery = connection.isPostgreSQL
+                ? `INSERT INTO dc_pos.devices (label, public_key, connected, last_seen) VALUES ($1, $2, true, NOW()) ON CONFLICT (public_key) DO UPDATE SET connected = true, last_seen = NOW()`
+                : `INSERT INTO devices (label, public_key, connected, last_seen) VALUES (?, ?, true, NOW()) ON DUPLICATE KEY UPDATE connected = true, last_seen = NOW()`;
+            await connection.execute(insertQuery, [publicKey.slice(0, 8), publicKey]);
+        }
 
         // Count other devices that are currently active.
         const countQuery = connection.isPostgreSQL

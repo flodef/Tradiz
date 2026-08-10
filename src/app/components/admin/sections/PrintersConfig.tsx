@@ -244,10 +244,16 @@ export default function PrintersConfig({
             .catch(() => {});
     }, [isReadOnly]);
 
-    const notifyParent = (items: InternalPrinter[]) => {
+    // Sync internal printers state back to parent after render.
+    // Using a ref + useEffect avoids calling onChange (parent setState)
+    // during render or inside setPrinters updater functions.
+    const prevPrintersRef = useRef<InternalPrinter[]>(printers);
+    useEffect(() => {
+        if (prevPrintersRef.current === printers) return;
+        prevPrintersRef.current = printers;
         selfUpdateRef.current = true;
-        onChange(items.map(({ _id: _, ...rest }) => rest));
-    };
+        onChange(printers.map(({ _id: _, ...rest }) => rest));
+    }, [printers, onChange]);
 
     const isValid =
         printers.every((p) => {
@@ -263,7 +269,6 @@ export default function PrintersConfig({
     const handlePrinterChange = (index: number, updatedPrinter: InternalPrinter) => {
         const updated = printers.map((p, i) => (i === index ? updatedPrinter : p));
         setPrinters(updated);
-        notifyParent(updated);
     };
 
     const handleAddPrinter = () => {
@@ -281,15 +286,11 @@ export default function PrintersConfig({
             ipAddress: defaultAddress,
             _id: nextIdRef.current++,
         };
-        const updated = [...printers, newPrinter];
-        setPrinters(updated);
-        notifyParent(updated);
+        setPrinters([...printers, newPrinter]);
     };
 
     const handleDeletePrinter = (index: number) => {
-        const updated = printers.filter((_, i) => i !== index);
-        setPrinters(updated);
-        notifyParent(updated);
+        setPrinters(printers.filter((_, i) => i !== index));
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
@@ -299,9 +300,7 @@ export default function PrintersConfig({
             const oldIdx = prev.findIndex((p) => p._id === active.id);
             const newIdx = prev.findIndex((p) => p._id === over.id);
             if (oldIdx === -1 || newIdx === -1) return prev;
-            const reordered = arrayMove(prev, oldIdx, newIdx);
-            notifyParent(reordered);
-            return reordered;
+            return arrayMove(prev, oldIdx, newIdx);
         });
     };
 
@@ -341,7 +340,6 @@ export default function PrintersConfig({
 
             const finalList = [...updated, ...toAdd];
             if (finalList.length === prev.length && foundIdx === 0) return prev;
-            notifyParent(finalList);
             return finalList;
         });
     };

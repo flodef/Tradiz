@@ -4,6 +4,7 @@ import nodemailer, { SendMailOptions } from 'nodemailer';
 import { SummaryData } from '../hooks/useSummary';
 import { BillingReport } from '../utils/interfaces';
 import { DEV_EMAIL, IS_DEV } from '../utils/constants';
+import '../utils/extensions';
 
 // Configure nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -69,11 +70,15 @@ export async function sendUserAccessRequest(email: string, role: string, publicK
 export async function sendSummaryEmail(summaryData: SummaryData): Promise<boolean> {
     const totalAmount = summaryData.transactions.reduce((total, transaction) => total + transaction.amount, 0);
     const transactionCount = summaryData.transactions.length;
-    const productCount = summaryData.transactions.reduce(
-        (total, transaction) => total + transaction.products.reduce((total, product) => total + product.quantity, 0),
-        0
+    const productCount = Math.round(
+        summaryData.transactions.reduce(
+            (total, transaction) =>
+                total + transaction.products.reduce((total, product) => total + product.quantity, 0),
+            0
+        )
     );
     const averageTicket = transactionCount > 0 ? totalAmount / transactionCount : 0;
+    const averageTicketFormatted = averageTicket.toCurrency(summaryData.currency.decimals, summaryData.currency.symbol);
 
     const message = summaryData.summary
         .map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
@@ -88,7 +93,7 @@ export async function sendSummaryEmail(summaryData: SummaryData): Promise<boolea
           <p>Ci-joint le Ticket Z du ${summaryData.period} d'un montant de ${summaryData.amount} :</p>
           <p>Nombre de ventes : ${transactionCount}</p>
           <p>Nombre de produits : ${productCount}</p>
-          <p>Ticket moyen : ${averageTicket}</p>
+          <p>Ticket moyen : ${averageTicketFormatted}</p>
           <table style="width: 55%; border-collapse: collapse; margin: 0; border: 1px solid #ccc;">
             ${message
                 .split('\n')

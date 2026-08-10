@@ -251,7 +251,7 @@ export const usePay = () => {
         ]
     );
 
-    // Auto-print to kitchen when order is put in waiting/processing state.
+    // Auto-print to kitchen when order is put in waiting/processing state or paid/refunded.
     // Auto-print to cashier when order is fully paid or refunded.
     const autoPrint = useCallback(
         (method: string, transaction?: Transaction) => {
@@ -259,7 +259,7 @@ export const usePay = () => {
             const isRefund = method === REFUND_KEYWORD;
             const isPaid = !isWaiting && !isRefund && method !== UPDATING_KEYWORD && method !== DELETED_KEYWORD;
 
-            if (isWaiting) {
+            if (isWaiting || isPaid || isRefund) {
                 printKitchenReceipt(transaction).then((response) => {
                     if (!response.success) console.error('[autoPrint] Kitchen print failed:', response.error);
                 });

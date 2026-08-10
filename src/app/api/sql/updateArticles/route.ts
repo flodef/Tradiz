@@ -55,12 +55,17 @@ export async function POST(request: Request) {
 
         connection = await getMainDb(shopId);
 
-        // Check for duplicate product names before writing
-        const names = (products as Product[]).map((p) => p.name.trim().toLowerCase());
-        const duplicates = names.filter((n, i) => names.indexOf(n) !== i);
+        // Check for duplicate (name, category) pairs before writing.
+        // Same name in different categories is allowed.
+        const allProducts = products as Product[];
+        const keys = allProducts.map(
+            (p) => `${p.name.trim().toLowerCase()}\0${(p.category || '').trim().toLowerCase()}`
+        );
+        const duplicates = keys.filter((k, i) => keys.indexOf(k) !== i);
         if (duplicates.length > 0) {
+            const dupNames = [...new Set(duplicates.map((k) => k.split('\0')[0]))];
             return NextResponse.json(
-                { error: `Noms de produits en double : "${[...new Set(duplicates)].join(', ')}"` },
+                { error: `Produits en double (nom + catégorie) : "${dupNames.join(', ')}"` },
                 { status: 409 }
             );
         }
@@ -68,32 +73,51 @@ export async function POST(request: Request) {
         const sortOrders = computeSortOrders(products as Product[]);
 
         const pgTable = connection.isPostgreSQL ? 'dc.products' : 'products';
+        const catTable = connection.isPostgreSQL ? 'dc.categories' : 'categories';
 
         await connection.beginTransaction();
         try {
+            // Build a map of category name → category_id from the categories table
+            const catQuery = connection.isPostgreSQL
+                ? `SELECT id, name FROM ${catTable}`
+                : `SELECT id, name FROM ${catTable}`;
+            const [catRows] = await connection.execute(catQuery);
+            const catMap = new Map<string, number>();
+            for (const row of catRows as { id: number; name: string }[]) {
+                catMap.set(String(row.name), Number(row.id));
+            }
+
             if (scopedCategory !== null) {
-                await connection.execute(
-                    `DELETE FROM ${pgTable} WHERE category = ${connection.isPostgreSQL ? '$1' : '?'}`,
-                    [scopedCategory]
-                );
+                // Delete products whose category_id matches the scoped category name
+                const catId = catMap.get(scopedCategory);
+                if (catId !== undefined) {
+                    await connection.execute(
+                        `DELETE FROM ${pgTable} WHERE category_id = ${connection.isPostgreSQL ? '$1' : '?'}`,
+                        [catId]
+                    );
+                }
             } else {
                 await connection.execute(connection.isPostgreSQL ? 'DELETE FROM dc.products' : 'DELETE FROM products');
             }
 
+            const allProducts = products as Product[];
             const productsToInsert =
-                scopedCategory !== null
-                    ? (products as Product[]).filter((p) => p.category === scopedCategory)
-                    : (products as Product[]);
+                scopedCategory !== null ? allProducts.filter((p) => p.category === scopedCategory) : allProducts;
+
+            // Build a Map from product object → sort order index to avoid O(n²) indexOf
+            const sortOrderMap = new Map<Product, number>();
+            for (let i = 0; i < allProducts.length; i++) {
+                sortOrderMap.set(allProducts[i], sortOrders[i]);
+            }
 
             const cols =
-                'name, price, category, stock, reference, photo, description, sort_order, vat_rate, options, color';
+                'name, price, category_id, stock, reference, photo, description, sort_order, vat_rate, options, color';
             const rowValues: unknown[] = [];
             const placeholders: string[] = [];
 
             for (let i = 0; i < productsToInsert.length; i++) {
                 const product = productsToInsert[i];
-                const globalIdx = (products as Product[]).indexOf(product);
-                const sortOrder = sortOrders[globalIdx];
+                const sortOrder = sortOrderMap.get(product) ?? i + 1;
                 const price = parseFloat(product.currencies[0]) || 0;
                 const stock = product.stock;
                 const vatRate = product.vat ?? DEFAULT_VAT_RATE;
@@ -102,6 +126,7 @@ export async function POST(request: Request) {
                 const description = product.description ?? '';
                 const options = product.options ?? '';
                 const color = product.color ?? '';
+                const categoryId = catMap.get(product.category) ?? null;
 
                 const start = rowValues.length + 1;
                 const row = connection.isPostgreSQL
@@ -111,7 +136,7 @@ export async function POST(request: Request) {
                 rowValues.push(
                     product.name,
                     price,
-                    product.category,
+                    categoryId,
                     stock,
                     reference,
                     photo,

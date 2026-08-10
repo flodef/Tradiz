@@ -12,6 +12,7 @@ import {
     Role,
     State,
     User,
+    CategoryData,
 } from '@/app/utils/interfaces';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigContext, OperationMode } from '../hooks/useConfig';
@@ -102,6 +103,7 @@ export interface Config {
     printers: Printer[];
     customers: Customer[];
     users: User[];
+    categories?: CategoryData[];
 }
 
 export interface ConfigProviderProps {
@@ -149,6 +151,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     const [printers, setPrinters] = useState<Printer[]>([]);
     const [customers, setCustomersState] = useState<Customer[]>([]);
     const [users, setUsers] = useState<User[]>([]);
+    const [categories, setCategories] = useState<CategoryData[]>([]);
 
     const isStateReady = useMemo(() => state === State.preloaded || state === State.loaded, [state]);
 
@@ -251,6 +254,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
         setPrinters(data.printers);
         setCustomersState(data.customers);
         setUsers(data.users);
+        setCategories(data.categories ?? []);
 
         setState(State.preloaded);
     }, []);
@@ -386,7 +390,8 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                 });
 
                 // If we have cached data, stay in preloaded state and just log the error
-                if (config) return;
+                // — unless the user is not identified, in which case we must show the popup.
+                if (config && !(error instanceof UserNotFoundError)) return;
 
                 if (error instanceof UserNotFoundError) {
                     setState(State.unidentified);
@@ -436,6 +441,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                 customers,
                 setCustomers,
                 users,
+                categories,
             }}
         >
             {children}

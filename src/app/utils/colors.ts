@@ -21,6 +21,18 @@ const COLOR_MAP: Record<string, string> = {
     purple: '#a78bfa',
 };
 
+// Ordered list of available colors for pickers/UI
+export const COLOR_OPTIONS: { value: string; hex: string }[] = [
+    { value: 'white', hex: '#ffffff' },
+    { value: 'light blue', hex: '#7dd3fc' },
+    { value: 'light yellow', hex: '#fde68a' },
+    { value: 'light orange', hex: '#fdba74' },
+    { value: 'light pink', hex: '#fbcfe8' },
+    { value: 'red', hex: '#ef4444' },
+    { value: 'light green', hex: '#86efac' },
+    { value: 'purple', hex: '#a78bfa' },
+];
+
 // French → English alias map (for backward compatibility with old data)
 const FR_TO_EN: Record<string, string> = {
     blanc: 'white',

@@ -22,6 +22,15 @@ html[data-theme-ready='0'] body {
     visibility: hidden;
 }
 
+/* Hide scrollbar but keep scrollable */
+.scrollbar-none::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
 @theme {
     --color-writing-light: var(--writing-light-color);
     --color-main-from-light: var(--main-from-light-color);

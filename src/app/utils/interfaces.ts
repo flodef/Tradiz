@@ -26,6 +26,15 @@ export enum Mercurial {
 export interface Category {
     label: string;
     vat: number | null;
+    company?: string | null;
+    sortOrder?: number;
+}
+
+export interface CategoryData {
+    id: number;
+    name: string;
+    company: string | null;
+    sortOrder: number;
 }
 
 export interface User {

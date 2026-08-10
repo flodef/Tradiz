@@ -187,6 +187,7 @@ info "Building final SQL script..."
         echo "DELETE FROM dc.tables;"
         echo "DELETE FROM dc.walls;"
         echo "DELETE FROM dc.products;"
+        echo "DELETE FROM dc.categories;"
         echo "DELETE FROM dc.establishment_config;"
         echo "-- Reset sequences after delete"
         echo "SELECT setval('dc_pos.users_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.users), 1), true);"
@@ -197,6 +198,7 @@ info "Building final SQL script..."
         echo "SELECT setval('dc_pos.customers_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.customers), 1), true);"
         echo "SELECT setval('dc_pos.companies_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.companies), 1), true);"
         echo "SELECT setval('dc.products_id_seq', COALESCE((SELECT MAX(id) FROM dc.products), 1), true);"
+        echo "SELECT setval('dc.categories_id_seq', COALESCE((SELECT MAX(id) FROM dc.categories), 1), true);"
         echo "SELECT setval('dc.formulas_id_seq', COALESCE((SELECT MAX(id) FROM dc.formulas), 1), true);"
         echo "SELECT setval('dc.formula_elements_id_seq', COALESCE((SELECT MAX(id) FROM dc.formula_elements), 1), true);"
         echo "SELECT setval('dc.theme_admin_id_seq', COALESCE((SELECT MAX(id) FROM dc.theme_admin), 1), true);"
@@ -301,6 +303,7 @@ if [[ "$PSQL_EXIT" -eq 0 ]]; then
     SELECT 'companies' as table_name, count(*) FROM dc_pos.companies
     UNION ALL SELECT 'customers', count(*) FROM dc_pos.customers
     UNION ALL SELECT 'products', count(*) FROM dc.products
+    UNION ALL SELECT 'categories', count(*) FROM dc.categories
     UNION ALL SELECT 'formulas', count(*) FROM dc.formulas
     UNION ALL SELECT 'formula_elements', count(*) FROM dc.formula_elements
     UNION ALL SELECT 'users', count(*) FROM dc_pos.users

@@ -180,12 +180,16 @@ export default function EditMenuPage() {
     const [originalOptions, setOriginalOptions] = useState<ProductOptionGroup[]>([]);
     const [hasOptionsChanges, setHasOptionsChanges] = useState(false);
     const [emptyProductsPopupShown, setEmptyProductsPopupShown] = useState(false);
+    const [dbCategories, setDbCategories] = useState<{ name: string; company: string | null; sortOrder: number }[]>([]);
+    const [originalDbCategories, setOriginalDbCategories] = useState<
+        { name: string; company: string | null; sortOrder: number }[]
+    >([]);
     const dataLoadedRef = useRef(false);
     const seededRef = useRef(false);
 
-    // Derive categories from products — categories are local-only, not stored in DB
-    // If all products in a category have the same VAT, use it; otherwise null (divers)
-    // Products with empty category appear as the default category
+    // Derive categories from DB (source of truth for name, company, sortOrder)
+    // and products (for VAT inference). DB categories come first; any product-only
+    // categories (not yet in DB) are appended.
     const categories = useMemo(() => {
         const catVats = new Map<string, Set<number>>();
         for (const p of products) {
@@ -194,11 +198,48 @@ export default function EditMenuPage() {
             catVats.get(cat)!.add(p.vat ?? 20);
         }
         const result: Category[] = [];
+        const seen = new Set<string>();
+        // DB categories first (in their sort order)
+        for (const dbCat of dbCategories) {
+            const label = dbCat.name || DEFAULT_CATEGORY;
+            seen.add(label);
+            const vats = catVats.get(label);
+            result.push({
+                label,
+                vat: vats && vats.size === 1 ? [...vats][0] : null,
+                company: dbCat.company,
+                sortOrder: dbCat.sortOrder,
+            });
+        }
+        // Product-only categories not in DB
         for (const [label, vats] of catVats) {
-            result.push({ label, vat: vats.size === 1 ? [...vats][0] : null });
+            if (!seen.has(label)) {
+                result.push({
+                    label,
+                    vat: vats.size === 1 ? [...vats][0] : null,
+                    company: null,
+                    sortOrder: result.length,
+                });
+            }
         }
         return result;
-    }, [products]);
+    }, [products, dbCategories]);
+
+    // Persists categories to the DB.
+    const saveCategoriesToDb = useCallback(
+        async (cats: { name: string; company: string | null; sortOrder: number }[]) => {
+            const response = await fetch('/api/sql/updateCategories', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ categories: cats }),
+            });
+            if (!response.ok) {
+                const body = await response.json().catch(() => ({}));
+                throw new Error(body.error || 'Failed to save categories');
+            }
+        },
+        []
+    );
 
     const [localCategoryLabels, setLocalCategoryLabels] = useState<string[]>([]);
     const categoryOptions = useMemo(() => {
@@ -206,6 +247,37 @@ export default function EditMenuPage() {
         const extras = localCategoryLabels.filter((l) => l && !base.includes(l));
         return [...base, ...extras].map((l) => ({ label: l, value: l }));
     }, [categories, localCategoryLabels]);
+
+    // When new categories are added locally, update local state only.
+    // DB persistence happens when the user clicks Save (via handleProductsSave).
+    const handleLocalCategoriesChange = useCallback(
+        (labels: string[]) => {
+            setLocalCategoryLabels(labels);
+            // Merge new labels into DB categories (local state only)
+            const newLabels = labels.filter((l) => l && !dbCategories.some((c) => c.name === l));
+            if (newLabels.length > 0) {
+                const updatedDbCats = [
+                    ...dbCategories,
+                    ...newLabels.map((name, i) => ({
+                        name,
+                        company: null,
+                        sortOrder: dbCategories.length + i,
+                    })),
+                ];
+                setDbCategories(updatedDbCats);
+            }
+        },
+        [dbCategories]
+    );
+
+    // Company change for a category — local state only, persisted on Save
+    const handleCategoryCompanyChange = useCallback(
+        (categoryLabel: string, company: string | null) => {
+            const updatedDbCats = dbCategories.map((c) => (c.name === categoryLabel ? { ...c, company } : c));
+            setDbCategories(updatedDbCats);
+        },
+        [dbCategories]
+    );
 
     // Step 1: check DB config once on mount
     useEffect(() => {
@@ -296,12 +368,27 @@ export default function EditMenuPage() {
                 dataLoadedRef.current = true;
 
                 // Always fetch fresh data from DB in background
-                const [productsResponse, parametersResponse] = await Promise.all([
+                const [productsResponse, parametersResponse, categoriesResponse] = await Promise.all([
                     fetch('/api/sql/getAllArticles'),
                     fetch('/api/sql/getParameters'),
+                    fetch('/api/sql/getCategories'),
                 ]);
                 const productsData = await productsResponse.json();
                 const parametersData = await parametersResponse.json();
+                const categoriesData = await categoriesResponse.json();
+
+                // Load DB categories
+                if (Array.isArray(categoriesData.categories)) {
+                    const mapped = categoriesData.categories.map(
+                        (c: { name: string; company: string | null; sortOrder: number }) => ({
+                            name: String(c.name),
+                            company: c.company ?? null,
+                            sortOrder: Number(c.sortOrder) || 0,
+                        })
+                    );
+                    setDbCategories(mapped);
+                    setOriginalDbCategories(mapped);
+                }
 
                 // Parse productsSettings from parameters
                 if (parametersData.parameters) {
@@ -458,10 +545,21 @@ export default function EditMenuPage() {
     }, []);
 
     const handleProductsSave = useCallback(
-        async (data: AdminProduct[], category?: string, formulasOverride?: AdminFormula[]) => {
+        async (
+            data: AdminProduct[],
+            category?: string,
+            formulasOverride?: AdminFormula[],
+            categoriesOverride?: { name: string; company: string | null; sortOrder: number }[]
+        ) => {
             const formulasToPersist = formulasOverride ?? formulas;
+            const catsToPersist = categoriesOverride ?? dbCategories;
             setIsSavingProducts(true);
             try {
+                // 1. Persist categories first (await) so updateArticles can resolve
+                //    category names → IDs without FK violations.
+                await saveCategoriesToDb(catsToPersist);
+
+                // 2. Save products
                 const response = await fetch('/api/sql/updateArticles', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -482,6 +580,8 @@ export default function EditMenuPage() {
 
                 setProducts(data);
                 setOriginalProducts(data);
+                // Sync originalDbCategories to the persisted state
+                setOriginalDbCategories(catsToPersist);
 
                 const config: Config = {
                     parameters: { ...parameters, lastModified: Date.now().toString() },
@@ -503,7 +603,7 @@ export default function EditMenuPage() {
                 console.error("Erreur lors de l'enregistrement:", error);
                 const msg = error instanceof Error ? error.message : "Erreur lors de l'enregistrement des produits.";
                 openFullscreenPopup(`${msg}\nVoulez-vous réessayer ?`, ['Réessayer', 'Annuler'], (index) => {
-                    if (index === 0) handleProductsSave(data, category, formulasOverride);
+                    if (index === 0) handleProductsSave(data, category, formulasOverride, categoriesOverride);
                 });
             } finally {
                 setIsSavingProducts(false);
@@ -522,6 +622,8 @@ export default function EditMenuPage() {
             users,
             formulas,
             saveFormulasToDb,
+            saveCategoriesToDb,
+            dbCategories,
         ]
     );
 
@@ -586,19 +688,22 @@ export default function EditMenuPage() {
             // Formula elements reference categories by label; rename them too.
             const updatedFormulas = renameFormulaCategory(formulas, oldLabel, trimmedNewLabel);
 
+            // Update DB categories (local state only — persisted on Save)
+            const updatedDbCats = dbCategories.map((c) => (c.name === oldLabel ? { ...c, name: trimmedNewLabel } : c));
+            setDbCategories(updatedDbCats);
+
             setProducts(updatedProducts);
-            setOriginalProducts(updatedProducts);
             setFormulas(updatedFormulas);
-            setOriginalFormulas(updatedFormulas);
             setHasFormulasChanges(false);
 
             // Full replace (category === undefined) so renamed rows can't be left behind
             // as duplicates. handleProductsSave re-saves the formulas afterwards, which
             // both persists the renamed element categories and rebuilds the
             // formula→product links that the product DELETE cascaded away.
-            handleProductsSave(updatedProducts, undefined, updatedFormulas);
+            // setOriginalProducts/setOriginalFormulas are set by handleProductsSave on success.
+            handleProductsSave(updatedProducts, undefined, updatedFormulas, updatedDbCats);
         },
-        [products, formulas, handleProductsSave]
+        [products, formulas, dbCategories, handleProductsSave]
     );
 
     // Category delete: either remove products or move them to empty category, then save.
@@ -613,14 +718,17 @@ export default function EditMenuPage() {
             // or dropped, mirroring what happens to the products.
             const updatedFormulas = applyCategoryDeletionToFormulas(formulas, categoryLabel, moveToEmpty);
 
+            // Remove from DB categories (local state only — persisted on Save)
+            const updatedDbCats = dbCategories.filter((c) => c.name !== categoryLabel);
+            setDbCategories(updatedDbCats);
+
             setProducts(updated);
-            setOriginalProducts(updated);
             setFormulas(updatedFormulas);
-            setOriginalFormulas(updatedFormulas);
             setHasFormulasChanges(false);
-            handleProductsSave(updated, undefined, updatedFormulas);
+            // setOriginalProducts/setOriginalFormulas are set by handleProductsSave on success.
+            handleProductsSave(updated, undefined, updatedFormulas, updatedDbCats);
         },
-        [products, formulas, handleProductsSave]
+        [products, formulas, dbCategories, handleProductsSave]
     );
 
     // Category VAT change: apply new VAT to all products in the category and save to DB
@@ -636,25 +744,32 @@ export default function EditMenuPage() {
         [handleProductsSave]
     );
 
-    // Category reorder: reorder all products so they follow the new category order, then save
+    // Category reorder: update local state only — persisted when user clicks Save
     const handleCategoryReorder = useCallback(
         (orderedLabels: string[]) => {
+            // Update dbCategories sort order (local state only)
+            const updatedDbCats = orderedLabels.map((label, index) => {
+                const existing = dbCategories.find((c) => c.name === label);
+                return { name: label, company: existing?.company ?? null, sortOrder: index };
+            });
+            setDbCategories(updatedDbCats);
+
+            // Reorder products locally to match the new category order
             setProducts((prev) => {
                 const sorted = [
                     ...orderedLabels.flatMap((label) => prev.filter((p) => isSameCategory(p.category, label))),
                     // Anything not covered by the new order keeps its relative position at the end
                     ...prev.filter((p) => !orderedLabels.some((label) => isSameCategory(p.category, label))),
                 ];
-                // Save immediately with full DB replace to avoid duplicates
-                handleProductsSave(sorted, undefined);
                 return sorted;
             });
         },
-        [handleProductsSave]
+        [dbCategories]
     );
 
     const hasProductsChanges = JSON.stringify(products) !== JSON.stringify(originalProducts);
-    const hasChanges = hasProductsChanges || hasFormulasChanges || hasOptionsChanges;
+    const hasCategoriesChanges = JSON.stringify(dbCategories) !== JSON.stringify(originalDbCategories);
+    const hasChanges = hasProductsChanges || hasFormulasChanges || hasOptionsChanges || hasCategoriesChanges;
 
     // Warn about unsaved changes when leaving page
     useEffect(() => {
@@ -669,6 +784,7 @@ export default function EditMenuPage() {
 
     const handleCancel = () => {
         setProducts(originalProducts);
+        setDbCategories(originalDbCategories);
     };
 
     const nonFormulaProducts = useMemo(() => products.filter((p) => p.category !== FORMULA_CATEGORY), [products]);
@@ -709,22 +825,37 @@ export default function EditMenuPage() {
             )}
 
             <div className="space-y-6">
-                <CategoriesConfig
-                    config={categories}
-                    isReadOnly={isReadOnly}
-                    isOpen={openSection === 'categories'}
-                    onToggle={() => setOpenSection((prev) => (prev === 'categories' ? null : 'categories'))}
-                    productCategories={products.map((p) => ({
-                        category: p.category || DEFAULT_CATEGORY,
-                        available: p.stock !== 0,
-                    }))}
-                    onDeleteCategoryProducts={handleDeleteCategoryProducts}
-                    onRenameCategory={handleCategoryRename}
-                    onCategoryVatChange={handleCategoryVatChange}
-                    onReorderCategories={isReadOnly ? undefined : handleCategoryReorder}
-                    onLocalCategoriesChange={setLocalCategoryLabels}
-                    icon={<IconCategory size={24} />}
-                />
+                {categories.length > 0 && (
+                    <CategoriesConfig
+                        config={categories}
+                        isReadOnly={isReadOnly}
+                        isOpen={openSection === 'categories'}
+                        onToggle={() => setOpenSection((prev) => (prev === 'categories' ? null : 'categories'))}
+                        productCategories={products.map((p) => ({
+                            category: p.category || DEFAULT_CATEGORY,
+                            available: p.stock !== 0,
+                        }))}
+                        onDeleteCategoryProducts={handleDeleteCategoryProducts}
+                        onRenameCategory={handleCategoryRename}
+                        onCategoryVatChange={handleCategoryVatChange}
+                        onReorderCategories={isReadOnly ? undefined : handleCategoryReorder}
+                        onLocalCategoriesChange={handleLocalCategoriesChange}
+                        onCategoryCompanyChange={isReadOnly ? undefined : handleCategoryCompanyChange}
+                        companies={customers
+                            ?.map((c) => c.company)
+                            .filter((c): c is string => Boolean(c))
+                            .filter((c, i, arr) => arr.indexOf(c) === i)}
+                        onSave={
+                            isReadOnly
+                                ? undefined
+                                : () => handleProductsSave(products, undefined, undefined, dbCategories)
+                        }
+                        onCancel={handleCancel}
+                        hasChanges={hasCategoriesChanges}
+                        isLoading={isSavingProducts}
+                        icon={<IconCategory size={24} />}
+                    />
+                )}
 
                 {/* Options Configuration Section - only visible when useOptions is enabled and there are categories */}
                 {productsSettings?.useOptions && categories.length > 0 && (

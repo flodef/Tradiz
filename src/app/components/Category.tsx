@@ -1,6 +1,7 @@
 'use client';
 
-import { FC, MouseEventHandler, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, MouseEventHandler, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { twMerge } from 'tailwind-merge';
 import { sendFatalErrorEmail, sendMissingParametersRequest, sendUserAccessRequest } from '../actions/email';
 import { useConfig } from '../hooks/useConfig';
@@ -129,8 +130,9 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length, sizeC
 };
 
 export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false }) => {
-    const { inventory, state, setState, currencyIndex, parameters } = useConfig();
-    const { addProduct, amount, setSelectedProduct, clearAmount, selectedProduct, toCurrency } = useData();
+    const { inventory, state, setState, currencyIndex, parameters, categories: configCategories } = useConfig();
+    const { addProduct, amount, setSelectedProduct, clearAmount, selectedProduct, toCurrency, currentCustomer } =
+        useData();
     const { openPopup, updatePopup, openFullscreenPopup, closePopup } = usePopup();
     const { isLocalhost, isDemo } = useWindowParam();
 
@@ -627,22 +629,64 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
         openProductListPopup(item);
     };
 
-    const displayInventory = useMemo(
-        () =>
-            inventory
-                .slice()
-                .sort((a, b) => a.order - b.order)
-                .map((item) => ({
-                    ...item,
-                    products: item.products.filter((p) => p.stock !== 0).sort((a, b) => a.order - b.order),
-                }))
-                .filter((item) => item.products.length > 0 || true), // keep category even if empty (for OTHER_KEYWORD)
-        [inventory]
-    );
+    const displayInventory = useMemo(() => {
+        const customerCompany = currentCustomer?.company ?? null;
+        // Map: category name → company name (for all company-specific categories)
+        const categoryCompany = new Map<string, string>();
+        for (const c of configCategories ?? []) {
+            if (c.company) categoryCompany.set(c.name, c.company);
+        }
+        // Categories belonging to the selected customer's company
+        const customerCategoryNames = new Set(
+            [...categoryCompany.entries()].filter(([, comp]) => comp === customerCompany).map(([name]) => name)
+        );
+
+        // Inventory is already sorted by dc.categories.sort_order in processData.ts.
+        // Don't re-sort by insertion order — just filter products and apply company filtering.
+        const withProducts = inventory.map((item) => ({
+            ...item,
+            products: item.products.filter((p) => p.stock !== 0).sort((a, b) => a.order - b.order),
+        }));
+
+        // Company filtering:
+        // - Categories with no company → always visible
+        // - Categories with a company → only visible if the selected customer belongs to that company
+        //   (hidden otherwise, including when no customer is selected)
+        const visible = withProducts.filter((item) => {
+            const comp = categoryCompany.get(item.category);
+            return !comp || comp === customerCompany;
+        });
+
+        // When a company customer is selected, move their company-specific categories to the front
+        if (customerCompany && customerCategoryNames.size > 0) {
+            return [
+                ...visible.filter((item) => customerCategoryNames.has(item.category)),
+                ...visible.filter((item) => !customerCategoryNames.has(item.category)),
+            ];
+        }
+        return visible;
+    }, [inventory, configCategories, currentCustomer]);
 
     // ── Large-screen UX: catalog mode uses inline grid, not popups ──
     const isMobile = useIsMobile();
     const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
+    const categoryBarRef = useRef<HTMLDivElement>(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
+
+    // Track whether the category bar can scroll in either direction
+    const updateScrollState = useCallback(() => {
+        const el = categoryBarRef.current;
+        if (!el) return;
+        setCanScrollLeft(el.scrollLeft > 0);
+        setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
+    }, []);
+
+    const scrollCategoryBar = useCallback((direction: 'left' | 'right') => {
+        const el = categoryBarRef.current;
+        if (!el) return;
+        el.scrollBy({ left: direction === 'left' ? -200 : 200, behavior: 'smooth' });
+    }, []);
 
     useEffect(() => {
         if (isMobile || !catalogMode) return;
@@ -655,6 +699,11 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
     }, [state, isMobile, catalogMode, displayInventory, selectedCategoryIndex]);
 
     const categories = useMemo(() => displayInventory.map(({ category }) => category), [displayInventory]);
+
+    // Update scroll arrows when categories change
+    useEffect(() => {
+        updateScrollState();
+    }, [categories, updateScrollState]);
 
     // 2 columns per row, all categories shown (scroll if > 3 rows)
     const COLS = 2;
@@ -722,24 +771,49 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
 
         return (
             <div className={popupClass + ' flex flex-col'}>
-                {/* Horizontal category bar */}
-                <div className="flex overflow-x-auto border-b-[3px] border-active-light dark:border-active-dark shrink-0">
-                    {categories.map((category, index) => (
-                        <div
-                            key={index}
-                            className={twMerge(
-                                'flex-1 min-w-fit px-4 py-2 font-semibold text-lg text-center cursor-pointer whitespace-nowrap',
-                                'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light',
-                                'hover:bg-active-light dark:hover:bg-active-dark',
-                                index === selectedCategoryIndex
-                                    ? 'bg-active-light dark:bg-active-dark text-popup-dark dark:text-popup-light'
-                                    : ''
-                            )}
-                            onClick={() => setSelectedCategoryIndex(index)}
+                {/* Horizontal category bar with arrow navigation */}
+                <div className="flex items-center border-b-[3px] border-active-light dark:border-active-dark shrink-0">
+                    {canScrollLeft && (
+                        <button
+                            type="button"
+                            onClick={() => scrollCategoryBar('left')}
+                            className="shrink-0 p-1 hover:bg-active-light dark:hover:bg-active-dark text-light dark:text-dark"
                         >
-                            {category}
-                        </div>
-                    ))}
+                            <IconChevronLeft size={24} />
+                        </button>
+                    )}
+                    <div
+                        ref={categoryBarRef}
+                        onScroll={updateScrollState}
+                        className="flex overflow-x-auto border-none scrollbar-none"
+                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
+                        {categories.map((category, index) => (
+                            <div
+                                key={index}
+                                className={twMerge(
+                                    'flex-1 min-w-fit px-4 py-2 font-semibold text-lg text-center cursor-pointer whitespace-nowrap',
+                                    'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light',
+                                    'hover:bg-active-light dark:hover:bg-active-dark',
+                                    index === selectedCategoryIndex
+                                        ? 'bg-active-light dark:bg-active-dark text-popup-dark dark:text-popup-light'
+                                        : ''
+                                )}
+                                onClick={() => setSelectedCategoryIndex(index)}
+                            >
+                                {category}
+                            </div>
+                        ))}
+                    </div>
+                    {canScrollRight && (
+                        <button
+                            type="button"
+                            onClick={() => scrollCategoryBar('right')}
+                            className="shrink-0 p-1 hover:bg-active-light dark:hover:bg-active-dark text-light dark:text-dark"
+                        >
+                            <IconChevronRight size={24} />
+                        </button>
+                    )}
                 </div>
 
                 {/* 6×6 product grid — positioned by sortOrder, show price + color */}

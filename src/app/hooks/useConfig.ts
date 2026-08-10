@@ -10,6 +10,7 @@ import {
     Printer,
     State,
     User,
+    CategoryData,
 } from '../utils/interfaces';
 
 export type OperationMode = 'restaurant' | 'fastfood' | 'lite';
@@ -39,6 +40,7 @@ export interface ConfigContextState {
     customers: Customer[];
     setCustomers: (value: Customer[] | ((prev: Customer[]) => Customer[])) => void;
     users: User[];
+    categories: CategoryData[];
 }
 
 export const ConfigContext = createContext<ConfigContextState>({} as ConfigContextState);

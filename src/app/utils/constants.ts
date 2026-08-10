@@ -90,7 +90,7 @@ export const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || '';
 export const adminBaseStyle =
     'text-sm border-2 rounded-md bg-white dark:bg-gray-700 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
 export const adminInputStyle = (error = false) =>
-    `w-full h-8 px-2 py-1 ${adminBaseStyle} ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600 focus:border-blue-500'}`;
+    `w-full h-8 px-1 py-1 ${adminBaseStyle} ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600 focus:border-blue-500'}`;
 export const adminContainerStyle = (disabled = false) =>
     `p-3 flex items-center gap-2 border-gray-300 dark:border-gray-600 relative group ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${adminBaseStyle}`;
 export const adminTextStyle = 'text-left text-xs uppercase font-bold text-gray-500 dark:text-gray-400 mb-0.5';

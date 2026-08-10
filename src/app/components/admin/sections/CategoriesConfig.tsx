@@ -34,10 +34,12 @@ interface SortableRowProps {
     isReadOnly: boolean;
     isInvalid: boolean;
     vatRates: number[];
+    companies?: string[];
     productCount: { total: number; available: number };
     onLabelChange: (id: number, label: string) => void;
     onLabelBlur: (id: number) => void;
     onVatChange: (id: number, vat: number) => void;
+    onCompanyChange: (id: number, company: string | null) => void;
     onDelete: (id: number) => void;
     labelInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
     lastAddedIndexRef: React.MutableRefObject<number | null>;
@@ -49,10 +51,12 @@ const SortableRow = memo(function SortableRow({
     isReadOnly,
     isInvalid,
     vatRates,
+    companies,
     productCount,
     onLabelChange,
     onLabelBlur,
     onVatChange,
+    onCompanyChange,
     onDelete,
     labelInputRefs,
     lastAddedIndexRef,
@@ -89,6 +93,14 @@ const SortableRow = memo(function SortableRow({
     const handleDelete = useCallback(() => {
         onDelete(category._id);
     }, [category._id, onDelete]);
+
+    const handleCompanyChange = useCallback(
+        (e: React.ChangeEvent<HTMLSelectElement>) => {
+            const val = e.target.value;
+            onCompanyChange(category._id, val === '' ? null : val);
+        },
+        [category._id, onCompanyChange]
+    );
 
     return (
         <tr ref={setNodeRef} style={style} className="border-b border-gray-200 dark:border-gray-700">
@@ -140,6 +152,15 @@ const SortableRow = memo(function SortableRow({
                     />
                 )}
             </td>
+            <td className="p-2">
+                <AdminSelect
+                    value={category.company ?? ''}
+                    onChange={handleCompanyChange}
+                    options={[{ value: '', label: '—' }, ...(companies ?? []).map((c) => ({ value: c, label: c }))]}
+                    isReadOnly={isReadOnly}
+                    className="min-w-32"
+                />
+            </td>
             <td className="p-2 text-center text-sm">
                 {productCount.available} / {productCount.total}
             </td>
@@ -159,8 +180,11 @@ export default function CategoriesConfig({
     onCategoryVatChange,
     onReorderCategories,
     onLocalCategoriesChange,
+    onCategoryCompanyChange,
+    companies,
     onSave,
     onCancel,
+    hasChanges = false,
     isLoading = false,
     icon,
 }: {
@@ -168,6 +192,7 @@ export default function CategoriesConfig({
     isReadOnly?: boolean;
     onSave?: () => void;
     onCancel?: () => void;
+    hasChanges?: boolean;
     isLoading?: boolean;
     isOpen?: boolean;
     onToggle?: () => void;
@@ -177,6 +202,8 @@ export default function CategoriesConfig({
     onCategoryVatChange?: (categoryLabel: string, vat: number) => void;
     onReorderCategories?: (orderedLabels: string[]) => void;
     onLocalCategoriesChange?: (labels: string[]) => void;
+    onCategoryCompanyChange?: (categoryLabel: string, company: string | null) => void;
+    companies?: string[];
     icon?: React.ReactNode;
 }) {
     const { openFullscreenPopup } = usePopup();
@@ -264,10 +291,17 @@ export default function CategoriesConfig({
                 if (existing) {
                     // If user is editing (label differs from _originalLabel), preserve local state
                     if (existing.label !== existing._originalLabel) {
-                        result.push({ ...existing, vat: c.vat });
+                        result.push({ ...existing, vat: c.vat, company: c.company ?? null, sortOrder: c.sortOrder });
                     } else {
                         // Not editing - sync normally
-                        result.push({ ...existing, label: c.label, vat: c.vat, _originalLabel: c.label });
+                        result.push({
+                            ...existing,
+                            label: c.label,
+                            vat: c.vat,
+                            company: c.company ?? null,
+                            sortOrder: c.sortOrder,
+                            _originalLabel: c.label,
+                        });
                     }
                 } else {
                     result.push({ ...c, _id: nextIdRef.current++, _originalLabel: c.label });
@@ -287,6 +321,7 @@ export default function CategoriesConfig({
                         p._id === result[i]._id &&
                         p.label === result[i].label &&
                         p.vat === result[i].vat &&
+                        p.company === result[i].company &&
                         p._originalLabel === result[i]._originalLabel
                 )
             ) {
@@ -473,25 +508,15 @@ export default function CategoriesConfig({
 
             const reordered = arrayMove(categories, oldIdx, newIdx);
 
-            // Apply visually immediately
+            // Apply visually immediately (local state only — persisted on Save)
             setCategories(reordered);
 
+            // Notify parent of the new order (no popup, no immediate save)
             if (onReorderCategories) {
-                openFullscreenPopup(
-                    'Réorganiser les catégories',
-                    ["Appliquer et sauvegarder l'ordre des produits", 'Annuler'],
-                    (index) => {
-                        if (index === 0) {
-                            onReorderCategories(reordered.map((c) => c._originalLabel || c.label));
-                        } else {
-                            // Rollback to original order
-                            setCategories(categories);
-                        }
-                    }
-                );
+                onReorderCategories(reordered.map((c) => c._originalLabel || c.label));
             }
         },
-        [categories, onReorderCategories, openFullscreenPopup]
+        [categories, onReorderCategories]
     );
 
     return (
@@ -499,6 +524,7 @@ export default function CategoriesConfig({
             title="Catégories"
             onSave={onSave}
             onCancel={onCancel}
+            hasChanges={hasChanges}
             isLoading={isLoading}
             isOpen={isOpen}
             onToggle={onToggle}
@@ -517,6 +543,7 @@ export default function CategoriesConfig({
                                     {!isReadOnly && <th className="w-12"></th>}
                                     <th className={adminHeaderStyle + ' min-w-32'}>Label</th>
                                     <th className={adminHeaderStyle + ' min-w-20 w-20'}>TVA</th>
+                                    <th className={adminHeaderStyle + ' min-w-32'}>Entreprise</th>
                                     <th className={adminHeaderStyle + ' min-w-16 w-16'}>Produits</th>
                                     {!isReadOnly && <th className="w-16"></th>}
                                 </tr>
@@ -529,6 +556,7 @@ export default function CategoriesConfig({
                                         isReadOnly={isReadOnly}
                                         isInvalid={invalidIds.has(category._id)}
                                         vatRates={vatRates}
+                                        companies={companies}
                                         productCount={
                                             productCountMap.get(category._originalLabel || category.label) ?? {
                                                 total: 0,
@@ -538,6 +566,15 @@ export default function CategoriesConfig({
                                         onLabelChange={handleLabelChange}
                                         onLabelBlur={handleLabelBlur}
                                         onVatChange={handleVatChange}
+                                        onCompanyChange={(id, company) => {
+                                            const cat = categories.find((c) => c._id === id);
+                                            if (cat) {
+                                                onCategoryCompanyChange?.(cat._originalLabel || cat.label, company);
+                                                setCategories((prev) =>
+                                                    prev.map((c) => (c._id === id ? { ...c, company } : c))
+                                                );
+                                            }
+                                        }}
                                         onDelete={handleDeleteCategory}
                                         labelInputRefs={labelInputRefs}
                                         lastAddedIndexRef={lastAddedIndexRef}
