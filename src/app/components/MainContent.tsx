@@ -210,6 +210,7 @@ export const MainContent: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdmi
         return (
             <div className="z-10 flex flex-col justify-between">
                 <LoadingDot />
+                <Category />
             </div>
         );
     }

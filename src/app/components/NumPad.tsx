@@ -902,14 +902,17 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
         : '';
     const s =
         'w-[72px] h-[72px] sm:w-20 sm:h-20 rounded-2xl flex justify-center m-2.5 sm:m-3 items-center text-5xl sm:text-6xl ';
-    const sx = s + (canPay ? color : 'invisible');
+    const sx = s + (total ? color : 'invisible');
 
     const f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
 
-    // Shared props for the wallet/cart/provision action button (used in both displayOnly and non-displayOnly layouts)
+    // Shared props for the pay button (used in both displayOnly and non-displayOnly layouts)
     const actionButtonProps = {
         icon: IconWallet,
-        onClick: canPay ? pay : () => {},
+        onClick: () => {
+            clearAmount();
+            pay();
+        },
         onContextMenu: canPay ? () => updateTransaction(WAITING_KEYWORD) : () => {},
     };
     const f1 = f + (hasAmount || total ? color : 'invisible');
@@ -1070,7 +1073,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                         />
                         {hasAmount ? (
                             displayOnly ? (
-                                <ImageButton {...actionButtonProps} className={f + (canPay ? color : 'invisible')} />
+                                <ImageButton {...actionButtonProps} className={f + (total ? color : 'invisible')} />
                             ) : (
                                 <FunctionButton
                                     className={f2}
@@ -1079,6 +1082,8 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                                     onContextMenu={discount ?? mercuriale}
                                 />
                             )
+                        ) : total ? (
+                            <ImageButton {...actionButtonProps} className={f + (total ? color : 'invisible')} />
                         ) : hasSearchEnabled ? (
                             <ImageButton
                                 icon={IconSearch}

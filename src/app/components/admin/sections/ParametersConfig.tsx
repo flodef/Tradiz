@@ -291,8 +291,8 @@ export default function ParametersConfig({
                                 } as ProductsSettings)
                             }
                             isReadOnly={isReadOnly}
+                            label="Utiliser TVA par produit"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser TVA par produit</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Switch
@@ -312,8 +312,8 @@ export default function ParametersConfig({
                                 } as ProductsSettings)
                             }
                             isReadOnly={isReadOnly}
+                            label="Utiliser référence"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser référence</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Switch
@@ -333,8 +333,8 @@ export default function ParametersConfig({
                                 } as ProductsSettings)
                             }
                             isReadOnly={isReadOnly}
+                            label="Utiliser stock"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser stock</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Switch
@@ -354,8 +354,8 @@ export default function ParametersConfig({
                                 } as ProductsSettings)
                             }
                             isReadOnly={isReadOnly}
+                            label="Utiliser photo"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser photo</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Switch
@@ -375,8 +375,8 @@ export default function ParametersConfig({
                                 } as ProductsSettings)
                             }
                             isReadOnly={isReadOnly}
+                            label="Utiliser description"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser description</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Switch
@@ -396,8 +396,8 @@ export default function ParametersConfig({
                                 } as ProductsSettings)
                             }
                             isReadOnly={isReadOnly}
+                            label="Utiliser options"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser options</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Switch
@@ -417,8 +417,8 @@ export default function ParametersConfig({
                                 } as ProductsSettings)
                             }
                             isReadOnly={isReadOnly}
+                            label="Utiliser couleur produit"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Utiliser couleur produit</span>
                     </div>
                 </div>
             </div>
@@ -443,8 +443,8 @@ export default function ParametersConfig({
                                 } as SearchSettings)
                             }
                             isReadOnly={isReadOnly}
+                            label="Clients"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Clients</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Switch
@@ -460,8 +460,8 @@ export default function ParametersConfig({
                                 } as SearchSettings)
                             }
                             isReadOnly={isReadOnly}
+                            label="Produits"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Produits</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Switch
@@ -477,8 +477,8 @@ export default function ParametersConfig({
                                 } as SearchSettings)
                             }
                             isReadOnly={isReadOnly}
+                            label="Utilisateurs"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Utilisateurs</span>
                     </div>
                 </div>
             </div>
@@ -494,50 +494,48 @@ export default function ParametersConfig({
                             checked={config.display?.showWaiting ?? true}
                             onChange={(checked) => handleDisplayChange('showWaiting', checked)}
                             isReadOnly={isReadOnly}
+                            label="Mettre en attente"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Mettre en attente</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Switch
                             checked={config.display?.showRefund ?? true}
                             onChange={(checked) => handleDisplayChange('showRefund', checked)}
                             isReadOnly={isReadOnly}
+                            label="Remboursement"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Remboursement</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Switch
                             checked={config.display?.showProvision ?? true}
                             onChange={(checked) => handleDisplayChange('showProvision', checked)}
                             isReadOnly={isReadOnly}
+                            label="Provision"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Provision</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Switch
                             checked={config.display?.showDebit ?? true}
                             onChange={(checked) => handleDisplayChange('showDebit', checked)}
                             isReadOnly={isReadOnly}
+                            label="Débit"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Débit</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Switch
                             checked={config.display?.showChange ?? true}
                             onChange={(checked) => handleDisplayChange('showChange', checked)}
                             isReadOnly={isReadOnly}
+                            label="Calculer et afficher la monnaie"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                            Calculer et afficher la monnaie
-                        </span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Switch
                             checked={config.display?.useTakeOut ?? true}
                             onChange={(checked) => handleDisplayChange('useTakeOut', checked)}
                             isReadOnly={isReadOnly}
+                            label="Sur place / À emporter"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Sur place / À emporter</span>
                     </div>
                 </div>
             </div>
@@ -554,10 +552,8 @@ export default function ParametersConfig({
                                 checked={config.userSwitch ?? true}
                                 onChange={(checked) => handleChange('userSwitch', checked)}
                                 isReadOnly={isReadOnly}
+                                label="Autoriser le changement d'utilisateur"
                             />
-                            <span className="text-sm text-gray-700 dark:text-gray-300">
-                                Autoriser le changement d&apos;utilisateur
-                            </span>
                         </div>
                     )}
                     <div className="flex items-center gap-3">
@@ -565,16 +561,16 @@ export default function ParametersConfig({
                             checked={config.display?.catalogMode ?? false}
                             onChange={(checked) => handleDisplayChange('catalogMode', checked)}
                             isReadOnly={isReadOnly}
+                            label="Mode catalogue"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Mode catalogue</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Switch
                             checked={config.useVirtualKeyboard ?? false}
                             onChange={(checked) => handleChange('useVirtualKeyboard', checked)}
                             isReadOnly={isReadOnly}
+                            label="Clavier virtuel"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Clavier virtuel</span>
                     </div>
                 </div>
             </div>

@@ -23,7 +23,6 @@ import { useIsMobile, useIsMobileDevice } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
 import { colorToHex } from '../utils/colors';
 import { useAddPopupClass } from './Popup';
-import { LoadingDot } from '../loading';
 
 // Local types for option selection helpers
 type OptionDef = { type: string; options: { value: string; price: number | string }[] };
@@ -364,21 +363,21 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
                     }
                 );
                 break;
-            case State.unidentified:
+            case State.unidentified: {
+                const accessRoles = Object.values(Role).filter((role) => role !== Role.admin);
+                const unidentifiedOptions = (
+                    !hasSentEmail ? accessRoles.map((role) => `Demande d'accès ${ROLE_LABELS[role]}`) : []
+                ).concat(['Rafraîchir la page']);
                 openFullscreenPopup(
                     'Utilisateur non identifié',
-                    (!hasSentEmail
-                        ? Object.values(Role)
-                              .filter((role) => role !== Role.admin)
-                              .map((role) => `Demande d'accès ${ROLE_LABELS[role]}`)
-                        : []
-                    ).concat(['Rafraîchir la page']),
+                    unidentifiedOptions,
                     (i) => {
-                        if (i >= 1) {
-                            sendUserAccessRequest(parameters.shop.email, Object.values(Role)[i], getPublicKey()).then(
+                        if (i < unidentifiedOptions.length - 1) {
+                            sendUserAccessRequest(parameters.shop.email, accessRoles[i], getPublicKey()).then(
                                 setHasSentEmail
                             );
                         } else {
+                            setHasSentEmail(false);
                             closePopup();
                             setState(State.init);
                         }
@@ -386,6 +385,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
                     true
                 );
                 break;
+            }
             case State.missingData:
                 openFullscreenPopup(
                     'Données manquantes',
@@ -720,22 +720,8 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
             : 'inset-x-0 border-t-[3px] absolute bottom-0 md:w-1/2 border-active-light dark:border-active-dark overflow-hidden'
     );
 
-    if (state === State.init || state === State.loading || state === State.error) {
-        return (
-            <div
-                className={popupClass}
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: catalogMode ? '100%' : MAX_VISIBLE_ROWS * ROW_HEIGHT,
-                }}
-            >
-                <div className="md:hidden block">
-                    <LoadingDot fullscreen={false} />
-                </div>
-            </div>
-        );
+    if (state !== State.loaded && state !== State.preloaded) {
+        return null;
     }
 
     // ── Catalog mode: horizontal categories + 6×6 product grid ──
