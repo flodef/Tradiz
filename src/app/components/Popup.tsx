@@ -132,7 +132,7 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
 
     return (
         <div className="fixed inset-0 z-100 grid">
-            <div onClick={popupIsFullscreen ? undefined : close} className={styles.overlay}></div>
+            <div onClick={close} className={styles.overlay}></div>
             <div
                 id="popup" // id is mandatory for the screenshot to work
                 className={twMerge(

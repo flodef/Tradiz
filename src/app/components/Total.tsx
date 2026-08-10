@@ -607,7 +607,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     if (showPartialPaymentSelector && orderId) {
         return (
             <div className={popupClass}>
-                <div className="md:w-1/2 w-full fixed py-3 px-3 border-b-4 border-active-light dark:border-active-dark bg-blue-100 dark:bg-blue-900">
+                <div className="md:w-1/2 w-full fixed left-0 md:left-1/2 py-3 px-3 border-b-4 border-active-light dark:border-active-dark bg-blue-100 dark:bg-blue-900">
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => {
@@ -638,7 +638,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                 className={twMerge(
                     compact ? 'w-full' : 'md:w-1/2 w-full',
                     compact ? 'relative' : 'fixed',
-                    'top-0 left-0 text-center font-bold',
+                    'top-0 left-0 md:left-1/2 text-center font-bold',
                     'border-b-4 border-active-light dark:border-active-dark',
                     compact
                         ? 'block text-4xl py-1 shrink-0'

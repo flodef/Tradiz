@@ -1,10 +1,22 @@
 'use client';
 
-import { FC, useEffect } from 'react';
-import { usePopup } from '../hooks/usePopup';
+import { FC, useCallback, useEffect, useState } from 'react';
+import { UpdateScreen, UpdateStep } from './UpdateScreen';
 
 export const UpdateListener: FC = () => {
-    const { openFullscreenPopup, closePopup } = usePopup();
+    const [updateStep, setUpdateStep] = useState<UpdateStep | null>(null);
+    const [updateVersion, setUpdateVersion] = useState<string | undefined>();
+
+    const handleAccept = useCallback(() => {
+        const api = window.electronAPI;
+        if (!api?.respondUpdate) return;
+        setUpdateStep('downloading');
+        api.respondUpdate('download');
+    }, []);
+
+    const handleDismiss = useCallback(() => {
+        setUpdateStep(null);
+    }, []);
 
     useEffect(() => {
         const api = window.electronAPI;
@@ -13,39 +25,17 @@ export const UpdateListener: FC = () => {
         // Query for any pending update that was detected before this listener mounted
         api.getPendingUpdate?.();
 
-        const cleanupAvailable = api.onUpdateAvailable(() => {
-            openFullscreenPopup('Mise à jour disponible', ['Installer', 'Plus tard'], (index) => {
-                if (index === 0) {
-                    openFullscreenPopup(
-                        'Mise à jour',
-                        [
-                            <div key="msg" className="text-xl text-center py-4">
-                                Téléchargement en cours…
-                            </div>,
-                        ],
-                        () => {},
-                        true
-                    );
-                    api.respondUpdate('download');
-                }
-            });
+        const cleanupAvailable = api.onUpdateAvailable((info: { version: string }) => {
+            setUpdateVersion(info?.version);
+            setUpdateStep('available');
         });
 
         const cleanupDownloaded = api.onUpdateDownloaded?.(() => {
-            openFullscreenPopup(
-                'Mise à jour',
-                [
-                    <div key="msg" className="text-xl text-center py-4">
-                        Installation en cours…
-                    </div>,
-                ],
-                () => {},
-                true
-            );
+            // Show "Installation en cours…" briefly, then auto-restart
+            setUpdateStep('installing');
             setTimeout(() => {
-                openFullscreenPopup('Mise à jour prête', ['Redémarrer maintenant'], () => {
-                    api.respondUpdate('install');
-                });
+                setUpdateStep('restarting');
+                api.respondUpdate('install');
             }, 2000);
         });
 
@@ -53,7 +43,9 @@ export const UpdateListener: FC = () => {
             cleanupAvailable?.();
             cleanupDownloaded?.();
         };
-    }, [openFullscreenPopup, closePopup]);
+    }, []);
 
-    return null;
+    if (!updateStep) return null;
+
+    return <UpdateScreen step={updateStep} version={updateVersion} onAccept={handleAccept} onDismiss={handleDismiss} />;
 };
