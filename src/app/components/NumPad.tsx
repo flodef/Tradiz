@@ -593,7 +593,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
         toCurrency,
     } = useData();
     const { openPopup, closePopup, isPopupOpen, openFullscreenPopup } = usePopup();
-    const { pay, canPay } = usePay();
+    const { pay } = usePay();
     const { showTransactionsSummary, showTransactionsSummaryMenu, getHistoricalTransactions, refreshHistoricalKeys } =
         useSummary();
 
@@ -913,7 +913,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
             clearAmount();
             pay();
         },
-        onContextMenu: canPay ? () => updateTransaction(WAITING_KEYWORD) : () => {},
+        onContextMenu: total ? () => updateTransaction(WAITING_KEYWORD) : () => {},
     };
     const f1 = f + (hasAmount || total ? color : 'invisible');
     const f2 =

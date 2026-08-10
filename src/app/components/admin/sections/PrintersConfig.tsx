@@ -77,6 +77,18 @@ function PrinterRow({
     const hasComValue = isCom && Boolean(comNum);
     const currentComNum = isCom ? Number(comNum) : 0;
     const freeComPorts = availableComPorts.filter((p) => !usedComPorts.includes(p) || p === currentComNum);
+    const ownLastOctet = localIp?.split('.')[3] ?? '';
+    const ipOptions = Array.from({ length: 254 }, (_, i) => String(i + 1))
+        .filter((ip) => !usedIpAddresses.includes(ip) && ip !== ownLastOctet)
+        .map((ip) => ({ label: ip, value: ip }))
+        .concat(
+            printer.ipAddress &&
+                !usedIpAddresses.includes(printer.ipAddress) &&
+                printer.ipAddress !== ownLastOctet &&
+                !Array.from({ length: 254 }, (_, i) => String(i + 1)).includes(printer.ipAddress)
+                ? [{ label: printer.ipAddress, value: printer.ipAddress }]
+                : []
+        );
     const isScreen = printer.label === PRINTER_ROLE.customerDisplay;
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -152,20 +164,7 @@ function PrinterRow({
                                 }}
                                 isReadOnly={isReadOnly}
                                 className="w-24"
-                                options={Array.from({ length: 254 }, (_, i) => String(i + 1))
-                                    .filter(
-                                        (ip) => !usedIpAddresses.includes(ip) && ip !== (localIp?.split('.')[3] ?? '')
-                                    )
-                                    .map((ip) => ({ label: ip, value: ip }))
-                                    .concat(
-                                        printer.ipAddress &&
-                                            !Array.from({ length: 254 }, (_, i) => String(i + 1)).includes(
-                                                printer.ipAddress
-                                            ) &&
-                                            !usedIpAddresses.includes(printer.ipAddress)
-                                            ? [{ label: printer.ipAddress, value: printer.ipAddress }]
-                                            : []
-                                    )}
+                                options={ipOptions}
                             />
                         )
                     ) : (
@@ -177,18 +176,7 @@ function PrinterRow({
                             }}
                             isReadOnly={isReadOnly}
                             className="w-24"
-                            options={Array.from({ length: 254 }, (_, i) => String(i + 1))
-                                .filter((ip) => !usedIpAddresses.includes(ip))
-                                .map((ip) => ({ label: ip, value: ip }))
-                                .concat(
-                                    printer.ipAddress &&
-                                        !Array.from({ length: 254 }, (_, i) => String(i + 1)).includes(
-                                            printer.ipAddress
-                                        ) &&
-                                        !usedIpAddresses.includes(printer.ipAddress)
-                                        ? [{ label: printer.ipAddress, value: printer.ipAddress }]
-                                        : []
-                                )}
+                            options={ipOptions}
                         />
                     )}
                 </div>
