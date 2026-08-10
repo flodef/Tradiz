@@ -78,9 +78,7 @@ export async function POST(request: Request) {
         await connection.beginTransaction();
         try {
             // Build a map of category name → category_id from the categories table
-            const catQuery = connection.isPostgreSQL
-                ? `SELECT id, name FROM ${catTable}`
-                : `SELECT id, name FROM ${catTable}`;
+            const catQuery = `SELECT id, name FROM ${catTable}`;
             const [catRows] = await connection.execute(catQuery);
             const catMap = new Map<string, number>();
             for (const row of catRows as { id: number; name: string }[]) {

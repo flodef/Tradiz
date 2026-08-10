@@ -7,6 +7,7 @@ interface CategoryInput {
     name: string;
     company?: string | null;
     sortOrder?: number;
+    originalName?: string;
 }
 
 export async function POST(request: Request) {
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
         connection = await getMainDb(shopId);
 
         const pgTable = connection.isPostgreSQL ? 'dc.categories' : 'categories';
-        const pgCompanies = connection.isPostgreSQL ? 'dc_pos.companies' : 'companies';
+        const pgCompanies = connection.isPostgreSQL ? 'dc_pos.companies' : '`DC_POS`.companies';
 
         // Fetch all companies (name → id) so we can resolve company names to IDs
         const [companyRows] = await connection.execute(`SELECT id, name FROM ${pgCompanies}`);
@@ -46,9 +47,13 @@ export async function POST(request: Request) {
             const inputNames = new Set(categories.map((c) => c.name));
 
             // 1. Delete categories that are no longer in the input.
+            //    Categories that were renamed have originalName — don't delete those.
             //    The FK on products has ON DELETE SET NULL, so this is safe.
+            const renamedOriginals = new Set(
+                categories.filter((c) => c.originalName && c.originalName !== c.name).map((c) => c.originalName!)
+            );
             for (const row of existing) {
-                if (!inputNames.has(row.name)) {
+                if (!inputNames.has(row.name) && !renamedOriginals.has(row.name)) {
                     if (connection.isPostgreSQL) {
                         await connection.execute(`DELETE FROM ${pgTable} WHERE id = $1`, [row.id]);
                     } else {
@@ -65,20 +70,21 @@ export async function POST(request: Request) {
                 const companyId = companyName ? companyIdByName.get(companyName) ?? null : null;
                 const sortOrder = cat.sortOrder ?? i;
 
-                const existingCat = existingByName.get(name);
+                // Look up by originalName if renamed, otherwise by name
+                const lookupName = cat.originalName ?? name;
+                const existingCat = existingByName.get(lookupName);
                 if (existingCat) {
                     // Update in place — preserves the id so product FKs stay valid
                     if (connection.isPostgreSQL) {
                         await connection.execute(
-                            `UPDATE ${pgTable} SET company_id = $1, sort_order = $2 WHERE id = $3`,
-                            [companyId, sortOrder, existingCat.id]
+                            `UPDATE ${pgTable} SET name = $1, company_id = $2, sort_order = $3 WHERE id = $4`,
+                            [name, companyId, sortOrder, existingCat.id]
                         );
                     } else {
-                        await connection.execute(`UPDATE ${pgTable} SET company_id = ?, sort_order = ? WHERE id = ?`, [
-                            companyId,
-                            sortOrder,
-                            existingCat.id,
-                        ]);
+                        await connection.execute(
+                            `UPDATE ${pgTable} SET name = ?, company_id = ?, sort_order = ? WHERE id = ?`,
+                            [name, companyId, sortOrder, existingCat.id]
+                        );
                     }
                 } else {
                     // Insert new category

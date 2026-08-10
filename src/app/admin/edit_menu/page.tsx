@@ -180,9 +180,11 @@ export default function EditMenuPage() {
     const [originalOptions, setOriginalOptions] = useState<ProductOptionGroup[]>([]);
     const [hasOptionsChanges, setHasOptionsChanges] = useState(false);
     const [emptyProductsPopupShown, setEmptyProductsPopupShown] = useState(false);
-    const [dbCategories, setDbCategories] = useState<{ name: string; company: string | null; sortOrder: number }[]>([]);
+    const [dbCategories, setDbCategories] = useState<
+        { name: string; company: string | null; sortOrder: number; originalName?: string }[]
+    >([]);
     const [originalDbCategories, setOriginalDbCategories] = useState<
-        { name: string; company: string | null; sortOrder: number }[]
+        { name: string; company: string | null; sortOrder: number; originalName?: string }[]
     >([]);
     const dataLoadedRef = useRef(false);
     const seededRef = useRef(false);
@@ -227,7 +229,7 @@ export default function EditMenuPage() {
 
     // Persists categories to the DB.
     const saveCategoriesToDb = useCallback(
-        async (cats: { name: string; company: string | null; sortOrder: number }[]) => {
+        async (cats: { name: string; company: string | null; sortOrder: number; originalName?: string }[]) => {
             const response = await fetch('/api/sql/updateCategories', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -549,7 +551,7 @@ export default function EditMenuPage() {
             data: AdminProduct[],
             category?: string,
             formulasOverride?: AdminFormula[],
-            categoriesOverride?: { name: string; company: string | null; sortOrder: number }[]
+            categoriesOverride?: { name: string; company: string | null; sortOrder: number; originalName?: string }[]
         ) => {
             const formulasToPersist = formulasOverride ?? formulas;
             const catsToPersist = categoriesOverride ?? dbCategories;
@@ -596,6 +598,12 @@ export default function EditMenuPage() {
                     printers,
                     customers,
                     users,
+                    categories: catsToPersist.map((c, i) => ({
+                        id: i,
+                        name: c.name,
+                        company: c.company,
+                        sortOrder: c.sortOrder ?? i,
+                    })),
                 };
                 setConfig(config);
                 clearLoadDataCache();
@@ -647,6 +655,12 @@ export default function EditMenuPage() {
                     printers,
                     customers,
                     users,
+                    categories: dbCategories.map((c, i) => ({
+                        id: i,
+                        name: c.name,
+                        company: c.company,
+                        sortOrder: c.sortOrder ?? i,
+                    })),
                 };
                 setConfig(config);
                 clearLoadDataCache();
@@ -667,6 +681,7 @@ export default function EditMenuPage() {
             printers,
             customers,
             users,
+            dbCategories,
             setConfig,
             saveFormulasToDb,
         ]
@@ -689,7 +704,10 @@ export default function EditMenuPage() {
             const updatedFormulas = renameFormulaCategory(formulas, oldLabel, trimmedNewLabel);
 
             // Update DB categories (local state only — persisted on Save)
-            const updatedDbCats = dbCategories.map((c) => (c.name === oldLabel ? { ...c, name: trimmedNewLabel } : c));
+            // Track originalName so the API can UPDATE the existing row instead of INSERT+DELETE
+            const updatedDbCats = dbCategories.map((c) =>
+                c.name === oldLabel ? { ...c, name: trimmedNewLabel, originalName: c.originalName ?? oldLabel } : c
+            );
             setDbCategories(updatedDbCats);
 
             setProducts(updatedProducts);

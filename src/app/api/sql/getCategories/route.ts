@@ -30,7 +30,7 @@ export async function GET(request: Request) {
                ORDER BY c.sort_order ASC, c.id ASC`
             : `SELECT c.id, c.name, comp.name as company_name, c.sort_order
                FROM categories c
-               LEFT JOIN companies comp ON c.company_id = comp.id
+               LEFT JOIN \`DC_POS\`.companies comp ON c.company_id = comp.id
                ORDER BY c.sort_order ASC, c.id ASC`;
 
         const [rows] = await connection.execute(query);
