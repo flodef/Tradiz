@@ -1243,12 +1243,13 @@ export default function SettingsPage() {
                             onClick={handleSaveAll}
                             isLoading={isSaving}
                             disabled={
-                                !isSiretValid ||
-                                !isUsersValid ||
-                                !isDevicesValid ||
-                                !isCustomersValid ||
-                                !isDiscountsValid ||
-                                !isPrintersValid ||
+                                (hasSettingsChanges && !isSiretValid) ||
+                                (hasUsersChanges && !isUsersValid) ||
+                                (hasDevicesChanges && !isDevicesValid) ||
+                                (hasCustomersChanges && !isCustomersValid) ||
+                                (hasDiscountsChanges && !isDiscountsValid) ||
+                                (hasPrintersChanges && !isPrintersValid) ||
+                                (hasCompaniesChanges && !isCompaniesValid) ||
                                 isSaving
                             }
                             variant="save"

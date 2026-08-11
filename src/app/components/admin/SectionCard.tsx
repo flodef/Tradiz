@@ -50,7 +50,7 @@ export default function SectionCard({
     const isMobile = useIsMobile();
 
     return (
-        <div className="bg-white/30 dark:bg-black/20 shadow-lg rounded-lg mb-6 border border-black/10 dark:border-white/10 backdrop-blur overflow-hidden">
+        <div className="bg-white/30 dark:bg-black/20 shadow-lg rounded-lg mb-6 border border-black/10 dark:border-white/10 overflow-hidden">
             <div
                 className="cursor-pointer select-none"
                 onClick={() => (onToggle ? onToggle() : setInternalOpen((o) => !o))}
@@ -67,6 +67,12 @@ export default function SectionCard({
                         </svg>
                         <div className="text-light dark:text-dark">{icon}</div>
                         <h2 className="text-2xl font-semibold text-light dark:text-dark">{title}</h2>
+                        {!open && hasChanges && !isReadOnly && (
+                            <span
+                                className={`w-4 h-4 rounded-full shrink-0 ${isValid ? 'bg-ok' : 'bg-error'}`}
+                                title={isValid ? 'Modifications non enregistrées' : 'Modifications invalides'}
+                            />
+                        )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                         {open && headerExtra}

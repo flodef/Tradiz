@@ -144,7 +144,7 @@ export default function ParametersConfig({
             isOpen={isOpen}
             isReadOnly={isReadOnly}
             onToggle={onToggle}
-            isValid={true}
+            isValid={isSiretValid}
             addLabel=""
         >
             {/* Subsection: Commerce */}
