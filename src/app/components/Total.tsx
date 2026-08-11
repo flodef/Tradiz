@@ -127,7 +127,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         selectedProduct,
         transactions,
         editTransaction,
-        loadTransactionForRefund,
+        refundTransaction,
         deleteTransaction,
         displayTransaction,
         reverseTransaction,
@@ -228,8 +228,14 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                   {
                                       label: REFUND_KEYWORD,
                                       action: (index: number) => {
-                                          loadTransactionForRefund(index);
-                                          closePopup(() => setTimeout(pay, 100));
+                                          const refundTx = refundTransaction(index);
+                                          closePopup();
+                                          if (refundTx) {
+                                              printKitchenReceipt(refundTx).then((response) => {
+                                                  if (!response.success)
+                                                      console.error('[Refund] Kitchen print failed:', response.error);
+                                              });
+                                          }
                                       },
                                   },
                               ]
@@ -254,7 +260,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
             closePopup,
             getPrintersNames,
             transactions,
-            loadTransactionForRefund,
+            refundTransaction,
         ]
     );
 

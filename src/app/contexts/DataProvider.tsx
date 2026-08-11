@@ -9,6 +9,7 @@ import {
     DELETED_KEYWORD,
     OTHER_KEYWORD,
     PROCESSING_KEYWORD,
+    REFUND_KEYWORD,
     SYNC_INTERVAL_MS,
     TRANSACTIONS_KEYWORD,
     USE_DIGICARTE,
@@ -1315,6 +1316,30 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [computeQuantity]
     );
 
+    // Create a new REFUND tx from an existing tx, without loading products or mutating the original.
+    // The original tx stays unchanged; a new tx with reversed products is added to the list.
+    // Returns the created refund tx so the caller can print it.
+    const refundTransaction = useCallback(
+        (index: number): Transaction | undefined => {
+            const transaction = transactions.at(index);
+            if (!transaction?.amount) return;
+
+            const reversedTransaction = reverseTransaction(transaction);
+            const now = floorToSeconds(new Date().getTime());
+            const refundTx: Transaction = {
+                ...reversedTransaction,
+                method: REFUND_KEYWORD,
+                createdDate: now,
+                modifiedDate: now,
+            };
+
+            storeTransaction(refundTx);
+            saveTransactions(DatabaseAction.add, refundTx);
+            return refundTx;
+        },
+        [transactions, reverseTransaction, storeTransaction, saveTransactions]
+    );
+
     const displayTransaction = useCallback(
         (transaction: Transaction) => {
             if (!transaction.modifiedDate || !transaction.method) return '';
@@ -1358,6 +1383,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 updateTransaction,
                 editTransaction,
                 loadTransactionForRefund,
+                refundTransaction,
                 deleteTransaction,
                 displayTransaction,
                 reverseTransaction,

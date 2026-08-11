@@ -43,6 +43,7 @@ export interface DataContextState {
     updateTransaction: (item: string | Transaction) => void;
     editTransaction: (index: number) => void;
     loadTransactionForRefund: (index: number) => void;
+    refundTransaction: (index: number) => Transaction | undefined;
     deleteTransaction: (index: number) => void;
     displayTransaction: (transaction: Transaction) => string;
     reverseTransaction: (transaction: Transaction) => Transaction;

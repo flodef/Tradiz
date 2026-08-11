@@ -745,9 +745,9 @@ export const usePay = () => {
                             const originalTransaction = transactions.find(
                                 (t) => t.method === PROCESSING_KEYWORD || t.method === UPDATING_KEYWORD
                             );
-                            // When refunding via loadTransactionForRefund, the original tx is not set to PROCESSING.
-                            // Use isRefundFromExistingRef to distinguish refund of existing tx vs refund from scratch.
-                            const isCancelingExisting = isRefundFromExistingRef.current || !!originalTransaction;
+                            // isCancelingExisting is true only when refunding an existing saved tx
+                            // (via refundTransaction in Total.tsx). For refund from scratch, no kitchen ticket.
+                            const isCancelingExisting = isRefundFromExistingRef.current;
                             // For provision refunds there are no products, so fall back to the original transaction amount.
                             const refundAmount = getCurrentTotal() || originalTransaction?.amount || 0;
 
