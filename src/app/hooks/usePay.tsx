@@ -928,8 +928,9 @@ export const usePay = () => {
     );
 
     const pay = useCallback(() => {
-        // Nouveau cycle de paiement: on déverrouille la sélection
+        // Nouveau cycle de paiement: on déverrouille la sélection et le type de service
         paymentSelectionLockedRef.current = false;
+        serviceTypeSelectedRef.current = false;
 
         // Check if we're in partial payment mode (orderId is set AND selector is shown)
         if (orderId && selectedOrderItems.length > 0 && showPartialPaymentSelector) {
