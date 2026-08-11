@@ -1,11 +1,7 @@
-import { Printer } from '@/app/utils/interfaces';
-import { useEffect, useRef, useState } from 'react';
-import { IconSearch, IconLoader2, IconPrinter, IconDeviceTv } from '@tabler/icons-react';
 import { usePopup } from '@/app/hooks/usePopup';
+import { adminHeaderStyle, PRINTER_ROLE, PRINTER_ROLES } from '@/app/utils/constants';
+import { Printer } from '@/app/utils/interfaces';
 import { testPrint } from '@/app/utils/posPrinter';
-import { PRINTER_ROLE, PRINTER_ROLES } from '@/app/utils/constants';
-import Switch from '../Switch';
-import AdminSelect from '../AdminSelect';
 import {
     closestCenter,
     DndContext,
@@ -17,10 +13,13 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { adminHeaderStyle } from '@/app/utils/constants';
-import SectionCard from '../SectionCard';
+import { IconCheck, IconDeviceTv, IconLoader2, IconPrinter, IconSearch, IconX } from '@tabler/icons-react';
+import { useEffect, useRef, useState } from 'react';
+import AdminSelect from '../AdminSelect';
 import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
+import SectionCard from '../SectionCard';
+import Switch from '../Switch';
 
 import AdminButton from '../AdminButton';
 
@@ -109,7 +108,7 @@ function PrinterRow({
                     }}
                     isReadOnly={isReadOnly}
                     className="w-full min-w-36"
-                    options={availableRoles.map((role) => ({ label: role, value: role }))}
+                    options={availableRoles.map((role) => ({ label: role === '' ? 'Sans rôle' : role, value: role }))}
                 />
             </td>
             <td className="p-2">
@@ -182,41 +181,36 @@ function PrinterRow({
                 </div>
             </td>
             <td className="p-2">
-                <div className="flex items-center gap-2">
-                    <AdminButton
-                        onClick={async () => {
-                            setIsTesting(true);
-                            setTestResult(null);
-                            if (isScreen) {
-                                window.electronAPI?.testDisplay?.();
-                                setTestResult('OK');
-                                setIsTesting(false);
-                            } else {
-                                const res = await testPrint(printer.ipAddress);
-                                setTestResult(res.success ? 'OK' : res.error || 'Erreur');
-                                setIsTesting(false);
-                            }
-                        }}
-                        disabled={isTesting || !printer.ipAddress || !isAddressValid}
-                        className="text-xs py-1.5 px-2.5"
-                    >
-                        {isTesting ? (
-                            <IconLoader2 size={16} className="animate-spin" />
-                        ) : isScreen ? (
-                            <IconDeviceTv size={16} />
-                        ) : (
-                            <IconPrinter size={16} />
-                        )}
-                        Test
-                    </AdminButton>
-                    {testResult && (
-                        <span
-                            className={`text-2xl font-bold ${testResult === 'OK' ? 'text-green-600' : 'text-red-500'}`}
-                        >
-                            {testResult === 'OK' ? '✓' : '✗'}
-                        </span>
+                <AdminButton
+                    onClick={async () => {
+                        setIsTesting(true);
+                        setTestResult(null);
+                        if (isScreen) {
+                            window.electronAPI?.testDisplay?.();
+                            setTestResult('OK');
+                            setIsTesting(false);
+                        } else {
+                            const res = await testPrint(printer.ipAddress);
+                            setTestResult(res.success ? 'OK' : res.error || 'Erreur');
+                            setIsTesting(false);
+                        }
+                    }}
+                    disabled={isTesting || !printer.ipAddress || !isAddressValid}
+                    className="text-xs py-1 px-2.5"
+                >
+                    {isTesting ? (
+                        <IconLoader2 size={18} className="animate-spin" />
+                    ) : testResult === 'OK' ? (
+                        <IconCheck size={18} stroke={3} className="text-green-600" />
+                    ) : testResult ? (
+                        <IconX size={18} stroke={3} className="text-red-500" />
+                    ) : isScreen ? (
+                        <IconDeviceTv size={18} />
+                    ) : (
+                        <IconPrinter size={18} />
                     )}
-                </div>
+                    Test
+                </AdminButton>
             </td>
             <DeleteButtonCell isReadOnly={isReadOnly} onDelete={onDelete} title="Supprimer l'imprimante" />
         </tr>
@@ -256,9 +250,8 @@ export default function PrintersConfig({
     const [isScanning, setIsScanning] = useState(false);
     const [availableComPorts, setAvailableComPorts] = useState<number[]>([]);
     const [localIp, setLocalIp] = useState<string | null>(null);
-    const scanAbortRef = useRef(false);
     const foundPrintersRef = useRef<{ ip: string; lastOctet?: number; label: string }[]>([]);
-    const { openFullscreenPopup, closePopup } = usePopup();
+    const { openFullscreenPopup } = usePopup();
 
     useEffect(() => {
         if (selfUpdateRef.current) {
@@ -316,8 +309,10 @@ export default function PrintersConfig({
         setPrinters(updated);
     };
 
+    const usedRoles = new Set(printers.map((p) => p.label));
+    const hasAvailableRole = PRINTER_ROLES.some((r) => !usedRoles.has(r));
+
     const handleAddPrinter = () => {
-        const usedRoles = new Set(printers.map((p) => p.label));
         const availableRole = PRINTER_ROLES.find((r) => !usedRoles.has(r));
         if (!availableRole) return;
         // Default to COM mode if COM ports are available
@@ -325,7 +320,17 @@ export default function PrintersConfig({
             printers.filter((p) => isComPort(p.ipAddress)).map((p) => Number(getComPortNumber(p.ipAddress)))
         );
         const firstFreeCom = availableComPorts.find((p) => !usedComPorts.has(p));
-        const defaultAddress = firstFreeCom ? `COM${firstFreeCom}` : '';
+        const defaultAddress = firstFreeCom
+            ? `COM${firstFreeCom}`
+            : (() => {
+                  const usedIps = new Set(printers.filter((p) => !isComPort(p.ipAddress)).map((p) => p.ipAddress));
+                  const ownLastOctet = localIp?.split('.')[3] ?? '';
+                  return (
+                      Array.from({ length: 254 }, (_, i) => String(i + 1)).find(
+                          (ip) => !usedIps.has(ip) && ip !== ownLastOctet
+                      ) ?? ''
+                  );
+              })();
         const newPrinter: InternalPrinter = {
             label: availableRole,
             ipAddress: defaultAddress,
@@ -352,47 +357,40 @@ export default function PrintersConfig({
     const addFoundPrinters = (newOnes: { ip: string; lastOctet?: number; label: string }[]) => {
         if (newOnes.length === 0) return;
         setPrinters((prev) => {
-            // Priority: assign to existing Cuisine first, then Caisse
-            const assignmentPriority = [PRINTER_ROLE.kitchen, PRINTER_ROLE.cashier];
             const updated = [...prev];
-            let foundIdx = 0;
+            const usedRoles = new Set(updated.filter((p) => p.label !== '').map((p) => p.label));
+            const existingAddrs = new Set(updated.map((p) => p.ipAddress));
 
-            for (const role of assignmentPriority) {
-                if (foundIdx >= newOnes.length) break;
-                const printerIdx = updated.findIndex((p) => p.label === role);
-                if (printerIdx !== -1) {
-                    const found = newOnes[foundIdx];
-                    const addr = found.lastOctet ? String(found.lastOctet) : found.ip;
-                    updated[printerIdx] = { ...updated[printerIdx], ipAddress: addr };
-                    foundIdx++;
-                }
+            // First, assign available roles to existing no-role printers (they already have addresses)
+            for (let i = 0; i < updated.length; i++) {
+                if (updated[i].label !== '') continue;
+                const role = PRINTER_ROLES.find((r) => !usedRoles.has(r));
+                if (!role) break;
+                usedRoles.add(role);
+                updated[i] = { ...updated[i], label: role };
             }
 
-            // Any remaining found printers get added as new entries
-            const usedRoles = new Set(updated.map((p) => p.label));
-            const existingAddrs = new Set(updated.map((p) => p.ipAddress));
-            const toAdd: InternalPrinter[] = [];
-            for (let i = foundIdx; i < newOnes.length; i++) {
-                const found = newOnes[i];
+            // Then add found printers that aren't already in the list
+            for (const found of newOnes) {
                 const addr = found.lastOctet ? String(found.lastOctet) : found.ip;
                 if (existingAddrs.has(addr)) continue;
                 const role = PRINTER_ROLES.find((r) => !usedRoles.has(r));
-                if (role) {
-                    usedRoles.add(role);
-                    toAdd.push({ label: role, ipAddress: addr, _id: nextIdRef.current++ });
-                }
+                usedRoles.add(role ?? 'Sans rôle');
+                existingAddrs.add(addr);
+                updated.push({
+                    label: role ?? '',
+                    ipAddress: addr,
+                    _id: nextIdRef.current++,
+                });
             }
 
-            const finalList = [...updated, ...toAdd];
-            if (finalList.length === prev.length && foundIdx === 0) return prev;
-            return finalList;
+            return updated;
         });
     };
 
     const handleAutoDetect = async () => {
         setIsScanning(true);
         foundPrintersRef.current = [];
-        scanAbortRef.current = false;
 
         // Test COM ports in parallel and update available list
         fetch('/api/list-com-ports')
@@ -416,7 +414,6 @@ export default function PrintersConfig({
             const decoder = new TextDecoder();
             let buffer = '';
             let subnet = '';
-            let firstFound = true;
 
             const processEvent = (eventType: string, data: string) => {
                 const parsed = JSON.parse(data);
@@ -426,36 +423,14 @@ export default function PrintersConfig({
                     if (parsed.localIp) setLocalIp(parsed.localIp);
                 } else if (eventType === 'printer') {
                     foundPrintersRef.current = [...foundPrintersRef.current, parsed];
-
-                    if (firstFound) {
-                        firstFound = false;
-                        openFullscreenPopup(
-                            `Imprimante détectée : ${parsed.lastOctet || parsed.ip}`,
-                            ['Affecter et arrêter', 'Continuer le scan', 'Ignorer'],
-                            (index) => {
-                                if (index === 0) {
-                                    scanAbortRef.current = true;
-                                    addFoundPrinters(foundPrintersRef.current);
-                                    openFullscreenPopup(
-                                        `${foundPrintersRef.current.length} imprimante(s) affectée(s)`,
-                                        ['OK']
-                                    );
-                                    setIsScanning(false);
-                                    closePopup();
-                                } else if (index === 1) {
-                                    closePopup();
-                                } else {
-                                    foundPrintersRef.current = [];
-                                    closePopup();
-                                }
-                            }
-                        );
-                    }
                 } else if (eventType === 'done') {
-                    if (!scanAbortRef.current && foundPrintersRef.current.length > 0) {
+                    if (foundPrintersRef.current.length > 0) {
                         addFoundPrinters(foundPrintersRef.current);
-                        openFullscreenPopup(`${foundPrintersRef.current.length} imprimante(s) affectée(s)`, ['OK']);
-                    } else if (!scanAbortRef.current && foundPrintersRef.current.length === 0) {
+                        openFullscreenPopup(
+                            `${foundPrintersRef.current.length} imprimante(s) détectée(s) et ajoutée(s)`,
+                            ['OK']
+                        );
+                    } else {
                         openFullscreenPopup(
                             `Aucune imprimante trouvée sur ${subnet}. Vérifiez que l'imprimante est allumée et connectée au même réseau.`,
                             ['OK']
@@ -506,7 +481,7 @@ export default function PrintersConfig({
             onSave={onSave ? () => onSave(printers.map(({ _id: _, ...rest }) => rest)) : undefined}
             onCancel={onCancel}
             hasChanges={hasChanges}
-            onAdd={handleAddPrinter}
+            onAdd={hasAvailableRole ? handleAddPrinter : undefined}
             isValid={isValid}
             saveDisabled={!isValid}
             addLabel="Ajouter une imprimante / écran"
@@ -548,10 +523,14 @@ export default function PrintersConfig({
                                             isReadOnly={isReadOnly}
                                             onChange={(updatedPrinter) => handlePrinterChange(index, updatedPrinter)}
                                             onDelete={() => handleDeletePrinter(index)}
-                                            availableRoles={PRINTER_ROLES.filter(
-                                                (role) =>
-                                                    role === printer.label || !printers.some((p) => p.label === role)
-                                            )}
+                                            availableRoles={[
+                                                ...(printer.label === '' ? [''] : []),
+                                                ...PRINTER_ROLES.filter(
+                                                    (role) =>
+                                                        role === printer.label ||
+                                                        !printers.some((p) => p.label === role)
+                                                ),
+                                            ]}
                                             availableComPorts={availableComPorts}
                                             usedComPorts={printers
                                                 .filter((_, i) => i !== index)
