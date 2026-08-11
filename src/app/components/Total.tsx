@@ -235,7 +235,6 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                                   if (!response.success)
                                                       console.error('[Refund] Kitchen print failed:', response.error);
                                               });
-                                              printTransaction(undefined, refundTx);
                                           }
                                       },
                                   },
@@ -316,7 +315,10 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     const displayTransactionsTitle = useCallback(() => {
         if (!visibleTransactions.length) return '';
 
-        const totalTransactions = visibleTransactions.length;
+        const totalTransactions = visibleTransactions.reduce(
+            (count, tx) => count + (isRefundTransaction(tx) ? -1 : 1),
+            0
+        );
         const currencies: { [key: string]: { amount: number; currency: string } } = {};
         visibleTransactions.forEach((transaction) => {
             if (currencies[transaction.currency]) {

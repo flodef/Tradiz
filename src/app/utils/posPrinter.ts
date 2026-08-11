@@ -12,7 +12,7 @@ import {
 } from '../contexts/dataProvider/transactionHelpers';
 import { ReceiptData } from '../hooks/usePay';
 import { SummaryData } from '../hooks/useSummary';
-import { DEFAULT_VAT_RATE, IS_DEV } from './constants';
+import { DEFAULT_VAT_RATE, IS_DEV, REFUND_KEYWORD } from './constants';
 import { formatFrenchDate, generateReceiptNumber } from './date';
 import { BillingReport, Currency, SERVICE_TYPE_LABELS, ServiceType, Transaction } from './interfaces';
 import { createMockPrinter } from './mockPrinter';
@@ -551,7 +551,10 @@ export async function printSummary(printerAddresses: string[], summaryData: Summ
 
         // Calculate average ticket amount
         const totalAmount = summaryData.transactions.reduce((total, transaction) => total + transaction.amount, 0);
-        const transactionCount = summaryData.transactions.length;
+        const transactionCount = summaryData.transactions.reduce(
+            (count, tx) => count + (tx.method === REFUND_KEYWORD ? -1 : 1),
+            0
+        );
         const productCount = Math.round(
             summaryData.transactions.reduce(
                 (total, transaction) =>

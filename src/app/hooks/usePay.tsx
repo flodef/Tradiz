@@ -384,7 +384,7 @@ export const usePay = () => {
                 });
             }
 
-            if (isPaid || isRefund) {
+            if (isPaid) {
                 const cashierAddr = getPrinterAddressByRole(PRINTER_ROLE.cashier);
                 if (cashierAddr) {
                     printTransactionReceipt(undefined, transaction, cashierAddr).then((response) => {

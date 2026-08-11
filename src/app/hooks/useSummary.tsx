@@ -3,7 +3,11 @@ import { twMerge } from 'tailwind-merge';
 import { utils, writeFile } from 'xlsx';
 import { sendSummaryEmail } from '../actions/email';
 import { Shop } from '../contexts/ConfigProvider';
-import { isDeletedTransaction, isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
+import {
+    isDeletedTransaction,
+    isRefundTransaction,
+    isWaitingTransaction,
+} from '../contexts/dataProvider/transactionHelpers';
 import { ARROW, BACK_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
 import { formatFrenchDate, getFormattedDate } from '../utils/date';
 import { Currency, DataElement, SyncAction, Transaction } from '../utils/interfaces';
@@ -184,15 +188,16 @@ export const useSummary = () => {
         const payments: DataElement[] = [];
 
         transactions.forEach((transaction) => {
+            const isRefund = isRefundTransaction(transaction);
             // Include provision transactions in payments (they have no products but still have a payment method)
             const payment = payments.find((payment) => payment.category === transaction.method);
             if (payment) {
-                payment.quantity++;
+                payment.quantity += isRefund ? -1 : 1;
                 payment.amount += transaction.amount;
             } else {
                 payments.unshift({
                     category: transaction.method,
-                    quantity: 1,
+                    quantity: isRefund ? -1 : 1,
                     amount: transaction.amount,
                 });
             }
@@ -913,10 +918,14 @@ export const useSummary = () => {
             const { summary, categories, payments } = getTransactionsData(filteredTransactions);
             const totalProducts = categories.reduce((total, category) => total + category.quantity, 0) ?? 0;
             const totalAmount = filteredTransactions.reduce((total, transaction) => total + transaction.amount, 0);
+            const transactionCount = filteredTransactions.reduce(
+                (count, tx) => count + (isRefundTransaction(tx) ? -1 : 1),
+                0
+            );
 
             openPopup(
-                `${totalProducts} produit${totalProducts > 1 ? 's' : ''} | ${filteredTransactions.length} vente${
-                    filteredTransactions.length > 1 ? 's' : ''
+                `${totalProducts} produit${totalProducts > 1 ? 's' : ''} | ${transactionCount} vente${
+                    transactionCount > 1 ? 's' : ''
                 } : ${toCurrency(totalAmount)}`,
                 summary || [''],
                 (index) => {

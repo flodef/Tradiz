@@ -3,7 +3,7 @@
 import nodemailer, { SendMailOptions } from 'nodemailer';
 import { SummaryData } from '../hooks/useSummary';
 import { BillingReport } from '../utils/interfaces';
-import { DEV_EMAIL, IS_DEV } from '../utils/constants';
+import { DEV_EMAIL, IS_DEV, REFUND_KEYWORD } from '../utils/constants';
 import '../utils/extensions';
 
 // Configure nodemailer transporter
@@ -69,7 +69,10 @@ export async function sendUserAccessRequest(email: string, role: string, publicK
  */
 export async function sendSummaryEmail(summaryData: SummaryData): Promise<boolean> {
     const totalAmount = summaryData.transactions.reduce((total, transaction) => total + transaction.amount, 0);
-    const transactionCount = summaryData.transactions.length;
+    const transactionCount = summaryData.transactions.reduce(
+        (count, tx) => count + (tx.method === REFUND_KEYWORD ? -1 : 1),
+        0
+    );
     const productCount = Math.round(
         summaryData.transactions.reduce(
             (total, transaction) =>
