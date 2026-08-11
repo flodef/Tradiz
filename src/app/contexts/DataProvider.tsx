@@ -25,6 +25,7 @@ import {
     SyncPeriod,
     Transaction,
     TransactionSet,
+    serviceTypeToDb,
 } from '../utils/interfaces';
 import {
     idbGetAllTransactionSets,
@@ -915,7 +916,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                                         quantity: p.quantity,
                                         options: p.options ?? null,
                                     })),
-                                    service_type: counterServiceTypeRef.current,
+                                    service_type: serviceTypeToDb(counterServiceTypeRef.current),
                                     ...(contextTableId ? { table_id: Number(contextTableId) } : {}),
                                 }),
                             });

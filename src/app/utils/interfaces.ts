@@ -229,6 +229,24 @@ export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
     takeout: 'À emporter',
 };
 
+const DB_TO_SERVICE_TYPE: Record<string, ServiceType> = {
+    on_site: 'dine_in',
+    takeaway: 'takeout',
+};
+
+const SERVICE_TYPE_TO_DB: Record<ServiceType, string> = {
+    dine_in: 'on_site',
+    takeout: 'takeaway',
+};
+
+export function dbToServiceType(dbValue: string): ServiceType {
+    return DB_TO_SERVICE_TYPE[dbValue] ?? 'dine_in';
+}
+
+export function serviceTypeToDb(type: ServiceType): string {
+    return SERVICE_TYPE_TO_DB[type] ?? 'on_site';
+}
+
 export interface OrderData {
     order_id: number;
     short_num_order: string;

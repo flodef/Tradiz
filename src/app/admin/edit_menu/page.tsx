@@ -807,9 +807,9 @@ export default function EditMenuPage() {
 
     const handleSaveAll = async () => {
         if (hasProductsChanges || hasCategoriesChanges) {
+            // handleProductsSave with category=undefined already persists formulas
             await handleProductsSave(products, undefined, undefined, dbCategories);
-        }
-        if (hasFormulasChanges) {
+        } else if (hasFormulasChanges) {
             await handleFormulasSave(formulas);
         }
     };

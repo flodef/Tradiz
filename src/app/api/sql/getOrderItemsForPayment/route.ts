@@ -1,12 +1,12 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, getMainDb } from '../db';
-import { OrderData, OrderItem, ServiceType } from '@/app/utils/interfaces';
+import { OrderData, OrderItem, dbToServiceType } from '@/app/utils/interfaces';
 
 interface PanierRow {
     id: number;
     short_num_order: string;
-    service_type: ServiceType;
+    service_type: string;
 }
 
 interface ArticleRow {
@@ -195,7 +195,7 @@ export async function GET(request: NextRequest) {
         const orderData: OrderData = {
             order_id: panier.id,
             short_num_order: panier.short_num_order,
-            service_type: panier.service_type,
+            service_type: dbToServiceType(panier.service_type),
             items,
             total_amount,
             paid_amount,
