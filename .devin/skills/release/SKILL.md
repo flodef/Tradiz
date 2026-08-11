@@ -1,4 +1,5 @@
 ---
+name: release
 description: Merge dev into main, bump version, tag, push, and create a GitHub release to trigger the CI build and auto-updater
 ---
 
@@ -7,6 +8,7 @@ description: Merge dev into main, bump version, tag, push, and create a GitHub r
 ## Prerequisites
 
 -   On `dev` branch with all changes committed and pushed
+-   `package.json` version has been bumped; the auto-updater only triggers on higher version numbers, and reinstalling the same version can cause issues
 -   `origin/main` is the production branch
 -   GitHub Actions workflow `build-windows-installer.yml` triggers on `release: published`
 
