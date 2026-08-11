@@ -78,7 +78,6 @@ export const usePay = () => {
         setCurrentCustomer,
         wasWaitingBeforeEditRef,
         originalProductsSnapshotRef,
-        isRefundFromExistingRef,
     } = useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
     const {
@@ -210,7 +209,6 @@ export const usePay = () => {
             // Reset the flags after use
             wasWaitingBeforeEditRef.current = false;
             originalProductsSnapshotRef.current = [];
-            isRefundFromExistingRef.current = false;
         },
         [
             updateTransaction,
@@ -223,7 +221,6 @@ export const usePay = () => {
             counterServiceType,
             wasWaitingBeforeEditRef,
             originalProductsSnapshotRef,
-            isRefundFromExistingRef,
             printKitchenDelta,
         ]
     );
@@ -745,9 +742,9 @@ export const usePay = () => {
                             const originalTransaction = transactions.find(
                                 (t) => t.method === PROCESSING_KEYWORD || t.method === UPDATING_KEYWORD
                             );
-                            // isCancelingExisting is true only when refunding an existing saved tx
-                            // (via refundTransaction in Total.tsx). For refund from scratch, no kitchen ticket.
-                            const isCancelingExisting = isRefundFromExistingRef.current;
+                            // Refund from scratch: no kitchen ticket (isCancelingExisting = false).
+                            // Refund of existing tx is handled directly by refundTransaction in Total.tsx.
+                            const isCancelingExisting = false;
                             // For provision refunds there are no products, so fall back to the original transaction amount.
                             const refundAmount = getCurrentTotal() || originalTransaction?.amount || 0;
 
@@ -887,7 +884,6 @@ export const usePay = () => {
             modeFonctionnement,
             setCounterServiceType,
             triggerCashDrawer,
-            isRefundFromExistingRef,
         ]
     );
 

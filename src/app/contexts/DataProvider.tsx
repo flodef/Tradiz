@@ -111,9 +111,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // Snapshot of the original products when editing a WAITING tx, used to compute the delta
     // (added/removed products) for the kitchen ticket when the tx is put back in WAITING or paid.
     const originalProductsSnapshotRef = useRef<Product[]>([]);
-    // Set to true by loadTransactionForRefund to indicate the refund is for an existing tx
-    // (not a refund from scratch), so a kitchen cancellation ticket should be printed.
-    const isRefundFromExistingRef = useRef(false);
     const syncInProgress = useRef(false);
     const lastServerSyncTime = useRef<string | undefined>(undefined);
     const [orderId, setOrderId] = useState('');
@@ -122,10 +119,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [selectedOrderItems, setSelectedOrderItems] = useState<OrderItem[]>([]);
     const [partialPaymentAmount, setPartialPaymentAmount] = useState(0);
     const [showPartialPaymentSelector, setShowPartialPaymentSelector] = useState(false);
-    const [counterServiceType, setCounterServiceTypeState] = useState<ServiceType>('dine_in');
+    const [counterServiceType, setCounterServiceTypeState] = useState<ServiceType>('takeout');
     const [contextTableId, setContextTableId] = useState('');
     const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
-    const counterServiceTypeRef = useRef<ServiceType>('dine_in');
+    const counterServiceTypeRef = useRef<ServiceType>('takeout');
     const setCounterServiceType = useCallback((type: ServiceType) => {
         counterServiceTypeRef.current = type;
         setCounterServiceTypeState(type);
@@ -458,7 +455,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         amount: transaction.amount,
                         currency: transaction.currency,
                         change: encodeCashNote(transaction.cashAmount, transaction.change),
-                        takeOut: transaction.takeOut ?? false,
+                        takeOut: transaction.takeOut ?? true,
                         created_at: toSQLDateTime(transaction.createdDate),
                         updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
                         products: transaction.products.map((product) => ({
@@ -862,7 +859,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             amount: transaction.amount,
                             currency: transaction.currency,
                             change: encodeCashNote(transaction.cashAmount, transaction.change),
-                            takeOut: transaction.takeOut ?? false,
+                            takeOut: transaction.takeOut ?? true,
                             created_at: toSQLDateTime(transaction.createdDate),
                             updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
                             products: transaction.products.map((product) => ({
@@ -1228,24 +1225,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [transactions, saveTransactions, addProduct, setCurrency]
     );
 
-    // Load a transaction's products into the current order for refund, WITHOUT mutating the
-    // original transaction. Resets transactionId so a new REFUND tx is created on commit.
-    const loadTransactionForRefund = useCallback(
-        (index: number) => {
-            const transaction = transactions.at(index);
-            if (!transaction?.amount) return;
-
-            clearTotal();
-            setCurrency(transaction.currency);
-            transaction.products.forEach(addProduct);
-            // Reset transactionId so updateTransaction creates a new tx instead of overwriting
-            transactionId.current = 0;
-            // Mark that this refund is for an existing tx (not from scratch)
-            isRefundFromExistingRef.current = true;
-        },
-        [transactions, clearTotal, addProduct, setCurrency]
-    );
-
     const updateTransaction = useCallback(
         (item: string | Transaction) => {
             if (!item || (typeof item === 'string' && !products.current.length)) return;
@@ -1382,7 +1361,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 syncSpecificDayFromSQL,
                 updateTransaction,
                 editTransaction,
-                loadTransactionForRefund,
                 refundTransaction,
                 deleteTransaction,
                 displayTransaction,
@@ -1411,7 +1389,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 setCurrentCustomer,
                 wasWaitingBeforeEditRef,
                 originalProductsSnapshotRef,
-                isRefundFromExistingRef,
             }}
         >
             {children}
