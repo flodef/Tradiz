@@ -110,6 +110,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // Snapshot of the original products when editing a WAITING tx, used to compute the delta
     // (added/removed products) for the kitchen ticket when the tx is put back in WAITING or paid.
     const originalProductsSnapshotRef = useRef<Product[]>([]);
+    // Set to true by loadTransactionForRefund to indicate the refund is for an existing tx
+    // (not a refund from scratch), so a kitchen cancellation ticket should be printed.
+    const isRefundFromExistingRef = useRef(false);
     const syncInProgress = useRef(false);
     const lastServerSyncTime = useRef<string | undefined>(undefined);
     const [orderId, setOrderId] = useState('');
@@ -1224,6 +1227,24 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [transactions, saveTransactions, addProduct, setCurrency]
     );
 
+    // Load a transaction's products into the current order for refund, WITHOUT mutating the
+    // original transaction. Resets transactionId so a new REFUND tx is created on commit.
+    const loadTransactionForRefund = useCallback(
+        (index: number) => {
+            const transaction = transactions.at(index);
+            if (!transaction?.amount) return;
+
+            clearTotal();
+            setCurrency(transaction.currency);
+            transaction.products.forEach(addProduct);
+            // Reset transactionId so updateTransaction creates a new tx instead of overwriting
+            transactionId.current = 0;
+            // Mark that this refund is for an existing tx (not from scratch)
+            isRefundFromExistingRef.current = true;
+        },
+        [transactions, clearTotal, addProduct, setCurrency]
+    );
+
     const updateTransaction = useCallback(
         (item: string | Transaction) => {
             if (!item || (typeof item === 'string' && !products.current.length)) return;
@@ -1336,6 +1357,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 syncSpecificDayFromSQL,
                 updateTransaction,
                 editTransaction,
+                loadTransactionForRefund,
                 deleteTransaction,
                 displayTransaction,
                 reverseTransaction,
@@ -1363,6 +1385,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 setCurrentCustomer,
                 wasWaitingBeforeEditRef,
                 originalProductsSnapshotRef,
+                isRefundFromExistingRef,
             }}
         >
             {children}

@@ -127,6 +127,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         selectedProduct,
         transactions,
         editTransaction,
+        loadTransactionForRefund,
         deleteTransaction,
         displayTransaction,
         reverseTransaction,
@@ -227,7 +228,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                   {
                                       label: REFUND_KEYWORD,
                                       action: (index: number) => {
-                                          editTransactionWithReversal(index);
+                                          loadTransactionForRefund(index);
                                           closePopup(() => setTimeout(pay, 100));
                                       },
                                   },
@@ -253,6 +254,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
             closePopup,
             getPrintersNames,
             transactions,
+            loadTransactionForRefund,
         ]
     );
 

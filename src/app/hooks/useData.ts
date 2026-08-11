@@ -42,6 +42,7 @@ export interface DataContextState {
     syncSpecificDayFromSQL: (date: string) => Promise<number>;
     updateTransaction: (item: string | Transaction) => void;
     editTransaction: (index: number) => void;
+    loadTransactionForRefund: (index: number) => void;
     deleteTransaction: (index: number) => void;
     displayTransaction: (transaction: Transaction) => string;
     reverseTransaction: (transaction: Transaction) => Transaction;
@@ -69,6 +70,7 @@ export interface DataContextState {
     setCurrentCustomer: (customer: Customer | null) => void;
     wasWaitingBeforeEditRef: RefObject<boolean>;
     originalProductsSnapshotRef: RefObject<Product[]>;
+    isRefundFromExistingRef: RefObject<boolean>;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);
