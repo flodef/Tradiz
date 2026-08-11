@@ -1,5 +1,6 @@
 'use client';
 
+import { IconReceipt, IconWallet } from '@tabler/icons-react';
 import TopNav from '@/app/components/admin/TopNav';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { FC, MouseEventHandler, useCallback, useMemo, useState } from 'react';
@@ -17,7 +18,7 @@ import { usePay } from '../hooks/usePay';
 import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
-import { LoadingDot } from '../loading';
+import Loading from '../loading';
 import {
     BACK_KEYWORD,
     PROVISION_KEYWORD,
@@ -597,7 +598,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         return (
             <div className={popupClass} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div className={compact ? 'block' : 'hidden md:block'}>
-                    <LoadingDot />
+                    <Loading />
                 </div>
             </div>
         );
@@ -637,76 +638,106 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         );
     }
 
+    const showTopBar = (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length);
+
+    if (!showTopBar && !compact) {
+        return <div className={popupClass} />;
+    }
+
     return (
         <div className={popupClass}>
-            <div
-                className={twMerge(
-                    compact ? 'w-full' : 'md:w-1/2 w-full',
-                    compact ? 'relative' : 'fixed',
-                    compact ? 'top-0 left-0 text-center font-bold' : 'top-0 left-0 md:left-1/2 text-center font-bold',
-                    'border-b-4 border-active-light dark:border-active-dark',
-                    compact
-                        ? 'block text-4xl py-1 shrink-0'
-                        : isMobile
-                          ? 'md:hidden text-4xl py-1'
-                          : 'hidden md:block text-5xl py-3',
-                    !isMobile && ((canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length))
-                        ? clickClassName
-                        : ''
-                )}
-            >
-                <div className="flex items-center gap-0 w-full pl-1">
-                    <TopNavWithRoleCheck
-                        showLightAdminNav={showLightAdminNav}
-                        isMobile={isMobile}
-                        onCollapsedChange={(c) => setNavExpanded(!c)}
-                    />
-                    <div
-                        className={twMerge('flex-1 text-center overflow-hidden whitespace-nowrap')}
-                        onClick={handleClick}
-                        onContextMenu={handleClick}
-                    >
-                        {canDisplayTotal ? (
-                            <span>
-                                {!navExpanded && (canDisplayTotal && total ? label : totalLabel)}{' '}
-                                <Amount value={total} showZero />
-                            </span>
-                        ) : (
-                            <span>
-                                {!navExpanded && 'Ticket : '}
-                                {visibleTransactions.length}
-                                <span className="text-xl">{`vente${(visibleTransactions.length ?? 0) > 1 ? 's' : ''}`}</span>
-                            </span>
+            {showTopBar && (
+                <div
+                    className={twMerge(
+                        compact ? 'w-full' : 'md:w-1/2 w-full',
+                        compact ? 'relative' : 'fixed',
+                        compact
+                            ? 'top-0 left-0 text-center font-bold'
+                            : 'top-0 left-0 md:left-1/2 text-center font-bold',
+                        'border-b-4 border-active-light dark:border-active-dark',
+                        compact
+                            ? 'block text-4xl py-1 shrink-0'
+                            : isMobile
+                              ? 'md:hidden text-4xl py-1'
+                              : 'hidden md:block text-5xl py-3',
+                        !isMobile ? clickClassName : ''
+                    )}
+                >
+                    <div className="flex items-center gap-0 w-full pl-1">
+                        <TopNavWithRoleCheck
+                            showLightAdminNav={showLightAdminNav}
+                            isMobile={isMobile}
+                            onCollapsedChange={(c) => setNavExpanded(!c)}
+                        />
+                        <div
+                            className={twMerge('flex-1 text-center overflow-hidden whitespace-nowrap')}
+                            onClick={
+                                (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length)
+                                    ? handleClick
+                                    : undefined
+                            }
+                            onContextMenu={
+                                (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length)
+                                    ? handleClick
+                                    : undefined
+                            }
+                        >
+                            {canDisplayTotal ? (
+                                total ? (
+                                    <span
+                                        className={`inline-flex items-center justify-center ${isMobile ? 'gap-1' : 'gap-2'}`}
+                                    >
+                                        {!navExpanded && (
+                                            <>
+                                                <IconWallet className="inline-block" size={isMobile ? 28 : 36} />
+                                                {label}{' '}
+                                            </>
+                                        )}
+                                        <Amount value={total} showZero />
+                                    </span>
+                                ) : (
+                                    <span>&nbsp;</span>
+                                )
+                            ) : (
+                                <span
+                                    className={`inline-flex items-center justify-center ${isMobile ? 'gap-1' : 'gap-2'}`}
+                                >
+                                    {!navExpanded && <IconReceipt className="inline-block" size={isMobile ? 28 : 36} />}
+                                    {!navExpanded && 'Ticket : '}
+                                    {visibleTransactions.length}
+                                    <span className="text-xl self-end">{`vente${(visibleTransactions.length ?? 0) > 1 ? 's' : ''}`}</span>
+                                </span>
+                            )}
+                        </div>
+                        {USE_DIGICARTE && modeFonctionnement !== 'lite' && (
+                            <CloseButton
+                                onClose={() => postMessageToParent(CLOSE)}
+                                className="pt-0 active:bg-light dark:active:bg-dark text-light dark:text-dark"
+                                size="xl"
+                            />
+                        )}
+                        {typeof window !== 'undefined' && window.electronAPI?.closeApp && (
+                            <CloseButton
+                                onClose={() => {
+                                    openFullscreenPopup(
+                                        'Voulez-vous vraiment fermer Tradiz ?',
+                                        ['Annuler', 'Fermer'],
+                                        (index) => {
+                                            if (index === 1) {
+                                                window.electronAPI?.closeApp();
+                                            } else {
+                                                closePopup();
+                                            }
+                                        }
+                                    );
+                                }}
+                                className="pt-0 active:bg-light dark:active:bg-dark text-light dark:text-dark"
+                                size="xl"
+                            />
                         )}
                     </div>
-                    {USE_DIGICARTE && modeFonctionnement !== 'lite' && (
-                        <CloseButton
-                            onClose={() => postMessageToParent(CLOSE)}
-                            className="pt-0 active:bg-light dark:active:bg-dark text-light dark:text-dark"
-                            size="xl"
-                        />
-                    )}
-                    {typeof window !== 'undefined' && window.electronAPI?.closeApp && (
-                        <CloseButton
-                            onClose={() => {
-                                openFullscreenPopup(
-                                    'Voulez-vous vraiment fermer Tradiz ?',
-                                    ['Annuler', 'Fermer'],
-                                    (index) => {
-                                        if (index === 1) {
-                                            window.electronAPI?.closeApp();
-                                        } else {
-                                            closePopup();
-                                        }
-                                    }
-                                );
-                            }}
-                            className="pt-0 active:bg-light dark:active:bg-dark text-light dark:text-dark"
-                            size="xl"
-                        />
-                    )}
                 </div>
-            </div>
+            )}
 
             <div
                 className={twMerge(

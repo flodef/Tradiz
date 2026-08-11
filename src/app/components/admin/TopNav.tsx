@@ -1,12 +1,12 @@
 'use client';
 
 import { useConfig } from '@/app/hooks/useConfig';
-import { usePopup } from '@/app/hooks/usePopup';
+import { useUnsavedChanges } from '@/app/hooks/useUnsavedChanges';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { IconChevronLeft, IconChevronRight, IconPencil, IconChartPie, IconSettings } from '@tabler/icons-react';
 import { ADMIN_CONFIG_URL, ADMIN_EDIT_MENU_URL, ADMIN_STATS_URL, USE_DIGICARTE } from '@/app/utils/constants';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 
@@ -23,6 +23,7 @@ interface TopNavProps {
     className?: string;
     onCollapsedChange?: (collapsed: boolean) => void;
     hasChanges?: boolean;
+    onSave?: () => Promise<void> | void;
     onCollapsedStateChange?: (collapsed: boolean) => void;
 }
 
@@ -31,14 +32,14 @@ export default function TopNav({
     className,
     onCollapsedChange,
     hasChanges = false,
+    onSave,
     onCollapsedStateChange,
 }: TopNavProps) {
     const [collapsed, setCollapsed] = useState(true);
     const { isGrafanaAccessEnabled } = useConfig();
     const { isAdmin, isCashier } = useUserRole();
-    const { openFullscreenPopup } = usePopup();
+    const { confirmUnsavedChanges } = useUnsavedChanges();
     const pathname = usePathname();
-    const router = useRouter();
 
     // Notify parent of collapsed state changes
     useEffect(() => {
@@ -106,20 +107,7 @@ export default function TopNav({
                             const handleClick = (e: React.MouseEvent) => {
                                 if (hasChanges) {
                                     e.preventDefault();
-                                    openFullscreenPopup(
-                                        'Des modifications non enregistrées vont être perdues. Que souhaitez-vous faire ?',
-                                        ['Enregistrer', 'Annuler', 'Quitter sans enregistrer'],
-                                        (index) => {
-                                            if (index === 0) {
-                                                // Save - navigate after save handled by parent
-                                                router.push(item.href);
-                                            } else if (index === 2) {
-                                                // Leave without saving
-                                                router.push(item.href);
-                                            }
-                                            // index 1 = Cancel, do nothing
-                                        }
-                                    );
+                                    confirmUnsavedChanges(hasChanges, onSave, item.href);
                                 }
                             };
 

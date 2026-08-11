@@ -25,15 +25,15 @@ export interface PopupStyles {
  */
 export const defaultPopupStyles: PopupStyles = {
     container: `
-        absolute z-30 w-[90%] max-h-[90%] max-w-[400px] overflow-y-auto overflow-x-hidden justify-self-center
+        absolute z-30 w-[95%] max-h-[90%] max-w-[400px] overflow-y-auto overflow-x-hidden justify-self-center
         bg-popup-light dark:bg-popup-dark h-fit rounded-2xl self-center blur-none border-black border-[3px]
         dark:border-secondary-active-dark
     `,
     overlay: 'absolute inset-0 z-20 opacity-50 bg-gray-900',
     header: 'flex justify-between bg-secondary-active-light dark:bg-secondary-active-dark',
-    title: 'text-2xl font-semibold py-3 pl-3 text-popup-dark dark:text-popup-light',
+    title: 'text-2xl font-semibold py-3 pl-2 text-popup-dark dark:text-popup-light',
     option: 'py-2 w-full relative cursor-pointer',
-    optionText: 'font-semibold text-xl whitespace-nowrap',
+    optionText: 'font-semibold text-xl whitespace-normal break-words',
     separator: 'border-b-2 border-secondary-active-light dark:border-secondary-active-dark',
 };
 

@@ -164,7 +164,7 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                                 className={twMerge(
                                     styles.option,
                                     typeof option === 'string'
-                                        ? 'grid auto-cols-fr text-left pl-3 gap-4'
+                                        ? 'grid auto-cols-fr text-left pl-2 gap-4'
                                         : 'flex justify-around items-center text-center py-0',
                                     getOptionHoverStyles(isMobileDevice, typeof option === 'string'),
                                     typeof option === 'string' && !isMobile && validIndex === selectedIndex

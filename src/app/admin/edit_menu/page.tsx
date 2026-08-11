@@ -9,7 +9,7 @@ import { Config, ProductsSettings } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
 import { useUserRole } from '@/app/hooks/useUserRole';
-import { LoadingDot } from '@/app/loading';
+import Loading from '@/app/loading';
 import { DEFAULT_CATEGORY, USE_DIGICARTE } from '@/app/utils/constants';
 import { applyCategoryDeletionToFormulas, isSameCategory, renameFormulaCategory } from '@/app/utils/category';
 import { Category, InventoryItem } from '@/app/utils/interfaces';
@@ -805,6 +805,15 @@ export default function EditMenuPage() {
         setDbCategories(originalDbCategories);
     };
 
+    const handleSaveAll = async () => {
+        if (hasProductsChanges || hasCategoriesChanges) {
+            await handleProductsSave(products, undefined, undefined, dbCategories);
+        }
+        if (hasFormulasChanges) {
+            await handleFormulasSave(formulas);
+        }
+    };
+
     const nonFormulaProducts = useMemo(() => products.filter((p) => p.category !== FORMULA_CATEGORY), [products]);
 
     // Redirect if using Digicarte
@@ -813,7 +822,7 @@ export default function EditMenuPage() {
     if (isLoading) {
         return (
             <AdminPageLayout title="Édition des produits" hasChanges={false}>
-                <LoadingDot fullscreen />
+                <Loading fullscreen />
             </AdminPageLayout>
         );
     }
@@ -832,7 +841,7 @@ export default function EditMenuPage() {
     }
 
     return (
-        <AdminPageLayout title="Édition des produits" hasChanges={hasChanges}>
+        <AdminPageLayout title="Édition des produits" hasChanges={hasChanges} onSave={handleSaveAll}>
             {isReadOnly && (
                 <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 dark:border-yellow-600 rounded-lg">
                     <p className="text-sm text-yellow-800 dark:text-yellow-200">

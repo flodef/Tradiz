@@ -31,7 +31,7 @@ import {
     XAxis,
     YAxis,
 } from 'recharts';
-import { LoadingDot } from '../loading';
+import Loading from '../loading';
 
 interface DailySale {
     date: string;
@@ -376,7 +376,7 @@ export default function StatsPage() {
     if (loading) {
         return (
             <AdminPageLayout title="Statistiques">
-                <LoadingDot fullscreen />
+                <Loading fullscreen />
             </AdminPageLayout>
         );
     }

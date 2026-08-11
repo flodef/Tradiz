@@ -222,11 +222,11 @@ export interface OrderFormule {
 
 export type OrderItem = OrderArticle | OrderFormule;
 
-export type ServiceType = 'sur_place' | 'emporter';
+export type ServiceType = 'dine_in' | 'takeout';
 
 export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
-    sur_place: 'Sur place',
-    emporter: 'À emporter',
+    dine_in: 'Sur place',
+    takeout: 'À emporter',
 };
 
 export interface OrderData {

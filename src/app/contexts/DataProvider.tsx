@@ -111,10 +111,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [selectedOrderItems, setSelectedOrderItems] = useState<OrderItem[]>([]);
     const [partialPaymentAmount, setPartialPaymentAmount] = useState(0);
     const [showPartialPaymentSelector, setShowPartialPaymentSelector] = useState(false);
-    const [counterServiceType, setCounterServiceTypeState] = useState<ServiceType>('sur_place');
+    const [counterServiceType, setCounterServiceTypeState] = useState<ServiceType>('dine_in');
     const [contextTableId, setContextTableId] = useState('');
     const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
-    const counterServiceTypeRef = useRef<ServiceType>('sur_place');
+    const counterServiceTypeRef = useRef<ServiceType>('dine_in');
     const setCounterServiceType = useCallback((type: ServiceType) => {
         counterServiceTypeRef.current = type;
         setCounterServiceTypeState(type);
@@ -1231,7 +1231,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                           currency: currencies[currencyIndex].label,
                           customerName: existingTransaction?.customerName,
                           products: products.current,
-                          takeOut: counterServiceTypeRef.current === 'emporter',
+                          takeOut: counterServiceTypeRef.current === 'takeout',
                           ...(shortNumOrder ? { shortNumOrder } : {}),
                       };
 

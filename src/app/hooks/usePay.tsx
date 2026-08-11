@@ -103,7 +103,7 @@ export const usePay = () => {
                     modifiedDate: now,
                     currency: currencies[currencyIndex].label,
                     products: [...products.current],
-                    takeOut: counterServiceType === 'emporter',
+                    takeOut: counterServiceType === 'takeout',
                 };
             }
             updateTransaction(item);
@@ -218,7 +218,7 @@ export const usePay = () => {
                     modifiedDate: new Date().getTime(),
                     currency: currencies[currencyIndex].label,
                     products: products.current,
-                    takeOut: counterServiceType === 'emporter',
+                    takeOut: counterServiceType === 'takeout',
                 };
             }
 
@@ -232,9 +232,9 @@ export const usePay = () => {
                 serviceType:
                     orderData?.service_type ??
                     (currentTransaction.takeOut === true
-                        ? 'emporter'
+                        ? 'takeout'
                         : currentTransaction.takeOut === false
-                          ? 'sur_place'
+                          ? 'dine_in'
                           : undefined),
             });
         },
@@ -939,7 +939,7 @@ export const usePay = () => {
             // Si useTakeOut est activé, demander le type de service quel que soit le mode.
             const useTakeOut = parameters.display?.useTakeOut !== false;
             if (!orderId && modeFonctionnement !== 'fastfood' && !useTakeOut) {
-                setCounterServiceType('sur_place');
+                setCounterServiceType('dine_in');
             }
 
             if (!orderId && !serviceTypeSelectedRef.current && (modeFonctionnement === 'fastfood' || useTakeOut)) {

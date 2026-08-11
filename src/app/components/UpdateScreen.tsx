@@ -1,6 +1,7 @@
 'use client';
 
 import { FC } from 'react';
+import { LoadingBounce } from '@/app/loading';
 
 export type UpdateStep = 'available' | 'downloading' | 'installing' | 'restarting';
 
@@ -18,31 +19,23 @@ const STEP_LABELS: Record<UpdateStep, string> = {
     restarting: 'Redémarrage en cours…',
 };
 
-const LoadingDots: FC = () => (
-    <div className="flex gap-2">
-        <span className="w-3 h-3 rounded-full bg-current animate-bounce [animation-delay:-0.3s]" />
-        <span className="w-3 h-3 rounded-full bg-current animate-bounce [animation-delay:-0.15s]" />
-        <span className="w-3 h-3 rounded-full bg-current animate-bounce" />
-    </div>
-);
+const LoadingDots: FC = () => <LoadingBounce fullscreen={false} />;
 
 export const UpdateScreen: FC<UpdateScreenProps> = ({ step, version, onAccept, onDismiss }) => {
     const showButtons = step === 'available';
 
     return (
-        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-main-from-light dark:bg-main-from-dark text-main-to-light dark:text-main-to-dark">
+        <div className="fixed inset-0 z-200 flex flex-col items-center justify-center bg-main-from-light dark:bg-main-from-dark text-main-to-light dark:text-main-to-dark">
             <div className="flex flex-col items-center gap-8">
                 {version && (
                     <p className="text-2xl font-semibold opacity-80">
-                        Mise à jour v{version}
+                        Mise à jour v{version.split('.').slice(0, 2).join('.')}
                     </p>
                 )}
 
                 <div className="flex flex-col items-center gap-4">
                     <p className="text-xl font-semibold">{STEP_LABELS[step]}</p>
-                    {step !== 'available' && (
-                        <LoadingDots />
-                    )}
+                    {step !== 'available' && <LoadingDots />}
                 </div>
 
                 {showButtons && (

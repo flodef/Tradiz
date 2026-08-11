@@ -42,6 +42,27 @@ export const LoadingText: FC<LoadingTextProps> = ({ text, fullscreen = true }) =
     );
 };
 
+interface LoadingBounceProps {
+    fullscreen?: boolean;
+}
+
+export const LoadingBounce: FC<LoadingBounceProps> = ({ fullscreen = true }) => {
+    return (
+        <div
+            className={
+                'text-center w-full h-full flex items-center justify-center ' + (fullscreen ? 'absolute inset-0' : '')
+            }
+            style={{ background: 'inherit' }}
+        >
+            <div className="flex gap-4">
+                <span className="w-4 h-4 rounded-full bg-current animate-bounce [animation-delay:-0.3s]" />
+                <span className="w-4 h-4 rounded-full bg-current animate-bounce [animation-delay:-0.15s]" />
+                <span className="w-4 h-4 rounded-full bg-current animate-bounce" />
+            </div>
+        </div>
+    );
+};
+
 interface LoadingDotProps {
     fullscreen?: boolean;
 }
@@ -58,8 +79,8 @@ export const LoadingDot: FC<LoadingDotProps> = ({ fullscreen = true }) => {
         >
             <div className={'h-4 w-28 flex relative '}>
                 <span className={circleClassName + 'absolute top-0 left-0 mr-8 animate-grow'}></span>
-                <span className={circleClassName + 'mr-[30px] animate-move'}></span>
-                <span className={circleClassName + 'mr-[30px] animate-move'}></span>
+                <span className={circleClassName + 'mr-7.5 animate-move'}></span>
+                <span className={circleClassName + 'mr-7.5 animate-move'}></span>
                 <span className={circleClassName + 'absolute top-0 right-0 mr-0 animate-grow-reverse'}></span>
             </div>
         </div>
@@ -80,7 +101,7 @@ export const LoadingSpinner: FC<LoadingSpinnerProps> = ({ fullscreen = true }) =
             }
             style={{ background: 'inherit' }}
         >
-            <svg className="max-w-[256px] max-h-[128px]" viewBox="0 0 256 128" xmlns="http://www.w3.org/2000/svg">
+            <svg className="max-w-[256px] max-h-32" viewBox="0 0 256 128" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <linearGradient id="grad1" x1="0" y1="0" x2="1" y2="0">
                         <stop offset="0%" stopColor="#5ebd3e" />
@@ -125,23 +146,26 @@ export const LoadingSpinner: FC<LoadingSpinnerProps> = ({ fullscreen = true }) =
 
 export enum LoadingType {
     Text,
+    Bounce,
     Dot,
     Spinner,
 }
 
 export default function Loading({
-    type = LoadingType.Dot,
+    type = LoadingType.Bounce,
     fullscreen = true,
 }: { type?: LoadingType; fullscreen?: boolean } = {}) {
     // You can add any UI inside Loading, including a Skeleton.
     switch (type) {
         case LoadingType.Text:
             return <LoadingText text="Chargement" fullscreen={fullscreen} />;
+        case LoadingType.Bounce:
+            return <LoadingBounce fullscreen={fullscreen} />;
         case LoadingType.Dot:
             return <LoadingDot fullscreen={fullscreen} />;
         case LoadingType.Spinner:
             return <LoadingSpinner fullscreen={fullscreen} />;
         default:
-            return <LoadingDot fullscreen={fullscreen} />;
+            return <LoadingBounce fullscreen={fullscreen} />;
     }
 }

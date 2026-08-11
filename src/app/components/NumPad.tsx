@@ -1,6 +1,6 @@
 'use client';
 
-import { IconBackspace, IconCalculator, IconSearch, IconWallet, IconX } from '@tabler/icons-react';
+import { IconBackspace, IconCalculator, IconSearch, IconShoppingCart, IconWallet, IconX } from '@tabler/icons-react';
 import { FC, MouseEventHandler, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { isDeletedTransaction } from '../contexts/dataProvider/transactionHelpers';
@@ -593,7 +593,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
         toCurrency,
     } = useData();
     const { openPopup, closePopup, isPopupOpen, openFullscreenPopup } = usePopup();
-    const { pay } = usePay();
+    const { pay, canAddProduct } = usePay();
     const { showTransactionsSummary, showTransactionsSummaryMenu, getHistoricalTransactions, refreshHistoricalKeys } =
         useSummary();
 
@@ -703,13 +703,15 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
             });
         } else {
             removeProduct();
+            setQuantity(-1);
         }
-    }, [removeProduct, clearTotal, openPopup, total]);
+    }, [removeProduct, clearTotal, openPopup, total, setQuantity]);
 
     const onClear = useCallback(() => {
         if (selectedProduct) {
             if (quantity || !amount) {
                 removeProduct();
+                setQuantity(-1);
             } else {
                 setAmount(0);
             }
@@ -721,7 +723,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
             return;
         }
         clearAmount();
-    }, [removeProduct, clearAmount, selectedProduct, quantity, setAmount, amount, onClearTotal]);
+    }, [removeProduct, clearAmount, selectedProduct, quantity, setAmount, setQuantity, amount, onClearTotal]);
 
     const showCurrencies = useCallback(() => {
         if (currencies.length < 2) return;
@@ -902,7 +904,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
         : '';
     const s =
         'w-[72px] h-[72px] sm:w-20 sm:h-20 rounded-2xl flex justify-center m-2.5 sm:m-3 items-center text-5xl sm:text-6xl ';
-    const sx = s + (total ? color : 'invisible');
+    const sx = s + (canAddProduct || total ? color : 'invisible');
 
     const f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
 
@@ -914,6 +916,13 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
             pay();
         },
         onContextMenu: total ? () => updateTransaction(WAITING_KEYWORD) : () => {},
+    };
+
+    // Cart button for the bottom row: adds the currently selected product to the cart
+    const cartButtonProps = {
+        icon: IconShoppingCart,
+        onClick: canAddProduct ? () => _addProduct() : () => {},
+        onContextMenu: canAddProduct ? () => _addProduct() : () => {},
     };
     const f1 = f + (hasAmount || total ? color : 'invisible');
     const f2 =
@@ -1082,7 +1091,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                                     onContextMenu={discount ?? mercuriale}
                                 />
                             )
-                        ) : total ? (
+                        ) : displayOnly && total ? (
                             <ImageButton {...actionButtonProps} className={f + (total ? color : 'invisible')} />
                         ) : hasSearchEnabled ? (
                             <ImageButton
@@ -1126,7 +1135,11 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                         <div className="flex justify-evenly">
                             <NumPadButton input={0} onInput={onInput} />
                             <NumPadButton input={!quantity ? '00' : '½'} onInput={onInput} />
-                            <ImageButton {...actionButtonProps} className={sx} />
+                            {canAddProduct ? (
+                                <ImageButton {...cartButtonProps} className={sx} />
+                            ) : (
+                                <ImageButton {...actionButtonProps} className={sx} />
+                            )}
                         </div>
                     </div>
                 )}

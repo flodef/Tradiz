@@ -2,8 +2,7 @@
 
 import TopNav from '@/app/components/admin/TopNav';
 import { CloseButton } from '@/app/components/CloseButton';
-import { usePopup } from '@/app/hooks/usePopup';
-import { useRouter } from 'next/navigation';
+import { useUnsavedChanges } from '@/app/hooks/useUnsavedChanges';
 import { ReactNode, useState } from 'react';
 
 interface AdminPageLayoutProps {
@@ -11,32 +10,15 @@ interface AdminPageLayoutProps {
     children: ReactNode;
     action?: ReactNode;
     hasChanges?: boolean;
+    onSave?: () => Promise<void> | void;
 }
 
-export default function AdminPageLayout({ title, children, action, hasChanges = false }: AdminPageLayoutProps) {
-    const router = useRouter();
-    const { openFullscreenPopup } = usePopup();
+export default function AdminPageLayout({ title, children, action, hasChanges = false, onSave }: AdminPageLayoutProps) {
+    const { confirmUnsavedChanges } = useUnsavedChanges();
     const [navCollapsed, setNavCollapsed] = useState(true);
 
     const handleClose = () => {
-        if (hasChanges) {
-            openFullscreenPopup(
-                'Des modifications non enregistrées vont être perdues. Que souhaitez-vous faire ?',
-                ['Enregistrer', 'Annuler', 'Quitter sans enregistrer'],
-                (index) => {
-                    if (index === 0) {
-                        // Save - for now just navigate (parent handles save)
-                        router.push('/');
-                    } else if (index === 2) {
-                        // Leave without saving
-                        router.push('/');
-                    }
-                    // index 1 = Cancel, do nothing
-                }
-            );
-        } else {
-            router.push('/');
-        }
+        confirmUnsavedChanges(hasChanges, onSave, '/');
     };
 
     return (
@@ -46,7 +28,7 @@ export default function AdminPageLayout({ title, children, action, hasChanges = 
                 style={{ position: 'sticky' }}
             >
                 <div className="shrink-0 z-10">
-                    <TopNav inline hasChanges={hasChanges} onCollapsedStateChange={setNavCollapsed} />
+                    <TopNav inline hasChanges={hasChanges} onSave={onSave} onCollapsedStateChange={setNavCollapsed} />
                 </div>
                 <h1
                     className={`absolute inset-x-0 text-center text-3xl font-bold leading-tight wrap-break-word line-clamp-2 px-16 pointer-events-none ${!navCollapsed ? 'md:block hidden' : ''}`}

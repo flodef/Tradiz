@@ -34,7 +34,7 @@ import { useUserRole } from '@/app/hooks/useUserRole';
 import { useIsMobile } from '@/app/utils/mobile';
 import { clearLoadDataCache, defaultParameters, getPublicKey } from '@/app/utils/processData';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LoadingDot } from '@/app/loading';
+import Loading from '@/app/loading';
 import {
     IconSettings,
     IconDiscount,
@@ -1043,7 +1043,7 @@ export default function SettingsPage() {
     if (isLoading) {
         return (
             <AdminPageLayout title="Configuration" hasChanges={false}>
-                <LoadingDot fullscreen />
+                <Loading fullscreen />
             </AdminPageLayout>
         );
     }
@@ -1071,7 +1071,7 @@ export default function SettingsPage() {
 
     return (
         <VirtualKeyboardProvider enabled={settings.useVirtualKeyboard ?? false}>
-            <AdminPageLayout title="Configuration" hasChanges={hasChanges}>
+            <AdminPageLayout title="Configuration" hasChanges={hasChanges} onSave={handleSaveAll}>
                 {isReadOnly && (
                     <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 dark:border-yellow-600 rounded-lg">
                         <p className="text-sm text-yellow-800 dark:text-yellow-200">

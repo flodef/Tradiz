@@ -7,7 +7,7 @@ import { usePopup } from '../hooks/usePopup';
 import { IS_DEV, USE_DIGICARTE, WEB_URL } from '../utils/constants';
 import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isAtLeast, useScreenSize } from '../utils/screenSizeConfig';
-import { LoadingDot } from '../loading';
+import Loading from '../loading';
 import { Category } from './Category';
 import { NumPad } from './NumPad';
 import { OrderBadge } from './OrderBadge';
@@ -209,7 +209,7 @@ export const MainContent: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdmi
     if (!isStateReady) {
         return (
             <div className="z-10 flex flex-col justify-between">
-                <LoadingDot />
+                <Loading />
                 <Category />
             </div>
         );
