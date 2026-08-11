@@ -28,9 +28,7 @@ export const UpdateScreen: FC<UpdateScreenProps> = ({ step, version, onAccept, o
         <div className="fixed inset-0 z-200 flex flex-col items-center justify-center bg-main-from-light dark:bg-main-from-dark text-main-to-light dark:text-main-to-dark">
             <div className="flex flex-col items-center gap-8">
                 {version && (
-                    <p className="text-2xl font-semibold opacity-80">
-                        Mise à jour v{version.split('.').slice(0, 2).join('.')}
-                    </p>
+                    <p className="text-2xl font-semibold">Mise à jour v{version.split('.').slice(0, 2).join('.')}</p>
                 )}
 
                 <div className="flex flex-col items-center gap-4">
@@ -50,7 +48,7 @@ export const UpdateScreen: FC<UpdateScreenProps> = ({ step, version, onAccept, o
                         <button
                             type="button"
                             onClick={onDismiss}
-                            className="px-8 py-3 rounded-xl font-semibold text-lg border-2 border-current opacity-60 hover:opacity-100 transition-opacity"
+                            className="px-8 py-3 rounded-xl font-semibold text-lg border-2 border-current hover:opacity-80 transition-opacity"
                         >
                             Plus tard
                         </button>
