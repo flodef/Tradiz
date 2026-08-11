@@ -15,6 +15,7 @@ interface UseBarcodeScannerProps {
 
 const BARCODE_TIMEOUT = 100; // ms between keystrokes to consider it a barcode scan
 const BARCODE_MIN_LENGTH = 3; // ignore shorter buffers that are likely manual keystrokes
+const BARCODE_DEBOUNCE = 300; // ms to prevent duplicate scans
 
 export function useBarcodeScanner({
     inventory,
@@ -27,10 +28,11 @@ export function useBarcodeScanner({
 }: UseBarcodeScannerProps) {
     const bufferRef = useRef('');
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const lastScanRef = useRef(0);
 
     const processCode = useCallback(
         (code: string) => {
-            // Match against products
+            // Match against products (exact match — case matters for references)
             const productMatch = inventory
                 .flatMap((cat) =>
                     cat.products.map((p) => ({ ...p, category: cat.category })).filter((p) => p.reference === code)
@@ -46,14 +48,14 @@ export function useBarcodeScanner({
                 return;
             }
 
-            // Match against customers
+            // Match against customers (exact match)
             const customerMatch = customers.find((c) => c.reference === code);
             if (customerMatch) {
                 onMatchCustomer(customerMatch);
                 return;
             }
 
-            // Match against users
+            // Match against users (exact match)
             const userMatch = users.find((u) => u.reference === code);
             if (userMatch) {
                 onMatchUser(userMatch);
@@ -80,6 +82,11 @@ export function useBarcodeScanner({
                 const code = bufferRef.current;
                 bufferRef.current = '';
                 if (code.length >= BARCODE_MIN_LENGTH) {
+                    // Debounce: ignore duplicate scans within BARCODE_DEBOUNCE ms
+                    const now = Date.now();
+                    if (now - lastScanRef.current < BARCODE_DEBOUNCE) return;
+                    lastScanRef.current = now;
+
                     e.preventDefault();
                     processCode(code);
                 }

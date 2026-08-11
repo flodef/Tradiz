@@ -170,6 +170,10 @@ const SearchPopup: FC<SearchPopupProps> = ({
     onSelectUser,
 }) => {
     const [query, setQuery] = useState('');
+    const [rawInput, setRawInput] = useState('');
+    const inputDebounceRef = useRef<NodeJS.Timeout | null>(null);
+    const lastKeyTimeRef = useRef(0);
+    const isScanInputRef = useRef(false);
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
         products: true,
         customers: true,
@@ -186,6 +190,18 @@ const SearchPopup: FC<SearchPopupProps> = ({
     useEffect(() => {
         inputRef.current?.focus();
     }, []);
+
+    // Debounce query: scanner can send input twice in rapid succession.
+    // A short debounce collapses duplicate scans into a single query.
+    useEffect(() => {
+        if (inputDebounceRef.current) clearTimeout(inputDebounceRef.current);
+        inputDebounceRef.current = setTimeout(() => {
+            setQuery(rawInput);
+        }, 50);
+        return () => {
+            if (inputDebounceRef.current) clearTimeout(inputDebounceRef.current);
+        };
+    }, [rawInput]);
 
     // Scroll highlighted item into view
     useEffect(() => {
@@ -297,7 +313,44 @@ const SearchPopup: FC<SearchPopupProps> = ({
         }
     }, [query, allItems.length]);
 
+    // Auto-select when exactly one result matches (e.g. barcode scan in search mode)
+    const selectItem = useCallback(
+        (item: SearchItem) => {
+            if (item.type === 'product') {
+                onSelectProduct({
+                    category: item.data.category,
+                    label: item.data.label,
+                    amount: item.data.prices[0],
+                });
+            } else if (item.type === 'customer') {
+                onSelectCustomer(item.data);
+            } else if (item.type === 'user') {
+                onSelectUser(item.data);
+            }
+        },
+        [onSelectProduct, onSelectCustomer, onSelectUser]
+    );
+
+    // Auto-select when exactly one result matches AND input came from a barcode scan
+    useEffect(() => {
+        if (query && allItems.length === 1 && isScanInputRef.current) {
+            selectItem(allItems[0]);
+        }
+    }, [query, allItems, selectItem]);
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        // Detect barcode scanner: rapid keystrokes (<30ms apart) are scanner input
+        const now = Date.now();
+        if (e.key.length === 1) {
+            const interval = now - lastKeyTimeRef.current;
+            if (lastKeyTimeRef.current > 0 && interval < 30) {
+                isScanInputRef.current = true;
+            } else if (interval > 200) {
+                isScanInputRef.current = false;
+            }
+            lastKeyTimeRef.current = now;
+        }
+
         if (allItems.length === 0) return;
 
         const categoryCount = Object.keys(categoryBoundaries).length;
@@ -372,32 +425,9 @@ const SearchPopup: FC<SearchPopupProps> = ({
             case 'Enter':
                 e.preventDefault();
                 if (highlightedIndex >= 0 && highlightedIndex < allItems.length) {
-                    const item = allItems[highlightedIndex];
-                    if (item.type === 'product') {
-                        onSelectProduct({
-                            category: item.data.category,
-                            label: item.data.label,
-                            amount: item.data.prices[0],
-                        });
-                    } else if (item.type === 'customer') {
-                        onSelectCustomer(item.data);
-                    } else if (item.type === 'user') {
-                        onSelectUser(item.data);
-                    }
+                    selectItem(allItems[highlightedIndex]);
                 } else if (allItems.length > 0) {
-                    // Select first item if none highlighted
-                    const firstItem = allItems[0];
-                    if (firstItem.type === 'product') {
-                        onSelectProduct({
-                            category: firstItem.data.category,
-                            label: firstItem.data.label,
-                            amount: firstItem.data.prices[0],
-                        });
-                    } else if (firstItem.type === 'customer') {
-                        onSelectCustomer(firstItem.data);
-                    } else if (firstItem.type === 'user') {
-                        onSelectUser(firstItem.data);
-                    }
+                    selectItem(allItems[0]);
                 }
                 break;
         }
@@ -410,7 +440,7 @@ const SearchPopup: FC<SearchPopupProps> = ({
             <input
                 ref={inputRef}
                 type="text"
-                value={query}
+                value={rawInput}
                 maxLength={10}
                 placeholder="Recherche..."
                 className={twMerge(
@@ -418,11 +448,11 @@ const SearchPopup: FC<SearchPopupProps> = ({
                     'text-popup-dark dark:text-popup-light placeholder:font-normal placeholder:text-gray-400'
                 )}
                 autoFocus
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => setRawInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onFocus={(e) => {
                     if (vkContext) {
-                        vkContext.registerInput(e.target, (newValue: string) => setQuery(newValue));
+                        vkContext.registerInput(e.target, (newValue: string) => setRawInput(newValue));
                     }
                 }}
                 onBlur={(e) => {
@@ -597,15 +627,11 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
     const { showTransactionsSummary, showTransactionsSummaryMenu, getHistoricalTransactions, refreshHistoricalKeys } =
         useSummary();
 
-    // Barcode scanner - match by reference
+    // Barcode scanner - match by reference (always enabled, not gated by search settings)
     useBarcodeScanner({
         inventory,
         customers,
         users,
-        enabled:
-            !!parameters.search?.searchProducts ||
-            !!parameters.search?.searchCustomers ||
-            !!parameters.search?.searchUsers,
         onMatchProduct: (item) => {
             _addProduct({
                 category: item.category,

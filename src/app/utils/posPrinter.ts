@@ -422,7 +422,11 @@ export async function printKitchenTicket(
         printer.setTextDoubleHeight();
         printer.bold(true);
         ticketData.transaction.products.forEach((item) => {
-            printer.println(`x${item.quantity} ${item.label}`);
+            if (item.quantity < 0) {
+                printer.println(`-x${Math.abs(item.quantity)} ${item.label}`);
+            } else {
+                printer.println(`x${item.quantity} ${item.label}`);
+            }
         });
         printer.bold(false);
         printer.setTextNormal();
@@ -835,6 +839,38 @@ export async function printBillingDetail(
     } catch (error) {
         console.error('Failed to print billing detail:', error);
         return { error: "Erreur lors de l'impression du détail par salarié" };
+    }
+}
+
+/**
+ * Opens a cash drawer connected to the cashier printer's DK port (RJ11).
+ * Sends the ESC/POS cash drawer kick command: ESC p m t1 t2.
+ * Works for both COM port and TCP/IP connected printers.
+ */
+export async function openCashDrawer(printerAddress: string): Promise<PrintResponse> {
+    if (IS_DEV) {
+        console.log(`[MOCK] Opening cash drawer on ${printerAddress}`);
+        return { success: true };
+    }
+
+    try {
+        const resolvedAddress = resolvePrinterAddress(printerAddress);
+        const result = await initPrinter([resolvedAddress]);
+        if ('error' in result) {
+            console.error(`[CASH DRAWER] initPrinter error: ${result.error}`);
+            return { error: result.error };
+        }
+
+        const printer = result.printer;
+        // Use the built-in ESC/POS cash drawer open command
+        printer.openCashDrawer();
+        await executePrint(printer);
+
+        console.log(`[CASH DRAWER] Opened on ${printerAddress}`);
+        return { success: true };
+    } catch (error) {
+        console.error(`[CASH DRAWER] Failed to open on ${printerAddress}:`, error);
+        return { error: `Erreur ouverture tiroir caisse: ${(error as Error).message}` };
     }
 }
 

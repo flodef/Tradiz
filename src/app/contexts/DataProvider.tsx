@@ -104,6 +104,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // Set to true by clearTotal to prevent the product-restore effect from re-adding
     // stale items from PROCESSING transactions when transactions load asynchronously.
     const clearRequestedRef = useRef(false);
+    // Set to true by editTransaction when the edited tx was WAITING, so commitTransaction
+    // knows the kitchen already received a ticket and should not print another one.
+    const wasWaitingBeforeEditRef = useRef(false);
+    // Snapshot of the original products when editing a WAITING tx, used to compute the delta
+    // (added/removed products) for the kitchen ticket when the tx is put back in WAITING or paid.
+    const originalProductsSnapshotRef = useRef<Product[]>([]);
     const syncInProgress = useRef(false);
     const lastServerSyncTime = useRef<string | undefined>(undefined);
     const [orderId, setOrderId] = useState('');
@@ -1204,6 +1210,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const transaction = transactions.at(index);
             if (!transaction?.amount) return;
 
+            // Track if this tx was WAITING — the kitchen already received a ticket when it was put on hold.
+            wasWaitingBeforeEditRef.current = isWaitingTransaction(transaction);
+            // Snapshot the original products to compute the delta when the tx is committed
+            originalProductsSnapshotRef.current = transaction.products.map((p) => ({ ...p }));
+
             setCurrency(transaction.currency);
             transaction.products.forEach(addProduct);
             transaction.method = PROCESSING_KEYWORD;
@@ -1350,6 +1361,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 checkAndPerformDayReset,
                 currentCustomer,
                 setCurrentCustomer,
+                wasWaitingBeforeEditRef,
+                originalProductsSnapshotRef,
             }}
         >
             {children}

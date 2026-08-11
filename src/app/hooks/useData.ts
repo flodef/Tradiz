@@ -67,6 +67,8 @@ export interface DataContextState {
     checkAndPerformDayReset: () => boolean;
     currentCustomer: Customer | null;
     setCurrentCustomer: (customer: Customer | null) => void;
+    wasWaitingBeforeEditRef: RefObject<boolean>;
+    originalProductsSnapshotRef: RefObject<Product[]>;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);

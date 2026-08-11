@@ -22,7 +22,15 @@ import {
     UPDATING_KEYWORD,
     WAITING_KEYWORD,
 } from '../utils/constants';
-import { Currency, Customer, InventoryItem, SERVICE_TYPE_LABELS, ServiceType, Transaction } from '../utils/interfaces';
+import {
+    Currency,
+    Customer,
+    InventoryItem,
+    Product,
+    SERVICE_TYPE_LABELS,
+    ServiceType,
+    Transaction,
+} from '../utils/interfaces';
 import { CLOSE, postCustomerDisplay, postMessageToParent, REFRESH } from '../utils/message';
 import { printBalanceStatement, printKitchenTicket, printReceipt } from '../utils/posPrinter';
 import { buildCustomerDisplay, buildPaymentDisplay, holdChangeDisplay } from '../utils/customerDisplay';
@@ -68,6 +76,8 @@ export const usePay = () => {
         counterServiceType,
         currentCustomer,
         setCurrentCustomer,
+        wasWaitingBeforeEditRef,
+        originalProductsSnapshotRef,
     } = useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
     const {
@@ -84,11 +94,89 @@ export const usePay = () => {
     } = useConfig();
 
     // Ref to hold autoPrint so commitTransaction can call it without ordering issues.
-    const autoPrintRef = useRef<(method: string, transaction?: Transaction) => void>(() => {});
+    const autoPrintRef = useRef<
+        (method: string, transaction?: Transaction, isCancelingExisting?: boolean, skipKitchenPrint?: boolean) => void
+    >(() => {});
+
+    // Compute the delta between the original WAITING tx products and the current products,
+    // then print a kitchen ticket showing only what changed (additions and removals).
+    const printKitchenDelta = useCallback(
+        (transaction: Transaction) => {
+            const original = originalProductsSnapshotRef.current;
+            if (!original.length) return;
+
+            const currentProducts = transaction.products;
+            const deltaProducts: { label: string; quantity: number; category: string; amount: number }[] = [];
+
+            // Find products that were removed or had their quantity reduced
+            original.forEach((orig) => {
+                const curr = currentProducts.find(
+                    (p) =>
+                        p.label === orig.label &&
+                        p.category === orig.category &&
+                        p.amount === orig.amount &&
+                        p.options === orig.options
+                );
+                const origQty = orig.quantity;
+                const currQty = curr?.quantity ?? 0;
+                const diff = currQty - origQty;
+                if (diff < 0) {
+                    deltaProducts.push({
+                        label: orig.label,
+                        quantity: diff,
+                        category: orig.category,
+                        amount: orig.amount,
+                    });
+                }
+            });
+
+            // Find products that were added or had their quantity increased
+            currentProducts.forEach((curr) => {
+                const orig = original.find(
+                    (p) =>
+                        p.label === curr.label &&
+                        p.category === curr.category &&
+                        p.amount === curr.amount &&
+                        p.options === curr.options
+                );
+                const origQty = orig?.quantity ?? 0;
+                const currQty = curr.quantity;
+                const diff = currQty - origQty;
+                if (diff > 0) {
+                    deltaProducts.push({
+                        label: curr.label,
+                        quantity: diff,
+                        category: curr.category,
+                        amount: curr.amount,
+                    });
+                }
+            });
+
+            if (!deltaProducts.length) return;
+
+            const kitchenAddr = getPrinterAddressByRole(PRINTER_ROLE.kitchen);
+            if (!kitchenAddr) return;
+
+            const deltaTransaction: Transaction = {
+                ...transaction,
+                products: deltaProducts as Product[],
+            };
+
+            printKitchenTicket([kitchenAddr], {
+                transaction: deltaTransaction,
+                serviceType:
+                    orderData?.service_type ??
+                    (transaction.takeOut === true ? 'takeout' : transaction.takeOut === false ? 'dine_in' : undefined),
+            }).then((response) => {
+                if (!response.success) console.error('[printKitchenDelta] Kitchen print failed:', response.error);
+            });
+        },
+        [getPrinterAddressByRole, orderData, originalProductsSnapshotRef]
+    );
 
     // Finalise une transaction validée et déselectionne le client en cours.
     const commitTransaction = useCallback(
-        (item: string | Transaction) => {
+        (item: string | Transaction, isCancelingExisting = false) => {
             const method = typeof item === 'string' ? item : item.method;
             let transaction: Transaction | undefined;
             if (typeof item === 'object') {
@@ -110,7 +198,16 @@ export const usePay = () => {
             if (method !== WAITING_KEYWORD) {
                 setCurrentCustomer(null);
             }
-            autoPrintRef.current(method, transaction);
+            // If the tx was WAITING before being edited, the kitchen already received a ticket.
+            // Skip full kitchen print — instead print a delta ticket showing only what changed.
+            const wasWaiting = wasWaitingBeforeEditRef.current;
+            autoPrintRef.current(method, transaction, isCancelingExisting, wasWaiting);
+            if (wasWaiting && transaction) {
+                printKitchenDelta(transaction);
+            }
+            // Reset the flags after use
+            wasWaitingBeforeEditRef.current = false;
+            originalProductsSnapshotRef.current = [];
         },
         [
             updateTransaction,
@@ -121,8 +218,22 @@ export const usePay = () => {
             currencyIndex,
             products,
             counterServiceType,
+            wasWaitingBeforeEditRef,
+            originalProductsSnapshotRef,
+            printKitchenDelta,
         ]
     );
+
+    // Opens the cash drawer connected to the cashier printer's DK port (RJ11).
+    const triggerCashDrawer = useCallback(() => {
+        const cashierAddr = getPrinterAddressByRole(PRINTER_ROLE.cashier);
+        if (!cashierAddr) return;
+        fetch('/api/open-cash-drawer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ printerAddress: cashierAddr }),
+        }).catch((err) => console.error('[CASH DRAWER] Failed to open:', err));
+    }, [getPrinterAddressByRole]);
 
     // Ref local pour éviter de redemander le type de service lors de l'appel récursif à pay()
     const serviceTypeSelectedRef = useRef(false);
@@ -251,15 +362,22 @@ export const usePay = () => {
         ]
     );
 
-    // Auto-print to kitchen when order is put in waiting/processing state or paid/refunded.
+    // Auto-print to kitchen when order is put in waiting/processing state or paid.
+    // Auto-print to kitchen when an existing order is refunded or deleted (cancellation ticket).
     // Auto-print to cashier when order is fully paid or refunded.
     const autoPrint = useCallback(
-        (method: string, transaction?: Transaction) => {
+        (method: string, transaction?: Transaction, isCancelingExisting = false, skipKitchenPrint = false) => {
             const isWaiting = method === WAITING_KEYWORD || method === PROCESSING_KEYWORD;
             const isRefund = method === REFUND_KEYWORD;
-            const isPaid = !isWaiting && !isRefund && method !== UPDATING_KEYWORD && method !== DELETED_KEYWORD;
+            const isDeleted = method === DELETED_KEYWORD;
+            const isPaid = !isWaiting && !isRefund && !isDeleted && method !== UPDATING_KEYWORD;
 
-            if (isWaiting || isPaid || isRefund) {
+            // Print kitchen ticket for new orders (waiting/paid) or when canceling an existing order
+            // Skip if the kitchen already received a ticket (e.g. paying a previously WAITING tx)
+            if (
+                !skipKitchenPrint &&
+                (isWaiting || isPaid || (isRefund && isCancelingExisting) || (isDeleted && isCancelingExisting))
+            ) {
                 printKitchenReceipt(transaction).then((response) => {
                     if (!response.success) console.error('[autoPrint] Kitchen print failed:', response.error);
                 });
@@ -645,7 +763,8 @@ export const usePay = () => {
                                 products.current.push(product);
                             });
 
-                            commitTransaction(reversedTransaction);
+                            // Only print kitchen ticket if canceling an existing order
+                            commitTransaction(reversedTransaction, !!originalTransaction);
                             closePopup();
                         }
                     });
@@ -653,8 +772,8 @@ export const usePay = () => {
                 case WAITING_KEYWORD:
                 case 'METTRE ' + WAITING_KEYWORD:
                     // Sauvegarder la transaction avec le statut EN ATTENTE
-                    updateTransaction(WAITING_KEYWORD);
-                    autoPrintRef.current(WAITING_KEYWORD);
+                    // Use commitTransaction so delta ticket logic applies when editing a previously WAITING tx
+                    commitTransaction(WAITING_KEYWORD);
                     closePopup();
                     break;
                 case 'Espèces':
@@ -681,6 +800,7 @@ export const usePay = () => {
                                             change: changeAmount,
                                         };
                                         commitTransaction(transaction);
+                                        triggerCashDrawer();
 
                                         // Notify the customer-facing (back) display and keep the
                                         // change on screen until the next transaction starts
@@ -719,6 +839,7 @@ export const usePay = () => {
                     } else {
                         // Legacy cash behaviour: just commit the transaction
                         commitTransaction(option);
+                        triggerCashDrawer();
                         closePopup();
                     }
                     break;
@@ -758,6 +879,7 @@ export const usePay = () => {
             orderId,
             modeFonctionnement,
             setCounterServiceType,
+            triggerCashDrawer,
         ]
     );
 
@@ -895,6 +1017,7 @@ export const usePay = () => {
                             total={total}
                             onCancel={() => setShowPartialPaymentSelector(true)}
                             onConfirm={(cashAmount, changeAmount) => {
+                                triggerCashDrawer();
                                 processPartialPayment(cashAmount, changeAmount);
                             }}
                         />,
@@ -924,6 +1047,7 @@ export const usePay = () => {
             openFullscreenPopup,
             partialPaymentAmount,
             parameters.display?.showChange,
+            triggerCashDrawer,
         ]
     );
 
@@ -1077,5 +1201,5 @@ export const usePay = () => {
         }
     }, [error, cancelOrConfirmPaiement, pay]);
 
-    return { pay, canPay, canAddProduct, canAddProvision, addProvision, printTransaction };
+    return { pay, canPay, canAddProduct, canAddProvision, addProvision, printTransaction, printKitchenReceipt };
 };

@@ -146,7 +146,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, openFullscreenPopup, closePopup } = usePopup();
-    const { pay, printTransaction } = usePay();
+    const { pay, printTransaction, printKitchenReceipt } = usePay();
     const { state, isStateReady, getPrintersNames, modeFonctionnement } = useConfig();
 
     const [needRefresh, setNeedRefresh] = useState(false);
@@ -206,11 +206,17 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                         {
                             label: 'Effacer',
                             action: (index: number) => {
-                                openPopup(
-                                    '⚠️ Confirmer la suppression ?',
-                                    ['Continuer', 'Annuler'],
-                                    (i, option) => option === 'Continuer' && deleteTransaction(index)
-                                );
+                                openPopup('⚠️ Confirmer la suppression ?', ['Continuer', 'Annuler'], (i, option) => {
+                                    if (option !== 'Continuer') return;
+                                    const tx = transactions.at(index);
+                                    deleteTransaction(index);
+                                    if (tx) {
+                                        printKitchenReceipt(tx).then((response) => {
+                                            if (!response.success)
+                                                console.error('[Delete] Kitchen print failed:', response.error);
+                                        });
+                                    }
+                                });
                             },
                         },
                     ])
@@ -242,9 +248,11 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
             deleteTransaction,
             pay,
             printTransaction,
+            printKitchenReceipt,
             openPopup,
             closePopup,
             getPrintersNames,
+            transactions,
         ]
     );
 
