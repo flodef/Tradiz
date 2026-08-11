@@ -545,6 +545,33 @@ export const usePay = () => {
 
             const paymentType = option.split(SEPARATOR)[0].split(ARROW)[0].split(CATEGORY_SEPARATOR)[0].trim();
 
+            // En mode fastfood, demander le type de service avant le paiement comptoir.
+            // En mode restaurant/lite, on force sur_place de facon transparente.
+            // Si useTakeOut est activé, demander le type de service quel que soit le mode.
+            // Skip pour les actions non-paiement (remboursement, impression, mise en attente...).
+            const useTakeOut = parameters.display?.useTakeOut !== false;
+            const needsServiceType =
+                !orderId &&
+                !NON_PAYMENT_KEYWORDS.includes(paymentType) &&
+                paymentType !== PROVISION_KEYWORD &&
+                (modeFonctionnement === 'fastfood' || useTakeOut);
+
+            if (needsServiceType && !serviceTypeSelectedRef.current) {
+                openPopup(
+                    'Type de service',
+                    Object.values(SERVICE_TYPE_LABELS),
+                    (index) => {
+                        if (index < 0) return; // annulé
+                        const types = Object.keys(SERVICE_TYPE_LABELS) as ServiceType[];
+                        setCounterServiceType(types[index]);
+                        serviceTypeSelectedRef.current = true;
+                        closePopup(() => selectPayment(option, fallback));
+                    },
+                    true
+                );
+                return;
+            }
+
             // Notify the customer-facing display about the payment type. Internal actions
             // (printing, putting on hold, refunding...) are not payments and must not be shown.
             if (!NON_PAYMENT_KEYWORDS.includes(paymentType)) {
@@ -717,6 +744,7 @@ export const usePay = () => {
             getCurrentTotal,
             parameters.user.name,
             parameters.display?.showChange,
+            parameters.display?.useTakeOut,
             reverseTransaction,
             currentCustomer,
             setCurrentCustomer,
@@ -727,6 +755,9 @@ export const usePay = () => {
             transactions,
             getPrinterAddressByRole,
             printKitchenReceipt,
+            orderId,
+            modeFonctionnement,
+            setCounterServiceType,
         ]
     );
 
@@ -937,28 +968,11 @@ export const usePay = () => {
             // En mode fastfood, demander le type de service avant le paiement comptoir.
             // En mode restaurant/lite, on force sur_place de facon transparente.
             // Si useTakeOut est activé, demander le type de service quel que soit le mode.
+            // Le popup de type de service est géré dans selectPayment, uniquement pour les paiements.
             const useTakeOut = parameters.display?.useTakeOut !== false;
             if (!orderId && modeFonctionnement !== 'fastfood' && !useTakeOut) {
                 setCounterServiceType('dine_in');
             }
-
-            if (!orderId && !serviceTypeSelectedRef.current && (modeFonctionnement === 'fastfood' || useTakeOut)) {
-                openPopup(
-                    'Type de service',
-                    Object.values(SERVICE_TYPE_LABELS),
-                    (index) => {
-                        if (index < 0) return; // annulé
-                        const types = Object.keys(SERVICE_TYPE_LABELS) as ServiceType[];
-                        setCounterServiceType(types[index]);
-                        serviceTypeSelectedRef.current = true;
-                        closePopup(() => pay());
-                    },
-                    true
-                );
-                return;
-            }
-            // Remettre à zéro pour la prochaine commande
-            serviceTypeSelectedRef.current = false;
 
             const total = getCurrentTotal();
             if (total && paymentMethods.length) {

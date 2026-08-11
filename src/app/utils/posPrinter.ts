@@ -427,7 +427,6 @@ export async function printKitchenTicket(
         printer.bold(false);
         printer.setTextNormal();
 
-        printer.newLine();
         printer.cut();
 
         await executePrint(printer);
