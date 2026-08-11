@@ -231,11 +231,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 const sqlTransactions = await loadTransactionsFromSQL();
                 if (sqlTransactions?.length) {
                     const merged = mergeTransactionArrays(localTransactions, sqlTransactions);
+                    // Filter out PROCESSING transactions — they are transient state from another
+                    // device and must not be restored as the current transaction on this device.
+                    const filteredMerged = merged.filter((tx) => !isProcessingTransaction(tx));
 
                     // Filter transactions: only keep those after the last reset time
                     const { last: lastResetTime } = getResetTimes();
-                    const currentDayTransactions = merged.filter((tx) => tx.createdDate >= lastResetTime);
-                    const oldTransactions = merged.filter((tx) => tx.createdDate < lastResetTime);
+                    const currentDayTransactions = filteredMerged.filter((tx) => tx.createdDate >= lastResetTime);
+                    const oldTransactions = filteredMerged.filter((tx) => tx.createdDate < lastResetTime);
 
                     // Store old transactions in IndexedDB for historical access
                     if (oldTransactions.length > 0) {
@@ -1222,7 +1225,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             const transaction: Transaction =
                 typeof item === 'object'
-                    ? { ...item, ...(shortNumOrder && !item.shortNumOrder ? { shortNumOrder } : {}) }
+                    ? {
+                          ...item,
+                          createdDate:
+                              transactionId.current && !isRefundTransaction(item)
+                                  ? transactionId.current
+                                  : item.createdDate,
+                          ...(shortNumOrder && !item.shortNumOrder ? { shortNumOrder } : {}),
+                      }
                     : {
                           validator: parameters.user.name,
                           method: item,
