@@ -189,6 +189,9 @@ const SearchPopup: FC<SearchPopupProps> = ({
 
     useEffect(() => {
         inputRef.current?.focus();
+        // Reset scanner detection when popup opens
+        isScanInputRef.current = false;
+        lastKeyTimeRef.current = 0;
     }, []);
 
     // Debounce query: scanner can send input twice in rapid succession.
@@ -345,7 +348,7 @@ const SearchPopup: FC<SearchPopupProps> = ({
             const interval = now - lastKeyTimeRef.current;
             if (lastKeyTimeRef.current > 0 && interval < 30) {
                 isScanInputRef.current = true;
-            } else if (interval > 200) {
+            } else {
                 isScanInputRef.current = false;
             }
             lastKeyTimeRef.current = now;

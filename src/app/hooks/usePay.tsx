@@ -201,8 +201,9 @@ export const usePay = () => {
             // If the tx was WAITING before being edited, the kitchen already received a ticket.
             // Skip full kitchen print — instead print a delta ticket showing only what changed.
             const wasWaiting = wasWaitingBeforeEditRef.current;
+            const isRefundMethod = method === REFUND_KEYWORD;
             autoPrintRef.current(method, transaction, isCancelingExisting, wasWaiting);
-            if (wasWaiting && transaction) {
+            if (wasWaiting && transaction && !isRefundMethod) {
                 printKitchenDelta(transaction);
             }
             // Reset the flags after use
