@@ -89,7 +89,6 @@ export const usePay = () => {
         resolvePrinterAddresses,
         getPrinterAddressByRole,
         inventory,
-        modeFonctionnement,
         setCustomers,
     } = useConfig();
 
@@ -664,16 +663,15 @@ export const usePay = () => {
 
             const paymentType = option.split(SEPARATOR)[0].split(ARROW)[0].split(CATEGORY_SEPARATOR)[0].trim();
 
-            // En mode fastfood, demander le type de service avant le paiement comptoir.
-            // En mode restaurant/lite, on force sur_place de facon transparente.
-            // Si useTakeOut est activé, demander le type de service quel que soit le mode.
+            // On demande le type de service uniquement si l'option useTakeOut est activée,
+            // quel que soit le mode (fastfood, restaurant, lite).
             // Skip pour les actions non-paiement (remboursement, impression, mise en attente...).
             const useTakeOut = parameters.display?.useTakeOut !== false;
             const needsServiceType =
                 !orderId &&
                 !NON_PAYMENT_KEYWORDS.includes(paymentType) &&
                 paymentType !== PROVISION_KEYWORD &&
-                (modeFonctionnement === 'fastfood' || useTakeOut);
+                useTakeOut;
 
             if (needsServiceType && !serviceTypeSelectedRef.current) {
                 openPopup(
@@ -885,7 +883,6 @@ export const usePay = () => {
             getPrinterAddressByRole,
             printKitchenReceipt,
             orderId,
-            modeFonctionnement,
             setCounterServiceType,
             triggerCashDrawer,
         ]
@@ -1098,13 +1095,11 @@ export const usePay = () => {
         } else {
             // Normal payment mode
 
-            // En mode fastfood, demander le type de service avant le paiement comptoir.
-            // En mode restaurant/lite, on force sur_place de facon transparente.
-            // Si useTakeOut est activé, demander le type de service quel que soit le mode.
-            // Le popup de type de service est géré dans selectPayment, uniquement pour les paiements.
+            // On demande le type de service uniquement si l'option useTakeOut est activée.
+            // Si l'option est désactivée, on force takeout (take_out = true en DB).
             const useTakeOut = parameters.display?.useTakeOut !== false;
-            if (!orderId && modeFonctionnement !== 'fastfood' && !useTakeOut) {
-                setCounterServiceType('dine_in');
+            if (!orderId && !useTakeOut) {
+                setCounterServiceType('takeout');
             }
 
             const total = getCurrentTotal();
@@ -1199,7 +1194,6 @@ export const usePay = () => {
         parameters.display?.useTakeOut,
         setShowPartialPaymentSelector,
         partialPaymentAmount,
-        modeFonctionnement,
         setCounterServiceType,
     ]);
 
