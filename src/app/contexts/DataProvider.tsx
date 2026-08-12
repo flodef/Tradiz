@@ -52,6 +52,7 @@ enum DatabaseAction {
     add,
     update,
     delete,
+    hardDelete,
 }
 
 export interface DataProviderProps {
@@ -822,6 +823,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 } else {
                     transactionsToSave.unshift(transaction);
                 }
+            } else if (action === DatabaseAction.hardDelete) {
+                // Completely remove from the array — no DELETED record should remain
+                const existingIndex = transactionsToSave.findIndex((tx) => tx.createdDate === transaction.createdDate);
+                if (existingIndex >= 0) {
+                    transactionsToSave.splice(existingIndex, 1);
+                }
             } else {
                 // For update/delete, find and replace the transaction
                 const existingIndex = transactionsToSave.findIndex((tx) => tx.createdDate === transaction.createdDate);
@@ -972,12 +979,23 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             if (index >= 0) {
                 const transaction = transactions[index];
-                transaction.method = DELETED_KEYWORD;
-                storeTransaction(transaction);
-                saveTransactions(DatabaseAction.delete, transaction);
+                if (isProcessingTransaction(transaction)) {
+                    // PROCESSING transactions are transient — hard-delete them from DB
+                    // instead of leaving a DELETED record.
+                    setTransactions((prev) => prev.filter((_, i) => i !== index));
+                    setLocalStorageItem(
+                        transactionsFilename,
+                        transactions.filter((_, i) => i !== index)
+                    );
+                    saveTransactions(DatabaseAction.hardDelete, transaction);
+                } else {
+                    transaction.method = DELETED_KEYWORD;
+                    storeTransaction(transaction);
+                    saveTransactions(DatabaseAction.delete, transaction);
+                }
             }
         },
-        [transactions, saveTransactions, storeTransaction]
+        [transactions, saveTransactions, storeTransaction, setLocalStorageItem, transactionsFilename]
     );
 
     const toCurrency = useCallback(
@@ -1080,6 +1098,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             setSelectedProduct(p ?? product);
             setAmount(product.amount);
             setQuantity(product.amount ? -1 : 0);
+            saveProcessingTransactionRef.current();
         },
         [products, selectedProduct, computeQuantity]
     );
@@ -1105,6 +1124,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             } else {
                 clearAmount();
             }
+            // Persist the updated product list (or trigger cleanup if empty)
+            saveProcessingTransactionRef.current();
         },
         [
             products,
@@ -1201,11 +1222,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         }
     }, [transactions, parameters.user, addProduct]);
 
-    // Auto-save current products as a PROCESSING transaction so they survive
-    // navigation to admin or page refresh. Debounced to avoid saving on every
-    // keystroke / product add — waits 500ms after the last change.
+    // Debounced save of current products as a PROCESSING transaction so they survive
+    // navigation to admin or page refresh. Called from addProduct/deleteProduct.
     const autoSaveProcessingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    useEffect(() => {
+    const saveProcessingTransactionRef = useRef<() => void>(() => {});
+    const saveProcessingTransaction = useCallback(() => {
         if (!areTransactionLoaded.current) return;
         if (clearRequestedRef.current) return;
 
@@ -1241,23 +1262,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 storeTransaction(existingProcessing);
                 saveTransactions(DatabaseAction.update, existingProcessing);
             }
-            // If no products and no existing processing, nothing to do —
-            // clearTotal/deleteTransaction already handles cleanup.
         }, 500);
-
-        return () => {
-            if (autoSaveProcessingRef.current) clearTimeout(autoSaveProcessingRef.current);
-        };
-    }, [
-        total,
-        transactions,
-        parameters.user,
-        currencies,
-        currencyIndex,
-        getCurrentTotal,
-        storeTransaction,
-        saveTransactions,
-    ]);
+    }, [transactions, parameters.user, currencies, currencyIndex, getCurrentTotal, storeTransaction, saveTransactions]);
+    saveProcessingTransactionRef.current = saveProcessingTransaction;
 
     const editTransaction = useCallback(
         (index: number) => {

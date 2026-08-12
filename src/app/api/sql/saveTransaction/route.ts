@@ -57,6 +57,9 @@ export async function POST(request: Request) {
                 case 'delete':
                     await handleDeleteTransaction(connection, transaction);
                     break;
+                case 'hardDelete':
+                    await handleHardDeleteTransaction(connection, transaction);
+                    break;
                 case 'sync':
                     await handleSyncTransaction(connection, transaction);
                     break;
@@ -213,6 +216,32 @@ async function handleDeleteTransaction(connection: Connection, transaction: Tran
         : `UPDATE ${prefix}transactions SET payment_method = ?, updated_at = ? WHERE created_at = ?`;
 
     await connection.execute(updateQuery, [DELETED_KEYWORD, transaction.updated_at, transaction.created_at]);
+}
+
+async function handleHardDeleteTransaction(connection: Connection, transaction: TransactionData) {
+    const isPg = connection.isPostgreSQL;
+    const prefix = isPg ? 'dc_pos.' : '';
+
+    // Completely delete the transaction and its items from the database
+    const findQuery = isPg
+        ? `SELECT id FROM ${prefix}transactions WHERE created_at = $1`
+        : `SELECT id FROM ${prefix}transactions WHERE created_at = ?`;
+    const [rows] = await connection.execute(findQuery, [transaction.created_at]);
+    const idRows = rows as IdRow[];
+
+    if (idRows.length > 0) {
+        const txId = idRows[0].id;
+
+        const deleteItemsQuery = isPg
+            ? `DELETE FROM ${prefix}transaction_items WHERE transaction_id = $1`
+            : `DELETE FROM ${prefix}transaction_items WHERE transaction_id = ?`;
+        await connection.execute(deleteItemsQuery, [txId]);
+
+        const deleteTxQuery = isPg
+            ? `DELETE FROM ${prefix}transactions WHERE id = $1`
+            : `DELETE FROM ${prefix}transactions WHERE id = ?`;
+        await connection.execute(deleteTxQuery, [txId]);
+    }
 }
 
 async function handleSyncTransaction(connection: Connection, transaction: TransactionData) {
