@@ -1135,10 +1135,14 @@ export const useSummary = () => {
                             break;
                         case 'Email':
                             openPopup('Email', ['Envoi en cours...']);
-                            processEmail().then((success) => {
-                                if (success) openPopup('Email', ['Email envoyé à ' + parameters.shop.email]);
-                                else openPopup('Erreur', ["Impossible d'envoyer l'email"]);
-                            });
+                            processEmail()
+                                .then((success) => {
+                                    if (success) openPopup('Email', ['Email envoyé à ' + parameters.shop.email]);
+                                    else openPopup('Erreur', ["Impossible d'envoyer l'email"]);
+                                })
+                                .catch(() => {
+                                    openPopup('Erreur', ["Impossible d'envoyer l'email"]);
+                                });
                             break;
                         case 'Feuille de calcul':
                             downloadData('TicketZ ' + formattedDate);

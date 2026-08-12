@@ -5,7 +5,6 @@ import { isRefundTransaction } from '../contexts/dataProvider/transactionHelpers
 import { SummaryData } from '../hooks/useSummary';
 import { BillingReport } from '../utils/interfaces';
 import { DEV_EMAIL, IS_DEV } from '../utils/constants';
-import '../utils/extensions';
 
 // Configure nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -69,69 +68,74 @@ export async function sendUserAccessRequest(email: string, role: string, publicK
  * @returns A promise that resolves to a boolean indicating whether the email was sent successfully
  */
 export async function sendSummaryEmail(summaryData: SummaryData): Promise<boolean> {
-    const totalAmount = summaryData.transactions.reduce((total, transaction) => total + transaction.amount, 0);
-    const transactionCount = summaryData.transactions.reduce(
-        (count, tx) => count + (isRefundTransaction(tx) ? -1 : 1),
-        0
-    );
-    const productCount = Math.round(
-        summaryData.transactions.reduce(
-            (total, transaction) =>
-                total + transaction.products.reduce((total, product) => total + product.quantity, 0),
+    try {
+        const totalAmount = summaryData.transactions.reduce((total, transaction) => total + transaction.amount, 0);
+        const transactionCount = summaryData.transactions.reduce(
+            (count, tx) => count + (isRefundTransaction(tx) ? -1 : 1),
             0
-        )
-    );
-    const averageTicket = transactionCount > 0 ? totalAmount / transactionCount : 0;
-    const averageTicketFormatted = averageTicket.toCurrency(summaryData.currency.decimals, summaryData.currency.symbol);
+        );
+        const productCount = Math.round(
+            summaryData.transactions.reduce(
+                (total, transaction) =>
+                    total + transaction.products.reduce((total, product) => total + product.quantity, 0),
+                0
+            )
+        );
+        const averageTicket = transactionCount > 0 ? totalAmount / transactionCount : 0;
+        const averageTicketFormatted = `${averageTicket.toFixed(summaryData.currency.decimals)}${summaryData.currency.symbol}`;
 
-    const message = summaryData.summary
-        .map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
-        .join('\n');
+        const message = summaryData.summary
+            .map((item) => (item.trim() ? item.replaceAll('\n', '     ') : '_'.repeat(50)))
+            .join('\n');
 
-    return await sendEmail({
-        to: summaryData.shop.email,
-        subject: `Ticket Z du ${summaryData.period}`,
-        html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px;">
-          <p>Bonjour,</p>
-          <p>Ci-joint le Ticket Z du ${summaryData.period} d'un montant de ${summaryData.amount} :</p>
-          <p>Nombre de ventes : ${transactionCount}</p>
-          <p>Nombre de produits : ${productCount}</p>
-          <p>Ticket moyen : ${averageTicketFormatted}</p>
-          <table style="width: 55%; border-collapse: collapse; margin: 0; border: 1px solid #ccc;">
-            ${message
-                .split('\n')
-                .map((line) =>
-                    line.includes('_____')
-                        ? `<tr style="width: 100%;"><td colspan="4" style="padding: 10px 0;"><hr style="border: none; height: 1px; background-color: #ccc; margin: 0;"/></td></tr>`
-                        : line.includes('==>')
-                          ? `
-                            <tr style="width: 100%;">
-                                ${line
-                                    .split('==>')
-                                    .map(
-                                        (item, index) =>
-                                            `<td colspan="2" style="width: 50%; padding: 5px; text-align: ${
-                                                index === 0 ? 'left' : 'right'
-                                            };">${item.trim()}</td>`
-                                    )
-                                    .join('')}
-                            </tr>
-                            `
-                          : `<tr style="width: 100%;">
-                          ${line
-                              .split('  ')
-                              .filter((item) => item.trim())
-                              .map((item) => `<td style="width: 25%; text-align: center;">${item.trim()}</td>`)
-                              .join('')}
-                          </tr>`
-                )
-                .join('')}
-          </table>
-          <p>Merci,<br>L'équipe Tradiz</p>
-        </div>
-      `,
-    });
+        return await sendEmail({
+            to: summaryData.shop.email,
+            subject: `Ticket Z du ${summaryData.period}`,
+            html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px;">
+              <p>Bonjour,</p>
+              <p>Ci-joint le Ticket Z du ${summaryData.period} d'un montant de ${summaryData.amount} :</p>
+              <p>Nombre de ventes : ${transactionCount}</p>
+              <p>Nombre de produits : ${productCount}</p>
+              <p>Ticket moyen : ${averageTicketFormatted}</p>
+              <table style="width: 55%; border-collapse: collapse; margin: 0; border: 1px solid #ccc;">
+                ${message
+                    .split('\n')
+                    .map((line) =>
+                        line.includes('_____')
+                            ? `<tr style="width: 100%;"><td colspan="4" style="padding: 10px 0;"><hr style="border: none; height: 1px; background-color: #ccc; margin: 0;"/></td></tr>`
+                            : line.includes('==>')
+                              ? `
+                                <tr style="width: 100%;">
+                                    ${line
+                                        .split('==>')
+                                        .map(
+                                            (item, index) =>
+                                                `<td colspan="2" style="width: 50%; padding: 5px; text-align: ${
+                                                    index === 0 ? 'left' : 'right'
+                                                };">${item.trim()}</td>`
+                                        )
+                                        .join('')}
+                                </tr>
+                                `
+                              : `<tr style="width: 100%;">
+                              ${line
+                                  .split('  ')
+                                  .filter((item) => item.trim())
+                                  .map((item) => `<td style="width: 25%; text-align: center;">${item.trim()}</td>`)
+                                  .join('')}
+                              </tr>`
+                    )
+                    .join('')}
+              </table>
+              <p>Merci,<br>L'équipe Tradiz</p>
+            </div>
+          `,
+        });
+    } catch (error) {
+        console.error('Error in sendSummaryEmail:', error);
+        return false;
+    }
 }
 
 /**
