@@ -238,14 +238,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 const sqlTransactions = await loadTransactionsFromSQL();
                 if (sqlTransactions?.length) {
                     const merged = mergeTransactionArrays(localTransactions, sqlTransactions);
-                    // Filter out PROCESSING transactions — they are transient state from another
-                    // device and must not be restored as the current transaction on this device.
-                    const filteredMerged = merged.filter((tx) => !isProcessingTransaction(tx));
 
                     // Filter transactions: only keep those after the last reset time
                     const { last: lastResetTime } = getResetTimes();
-                    const currentDayTransactions = filteredMerged.filter((tx) => tx.createdDate >= lastResetTime);
-                    const oldTransactions = filteredMerged.filter((tx) => tx.createdDate < lastResetTime);
+                    const currentDayTransactions = merged.filter((tx) => tx.createdDate >= lastResetTime);
+                    const oldTransactions = merged.filter((tx) => tx.createdDate < lastResetTime);
 
                     // Store old transactions in IndexedDB for historical access
                     if (oldTransactions.length > 0) {
@@ -366,10 +363,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const updateLocalTransaction = useCallback(
         (transactionSet: TransactionSet) => {
-            const txToUpdate = transactionSet.transactions.filter(
-                (transaction) => !isProcessingTransaction(transaction)
-            );
-            // Always persist to IndexedDB (including deleted-flagged transactions)
+            const txToUpdate = transactionSet.transactions;
+            // Always persist to IndexedDB (including deleted-flagged and processing transactions)
             setLocalStorageItem(transactionSet.id, txToUpdate);
 
             // Update React state if this is the current day's transaction set
@@ -575,7 +570,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 const lastSyncMs = latestServerNow ? new Date(latestServerNow).getTime() : 0;
                 const pushSinceMs = lastSyncMs ? lastSyncMs - 5000 : 0;
                 const changedLocal = localTransactions.filter(
-                    (tx) => !isProcessingTransaction(tx) && (tx.modifiedDate || tx.createdDate) > pushSinceMs
+                    (tx) => (tx.modifiedDate || tx.createdDate) > pushSinceMs
                 );
                 if (changedLocal.length) {
                     const totalLocal = changedLocal.length;
