@@ -112,6 +112,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // Snapshot of the original products when editing a WAITING tx, used to compute the delta
     // (added/removed products) for the kitchen ticket when the tx is put back in WAITING or paid.
     const originalProductsSnapshotRef = useRef<Product[]>([]);
+    // Set to true by editTransaction to suppress auto-save during addProduct calls
+    // (editTransaction already saves the PROCESSING tx via saveTransactions).
+    const suppressAutoSaveRef = useRef(false);
     const syncInProgress = useRef(false);
     const lastServerSyncTime = useRef<string | undefined>(undefined);
     const [orderId, setOrderId] = useState('');
@@ -981,13 +984,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 const transaction = transactions[index];
                 if (isProcessingTransaction(transaction)) {
                     // PROCESSING transactions are transient — hard-delete them from DB
-                    // instead of leaving a DELETED record.
-                    setTransactions((prev) => prev.filter((_, i) => i !== index));
-                    setLocalStorageItem(
-                        transactionsFilename,
-                        transactions.filter((_, i) => i !== index)
-                    );
+                    // instead of leaving a DELETED record. saveTransactions handles
+                    // removing from both React state (via transactionsToSave) and IndexedDB.
                     saveTransactions(DatabaseAction.hardDelete, transaction);
+                    setTransactions((prev) => prev.filter((_, i) => i !== index));
                 } else {
                     transaction.method = DELETED_KEYWORD;
                     storeTransaction(transaction);
@@ -995,7 +995,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }
             }
         },
-        [transactions, saveTransactions, storeTransaction, setLocalStorageItem, transactionsFilename]
+        [transactions, saveTransactions, storeTransaction]
     );
 
     const toCurrency = useCallback(
@@ -1229,6 +1229,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const saveProcessingTransaction = useCallback(() => {
         if (!areTransactionLoaded.current) return;
         if (clearRequestedRef.current) return;
+        if (suppressAutoSaveRef.current) return;
 
         if (autoSaveProcessingRef.current) clearTimeout(autoSaveProcessingRef.current);
 
@@ -1277,7 +1278,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             originalProductsSnapshotRef.current = transaction.products.map((p) => ({ ...p }));
 
             setCurrency(transaction.currency);
+            suppressAutoSaveRef.current = true;
             transaction.products.forEach(addProduct);
+            suppressAutoSaveRef.current = false;
             transaction.method = PROCESSING_KEYWORD;
 
             saveTransactions(DatabaseAction.update, transaction);

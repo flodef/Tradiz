@@ -971,7 +971,7 @@ export const useSummary = () => {
 
     const processEmail = useCallback(async () => {
         const filteredTransactions = getFilteredTransactions();
-        if (!filteredTransactions.length) return;
+        if (!filteredTransactions.length) return false;
 
         const { summary, payments } = getTransactionsData(filteredTransactions);
         const period = getPeriodDescription(filteredTransactions);

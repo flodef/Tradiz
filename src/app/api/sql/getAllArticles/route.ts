@@ -1,4 +1,3 @@
-import {} from '@/app/utils/extensions';
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
