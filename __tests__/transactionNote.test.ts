@@ -7,14 +7,13 @@ describe('transactionNote', () => {
         expect(parseCashNote(note)).toEqual({ cashAmount: 20, change: 4.5 });
     });
 
-    it('encodes cashAmount without change', () => {
-        const note = encodeCashNote(10);
-        expect(parseCashNote(note)).toEqual({ cashAmount: 10, change: undefined });
+    it('returns empty string when change is not provided', () => {
+        expect(encodeCashNote(10)).toBe('');
     });
 
-    it('encodes zero cashAmount and zero change', () => {
-        const note = encodeCashNote(0, 0);
-        expect(parseCashNote(note)).toEqual({ cashAmount: 0, change: 0 });
+    it('returns empty string when change is zero (exact amount)', () => {
+        expect(encodeCashNote(0, 0)).toBe('');
+        expect(encodeCashNote(20, 0)).toBe('');
     });
 
     it('returns empty string when cashAmount is not a number', () => {

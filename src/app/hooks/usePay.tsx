@@ -806,32 +806,36 @@ export const usePay = () => {
                                         commitTransaction(transaction);
                                         triggerCashDrawer();
 
-                                        // Notify the customer-facing (back) display and keep the
-                                        // change on screen until the next transaction starts
-                                        holdChangeDisplay();
-                                        postCustomerDisplay(
-                                            buildCustomerDisplay(
-                                                cashTotal,
-                                                cashAmount,
-                                                changeAmount,
-                                                currencies[currencyIndex]
-                                            )
-                                        );
+                                        if (changeAmount > 0) {
+                                            // Notify the customer-facing (back) display and keep the
+                                            // change on screen until the next transaction starts
+                                            holdChangeDisplay();
+                                            postCustomerDisplay(
+                                                buildCustomerDisplay(
+                                                    cashTotal,
+                                                    cashAmount,
+                                                    changeAmount,
+                                                    currencies[currencyIndex]
+                                                )
+                                            );
 
-                                        openFullscreenPopup(
-                                            'Monnaie à rendre',
-                                            [
-                                                <ChangeDisplayPopup
-                                                    key="changeDisplay"
-                                                    total={cashTotal}
-                                                    cashAmount={cashAmount}
-                                                    change={changeAmount}
-                                                    onClose={closePopup}
-                                                />,
-                                            ],
-                                            () => {},
-                                            true
-                                        );
+                                            openFullscreenPopup(
+                                                'Monnaie à rendre',
+                                                [
+                                                    <ChangeDisplayPopup
+                                                        key="changeDisplay"
+                                                        total={cashTotal}
+                                                        cashAmount={cashAmount}
+                                                        change={changeAmount}
+                                                        onClose={closePopup}
+                                                    />,
+                                                ],
+                                                () => {},
+                                                true
+                                            );
+                                        } else {
+                                            closePopup();
+                                        }
                                     }}
                                 />,
                             ],
@@ -963,7 +967,7 @@ export const usePay = () => {
                         // Use REFRESH_ORDERS instead of PAYMENT_COMPLETE to avoid closing the cashier
                         postMessageToParent(REFRESH);
 
-                        if (cashAmount !== undefined && changeAmount !== undefined) {
+                        if (cashAmount !== undefined && changeAmount !== undefined && changeAmount > 0) {
                             // Show the change on the customer-facing display before the success popup
                             holdChangeDisplay();
                             postCustomerDisplay(

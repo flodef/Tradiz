@@ -8,8 +8,9 @@ export interface CashNote {
 // compact JSON blob so it can round-trip losslessly and be ignored by legacy notes.
 export function encodeCashNote(cashAmount?: number, change?: number): string {
     if (typeof cashAmount !== 'number' || isNaN(cashAmount)) return '';
-    const payload: CashNote = { cashAmount };
-    if (typeof change === 'number' && !isNaN(change)) payload.change = change;
+    // When change is 0 (exact amount) or not provided, there is nothing to record.
+    if (typeof change !== 'number' || isNaN(change) || change === 0) return '';
+    const payload: CashNote = { cashAmount, change };
     return JSON.stringify(payload);
 }
 
