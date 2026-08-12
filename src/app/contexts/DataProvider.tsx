@@ -1201,6 +1201,64 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         }
     }, [transactions, parameters.user, addProduct]);
 
+    // Auto-save current products as a PROCESSING transaction so they survive
+    // navigation to admin or page refresh. Debounced to avoid saving on every
+    // keystroke / product add — waits 500ms after the last change.
+    const autoSaveProcessingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => {
+        if (!areTransactionLoaded.current) return;
+        if (clearRequestedRef.current) return;
+
+        if (autoSaveProcessingRef.current) clearTimeout(autoSaveProcessingRef.current);
+
+        autoSaveProcessingRef.current = setTimeout(() => {
+            const hasProducts = products.current.length > 0;
+            const existingProcessing = transactions.find(
+                (t) => isProcessingTransaction(t) && t.validator === parameters.user.name
+            );
+
+            if (hasProducts && !existingProcessing) {
+                // Create a new PROCESSING transaction
+                const now = floorToSeconds(new Date().getTime());
+                const transaction: Transaction = {
+                    validator: parameters.user.name,
+                    method: PROCESSING_KEYWORD,
+                    amount: getCurrentTotal(),
+                    createdDate: now,
+                    modifiedDate: now,
+                    currency: currencies[currencyIndex].label,
+                    products: products.current.map((p) => ({ ...p })),
+                    takeOut: counterServiceTypeRef.current === 'takeout',
+                };
+                transactionId.current = now;
+                storeTransaction(transaction);
+                saveTransactions(DatabaseAction.add, transaction);
+            } else if (hasProducts && existingProcessing) {
+                // Update the existing PROCESSING transaction with current products
+                existingProcessing.products = products.current.map((p) => ({ ...p }));
+                existingProcessing.amount = getCurrentTotal();
+                existingProcessing.modifiedDate = floorToSeconds(new Date().getTime());
+                storeTransaction(existingProcessing);
+                saveTransactions(DatabaseAction.update, existingProcessing);
+            }
+            // If no products and no existing processing, nothing to do —
+            // clearTotal/deleteTransaction already handles cleanup.
+        }, 500);
+
+        return () => {
+            if (autoSaveProcessingRef.current) clearTimeout(autoSaveProcessingRef.current);
+        };
+    }, [
+        total,
+        transactions,
+        parameters.user,
+        currencies,
+        currencyIndex,
+        getCurrentTotal,
+        storeTransaction,
+        saveTransactions,
+    ]);
+
     const editTransaction = useCallback(
         (index: number) => {
             const transaction = transactions.at(index);
