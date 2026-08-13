@@ -227,12 +227,23 @@ export const usePay = () => {
     // Opens the cash drawer connected to the cashier printer's DK port (RJ11).
     const triggerCashDrawer = useCallback(() => {
         const cashierAddr = getPrinterAddressByRole(PRINTER_ROLE.cashier);
-        if (!cashierAddr) return;
+        if (!cashierAddr) {
+            console.warn('[CASH DRAWER] No cashier printer configured (role: "Caisse") — drawer will not open');
+            return;
+        }
+        console.log(`[CASH DRAWER] Triggering open on ${cashierAddr}`);
         fetch('/api/open-cash-drawer', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ printerAddress: cashierAddr }),
-        }).catch((err) => console.error('[CASH DRAWER] Failed to open:', err));
+        })
+            .then(async (res) => {
+                if (!res.ok) {
+                    const body = await res.json().catch(() => ({}));
+                    console.error('[CASH DRAWER] API error:', res.status, body?.error || res.statusText);
+                }
+            })
+            .catch((err) => console.error('[CASH DRAWER] Failed to open:', err));
     }, [getPrinterAddressByRole]);
 
     // Ref local pour éviter de redemander le type de service lors de l'appel récursif à pay()

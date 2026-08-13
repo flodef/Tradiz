@@ -14,6 +14,7 @@ import { ReceiptData } from '../hooks/usePay';
 import { SummaryData } from '../hooks/useSummary';
 import { DEFAULT_VAT_RATE, IS_DEV } from './constants';
 import { formatFrenchDate, generateReceiptNumber } from './date';
+import './extensions'; // Registers Number.prototype.toCurrency used by toCurrency() below
 import { BillingReport, Currency, SERVICE_TYPE_LABELS, ServiceType, Transaction } from './interfaces';
 import { createMockPrinter } from './mockPrinter';
 
@@ -847,7 +848,12 @@ export async function printBillingDetail(
 
 /**
  * Opens a cash drawer connected to the cashier printer's DK port (RJ11).
- * Sends the ESC/POS cash drawer kick command: ESC p m t1 t2.
+ * Sends the full ESC/POS cash drawer kick command: ESC p m t1 t2.
+ *
+ * node-thermal-printer's openCashDrawer() sends only 3 bytes (ESC p m) without
+ * the required t1/t2 timing bytes, so many printers ignore the incomplete
+ * command. We bypass it and send the proper 5-byte command directly.
+ *
  * Works for both COM port and TCP/IP connected printers.
  */
 export async function openCashDrawer(printerAddress: string): Promise<PrintResponse> {
@@ -865,8 +871,16 @@ export async function openCashDrawer(printerAddress: string): Promise<PrintRespo
         }
 
         const printer = result.printer;
-        // Use the built-in ESC/POS cash drawer open command
-        printer.openCashDrawer();
+        // Send the full ESC/POS cash drawer kick command for both pins:
+        //   ESC p m t1 t2
+        //   m=0 → pin 2, m=1 → pin 5
+        //   t1 = pulse ON time  (in 2ms units; 0x19 = 25 → 50ms)
+        //   t2 = pulse OFF time (in 2ms units; 0xFA = 250 → 500ms)
+        const drawerCmd = Buffer.concat([
+            Buffer.from([0x1b, 0x70, 0x00, 0x19, 0xfa]), // pin 2
+            Buffer.from([0x1b, 0x70, 0x01, 0x19, 0xfa]), // pin 5
+        ]);
+        printer.append(drawerCmd);
         await executePrint(printer);
 
         console.log(`[CASH DRAWER] Opened on ${printerAddress}`);

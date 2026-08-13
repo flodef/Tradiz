@@ -7,9 +7,11 @@ export async function POST(request: Request) {
     try {
         const { printerAddress } = await request.json();
         if (!printerAddress) {
+            console.warn('[CASH DRAWER] API called without printerAddress');
             return NextResponse.json({ error: 'Printer address is required' }, { status: 400 });
         }
 
+        console.log(`[CASH DRAWER] API received address: ${printerAddress}`);
         const result = await openCashDrawer(printerAddress);
         if ('error' in result) {
             return NextResponse.json({ error: result.error }, { status: 500 });
