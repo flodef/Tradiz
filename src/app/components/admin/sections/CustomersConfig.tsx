@@ -3,7 +3,7 @@
 import { Customer, Company } from '@/app/utils/interfaces';
 import { adminHeaderStyle } from '@/app/utils/constants';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IconChevronDown, IconChevronUp, IconPrinter, IconSelector, IconUpload } from '@tabler/icons-react';
+import { IconChevronDown, IconChevronUp, IconPrinter, IconSearch, IconSelector, IconUpload } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import { useIsMobile } from '@/app/utils/mobile';
 import SectionCard from '../SectionCard';
@@ -17,7 +17,7 @@ import { usePopup } from '@/app/hooks/usePopup';
 import { useConfig } from '@/app/hooks/useConfig';
 import { CustomerListReport } from '@/app/components/CustomerListReport';
 
-type SortField = 'firstName' | 'lastName' | 'reference' | 'email' | 'phone' | 'company';
+type SortField = 'firstName' | 'lastName' | 'reference' | 'email' | 'phone' | 'company' | 'balance';
 type SortDirection = 'asc' | 'desc' | 'none';
 
 interface CustomersConfigProps {
@@ -206,6 +206,16 @@ function Row({
                     isReadOnly={isReadOnly || !companies?.length}
                 />
             </td>
+            <td className="p-2">
+                <ValidatedInput
+                    type="number"
+                    value={String(customer.balance ?? 0)}
+                    onChange={(value) => onChange({ ...customer, balance: parseFloat(String(value)) || 0 })}
+                    placeholder="0"
+                    isReadOnly={isReadOnly}
+                    className="w-24 text-right"
+                />
+            </td>
             <DeleteButtonCell isReadOnly={isReadOnly} onDelete={onDelete} title="Supprimer le client" />
         </tr>
     );
@@ -243,6 +253,8 @@ export default function CustomersConfig({
     const [importAction, setImportAction] = useState<'add' | 'overwrite' | null>(null);
     const [companySearchQuery, setCompanySearchQuery] = useState('');
     const [shouldOpenCompanySearch, setShouldOpenCompanySearch] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [companyFilter, setCompanyFilter] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -299,6 +311,8 @@ export default function CustomersConfig({
                 comparison = (a.phone ?? '').localeCompare(b.phone ?? '');
             } else if (sortField === 'company') {
                 comparison = (a.company ?? '').localeCompare(b.company ?? '');
+            } else if (sortField === 'balance') {
+                comparison = (a.balance ?? 0) - (b.balance ?? 0);
             }
             return sortDirection === 'desc' ? -comparison : comparison;
         });
@@ -576,6 +590,7 @@ export default function CustomersConfig({
             email: '',
             phone: '',
             company: undefined,
+            balance: 0,
             _id: newId,
         };
         const updated = [...customers, newCustomer];
@@ -601,14 +616,38 @@ export default function CustomersConfig({
         setOriginalConfig(strip(customers));
     };
 
+    const filteredCustomers = useMemo(() => {
+        let result = sortedCustomers;
+        if (companyFilter) {
+            result = result.filter((c) => c.company === companyFilter);
+        }
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase().trim();
+            result = result.filter(
+                (c) =>
+                    c.firstName.toLowerCase().includes(q) ||
+                    c.lastName.toLowerCase().includes(q) ||
+                    (c.reference ?? '').toLowerCase().includes(q) ||
+                    (c.email ?? '').toLowerCase().includes(q) ||
+                    (c.phone ?? '').toLowerCase().includes(q) ||
+                    (c.company ?? '').toLowerCase().includes(q)
+            );
+        }
+        return result;
+    }, [sortedCustomers, companyFilter, searchQuery]);
+
     const handlePrintCustomerList = useCallback(() => {
+        const customersToPrint = companyFilter
+            ? strip(customers).filter((c) => c.company === companyFilter)
+            : strip(customers);
+        const title = companyFilter ? `Liste des clients - ${companyFilter}` : 'Liste des clients';
         openFullscreenPopup(
-            'Liste des clients',
-            [<CustomerListReport key="customerListReport" customers={strip(customers)} shop={parameters.shop} />],
+            title,
+            [<CustomerListReport key="customerListReport" customers={customersToPrint} shop={parameters.shop} />],
             undefined,
             true
         );
-    }, [customers, parameters.shop, openFullscreenPopup]);
+    }, [customers, companyFilter, parameters.shop, openFullscreenPopup]);
 
     const isMobile = useIsMobile();
 
@@ -662,6 +701,47 @@ export default function CustomersConfig({
                 isReadOnly={isReadOnly}
                 headerExtra={headerExtra}
             >
+                {/* Search + company filter bar */}
+                {customers.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-3 mb-3">
+                        <div className="relative flex-1 min-w-48 max-w-xs">
+                            <IconSearch
+                                size={16}
+                                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                            />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Rechercher un client..."
+                                className="w-full pl-8 pr-3 py-1.5 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                            />
+                        </div>
+                        {companies && companies.length > 0 && (
+                            <AdminSelect
+                                value={companyFilter}
+                                onChange={(e) => setCompanyFilter(e.target.value)}
+                                options={[
+                                    { value: '', label: 'Toutes les entreprises' },
+                                    ...companies.map((c) => ({ value: c.name, label: c.name })),
+                                ]}
+                                className="min-w-48"
+                            />
+                        )}
+                        {(searchQuery || companyFilter) && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSearchQuery('');
+                                    setCompanyFilter('');
+                                }}
+                                className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline"
+                            >
+                                Réinitialiser
+                            </button>
+                        )}
+                    </div>
+                )}
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
                         {sortedCustomers.length > 0 && (
@@ -715,12 +795,20 @@ export default function CustomersConfig({
                                             Entreprise <SortIcon field="company" />
                                         </div>
                                     </th>
+                                    <th
+                                        className={adminHeaderStyle + ' min-w-24 w-24 cursor-pointer'}
+                                        onClick={() => handleSort('balance')}
+                                    >
+                                        <div className="flex items-center gap-1">
+                                            Solde <SortIcon field="balance" />
+                                        </div>
+                                    </th>
                                     {!isReadOnly && <th className="w-8"></th>}
                                 </tr>
                             </thead>
                         )}
                         <tbody>
-                            {sortedCustomers.map((customer, index) => (
+                            {filteredCustomers.map((customer, index) => (
                                 <Row
                                     key={customer._id}
                                     customer={customer}
@@ -733,6 +821,16 @@ export default function CustomersConfig({
                                     index={index}
                                 />
                             ))}
+                            {filteredCustomers.length === 0 && sortedCustomers.length > 0 && (
+                                <tr>
+                                    <td
+                                        colSpan={isReadOnly ? 7 : 8}
+                                        className="text-center py-4 text-gray-500 dark:text-gray-400"
+                                    >
+                                        Aucun client trouvé
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

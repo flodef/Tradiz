@@ -329,7 +329,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.payment_methods (
     label VARCHAR(255) NOT NULL,
     address VARCHAR(255) DEFAULT '0',
     currency VARCHAR(10) NOT NULL DEFAULT 'EUR',
-    hidden BOOLEAN NOT NULL DEFAULT false,
+    available BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

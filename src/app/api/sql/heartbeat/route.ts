@@ -28,22 +28,20 @@ export async function POST(request: Request) {
             : `UPDATE devices SET connected = false WHERE connected = true AND last_seen < DATE_SUB(NOW(), INTERVAL 2 MINUTE)`;
         await connection.execute(markStaleQuery);
 
-        // Register this device's heartbeat.
+        // Register this device's heartbeat — only if it's already registered.
+        // Devices must be added via the admin UI; unregistered devices are ignored.
         const heartbeatQuery = connection.isPostgreSQL
             ? `UPDATE dc_pos.devices SET connected = true, last_seen = NOW() WHERE public_key = $1`
             : `UPDATE devices SET connected = true, last_seen = NOW() WHERE public_key = ?`;
         const [result] = await connection.execute(heartbeatQuery, [publicKey]);
 
-        // If the device isn't registered yet (UPDATE affected 0 rows), insert it
-        // so other devices can detect it via the count query below.
         const affectedRows = connection.isPostgreSQL
             ? (result as { rowCount?: number }).rowCount ?? 0
             : (result as { affectedRows?: number }).affectedRows ?? 0;
+
+        // If the device isn't registered, return 0 other devices — it can't sync.
         if (affectedRows === 0) {
-            const insertQuery = connection.isPostgreSQL
-                ? `INSERT INTO dc_pos.devices (label, public_key, connected, last_seen) VALUES ($1, $2, true, NOW()) ON CONFLICT (public_key) DO UPDATE SET connected = true, last_seen = NOW()`
-                : `INSERT INTO devices (label, public_key, connected, last_seen) VALUES (?, ?, true, NOW()) ON DUPLICATE KEY UPDATE connected = true, last_seen = NOW()`;
-            await connection.execute(insertQuery, [publicKey.slice(0, 8), publicKey]);
+            return NextResponse.json({ otherDevices: 0, registered: false }, { status: 200 });
         }
 
         // Count other devices that are currently active.

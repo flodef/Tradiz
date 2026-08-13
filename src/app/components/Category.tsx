@@ -731,6 +731,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
         const GRID_COLS = 6;
         const GRID_ROWS = 6;
         const MAX_PRODUCTS = GRID_COLS * GRID_ROWS;
+        const showOthers = parameters.display?.displayOthers === true;
 
         // Build a 6×6 grid positioned by sortOrder encoding:
         // hundreds = category (ignored), tens = row (1-6), units = column (1-6)
@@ -752,6 +753,51 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
             if (fallbackIndex < MAX_PRODUCTS) {
                 gridSlots[fallbackIndex] = product;
                 fallbackIndex++;
+            }
+        }
+
+        // If displayOthers is enabled, place an "Autres" button in the last row.
+        // Find the last empty slot in the grid; if the last row is full, shift the
+        // last product one slot to the left to make room.
+        let othersSlotIndex = -1;
+        if (showOthers && selectedItem) {
+            // Find the last occupied slot
+            let lastOccupied = -1;
+            for (let i = MAX_PRODUCTS - 1; i >= 0; i--) {
+                if (gridSlots[i]) {
+                    lastOccupied = i;
+                    break;
+                }
+            }
+            // Target: last slot of the row containing the last product (or last row)
+            const lastRowStart =
+                lastOccupied >= 0 ? Math.floor(lastOccupied / GRID_COLS) * GRID_COLS : (GRID_ROWS - 1) * GRID_COLS;
+            const lastRowEnd = lastRowStart + GRID_COLS - 1;
+
+            // Find an empty slot in the last used row, preferring the rightmost
+            for (let i = lastRowEnd; i >= lastRowStart; i--) {
+                if (!gridSlots[i]) {
+                    othersSlotIndex = i;
+                    break;
+                }
+            }
+            // If no empty slot in that row, use the last row of the grid
+            if (othersSlotIndex === -1) {
+                for (let i = MAX_PRODUCTS - 1; i >= MAX_PRODUCTS - GRID_COLS; i--) {
+                    if (!gridSlots[i]) {
+                        othersSlotIndex = i;
+                        break;
+                    }
+                }
+                // If still no room, push the last product left and take the last slot
+                if (othersSlotIndex === -1 && lastOccupied >= 0) {
+                    // Shift last product one slot left if possible
+                    if (lastOccupied > 0 && !gridSlots[lastOccupied - 1]) {
+                        gridSlots[lastOccupied - 1] = gridSlots[lastOccupied];
+                        gridSlots[lastOccupied] = null;
+                    }
+                    othersSlotIndex = lastOccupied;
+                }
             }
         }
 
@@ -805,6 +851,29 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
                 {/* 6×6 product grid — positioned by sortOrder, show price + color */}
                 <div className="grid grid-cols-6 auto-rows-20 gap-1 p-1 overflow-y-auto">
                     {gridSlots.map((product, index) => {
+                        // Render the "Autres" button at the computed slot
+                        if (othersSlotIndex === index) {
+                            return (
+                                <div
+                                    key={index}
+                                    className={twMerge(
+                                        'relative h-20 flex flex-col items-center justify-center text-center font-semibold text-base border-[3px] rounded-2xl select-none cursor-pointer',
+                                        'border-secondary-light dark:border-secondary-dark shadow-xl',
+                                        'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light hover:bg-active-light dark:hover:bg-active-dark'
+                                    )}
+                                    onClick={() => {
+                                        if (selectedItem) onInput(selectedItem.category, 'contextmenu');
+                                    }}
+                                >
+                                    <div
+                                        className="flex items-center justify-center leading-tight text-center"
+                                        lang="fr"
+                                    >
+                                        {OTHER_KEYWORD}
+                                    </div>
+                                </div>
+                            );
+                        }
                         if (!product) {
                             return <div key={index} className="h-20" />;
                         }

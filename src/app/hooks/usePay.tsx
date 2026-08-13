@@ -647,6 +647,7 @@ export const usePay = () => {
                     .filter(
                         (m) =>
                             m.currency === currencies[currencyIndex].label &&
+                            m.availability !== false &&
                             m.type.toLowerCase() !== DEBIT_KEYWORD.toLowerCase() &&
                             m.type.toLowerCase() !== PROVISION_KEYWORD.toLowerCase()
                     )
@@ -1067,7 +1068,7 @@ export const usePay = () => {
             const total = partialPaymentAmount;
             if (total && paymentMethods.length) {
                 const paymentMethodsLabels = paymentMethods
-                    .filter((item) => item.currency === currencies[currencyIndex].label)
+                    .filter((item) => item.currency === currencies[currencyIndex].label && item.availability !== false)
                     .map((item) => item.type);
 
                 if (paymentMethodsLabels.length === 1) {
@@ -1112,7 +1113,7 @@ export const usePay = () => {
                 }
 
                 const paymentMethodsLabels = paymentMethods
-                    .filter((item) => item.currency === currencies[currencyIndex].label)
+                    .filter((item) => item.currency === currencies[currencyIndex].label && item.availability !== false)
                     .map((item) => item.type);
 
                 // Add print option for manual printing before payment

@@ -93,16 +93,16 @@ export async function POST(request: Request) {
                 const { firstName, lastName, email, phone, company } = customer;
 
                 if (typeof customer.id === 'number') {
-                    // Update existing customer - never touch balance (managed separately)
+                    // Update existing customer including balance (editable from admin)
                     const reference = customer.reference
                         ? String(customer.reference)
                         : generateProductReference(customer.id);
                     const updateQuery = conn.isPostgreSQL
                         ? `UPDATE ${table}
-                           SET first_name = $1, last_name = $2, reference = $3, email = $4, phone = $5, company = $6
-                           WHERE id = $7`
+                           SET first_name = $1, last_name = $2, reference = $3, email = $4, phone = $5, company = $6, balance = $7
+                           WHERE id = $8`
                         : `UPDATE ${table}
-                           SET first_name = ?, last_name = ?, reference = ?, email = ?, phone = ?, company = ?
+                           SET first_name = ?, last_name = ?, reference = ?, email = ?, phone = ?, company = ?, balance = ?
                            WHERE id = ?`;
                     await conn.execute(updateQuery, [
                         firstName,
@@ -111,6 +111,7 @@ export async function POST(request: Request) {
                         email,
                         phone,
                         company,
+                        customer.balance || 0,
                         customer.id,
                     ]);
                 } else {

@@ -308,7 +308,7 @@ CREATE TABLE IF NOT EXISTS `payment_methods` (
   `label` varchar(50) NOT NULL,
   `address` varchar(255) DEFAULT NULL,
   `currency` varchar(10) DEFAULT '€',
-  `hidden` tinyint(1) DEFAULT 0,
+  `available` tinyint(1) DEFAULT 1,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `label` (`label`)

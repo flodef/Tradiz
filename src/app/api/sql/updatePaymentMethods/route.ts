@@ -32,20 +32,20 @@ export async function POST(request: Request) {
             const label = method.type;
             const address = method.id || '0';
             const currency = method.currency || 'Euro';
-            const hidden = !method.availability; // availability=true means hidden=false
+            const available = method.availability; // available=true means the method is shown
 
             if (connection.isPostgreSQL) {
                 const insertQuery = `
-                    INSERT INTO dc_pos.payment_methods (label, address, currency, hidden)
+                    INSERT INTO dc_pos.payment_methods (label, address, currency, available)
                     VALUES ($1, $2, $3, $4)
                 `;
-                await connection.execute(insertQuery, [label, address, currency, hidden]);
+                await connection.execute(insertQuery, [label, address, currency, available]);
             } else {
                 const insertQuery = `
-                    INSERT INTO payment_methods (label, address, currency, hidden)
+                    INSERT INTO payment_methods (label, address, currency, available)
                     VALUES (?, ?, ?, ?)
                 `;
-                await connection.execute(insertQuery, [label, address, currency, hidden ? 1 : 0]);
+                await connection.execute(insertQuery, [label, address, currency, available ? 1 : 0]);
             }
         }
 

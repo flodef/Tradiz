@@ -75,6 +75,7 @@ export interface DisplaySettings {
     showChange: boolean;
     catalogMode: boolean;
     useTakeOut: boolean;
+    displayOthers?: boolean;
 }
 
 export interface Parameters {

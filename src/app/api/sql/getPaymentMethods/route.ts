@@ -6,7 +6,7 @@ interface PaymentMethodRow {
     label: string;
     address: string;
     currency: string;
-    hidden: number | null;
+    available: number | boolean | null;
 }
 
 export async function GET(request: Request) {
@@ -17,11 +17,11 @@ export async function GET(request: Request) {
 
         const query = connection.isPostgreSQL
             ? `
-            SELECT label, address, currency, hidden
+            SELECT label, address, currency, available
             FROM dc_pos.payment_methods
         `
             : `
-            SELECT label, address, currency, hidden
+            SELECT label, address, currency, available
             FROM payment_methods
         `;
 
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
             type: String(row.label),
             id: String(row.address),
             currency: String(row.currency),
-            availability: Number(row.hidden ?? 0) !== 1,
+            availability: Boolean(row.available ?? true),
         }));
 
         return NextResponse.json({ paymentMethods }, { status: 200 });

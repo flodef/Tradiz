@@ -572,6 +572,14 @@ export default function ParametersConfig({
                             label="Clavier virtuel"
                         />
                     </div>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.display?.displayOthers ?? false}
+                            onChange={(checked) => handleDisplayChange('displayOthers', checked)}
+                            isReadOnly={isReadOnly}
+                            label="Afficher 'Autres' dans le catalogue"
+                        />
+                    </div>
                 </div>
             </div>
         </SectionCard>
