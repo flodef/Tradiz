@@ -22,12 +22,24 @@ const FORMULA_CATEGORY = 'Formule';
 
 function adminProductToFormula(product: AdminProduct): AdminFormula | null {
     if (!product.options) {
-        return { name: product.name, price: product.currencies[0] || '0', mode: 'products', elements: [] };
+        return {
+            name: product.name,
+            price: product.currencies[0] || '0',
+            mode: 'products',
+            category: '',
+            elements: [],
+        };
     }
     try {
         const parsed = JSON.parse(product.options);
         if (!parsed.formula || !Array.isArray(parsed.elements)) {
-            return { name: product.name, price: product.currencies[0] || '0', mode: 'products', elements: [] };
+            return {
+                name: product.name,
+                price: product.currencies[0] || '0',
+                mode: 'products',
+                category: '',
+                elements: [],
+            };
         }
         const elements = parsed.elements as FormulaElement[];
         const mode = elements.some((el) => el.category) ? 'category' : 'products';
@@ -38,10 +50,17 @@ function adminProductToFormula(product: AdminProduct): AdminFormula | null {
             name: parsed.originalName || product.name,
             price: product.currencies[0] || '0',
             mode,
+            category: parsed.category || '',
             elements: normalizedElements,
         };
     } catch {
-        return { name: product.name, price: product.currencies[0] || '0', mode: 'products', elements: [] };
+        return {
+            name: product.name,
+            price: product.currencies[0] || '0',
+            mode: 'products',
+            category: '',
+            elements: [],
+        };
     }
 }
 
@@ -115,7 +134,7 @@ function buildInventoryFromAdminFormulas(formulas: AdminFormula[]): InventoryIte
         item.products.push({
             label: label.toFirstUpperCase(),
             prices: [Number(f.price) || 0].filter((price) => Number.isFinite(price)),
-            options: JSON.stringify({ formula: true, elements: f.elements }),
+            options: JSON.stringify({ formula: true, category: f.category, elements: f.elements }),
             stock: null,
             order: i,
             reference: null,
@@ -181,10 +200,10 @@ export default function EditMenuPage() {
     const [hasOptionsChanges, setHasOptionsChanges] = useState(false);
     const [emptyProductsPopupShown, setEmptyProductsPopupShown] = useState(false);
     const [dbCategories, setDbCategories] = useState<
-        { name: string; company: string | null; sortOrder: number; originalName?: string }[]
+        { name: string; company: string | null; printer: string | null; sortOrder: number; originalName?: string }[]
     >([]);
     const [originalDbCategories, setOriginalDbCategories] = useState<
-        { name: string; company: string | null; sortOrder: number; originalName?: string }[]
+        { name: string; company: string | null; printer: string | null; sortOrder: number; originalName?: string }[]
     >([]);
     const dataLoadedRef = useRef(false);
     const seededRef = useRef(false);
@@ -210,6 +229,7 @@ export default function EditMenuPage() {
                 label,
                 vat: vats && vats.size === 1 ? [...vats][0] : null,
                 company: dbCat.company,
+                printerLabel: dbCat.printer,
                 sortOrder: dbCat.sortOrder,
             });
         }
@@ -220,6 +240,7 @@ export default function EditMenuPage() {
                     label,
                     vat: vats.size === 1 ? [...vats][0] : null,
                     company: null,
+                    printerLabel: null,
                     sortOrder: result.length,
                 });
             }
@@ -229,7 +250,15 @@ export default function EditMenuPage() {
 
     // Persists categories to the DB.
     const saveCategoriesToDb = useCallback(
-        async (cats: { name: string; company: string | null; sortOrder: number; originalName?: string }[]) => {
+        async (
+            cats: {
+                name: string;
+                company: string | null;
+                printer: string | null;
+                sortOrder: number;
+                originalName?: string;
+            }[]
+        ) => {
             const response = await fetch('/api/sql/updateCategories', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -263,6 +292,7 @@ export default function EditMenuPage() {
                     ...newLabels.map((name, i) => ({
                         name,
                         company: null,
+                        printer: null,
                         sortOrder: dbCategories.length + i,
                     })),
                 ];
@@ -276,6 +306,15 @@ export default function EditMenuPage() {
     const handleCategoryCompanyChange = useCallback(
         (categoryLabel: string, company: string | null) => {
             const updatedDbCats = dbCategories.map((c) => (c.name === categoryLabel ? { ...c, company } : c));
+            setDbCategories(updatedDbCats);
+        },
+        [dbCategories]
+    );
+
+    // Printer change for a category — local state only, persisted on Save
+    const handleCategoryPrinterChange = useCallback(
+        (categoryLabel: string, printer: string | null) => {
+            const updatedDbCats = dbCategories.map((c) => (c.name === categoryLabel ? { ...c, printer } : c));
             setDbCategories(updatedDbCats);
         },
         [dbCategories]
@@ -382,9 +421,10 @@ export default function EditMenuPage() {
                 // Load DB categories
                 if (Array.isArray(categoriesData.categories)) {
                     const mapped = categoriesData.categories.map(
-                        (c: { name: string; company: string | null; sortOrder: number }) => ({
+                        (c: { name: string; company: string | null; printer: string | null; sortOrder: number }) => ({
                             name: String(c.name),
                             company: c.company ?? null,
+                            printer: c.printer ?? null,
                             sortOrder: Number(c.sortOrder) || 0,
                         })
                     );
@@ -551,7 +591,13 @@ export default function EditMenuPage() {
             data: AdminProduct[],
             category?: string,
             formulasOverride?: AdminFormula[],
-            categoriesOverride?: { name: string; company: string | null; sortOrder: number; originalName?: string }[]
+            categoriesOverride?: {
+                name: string;
+                company: string | null;
+                printer: string | null;
+                sortOrder: number;
+                originalName?: string;
+            }[]
         ) => {
             const formulasToPersist = formulasOverride ?? formulas;
             const catsToPersist = categoriesOverride ?? dbCategories;
@@ -768,7 +814,12 @@ export default function EditMenuPage() {
             // Update dbCategories sort order (local state only)
             const updatedDbCats = orderedLabels.map((label, index) => {
                 const existing = dbCategories.find((c) => c.name === label);
-                return { name: label, company: existing?.company ?? null, sortOrder: index };
+                return {
+                    name: label,
+                    company: existing?.company ?? null,
+                    printer: existing?.printer ?? null,
+                    sortOrder: index,
+                };
             });
             setDbCategories(updatedDbCats);
 
@@ -868,10 +919,12 @@ export default function EditMenuPage() {
                         onReorderCategories={isReadOnly ? undefined : handleCategoryReorder}
                         onLocalCategoriesChange={handleLocalCategoriesChange}
                         onCategoryCompanyChange={isReadOnly ? undefined : handleCategoryCompanyChange}
+                        onCategoryPrinterChange={isReadOnly ? undefined : handleCategoryPrinterChange}
                         companies={customers
                             ?.map((c) => c.company)
                             .filter((c): c is string => Boolean(c))
                             .filter((c, i, arr) => arr.indexOf(c) === i)}
+                        printers={printers?.map((p) => p.label) ?? []}
                         onSave={
                             isReadOnly
                                 ? undefined

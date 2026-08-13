@@ -6,6 +6,7 @@ interface CategoryInput {
     id?: number;
     name: string;
     company?: string | null;
+    printer?: string | null;
     sortOrder?: number;
     originalName?: string;
 }
@@ -24,12 +25,20 @@ export async function POST(request: Request) {
 
         const pgTable = connection.isPostgreSQL ? 'dc.categories' : 'categories';
         const pgCompanies = connection.isPostgreSQL ? 'dc_pos.companies' : '`DC_POS`.companies';
+        const pgPrinters = connection.isPostgreSQL ? 'dc_pos.printers' : 'printers';
 
         // Fetch all companies (name → id) so we can resolve company names to IDs
         const [companyRows] = await connection.execute(`SELECT id, name FROM ${pgCompanies}`);
         const companyIdByName = new Map<string, number>();
         for (const row of companyRows as { id: number; name: string }[]) {
             companyIdByName.set(row.name, Number(row.id));
+        }
+
+        // Fetch all printers (name → id) so we can resolve printer names to IDs
+        const [printerRows] = await connection.execute(`SELECT id, name FROM ${pgPrinters}`);
+        const printerIdByName = new Map<string, number>();
+        for (const row of printerRows as { id: number; name: string }[]) {
+            printerIdByName.set(row.name, Number(row.id));
         }
 
         await connection.beginTransaction();
@@ -68,6 +77,8 @@ export async function POST(request: Request) {
                 const name = cat.name;
                 const companyName = cat.company ?? null;
                 const companyId = companyName ? companyIdByName.get(companyName) ?? null : null;
+                const printerName = cat.printer ?? null;
+                const printerId = printerName ? printerIdByName.get(printerName) ?? null : null;
                 const sortOrder = cat.sortOrder ?? i;
 
                 // Look up by originalName if renamed, otherwise by name
@@ -77,26 +88,26 @@ export async function POST(request: Request) {
                     // Update in place — preserves the id so product FKs stay valid
                     if (connection.isPostgreSQL) {
                         await connection.execute(
-                            `UPDATE ${pgTable} SET name = $1, company_id = $2, sort_order = $3 WHERE id = $4`,
-                            [name, companyId, sortOrder, existingCat.id]
+                            `UPDATE ${pgTable} SET name = $1, company_id = $2, sort_order = $3, printer_id = $4 WHERE id = $5`,
+                            [name, companyId, sortOrder, printerId, existingCat.id]
                         );
                     } else {
                         await connection.execute(
-                            `UPDATE ${pgTable} SET name = ?, company_id = ?, sort_order = ? WHERE id = ?`,
-                            [name, companyId, sortOrder, existingCat.id]
+                            `UPDATE ${pgTable} SET name = ?, company_id = ?, sort_order = ?, printer_id = ? WHERE id = ?`,
+                            [name, companyId, sortOrder, printerId, existingCat.id]
                         );
                     }
                 } else {
                     // Insert new category
                     if (connection.isPostgreSQL) {
                         await connection.execute(
-                            `INSERT INTO ${pgTable} (name, company_id, sort_order) VALUES ($1, $2, $3)`,
-                            [name, companyId, sortOrder]
+                            `INSERT INTO ${pgTable} (name, company_id, sort_order, printer_id) VALUES ($1, $2, $3, $4)`,
+                            [name, companyId, sortOrder, printerId]
                         );
                     } else {
                         await connection.execute(
-                            `INSERT INTO ${pgTable} (name, company_id, sort_order) VALUES (?, ?, ?)`,
-                            [name, companyId, sortOrder]
+                            `INSERT INTO ${pgTable} (name, company_id, sort_order, printer_id) VALUES (?, ?, ?, ?)`,
+                            [name, companyId, sortOrder, printerId]
                         );
                     }
                 }

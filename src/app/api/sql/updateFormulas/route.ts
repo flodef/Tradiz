@@ -11,6 +11,7 @@ interface FormulaElement {
 interface Formula {
     name: string;
     price: string;
+    category: string;
     elements: FormulaElement[];
 }
 
@@ -47,14 +48,27 @@ export async function POST(request: Request) {
         // Insert new formulas
         for (let formulaIndex = 0; formulaIndex < body.length; formulaIndex++) {
             const formula = body[formulaIndex];
+
+            // Resolve category_id from category name
+            let categoryId: number | null = null;
+            if (formula.category) {
+                const findCategoryQuery = connection.isPostgreSQL
+                    ? `SELECT id FROM dc.categories WHERE name = $1 LIMIT 1`
+                    : `SELECT id FROM categories WHERE name = ? LIMIT 1`;
+                const [catRows] = await connection.execute(findCategoryQuery, [formula.category]);
+                const cats = catRows as { id: number }[];
+                if (cats.length > 0) categoryId = cats[0].id;
+            }
+
             const insertFormulaQuery = connection.isPostgreSQL
-                ? `INSERT INTO dc.formulas (name, price, sort_order) VALUES ($1, $2, $3) RETURNING id`
-                : `INSERT INTO formulas (name, price, sort_order) VALUES (?, ?, ?)`;
+                ? `INSERT INTO dc.formulas (name, price, sort_order, category_id) VALUES ($1, $2, $3, $4) RETURNING id`
+                : `INSERT INTO formulas (name, price, sort_order, category_id) VALUES (?, ?, ?, ?)`;
 
             const formulaId = await executeInsert(connection, insertFormulaQuery, insertFormulaQuery, [
                 formula.name,
                 parseFloat(formula.price) || 0,
                 formulaIndex,
+                categoryId,
             ]);
             if (formulaId === undefined) throw new Error(`Failed to insert formula: ${formula.name}`);
 

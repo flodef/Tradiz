@@ -21,11 +21,14 @@ CREATE TABLE IF NOT EXISTS `categories` (
   `name` varchar(100) NOT NULL,
   `company_id` int(11) DEFAULT NULL,
   `sort_order` int(11) NOT NULL DEFAULT 0,
+  `printer_id` int(11) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`),
   KEY `company_id` (`company_id`),
-  CONSTRAINT `fk_categories_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE SET NULL
+  KEY `printer_id` (`printer_id`),
+  CONSTRAINT `fk_categories_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_categories_printer` FOREIGN KEY (`printer_id`) REFERENCES `printers` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Products (was: article)

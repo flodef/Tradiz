@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS dc.categories (
     name VARCHAR(100) NOT NULL UNIQUE,
     company_id INTEGER REFERENCES dc_pos.companies(id) ON DELETE SET NULL,
     sort_order INTEGER NOT NULL DEFAULT 0,
+    printer_id INTEGER REFERENCES dc_pos.printers(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

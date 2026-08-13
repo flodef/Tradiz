@@ -27,6 +27,7 @@ export interface Category {
     label: string;
     vat: number | null;
     company?: string | null;
+    printerLabel?: string | null;
     sortOrder?: number;
 }
 

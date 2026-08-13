@@ -35,11 +35,13 @@ interface SortableRowProps {
     isInvalid: boolean;
     vatRates: number[];
     companies?: string[];
+    printers?: string[];
     productCount: { total: number; available: number };
     onLabelChange: (id: number, label: string) => void;
     onLabelBlur: (id: number) => void;
     onVatChange: (id: number, vat: number) => void;
     onCompanyChange: (id: number, company: string | null) => void;
+    onPrinterChange: (id: number, printer: string | null) => void;
     onDelete: (id: number) => void;
     labelInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
     lastAddedIndexRef: React.MutableRefObject<number | null>;
@@ -52,11 +54,13 @@ const SortableRow = memo(function SortableRow({
     isInvalid,
     vatRates,
     companies,
+    printers,
     productCount,
     onLabelChange,
     onLabelBlur,
     onVatChange,
     onCompanyChange,
+    onPrinterChange,
     onDelete,
     labelInputRefs,
     lastAddedIndexRef,
@@ -100,6 +104,14 @@ const SortableRow = memo(function SortableRow({
             onCompanyChange(category._id, val === '' ? null : val);
         },
         [category._id, onCompanyChange]
+    );
+
+    const handlePrinterChange = useCallback(
+        (e: React.ChangeEvent<HTMLSelectElement>) => {
+            const val = e.target.value;
+            onPrinterChange(category._id, val === '' ? null : val);
+        },
+        [category._id, onPrinterChange]
     );
 
     return (
@@ -161,6 +173,15 @@ const SortableRow = memo(function SortableRow({
                     className="min-w-32"
                 />
             </td>
+            <td className="p-2">
+                <AdminSelect
+                    value={category.printerLabel ?? ''}
+                    onChange={handlePrinterChange}
+                    options={[{ value: '', label: '—' }, ...(printers ?? []).map((p) => ({ value: p, label: p }))]}
+                    isReadOnly={isReadOnly}
+                    className="min-w-32"
+                />
+            </td>
             <td className="p-2 text-center text-sm">
                 {productCount.available} / {productCount.total}
             </td>
@@ -181,7 +202,9 @@ export default function CategoriesConfig({
     onReorderCategories,
     onLocalCategoriesChange,
     onCategoryCompanyChange,
+    onCategoryPrinterChange,
     companies,
+    printers,
     onSave,
     onCancel,
     hasChanges = false,
@@ -203,7 +226,9 @@ export default function CategoriesConfig({
     onReorderCategories?: (orderedLabels: string[]) => void;
     onLocalCategoriesChange?: (labels: string[]) => void;
     onCategoryCompanyChange?: (categoryLabel: string, company: string | null) => void;
+    onCategoryPrinterChange?: (categoryLabel: string, printer: string | null) => void;
     companies?: string[];
+    printers?: string[];
     icon?: React.ReactNode;
 }) {
     const { openFullscreenPopup } = usePopup();
@@ -291,7 +316,13 @@ export default function CategoriesConfig({
                 if (existing) {
                     // If user is editing (label differs from _originalLabel), preserve local state
                     if (existing.label !== existing._originalLabel) {
-                        result.push({ ...existing, vat: c.vat, company: c.company ?? null, sortOrder: c.sortOrder });
+                        result.push({
+                            ...existing,
+                            vat: c.vat,
+                            company: c.company ?? null,
+                            printerLabel: c.printerLabel ?? null,
+                            sortOrder: c.sortOrder,
+                        });
                     } else {
                         // Not editing - sync normally
                         result.push({
@@ -299,6 +330,7 @@ export default function CategoriesConfig({
                             label: c.label,
                             vat: c.vat,
                             company: c.company ?? null,
+                            printerLabel: c.printerLabel ?? null,
                             sortOrder: c.sortOrder,
                             _originalLabel: c.label,
                         });
@@ -322,6 +354,7 @@ export default function CategoriesConfig({
                         p.label === result[i].label &&
                         p.vat === result[i].vat &&
                         p.company === result[i].company &&
+                        p.printerLabel === result[i].printerLabel &&
                         p._originalLabel === result[i]._originalLabel
                 )
             ) {
@@ -544,6 +577,7 @@ export default function CategoriesConfig({
                                     <th className={adminHeaderStyle + ' min-w-32'}>Label</th>
                                     <th className={adminHeaderStyle + ' min-w-20 w-20'}>TVA</th>
                                     <th className={adminHeaderStyle + ' min-w-32'}>Entreprise</th>
+                                    <th className={adminHeaderStyle + ' min-w-32'}>Imprimante</th>
                                     <th className={adminHeaderStyle + ' min-w-16 w-16'}>Produits</th>
                                     {!isReadOnly && <th className="w-16"></th>}
                                 </tr>
@@ -557,6 +591,7 @@ export default function CategoriesConfig({
                                         isInvalid={invalidIds.has(category._id)}
                                         vatRates={vatRates}
                                         companies={companies}
+                                        printers={printers}
                                         productCount={
                                             productCountMap.get(category._originalLabel || category.label) ?? {
                                                 total: 0,
@@ -572,6 +607,17 @@ export default function CategoriesConfig({
                                                 onCategoryCompanyChange?.(cat._originalLabel || cat.label, company);
                                                 setCategories((prev) =>
                                                     prev.map((c) => (c._id === id ? { ...c, company } : c))
+                                                );
+                                            }
+                                        }}
+                                        onPrinterChange={(id, printer) => {
+                                            const cat = categories.find((c) => c._id === id);
+                                            if (cat) {
+                                                onCategoryPrinterChange?.(cat._originalLabel || cat.label, printer);
+                                                setCategories((prev) =>
+                                                    prev.map((c) =>
+                                                        c._id === id ? { ...c, printerLabel: printer } : c
+                                                    )
                                                 );
                                             }
                                         }}

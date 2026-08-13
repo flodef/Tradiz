@@ -33,6 +33,7 @@ export interface AdminFormula {
     name: string;
     price: string;
     mode: 'category' | 'products';
+    category: string;
     elements: FormulaElement[];
 }
 
@@ -86,11 +87,13 @@ const SortableFormula = memo(function SortableFormula({
     isReadOnly,
     children,
     currencies,
+    categories,
     onNameChange,
     onAutoName,
     onPriceChange,
     onApplyMaxPrice,
     onModeChange,
+    onCategoryChange,
     onDelete,
     hasElements,
     nameInputRef,
@@ -99,11 +102,13 @@ const SortableFormula = memo(function SortableFormula({
     isReadOnly: boolean;
     children: React.ReactNode;
     currencies: Currency[];
+    categories: string[];
     onNameChange: (value: string) => void;
     onAutoName: () => void;
     onPriceChange: (value: string) => void;
     onApplyMaxPrice: () => void;
     onModeChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+    onCategoryChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
     onDelete: () => void;
     hasElements: boolean;
     nameInputRef?: (el: HTMLInputElement | null) => void;
@@ -182,6 +187,16 @@ const SortableFormula = memo(function SortableFormula({
                         ]}
                         value={formula.mode}
                         onChange={onModeChange}
+                        isReadOnly={isReadOnly}
+                        className="w-36 shrink-0"
+                    />
+                    <AdminSelect
+                        options={[
+                            { label: '— Catégorie —', value: '' },
+                            ...categories.map((c) => ({ label: c, value: c })),
+                        ]}
+                        value={formula.category}
+                        onChange={onCategoryChange}
                         isReadOnly={isReadOnly}
                         className="w-36 shrink-0"
                     />
@@ -372,6 +387,7 @@ export default function FormulasConfig({
     const isValid = useMemo(() => {
         return formulas.every((f) => {
             if (!f.name.trim()) return false;
+            if (!f.category.trim()) return false;
             const price = parseFloat(f.price);
             if (isNaN(price) || price <= 0) return false;
             if (f.elements.length === 0) return false;
@@ -413,6 +429,7 @@ export default function FormulasConfig({
                     name: '',
                     price: (0).toFixed(decimals),
                     mode,
+                    category: '',
                     elements: [],
                     _id: nextIdRef.current++,
                 },
@@ -680,6 +697,7 @@ export default function FormulasConfig({
                                 formula={formula}
                                 isReadOnly={isReadOnly}
                                 currencies={currencies}
+                                categories={categories}
                                 onNameChange={(value) => updateFormula(formulaIndex, { name: String(value) })}
                                 onAutoName={() => handleAutoName(formulaIndex)}
                                 onPriceChange={(value) => updateFormula(formulaIndex, { price: String(value) })}
@@ -687,6 +705,7 @@ export default function FormulasConfig({
                                 onModeChange={(e) =>
                                     handleFormulaModeChange(formulaIndex, e.target.value as 'category' | 'products')
                                 }
+                                onCategoryChange={(e) => updateFormula(formulaIndex, { category: e.target.value })}
                                 onDelete={() => handleDeleteFormula(formulaIndex)}
                                 hasElements={hasElements(formula)}
                                 nameInputRef={(el) => {
