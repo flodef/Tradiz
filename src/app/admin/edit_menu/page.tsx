@@ -5,6 +5,7 @@ import CategoriesConfig from '@/app/components/admin/sections/CategoriesConfig';
 import OptionsConfig, { ProductOptionGroup } from '@/app/components/admin/sections/OptionsConfig';
 import ProductsConfig, { AdminProduct } from '@/app/components/admin/sections/ProductsConfig';
 import FormulasConfig, { AdminFormula, FormulaElement } from '@/app/components/admin/sections/FormulasConfig';
+import CatalogEditor from '@/app/components/admin/sections/CatalogEditor';
 import { Config, ProductsSettings } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
@@ -15,7 +16,7 @@ import { applyCategoryDeletionToFormulas, isSameCategory, renameFormulaCategory 
 import { Category, InventoryItem } from '@/app/utils/interfaces';
 import { clearLoadDataCache } from '@/app/utils/processData';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IconCategory, IconListDetails, IconBox, IconMathFunction } from '@tabler/icons-react';
+import { IconCategory, IconListDetails, IconBox, IconMathFunction, IconLayoutGrid } from '@tabler/icons-react';
 import { useSearchParams } from 'next/navigation';
 
 const FORMULA_CATEGORY = 'Formule';
@@ -994,6 +995,23 @@ export default function EditMenuPage() {
                     icon={<IconBox size={24} />}
                     showHeader={nonFormulaProducts.length > 0}
                 />
+
+                {parameters?.display?.catalogMode && categories.length > 0 && (
+                    <CatalogEditor
+                        products={nonFormulaProducts}
+                        categories={categoryOptions}
+                        currencies={currencies}
+                        onChange={handleProductsChange}
+                        onSave={isReadOnly ? undefined : handleProductsSave}
+                        onCancel={handleCancel}
+                        hasChanges={hasProductsChanges}
+                        isReadOnly={isReadOnly}
+                        isLoading={isSavingProducts}
+                        isOpen={openSection === 'catalog'}
+                        onToggle={() => setOpenSection((prev) => (prev === 'catalog' ? null : 'catalog'))}
+                        icon={<IconLayoutGrid size={24} />}
+                    />
+                )}
 
                 <FormulasConfig
                     config={formulas}
