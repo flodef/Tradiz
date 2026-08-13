@@ -40,9 +40,7 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
     const enterArmedRef = useRef(false);
 
     const close = useCallback(() => {
-        closePopup(() => {
-            popupAction?.(-1, '');
-        });
+        closePopup(() => popupAction?.(-1, ''));
     }, [closePopup, popupAction]);
 
     const handleClick = useCallback(

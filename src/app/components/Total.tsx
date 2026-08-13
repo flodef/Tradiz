@@ -211,6 +211,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                     if (option !== 'Continuer') return;
                                     const tx = transactions.at(index);
                                     deleteTransaction(index);
+                                    closePopup();
                                     if (tx) {
                                         printKitchenReceipt(tx).then((response) => {
                                             if (!response.success)
@@ -287,7 +288,10 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                 [
                     {
                         label: 'Oui',
-                        action: (index) => deleteProduct(index),
+                        action: (index) => {
+                            deleteProduct(index);
+                            closePopup();
+                        },
                     },
                     {
                         label: 'Non',
