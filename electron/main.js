@@ -27,14 +27,69 @@ function formatArgs(args) {
 }
 const origLog = console.log;
 const origErr = console.error;
+
+// Buffer logs for batch insertion into dc_sys.logs via the API.
+// Flushes every 5 seconds or when 50 entries accumulate.
+const logBuffer = [];
+const LOG_FLUSH_INTERVAL_MS = 5000;
+const LOG_FLUSH_BATCH_SIZE = 50;
+var logFlushTimer = null;
+
+function startLogFlushTimer() {
+    if (logFlushTimer) return;
+    logFlushTimer = setInterval(flushLogsToDb, LOG_FLUSH_INTERVAL_MS);
+}
+
+function flushLogsToDb() {
+    if (logBuffer.length === 0) return;
+    var batch = logBuffer.splice(0, logBuffer.length);
+    try {
+        var http = require('http');
+        var data = JSON.stringify({ logs: batch });
+        var req = http.request(
+            {
+                hostname: 'localhost',
+                port: 3001,
+                path: '/api/sql/addLog',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(data),
+                },
+            },
+            function (res) {
+                res.resume(); // consume the response
+            }
+        );
+        req.on('error', function () {
+            // Silently ignore — file logs are the primary source.
+        });
+        req.write(data);
+        req.end();
+    } catch (e) {
+        // Silently ignore — don't let logging break the app.
+    }
+}
+
+function bufferLog(level, message) {
+    logBuffer.push({ level: level, message: message, source: 'electron' });
+    if (logBuffer.length >= LOG_FLUSH_BATCH_SIZE) {
+        flushLogsToDb();
+    } else {
+        startLogFlushTimer();
+    }
+}
+
 console.log = function () {
     var msg = formatArgs(Array.prototype.slice.call(arguments));
     logStream.write('[INFO] ' + new Date().toISOString() + ' ' + msg + '\n');
+    bufferLog('info', msg);
     origLog.apply(console, arguments);
 };
 console.error = function () {
     var msg = formatArgs(Array.prototype.slice.call(arguments));
     logStream.write('[ERROR] ' + new Date().toISOString() + ' ' + msg + '\n');
+    bufferLog('error', msg);
     origErr.apply(console, arguments);
 };
 
@@ -959,6 +1014,9 @@ app.on('window-all-closed', () => {
         serverProcess.kill();
         serverProcess = null;
     }
+    // Flush any buffered logs before quitting.
+    flushLogsToDb();
+    if (logFlushTimer) clearInterval(logFlushTimer);
     if (process.platform !== 'darwin') {
         app.quit();
     }

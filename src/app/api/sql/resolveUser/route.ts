@@ -89,11 +89,11 @@ async function isIpBlocked(connection: import('../db').DbConnection, ipAddress: 
         // Check for failed attempts in the last 24 hours from this IP
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         const query = connection.isPostgreSQL
-            ? `SELECT COUNT(*) as count FROM dc_sys.logs 
+            ? `SELECT COUNT(*) as count FROM dc_sys.connections 
                WHERE metadata->>'ip_address' = $1 
                AND metadata->>'success' = 'false' 
                AND created_at > $2`
-            : `SELECT COUNT(*) as count FROM dc_sys.logs 
+            : `SELECT COUNT(*) as count FROM dc_sys.connections 
                WHERE JSON_EXTRACT(metadata, '$.ip_address') = ? 
                AND JSON_EXTRACT(metadata, '$.success') = 'false' 
                AND created_at > ?`;
@@ -161,8 +161,8 @@ async function logAccessAttempt(
         };
 
         const query = connection.isPostgreSQL
-            ? `INSERT INTO dc_sys.logs (level, message, metadata) VALUES ($1, $2, $3)`
-            : `INSERT INTO dc_sys.logs (level, message, metadata) VALUES (?, ?, ?)`;
+            ? `INSERT INTO dc_sys.connections (level, message, metadata) VALUES ($1, $2, $3)`
+            : `INSERT INTO dc_sys.connections (level, message, metadata) VALUES (?, ?, ?)`;
 
         await connection.execute(query, [
             success ? 'info' : 'error',

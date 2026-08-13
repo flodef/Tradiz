@@ -22,6 +22,7 @@ import { Catalog, CatalogFormula, EmptyDiscount, InventoryItem, Role, State } fr
 import { useIsMobile, useIsMobileDevice, useLongPressContextMenu } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
 import { colorToHex } from '../utils/colors';
+import '../utils/extensions'; // Registers String.prototype.toFirstUpperCase
 import { useAddPopupClass } from './Popup';
 
 // Local types for option selection helpers
@@ -635,9 +636,10 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
     const displayInventory = useMemo(() => {
         const customerCompany = currentCustomer?.company ?? null;
         // Map: category name → company name (for all company-specific categories)
+        // Normalize names to match the inventory's normalized category names (toFirstUpperCase).
         const categoryCompany = new Map<string, string>();
         for (const c of configCategories ?? []) {
-            if (c.company) categoryCompany.set(c.name, c.company);
+            if (c.company) categoryCompany.set(c.name.toFirstUpperCase(), c.company);
         }
         // Categories belonging to the selected customer's company
         const customerCategoryNames = new Set(

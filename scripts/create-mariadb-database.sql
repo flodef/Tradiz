@@ -410,16 +410,29 @@ CREATE DATABASE IF NOT EXISTS `DC_SYS` /*!40100 DEFAULT CHARACTER SET utf8mb4 CO
 
 USE `DC_SYS`;
 
--- Logs (was: log)
+-- Connections (was: logs) - Used for connection/access attempt tracking
+CREATE TABLE IF NOT EXISTS `connections` (
+  `id` int(10) NOT NULL AUTO_INCREMENT,
+  `level` varchar(20) NOT NULL,
+  `message` text NOT NULL,
+  `metadata` JSON DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_connections_level` (`level`),
+  KEY `idx_connections_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Application logs - stores runtime logs from the POS application
 CREATE TABLE IF NOT EXISTS `logs` (
   `id` int(10) NOT NULL AUTO_INCREMENT,
-  `severity` int(2) NOT NULL DEFAULT 0,
-  `ip` varchar(50) DEFAULT NULL,
-  `source` varchar(50) NOT NULL,
-  `data` text NOT NULL,
-  `date` timestamp NOT NULL DEFAULT current_timestamp(),
-  KEY `Index 1` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=19642 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `level` varchar(20) NOT NULL,
+  `message` text NOT NULL,
+  `source` varchar(100) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_logs_level` (`level`),
+  KEY `idx_logs_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- OTA Updates
 CREATE TABLE IF NOT EXISTS `ota_updates` (

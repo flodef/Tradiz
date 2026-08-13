@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 
         const query = connection.isPostgreSQL
             ? `SELECT l.metadata->>'public_key' AS public_key
-               FROM dc_sys.logs l
+               FROM dc_sys.connections l
                WHERE l.level = 'error'
                  AND l.metadata->>'success' = 'false'
                  AND l.metadata->>'type' = 'access_attempt'
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
                ORDER BY l.created_at DESC
                LIMIT 1`
             : `SELECT JSON_UNQUOTE(JSON_EXTRACT(l.metadata, '$.public_key')) AS public_key
-               FROM dc_sys.logs l
+               FROM dc_sys.connections l
                WHERE l.level = 'error'
                  AND JSON_EXTRACT(l.metadata, '$.success') = 'false'
                  AND JSON_EXTRACT(l.metadata, '$.type') = 'access_attempt'

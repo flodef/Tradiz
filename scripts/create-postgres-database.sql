@@ -387,8 +387,8 @@ CREATE TABLE IF NOT EXISTS dc_pos.discounts (
 -- STEP 5: Create tables in dc_sys schema (System)
 -- ============================================================
 
--- Logs (was: log) - Used for system logs and access tracking
-CREATE TABLE IF NOT EXISTS dc_sys.logs (
+-- Connections (was: logs) - Used for connection/access attempt tracking
+CREATE TABLE IF NOT EXISTS dc_sys.connections (
     id SERIAL PRIMARY KEY,
     level VARCHAR(20) NOT NULL,
     message TEXT NOT NULL,
@@ -397,8 +397,20 @@ CREATE TABLE IF NOT EXISTS dc_sys.logs (
 );
 
 -- Create index on level for filtering by log level
-CREATE INDEX IF NOT EXISTS idx_logs_level ON dc_sys.logs(level);
+CREATE INDEX IF NOT EXISTS idx_connections_level ON dc_sys.connections(level);
 -- Create index on created_at for time-based queries
+CREATE INDEX IF NOT EXISTS idx_connections_created_at ON dc_sys.connections(created_at DESC);
+
+-- Application logs - stores runtime logs from the POS application
+CREATE TABLE IF NOT EXISTS dc_sys.logs (
+    id SERIAL PRIMARY KEY,
+    level VARCHAR(20) NOT NULL,
+    message TEXT NOT NULL,
+    source VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_logs_level ON dc_sys.logs(level);
 CREATE INDEX IF NOT EXISTS idx_logs_created_at ON dc_sys.logs(created_at DESC);
 
 -- OTA (Over-the-air updates) (was: ota)
