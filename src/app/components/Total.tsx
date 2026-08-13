@@ -29,7 +29,7 @@ import {
 } from '../utils/constants';
 import { OrderItem, State, Transaction } from '../utils/interfaces';
 import { CLOSE, postMessageToParent } from '../utils/message';
-import { isMobileSize, useIsMobile, useIsMobileDevice } from '../utils/mobile';
+import { isMobileSize, useIsMobile, useIsMobileDevice, useLongPressContextMenu } from '../utils/mobile';
 import { Amount } from './Amount';
 import { CloseButton } from './CloseButton';
 import { OrderItemsSelector } from './OrderItemsSelector';
@@ -104,9 +104,16 @@ const Item: FC<ItemProps> = ({ label, onClick = () => {}, onContextMenu, classNa
         [onContextMenu]
     );
 
+    const longPressHandlers = useLongPressContextMenu(onContextMenu);
+
     const lines = label.split('\n');
     return (
-        <div className={twMerge('text-left pl-3', className)} onClick={onClick} onContextMenu={handleContextMenu}>
+        <div
+            className={twMerge('text-left pl-3', className)}
+            onClick={onClick}
+            onContextMenu={handleContextMenu}
+            {...longPressHandlers}
+        >
             {lines.map((line, i) => (
                 <div key={i}>{line}</div>
             ))}

@@ -14,7 +14,7 @@ import { useWindowParam } from '../hooks/useWindowParam';
 import { useScreenSizeConfig } from '../utils/screenSizeConfig';
 import { ARROW, WAITING_KEYWORD } from '../utils/constants';
 import { Customer, EmptyDiscount, InventoryItem, Mercurial, User } from '../utils/interfaces';
-import { isMobileSize, useIsMobileDevice } from '../utils/mobile';
+import { isMobileSize, useIsMobileDevice, useLongPressContextMenu } from '../utils/mobile';
 import { getPopupStyles, getOptionHoverStyles } from '../utils/popupStyles';
 import { Digits } from '../utils/types';
 import { Amount } from './Amount';
@@ -90,6 +90,10 @@ const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu, 
         [onInput, onContextMenu, input, isStateReady]
     );
 
+    const longPressHandlers = useLongPressContextMenu(() => {
+        if (isStateReady && onContextMenu) onContextMenu();
+    });
+
     return (
         <div
             className={twMerge(
@@ -98,6 +102,7 @@ const FunctionButton: FC<NumPadButtonProps> = ({ input, onInput, onContextMenu, 
             )}
             onClick={onClick}
             onContextMenu={onClick}
+            {...longPressHandlers}
         >
             {input}
         </div>
@@ -121,6 +126,8 @@ const ImageButton: FC<ImageButtonProps> = ({ icon: Icon, iconSize = 42, onClick,
         [onContextMenu]
     );
 
+    const longPressHandlers = useLongPressContextMenu(onContextMenu);
+
     return (
         <div
             className={twMerge(
@@ -129,6 +136,7 @@ const ImageButton: FC<ImageButtonProps> = ({ icon: Icon, iconSize = 42, onClick,
             )}
             onClick={onClick}
             onContextMenu={handleContextMenu}
+            {...longPressHandlers}
         >
             <Icon size={iconSize} />
         </div>

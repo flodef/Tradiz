@@ -19,7 +19,7 @@ import {
     USE_DIGICARTE,
 } from '../utils/constants';
 import { Catalog, CatalogFormula, EmptyDiscount, InventoryItem, Role, State } from '../utils/interfaces';
-import { useIsMobile, useIsMobileDevice } from '../utils/mobile';
+import { useIsMobile, useIsMobileDevice, useLongPressContextMenu } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
 import { colorToHex } from '../utils/colors';
 import { useAddPopupClass } from './Popup';
@@ -107,6 +107,8 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length, sizeC
         onInput(input, e.type);
     };
 
+    const longPressHandlers = useLongPressContextMenu(() => onInput(input, 'contextmenu'));
+
     return (
         <div
             className={twMerge(
@@ -120,6 +122,7 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length, sizeC
             )}
             onClick={onClick}
             onContextMenu={onClick}
+            {...longPressHandlers}
         >
             <div className="line-clamp-2 leading-tight text-center hyphens-auto px-1" lang="fr">
                 {input}
