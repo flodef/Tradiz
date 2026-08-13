@@ -35,6 +35,7 @@ export interface CategoryData {
     id: number;
     name: string;
     company: string | null;
+    printer?: string | null;
     sortOrder: number;
 }
 

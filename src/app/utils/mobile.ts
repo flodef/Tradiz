@@ -61,6 +61,9 @@ export function useLongPressContextMenu(onContextMenu: () => void) {
         startPosRef.current = null;
     }, []);
 
+    // Clear any active timer when the component unmounts.
+    useEffect(() => clearTimer, [clearTimer]);
+
     const onTouchStart = useCallback(
         (e: React.TouchEvent) => {
             if (e.touches.length !== 1) return;

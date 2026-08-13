@@ -1034,8 +1034,8 @@ export const usePay = () => {
                             total={total}
                             onCancel={() => setShowPartialPaymentSelector(true)}
                             onConfirm={(cashAmount, changeAmount) => {
-                                triggerCashDrawer();
                                 processPartialPayment(cashAmount, changeAmount);
+                                triggerCashDrawer();
                             }}
                         />,
                     ],
