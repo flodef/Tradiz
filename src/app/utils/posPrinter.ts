@@ -83,13 +83,8 @@ function writeToComPort(comPort: string, buffer: Buffer): void {
 async function executePrint(printer: ThermalPrinter): Promise<void> {
     const comPort = (printer as unknown as { _comPort?: string })._comPort;
     if (comPort) {
-        // Manually add ESC/POS initialization + character set command before the buffer,
-        // because getBuffer() doesn't include the init sequence that execute() normally sends.
-        // ESC @ = initialize printer, ESC R n = set international character set
-        const initBuffer = Buffer.from([0x1b, 0x40]); // ESC @ — reset to defaults
-        const mainBuffer = printer.getBuffer();
-        const fullBuffer = Buffer.concat([initBuffer, mainBuffer]);
-        writeToComPort(comPort, fullBuffer);
+        const buffer = printer.getBuffer();
+        writeToComPort(comPort, buffer);
         return;
     }
     await printer.execute();
@@ -885,7 +880,9 @@ export async function openCashDrawer(printerAddress: string): Promise<PrintRespo
             Buffer.from([0x1b, 0x70, 0x00, 0x19, 0xfa]), // pin 2
             Buffer.from([0x1b, 0x70, 0x01, 0x19, 0xfa]), // pin 5
         ]);
-        printer.append(drawerCmd);
+        // Replace the printer buffer (which contains the constructor's code page command)
+        // with only the raw drawer command — no code page setup needed for the cash drawer.
+        printer.setBuffer(drawerCmd);
         await executePrint(printer);
 
         console.log(`[CASH DRAWER] Opened on ${printerAddress}`);
