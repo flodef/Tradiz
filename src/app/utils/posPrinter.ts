@@ -2,6 +2,7 @@
 
 import { CharacterSet, PrinterTypes, ThermalPrinter } from 'node-thermal-printer';
 import { networkInterfaces } from 'os';
+import { execSync } from 'child_process';
 import fs from 'fs';
 import { Shop } from '../contexts/ConfigProvider';
 import {
@@ -48,6 +49,36 @@ function resolvePrinterAddress(address: string): string {
 }
 
 /**
+ * Configures a Windows COM port's serial parameters before writing.
+ *
+ * fs.openSync() on a COM port does NOT configure baud rate, parity, data bits,
+ * stop bits or flow control — it inherits whatever the port is currently set to.
+ * If those don't match the printer, every byte is misinterpreted, producing
+ * gibberish output and unparseable ESC/POS commands (drawer never fires).
+ *
+ * The Windows `mode` command configures the port without needing the serialport
+ * native module (which isn't bundled in the Next.js standalone server).
+ *
+ * Baud rate defaults to 9600 (the most common thermal printer default) and can be
+ * overridden with TRADIZ_PRINTER_BAUDRATE.
+ */
+function configureComPort(comPort: string): void {
+    const port = comPort.trim().toUpperCase();
+    const baud = process.env.TRADIZ_PRINTER_BAUDRATE || '9600';
+    // to=off: no timeout, dtr/rts=on: assert control lines so the printer sees us,
+    // xon=off: no software flow control (ESC/POS is binary — XON/XOFF would eat 0x11/0x13 bytes)
+    const cmd = `mode ${port}: BAUD=${baud} PARITY=N DATA=8 STOP=1 to=off xon=off odsr=off octs=off dtr=on rts=on`;
+    try {
+        execSync(cmd, { stdio: 'pipe', windowsHide: true });
+        console.log(`[PRINTER] Configured ${port} (${cmd})`);
+    } catch (err) {
+        // Non-fatal: the port may already be correctly configured, or `mode` may be
+        // unavailable. Log and continue so printing is still attempted.
+        console.warn(`[PRINTER] Could not configure ${port}: ${(err as Error).message}`);
+    }
+}
+
+/**
  * Writes a raw buffer to a COM port using fs (Windows only).
  * Works without the serialport native module.
  *
@@ -61,6 +92,7 @@ function writeToComPort(comPort: string, buffer: Buffer): Promise<void> {
     const path = '\\\\.\\' + comPort.trim().toUpperCase();
     const run = () =>
         new Promise<void>((resolve, reject) => {
+            configureComPort(comPort);
             console.log(`[PRINTER] Opening ${path} for writing, buffer size: ${buffer.length} bytes`);
             let fd: number;
             try {
@@ -913,6 +945,10 @@ export async function openCashDrawer(printerAddress: string): Promise<PrintRespo
 /**
  * Server action to test printer connectivity.
  * Sends a small test message and cut command.
+ *
+ * For COM ports, the test is repeated at each common baud rate, labelling every
+ * ticket with the rate used. Exactly one will print legibly — set
+ * TRADIZ_PRINTER_BAUDRATE to that value (in %APPDATA%\tradiz\.env.local).
  */
 export async function testPrint(address: string): Promise<PrintResponse> {
     if (IS_DEV) {
@@ -922,8 +958,11 @@ export async function testPrint(address: string): Promise<PrintResponse> {
 
     console.log(`[PRINTER] testPrint called with address: ${address}`);
 
+    const resolved = resolvePrinterAddress(address);
+    if (isComPort(resolved)) return testPrintAllBaudRates(resolved);
+
     try {
-        const resolvedAddress = resolvePrinterAddress(address);
+        const resolvedAddress = resolved;
         const result = await initPrinter([resolvedAddress]);
         if ('error' in result) {
             console.error(`[PRINTER] initPrinter error: ${result.error}`);
@@ -950,4 +989,56 @@ export async function testPrint(address: string): Promise<PrintResponse> {
         console.error(`[PRINTER] Test print failed on ${address}:`, error);
         return { error: `Erreur test impression ${address}: ${(error as Error).message}` };
     }
+}
+
+// Common serial baud rates for thermal receipt printers, slowest first.
+const COMMON_BAUD_RATES = ['9600', '19200', '38400', '57600', '115200'];
+
+/**
+ * Prints one short test ticket per baud rate on a COM port, each labelled with the
+ * rate used, plus a cash drawer kick. Whichever ticket is legible (and whether the
+ * drawer opened) identifies the correct serial settings.
+ */
+async function testPrintAllBaudRates(comPort: string): Promise<PrintResponse> {
+    const originalBaud = process.env.TRADIZ_PRINTER_BAUDRATE;
+    const succeeded: string[] = [];
+    try {
+        for (const baud of COMMON_BAUD_RATES) {
+            // configureComPort reads the baud rate from the environment on each write.
+            process.env.TRADIZ_PRINTER_BAUDRATE = baud;
+            try {
+                const result = await initPrinter([comPort]);
+                if ('error' in result) {
+                    console.error(`[PRINTER] initPrinter error at ${baud} baud: ${result.error}`);
+                    continue;
+                }
+                const printer = result.printer;
+                printer.alignCenter();
+                printer.bold(true);
+                printer.setTextDoubleHeight();
+                printer.println(`BAUD ${baud}`);
+                printer.bold(false);
+                printer.setTextNormal();
+                printer.println('Test Tradiz - accents: e a u c');
+                printer.println('Accents: é à ù ç €');
+                printer.println(`${comPort} - ${new Date().toLocaleTimeString('fr-FR')}`);
+                // Kick the drawer so we can also tell which rate drives it.
+                printer.append(Buffer.from([0x1b, 0x70, 0x00, 0x19, 0xfa]));
+                printer.newLine();
+                printer.cut();
+
+                await executePrint(printer);
+                console.log(`[PRINTER] Test print sent at ${baud} baud on ${comPort}`);
+                succeeded.push(baud);
+            } catch (error) {
+                console.error(`[PRINTER] Test print failed at ${baud} baud:`, error);
+            }
+        }
+    } finally {
+        if (originalBaud === undefined) delete process.env.TRADIZ_PRINTER_BAUDRATE;
+        else process.env.TRADIZ_PRINTER_BAUDRATE = originalBaud;
+    }
+
+    if (!succeeded.length) return { error: `Aucun test n'a pu être envoyé sur ${comPort}` };
+    return { success: true };
 }
