@@ -215,7 +215,18 @@ async function findDisplayPort() {
         }
     }
 
-    // Try serialport module first (supports auto-detect)
+    if (!configuredPort) {
+        console.log('No customer display configured (set "Ecran client" role in printer config).');
+        return null;
+    }
+
+    // Try the configured baud rate first, then fall back to common baud rates
+    var configuredBaud = parseInt(process.env.TRADIZ_DISPLAY_BAUDRATE || '9600', 10);
+    var BAUD_RATES = [configuredBaud, 9600, 4800, 19200, 38400, 57600, 115200, 2400];
+    // Remove duplicates
+    BAUD_RATES = [...new Set(BAUD_RATES)];
+
+    // Try serialport module first (supports baud rate configuration)
     let SerialPort = null;
     try {
         SerialPort = require('serialport').SerialPort;
@@ -223,40 +234,54 @@ async function findDisplayPort() {
         console.error('SerialPort module not available, using fs fallback:', err.message);
     }
 
-    if (SerialPort) {
-        // If a specific port is configured, use it directly
-        if (configuredPort) {
+    for (var b = 0; b < BAUD_RATES.length; b++) {
+        var baud = BAUD_RATES[b];
+        if (SerialPort) {
             try {
                 const port = new SerialPort({
                     path: configuredPort,
-                    baudRate: parseInt(process.env.TRADIZ_DISPLAY_BAUDRATE || '9600', 10),
+                    baudRate: baud,
                     autoOpen: false,
                 });
                 await new Promise((resolve, reject) => {
                     port.open((err) => (err ? reject(err) : resolve()));
                 });
-                console.log('Customer display opened on ' + configuredPort + ' (serialport mode)');
+                console.log('Customer display opened on ' + configuredPort + ' @ ' + baud + ' (serialport mode)');
                 return port;
             } catch (err) {
-                console.log('Could not open configured display port ' + configuredPort + ': ' + err.message);
+                console.log('Could not open ' + configuredPort + ' @ ' + baud + ': ' + err.message);
+            }
+        } else {
+            // Fallback: use fs to open COM port directly (Windows only)
+            try {
+                require('child_process').execSync(
+                    'mode ' +
+                        configuredPort +
+                        ': BAUD=' +
+                        baud +
+                        ' PARITY=N DATA=8 STOP=1 to=off xon=off odsr=off octs=off dtr=on rts=on',
+                    { stdio: 'pipe' }
+                );
+            } catch (err) {
+                console.log('Could not configure ' + configuredPort + ' @ ' + baud + ': ' + err.message);
+            }
+            if (openComPort(configuredPort)) {
+                console.log('Customer display opened on ' + configuredPort + ' @ ' + baud + ' (fs mode)');
+                return { _fsMode: true };
             }
         }
-
-        // No auto-detect: only use the explicitly configured port.
-        // Scanning COM ports would risk grabbing the thermal printer's port.
     }
 
-    // Fallback: use fs to open COM port directly (Windows only)
-    if (configuredPort) {
-        if (openComPort(configuredPort)) return { _fsMode: true };
-    }
-
-    console.log('No customer display configured (set "Ecran client" role in printer config).');
+    console.log('Could not open customer display on ' + configuredPort + ' at any baud rate.');
     return null;
 }
 
-function writeToDisplay(line1, line2) {
-    if (!displayPort) return;
+async function writeToDisplay(line1, line2) {
+    if (!displayPort) {
+        // Try to reconnect
+        displayPort = await findDisplayPort();
+        if (!displayPort) return;
+    }
 
     var l1 = line1.slice(0, 20).padEnd(20, ' ');
     var l2 = line2.slice(0, 20).padEnd(20, ' ');

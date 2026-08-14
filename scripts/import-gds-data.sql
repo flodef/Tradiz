@@ -601,19 +601,26 @@ INSERT INTO dc_pos.customers (first_name, last_name, reference, email, phone, co
 UPDATE dc.categories SET name = '__TEMP_RENAME__' WHERE name = 'MENU';
 UPDATE dc.categories SET name = 'MENU' WHERE name = 'PLAT MENU';
 UPDATE dc.categories SET name = 'PLAT' WHERE name = '__TEMP_RENAME__';
--- Update sort_order to match new names
-UPDATE dc.categories SET sort_order = 4 WHERE name = 'PLAT';
-UPDATE dc.categories SET sort_order = 5 WHERE name = 'MENU';
+-- Update sort_order to match new category order
+UPDATE dc.categories SET sort_order = 0 WHERE name = 'ALCATEL';
+UPDATE dc.categories SET sort_order = 1 WHERE name = 'PLAT';
+UPDATE dc.categories SET sort_order = 2 WHERE name = 'MENU';
+UPDATE dc.categories SET sort_order = 3 WHERE name = 'SALÉ SEUL';
+UPDATE dc.categories SET sort_order = 4 WHERE name = 'DESSERT';
+UPDATE dc.categories SET sort_order = 5 WHERE name = 'BOISSON';
+UPDATE dc.categories SET sort_order = 6 WHERE name = 'GENESIS';
+UPDATE dc.categories SET sort_order = 7 WHERE name = 'DGAC CADRE';
+UPDATE dc.categories SET sort_order = 8 WHERE name = 'DGAC EMPLOYÉ';
 
 -- Delete removed products (by reference): SMOOTHIE, SALADE, SALADE / QUICHE + duplicates
 DELETE FROM dc.products WHERE reference IN ('2016','2017','2018','2020','2028','2029','2030','2032','2033','2034','2036','2037','2040','2043','2044','2048','2049','2050','2051','2052','2054','2056','2058','2060','2061','2063','2064','2065');
 
 INSERT INTO dc.categories (name, company_id, sort_order) VALUES ('ALCATEL', (SELECT id FROM dc_pos.companies WHERE name = 'Alcatel'), 0) ON CONFLICT (name) DO NOTHING;
-INSERT INTO dc.categories (name, company_id, sort_order) VALUES ('SALÉ SEUL', NULL, 1) ON CONFLICT (name) DO NOTHING;
-INSERT INTO dc.categories (name, company_id, sort_order) VALUES ('DESSERT', NULL, 2) ON CONFLICT (name) DO NOTHING;
-INSERT INTO dc.categories (name, company_id, sort_order) VALUES ('BOISSON', NULL, 3) ON CONFLICT (name) DO NOTHING;
-INSERT INTO dc.categories (name, company_id, sort_order) VALUES ('PLAT', NULL, 4) ON CONFLICT (name) DO NOTHING;
-INSERT INTO dc.categories (name, company_id, sort_order) VALUES ('MENU', NULL, 5) ON CONFLICT (name) DO NOTHING;
+INSERT INTO dc.categories (name, company_id, sort_order) VALUES ('PLAT', NULL, 1) ON CONFLICT (name) DO NOTHING;
+INSERT INTO dc.categories (name, company_id, sort_order) VALUES ('MENU', NULL, 2) ON CONFLICT (name) DO NOTHING;
+INSERT INTO dc.categories (name, company_id, sort_order) VALUES ('SALÉ SEUL', NULL, 3) ON CONFLICT (name) DO NOTHING;
+INSERT INTO dc.categories (name, company_id, sort_order) VALUES ('DESSERT', NULL, 4) ON CONFLICT (name) DO NOTHING;
+INSERT INTO dc.categories (name, company_id, sort_order) VALUES ('BOISSON', NULL, 5) ON CONFLICT (name) DO NOTHING;
 INSERT INTO dc.categories (name, company_id, sort_order) VALUES ('GENESIS', (SELECT id FROM dc_pos.companies WHERE name = 'Genesis'), 6) ON CONFLICT (name) DO NOTHING;
 INSERT INTO dc.categories (name, company_id, sort_order) VALUES ('DGAC CADRE', (SELECT id FROM dc_pos.companies WHERE name = 'DGAC cadre'), 7) ON CONFLICT (name) DO NOTHING;
 INSERT INTO dc.categories (name, company_id, sort_order) VALUES ('DGAC EMPLOYÉ', (SELECT id FROM dc_pos.companies WHERE name = 'DGAC employé'), 8) ON CONFLICT (name) DO NOTHING;

@@ -731,7 +731,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
 
     const popupClass = useAddPopupClass(
         catalogMode
-            ? 'inset-x-0 relative flex-1 min-h-0 overflow-hidden'
+            ? 'inset-x-0 relative shrink-0 overflow-hidden'
             : 'inset-x-0 border-t-[3px] absolute bottom-0 md:w-1/2 border-active-light dark:border-active-dark overflow-hidden'
     );
 
@@ -864,7 +864,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
                 </div>
 
                 {/* 6×6 product grid — positioned by sortOrder, show price + color */}
-                <div className="grid grid-cols-6 auto-rows-20 gap-1 p-1 overflow-y-auto flex-1 min-h-0 w-full">
+                <div className="grid grid-cols-6 grid-rows-6 gap-1 p-1 w-full">
                     {gridSlots.map((product, index) => {
                         // Render the "Autres" button at the computed slot
                         if (othersSlotIndex === index) {
