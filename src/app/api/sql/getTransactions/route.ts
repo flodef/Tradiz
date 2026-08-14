@@ -196,7 +196,7 @@ export async function GET(request: Request) {
                 ...(row.short_num_order ? { shortNumOrder: String(row.short_num_order) } : {}),
                 ...(cashAmount !== undefined ? { cashAmount } : {}),
                 ...(parsedChange !== undefined ? { change: parsedChange } : {}),
-                ...(row.take_out ? { takeOut: true } : {}),
+                ...(row.take_out ? { takeOut: true } : { takeOut: false }),
             });
         }
 

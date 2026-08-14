@@ -35,56 +35,74 @@ interface IdRow {
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
     let connection: Connection | undefined;
-    try {
-        const body = await request.json();
-        const { action, transaction } = body;
 
-        if (!action || !transaction)
-            return NextResponse.json({ error: 'Action and transaction data are required' }, { status: 400 });
+    // Retry on deadlock — PostgreSQL can detect deadlocks when two POS devices
+    // save transactions concurrently. The transaction is idempotent (uses
+    // created_at as a natural key), so retrying is safe.
+    const MAX_RETRIES = 3;
+    let lastError: unknown;
 
-        connection = await getPosDb(shopId);
-
-        await connection.beginTransaction();
-
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-            switch (action) {
-                case 'add':
-                    await handleAddTransaction(connection, transaction);
-                    break;
-                case 'update':
-                    await handleUpdateTransaction(connection, transaction);
-                    break;
-                case 'delete':
-                    await handleDeleteTransaction(connection, transaction);
-                    break;
-                case 'hardDelete':
-                    await handleHardDeleteTransaction(connection, transaction);
-                    break;
-                case 'sync':
-                    await handleSyncTransaction(connection, transaction);
-                    break;
-                default:
-                    throw new Error(`Unknown action: ${action}`);
+            const body = await request.json();
+            const { action, transaction } = body;
+
+            if (!action || !transaction)
+                return NextResponse.json({ error: 'Action and transaction data are required' }, { status: 400 });
+
+            connection = await getPosDb(shopId);
+
+            await connection.beginTransaction();
+
+            try {
+                switch (action) {
+                    case 'add':
+                        await handleAddTransaction(connection, transaction);
+                        break;
+                    case 'update':
+                        await handleUpdateTransaction(connection, transaction);
+                        break;
+                    case 'delete':
+                        await handleDeleteTransaction(connection, transaction);
+                        break;
+                    case 'hardDelete':
+                        await handleHardDeleteTransaction(connection, transaction);
+                        break;
+                    case 'sync':
+                        await handleSyncTransaction(connection, transaction);
+                        break;
+                    default:
+                        throw new Error(`Unknown action: ${action}`);
+                }
+
+                await connection.commit();
+                await connection.end();
+
+                return NextResponse.json({ success: true, message: 'Transaction saved successfully' }, { status: 200 });
+            } catch (error) {
+                await connection.rollback();
+                await connection.end();
+                throw error;
             }
-
-            await connection.commit();
-            await connection.end();
-
-            return NextResponse.json({ success: true, message: 'Transaction saved successfully' }, { status: 200 });
         } catch (error) {
-            await connection.rollback();
-            await connection.end();
-            throw error;
+            lastError = error;
+            const isDeadlock = String(error).toLowerCase().includes('deadlock');
+            if (isDeadlock && attempt < MAX_RETRIES) {
+                // Wait briefly before retrying to let the other transaction finish
+                await new Promise((resolve) => setTimeout(resolve, 50 * attempt));
+                continue;
+            }
+            break;
+        } finally {
+            await connection?.end();
         }
-    } catch (error) {
-        console.error('Database transaction error:', error);
-        return NextResponse.json(
-            { error: 'An error occurred while saving transaction', details: String(error) },
-            { status: 500 }
-        );
-    } finally {
-        await connection?.end();
     }
+
+    console.error('Database transaction error:', lastError);
+    return NextResponse.json(
+        { error: 'An error occurred while saving transaction', details: String(lastError) },
+        { status: 500 }
+    );
 }
 
 export function generateTransactionHash(transaction: TransactionData, transactionId?: string | number): string {

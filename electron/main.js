@@ -1125,16 +1125,19 @@ ipcMain.on('test-display', async () => {
         return;
     }
 
-    // Display not connected — scan all available COM ports and send a test
-    // message to each one (except COM1, which is the cashier printer).
-    // The user can see which port makes the LCD light up.
-    console.log('[TEST DISPLAY] Scanning all COM ports for customer display...');
+    // Display not connected — scan all available COM ports at all common baud
+    // rates and send a test message to each combination. The user watches which
+    // port + baud rate makes the LCD light up, then configures that port as
+    // "Ecran client" and sets TRADIZ_DISPLAY_BAUDRATE if it's not 9600.
+    console.log('[TEST DISPLAY] Scanning all COM ports × baud rates...');
     var SerialPort = null;
     try {
         SerialPort = require('serialport').SerialPort;
     } catch (err) {
         console.error('[TEST DISPLAY] SerialPort module not available:', err.message);
     }
+
+    var BAUD_RATES = ['9600', '19200', '38400', '57600', '115200', '2400', '4800'];
 
     for (var i = 1; i <= 16; i++) {
         var portName = 'COM' + i;
@@ -1154,72 +1157,82 @@ ipcMain.on('test-display', async () => {
             continue;
         }
 
-        console.log('[TEST DISPLAY] Sending test to ' + portName + '...');
+        for (var b = 0; b < BAUD_RATES.length; b++) {
+            var baud = BAUD_RATES[b];
+            console.log('[TEST DISPLAY] Sending test to ' + portName + ' @ ' + baud + ' baud...');
 
-        // Try serialport module first (configures baud rate properly)
-        if (SerialPort) {
-            try {
-                var port = new SerialPort({
-                    path: portName,
-                    baudRate: parseInt(process.env.TRADIZ_DISPLAY_BAUDRATE || '9600', 10),
-                    autoOpen: false,
-                });
-                await new Promise(function (resolve) {
-                    port.open(function (err) {
-                        if (err) {
-                            console.log('[TEST DISPLAY] Could not open ' + portName + ': ' + err.message);
-                            resolve();
-                            return;
-                        }
-                        var l1 = ('TEST ' + portName).slice(0, 20).padEnd(20, ' ');
-                        var l2 = 'ECRAN CLIENT OK'.slice(0, 20).padEnd(20, ' ');
-                        var buf = Buffer.concat([
-                            DISPLAY_CMD.INIT,
-                            Buffer.from(l1, 'latin1'),
-                            Buffer.from(l2, 'latin1'),
-                        ]);
-                        port.write(buf, function (werr) {
-                            if (werr) {
-                                console.log('[TEST DISPLAY] Write failed on ' + portName + ': ' + werr.message);
-                            } else {
-                                console.log('[TEST DISPLAY] Test sent to ' + portName + ' successfully');
+            var l1 = (portName + ' ' + baud).slice(0, 20).padEnd(20, ' ');
+            var l2 = 'ECRAN CLIENT OK'.slice(0, 20).padEnd(20, ' ');
+            var buf = Buffer.concat([DISPLAY_CMD.INIT, Buffer.from(l1, 'latin1'), Buffer.from(l2, 'latin1')]);
+
+            // Try serialport module first (configures baud rate properly)
+            if (SerialPort) {
+                try {
+                    var port = new SerialPort({
+                        path: portName,
+                        baudRate: parseInt(baud, 10),
+                        autoOpen: false,
+                    });
+                    await new Promise(function (resolve) {
+                        port.open(function (err) {
+                            if (err) {
+                                console.log(
+                                    '[TEST DISPLAY] Could not open ' + portName + ' @ ' + baud + ': ' + err.message
+                                );
+                                resolve();
+                                return;
                             }
-                            port.close();
-                            resolve();
+                            port.write(buf, function (werr) {
+                                if (werr) {
+                                    console.log(
+                                        '[TEST DISPLAY] Write failed on ' +
+                                            portName +
+                                            ' @ ' +
+                                            baud +
+                                            ': ' +
+                                            werr.message
+                                    );
+                                } else {
+                                    console.log('[TEST DISPLAY] Test sent to ' + portName + ' @ ' + baud + ' OK');
+                                }
+                                port.close();
+                                resolve();
+                            });
                         });
                     });
-                });
-            } catch (err) {
-                console.log('[TEST DISPLAY] Error on ' + portName + ': ' + err.message);
-            }
-        } else {
-            // Fallback: fs mode (configure with `mode` command first)
-            try {
-                var baud = process.env.TRADIZ_DISPLAY_BAUDRATE || '9600';
-                require('child_process').execSync(
-                    'mode ' +
-                        portName +
-                        ': BAUD=' +
-                        baud +
-                        ' PARITY=N DATA=8 STOP=1 to=off xon=off odsr=off octs=off dtr=on rts=on',
-                    { stdio: 'pipe' }
-                );
-                var l1 = ('TEST ' + portName).slice(0, 20).padEnd(20, ' ');
-                var l2 = 'ECRAN CLIENT OK'.slice(0, 20).padEnd(20, ' ');
-                var buf = Buffer.concat([DISPLAY_CMD.INIT, Buffer.from(l1, 'latin1'), Buffer.from(l2, 'latin1')]);
-                fd = fs.openSync(path, 'r+');
-                try {
-                    fs.writeSync(fd, buf, 0, buf.length, null);
-                    console.log('[TEST DISPLAY] Test sent to ' + portName + ' (fs mode)');
-                } finally {
-                    fs.closeSync(fd);
+                } catch (err) {
+                    console.log('[TEST DISPLAY] Error on ' + portName + ' @ ' + baud + ': ' + err.message);
                 }
-            } catch (err) {
-                console.log('[TEST DISPLAY] fs mode failed on ' + portName + ': ' + err.message);
+            } else {
+                // Fallback: fs mode (configure with `mode` command first)
+                try {
+                    require('child_process').execSync(
+                        'mode ' +
+                            portName +
+                            ': BAUD=' +
+                            baud +
+                            ' PARITY=N DATA=8 STOP=1 to=off xon=off odsr=off octs=off dtr=on rts=on',
+                        { stdio: 'pipe' }
+                    );
+                    fd = fs.openSync(path, 'r+');
+                    try {
+                        fs.writeSync(fd, buf, 0, buf.length, null);
+                        console.log('[TEST DISPLAY] Test sent to ' + portName + ' @ ' + baud + ' (fs mode)');
+                    } finally {
+                        fs.closeSync(fd);
+                    }
+                } catch (err) {
+                    console.log('[TEST DISPLAY] fs mode failed on ' + portName + ' @ ' + baud + ': ' + err.message);
+                }
             }
+
+            // Brief pause between baud rates so the display has time to process
+            await new Promise(function (resolve) {
+                setTimeout(resolve, 300);
+            });
         }
     }
-    console.log('[TEST DISPLAY] Scan complete — check which port showed text on the LCD');
+    console.log('[TEST DISPLAY] Scan complete — check which port+baud showed text on the LCD');
 });
 
 // Barcode scanner support is handled entirely in the renderer via the

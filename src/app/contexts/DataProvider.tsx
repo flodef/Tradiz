@@ -454,7 +454,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         amount: transaction.amount,
                         currency: transaction.currency,
                         change: encodeCashNote(transaction.cashAmount, transaction.change),
-                        takeOut: transaction.takeOut ?? true,
+                        takeOut: transaction.takeOut ?? false,
                         created_at: toSQLDateTime(transaction.createdDate),
                         updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
                         products: transaction.products.map((product) => ({
@@ -653,10 +653,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     body: JSON.stringify({ publicKey }),
                 });
                 if (!heartbeat.ok) return;
-                const { otherDevices } = (await heartbeat.json()) as { otherDevices?: number };
-                if (otherDevices && otherDevices > 0) {
-                    await syncNow();
-                }
+                // Always sync — even when no other devices are detected.
+                // Devices may not be registered in the DB, or the heartbeat may
+                // fail to detect them, but transactions still need to propagate.
+                // The sync is incremental (only fetches changes since last sync)
+                // so the overhead is minimal when there are no changes.
+                await syncNow();
             } catch (error) {
                 console.error('Presence heartbeat failed:', error);
             }
@@ -864,7 +866,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             amount: transaction.amount,
                             currency: transaction.currency,
                             change: encodeCashNote(transaction.cashAmount, transaction.change),
-                            takeOut: transaction.takeOut ?? true,
+                            takeOut: transaction.takeOut ?? false,
                             created_at: toSQLDateTime(transaction.createdDate),
                             updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
                             products: transaction.products.map((product) => ({
