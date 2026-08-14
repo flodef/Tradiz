@@ -1002,7 +1002,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }
             }
         },
-        [transactions, saveTransactions, storeTransaction]
+        [transactions, saveTransactions, storeTransaction, parameters.user.name]
     );
 
     const toCurrency = useCallback(
