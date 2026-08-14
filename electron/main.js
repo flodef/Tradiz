@@ -71,6 +71,31 @@ function flushLogsToDb() {
     }
 }
 
+// Clear the dc_sys.logs table on startup so each session starts with a clean log.
+function clearLogsOnStartup() {
+    try {
+        var http = require('http');
+        var req = http.request(
+            {
+                hostname: 'localhost',
+                port: 3001,
+                path: '/api/sql/clearLogs',
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            },
+            function (res) {
+                res.resume();
+            }
+        );
+        req.on('error', function () {
+            // Silently ignore — logs clearing is best-effort.
+        });
+        req.end();
+    } catch (e) {
+        // Silently ignore.
+    }
+}
+
 function bufferLog(level, message) {
     logBuffer.push({ level: level, message: message, source: 'electron' });
     if (logBuffer.length >= LOG_FLUSH_BATCH_SIZE) {
@@ -976,6 +1001,8 @@ app.whenReady().then(async () => {
     try {
         await startServer();
         console.log('Server started successfully');
+        // Clear logs from previous sessions now that the server is ready.
+        clearLogsOnStartup();
     } catch (err) {
         console.error('Failed to start server:', err);
         closeSplashScreen();
