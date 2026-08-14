@@ -9,10 +9,12 @@ import { isFullscreen, requestFullscreen } from '../utils/fullscreen';
 import { isAtLeast, useScreenSize } from '../utils/screenSizeConfig';
 import Loading from '../loading';
 import { Category } from './Category';
+import { CloseButton } from './CloseButton';
 import { NumPad } from './NumPad';
 import { OrderBadge } from './OrderBadge';
 import { Total } from './Total';
 import { postCustomerDisplay } from '../utils/message';
+import { CLOSE, postMessageToParent } from '../utils/message';
 import {
     buildIdleDisplay,
     buildTransactionDisplay,
@@ -28,7 +30,7 @@ interface PendingOrder {
 }
 
 export const MainContent: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdminNav = false }) => {
-    const { isStateReady, parameters, currencies, currencyIndex } = useConfig();
+    const { isStateReady, parameters, currencies, currencyIndex, modeFonctionnement } = useConfig();
     const { openPopup, closePopup, isPopupOpen } = usePopup();
     const {
         setOrderId,
@@ -224,6 +226,31 @@ export const MainContent: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdmi
             }
             onClick={handleClick}
         >
+            {/* Always-visible close button in top right corner */}
+            <div className="fixed top-0 right-0 z-50">
+                {USE_DIGICARTE && modeFonctionnement !== 'lite' && (
+                    <CloseButton
+                        onClose={() => postMessageToParent(CLOSE)}
+                        className="pt-0 active:bg-light dark:active:bg-dark text-light dark:text-dark"
+                        size="xl"
+                    />
+                )}
+                {typeof window !== 'undefined' && window.electronAPI?.closeApp && (
+                    <CloseButton
+                        onClose={() => {
+                            openPopup('Voulez-vous vraiment fermer Tradiz ?', ['Annuler', 'Fermer'], (index) => {
+                                if (index === 1) {
+                                    window.electronAPI?.closeApp();
+                                } else {
+                                    closePopup();
+                                }
+                            });
+                        }}
+                        className="pt-0 active:bg-light dark:active:bg-dark text-light dark:text-dark"
+                        size="xl"
+                    />
+                )}
+            </div>
             <OrderBadge
                 orderId={orderId}
                 shortNumOrder={shortNumOrder}

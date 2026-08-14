@@ -36,18 +36,35 @@ export async function POST(request: Request) {
                 const currency = method.currency || 'Euro';
                 const available = method.availability; // available=true means the method is shown
 
-                if (connection.isPostgreSQL) {
-                    const insertQuery = `
-                    INSERT INTO dc_pos.payment_methods (label, address, currency, available)
-                    VALUES ($1, $2, $3, $4)
-                `;
-                    await connection.execute(insertQuery, [label, address, currency, available]);
-                } else {
-                    const insertQuery = `
-                    INSERT INTO payment_methods (label, address, currency, available)
-                    VALUES (?, ?, ?, ?)
-                `;
-                    await connection.execute(insertQuery, [label, address, currency, available ? 1 : 0]);
+                try {
+                    if (connection.isPostgreSQL) {
+                        const insertQuery = `
+                        INSERT INTO dc_pos.payment_methods (label, address, currency, available)
+                        VALUES ($1, $2, $3, $4)
+                    `;
+                        await connection.execute(insertQuery, [label, address, currency, available]);
+                    } else {
+                        const insertQuery = `
+                        INSERT INTO payment_methods (label, address, currency, available)
+                        VALUES (?, ?, ?, ?)
+                    `;
+                        await connection.execute(insertQuery, [label, address, currency, available ? 1 : 0]);
+                    }
+                } catch {
+                    // available column may not exist — fall back to hidden column (inverted)
+                    if (connection.isPostgreSQL) {
+                        const insertQuery = `
+                        INSERT INTO dc_pos.payment_methods (label, address, currency, hidden)
+                        VALUES ($1, $2, $3, $4)
+                    `;
+                        await connection.execute(insertQuery, [label, address, currency, !available]);
+                    } else {
+                        const insertQuery = `
+                        INSERT INTO payment_methods (label, address, currency, hidden)
+                        VALUES (?, ?, ?, ?)
+                    `;
+                        await connection.execute(insertQuery, [label, address, currency, available ? 0 : 1]);
+                    }
                 }
             }
 

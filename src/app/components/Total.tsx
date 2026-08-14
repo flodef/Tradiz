@@ -19,19 +19,10 @@ import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
 import Loading from '../loading';
-import {
-    BACK_KEYWORD,
-    PROVISION_KEYWORD,
-    REFUND_KEYWORD,
-    UPDATING_KEYWORD,
-    USE_DIGICARTE,
-    WAITING_KEYWORD,
-} from '../utils/constants';
+import { BACK_KEYWORD, PROVISION_KEYWORD, REFUND_KEYWORD, UPDATING_KEYWORD, WAITING_KEYWORD } from '../utils/constants';
 import { OrderItem, State, Transaction } from '../utils/interfaces';
-import { CLOSE, postMessageToParent } from '../utils/message';
 import { isMobileSize, useIsMobile, useIsMobileDevice, useLongPressContextMenu } from '../utils/mobile';
 import { Amount } from './Amount';
-import { CloseButton } from './CloseButton';
 import { OrderItemsSelector } from './OrderItemsSelector';
 import { useAddPopupClass } from './Popup';
 
@@ -153,9 +144,9 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         setShowPartialPaymentSelector,
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
-    const { openPopup, openFullscreenPopup, closePopup } = usePopup();
+    const { openPopup, closePopup } = usePopup();
     const { pay, printTransaction, printKitchenReceipt } = usePay();
-    const { state, isStateReady, getPrintersNames, modeFonctionnement } = useConfig();
+    const { state, isStateReady, getPrintersNames } = useConfig();
 
     const [needRefresh, setNeedRefresh] = useState(false);
     const visibleTransactions = useMemo(() => transactions.filter((tx) => !isDeletedTransaction(tx)), [transactions]);
@@ -739,32 +730,6 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                 </span>
                             )}
                         </div>
-                        {USE_DIGICARTE && modeFonctionnement !== 'lite' && (
-                            <CloseButton
-                                onClose={() => postMessageToParent(CLOSE)}
-                                className="pt-0 active:bg-light dark:active:bg-dark text-light dark:text-dark"
-                                size="xl"
-                            />
-                        )}
-                        {typeof window !== 'undefined' && window.electronAPI?.closeApp && (
-                            <CloseButton
-                                onClose={() => {
-                                    openFullscreenPopup(
-                                        'Voulez-vous vraiment fermer Tradiz ?',
-                                        ['Annuler', 'Fermer'],
-                                        (index) => {
-                                            if (index === 1) {
-                                                window.electronAPI?.closeApp();
-                                            } else {
-                                                closePopup();
-                                            }
-                                        }
-                                    );
-                                }}
-                                className="pt-0 active:bg-light dark:active:bg-dark text-light dark:text-dark"
-                                size="xl"
-                            />
-                        )}
                     </div>
                 </div>
             )}

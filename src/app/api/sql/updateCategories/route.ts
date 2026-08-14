@@ -35,10 +35,16 @@ export async function POST(request: Request) {
         }
 
         // Fetch all printers (name → id) so we can resolve printer names to IDs
-        const [printerRows] = await connection.execute(`SELECT id, name FROM ${pgPrinters}`);
-        const printerIdByName = new Map<string, number>();
-        for (const row of printerRows as { id: number; name: string }[]) {
-            printerIdByName.set(row.name, Number(row.id));
+        // printer_id column may not exist yet — detect and fall back gracefully
+        let printerIdByName = new Map<string, number>();
+        let hasPrinterColumn = true;
+        try {
+            const [printerRows] = await connection.execute(`SELECT id, name FROM ${pgPrinters}`);
+            for (const row of printerRows as { id: number; name: string }[]) {
+                printerIdByName.set(row.name, Number(row.id));
+            }
+        } catch {
+            hasPrinterColumn = false;
         }
 
         await connection.beginTransaction();
@@ -86,29 +92,57 @@ export async function POST(request: Request) {
                 const existingCat = existingByName.get(lookupName);
                 if (existingCat) {
                     // Update in place — preserves the id so product FKs stay valid
-                    if (connection.isPostgreSQL) {
-                        await connection.execute(
-                            `UPDATE ${pgTable} SET name = $1, company_id = $2, sort_order = $3, printer_id = $4 WHERE id = $5`,
-                            [name, companyId, sortOrder, printerId, existingCat.id]
-                        );
+                    if (hasPrinterColumn) {
+                        if (connection.isPostgreSQL) {
+                            await connection.execute(
+                                `UPDATE ${pgTable} SET name = $1, company_id = $2, sort_order = $3, printer_id = $4 WHERE id = $5`,
+                                [name, companyId, sortOrder, printerId, existingCat.id]
+                            );
+                        } else {
+                            await connection.execute(
+                                `UPDATE ${pgTable} SET name = ?, company_id = ?, sort_order = ?, printer_id = ? WHERE id = ?`,
+                                [name, companyId, sortOrder, printerId, existingCat.id]
+                            );
+                        }
                     } else {
-                        await connection.execute(
-                            `UPDATE ${pgTable} SET name = ?, company_id = ?, sort_order = ?, printer_id = ? WHERE id = ?`,
-                            [name, companyId, sortOrder, printerId, existingCat.id]
-                        );
+                        if (connection.isPostgreSQL) {
+                            await connection.execute(
+                                `UPDATE ${pgTable} SET name = $1, company_id = $2, sort_order = $3 WHERE id = $4`,
+                                [name, companyId, sortOrder, existingCat.id]
+                            );
+                        } else {
+                            await connection.execute(
+                                `UPDATE ${pgTable} SET name = ?, company_id = ?, sort_order = ? WHERE id = ?`,
+                                [name, companyId, sortOrder, existingCat.id]
+                            );
+                        }
                     }
                 } else {
                     // Insert new category
-                    if (connection.isPostgreSQL) {
-                        await connection.execute(
-                            `INSERT INTO ${pgTable} (name, company_id, sort_order, printer_id) VALUES ($1, $2, $3, $4)`,
-                            [name, companyId, sortOrder, printerId]
-                        );
+                    if (hasPrinterColumn) {
+                        if (connection.isPostgreSQL) {
+                            await connection.execute(
+                                `INSERT INTO ${pgTable} (name, company_id, sort_order, printer_id) VALUES ($1, $2, $3, $4)`,
+                                [name, companyId, sortOrder, printerId]
+                            );
+                        } else {
+                            await connection.execute(
+                                `INSERT INTO ${pgTable} (name, company_id, sort_order, printer_id) VALUES (?, ?, ?, ?)`,
+                                [name, companyId, sortOrder, printerId]
+                            );
+                        }
                     } else {
-                        await connection.execute(
-                            `INSERT INTO ${pgTable} (name, company_id, sort_order, printer_id) VALUES (?, ?, ?, ?)`,
-                            [name, companyId, sortOrder, printerId]
-                        );
+                        if (connection.isPostgreSQL) {
+                            await connection.execute(
+                                `INSERT INTO ${pgTable} (name, company_id, sort_order) VALUES ($1, $2, $3)`,
+                                [name, companyId, sortOrder]
+                            );
+                        } else {
+                            await connection.execute(
+                                `INSERT INTO ${pgTable} (name, company_id, sort_order) VALUES (?, ?, ?)`,
+                                [name, companyId, sortOrder]
+                            );
+                        }
                     }
                 }
             }

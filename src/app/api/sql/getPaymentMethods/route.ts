@@ -15,20 +15,24 @@ export async function GET(request: Request) {
     try {
         connection = await getPosDb(shopId);
 
-        const query = connection.isPostgreSQL
-            ? `
-            SELECT label, address, currency, available
-            FROM dc_pos.payment_methods
-        `
-            : `
-            SELECT label, address, currency, available
-            FROM payment_methods
-        `;
+        const queryWithAvailable = connection.isPostgreSQL
+            ? `SELECT label, address, currency, available FROM dc_pos.payment_methods`
+            : `SELECT label, address, currency, available FROM payment_methods`;
 
-        const [rows] = await connection.execute(query);
+        const queryWithHidden = connection.isPostgreSQL
+            ? `SELECT label, address, currency, NOT hidden as available FROM dc_pos.payment_methods`
+            : `SELECT label, address, currency, NOT hidden as available FROM payment_methods`;
+
+        let rows: PaymentMethodRow[];
+        try {
+            [rows] = (await connection.execute(queryWithAvailable)) as PaymentMethodRow[][];
+        } catch {
+            // available column may not exist yet — fall back to hidden column
+            [rows] = (await connection.execute(queryWithHidden)) as PaymentMethodRow[][];
+        }
         await connection.end();
 
-        const paymentMethods = (rows as PaymentMethodRow[]).map((row) => ({
+        const paymentMethods = rows.map((row) => ({
             type: String(row.label),
             id: String(row.address),
             currency: String(row.currency),

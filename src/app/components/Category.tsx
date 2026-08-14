@@ -690,7 +690,17 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
     const scrollCategoryBar = useCallback((direction: 'left' | 'right') => {
         const el = categoryBarRef.current;
         if (!el) return;
-        el.scrollBy({ left: direction === 'left' ? -200 : 200, behavior: 'smooth' });
+        const visibleWidth = el.clientWidth;
+        const maxScroll = el.scrollWidth - visibleWidth;
+        let target: number;
+        if (direction === 'right') {
+            target = el.scrollLeft + visibleWidth;
+            if (target > maxScroll) target = maxScroll;
+        } else {
+            target = el.scrollLeft - visibleWidth;
+            if (target < 0) target = 0;
+        }
+        el.scrollTo({ left: target, behavior: 'smooth' });
     }, []);
 
     useEffect(() => {
