@@ -397,7 +397,7 @@ export const usePay = () => {
             // Cashier receipt is printed on demand only (via the "Imprimer" button),
             // not automatically on payment.
         },
-        [getPrinterAddressByRole, printTransactionReceipt, printKitchenReceipt]
+        [printKitchenReceipt]
     );
     autoPrintRef.current = autoPrint;
 

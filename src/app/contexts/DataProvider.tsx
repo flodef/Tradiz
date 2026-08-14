@@ -653,7 +653,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     body: JSON.stringify({ publicKey }),
                 });
                 if (!heartbeat.ok) return;
-                const { otherDevices } = (await heartbeat.json()) as { otherDevices?: number };
                 // Always sync — even when no other devices are detected.
                 // Devices may not be registered in the DB, or the heartbeat may
                 // fail to detect them, but transactions still need to propagate.
