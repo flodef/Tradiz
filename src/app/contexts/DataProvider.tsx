@@ -979,6 +979,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!transactions.length) return;
 
             index = index ?? transactions.findIndex(({ createdDate }) => createdDate === transactionId.current);
+            // If not found by transactionId, fall back to finding the PROCESSING tx by validator.
+            // This happens because saveTransactions resets transactionId.current to 0 after 'add'.
+            if (index < 0) {
+                index = transactions.findIndex(
+                    (t) => isProcessingTransaction(t) && t.validator === parameters.user.name
+                );
+            }
 
             if (index >= 0) {
                 const transaction = transactions[index];
@@ -1111,6 +1118,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             products.current.splice(index, 1);
 
             if (!products.current.length) {
+                clearRequestedRef.current = true;
                 deleteTransaction();
             }
 
@@ -1293,25 +1301,22 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!item || (typeof item === 'string' && !products.current.length)) return;
 
             const currentTime = floorToSeconds(new Date().getTime()); // floor to seconds to match SQL TIMESTAMP precision
-            // When paying (item is a string), find the existing PROCESSING transaction to update.
+            // When paying, find the existing PROCESSING transaction to update.
             // transactionId.current may be 0 because saveTransactions resets it to 0 after an 'add'
             // (which is what saveProcessingTransaction uses). Fall back to looking up the PROCESSING
             // tx by validator so we can reuse its createdDate — this makes the PAID tx replace the
             // PROCESSING tx (same createdDate) instead of creating a duplicate row in the DB.
-            const existingTransaction =
-                typeof item === 'string'
-                    ? transactionId.current
-                        ? transactions.find((tx) => tx.createdDate === transactionId.current)
-                        : transactions.find((t) => isProcessingTransaction(t) && t.validator === parameters.user.name)
-                    : undefined;
+            const existingTransaction = transactionId.current
+                ? transactions.find((tx) => tx.createdDate === transactionId.current)
+                : transactions.find((t) => isProcessingTransaction(t) && t.validator === parameters.user.name);
 
             const transaction: Transaction =
                 typeof item === 'object'
                     ? {
                           ...item,
                           createdDate:
-                              transactionId.current && !isRefundTransaction(item)
-                                  ? transactionId.current
+                              (existingTransaction?.createdDate || transactionId.current) && !isRefundTransaction(item)
+                                  ? existingTransaction?.createdDate || transactionId.current
                                   : item.createdDate,
                           ...(shortNumOrder && !item.shortNumOrder ? { shortNumOrder } : {}),
                       }

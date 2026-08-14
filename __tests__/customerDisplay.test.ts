@@ -32,17 +32,18 @@ const expectExactWidth = (payload: { line1: string; line2: string }) => {
 };
 
 describe('buildIdleDisplay', () => {
-    it('shows only "Fermé" when closed, never the shop name', () => {
+    it('shows only "Ferme" when closed, never the shop name', () => {
         const payload = buildIdleDisplay('Chez Tradiz', true);
 
         expect(payload.line1.trim()).toBe('');
-        expect(payload.line2.trim()).toBe('Fermé');
+        expect(payload.line2.trim()).toBe('Ferme');
         expect(payload.line2).not.toContain('Tradiz');
         expectExactWidth(payload);
     });
 
-    it('keeps the accent on "Fermé"', () => {
-        expect(buildIdleDisplay('', true).line2).toContain('é');
+    it('strips accents on "Ferme" (LCD does not support accents)', () => {
+        expect(buildIdleDisplay('', true).line2).not.toContain('é');
+        expect(buildIdleDisplay('', true).line2).toContain('e');
     });
 
     it('shows a short shop name centered on the second line', () => {
@@ -92,7 +93,7 @@ describe('buildTransactionDisplay', () => {
     it('shows the product label and the running total', () => {
         const payload = buildTransactionDisplay(product('Café'), 3.5, euro);
 
-        expect(payload.line1.trim()).toBe('Café            1.00');
+        expect(payload.line1.trim()).toBe('Cafe            1.00');
         expect(payload.line2.trim()).toBe('TOTAL (EUR)     3.50');
         expectExactWidth(payload);
     });
@@ -123,16 +124,16 @@ describe('buildTransactionDisplay', () => {
 describe('getPaymentMessage', () => {
     // Labels come from the database, so matching is normalised rather than exact.
     it.each([
-        ['Carte Bancaire', 'Insérez votre carte'],
-        ['CB', 'Insérez votre carte'],
-        ['carte bancaire', 'Insérez votre carte'],
-        ['TPE', 'Insérez votre carte'],
-        ['Espèces', 'Règlement en espèces'],
-        ['ESPECES', 'Règlement en espèces'],
-        ['Cash', 'Règlement en espèces'],
-        ['Chèque', 'Règlement par chèque'],
-        ['Cheque', 'Règlement par chèque'],
-        ['Chèque Vacances', 'Chèque vacances'],
+        ['Carte Bancaire', 'Inserez votre carte'],
+        ['CB', 'Inserez votre carte'],
+        ['carte bancaire', 'Inserez votre carte'],
+        ['TPE', 'Inserez votre carte'],
+        ['Espèces', 'Reglement en especes'],
+        ['ESPECES', 'Reglement en especes'],
+        ['Cash', 'Reglement en especes'],
+        ['Chèque', 'Reglement par cheque'],
+        ['Cheque', 'Reglement par cheque'],
+        ['Chèque Vacances', 'Cheque vacances'],
         ['Ticket Restaurant', 'Titre restaurant'],
         ['Virement', 'Virement bancaire'],
         ['Solana', 'Scannez le QR code'],
@@ -147,8 +148,8 @@ describe('getPaymentMessage', () => {
         expect(getPaymentMessage('Lydia')).toBe('Lydia');
     });
 
-    it('prefers "Chèque Vacances" over the generic cheque message', () => {
-        expect(getPaymentMessage('Chèque Vacances')).not.toBe('Règlement par chèque');
+    it('prefers "Cheque Vacances" over the generic cheque message', () => {
+        expect(getPaymentMessage('Chèque Vacances')).not.toBe('Reglement par cheque');
     });
 
     it('never returns a message longer than the display width', () => {
@@ -172,7 +173,7 @@ describe('buildPaymentDisplay', () => {
     it('shows the payment instruction and the total', () => {
         const payload = buildPaymentDisplay('Carte Bancaire', 10, euro);
 
-        expect(payload.line1.trim()).toBe('Insérez votre carte');
+        expect(payload.line1.trim()).toBe('Inserez votre carte');
         expect(payload.line2.trim()).toBe('TOTAL (EUR)    10.00');
         expectExactWidth(payload);
     });

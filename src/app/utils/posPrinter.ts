@@ -83,8 +83,13 @@ function writeToComPort(comPort: string, buffer: Buffer): void {
 async function executePrint(printer: ThermalPrinter): Promise<void> {
     const comPort = (printer as unknown as { _comPort?: string })._comPort;
     if (comPort) {
-        const buffer = printer.getBuffer();
-        writeToComPort(comPort, buffer);
+        // Manually add ESC/POS initialization + character set command before the buffer,
+        // because getBuffer() doesn't include the init sequence that execute() normally sends.
+        // ESC @ = initialize printer, ESC R n = set international character set
+        const initBuffer = Buffer.from([0x1b, 0x40]); // ESC @ — reset to defaults
+        const mainBuffer = printer.getBuffer();
+        const fullBuffer = Buffer.concat([initBuffer, mainBuffer]);
+        writeToComPort(comPort, fullBuffer);
         return;
     }
     await printer.execute();

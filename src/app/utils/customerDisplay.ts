@@ -7,6 +7,12 @@ export interface CustomerDisplayPayload {
 
 const DISPLAY_WIDTH = 20;
 
+// The 2x20 LCD customer display doesn't support accented characters.
+// Strip diacritics from all text before sending to the display.
+function stripAccents(text: string): string {
+    return text.normalize('NFD').replace(/\p{Diacritic}/gu, '');
+}
+
 function formatAmount(amount: number, currency: Currency): string {
     return amount
         .toLocaleString('en-US', {
@@ -46,8 +52,8 @@ export function buildCustomerDisplay(
     const changeStr = formatAmount(change, currency);
 
     return {
-        line1: formatLine('TOTAL (EUR)', totalStr),
-        line2: formatLine('ENCORE DU', changeStr),
+        line1: stripAccents(formatLine('TOTAL (EUR)', totalStr)),
+        line2: stripAccents(formatLine('ENCORE DU', changeStr)),
     };
 }
 
@@ -56,14 +62,14 @@ export function buildCustomerDisplay(
 // fit within 20 chars; otherwise hard-cut at 20 to avoid losing any letters.
 export function buildIdleDisplay(shopName: string, isClosed: boolean): CustomerDisplayPayload {
     if (isClosed) {
-        return { line1: padLine(''), line2: padLine('Fermé') };
+        return { line1: padLine(''), line2: stripAccents(padLine('Fermé')) };
     }
     const name = shopName
         .toUpperCase()
         .trim()
         .slice(0, DISPLAY_WIDTH * 2);
     if (name.length <= DISPLAY_WIDTH) {
-        return { line1: padLine(''), line2: centerLine(name) };
+        return { line1: padLine(''), line2: stripAccents(centerLine(name)) };
     }
     // Try to find a word boundary split where both halves fit in 20 chars
     let bestSplit = -1;
@@ -77,14 +83,14 @@ export function buildIdleDisplay(shopName: string, isClosed: boolean): CustomerD
     }
     if (bestSplit > 0) {
         return {
-            line1: centerLine(name.slice(0, bestSplit).trim()),
-            line2: centerLine(name.slice(bestSplit).trim()),
+            line1: stripAccents(centerLine(name.slice(0, bestSplit).trim())),
+            line2: stripAccents(centerLine(name.slice(bestSplit).trim())),
         };
     }
     // No word boundary works — hard cut at 20 to show the full name
     return {
-        line1: centerLine(name.slice(0, DISPLAY_WIDTH)),
-        line2: centerLine(name.slice(DISPLAY_WIDTH)),
+        line1: stripAccents(centerLine(name.slice(0, DISPLAY_WIDTH))),
+        line2: stripAccents(centerLine(name.slice(DISPLAY_WIDTH))),
     };
 }
 
@@ -97,8 +103,8 @@ export function buildTransactionDisplay(
     const totalStr = formatAmount(total, currency);
     const priceStr = product ? formatAmount(product.amount, currency) : '';
     return {
-        line1: product ? formatLine(product.label, priceStr) : padLine(''),
-        line2: formatLine('TOTAL (EUR)', totalStr),
+        line1: product ? stripAccents(formatLine(product.label, priceStr)) : padLine(''),
+        line2: stripAccents(formatLine('TOTAL (EUR)', totalStr)),
     };
 }
 
@@ -129,15 +135,15 @@ function normalize(value: string): string {
 export function getPaymentMessage(paymentType: string): string {
     const normalized = normalize(paymentType);
     const match = PAYMENT_MESSAGES.find(({ aliases }) => aliases.some((alias) => normalized.includes(alias)));
-    return match?.message ?? paymentType;
+    return stripAccents(match?.message ?? paymentType);
 }
 
 // Payment display: shows a payment-specific instruction on line1, total on line2.
 export function buildPaymentDisplay(paymentType: string, total: number, currency: Currency): CustomerDisplayPayload {
     const totalStr = formatAmount(total, currency);
     return {
-        line1: padLine(getPaymentMessage(paymentType)),
-        line2: formatLine('TOTAL (EUR)', totalStr),
+        line1: stripAccents(padLine(getPaymentMessage(paymentType))),
+        line2: stripAccents(formatLine('TOTAL (EUR)', totalStr)),
     };
 }
 
