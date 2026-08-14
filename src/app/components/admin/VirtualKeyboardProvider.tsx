@@ -105,7 +105,32 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
     const handleEnter = useCallback(() => {
         const active = activeInputRef.current;
         if (!active) return;
-        active.element.blur();
+        // Dispatch an Enter keydown so the input's onKeyDown handler runs
+        // (e.g. search auto-select, form submit, etc.)
+        const el = active.element;
+        const enterEvent = new KeyboardEvent('keydown', {
+            key: 'Enter',
+            code: 'Enter',
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+        });
+        const notPrevented = el.dispatchEvent(enterEvent);
+        if (notPrevented) {
+            // Also dispatch keyup for completeness
+            el.dispatchEvent(
+                new KeyboardEvent('keyup', {
+                    key: 'Enter',
+                    code: 'Enter',
+                    keyCode: 13,
+                    which: 13,
+                    bubbles: true,
+                    cancelable: true,
+                })
+            );
+        }
+        el.blur();
         setActiveInput(null);
         activeInputRef.current = null;
     }, []);
