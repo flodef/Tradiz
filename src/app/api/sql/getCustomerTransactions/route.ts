@@ -187,7 +187,7 @@ export async function GET(request: Request) {
                     Number(row.modifieddate ?? row.modifiedDate) || Number(row.createddate ?? row.createdDate),
                 products,
                 ...(row.short_num_order ? { shortNumOrder: String(row.short_num_order) } : {}),
-                ...(row.take_out ? { takeOut: true } : {}),
+                ...(row.take_out ? { takeOut: true } : { takeOut: false }),
                 ...(balanceEntry ? { previousBalance: balanceEntry.previousBalance } : {}),
                 ...(balanceEntry ? { newBalance: balanceEntry.newBalance } : {}),
             };

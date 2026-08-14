@@ -394,14 +394,8 @@ export const usePay = () => {
                 });
             }
 
-            if (isPaid) {
-                const cashierAddr = getPrinterAddressByRole(PRINTER_ROLE.cashier);
-                if (cashierAddr) {
-                    printTransactionReceipt(undefined, transaction, cashierAddr).then((response) => {
-                        if (!response.success) console.error('[autoPrint] Cashier print failed:', response.error);
-                    });
-                }
-            }
+            // Cashier receipt is printed on demand only (via the "Imprimer" button),
+            // not automatically on payment.
         },
         [getPrinterAddressByRole, printTransactionReceipt, printKitchenReceipt]
     );
