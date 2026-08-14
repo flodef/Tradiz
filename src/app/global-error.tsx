@@ -1,14 +1,11 @@
 'use client'; // Error components must be Client Components
 
 // inspired by https://codepen.io/altreiter/pen/EedZRQ
-import { Open_Sans } from 'next/font/google';
 import Link from 'next/link';
 import { useEffect } from 'react';
 import { CloseButton } from './components/CloseButton';
 import './globals.css';
 import { DEV_EMAIL } from './utils/constants';
-
-const openSans = Open_Sans({ subsets: ['latin'], weight: ['400', '700'] });
 
 export default function GlobalError({ error, reset }: { error: Error; reset: () => void }) {
     useEffect(() => {
@@ -69,7 +66,7 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
     const zeroBClassName = zeroClassName.replaceAll('$', 'b') + ' ' + crossClassName;
 
     return (
-        <div className={openSans.className}>
+        <div className="font-sans">
             {typeof window !== 'undefined' && window.electronAPI?.closeApp && (
                 <div className="fixed top-4 right-4 z-20">
                     <CloseButton
