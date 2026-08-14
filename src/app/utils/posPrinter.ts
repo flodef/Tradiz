@@ -50,29 +50,46 @@ function resolvePrinterAddress(address: string): string {
 /**
  * Writes a raw buffer to a COM port using fs (Windows only).
  * Works without the serialport native module.
+ *
+ * COM port writes are serialized via a promise chain to prevent concurrent
+ * access (e.g. receipt print + cash drawer command at the same time), which
+ * corrupts the output and prevents the drawer from opening.
  */
-function writeToComPort(comPort: string, buffer: Buffer): void {
+let comPortWriteChain: Promise<void> = Promise.resolve();
+
+function writeToComPort(comPort: string, buffer: Buffer): Promise<void> {
     const path = '\\\\.\\' + comPort.trim().toUpperCase();
-    console.log(`[PRINTER] Opening ${path} for writing, buffer size: ${buffer.length} bytes`);
-    let fd: number;
-    try {
-        fd = fs.openSync(path, 'r+');
-    } catch (err) {
-        const code = (err as NodeJS.ErrnoException).code;
-        if (code === 'ENOENT') {
-            throw new Error(`Port ${comPort} introuvable (COM ports sont disponibles sur Windows uniquement)`, {
-                cause: err,
-            });
-        }
-        throw err;
-    }
-    try {
-        fs.writeSync(fd, buffer, 0, buffer.length, null);
-        console.log(`[PRINTER] Wrote ${buffer.length} bytes to ${comPort}`);
-    } finally {
-        fs.closeSync(fd);
-        console.log(`[PRINTER] Closed ${comPort}`);
-    }
+    const run = () =>
+        new Promise<void>((resolve, reject) => {
+            console.log(`[PRINTER] Opening ${path} for writing, buffer size: ${buffer.length} bytes`);
+            let fd: number;
+            try {
+                fd = fs.openSync(path, 'r+');
+            } catch (err) {
+                const code = (err as NodeJS.ErrnoException).code;
+                if (code === 'ENOENT') {
+                    reject(
+                        new Error(`Port ${comPort} introuvable (COM ports sont disponibles sur Windows uniquement)`, {
+                            cause: err as Error,
+                        })
+                    );
+                    return;
+                }
+                reject(err as Error);
+                return;
+            }
+            try {
+                fs.writeSync(fd, buffer, 0, buffer.length, null);
+                console.log(`[PRINTER] Wrote ${buffer.length} bytes to ${comPort}`);
+            } finally {
+                fs.closeSync(fd);
+                console.log(`[PRINTER] Closed ${comPort}`);
+            }
+            resolve();
+        });
+    // Chain this write after any previous COM port write completes.
+    comPortWriteChain = comPortWriteChain.then(run, run);
+    return comPortWriteChain;
 }
 
 /**
@@ -84,7 +101,7 @@ async function executePrint(printer: ThermalPrinter): Promise<void> {
     const comPort = (printer as unknown as { _comPort?: string })._comPort;
     if (comPort) {
         const buffer = printer.getBuffer();
-        writeToComPort(comPort, buffer);
+        await writeToComPort(comPort, buffer);
         return;
     }
     await printer.execute();
