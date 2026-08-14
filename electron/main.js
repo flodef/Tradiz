@@ -776,9 +776,7 @@ function initAutoUpdater() {
                 return;
             }
             console.log('Auto-updater: check-for-updates requested by renderer');
-            autoUpdater.checkForUpdates().catch((err) => {
-                console.error('Auto-updater check failed:', err.message);
-            });
+            checkForUpdatesWithRetry();
         });
 
         // Renderer queries for pending update on mount to avoid missing the event
@@ -793,13 +791,37 @@ function initAutoUpdater() {
 
         // Check for updates every 30 minutes
         setInterval(() => {
-            autoUpdater.checkForUpdates().catch((err) => {
-                console.error('Auto-updater periodic check failed:', err.message);
-            });
+            checkForUpdatesWithRetry();
         }, 1800000);
     } catch (err) {
         console.error('Auto-updater init failed:', err.message);
     }
+}
+
+// Check for updates with retry — the CI build may still be uploading latest.yml
+// when the app starts right after a release is created. Retry up to 5 times with
+// a 30-second delay between attempts.
+var updateCheckAttempts = 0;
+var updateCheckMaxAttempts = 5;
+function checkForUpdatesWithRetry() {
+    if (!autoUpdater) return;
+    autoUpdater
+        .checkForUpdates()
+        .then(function () {
+            updateCheckAttempts = 0; // reset on success
+        })
+        .catch(function (err) {
+            var msg = err.message || '';
+            console.error('Auto-updater check failed:', msg);
+            // Retry when latest.yml is not yet uploaded (CI still running)
+            if (msg.indexOf('latest.yml') !== -1 && updateCheckAttempts < updateCheckMaxAttempts) {
+                updateCheckAttempts++;
+                console.log(
+                    'Auto-updater: retrying in 30s (attempt ' + updateCheckAttempts + '/' + updateCheckMaxAttempts + ')'
+                );
+                setTimeout(checkForUpdatesWithRetry, 30000);
+            }
+        });
 }
 
 function createMainWindow() {
@@ -871,9 +893,7 @@ function createMainWindow() {
         // to mount UpdateListener and register IPC listeners.
         if (!isDev && autoUpdater) {
             setTimeout(() => {
-                autoUpdater.checkForUpdates().catch((err) => {
-                    console.error('Auto-updater initial check failed:', err.message);
-                });
+                checkForUpdatesWithRetry();
             }, 5000);
         }
 
