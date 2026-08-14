@@ -1,5 +1,3 @@
-'use client';
-
 import { MinMax, SymbolPosition } from './types';
 
 // Extend prototype
@@ -32,7 +30,8 @@ declare global {
 }
 
 Number.prototype.toLocaleCurrency = function (currency = 'EUR') {
-    let value = Intl.NumberFormat(navigator.language, {
+    const lang = typeof navigator !== 'undefined' ? navigator.language : 'fr-FR';
+    let value = Intl.NumberFormat(lang, {
         style: 'currency',
         currency: currency,
     }).format(Number(this));
@@ -101,7 +100,8 @@ Number.prototype.clean = function (maxDecimals = 2) {
 };
 
 String.prototype.fromCurrency = function (locale?: string) {
-    const number = (locale ?? Intl.NumberFormat(navigator.language).resolvedOptions().locale).startsWith('fr')
+    const lang = typeof navigator !== 'undefined' ? navigator.language : 'fr-FR';
+    const number = (locale ?? Intl.NumberFormat(lang).resolvedOptions().locale).startsWith('fr')
         ? this.replace(/,/g, '.')
         : this.replace(/,/g, '');
     return parseFloat(number.replace(/[^0-9\.\-]/g, ''));
@@ -134,11 +134,13 @@ String.prototype.testLimit = function (limit: MinMax) {
 };
 
 Date.prototype.toShortDate = function () {
-    return this.toLocaleDateString(navigator.language, { year: 'numeric', month: 'numeric', day: 'numeric' });
+    const lang = typeof navigator !== 'undefined' ? navigator.language : 'fr-FR';
+    return this.toLocaleDateString(lang, { year: 'numeric', month: 'numeric', day: 'numeric' });
 };
 
 Date.prototype.toLongDate = function () {
-    return this.toLocaleString(navigator.language);
+    const lang = typeof navigator !== 'undefined' ? navigator.language : 'fr-FR';
+    return this.toLocaleString(lang);
 };
 
 Array.prototype.removeHeader = function () {
