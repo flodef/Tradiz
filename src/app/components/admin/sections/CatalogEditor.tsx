@@ -24,6 +24,7 @@ import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
 import PriceInput from '../PriceInput';
 import ColorSwatchPicker from '../ColorSwatchPicker';
+import DeleteButton from '../DeleteButton';
 
 const GRID_COLS = 6;
 const GRID_ROWS = 6;
@@ -349,6 +350,10 @@ export default function CatalogEditor({
             gridPosition: firstEmpty < MAX_PRODUCTS ? firstEmpty : undefined,
         };
         onChange([...products, newProduct]);
+        // Open the inline edit panel for the new product.
+        // The new product will be at index currentProducts.length in gridProducts,
+        // so its _gridId will be `grid-${currentProducts.length}`.
+        setSelectedProductId(`grid-${currentProducts.length}`);
     }, [currentCategory, currentProducts, products, onChange]);
 
     const handleDeleteProduct = useCallback(() => {
@@ -488,12 +493,15 @@ export default function CatalogEditor({
                         <div className="w-64 shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3 bg-white dark:bg-gray-800">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-sm font-semibold">Édition produit</h3>
-                                <button
-                                    onClick={() => setSelectedProductId(null)}
-                                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
-                                >
-                                    <IconX size={18} />
-                                </button>
+                                <div className="flex items-center gap-1">
+                                    <DeleteButton onClick={handleDeleteProduct} title="Supprimer le produit" />
+                                    <button
+                                        onClick={() => setSelectedProductId(null)}
+                                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
+                                    >
+                                        <IconX size={18} />
+                                    </button>
+                                </div>
                             </div>
 
                             <div>
@@ -537,13 +545,6 @@ export default function CatalogEditor({
                                     isReadOnly={isReadOnly}
                                 />
                             </div>
-
-                            <button
-                                onClick={handleDeleteProduct}
-                                className="w-full text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600 py-1.5 border border-red-300 dark:border-red-700 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer"
-                            >
-                                Supprimer le produit
-                            </button>
                         </div>
                     )}
                 </div>
