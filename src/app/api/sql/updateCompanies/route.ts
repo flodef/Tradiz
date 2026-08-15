@@ -20,27 +20,67 @@ export async function POST(request: Request) {
 
         connection = await getPosDb(shopId);
 
-        // Delete all existing companies
-        const deleteQuery = connection.isPostgreSQL ? 'DELETE FROM dc_pos.companies' : 'DELETE FROM companies';
-        await connection.execute(deleteQuery);
+        const table = connection.isPostgreSQL ? 'dc_pos.companies' : 'companies';
 
-        // Insert new companies
+        // Fetch existing companies (id, name) so we can preserve IDs when names match.
+        // Categories reference companies via company_id FK, so deleting + re-inserting
+        // would break those links. Instead, we UPSERT by name and delete only removed ones.
+        const [existingRows] = (await connection.execute(`SELECT id, name FROM ${table}`)) as {
+            id: number;
+            name: string;
+        }[][];
+        const existingByName = new Map<string, number>();
+        for (const row of existingRows) {
+            existingByName.set(row.name, Number(row.id));
+        }
+
+        const seenNames = new Set<string>();
+
         for (const company of companies) {
             const name = company.name;
             const mealPrice = company.mealPrice ?? 0;
+            seenNames.add(name);
 
-            if (connection.isPostgreSQL) {
-                const insertQuery = `
-                    INSERT INTO dc_pos.companies (name, meal_price)
-                    VALUES ($1, $2)
-                `;
-                await connection.execute(insertQuery, [name, mealPrice]);
+            const existingId = existingByName.get(name);
+            if (existingId !== undefined) {
+                // Update existing company (preserves id → category FKs stay valid)
+                if (connection.isPostgreSQL) {
+                    await connection.execute(`UPDATE ${table} SET name = $1, meal_price = $2 WHERE id = $3`, [
+                        name,
+                        mealPrice,
+                        existingId,
+                    ]);
+                } else {
+                    await connection.execute(`UPDATE ${table} SET name = ?, meal_price = ? WHERE id = ?`, [
+                        name,
+                        mealPrice,
+                        existingId,
+                    ]);
+                }
             } else {
-                const insertQuery = `
-                    INSERT INTO companies (name, meal_price)
-                    VALUES (?, ?)
-                `;
-                await connection.execute(insertQuery, [name, mealPrice]);
+                // Insert new company
+                if (connection.isPostgreSQL) {
+                    await connection.execute(`INSERT INTO ${table} (name, meal_price) VALUES ($1, $2)`, [
+                        name,
+                        mealPrice,
+                    ]);
+                } else {
+                    await connection.execute(`INSERT INTO ${table} (name, meal_price) VALUES (?, ?)`, [
+                        name,
+                        mealPrice,
+                    ]);
+                }
+            }
+        }
+
+        // Delete companies that no longer exist in the new list
+        for (const [name, id] of existingByName) {
+            if (!seenNames.has(name)) {
+                if (connection.isPostgreSQL) {
+                    await connection.execute(`DELETE FROM ${table} WHERE id = $1`, [id]);
+                } else {
+                    await connection.execute(`DELETE FROM ${table} WHERE id = ?`, [id]);
+                }
             }
         }
 

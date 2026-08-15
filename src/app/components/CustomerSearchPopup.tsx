@@ -88,7 +88,11 @@ const CustomerSearchPopup: FC<CustomerSearchPopupProps> = ({
     }, [options]);
 
     useEffect(() => {
-        setHighlightedIndex(options.length > 0 ? 0 : -1);
+        const newIndex = options.length > 0 ? 0 : -1;
+        setHighlightedIndex(newIndex);
+        // Update the ref synchronously so the VK enter handler sees the correct
+        // index immediately, without waiting for a second render cycle.
+        highlightedIndexRef.current = newIndex;
     }, [options.length]);
 
     const selectOption = (index: number, opts: Option[] = options) => {
