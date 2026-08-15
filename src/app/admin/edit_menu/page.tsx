@@ -980,24 +980,7 @@ export default function EditMenuPage() {
                     />
                 )}
 
-                <ProductsConfig
-                    config={nonFormulaProducts}
-                    onChange={handleProductsChange}
-                    onSave={isReadOnly ? undefined : handleProductsSave}
-                    onCancel={handleCancel}
-                    hasChanges={hasProductsChanges}
-                    categories={categoryOptions}
-                    currencies={currencies}
-                    isReadOnly={isReadOnly}
-                    isLoading={isSavingProducts}
-                    isOpen={openSection === 'products'}
-                    onToggle={() => setOpenSection((prev) => (prev === 'products' ? null : 'products'))}
-                    productsSettings={productsSettings}
-                    icon={<IconBox size={24} />}
-                    showHeader={nonFormulaProducts.length > 0}
-                />
-
-                {parameters?.display?.catalogMode && categories.length > 0 && (
+                {parameters?.display?.catalogMode && categories.length > 0 ? (
                     <CatalogEditor
                         products={nonFormulaProducts}
                         categories={categoryOptions}
@@ -1012,23 +995,42 @@ export default function EditMenuPage() {
                         onToggle={() => setOpenSection((prev) => (prev === 'catalog' ? null : 'catalog'))}
                         icon={<IconLayoutGrid size={24} />}
                     />
-                )}
+                ) : (
+                    <>
+                        <ProductsConfig
+                            config={nonFormulaProducts}
+                            onChange={handleProductsChange}
+                            onSave={isReadOnly ? undefined : handleProductsSave}
+                            onCancel={handleCancel}
+                            hasChanges={hasProductsChanges}
+                            categories={categoryOptions}
+                            currencies={currencies}
+                            isReadOnly={isReadOnly}
+                            isLoading={isSavingProducts}
+                            isOpen={openSection === 'products'}
+                            onToggle={() => setOpenSection((prev) => (prev === 'products' ? null : 'products'))}
+                            productsSettings={productsSettings}
+                            icon={<IconBox size={24} />}
+                            showHeader={nonFormulaProducts.length > 0}
+                        />
 
-                <FormulasConfig
-                    config={formulas}
-                    categories={categories.map((c) => c.label)}
-                    products={nonFormulaProducts}
-                    currencies={currencies}
-                    onChange={handleFormulasChange}
-                    onSave={isReadOnly ? undefined : handleFormulasSave}
-                    onCancel={handleFormulasCancel}
-                    hasChanges={hasFormulasChanges}
-                    isReadOnly={isReadOnly}
-                    isLoading={isSavingFormulas}
-                    isOpen={openSection === 'formulas'}
-                    onToggle={() => setOpenSection((prev) => (prev === 'formulas' ? null : 'formulas'))}
-                    icon={<IconMathFunction size={24} />}
-                />
+                        <FormulasConfig
+                            config={formulas}
+                            categories={categories.map((c) => c.label)}
+                            products={nonFormulaProducts}
+                            currencies={currencies}
+                            onChange={handleFormulasChange}
+                            onSave={isReadOnly ? undefined : handleFormulasSave}
+                            onCancel={handleFormulasCancel}
+                            hasChanges={hasFormulasChanges}
+                            isReadOnly={isReadOnly}
+                            isLoading={isSavingFormulas}
+                            isOpen={openSection === 'formulas'}
+                            onToggle={() => setOpenSection((prev) => (prev === 'formulas' ? null : 'formulas'))}
+                            icon={<IconMathFunction size={24} />}
+                        />
+                    </>
+                )}
             </div>
         </AdminPageLayout>
     );
