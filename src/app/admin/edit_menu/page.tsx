@@ -82,6 +82,7 @@ function splitFormulas(allProducts: AdminProduct[]): { products: AdminProduct[];
 function buildInventoryFromAdminProducts(products: AdminProduct[]): InventoryItem[] {
     const inventory: InventoryItem[] = [];
     const categoryIndex: Record<string, number> = {};
+    const categoryOrder: string[] = [];
 
     for (let i = 0; i < products.length; i++) {
         const p = products[i];
@@ -92,6 +93,7 @@ function buildInventoryFromAdminProducts(products: AdminProduct[]): InventoryIte
 
         if (categoryIndex[category] === undefined) {
             categoryIndex[category] = inventory.length;
+            categoryOrder.push(category);
             inventory.push({
                 category: category.toFirstUpperCase(),
                 rate: p.vat ?? 0,
@@ -100,7 +102,21 @@ function buildInventoryFromAdminProducts(products: AdminProduct[]): InventoryIte
             });
         }
 
+        const catIdx = categoryOrder.indexOf(category);
         const item = inventory[categoryIndex[category]];
+
+        // Compute sortOrder using the same encoding as computeSortOrders:
+        // (catIdx + 1) * 10000 + position
+        // Catalog mode: position = row * 100 + col (from gridPosition)
+        // List mode: position = sequential index within category
+        let position: number;
+        if (p.gridPosition != null && p.gridPosition >= 0) {
+            position = Math.floor(p.gridPosition / 6) * 100 + (p.gridPosition % 6);
+        } else {
+            position = item.products.length;
+        }
+        const sortOrder = (catIdx + 1) * 10000 + position;
+
         item.products.push({
             label: label.toFirstUpperCase(),
             prices: p.currencies.map((c) => Number(c)).filter((price) => Number.isFinite(price)),
@@ -109,6 +125,7 @@ function buildInventoryFromAdminProducts(products: AdminProduct[]): InventoryIte
             order: item.products.length,
             reference: p.reference ? String(p.reference).trim() : null,
             color: p.color ?? '',
+            sortOrder,
         });
     }
 
@@ -152,6 +169,18 @@ function buildProductsFromInventory(inventory: InventoryItem[]): AdminProduct[] 
         // The UI displays an empty DB category as the default category; for editing we keep it as empty string.
         const category = item.category === DEFAULT_CATEGORY ? '' : item.category;
         item.products.forEach((product) => {
+            // Decode gridPosition from sortOrder if in catalog-mode range
+            // position = row * 100 + col; gridPosition = row * 6 + col
+            let gridPosition: number | undefined;
+            const so = product.sortOrder;
+            if (so != null) {
+                const pos = so % 10000;
+                const row = Math.floor(pos / 100);
+                const col = pos % 100;
+                if (row >= 0 && row < 6 && col >= 0 && col < 6) {
+                    gridPosition = row * 6 + col;
+                }
+            }
             products.push({
                 name: product.label,
                 category,
@@ -161,6 +190,7 @@ function buildProductsFromInventory(inventory: InventoryItem[]): AdminProduct[] 
                 reference: product.reference ?? undefined,
                 options: product.options ?? undefined,
                 color: product.color ?? undefined,
+                gridPosition,
             });
         });
     });
@@ -435,12 +465,25 @@ export default function EditMenuPage() {
                     setOriginalDbCategories(mapped);
                 }
 
-                // Parse productsSettings from parameters
+                // Parse productsSettings and display from parameters
+                let fetchedCatalogMode = parameters?.display?.catalogMode === true;
                 if (parametersData.parameters) {
                     const paramMap = new Map<string, string>();
                     parametersData.parameters.forEach(({ key, value }: { key: string; value: string }) => {
                         paramMap.set(key, value);
                     });
+                    // Parse display.catalogMode from DB (authoritative for grid decoding)
+                    const rawDisplay = paramMap.get('display');
+                    if (rawDisplay) {
+                        try {
+                            const parsed = JSON.parse(rawDisplay);
+                            if (parsed && typeof parsed.catalogMode === 'boolean') {
+                                fetchedCatalogMode = parsed.catalogMode;
+                            }
+                        } catch {
+                            // Invalid JSON, use context value
+                        }
+                    }
                     const raw = paramMap.get('productsSettings');
                     if (raw) {
                         try {
@@ -464,7 +507,7 @@ export default function EditMenuPage() {
 
                 // Parse products from typed API objects
                 const loadedProducts: AdminProduct[] = [];
-                const isCatalogMode = parameters?.display?.catalogMode === true;
+                const isCatalogMode = fetchedCatalogMode;
                 if (Array.isArray(productsData.products)) {
                     for (const p of productsData.products) {
                         let gridPosition: number | undefined;

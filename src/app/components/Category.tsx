@@ -749,15 +749,20 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
         const showOthers = parameters.display?.displayOthers === true;
 
         // Build a 6×6 grid positioned by sortOrder encoding:
-        // hundreds = category (ignored), tens = row (1-6), units = column (1-6)
+        // sort_order = (catIdx + 1) * 10000 + position
+        // Catalog mode: position = row * 100 + col (0-based, so 000–505)
+        // List mode: position = sequential index (0, 1, 2, …)
+        // We decode the position part and try to place by row/col; if that
+        // fails (list mode or out-of-range), fall back to sequential slots.
         const gridSlots: ((typeof products)[number] | null)[] = new Array(MAX_PRODUCTS).fill(null);
         let fallbackIndex = 0;
         for (const product of products) {
             const so = product.sortOrder ?? 0;
-            const row = Math.floor(so / 10) % 10;
-            const col = so % 10;
-            if (row >= 1 && row <= GRID_ROWS && col >= 1 && col <= GRID_COLS) {
-                const slotIndex = (row - 1) * GRID_COLS + (col - 1);
+            const pos = so % 10000;
+            const row = Math.floor(pos / 100);
+            const col = pos % 100;
+            if (row >= 0 && row < GRID_ROWS && col >= 0 && col < GRID_COLS) {
+                const slotIndex = row * GRID_COLS + col;
                 if (!gridSlots[slotIndex]) {
                     gridSlots[slotIndex] = product;
                     continue;
