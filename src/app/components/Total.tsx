@@ -685,6 +685,16 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                               : 'hidden md:block text-5xl py-3',
                         !isMobile ? clickClassName : ''
                     )}
+                    onClick={
+                        (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length)
+                            ? handleClick
+                            : undefined
+                    }
+                    onContextMenu={
+                        (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length)
+                            ? handleClick
+                            : undefined
+                    }
                 >
                     <div className="flex items-center gap-0 w-full pl-1">
                         <TopNavWithRoleCheck
@@ -692,19 +702,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                             isMobile={isMobile}
                             onCollapsedChange={(c) => setNavExpanded(!c)}
                         />
-                        <div
-                            className={twMerge('flex-1 text-center overflow-hidden whitespace-nowrap')}
-                            onClick={
-                                (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length)
-                                    ? handleClick
-                                    : undefined
-                            }
-                            onContextMenu={
-                                (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length)
-                                    ? handleClick
-                                    : undefined
-                            }
-                        >
+                        <div className={twMerge('flex-1 text-center overflow-hidden whitespace-nowrap')}>
                             {canDisplayTotal ? (
                                 total ? (
                                     <span

@@ -193,11 +193,15 @@ const CustomerSearchPopup: FC<CustomerSearchPopupProps> = ({
                 onFocus={(e) => {
                     if (vkContext) {
                         vkContext.registerInput(e.target, (newValue: string) => setQuery(newValue));
+                        vkContext.registerEnterHandler(() => {
+                            if (highlightedIndex >= 0) selectOption(highlightedIndex);
+                        });
                     }
                 }}
                 onBlur={(e) => {
                     if (vkContext) {
                         vkContext.unregisterInput(e.target);
+                        vkContext.registerEnterHandler(null);
                     }
                 }}
                 placeholder="Rechercher un client..."

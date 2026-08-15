@@ -6,6 +6,7 @@ import VirtualKeyboard from '../VirtualKeyboard';
 interface VirtualKeyboardContextValue {
     registerInput: (input: HTMLInputElement, onChange: (value: string) => void) => void;
     unregisterInput: (input: HTMLInputElement) => void;
+    registerEnterHandler: (handler: (() => void) | null) => void;
 }
 
 const VirtualKeyboardContext = createContext<VirtualKeyboardContextValue | null>(null);
@@ -23,6 +24,7 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
     const [activeInput, setActiveInput] = useState<ActiveInput | null>(null);
     const activeInputRef = useRef<ActiveInput | null>(null);
     const isTabbingRef = useRef(false);
+    const enterHandlerRef = useRef<(() => void) | null>(null);
 
     const registerInput = useCallback(
         (input: HTMLInputElement, onChange: (value: string) => void) => {
@@ -46,7 +48,12 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
         if (activeInputRef.current?.element === input) {
             activeInputRef.current = null;
             setActiveInput(null);
+            enterHandlerRef.current = null;
         }
+    }, []);
+
+    const registerEnterHandler = useCallback((handler: (() => void) | null) => {
+        enterHandlerRef.current = handler;
     }, []);
 
     const handleKey = useCallback((key: string) => {
@@ -105,8 +112,16 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
     const handleEnter = useCallback(() => {
         const active = activeInputRef.current;
         if (!active) return;
-        // Dispatch an Enter keydown so the input's onKeyDown handler runs
-        // (e.g. search auto-select, form submit, etc.)
+        // First try the registered Enter handler (e.g. search popup select-first).
+        // This is more reliable than dispatching a synthetic keydown event, which
+        // React's event system may not pick up correctly.
+        if (enterHandlerRef.current) {
+            enterHandlerRef.current();
+            enterHandlerRef.current = null;
+            return;
+        }
+        // Fallback: dispatch a synthetic Enter keydown so the input's onKeyDown
+        // handler runs (e.g. form submit, etc.)
         const el = active.element;
         const enterEvent = new KeyboardEvent('keydown', {
             key: 'Enter',
@@ -118,7 +133,6 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
         });
         const notPrevented = el.dispatchEvent(enterEvent);
         if (notPrevented) {
-            // Also dispatch keyup for completeness
             el.dispatchEvent(
                 new KeyboardEvent('keyup', {
                     key: 'Enter',
@@ -184,7 +198,7 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
     }, []);
 
     return (
-        <VirtualKeyboardContext.Provider value={{ registerInput, unregisterInput }}>
+        <VirtualKeyboardContext.Provider value={{ registerInput, unregisterInput, registerEnterHandler }}>
             {children}
             {enabled && activeInput && (
                 <VirtualKeyboard

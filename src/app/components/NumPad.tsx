@@ -464,11 +464,19 @@ const SearchPopup: FC<SearchPopupProps> = ({
                 onFocus={(e) => {
                     if (vkContext) {
                         vkContext.registerInput(e.target, (newValue: string) => setRawInput(newValue));
+                        vkContext.registerEnterHandler(() => {
+                            if (highlightedIndex >= 0 && highlightedIndex < allItems.length) {
+                                selectItem(allItems[highlightedIndex]);
+                            } else if (allItems.length > 0) {
+                                selectItem(allItems[0]);
+                            }
+                        });
                     }
                 }}
                 onBlur={(e) => {
                     if (vkContext) {
                         vkContext.unregisterInput(e.target);
+                        vkContext.registerEnterHandler(null);
                     }
                 }}
             />

@@ -100,6 +100,7 @@ export default function ValidatedInput({
         }
         if (vkContext) {
             vkContext.unregisterInput(e.target);
+            vkContext.registerEnterHandler(null);
         }
         if (onBlur) onBlur();
     };
@@ -125,6 +126,9 @@ export default function ValidatedInput({
                 if (validation) setIsValid(validation(newValue));
                 setDraftValue(newValue);
                 onChange(newValue);
+            });
+            vkContext.registerEnterHandler(() => {
+                e.target.blur();
             });
         }
         if (onFocus) onFocus(e);
