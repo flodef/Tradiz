@@ -267,8 +267,19 @@ export default function CatalogEditor({
     }, []);
 
     useEffect(() => {
-        updateScrollState();
+        // Delay to ensure DOM is laid out before measuring scrollWidth
+        const raf = requestAnimationFrame(() => updateScrollState());
+        return () => cancelAnimationFrame(raf);
     }, [categoryLabels, updateScrollState]);
+
+    // Re-measure on resize
+    useEffect(() => {
+        const el = categoryBarRef.current;
+        if (!el) return;
+        const observer = new ResizeObserver(() => updateScrollState());
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [updateScrollState]);
 
     // Reset selected category if out of bounds
     useEffect(() => {

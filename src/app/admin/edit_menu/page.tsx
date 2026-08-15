@@ -474,7 +474,7 @@ export default function EditMenuPage() {
                         paramMap.set(key, value);
                     });
                     // Parse display.catalogMode from DB (authoritative for grid decoding)
-                    const rawDisplay = paramMap.get('display');
+                    const rawDisplay = paramMap.get('displaySettings');
                     if (rawDisplay) {
                         try {
                             const parsed = JSON.parse(rawDisplay);
