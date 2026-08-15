@@ -620,6 +620,7 @@ export default function EditMenuPage() {
         customers,
         users,
         setConfig,
+        setParameters,
     ]);
 
     const handleProductsChange = useCallback(
