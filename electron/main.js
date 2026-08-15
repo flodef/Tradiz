@@ -2,6 +2,19 @@ const { app, BrowserWindow, ipcMain, screen, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+// Stable identifier for this device, persisted by the renderer in userData/publickey.
+function getDevicePublicKey() {
+    try {
+        const keyPath = path.join(app.getPath('userData'), 'publickey');
+        if (fs.existsSync(keyPath)) {
+            return fs.readFileSync(keyPath, 'utf8').trim();
+        }
+    } catch (err) {
+        console.error('Failed to read device public key: ' + err.message);
+    }
+    return null;
+}
+
 // Redirect console output to a log file for debugging on POS hardware.
 const logDir = app.getPath('logs') || app.getPath('userData');
 try {
@@ -71,17 +84,24 @@ function flushLogsToDb() {
     }
 }
 
-// Clear the dc_sys.logs table on startup so each session starts with a clean log.
+// Clear this device's logs from dc_sys.logs on startup so each session
+// starts with a clean log without wiping logs from other devices.
 function clearLogsOnStartup() {
     try {
+        var publicKey = getDevicePublicKey();
+        if (!publicKey) return;
         var http = require('http');
+        var data = JSON.stringify({ source: publicKey });
         var req = http.request(
             {
                 hostname: 'localhost',
                 port: 3001,
                 path: '/api/sql/clearLogs',
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(data),
+                },
             },
             function (res) {
                 res.resume();
@@ -90,6 +110,7 @@ function clearLogsOnStartup() {
         req.on('error', function () {
             // Silently ignore — logs clearing is best-effort.
         });
+        req.write(data);
         req.end();
     } catch (e) {
         // Silently ignore.
@@ -97,7 +118,13 @@ function clearLogsOnStartup() {
 }
 
 function bufferLog(level, message) {
-    logBuffer.push({ level: level, message: message, source: 'electron' });
+    const publicKey = getDevicePublicKey();
+    // source identifies the device so logs can be cleared per-device on restart.
+    logBuffer.push({
+        level: level,
+        message: message,
+        source: publicKey || 'electron',
+    });
     if (logBuffer.length >= LOG_FLUSH_BATCH_SIZE) {
         flushLogsToDb();
     } else {

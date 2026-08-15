@@ -226,6 +226,11 @@ export default function EditMenuPage() {
     const [isSavingProducts, setIsSavingProducts] = useState(false);
     const [isSavingFormulas, setIsSavingFormulas] = useState(false);
     const [productsSettings, setProductsSettings] = useState<ProductsSettings | undefined>(parameters?.products);
+    // Local catalogMode state — initialized from context, updated from DB fetch.
+    // We use a local state because the context's parameters may be stale from
+    // localStorage cache on regular refresh, and the ConfigProvider's own DB
+    // fetch may not update it in time for rendering.
+    const [catalogMode, setCatalogMode] = useState<boolean>(parameters?.display?.catalogMode === true);
     const [openSection, setOpenSection] = useState<string | null>(
         parameters?.display?.catalogMode ? 'catalog' : 'products'
     );
@@ -241,6 +246,8 @@ export default function EditMenuPage() {
     >([]);
     const dataLoadedRef = useRef(false);
     const seededRef = useRef(false);
+    const parametersRef = useRef(parameters);
+    parametersRef.current = parameters;
 
     // Derive categories from DB (source of truth for name, company, sortOrder)
     // and products (for VAT inference). DB categories come first; any product-only
@@ -379,6 +386,13 @@ export default function EditMenuPage() {
         }
     }, [searchParams, emptyProductsPopupShown, isLoading, openFullscreenPopup]);
 
+    // When catalogMode is updated from the DB fetch, switch the open section
+    useEffect(() => {
+        if (catalogMode) {
+            setOpenSection('catalog');
+        }
+    }, [catalogMode]);
+
     // Phase 1: seed the UI instantly from cached inventory/currencies (no loading dots).
     // This shows products immediately; the DB fetch below adds fields not present in the
     // cached inventory (reference, photo, description, options and option groups).
@@ -424,7 +438,7 @@ export default function EditMenuPage() {
                     // Build inventory from ALL products (including formulas) for main app
                     const inventoryFromDb = buildInventoryFromAdminProducts(allProducts);
                     const config: Config = {
-                        parameters: { ...parameters, lastModified: Date.now().toString() },
+                        parameters: { ...parametersRef.current, lastModified: Date.now().toString() },
                         currencies,
                         paymentMethods,
                         inventory: inventoryFromDb,
@@ -435,6 +449,7 @@ export default function EditMenuPage() {
                         users,
                     };
                     setConfig(config);
+                    setCatalogMode(parametersRef.current?.display?.catalogMode === true);
 
                     setIsLoading(false);
                     return;
@@ -467,7 +482,8 @@ export default function EditMenuPage() {
                 }
 
                 // Parse productsSettings and display from parameters
-                let fetchedCatalogMode = parameters?.display?.catalogMode === true;
+                const currentParameters = parametersRef.current;
+                let fetchedCatalogMode = currentParameters?.display?.catalogMode === true;
                 if (parametersData.parameters) {
                     const paramMap = new Map<string, string>();
                     parametersData.parameters.forEach(({ key, value }: { key: string; value: string }) => {
@@ -485,6 +501,8 @@ export default function EditMenuPage() {
                             // Invalid JSON, use context value
                         }
                     }
+                    // Update local catalogMode state immediately for rendering
+                    setCatalogMode(fetchedCatalogMode);
                     const raw = paramMap.get('productsSettings');
                     if (raw) {
                         try {
@@ -547,17 +565,18 @@ export default function EditMenuPage() {
 
                 // Build inventory from ALL products (including formulas) for main app
                 const inventoryFromDb = buildInventoryFromAdminProducts(loadedProducts);
+                const paramForConfig = parametersRef.current;
                 const updatedParameters = {
-                    ...parameters,
+                    ...paramForConfig,
                     display: {
-                        showWaiting: parameters.display?.showWaiting ?? true,
-                        showRefund: parameters.display?.showRefund ?? true,
-                        showProvision: parameters.display?.showProvision ?? true,
-                        showDebit: parameters.display?.showDebit ?? true,
-                        showChange: parameters.display?.showChange ?? true,
+                        showWaiting: paramForConfig.display?.showWaiting ?? true,
+                        showRefund: paramForConfig.display?.showRefund ?? true,
+                        showProvision: paramForConfig.display?.showProvision ?? true,
+                        showDebit: paramForConfig.display?.showDebit ?? true,
+                        showChange: paramForConfig.display?.showChange ?? true,
                         catalogMode: fetchedCatalogMode,
-                        useTakeOut: parameters.display?.useTakeOut ?? false,
-                        displayOthers: parameters.display?.displayOthers,
+                        useTakeOut: paramForConfig.display?.useTakeOut ?? false,
+                        displayOthers: paramForConfig.display?.displayOthers,
                     },
                     lastModified: Date.now().toString(),
                 };
@@ -612,7 +631,6 @@ export default function EditMenuPage() {
         openFullscreenPopup,
         inventory,
         currencies,
-        parameters,
         paymentMethods,
         discounts,
         colors,
@@ -621,6 +639,7 @@ export default function EditMenuPage() {
         users,
         setConfig,
         setParameters,
+        setCatalogMode,
     ]);
 
     const handleProductsChange = useCallback(
@@ -1054,7 +1073,7 @@ export default function EditMenuPage() {
                     />
                 )}
 
-                {parameters?.display?.catalogMode && categories.length > 0 ? (
+                {catalogMode && categories.length > 0 ? (
                     <CatalogEditor
                         products={nonFormulaProducts}
                         categories={categoryOptions}

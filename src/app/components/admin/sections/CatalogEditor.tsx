@@ -247,7 +247,9 @@ export default function CatalogEditor({
         const el = categoryBarRef.current;
         if (!el) return;
         setCanScrollLeft(el.scrollLeft > 0);
-        setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
+        // 4px tolerance so a near-but-not-exact scroll at the end still hides
+        // the arrow without the user having to press twice.
+        setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
     }, []);
 
     const scrollCategoryBar = useCallback((direction: 'left' | 'right') => {
@@ -257,11 +259,22 @@ export default function CatalogEditor({
         const maxScroll = el.scrollWidth - visibleWidth;
         let target: number;
         if (direction === 'right') {
+            const remaining = maxScroll - el.scrollLeft;
+            // If the remaining distance is one page or less, snap directly to the
+            // end with an instant scroll so we don't end up just short due to
+            // non-uniform tab widths or smooth-scroll rounding.
+            if (remaining <= visibleWidth + 4) {
+                el.scrollTo({ left: maxScroll, behavior: 'auto' });
+                return;
+            }
             target = el.scrollLeft + visibleWidth;
-            if (target > maxScroll) target = maxScroll;
         } else {
+            const fromStart = el.scrollLeft;
+            if (fromStart <= visibleWidth + 4) {
+                el.scrollTo({ left: 0, behavior: 'auto' });
+                return;
+            }
             target = el.scrollLeft - visibleWidth;
-            if (target < 0) target = 0;
         }
         el.scrollTo({ left: target, behavior: 'smooth' });
     }, []);
@@ -468,7 +481,7 @@ export default function CatalogEditor({
                         <button
                             type="button"
                             onClick={() => scrollCategoryBar('left')}
-                            className="shrink-0 p-1 hover:bg-active-light dark:hover:bg-active-dark text-light dark:text-dark cursor-pointer"
+                            className="shrink-0 p-1 h-11 hover:bg-active-light dark:hover:bg-active-dark text-light dark:text-dark cursor-pointer"
                         >
                             <IconChevronLeft size={24} />
                         </button>
@@ -483,7 +496,7 @@ export default function CatalogEditor({
                             <div
                                 key={category}
                                 className={twMerge(
-                                    'flex-1 min-w-fit px-4 py-2 font-semibold text-lg text-center cursor-pointer whitespace-nowrap',
+                                    'min-w-fit px-4 py-2 font-semibold text-lg text-center cursor-pointer whitespace-nowrap',
                                     'hover:bg-active-light dark:hover:bg-active-dark',
                                     index === selectedCategoryIndex
                                         ? 'bg-active-light dark:bg-active-dark text-popup-dark dark:text-popup-light'
@@ -499,7 +512,7 @@ export default function CatalogEditor({
                         <button
                             type="button"
                             onClick={() => scrollCategoryBar('right')}
-                            className="shrink-0 p-1 hover:bg-active-light dark:hover:bg-active-dark text-light dark:text-dark cursor-pointer"
+                            className="shrink-0 p-1 h-11 hover:bg-active-light dark:hover:bg-active-dark text-light dark:text-dark cursor-pointer"
                         >
                             <IconChevronRight size={24} />
                         </button>

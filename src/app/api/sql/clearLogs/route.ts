@@ -4,17 +4,19 @@ import { getPosDb } from '../db';
 
 export const dynamic = 'force-dynamic';
 
-// Clear the dc_sys.logs table on app startup, mirroring the log file behaviour
+// Clear logs for this device on app startup, mirroring the log file behaviour
 // (fs.createWriteStream with flags: 'w' truncates the file on every start).
+// The request body contains the device public key as `source`.
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
     let connection;
     try {
+        const { source } = (await request.json()) as { source?: string };
         connection = await getPosDb(shopId);
         const query = connection.isPostgreSQL
-            ? 'TRUNCATE TABLE dc_sys.logs'
-            : 'TRUNCATE TABLE dc_sys.logs';
-        await connection.execute(query);
+            ? 'DELETE FROM dc_sys.logs WHERE source = $1'
+            : 'DELETE FROM logs WHERE source = ?';
+        await connection.execute(query, [source ?? null]);
         await connection.end();
         return NextResponse.json({ success: true }, { status: 200 });
     } catch (error) {
