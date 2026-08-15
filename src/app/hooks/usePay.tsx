@@ -54,7 +54,8 @@ export const usePay = () => {
     const { openPopup, closePopup, openFullscreenPopup } = usePopup();
     const {
         updateTransaction,
-        getCurrentTotal,
+        getCustomerTotal,
+        employerShare,
         toCurrency,
         total,
         amount,
@@ -185,12 +186,13 @@ export const usePay = () => {
                 transaction = {
                     validator: parameters.user.name,
                     method,
-                    amount: getCurrentTotal(),
+                    amount: getCustomerTotal(),
                     createdDate: now,
                     modifiedDate: now,
                     currency: currencies[currencyIndex].label,
                     products: [...products.current],
                     takeOut: counterServiceType === 'takeout',
+                    ...(employerShare > 0 ? { employerShare } : {}),
                 };
             }
             updateTransaction(item);
@@ -213,7 +215,8 @@ export const usePay = () => {
             updateTransaction,
             setCurrentCustomer,
             parameters.user.name,
-            getCurrentTotal,
+            getCustomerTotal,
+            employerShare,
             currencies,
             currencyIndex,
             products,
@@ -281,11 +284,12 @@ export const usePay = () => {
                 currentTransaction = {
                     validator: parameters.user.name,
                     method: WAITING_KEYWORD,
-                    amount: getCurrentTotal(),
+                    amount: getCustomerTotal(),
                     createdDate: new Date().getTime(),
                     modifiedDate: new Date().getTime(),
                     currency: currency.label,
                     products: products.current,
+                    ...(employerShare > 0 ? { employerShare } : {}),
                 };
             }
 
@@ -314,7 +318,8 @@ export const usePay = () => {
             resolvePrinterAddresses,
             inventory,
             products,
-            getCurrentTotal,
+            getCustomerTotal,
+            employerShare,
             currencies,
             currencyIndex,
             orderData,
@@ -335,12 +340,13 @@ export const usePay = () => {
                 currentTransaction = {
                     validator: parameters.user.name,
                     method: WAITING_KEYWORD,
-                    amount: getCurrentTotal(),
+                    amount: getCustomerTotal(),
                     createdDate: new Date().getTime(),
                     modifiedDate: new Date().getTime(),
                     currency: currencies[currencyIndex].label,
                     products: products.current,
                     takeOut: counterServiceType === 'takeout',
+                    ...(employerShare > 0 ? { employerShare } : {}),
                 };
             }
 
@@ -368,7 +374,8 @@ export const usePay = () => {
             currencies,
             currencyIndex,
             products,
-            getCurrentTotal,
+            getCustomerTotal,
+            employerShare,
             getPrinterAddressByRole,
             orderData,
             counterServiceType,
@@ -468,7 +475,7 @@ export const usePay = () => {
     const openQRCode = useCallback(
         (onCancel: (onConfirm: () => void) => void, onConfirm: () => void) => {
             openPopup(
-                'Paiement : ' + toCurrency(getCurrentTotal()),
+                'Paiement : ' + toCurrency(getCustomerTotal()),
                 [<QRCode key="QRCode" />],
                 (index) => {
                     if (refPaymentStatus.current === PaymentStatus.Pending) {
@@ -499,7 +506,7 @@ export const usePay = () => {
             retry,
             refPaymentStatus,
             toCurrency,
-            getCurrentTotal,
+            getCustomerTotal,
             openPopup,
             init,
             crypto,
@@ -508,10 +515,10 @@ export const usePay = () => {
 
     const cancelOrConfirmPaiement = useCallback(
         (onConfirm: () => void) => {
-            if (getCurrentTotal() === 0) return;
+            if (getCustomerTotal() === 0) return;
 
             openPopup(
-                'Paiement : ' + toCurrency(getCurrentTotal()),
+                'Paiement : ' + toCurrency(getCustomerTotal()),
                 ['Attendre paiement', 'Changer mode paiement', 'Annuler paiement'].concat(
                     IS_LOCAL || currencies[currencyIndex].symbol === 'Ğ1' ? 'Valider paiement' : []
                 ),
@@ -540,7 +547,7 @@ export const usePay = () => {
         [
             openPopup,
             toCurrency,
-            getCurrentTotal,
+            getCustomerTotal,
             openQRCode,
             retry,
             closePopup,
@@ -554,7 +561,7 @@ export const usePay = () => {
     const selectPayment = useCallback(
         (option: string, fallback: () => void) => {
             const finalizeProvisionPayment = async (customer: Customer, selectedOption: string) => {
-                const provisionAmount = getCurrentTotal() || amount;
+                const provisionAmount = getCustomerTotal() || amount;
                 // Floor to seconds to match SQL TIMESTAMP precision, otherwise the transaction
                 // is treated as a distinct entry when merging with SQL data (duplicate in the UI).
                 const now = floorToSeconds(new Date().getTime());
@@ -576,7 +583,7 @@ export const usePay = () => {
 
             const finalizeDebitPayment = async (customer: Customer) => {
                 // Capture the amount before updateTransaction, which may reset the current total.
-                const debitAmount = getCurrentTotal();
+                const debitAmount = getCustomerTotal();
                 const now = floorToSeconds(new Date().getTime());
                 const fullName = `${customer.firstName} ${customer.lastName}`.trim();
                 const transaction: Transaction = {
@@ -588,6 +595,7 @@ export const usePay = () => {
                     currency: currencies[currencyIndex].label,
                     products: products.current,
                     customerName: fullName,
+                    ...(employerShare > 0 ? { employerShare } : {}),
                 };
                 setCurrentCustomer(customer);
                 commitTransaction(transaction);
@@ -704,7 +712,7 @@ export const usePay = () => {
             // Notify the customer-facing display about the payment type. Internal actions
             // (printing, putting on hold, refunding...) are not payments and must not be shown.
             if (!NON_PAYMENT_KEYWORDS.includes(paymentType)) {
-                postCustomerDisplay(buildPaymentDisplay(paymentType, getCurrentTotal(), currencies[currencyIndex]));
+                postCustomerDisplay(buildPaymentDisplay(paymentType, getCustomerTotal(), currencies[currencyIndex]));
             }
 
             switch (paymentType) {
@@ -756,7 +764,7 @@ export const usePay = () => {
                             // Refund of existing tx is handled directly by refundTransaction in Total.tsx.
                             const isCancelingExisting = false;
                             // For provision refunds there are no products, so fall back to the original transaction amount.
-                            const refundAmount = getCurrentTotal() || originalTransaction?.amount || 0;
+                            const refundAmount = getCustomerTotal() || originalTransaction?.amount || 0;
 
                             // Use reverseTransaction to properly reverse quantities using computeQuantity
                             const currentTransaction: Transaction = {
@@ -792,7 +800,7 @@ export const usePay = () => {
                     break;
                 case 'Espèces':
                     if (parameters.display?.showChange !== false) {
-                        const cashTotal = getCurrentTotal().clean(currencies[currencyIndex].decimals);
+                        const cashTotal = getCustomerTotal().clean(currencies[currencyIndex].decimals);
                         openFullscreenPopup(
                             'Paiement en espèces',
                             [
@@ -812,6 +820,7 @@ export const usePay = () => {
                                             products: products.current,
                                             cashAmount,
                                             change: changeAmount,
+                                            ...(employerShare > 0 ? { employerShare } : {}),
                                         };
                                         commitTransaction(transaction);
                                         triggerCashDrawer();
@@ -880,7 +889,7 @@ export const usePay = () => {
             products,
             currencies,
             currencyIndex,
-            getCurrentTotal,
+            getCustomerTotal,
             parameters.user.name,
             parameters.display?.showChange,
             parameters.display?.useTakeOut,
@@ -897,6 +906,7 @@ export const usePay = () => {
             orderId,
             setCounterServiceType,
             triggerCashDrawer,
+            employerShare,
         ]
     );
 
@@ -1114,7 +1124,7 @@ export const usePay = () => {
                 setCounterServiceType('takeout');
             }
 
-            const total = getCurrentTotal();
+            const total = getCustomerTotal();
             if (total && paymentMethods.length) {
                 // Check if this order has already been partially paid
                 if (orderId && orderData && orderData.paid_amount > 0) {
@@ -1188,7 +1198,7 @@ export const usePay = () => {
         selectPaymentForPartial,
         openPopup,
         closePopup,
-        getCurrentTotal,
+        getCustomerTotal,
         paymentMethods,
         getPrintersNames,
         printTransaction,

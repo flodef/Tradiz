@@ -187,6 +187,7 @@ export type Transaction = {
     cashAmount?: number;
     change?: number;
     takeOut?: boolean;
+    employerShare?: number;
 };
 
 export type TransactionSet = {

@@ -124,7 +124,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     const [navExpanded, setNavExpanded] = useState(false);
     const {
         total,
-        getCurrentTotal,
+        employerShare,
         amount,
         selectedProduct,
         transactions,
@@ -368,12 +368,14 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
 
         const printerOptions = getPrintersNames();
 
+        const productLines = products.current.map((product) => displayProduct(product));
+        if (employerShare > 0) {
+            productLines.push('Quote part employeur : -' + toCurrency(employerShare));
+        }
+
         openPopup(
-            products.current.length + ' produits : ' + toCurrency(getCurrentTotal()),
-            products.current
-                .map((product) => displayProduct(product))
-                .concat(printerOptions)
-                .concat(['', payLabel]),
+            products.current.length + ' produits : ' + toCurrency(total),
+            productLines.concat(printerOptions).concat(['', payLabel]),
             (index, option) => {
                 if (option === payLabel) {
                     pay();
@@ -412,7 +414,6 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
             (option) => Boolean(selectedProduct && option === displayProduct(selectedProduct))
         );
     }, [
-        getCurrentTotal,
         pay,
         products,
         openPopup,
@@ -424,6 +425,8 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         selectedProduct,
         getPrintersNames,
         printTransaction,
+        employerShare,
+        total,
     ]);
 
     const deleteBoughtProduct = useCallback(
@@ -473,6 +476,14 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
             const productLines = isProvision
                 ? [PROVISION_KEYWORD + ' : ' + (transaction.customerName ?? '')]
                 : transaction.products.map((product) => displayProduct(product, transaction.currency));
+
+            // Add employer share line if the transaction has one
+            if (transaction.employerShare && transaction.employerShare > 0) {
+                productLines.push(
+                    'Quote part employeur : -' +
+                        toCurrency({ amount: transaction.employerShare, currency: transaction.currency })
+                );
+            }
 
             openPopup(
                 toCurrency(transaction) +

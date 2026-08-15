@@ -356,6 +356,14 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
             current.ttc += itemTotalTTC;
         });
 
+        // Print employer share line if applicable
+        const employerShare = receiptData.transaction.employerShare;
+        if (employerShare && employerShare > 0) {
+            printer.alignLeft();
+            printer.leftRight('Quote part employeur', '-' + toCurrency(employerShare, currency));
+            printer.drawLine();
+        }
+
         // Print total
         printer.newLine();
         printer.drawLine();
@@ -379,9 +387,15 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
         printer.drawLine();
 
         // Print total TTC (larger and bold, isolated)
+        // If there's an employer share, show the products total then the customer-paid total
         printer.setTextDoubleHeight();
         printer.bold(true);
-        printer.leftRight('TOTAL TTC', toCurrency(totalTTC, currency));
+        if (employerShare && employerShare > 0) {
+            printer.leftRight('Total produits', toCurrency(totalTTC, currency));
+            printer.leftRight('NET À PAYER', toCurrency(Math.max(0, totalTTC - employerShare), currency));
+        } else {
+            printer.leftRight('TOTAL TTC', toCurrency(totalTTC, currency));
+        }
         printer.bold(false);
         printer.setTextNormal();
         printer.drawLine();

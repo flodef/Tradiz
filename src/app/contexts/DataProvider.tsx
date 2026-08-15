@@ -16,6 +16,7 @@ import {
 } from '../utils/constants';
 import { getFormattedDate, getTransactionFileName, toSQLDateTime } from '../utils/date';
 import {
+    Company,
     Customer,
     Discount,
     OrderData,
@@ -126,6 +127,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [counterServiceType, setCounterServiceTypeState] = useState<ServiceType>('takeout');
     const [contextTableId, setContextTableId] = useState('');
     const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
+    const [companies, setCompanies] = useState<Company[]>([]);
     const counterServiceTypeRef = useRef<ServiceType>('takeout');
     const setCounterServiceType = useCallback((type: ServiceType) => {
         counterServiceTypeRef.current = type;
@@ -144,6 +146,26 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, []);
 
     const isDbConnected = useMemo(() => hasDbConfig && isOnline, [hasDbConfig, isOnline]);
+
+    // Fetch companies for employer meal price calculation
+    useEffect(() => {
+        if (!isDbConnected) return;
+        fetch('/api/sql/getCompanies')
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.companies) setCompanies(data.companies);
+            })
+            .catch((error) => console.error('Failed to fetch companies:', error));
+    }, [isDbConnected]);
+
+    // Compute employer share: if the current customer belongs to a company with
+    // a meal price > 0, the employer pays part of the meal (capped at the total).
+    const employerShare = useMemo(() => {
+        if (!currentCustomer?.company) return 0;
+        const company = companies.find((c) => c.name === currentCustomer.company);
+        if (!company || !company.mealPrice || company.mealPrice <= 0) return 0;
+        return company.mealPrice;
+    }, [currentCustomer?.company, companies]);
 
     useEffect(() => {
         setCurrentMercurial(parameters.mercurial);
@@ -1057,9 +1079,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         return products.current ? products.current.reduce((t, { total }) => t + (total ?? 0), 0) : 0;
     }, [products]);
 
+    // The amount the customer actually pays: products total minus the employer
+    // share (capped at 0 so the total never goes negative).
+    const getCustomerTotal = useCallback(() => {
+        return Math.max(0, getCurrentTotal() - employerShare);
+    }, [getCurrentTotal, employerShare]);
+
     const updateTotal = useCallback(() => {
-        setTotal(getCurrentTotal());
-    }, [getCurrentTotal]);
+        setTotal(getCustomerTotal());
+    }, [getCustomerTotal]);
 
     const clearAmount = useCallback(() => {
         setAmount(0);
@@ -1077,6 +1105,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         setShortNumOrder('');
         setOrderId('');
     }, [clearAmount, clearProcessingTransaction]);
+
+    // Recalculate the total when the employer share changes (e.g. customer
+    // selected/deselected, or companies list loaded after products were added).
+    useEffect(() => {
+        if (products.current.length > 0) updateTotal();
+    }, [employerShare, updateTotal]);
 
     const computeDiscount = useCallback((product: Product) => {
         return product.discount.unit === '%'
@@ -1285,12 +1319,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 const transaction: Transaction = {
                     validator: parameters.user.name,
                     method: PROCESSING_KEYWORD,
-                    amount: getCurrentTotal(),
+                    amount: getCustomerTotal(),
                     createdDate: now,
                     modifiedDate: now,
                     currency: currencies[currencyIndex].label,
                     products: products.current.map((p) => ({ ...p })),
                     takeOut: counterServiceTypeRef.current === 'takeout',
+                    ...(employerShare > 0 ? { employerShare } : {}),
                 };
                 transactionId.current = now;
                 storeTransaction(transaction);
@@ -1298,13 +1333,27 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             } else if (hasProducts && existingProcessing) {
                 // Update the existing PROCESSING transaction with current products
                 existingProcessing.products = products.current.map((p) => ({ ...p }));
-                existingProcessing.amount = getCurrentTotal();
+                existingProcessing.amount = getCustomerTotal();
+                if (employerShare > 0) {
+                    existingProcessing.employerShare = employerShare;
+                } else {
+                    delete existingProcessing.employerShare;
+                }
                 existingProcessing.modifiedDate = floorToSeconds(new Date().getTime());
                 storeTransaction(existingProcessing);
                 saveTransactions(DatabaseAction.update, existingProcessing);
             }
         }, 500);
-    }, [transactions, parameters.user, currencies, currencyIndex, getCurrentTotal, storeTransaction, saveTransactions]);
+    }, [
+        transactions,
+        parameters.user,
+        currencies,
+        currencyIndex,
+        getCustomerTotal,
+        employerShare,
+        storeTransaction,
+        saveTransactions,
+    ]);
     saveProcessingTransactionRef.current = saveProcessingTransaction;
 
     const editTransaction = useCallback(
@@ -1355,13 +1404,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     : {
                           validator: parameters.user.name,
                           method: item,
-                          amount: getCurrentTotal(),
+                          amount: getCustomerTotal(),
                           createdDate: existingTransaction?.createdDate || transactionId.current || currentTime,
                           modifiedDate: currentTime,
                           currency: currencies[currencyIndex].label,
                           customerName: existingTransaction?.customerName,
                           products: products.current,
                           takeOut: counterServiceTypeRef.current === 'takeout',
+                          ...(employerShare > 0 ? { employerShare } : {}),
                           ...(shortNumOrder ? { shortNumOrder } : {}),
                       };
 
@@ -1374,13 +1424,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             clearTotal,
             products,
             saveTransactions,
-            getCurrentTotal,
+            getCustomerTotal,
             currencies,
             currencyIndex,
             storeTransaction,
             parameters,
             shortNumOrder,
             transactions,
+            employerShare,
         ]
     );
 
@@ -1445,6 +1496,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             value={{
                 total,
                 getCurrentTotal,
+                getCustomerTotal,
+                employerShare,
                 amount,
                 setAmount,
                 quantity,
