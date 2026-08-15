@@ -203,6 +203,7 @@ export default function EditMenuPage() {
         currencies,
         parameters,
         setConfig,
+        setParameters,
         paymentMethods,
         discounts,
         colors,
@@ -546,21 +547,22 @@ export default function EditMenuPage() {
 
                 // Build inventory from ALL products (including formulas) for main app
                 const inventoryFromDb = buildInventoryFromAdminProducts(loadedProducts);
-                const config: Config = {
-                    parameters: {
-                        ...parameters,
-                        display: {
-                            showWaiting: parameters.display?.showWaiting ?? true,
-                            showRefund: parameters.display?.showRefund ?? true,
-                            showProvision: parameters.display?.showProvision ?? true,
-                            showDebit: parameters.display?.showDebit ?? true,
-                            showChange: parameters.display?.showChange ?? true,
-                            catalogMode: fetchedCatalogMode,
-                            useTakeOut: parameters.display?.useTakeOut ?? false,
-                            displayOthers: parameters.display?.displayOthers,
-                        },
-                        lastModified: Date.now().toString(),
+                const updatedParameters = {
+                    ...parameters,
+                    display: {
+                        showWaiting: parameters.display?.showWaiting ?? true,
+                        showRefund: parameters.display?.showRefund ?? true,
+                        showProvision: parameters.display?.showProvision ?? true,
+                        showDebit: parameters.display?.showDebit ?? true,
+                        showChange: parameters.display?.showChange ?? true,
+                        catalogMode: fetchedCatalogMode,
+                        useTakeOut: parameters.display?.useTakeOut ?? false,
+                        displayOthers: parameters.display?.displayOthers,
                     },
+                    lastModified: Date.now().toString(),
+                };
+                const config: Config = {
+                    parameters: updatedParameters,
                     currencies,
                     paymentMethods,
                     inventory: inventoryFromDb,
@@ -571,6 +573,7 @@ export default function EditMenuPage() {
                     users,
                 };
                 setConfig(config);
+                setParameters(updatedParameters);
 
                 // Initialize options from products (excluding formulas)
                 const loadedOptions: ProductOptionGroup[] = [];

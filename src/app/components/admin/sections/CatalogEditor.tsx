@@ -240,52 +240,35 @@ export default function CatalogEditor({
         return gridProducts.find((p) => p._gridId === selectedProductId) ?? null;
     }, [selectedProductId, gridProducts]);
 
-    // Arrows show based on whether there are more categories to navigate to
-    const canScrollLeft = selectedCategoryIndex > 0;
-    const canScrollRight = selectedCategoryIndex < categoryLabels.length - 1;
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
 
-    // Count how many category tabs fit in the visible width
-    const getVisibleCount = useCallback(() => {
+    const updateScrollState = useCallback(() => {
         const el = categoryBarRef.current;
-        if (!el || !el.children.length) return 1;
-        const visibleWidth = el.clientWidth;
-        const firstChild = el.children[0] as HTMLElement;
-        const tabWidth = firstChild.offsetWidth;
-        if (tabWidth === 0) return 1;
-        return Math.max(1, Math.floor(visibleWidth / tabWidth));
+        if (!el) return;
+        setCanScrollLeft(el.scrollLeft > 0);
+        setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
     }, []);
 
-    const scrollCategoryBar = useCallback(
-        (direction: 'left' | 'right') => {
-            const visibleCount = getVisibleCount();
-            if (direction === 'right') {
-                const maxIndex = categoryLabels.length - 1;
-                const nextIndex = selectedCategoryIndex + visibleCount;
-                if (nextIndex > maxIndex) {
-                    // Not enough for a full page — show last page
-                    const lastPageStart = Math.max(0, maxIndex - visibleCount + 1);
-                    setSelectedCategoryIndex(lastPageStart);
-                } else {
-                    setSelectedCategoryIndex(nextIndex);
-                }
-            } else {
-                const prevIndex = selectedCategoryIndex - visibleCount;
-                setSelectedCategoryIndex(Math.max(0, prevIndex));
-            }
-        },
-        [getVisibleCount, categoryLabels.length, selectedCategoryIndex]
-    );
-
-    // Scroll the selected category tab into view
-    useEffect(() => {
+    const scrollCategoryBar = useCallback((direction: 'left' | 'right') => {
         const el = categoryBarRef.current;
-        if (!el || !el.children[selectedCategoryIndex]) return;
-        const tab = el.children[selectedCategoryIndex] as HTMLElement;
-        el.scrollTo({
-            left: tab.offsetLeft - 8,
-            behavior: 'smooth',
-        });
-    }, [selectedCategoryIndex]);
+        if (!el) return;
+        const visibleWidth = el.clientWidth;
+        const maxScroll = el.scrollWidth - visibleWidth;
+        let target: number;
+        if (direction === 'right') {
+            target = el.scrollLeft + visibleWidth;
+            if (target > maxScroll) target = maxScroll;
+        } else {
+            target = el.scrollLeft - visibleWidth;
+            if (target < 0) target = 0;
+        }
+        el.scrollTo({ left: target, behavior: 'smooth' });
+    }, []);
+
+    useEffect(() => {
+        updateScrollState();
+    }, [categoryLabels, updateScrollState]);
 
     // Reset selected category if out of bounds
     useEffect(() => {
@@ -481,6 +464,7 @@ export default function CatalogEditor({
                     )}
                     <div
                         ref={categoryBarRef}
+                        onScroll={updateScrollState}
                         className="flex overflow-x-auto border-none scrollbar-none"
                         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                     >
@@ -488,7 +472,7 @@ export default function CatalogEditor({
                             <div
                                 key={category}
                                 className={twMerge(
-                                    'min-w-[5rem] px-4 py-2 font-semibold text-lg text-center cursor-pointer whitespace-nowrap',
+                                    'flex-1 min-w-[5rem] px-4 py-2 font-semibold text-lg text-center cursor-pointer whitespace-nowrap',
                                     'hover:bg-active-light dark:hover:bg-active-dark',
                                     index === selectedCategoryIndex
                                         ? 'bg-active-light dark:bg-active-dark text-popup-dark dark:text-popup-light'
