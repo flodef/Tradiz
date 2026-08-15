@@ -12,13 +12,13 @@ describe('computeSortOrders (from updateArticles route)', () => {
 
         const sortOrders = computeSortOrders(products);
 
-        // CatA appears first, so its products get sort orders starting at 10001
-        expect(sortOrders[0]).toBe(10001); // A1 - first in CatA
-        expect(sortOrders[2]).toBe(10002); // A2 - second in CatA
+        // CatA appears first, so its products get sort orders starting at 10000
+        expect(sortOrders[0]).toBe(10000); // A1 - first in CatA
+        expect(sortOrders[2]).toBe(10001); // A2 - second in CatA
 
-        // CatB appears second, so its products get sort orders starting at 20001
-        expect(sortOrders[1]).toBe(20001); // B1 - first in CatB
-        expect(sortOrders[3]).toBe(20002); // B2 - second in CatB
+        // CatB appears second, so its products get sort orders starting at 20000
+        expect(sortOrders[1]).toBe(20000); // B1 - first in CatB
+        expect(sortOrders[3]).toBe(20001); // B2 - second in CatB
     });
 
     it('should handle single category', () => {
@@ -30,7 +30,7 @@ describe('computeSortOrders (from updateArticles route)', () => {
 
         const sortOrders = computeSortOrders(products);
 
-        expect(sortOrders).toEqual([10001, 10002, 10003]);
+        expect(sortOrders).toEqual([10000, 10001, 10002]);
     });
 
     it('should handle many products per category', () => {
@@ -43,7 +43,7 @@ describe('computeSortOrders (from updateArticles route)', () => {
 
         const sortOrders = computeSortOrders(products);
 
-        expect(sortOrders[0]).toBe(10001);
-        expect(sortOrders[99]).toBe(10100);
+        expect(sortOrders[0]).toBe(10000);
+        expect(sortOrders[99]).toBe(10099);
     });
 });

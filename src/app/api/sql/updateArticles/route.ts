@@ -18,13 +18,26 @@ interface Product {
     gridPosition?: number;
 }
 
-// Compute encoded sort_order: (categoryIndex + 1) * 10000 + (positionWithinCategory + 1)
+// Grid dimensions — must match CatalogEditor.tsx
+const GRID_COLS = 6;
+
+// Compute encoded sort_order: (categoryIndex + 1) * 10000 + positionWithinCategory
 // Category order is derived from first appearance in the products array.
-// Max 9999 products per category.
-// If a product has gridPosition (0-indexed slot in the 6×6 catalog grid),
-// it is used as the position within the category, allowing sparse placement.
-// Products without gridPosition get sequential positions that don't collide
-// with explicit gridPositions.
+// Max 9999 products per category (position 0–9999).
+//
+// The encoding is the SAME for catalog and list modes — only the
+// positionWithinCategory part differs:
+//
+//   Catalog mode (product has gridPosition 0–35):
+//     positionWithinCategory = row * 100 + col
+//     e.g. gridPosition 0 → 000, gridPosition 6 → 100, gridPosition 35 → 505
+//     sort_order 120405 = category 12, row 4, col 5
+//
+//   List mode (no gridPosition):
+//     positionWithinCategory = sequential index (0, 1, 2, …)
+//     sort_order 120405 = category 12, position 405
+//
+// Both modes sort by sort_order ascending and produce the same relative order.
 export function computeSortOrders(products: Product[]): number[] {
     const categoryOrder: string[] = [];
     for (const p of products) {
@@ -38,16 +51,26 @@ export function computeSortOrders(products: Product[]): number[] {
         if (nextAuto[cat] === undefined) nextAuto[cat] = 0;
         const catIdx = categoryOrder.indexOf(cat);
         let pos: number;
-        if (p.gridPosition != null && p.gridPosition >= 0 && !usedPositions[cat].has(p.gridPosition)) {
-            pos = p.gridPosition;
-            usedPositions[cat].add(pos);
+        if (p.gridPosition != null && p.gridPosition >= 0) {
+            // Convert gridPosition (row-major 0–35) to catalog position: row * 100 + col
+            const catalogPos = Math.floor(p.gridPosition / GRID_COLS) * 100 + (p.gridPosition % GRID_COLS);
+            if (!usedPositions[cat].has(catalogPos)) {
+                pos = catalogPos;
+                usedPositions[cat].add(pos);
+            } else {
+                // Duplicate gridPosition — fall back to auto
+                while (usedPositions[cat].has(nextAuto[cat])) nextAuto[cat]++;
+                pos = nextAuto[cat];
+                usedPositions[cat].add(pos);
+                nextAuto[cat]++;
+            }
         } else {
             while (usedPositions[cat].has(nextAuto[cat])) nextAuto[cat]++;
             pos = nextAuto[cat];
             usedPositions[cat].add(pos);
             nextAuto[cat]++;
         }
-        return (catIdx + 1) * 10000 + (pos + 1);
+        return (catIdx + 1) * 10000 + pos;
     });
 }
 

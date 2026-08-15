@@ -464,8 +464,20 @@ export default function EditMenuPage() {
 
                 // Parse products from typed API objects
                 const loadedProducts: AdminProduct[] = [];
+                const isCatalogMode = parameters?.display?.catalogMode === true;
                 if (Array.isArray(productsData.products)) {
                     for (const p of productsData.products) {
+                        let gridPosition: number | undefined;
+                        if (p.sortOrder != null && isCatalogMode) {
+                            // Decode: positionWithinCategory = row * 100 + col
+                            // gridPosition (row-major 0–35) = row * 6 + col
+                            const pos = p.sortOrder % 10000;
+                            const row = Math.floor(pos / 100);
+                            const col = pos % 100;
+                            if (row < 6 && col < 6) {
+                                gridPosition = row * 6 + col;
+                            }
+                        }
                         loadedProducts.push({
                             name: String(p.label),
                             category: String(p.category),
@@ -477,7 +489,7 @@ export default function EditMenuPage() {
                             options: p.options ? String(p.options) : undefined,
                             color: p.color ? String(p.color) : undefined,
                             currencies: (p.prices ?? []).map(String),
-                            gridPosition: p.sortOrder != null ? (p.sortOrder % 10000) - 1 : undefined,
+                            gridPosition,
                         });
                     }
                 }
