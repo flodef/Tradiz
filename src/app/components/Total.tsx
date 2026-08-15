@@ -157,6 +157,14 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
 
     const label = useIsMobile() ? totalLabel : payLabel;
 
+    // PROCESSING transactions are editable only by the user who created them.
+    // Other users can view/print but not modify, delete, or refund them.
+    const isReadOnlyProcessingForUser = useCallback(
+        (transaction: Transaction) =>
+            isProcessingTransaction(transaction) && transaction.validator !== parameters.user?.name,
+        [parameters.user?.name]
+    );
+
     // Helper function to edit transaction, reversing refund transactions first
     const editTransactionWithReversal = useCallback(
         (index: number) => {
@@ -184,9 +192,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
             const isWaiting = isWaitingTransaction(transaction);
             // PROCESSING transactions are editable only by the user who created them.
             // Other users can see/print but not modify, delete, or refund them.
-            const isProcessing = isProcessingTransaction(transaction);
-            const isOwnProcessing = isProcessing && transaction.validator === parameters.user.name;
-            const isReadOnly = isProcessing && !isOwnProcessing;
+            const isReadOnly = isReadOnlyProcessingForUser(transaction);
 
             const editOptions = isReadOnly
                 ? []
@@ -276,7 +282,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
             getPrintersNames,
             transactions,
             refundTransaction,
-            parameters.user.name,
+            isReadOnlyProcessingForUser,
         ]
     );
 
@@ -459,8 +465,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
 
             // PROCESSING transactions are editable only by their creator. Other
             // users can view the products but not modify or delete them.
-            const isReadOnlyProcessing =
-                isProcessingTransaction(transaction) && transaction.validator !== parameters.user.name;
+            const isReadOnlyProcessing = isReadOnlyProcessingForUser(transaction);
 
             // A transaction with no product items is a provision: show a synthetic line so it is
             // still visible in the details (like a product would be).
@@ -518,7 +523,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
             modifyTransaction,
             isStateReady,
             deleteBoughtProduct,
-            parameters.user.name,
+            isReadOnlyProcessingForUser,
         ]
     );
 

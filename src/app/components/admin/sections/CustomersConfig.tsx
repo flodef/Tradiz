@@ -662,9 +662,9 @@ export default function CustomersConfig({
         let result = sortedCustomers;
         if (companyFilter) {
             if (companyFilter === NONE_COMPANY) {
-                result = result.filter((c) => !c.company);
+                result = result.filter((c) => !c.company?.trim());
             } else {
-                result = result.filter((c) => c.company === companyFilter);
+                result = result.filter((c) => (c.company ?? '').trim() === companyFilter);
             }
         }
         if (searchQuery.trim()) {
@@ -685,7 +685,7 @@ export default function CustomersConfig({
     const handlePrintCustomerList = useCallback(() => {
         const customersToPrint = companyFilter
             ? strip(customers).filter((c) =>
-                  companyFilter === NONE_COMPANY ? !c.company : c.company === companyFilter
+                  companyFilter === NONE_COMPANY ? !c.company?.trim() : (c.company ?? '').trim() === companyFilter
               )
             : strip(customers);
         const title = companyFilter
