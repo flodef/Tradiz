@@ -59,7 +59,7 @@ export default function ColorSwatchPicker({ color, onChange, isReadOnly = false 
                 {!currentHex && <span className="text-gray-400 text-xs">—</span>}
             </button>
             {open && (
-                <div className="absolute z-50 mt-1 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                <div className="absolute z-50 mt-1 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg w-max">
                     <div className="grid grid-cols-3 gap-1.5">
                         <button
                             type="button"
