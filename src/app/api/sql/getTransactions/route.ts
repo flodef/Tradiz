@@ -19,6 +19,7 @@ interface TransactionRow {
     currency: string;
     change: string;
     take_out: boolean;
+    employer_share?: number | null;
     createddate?: number; // PostgreSQL lowercases unquoted aliases
     modifieddate?: number;
     createdDate?: number; // MariaDB preserves case
@@ -114,6 +115,7 @@ export async function GET(request: Request) {
                 t.currency,
                 t.change,
                 t.take_out,
+                t.employer_share,
                 (EXTRACT(EPOCH FROM t.created_at) * 1000)::bigint as createddate,
                 (EXTRACT(EPOCH FROM t.updated_at) * 1000)::bigint as modifieddate
             FROM dc_pos.transactions t
@@ -132,6 +134,7 @@ export async function GET(request: Request) {
                 t.currency,
                 t.change,
                 t.take_out,
+                t.employer_share,
                 (UNIX_TIMESTAMP(t.created_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as createdDate,
                 (UNIX_TIMESTAMP(t.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate
             FROM transactions t
@@ -199,6 +202,7 @@ export async function GET(request: Request) {
                 ...(cashAmount !== undefined ? { cashAmount } : {}),
                 ...(parsedChange !== undefined ? { change: parsedChange } : {}),
                 ...(row.take_out ? { takeOut: true } : { takeOut: false }),
+                ...(row.employer_share != null ? { employerShare: Number(row.employer_share) } : {}),
             });
         }
 

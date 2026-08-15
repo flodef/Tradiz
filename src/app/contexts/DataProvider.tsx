@@ -889,6 +889,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             currency: transaction.currency,
                             change: encodeCashNote(transaction.cashAmount, transaction.change),
                             takeOut: transaction.takeOut ?? false,
+                            employer_share: transaction.employerShare ?? null,
                             created_at: toSQLDateTime(transaction.createdDate),
                             updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
                             products: transaction.products.map((product) => ({

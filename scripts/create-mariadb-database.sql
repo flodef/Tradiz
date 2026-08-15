@@ -267,6 +267,7 @@ CREATE TABLE IF NOT EXISTS `transactions` (
   `currency` varchar(10) NOT NULL DEFAULT '',
   `change` varchar(255) DEFAULT '',
   `take_out` tinyint(1) NOT NULL DEFAULT 1,
+  `employer_share` DECIMAL(10,2) DEFAULT NULL,
   `hash` varchar(64) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),

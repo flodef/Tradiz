@@ -23,6 +23,7 @@ interface TransactionData {
     currency: string;
     change?: string;
     takeOut?: boolean;
+    employer_share?: number | null;
     created_at: string;
     updated_at: string;
     products?: TransactionProduct[];
@@ -173,13 +174,13 @@ async function insertTransactionWithItems(connection: Connection, transaction: T
 
     const insertTransactionQuery = isPg
         ? `
-        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, hash, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, hash, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING id
     `
         : `
-        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, hash, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, hash, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const params = [
@@ -191,6 +192,7 @@ async function insertTransactionWithItems(connection: Connection, transaction: T
         transaction.currency,
         transaction.change || null,
         transaction.takeOut ?? false,
+        transaction.employer_share ?? null,
         hash,
         transaction.created_at,
         transaction.updated_at,
@@ -311,8 +313,8 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
         // If the row was deleted by a concurrent hardDelete, 0 rows are returned.
         const updateReturningQuery = `
             UPDATE ${prefix}transactions
-            SET customer_name = $1, user_name = $2, payment_method = $3, amount = $4, currency = $5, change = $6, take_out = $7, hash = $8, updated_at = $9
-            WHERE order_id = $10
+            SET customer_name = $1, user_name = $2, payment_method = $3, amount = $4, currency = $5, change = $6, take_out = $7, employer_share = $8, hash = $9, updated_at = $10
+            WHERE order_id = $11
             RETURNING id
         `;
         const hash = generateTransactionHash(transaction);
@@ -324,6 +326,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
             transaction.currency,
             transaction.change || null,
             transaction.takeOut ?? false,
+            transaction.employer_share ?? null,
             hash,
             transaction.updated_at,
             transaction.order_id,
@@ -359,7 +362,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
 
         const updateQuery = `
             UPDATE ${prefix}transactions
-            SET customer_name = ?, user_name = ?, payment_method = ?, amount = ?, currency = ?, change = ?, take_out = ?, hash = ?, updated_at = ?
+            SET customer_name = ?, user_name = ?, payment_method = ?, amount = ?, currency = ?, change = ?, take_out = ?, employer_share = ?, hash = ?, updated_at = ?
             WHERE id = ?
         `;
         await connection.execute(updateQuery, [
@@ -370,6 +373,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
             transaction.currency,
             transaction.change || null,
             transaction.takeOut ?? false,
+            transaction.employer_share ?? null,
             hash,
             transaction.updated_at,
             transactionId,
