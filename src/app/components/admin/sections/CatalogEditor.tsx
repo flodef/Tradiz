@@ -320,6 +320,7 @@ export default function CatalogEditor({
                 const duplicate: AdminProduct = {
                     ...dragged,
                     name: `${dragged.name} (copie)`,
+                    reference: undefined, // clear — reference has a unique DB constraint
                     gridPosition: toSlot,
                 };
                 onChange([...products, duplicate]);
@@ -418,6 +419,7 @@ export default function CatalogEditor({
         const duplicate: AdminProduct = {
             ...selectedProduct,
             name: `${selectedProduct.name} (copie)`,
+            reference: undefined, // clear — reference has a unique DB constraint
             gridPosition: firstEmpty < MAX_PRODUCTS ? firstEmpty : undefined,
         };
         onChange([...products, duplicate]);
