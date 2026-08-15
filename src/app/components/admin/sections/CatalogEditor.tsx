@@ -249,25 +249,55 @@ export default function CatalogEditor({
         setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
     }, []);
 
-    const scrollCategoryBar = useCallback((direction: 'left' | 'right') => {
+    // Count how many category tabs fit in the visible width
+    const getVisibleCount = useCallback(() => {
         const el = categoryBarRef.current;
-        if (!el) return;
+        if (!el || !el.children.length) return 1;
         const visibleWidth = el.clientWidth;
-        const maxScroll = el.scrollWidth - visibleWidth;
-        let target: number;
-        if (direction === 'right') {
-            target = el.scrollLeft + visibleWidth;
-            if (target > maxScroll) target = maxScroll;
-        } else {
-            target = el.scrollLeft - visibleWidth;
-            if (target < 0) target = 0;
-        }
-        el.scrollTo({ left: target, behavior: 'smooth' });
+        // children[0] is the first category tab
+        const firstChild = el.children[0] as HTMLElement;
+        const tabWidth = firstChild.offsetWidth;
+        if (tabWidth === 0) return 1;
+        return Math.max(1, Math.floor(visibleWidth / tabWidth));
     }, []);
+
+    const scrollCategoryBar = useCallback(
+        (direction: 'left' | 'right') => {
+            const visibleCount = getVisibleCount();
+            if (direction === 'right') {
+                // Move forward by one page; if not enough categories remain
+                // for a full page, shift to show the last page
+                const maxIndex = categoryLabels.length - 1;
+                const nextIndex = selectedCategoryIndex + visibleCount;
+                if (nextIndex > maxIndex) {
+                    // Not enough for a full page — show last page
+                    const lastPageStart = Math.max(0, maxIndex - visibleCount + 1);
+                    setSelectedCategoryIndex(lastPageStart);
+                } else {
+                    setSelectedCategoryIndex(nextIndex);
+                }
+            } else {
+                const prevIndex = selectedCategoryIndex - visibleCount;
+                setSelectedCategoryIndex(Math.max(0, prevIndex));
+            }
+        },
+        [getVisibleCount, categoryLabels.length, selectedCategoryIndex]
+    );
 
     useEffect(() => {
         updateScrollState();
     }, [categoryLabels, updateScrollState]);
+
+    // Scroll the selected category tab into view
+    useEffect(() => {
+        const el = categoryBarRef.current;
+        if (!el || !el.children[selectedCategoryIndex]) return;
+        const tab = el.children[selectedCategoryIndex] as HTMLElement;
+        el.scrollTo({
+            left: tab.offsetLeft - 8,
+            behavior: 'smooth',
+        });
+    }, [selectedCategoryIndex]);
 
     // Reset selected category if out of bounds
     useEffect(() => {
