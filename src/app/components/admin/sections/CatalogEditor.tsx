@@ -440,7 +440,7 @@ export default function CatalogEditor({
                     )}
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex gap-4" onClick={() => setSelectedProductId(null)}>
                     {/* 6×6 product grid */}
                     <div className="flex-1">
                         <DndContext
@@ -499,7 +499,10 @@ export default function CatalogEditor({
 
                     {/* Inline edit panel */}
                     {selectedProduct && !isReadOnly && (
-                        <div className="w-64 shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3 bg-white dark:bg-gray-800 overflow-visible">
+                        <div
+                            className="w-64 shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3 bg-white dark:bg-gray-800 overflow-visible"
+                            onClick={(e) => e.stopPropagation()}
+                        >
                             <div className="flex items-center justify-between">
                                 <h3 className="text-sm font-semibold">Édition produit</h3>
                                 <button
