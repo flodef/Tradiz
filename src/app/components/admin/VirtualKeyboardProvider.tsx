@@ -116,8 +116,14 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
         // This is more reliable than dispatching a synthetic keydown event, which
         // React's event system may not pick up correctly.
         if (enterHandlerRef.current) {
-            enterHandlerRef.current();
+            const handler = enterHandlerRef.current;
             enterHandlerRef.current = null;
+            handler();
+            // Dismiss the keyboard like the fallback path does, otherwise "valider"
+            // leaves it open when the handler is a no-op (e.g. empty search results).
+            active.element.blur();
+            setActiveInput(null);
+            activeInputRef.current = null;
             return;
         }
         // Fallback: dispatch a synthetic Enter keydown so the input's onKeyDown

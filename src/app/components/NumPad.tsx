@@ -633,7 +633,6 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
         removeProduct,
         clearTotal,
         selectedProduct,
-        setSelectedProduct,
         updateTransaction,
         transactions,
         isDbConnected,
@@ -709,12 +708,13 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                         newValue = parseFloat(newValue) <= max ? newValue : max.toString();
                         setValue(newValue);
                         if (selectedProduct) {
-                            const updated = {
-                                ...selectedProduct,
-                                amount: parseFloat(newValue) / Math.pow(10, maxDecimals),
-                            };
-                            setSelectedProduct(updated);
-                            computeQuantity(updated, updated.quantity);
+                            // selectedProduct is intentionally the SAME object as the matching
+                            // entry in products.current (a ref, not state). computeQuantity
+                            // mutates it and updateTotal() re-reads products.current, so the
+                            // mutation is load-bearing — copying here would break the total
+                            // and the reference-identity check in deleteProduct.
+                            selectedProduct.amount = parseFloat(newValue) / Math.pow(10, maxDecimals);
+                            computeQuantity(selectedProduct, selectedProduct.quantity);
                             setQuantity(0);
                         }
                     }
@@ -917,9 +917,9 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                     maxDecimals={maxDecimals}
                     onUseResult={(result) => {
                         if (selectedProduct) {
-                            const updated = { ...selectedProduct, amount: result };
-                            setSelectedProduct(updated);
-                            computeQuantity(updated, updated.quantity);
+                            // Mutation is intentional — see the comment in the key handler above.
+                            selectedProduct.amount = result;
+                            computeQuantity(selectedProduct, selectedProduct.quantity);
                         } else {
                             setValue((result * Math.pow(10, maxDecimals)).toShortFixed(0));
                             setAmount(result);

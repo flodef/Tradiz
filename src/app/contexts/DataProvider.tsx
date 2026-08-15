@@ -1024,13 +1024,18 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             return prev.filter((_, i) => i !== idx);
         });
     }, [parameters.user.name]);
+    // Flush the deferred hard-delete. Depends on `transactions` (not just
+    // saveTransactions) because clearProcessingTransaction always changes
+    // `transactions` when it sets the ref — relying on saveTransactions'
+    // identity alone would silently drop the delete if it ever stopped
+    // depending on `transactions`, leaking PROCESSING rows in the DB.
     useEffect(() => {
         if (pendingHardDeleteRef.current) {
             const tx = pendingHardDeleteRef.current;
             pendingHardDeleteRef.current = null;
             saveTransactions(DatabaseAction.hardDelete, tx);
         }
-    }, [saveTransactions]);
+    }, [transactions, saveTransactions]);
 
     const toCurrency = useCallback(
         (element: { amount: number; currency?: string } | number | Product | Transaction) => {

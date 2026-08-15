@@ -153,7 +153,10 @@ const SortableRow = memo(function SortableRow({
             <td className="p-2">
                 <div className="space-y-2">
                     {group.options.map((option, index) => (
-                        <div key={option.value} className="flex items-center gap-2">
+                        // Index key is correct here: only groups are drag-reorderable (by _id),
+                        // options are append/edit/delete only, and handleAddOption appends
+                        // { value: '' } so value is not unique.
+                        <div key={index} className="flex items-center gap-2">
                             {isReadOnly ? (
                                 <>
                                     <span className="text-sm">{option.value}</span>

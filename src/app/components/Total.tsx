@@ -44,6 +44,9 @@ function TopNavWithRoleCheck({
             onMouseDown={(e) => e.stopPropagation()}
             onMouseUp={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
+            // The parent top bar now handles click/context-menu for pay/ticket,
+            // so a long-press on the nav must not bubble up and open it.
+            onContextMenu={(e) => e.stopPropagation()}
         >
             <TopNav inline onCollapsedChange={onCollapsedChange} />
         </div>

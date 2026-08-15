@@ -745,7 +745,9 @@ export default function FormulasConfig({
                                                             );
                                                             return (
                                                                 <SortableProduct
-                                                                    key={product}
+                                                                    // Must match SortableProduct's dnd id (productIndex);
+                                                                    // product values can be '' when options run out.
+                                                                    key={productIndex}
                                                                     productIndex={productIndex}
                                                                     product={product}
                                                                     availableOptions={availableOptions}

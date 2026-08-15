@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
         `
             : `
             SELECT
-                rop.id,
+                rop.item_id as id,
                 rop.product_id,
                 p.name as label,
                 rop.quantity,
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
             FROM rel_order_product rop
             JOIN products p ON p.id = rop.product_id
             WHERE rop.order_id = ?
-            ORDER BY rop.id
+            ORDER BY rop.item_id
         `;
         const [productRows] = await connection.execute(productQuery, [orderId]);
 
@@ -163,7 +163,7 @@ export async function GET(request: NextRequest) {
                 FROM rel_order_formula_element rofe
                 JOIN products p ON p.id = rofe.product_id
                 WHERE rofe.order_formula_id = ?
-                ORDER BY rofe.id
+                ORDER BY rofe.item_id
             `;
             const [elementRows] = await connection.execute(elementQuery, [formula.id]);
 
