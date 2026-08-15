@@ -347,7 +347,9 @@ export const usePay = () => {
             if (!currentTransaction) return { error: 'Aucune transaction à imprimer' };
 
             const kitchenAddr = printerAddressOverride || getPrinterAddressByRole(PRINTER_ROLE.kitchen);
-            if (!kitchenAddr) return { error: 'Imprimante cuisine non configurée' };
+            // No kitchen printer configured — silently succeed (not an error).
+            // This prevents spurious error logs from all callers (autoPrint, Delete, etc.).
+            if (!kitchenAddr) return { success: true };
 
             return await printKitchenTicket([kitchenAddr], {
                 transaction: currentTransaction,
@@ -385,10 +387,14 @@ export const usePay = () => {
 
             // Print kitchen ticket for new orders (waiting/paid) or when canceling an existing order
             // Skip if the kitchen already received a ticket (e.g. paying a previously WAITING tx)
+            // Skip if no kitchen printer is configured — don't log an error, just silently skip.
             if (
                 !skipKitchenPrint &&
                 (isWaiting || isPaid || (isRefund && isCancelingExisting) || (isDeleted && isCancelingExisting))
             ) {
+                const kitchenAddr = getPrinterAddressByRole(PRINTER_ROLE.kitchen);
+                if (!kitchenAddr) return; // No kitchen printer configured — nothing to print
+
                 printKitchenReceipt(transaction).then((response) => {
                     if (!response.success) console.error('[autoPrint] Kitchen print failed:', response.error);
                 });
@@ -397,7 +403,7 @@ export const usePay = () => {
             // Cashier receipt is printed on demand only (via the "Imprimer" button),
             // not automatically on payment.
         },
-        [printKitchenReceipt]
+        [printKitchenReceipt, getPrinterAddressByRole]
     );
     autoPrintRef.current = autoPrint;
 
