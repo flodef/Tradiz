@@ -195,7 +195,9 @@ export default function EditMenuPage() {
     const [isSavingProducts, setIsSavingProducts] = useState(false);
     const [isSavingFormulas, setIsSavingFormulas] = useState(false);
     const [productsSettings, setProductsSettings] = useState<ProductsSettings | undefined>(parameters?.products);
-    const [openSection, setOpenSection] = useState<string | null>('products');
+    const [openSection, setOpenSection] = useState<string | null>(
+        parameters?.display?.catalogMode ? 'catalog' : 'products'
+    );
     const [options, setOptions] = useState<ProductOptionGroup[]>([]);
     const [originalOptions, setOriginalOptions] = useState<ProductOptionGroup[]>([]);
     const [hasOptionsChanges, setHasOptionsChanges] = useState(false);
