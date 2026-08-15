@@ -547,7 +547,20 @@ export default function EditMenuPage() {
                 // Build inventory from ALL products (including formulas) for main app
                 const inventoryFromDb = buildInventoryFromAdminProducts(loadedProducts);
                 const config: Config = {
-                    parameters: { ...parameters, lastModified: Date.now().toString() },
+                    parameters: {
+                        ...parameters,
+                        display: {
+                            showWaiting: parameters.display?.showWaiting ?? true,
+                            showRefund: parameters.display?.showRefund ?? true,
+                            showProvision: parameters.display?.showProvision ?? true,
+                            showDebit: parameters.display?.showDebit ?? true,
+                            showChange: parameters.display?.showChange ?? true,
+                            catalogMode: fetchedCatalogMode,
+                            useTakeOut: parameters.display?.useTakeOut ?? false,
+                            displayOthers: parameters.display?.displayOthers,
+                        },
+                        lastModified: Date.now().toString(),
+                    },
                     currencies,
                     paymentMethods,
                     inventory: inventoryFromDb,
