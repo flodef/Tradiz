@@ -6,6 +6,8 @@ import {
     closestCenter,
     DndContext,
     DragEndEvent,
+    DragStartEvent,
+    DragOverlay,
     PointerSensor,
     TouchSensor,
     useDroppable,
@@ -13,7 +15,6 @@ import {
     useSensors,
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react';
 import { AdminProduct } from './ProductsConfig';
 import { Currency } from '@/app/utils/interfaces';
@@ -55,36 +56,20 @@ interface SortableTileProps {
     currencySymbol: string;
 }
 
-function SortableTile({ product, index, isSelected, onSelect, currencySymbol }: SortableTileProps) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-        id: product._gridId,
-    });
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.5 : 1,
-    };
-
+function TileContent({
+    product,
+    index,
+    currencySymbol,
+}: {
+    product: GridProduct;
+    index: number;
+    currencySymbol: string;
+}) {
     const bgColor = colorToHex(product.color);
     const price = parseFloat(product.currencies[0] || '0') || 0;
 
     return (
-        <div
-            ref={setNodeRef}
-            {...attributes}
-            {...listeners}
-            className={twMerge(
-                'relative h-20 flex flex-col text-center font-semibold text-base border-[3px] rounded-2xl select-none cursor-pointer',
-                'border-secondary-light dark:border-secondary-dark shadow-xl',
-                bgColor ? 'text-black dark:text-white' : 'hover:bg-active-light dark:hover:bg-active-dark',
-                isSelected && 'ring-2 ring-blue-500 ring-offset-1'
-            )}
-            style={bgColor ? { ...style, backgroundColor: bgColor } : style}
-            onClick={(e) => {
-                e.stopPropagation();
-                onSelect();
-            }}
-        >
+        <>
             <div
                 className="h-15 flex items-center justify-center line-clamp-3 leading-tight hyphens-auto text-center"
                 lang="fr"
@@ -97,6 +82,38 @@ function SortableTile({ product, index, isSelected, onSelect, currencySymbol }: 
                     {currencySymbol}
                 </div>
             )}
+        </>
+    );
+}
+
+function SortableTile({ product, index, isSelected, onSelect, currencySymbol }: SortableTileProps) {
+    const { attributes, listeners, setNodeRef, isDragging } = useSortable({
+        id: product._gridId,
+    });
+    // No transform/transition — with DragOverlay, tiles stay in place while dragging
+    const style = {
+        opacity: isDragging ? 0 : 1,
+    };
+
+    const bgColor = colorToHex(product.color);
+
+    return (
+        <div
+            ref={setNodeRef}
+            {...attributes}
+            {...listeners}
+            className={twMerge(
+                'relative h-20 flex flex-col text-center font-semibold text-base border-[3px] rounded-2xl select-none cursor-pointer shadow-xl',
+                isSelected ? 'border-blue-500 animate-pulse' : 'border-secondary-light dark:border-secondary-dark',
+                bgColor ? 'text-black dark:text-white' : 'hover:bg-active-light dark:hover:bg-active-dark'
+            )}
+            style={bgColor ? { ...style, backgroundColor: bgColor } : style}
+            onClick={(e) => {
+                e.stopPropagation();
+                onSelect();
+            }}
+        >
+            <TileContent product={product} index={index} currencySymbol={currencySymbol} />
         </div>
     );
 }
@@ -132,6 +149,7 @@ export default function CatalogEditor({
 }: CatalogEditorProps) {
     const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
     const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+    const [activeProductId, setActiveProductId] = useState<string | null>(null);
     const categoryBarRef = useRef<HTMLDivElement>(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
@@ -197,6 +215,9 @@ export default function CatalogEditor({
         return slots;
     }, [gridProducts]);
 
+    // The product currently being dragged (for DragOverlay rendering)
+    const activeProduct = activeProductId ? gridSlots.find((s) => s?._gridId === activeProductId) ?? null : null;
+
     const selectedProduct = useMemo(() => {
         if (!selectedProductId) return null;
         return gridProducts.find((p) => p._gridId === selectedProductId) ?? null;
@@ -241,9 +262,14 @@ export default function CatalogEditor({
         setSelectedProductId(null);
     }, [selectedCategoryIndex]);
 
+    const handleDragStart = useCallback((event: DragStartEvent) => {
+        setActiveProductId(String(event.active.id));
+    }, []);
+
     const handleDragEnd = useCallback(
         (event: DragEndEvent) => {
             const { active, over } = event;
+            setActiveProductId(null);
             if (!over || active.id === over.id) return;
 
             // Find the dragged product's current slot index in the grid
@@ -404,7 +430,12 @@ export default function CatalogEditor({
                 <div className="flex gap-4">
                     {/* 6×6 product grid */}
                     <div className="flex-1">
-                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <DndContext
+                            sensors={sensors}
+                            collisionDetection={closestCenter}
+                            onDragStart={handleDragStart}
+                            onDragEnd={handleDragEnd}
+                        >
                             <SortableContext items={sortableItems} strategy={rectSortingStrategy}>
                                 <div className="grid grid-cols-6 auto-rows-20 gap-1 p-1">
                                     {gridSlots.map((product, index) => {
@@ -428,6 +459,28 @@ export default function CatalogEditor({
                                     })}
                                 </div>
                             </SortableContext>
+                            <DragOverlay dropAnimation={null}>
+                                {activeProduct ? (
+                                    <div
+                                        className={twMerge(
+                                            'relative h-20 flex flex-col text-center font-semibold text-base border-[3px] rounded-2xl select-none cursor-pointer shadow-2xl rotate-2 scale-105',
+                                            'border-blue-500',
+                                            activeProduct.color ? 'text-black dark:text-white' : ''
+                                        )}
+                                        style={
+                                            activeProduct.color
+                                                ? { backgroundColor: colorToHex(activeProduct.color) }
+                                                : undefined
+                                        }
+                                    >
+                                        <TileContent
+                                            product={activeProduct}
+                                            index={gridSlots.findIndex((s) => s?._gridId === activeProduct._gridId)}
+                                            currencySymbol={currencySymbol}
+                                        />
+                                    </div>
+                                ) : null}
+                            </DragOverlay>
                         </DndContext>
                     </div>
 
