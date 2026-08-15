@@ -15,7 +15,7 @@ import {
     useSensors,
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
-import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconCopy, IconX } from '@tabler/icons-react';
 import { AdminProduct } from './ProductsConfig';
 import { Currency } from '@/app/utils/interfaces';
 import { colorToHex } from '@/app/utils/colors';
@@ -375,6 +375,27 @@ export default function CatalogEditor({
         onChange(result);
     }, [selectedProduct, selectedProductId, gridProducts, currentProducts, products, onChange]);
 
+    const handleDuplicateProduct = useCallback(() => {
+        if (!selectedProduct) return;
+        // Find the first empty grid slot for the duplicate
+        const usedSlots = new Set(
+            currentProducts
+                .map((p) => p.gridPosition)
+                .filter((gp): gp is number => gp != null && gp >= 0 && gp < MAX_PRODUCTS)
+        );
+        let firstEmpty = 0;
+        while (firstEmpty < MAX_PRODUCTS && usedSlots.has(firstEmpty)) firstEmpty++;
+
+        const duplicate: AdminProduct = {
+            ...selectedProduct,
+            name: `${selectedProduct.name} (copie)`,
+            gridPosition: firstEmpty < MAX_PRODUCTS ? firstEmpty : undefined,
+        };
+        onChange([...products, duplicate]);
+        // Select the duplicate — it will be at index currentProducts.length
+        setSelectedProductId(`grid-${currentProducts.length}`);
+    }, [selectedProduct, currentProducts, products, onChange]);
+
     const currencySymbol = currencies[0]?.symbol ?? '€';
     const isValid = products.every((p) => p.name?.trim());
 
@@ -505,12 +526,21 @@ export default function CatalogEditor({
                         >
                             <div className="flex items-center justify-between">
                                 <h3 className="text-sm font-semibold">Édition produit</h3>
-                                <button
-                                    onClick={() => setSelectedProductId(null)}
-                                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
-                                >
-                                    <IconX size={28} />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={handleDuplicateProduct}
+                                        className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 cursor-pointer"
+                                        title="Dupliquer le produit"
+                                    >
+                                        <IconCopy size={22} />
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectedProductId(null)}
+                                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
+                                    >
+                                        <IconX size={28} />
+                                    </button>
+                                </div>
                             </div>
 
                             <div>
@@ -526,7 +556,6 @@ export default function CatalogEditor({
                                     placeholder="Nom du produit"
                                     maxLength={50}
                                     isReadOnly={isReadOnly}
-                                    isNameField
                                     ref={(el) => {
                                         nameInputRef.current = el;
                                     }}
