@@ -452,12 +452,12 @@ export default function CatalogEditor({
         >
             <div className="flex flex-col gap-4">
                 {/* Horizontal category bar */}
-                <div className="flex items-stretch border-b-[3px] border-active-light dark:border-active-dark shrink-0">
+                <div className="flex items-center border-b-[3px] border-active-light dark:border-active-dark shrink-0">
                     {canScrollLeft && (
                         <button
                             type="button"
                             onClick={() => scrollCategoryBar('left')}
-                            className="shrink-0 px-2 hover:bg-active-light dark:hover:bg-active-dark text-light dark:text-dark cursor-pointer flex items-center"
+                            className="shrink-0 p-1 hover:bg-active-light dark:hover:bg-active-dark text-light dark:text-dark cursor-pointer"
                         >
                             <IconChevronLeft size={24} />
                         </button>
@@ -472,7 +472,7 @@ export default function CatalogEditor({
                             <div
                                 key={category}
                                 className={twMerge(
-                                    'flex-1 min-w-[5rem] px-4 py-2 font-semibold text-lg text-center cursor-pointer whitespace-nowrap',
+                                    'flex-1 min-w-fit px-4 py-2 font-semibold text-lg text-center cursor-pointer whitespace-nowrap',
                                     'hover:bg-active-light dark:hover:bg-active-dark',
                                     index === selectedCategoryIndex
                                         ? 'bg-active-light dark:bg-active-dark text-popup-dark dark:text-popup-light'
@@ -488,7 +488,7 @@ export default function CatalogEditor({
                         <button
                             type="button"
                             onClick={() => scrollCategoryBar('right')}
-                            className="shrink-0 px-2 hover:bg-active-light dark:hover:bg-active-dark text-light dark:text-dark cursor-pointer flex items-center"
+                            className="shrink-0 p-1 hover:bg-active-light dark:hover:bg-active-dark text-light dark:text-dark cursor-pointer"
                         >
                             <IconChevronRight size={24} />
                         </button>
