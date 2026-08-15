@@ -347,7 +347,9 @@ export const usePay = () => {
             if (!currentTransaction) return { error: 'Aucune transaction à imprimer' };
 
             const kitchenAddr = printerAddressOverride || getPrinterAddressByRole(PRINTER_ROLE.kitchen);
-            if (!kitchenAddr) return { error: 'Imprimante cuisine non configurée' };
+            // No kitchen printer configured — silently succeed (not an error).
+            // This prevents spurious error logs from all callers (autoPrint, Delete, etc.).
+            if (!kitchenAddr) return { success: true };
 
             return await printKitchenTicket([kitchenAddr], {
                 transaction: currentTransaction,

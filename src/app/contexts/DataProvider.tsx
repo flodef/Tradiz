@@ -1007,6 +1007,24 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [transactions, saveTransactions, storeTransaction, parameters.user.name]
     );
 
+    // clearTotal calls deleteTransaction to remove the PROCESSING tx after payment.
+    // But there's a race: updateTransaction calls storeTransaction (queues state update)
+    // then clearTotal → deleteTransaction. deleteTransaction's `transactions` closure
+    // is stale — it still sees the old PROCESSING tx, so it hard-deletes the tx that was
+    // just paid. This uses a functional state update to check the CURRENT state instead.
+    const clearProcessingTransaction = useCallback(() => {
+        setTransactions((prev) => {
+            const idx = prev.findIndex((t) => isProcessingTransaction(t) && t.validator === parameters.user.name);
+            if (idx < 0) return prev;
+
+            const transaction = prev[idx];
+            // Only hard-delete if it's STILL a PROCESSING tx in the current state.
+            // If it was already updated to a paid tx by storeTransaction, skip.
+            saveTransactions(DatabaseAction.hardDelete, transaction);
+            return prev.filter((_, i) => i !== idx);
+        });
+    }, [saveTransactions, parameters.user.name]);
+
     const toCurrency = useCallback(
         (element: { amount: number; currency?: string } | number | Product | Transaction) => {
             const currency =
@@ -1042,11 +1060,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const clearTotal = useCallback(() => {
         products.current = [];
         clearRequestedRef.current = true;
-        deleteTransaction();
+        clearProcessingTransaction();
         clearAmount();
         setShortNumOrder('');
         setOrderId('');
-    }, [clearAmount, deleteTransaction]);
+    }, [clearAmount, clearProcessingTransaction]);
 
     const computeDiscount = useCallback((product: Product) => {
         return product.discount.unit === '%'
