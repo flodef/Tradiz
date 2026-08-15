@@ -154,8 +154,6 @@ export default function CatalogEditor({
     const [focusCounter, setFocusCounter] = useState(0);
     const categoryBarRef = useRef<HTMLDivElement>(null);
     const nameInputRef = useRef<HTMLInputElement | null>(null);
-    const [canScrollLeft, setCanScrollLeft] = useState(false);
-    const [canScrollRight, setCanScrollRight] = useState(false);
 
     // Track CTRL key state for drag-to-duplicate
     useEffect(() => {
@@ -242,19 +240,15 @@ export default function CatalogEditor({
         return gridProducts.find((p) => p._gridId === selectedProductId) ?? null;
     }, [selectedProductId, gridProducts]);
 
-    const updateScrollState = useCallback(() => {
-        const el = categoryBarRef.current;
-        if (!el) return;
-        setCanScrollLeft(el.scrollLeft > 0);
-        setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
-    }, []);
+    // Arrows show based on whether there are more categories to navigate to
+    const canScrollLeft = selectedCategoryIndex > 0;
+    const canScrollRight = selectedCategoryIndex < categoryLabels.length - 1;
 
     // Count how many category tabs fit in the visible width
     const getVisibleCount = useCallback(() => {
         const el = categoryBarRef.current;
         if (!el || !el.children.length) return 1;
         const visibleWidth = el.clientWidth;
-        // children[0] is the first category tab
         const firstChild = el.children[0] as HTMLElement;
         const tabWidth = firstChild.offsetWidth;
         if (tabWidth === 0) return 1;
@@ -265,8 +259,6 @@ export default function CatalogEditor({
         (direction: 'left' | 'right') => {
             const visibleCount = getVisibleCount();
             if (direction === 'right') {
-                // Move forward by one page; if not enough categories remain
-                // for a full page, shift to show the last page
                 const maxIndex = categoryLabels.length - 1;
                 const nextIndex = selectedCategoryIndex + visibleCount;
                 if (nextIndex > maxIndex) {
@@ -283,10 +275,6 @@ export default function CatalogEditor({
         },
         [getVisibleCount, categoryLabels.length, selectedCategoryIndex]
     );
-
-    useEffect(() => {
-        updateScrollState();
-    }, [categoryLabels, updateScrollState]);
 
     // Scroll the selected category tab into view
     useEffect(() => {
@@ -493,7 +481,6 @@ export default function CatalogEditor({
                     )}
                     <div
                         ref={categoryBarRef}
-                        onScroll={updateScrollState}
                         className="flex overflow-x-auto border-none scrollbar-none"
                         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                     >
