@@ -37,6 +37,12 @@
 -   Prefer serial port communication for the customer-facing (backscreen) display rather than a mini window approach.
 -   Thermal printer support is also targeted.
 
+## Release Policy
+
+-   **NEVER push to main, tag, create GitHub releases, or build installers without explicit user authorization.**
+-   The user wants to test changes locally before any push/build.
+-   Committing to dev is OK, but pushing to main / tagging / releasing / building must be confirmed first.
+
 ## Active Work
 
 -   Phase 4 payment flow (cash payment, numpad input, change calculation, customer-facing display, receipt) is tracked in `.devin/skills/payment-flow.md`.
