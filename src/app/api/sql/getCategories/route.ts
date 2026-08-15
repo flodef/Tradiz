@@ -2,6 +2,8 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getMainDb, DbConnection } from '../db';
 
+export const dynamic = 'force-dynamic';
+
 interface CategoryRow {
     id: number;
     name: string;

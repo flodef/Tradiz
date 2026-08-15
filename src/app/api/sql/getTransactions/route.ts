@@ -7,6 +7,8 @@ import { toSQLDateTime } from '@/app/utils/date';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
 
+export const dynamic = 'force-dynamic';
+
 interface TransactionRow {
     id: number;
     order_id: string;

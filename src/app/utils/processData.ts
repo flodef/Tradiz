@@ -409,6 +409,15 @@ export function clearLoadDataCache() {
 export async function loadData(): Promise<Config | undefined> {
     const shouldUseLocalData = IS_DEV;
     const cacheKey = `${SHOP_ID}|${shouldUseLocalData}`;
+
+    // In dev, skip the promise cache entirely so every navigation re-fetches
+    // from the DB. The cache is the main cause of stale data in dev — it
+    // lives for the entire browser session and is only cleared on explicit
+    // clearLoadDataCache() calls (after saves) or on error.
+    if (IS_DEV) {
+        return _loadDataImpl();
+    }
+
     const cached = loadDataCache.get(cacheKey);
     if (cached) return cached;
 

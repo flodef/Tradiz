@@ -2,6 +2,8 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
 
+export const dynamic = 'force-dynamic';
+
 interface ParameterRow {
     param_key: string;
     param_value: string;
