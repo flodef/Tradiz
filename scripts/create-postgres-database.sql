@@ -328,7 +328,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.currencies (
 CREATE TABLE IF NOT EXISTS dc_pos.payment_methods (
     id SERIAL PRIMARY KEY,
     label VARCHAR(255) NOT NULL,
-    address VARCHAR(255) DEFAULT '0',
+    address VARCHAR(255) DEFAULT NULL,
     currency VARCHAR(10) NOT NULL DEFAULT 'EUR',
     available BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

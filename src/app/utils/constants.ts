@@ -68,6 +68,7 @@ export const PAYMENT_TYPES = [
     'Chèque',
     'Ticket Restaurant',
     'Chèque Vacances',
+    'Carte Fidélité',
     'Solana',
     'Ğ1 June',
     'Virement',

@@ -36,7 +36,8 @@ export async function GET(request: Request) {
 
         const paymentMethods = rows.map((row) => ({
             type: String(row.label),
-            id: String(row.address),
+            // Read NULL as an empty string.
+            id: row.address == null ? '' : String(row.address),
             currency: String(row.currency),
             availability: Boolean(row.available ?? true),
         }));

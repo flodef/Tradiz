@@ -32,7 +32,8 @@ export async function POST(request: Request) {
             // Insert new payment methods
             for (const method of paymentMethods) {
                 const label = method.type;
-                const address = method.id || '0';
+                // Store NULL when id is empty; read it back as an empty string.
+                const address = method.id?.trim() || null;
                 const currency = method.currency || 'Euro';
                 const available = method.availability; // available=true means the method is shown
 
