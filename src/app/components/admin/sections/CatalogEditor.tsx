@@ -493,15 +493,12 @@ export default function CatalogEditor({
                         <div className="w-64 shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3 bg-white dark:bg-gray-800">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-sm font-semibold">Édition produit</h3>
-                                <div className="flex items-center gap-1">
-                                    <DeleteButton onClick={handleDeleteProduct} title="Supprimer le produit" />
-                                    <button
-                                        onClick={() => setSelectedProductId(null)}
-                                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
-                                    >
-                                        <IconX size={18} />
-                                    </button>
-                                </div>
+                                <button
+                                    onClick={() => setSelectedProductId(null)}
+                                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
+                                >
+                                    <IconX size={28} />
+                                </button>
                             </div>
 
                             <div>
@@ -544,6 +541,10 @@ export default function CatalogEditor({
                                     onChange={(color) => handleProductUpdate({ ...selectedProduct, color })}
                                     isReadOnly={isReadOnly}
                                 />
+                            </div>
+
+                            <div className="flex justify-end pt-1">
+                                <DeleteButton onClick={handleDeleteProduct} title="Supprimer le produit" />
                             </div>
                         </div>
                     )}
