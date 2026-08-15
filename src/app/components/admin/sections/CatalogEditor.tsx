@@ -151,6 +151,7 @@ export default function CatalogEditor({
     const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
     const [activeProductId, setActiveProductId] = useState<string | null>(null);
     const [isCtrlPressed, setIsCtrlPressed] = useState(false);
+    const [focusCounter, setFocusCounter] = useState(0);
     const categoryBarRef = useRef<HTMLDivElement>(null);
     const nameInputRef = useRef<HTMLInputElement | null>(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -280,13 +281,13 @@ export default function CatalogEditor({
         setSelectedProductId(null);
     }, [selectedCategoryIndex]);
 
-    // Focus the name input when the inline edit panel opens
+    // Focus the name input when the inline edit panel opens or product changes
     useEffect(() => {
         if (selectedProductId && nameInputRef.current) {
             nameInputRef.current.focus();
             nameInputRef.current.select();
         }
-    }, [selectedProductId]);
+    }, [selectedProductId, focusCounter]);
 
     const handleDragStart = useCallback((event: DragStartEvent) => {
         setActiveProductId(String(event.active.id));
@@ -425,6 +426,7 @@ export default function CatalogEditor({
         onChange([...products, duplicate]);
         // Select the duplicate — it will be at index currentProducts.length
         setSelectedProductId(`grid-${currentProducts.length}`);
+        setFocusCounter((c) => c + 1);
     }, [selectedProduct, currentProducts, products, onChange]);
 
     const currencySymbol = currencies[0]?.symbol ?? '€';
