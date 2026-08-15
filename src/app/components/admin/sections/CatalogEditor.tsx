@@ -488,7 +488,7 @@ export default function CatalogEditor({
                             <div
                                 key={category}
                                 className={twMerge(
-                                    'flex-1 min-w-fit px-4 py-2 font-semibold text-lg text-center cursor-pointer whitespace-nowrap',
+                                    'min-w-[5rem] px-4 py-2 font-semibold text-lg text-center cursor-pointer whitespace-nowrap',
                                     'hover:bg-active-light dark:hover:bg-active-dark',
                                     index === selectedCategoryIndex
                                         ? 'bg-active-light dark:bg-active-dark text-popup-dark dark:text-popup-light'
