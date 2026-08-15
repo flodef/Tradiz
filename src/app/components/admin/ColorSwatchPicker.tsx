@@ -48,7 +48,7 @@ export default function ColorSwatchPicker({ color, onChange, isReadOnly = false 
                 type="button"
                 onClick={() => setOpen((o) => !o)}
                 className={twMerge(
-                    'flex items-center justify-center w-7 h-7 rounded border transition-colors',
+                    'flex items-center justify-center w-7 h-7 rounded border transition-colors cursor-pointer',
                     currentHex
                         ? 'border-gray-300 dark:border-gray-600'
                         : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700'

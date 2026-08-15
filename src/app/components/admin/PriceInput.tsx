@@ -49,10 +49,22 @@ export default function PriceInput({
         );
     }
 
+    // Format the display value with the correct number of decimals.
+    // ValidatedInput keeps a draftValue while focused, so the user can type
+    // "4." without it being stripped — the formatted value only shows when
+    // the input is not actively being edited.
+    const numValue = parseFloat(String(value || '0'));
+    const displayValue =
+        !isNaN(numValue) && numValue !== 0
+            ? numValue.toFixed(decimals)
+            : value === '' || value === '0' || value === 0
+              ? value
+              : String(value);
+
     return (
         <ValidatedInput
             type="number"
-            value={value}
+            value={displayValue}
             onChange={onChange}
             placeholder={placeholder ?? (0).toFixed(decimals)}
             min={0}
@@ -60,7 +72,7 @@ export default function PriceInput({
             step={priceStep}
             isReadOnly={isReadOnly}
             className={className}
-            label={label ? `${label}${symbol ? ` (${symbol})` : ''}` : undefined}
+            label={label ? (label.includes(symbol) ? label : `${label}${symbol ? ` (${symbol})` : ''}`) : undefined}
             validation={validation ?? isValidPrice}
             ref={ref}
         />

@@ -65,7 +65,6 @@ function TileContent({
     index: number;
     currencySymbol: string;
 }) {
-    const bgColor = colorToHex(product.color);
     const price = parseFloat(product.currencies[0] || '0') || 0;
 
     return (
@@ -491,7 +490,7 @@ export default function CatalogEditor({
                                 <h3 className="text-sm font-semibold">Édition produit</h3>
                                 <button
                                     onClick={() => setSelectedProductId(null)}
-                                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
                                 >
                                     <IconX size={18} />
                                 </button>
@@ -515,9 +514,6 @@ export default function CatalogEditor({
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                    Prix
-                                </label>
                                 <PriceInput
                                     value={selectedProduct.currencies[0] ?? '0'}
                                     onChange={(value) => {
@@ -527,6 +523,7 @@ export default function CatalogEditor({
                                     }}
                                     currencies={currencies}
                                     isReadOnly={isReadOnly}
+                                    label={`Prix (en ${currencySymbol})`}
                                 />
                             </div>
 
@@ -543,7 +540,7 @@ export default function CatalogEditor({
 
                             <button
                                 onClick={handleDeleteProduct}
-                                className="w-full text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600 py-1.5 border border-red-300 dark:border-red-700 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20"
+                                className="w-full text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600 py-1.5 border border-red-300 dark:border-red-700 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer"
                             >
                                 Supprimer le produit
                             </button>
