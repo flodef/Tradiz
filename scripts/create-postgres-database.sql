@@ -353,6 +353,7 @@ CREATE INDEX IF NOT EXISTS idx_transactions_payment_method ON dc_pos.transaction
 CREATE INDEX IF NOT EXISTS idx_transactions_currency ON dc_pos.transactions(currency);
 CREATE INDEX IF NOT EXISTS idx_transactions_hash ON dc_pos.transactions(hash);
 CREATE INDEX IF NOT EXISTS idx_transactions_customer_name ON dc_pos.transactions(customer_name);
+CREATE INDEX IF NOT EXISTS idx_transactions_order_id ON dc_pos.transactions(order_id);
 
 -- Transaction Items (was: facturation_article) - with DECIMAL quantity support
 CREATE TABLE IF NOT EXISTS dc_pos.transaction_items (

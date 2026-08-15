@@ -34,22 +34,29 @@ interface IdRow {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    let connection: Connection | undefined;
+
+    // Parse the body ONCE, outside the retry loop — request.json() consumes
+    // the body stream and cannot be called again on retry.
+    let body: { action: string; transaction: TransactionData };
+    try {
+        body = await request.json();
+    } catch (error) {
+        return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const { action, transaction } = body;
+    if (!action || !transaction)
+        return NextResponse.json({ error: 'Action and transaction data are required' }, { status: 400 });
 
     // Retry on deadlock — PostgreSQL can detect deadlocks when two POS devices
     // save transactions concurrently. The transaction is idempotent (uses
-    // created_at as a natural key), so retrying is safe.
+    // order_id as a natural key), so retrying is safe.
     const MAX_RETRIES = 3;
     let lastError: unknown;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        let connection: Connection | undefined;
         try {
-            const body = await request.json();
-            const { action, transaction } = body;
-
-            if (!action || !transaction)
-                return NextResponse.json({ error: 'Action and transaction data are required' }, { status: 400 });
-
             connection = await getPosDb(shopId);
 
             await connection.beginTransaction();
@@ -81,7 +88,6 @@ export async function POST(request: Request) {
                 return NextResponse.json({ success: true, message: 'Transaction saved successfully' }, { status: 200 });
             } catch (error) {
                 await connection.rollback();
-                await connection.end();
                 throw error;
             }
         } catch (error) {
@@ -94,7 +100,13 @@ export async function POST(request: Request) {
             }
             break;
         } finally {
-            await connection?.end();
+            // Ensure connection is always closed (end() is idempotent — safe to call
+            // even if already ended in the try block above).
+            try {
+                await connection?.end();
+            } catch {
+                // ignore — connection may already be closed
+            }
         }
     }
 
@@ -129,11 +141,14 @@ export function generateTransactionHash(transaction: TransactionData, transactio
 }
 
 async function handleAddTransaction(connection: Connection, transaction: TransactionData) {
-    // Check if transaction already exists (by created_at timestamp to avoid duplicates)
+    // Check if transaction already exists (by order_id — millisecond precision,
+    // unique per transaction). Using created_at is unsafe because toSQLDateTime
+    // truncates to seconds, causing two transactions within the same second to
+    // collide and overwrite each other.
     const checkQuery = connection.isPostgreSQL
-        ? 'SELECT id FROM dc_pos.transactions WHERE created_at = $1'
-        : 'SELECT id FROM transactions WHERE created_at = ?';
-    const [existing] = await connection.execute(checkQuery, [transaction.created_at]);
+        ? 'SELECT id FROM dc_pos.transactions WHERE order_id = $1'
+        : 'SELECT id FROM transactions WHERE order_id = ?';
+    const [existing] = await connection.execute(checkQuery, [transaction.order_id]);
     const existingRows = existing as IdRow[];
 
     if (existingRows.length > 0) {
@@ -216,24 +231,25 @@ async function handleUpdateTransaction(connection: Connection, transaction: Tran
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
 
-    // Update the transaction record to mark it as processing (lookup by created_at for reliability)
+    // Update the transaction record to mark it as processing (lookup by order_id —
+    // millisecond precision, unique per transaction)
     const updateQuery = isPg
-        ? `UPDATE ${prefix}transactions SET payment_method = $1, updated_at = $2 WHERE created_at = $3`
-        : `UPDATE ${prefix}transactions SET payment_method = ?, updated_at = ? WHERE created_at = ?`;
+        ? `UPDATE ${prefix}transactions SET payment_method = $1, updated_at = $2 WHERE order_id = $3`
+        : `UPDATE ${prefix}transactions SET payment_method = ?, updated_at = ? WHERE order_id = ?`;
 
-    await connection.execute(updateQuery, [PROCESSING_KEYWORD, transaction.updated_at, transaction.created_at]);
+    await connection.execute(updateQuery, [PROCESSING_KEYWORD, transaction.updated_at, transaction.order_id]);
 }
 
 async function handleDeleteTransaction(connection: Connection, transaction: TransactionData) {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
 
-    // Update the transaction record to mark it as deleted (lookup by created_at for reliability)
+    // Update the transaction record to mark it as deleted (lookup by order_id)
     const updateQuery = isPg
-        ? `UPDATE ${prefix}transactions SET payment_method = $1, updated_at = $2 WHERE created_at = $3`
-        : `UPDATE ${prefix}transactions SET payment_method = ?, updated_at = ? WHERE created_at = ?`;
+        ? `UPDATE ${prefix}transactions SET payment_method = $1, updated_at = $2 WHERE order_id = $3`
+        : `UPDATE ${prefix}transactions SET payment_method = ?, updated_at = ? WHERE order_id = ?`;
 
-    await connection.execute(updateQuery, [DELETED_KEYWORD, transaction.updated_at, transaction.created_at]);
+    await connection.execute(updateQuery, [DELETED_KEYWORD, transaction.updated_at, transaction.order_id]);
 }
 
 async function handleHardDeleteTransaction(connection: Connection, transaction: TransactionData) {
@@ -242,9 +258,9 @@ async function handleHardDeleteTransaction(connection: Connection, transaction: 
 
     // Completely delete the transaction and its items from the database
     const findQuery = isPg
-        ? `SELECT id FROM ${prefix}transactions WHERE created_at = $1`
-        : `SELECT id FROM ${prefix}transactions WHERE created_at = ?`;
-    const [rows] = await connection.execute(findQuery, [transaction.created_at]);
+        ? `SELECT id FROM ${prefix}transactions WHERE order_id = $1`
+        : `SELECT id FROM ${prefix}transactions WHERE order_id = ?`;
+    const [rows] = await connection.execute(findQuery, [transaction.order_id]);
     const idRows = rows as IdRow[];
 
     if (idRows.length > 0) {
@@ -266,11 +282,11 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
 
-    // Find existing transaction by created_at
+    // Find existing transaction by order_id (millisecond precision, unique)
     const checkQuery = isPg
-        ? `SELECT id FROM ${prefix}transactions WHERE created_at = $1`
-        : `SELECT id FROM ${prefix}transactions WHERE created_at = ?`;
-    const [existing] = await connection.execute(checkQuery, [transaction.created_at]);
+        ? `SELECT id FROM ${prefix}transactions WHERE order_id = $1`
+        : `SELECT id FROM ${prefix}transactions WHERE order_id = ?`;
+    const [existing] = await connection.execute(checkQuery, [transaction.order_id]);
     const existingRows = existing as IdRow[];
 
     if (existingRows.length === 0) {
