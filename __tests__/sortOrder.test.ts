@@ -56,4 +56,34 @@ describe('computeSortOrders', () => {
         // All unique
         expect(new Set(orders).size).toBe(9999);
     });
+
+    it('uses gridPosition when provided (sparse placement)', () => {
+        const products = [
+            { category: 'A', name: 'P1', stock: 0, currencies: [], gridPosition: 0 },
+            { category: 'A', name: 'P2', stock: 0, currencies: [], gridPosition: 35 },
+            { category: 'A', name: 'P3', stock: 0, currencies: [], gridPosition: 5 },
+        ];
+        expect(computeSortOrders(products)).toEqual([10001, 10036, 10006]);
+    });
+
+    it('mixes gridPosition and auto-assigned positions without collision', () => {
+        const products = [
+            { category: 'A', name: 'P1', stock: 0, currencies: [], gridPosition: 5 },
+            { category: 'A', name: 'P2', stock: 0, currencies: [] },
+            { category: 'A', name: 'P3', stock: 0, currencies: [] },
+        ];
+        // P1 → position 5 (sort_order 10006)
+        // P2 → first auto position not taken: 0 (sort_order 10001)
+        // P3 → next auto position not taken: 1 (sort_order 10002)
+        expect(computeSortOrders(products)).toEqual([10006, 10001, 10002]);
+    });
+
+    it('handles duplicate gridPosition by falling back to auto', () => {
+        const products = [
+            { category: 'A', name: 'P1', stock: 0, currencies: [], gridPosition: 3 },
+            { category: 'A', name: 'P2', stock: 0, currencies: [], gridPosition: 3 },
+        ];
+        // First product with gridPosition 3 wins; second falls back to auto (0)
+        expect(computeSortOrders(products)).toEqual([10004, 10001]);
+    });
 });

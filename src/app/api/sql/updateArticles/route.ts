@@ -15,21 +15,38 @@ interface Product {
     description?: string;
     options?: string;
     color?: string;
+    gridPosition?: number;
 }
 
 // Compute encoded sort_order: (categoryIndex + 1) * 10000 + (positionWithinCategory + 1)
 // Category order is derived from first appearance in the products array.
 // Max 9999 products per category.
+// If a product has gridPosition (0-indexed slot in the 6×6 catalog grid),
+// it is used as the position within the category, allowing sparse placement.
+// Products without gridPosition get sequential positions that don't collide
+// with explicit gridPositions.
 export function computeSortOrders(products: Product[]): number[] {
     const categoryOrder: string[] = [];
     for (const p of products) {
         if (!categoryOrder.includes(p.category)) categoryOrder.push(p.category);
     }
-    const positionInCat: Record<string, number> = {};
+    const usedPositions: Record<string, Set<number>> = {};
+    const nextAuto: Record<string, number> = {};
     return products.map((p) => {
-        const catIdx = categoryOrder.indexOf(p.category);
-        const pos = positionInCat[p.category] ?? 0;
-        positionInCat[p.category] = pos + 1;
+        const cat = p.category;
+        if (!usedPositions[cat]) usedPositions[cat] = new Set();
+        if (nextAuto[cat] === undefined) nextAuto[cat] = 0;
+        const catIdx = categoryOrder.indexOf(cat);
+        let pos: number;
+        if (p.gridPosition != null && p.gridPosition >= 0 && !usedPositions[cat].has(p.gridPosition)) {
+            pos = p.gridPosition;
+            usedPositions[cat].add(pos);
+        } else {
+            while (usedPositions[cat].has(nextAuto[cat])) nextAuto[cat]++;
+            pos = nextAuto[cat];
+            usedPositions[cat].add(pos);
+            nextAuto[cat]++;
+        }
         return (catIdx + 1) * 10000 + (pos + 1);
     });
 }

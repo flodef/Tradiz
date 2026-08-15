@@ -57,6 +57,7 @@ export interface AdminProduct {
     description?: string;
     options?: string;
     color?: string;
+    gridPosition?: number;
 }
 
 type AvailabilityFilter = 'all' | 'available' | 'unavailable';

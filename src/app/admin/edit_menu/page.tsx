@@ -475,6 +475,7 @@ export default function EditMenuPage() {
                             options: p.options ? String(p.options) : undefined,
                             color: p.color ? String(p.color) : undefined,
                             currencies: (p.prices ?? []).map(String),
+                            gridPosition: p.sortOrder != null ? (p.sortOrder % 10000) - 1 : undefined,
                         });
                     }
                 }

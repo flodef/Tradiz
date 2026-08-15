@@ -8,10 +8,11 @@ import {
     DragEndEvent,
     PointerSensor,
     TouchSensor,
+    useDroppable,
     useSensor,
     useSensors,
 } from '@dnd-kit/core';
-import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react';
 import { AdminProduct } from './ProductsConfig';
@@ -100,9 +101,18 @@ function SortableTile({ product, index, isSelected, onSelect, currencySymbol }: 
     );
 }
 
-function EmptyTile() {
+function DroppableEmptyTile({ slotIndex }: { slotIndex: number }) {
+    const { setNodeRef, isOver } = useDroppable({ id: `slot-${slotIndex}` });
     return (
-        <div className="h-20 border-[3px] border-dashed border-gray-200 dark:border-gray-700 rounded-2xl opacity-50" />
+        <div
+            ref={setNodeRef}
+            className={twMerge(
+                'h-20 border-[3px] border-dashed rounded-2xl transition-colors',
+                isOver
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 opacity-80'
+                    : 'border-gray-200 dark:border-gray-700 opacity-50'
+            )}
+        />
     );
 }
 
@@ -159,11 +169,30 @@ export default function CatalogEditor({
         [currentProducts]
     );
 
-    // Build the 6×6 grid slots
+    // Build the 6×6 grid slots using gridPosition for sparse placement.
+    // Products with an explicit gridPosition go to their slot; others fill
+    // remaining empty slots in array order.
     const gridSlots = useMemo(() => {
         const slots: (GridProduct | null)[] = new Array(MAX_PRODUCTS).fill(null);
-        for (let i = 0; i < Math.min(gridProducts.length, MAX_PRODUCTS); i++) {
-            slots[i] = gridProducts[i];
+        const unpositioned: GridProduct[] = [];
+        for (const p of gridProducts) {
+            if (
+                p.gridPosition != null &&
+                p.gridPosition >= 0 &&
+                p.gridPosition < MAX_PRODUCTS &&
+                !slots[p.gridPosition]
+            ) {
+                slots[p.gridPosition] = p;
+            } else {
+                unpositioned.push(p);
+            }
+        }
+        let fillIdx = 0;
+        for (const p of unpositioned) {
+            while (fillIdx < MAX_PRODUCTS && slots[fillIdx]) fillIdx++;
+            if (fillIdx < MAX_PRODUCTS) {
+                slots[fillIdx] = p;
+            }
         }
         return slots;
     }, [gridProducts]);
@@ -217,12 +246,36 @@ export default function CatalogEditor({
             const { active, over } = event;
             if (!over || active.id === over.id) return;
 
-            const oldIndex = gridProducts.findIndex((p) => p._gridId === active.id);
-            const newIndex = gridProducts.findIndex((p) => p._gridId === over.id);
-            if (oldIndex === -1 || newIndex === -1) return;
+            // Find the dragged product's current slot index in the grid
+            const fromSlot = gridSlots.findIndex((s) => s?._gridId === active.id);
+            if (fromSlot === -1) return;
 
-            // Reorder within the current category's products
-            const reorderedCatProducts = arrayMove(currentProducts, oldIndex, newIndex);
+            const overId = String(over.id);
+            const toSlot = overId.startsWith('slot-')
+                ? parseInt(overId.slice(5), 10)
+                : gridSlots.findIndex((s) => s?._gridId === overId);
+
+            if (toSlot === -1 || toSlot === fromSlot) return;
+
+            // Build a map of slot → product for the current category
+            const slotMap = [...gridSlots];
+            const dragged = slotMap[fromSlot];
+            const target = slotMap[toSlot];
+
+            if (!dragged) return;
+
+            // Swap or move
+            slotMap[fromSlot] = target; // may be null (empty slot)
+            slotMap[toSlot] = dragged;
+
+            // Rebuild the category's products in slot order, assigning gridPosition
+            const reorderedCatProducts: AdminProduct[] = [];
+            for (let i = 0; i < MAX_PRODUCTS; i++) {
+                const p = slotMap[i];
+                if (p) {
+                    reorderedCatProducts.push({ ...p, gridPosition: i });
+                }
+            }
 
             // Rebuild the full products array: replace this category's products in place
             const catIndices = products
@@ -238,7 +291,7 @@ export default function CatalogEditor({
 
             onChange(result);
         },
-        [gridProducts, currentProducts, products, currentCategory, onChange]
+        [gridSlots, products, currentCategory, onChange]
     );
 
     const handleProductUpdate = useCallback(
@@ -254,14 +307,24 @@ export default function CatalogEditor({
     );
 
     const handleAddProduct = useCallback(() => {
+        // Find the first empty slot in the current category's grid
+        const usedSlots = new Set(
+            currentProducts
+                .map((p) => p.gridPosition)
+                .filter((gp): gp is number => gp != null && gp >= 0 && gp < MAX_PRODUCTS)
+        );
+        let firstEmpty = 0;
+        while (firstEmpty < MAX_PRODUCTS && usedSlots.has(firstEmpty)) firstEmpty++;
+
         const newProduct: AdminProduct = {
             name: '',
             category: currentCategory,
             stock: null,
             currencies: [],
+            gridPosition: firstEmpty < MAX_PRODUCTS ? firstEmpty : undefined,
         };
         onChange([...products, newProduct]);
-    }, [currentCategory, products, onChange]);
+    }, [currentCategory, currentProducts, products, onChange]);
 
     const handleDeleteProduct = useCallback(() => {
         if (!selectedProduct) return;
@@ -280,7 +343,7 @@ export default function CatalogEditor({
 
     return (
         <SectionCard
-            title="Aperçu catalogue (WYSIWYG)"
+            title="Catalogue"
             onSave={onSave ? () => onSave(products) : undefined}
             onCancel={onCancel}
             hasChanges={hasChanges}
@@ -346,7 +409,7 @@ export default function CatalogEditor({
                                 <div className="grid grid-cols-6 auto-rows-20 gap-1 p-1">
                                     {gridSlots.map((product, index) => {
                                         if (!product) {
-                                            return <EmptyTile key={`empty-${index}`} />;
+                                            return <DroppableEmptyTile key={`empty-${index}`} slotIndex={index} />;
                                         }
                                         return (
                                             <SortableTile
