@@ -8,6 +8,7 @@ import { twMerge } from 'tailwind-merge';
 import {
     isConfirmedTransaction,
     isDeletedTransaction,
+    isProcessingTransaction,
     isRefundTransaction,
     isUpdatingTransaction,
     isWaitingTransaction,
@@ -149,7 +150,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
     const { pay, printTransaction, printKitchenReceipt } = usePay();
-    const { state, isStateReady, getPrintersNames } = useConfig();
+    const { state, isStateReady, getPrintersNames, parameters } = useConfig();
 
     const [needRefresh, setNeedRefresh] = useState(false);
     const visibleTransactions = useMemo(() => transactions.filter((tx) => !isDeletedTransaction(tx)), [transactions]);
@@ -181,75 +182,86 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
             if (!transaction || !isStateReady || isUpdatingTransaction(transaction)) return;
 
             const isWaiting = isWaitingTransaction(transaction);
+            // PROCESSING transactions are editable only by the user who created them.
+            // Other users can see/print but not modify, delete, or refund them.
+            const isProcessing = isProcessingTransaction(transaction);
+            const isOwnProcessing = isProcessing && transaction.validator === parameters.user.name;
+            const isReadOnly = isProcessing && !isOwnProcessing;
+
+            const editOptions = isReadOnly
+                ? []
+                : [
+                      {
+                          label: isWaiting ? 'Payer' : 'Modifier Paiement',
+                          action: (index: number) => {
+                              editTransactionWithReversal(index); // set the transaction as current
+                              setTimeout(pay, 100);
+                          },
+                      },
+                      {
+                          label: isWaiting ? 'Reprendre' : 'Modifier Produits',
+                          action: (index: number) => {
+                              editTransactionWithReversal(index);
+                              closePopup();
+                          },
+                      },
+                  ];
+
+            const deleteAndRefundOptions = isReadOnly
+                ? []
+                : [
+                      {
+                          label: 'Effacer',
+                          action: (index: number) => {
+                              openPopup('⚠️ Confirmer la suppression ?', ['Continuer', 'Annuler'], (i, option) => {
+                                  if (option !== 'Continuer') return;
+                                  const tx = transactions.at(index);
+                                  deleteTransaction(index);
+                                  closePopup();
+                                  if (tx) {
+                                      printKitchenReceipt(tx).then((response) => {
+                                          if (!response.success)
+                                              console.error('[Delete] Kitchen print failed:', response.error);
+                                      });
+                                  }
+                              });
+                          },
+                      },
+                  ].concat(
+                      !isWaiting && !isRefundTransaction(transaction)
+                          ? [
+                                { label: '', action: () => {} },
+                                {
+                                    label: REFUND_KEYWORD,
+                                    action: (index: number) => {
+                                        const refundTx = refundTransaction(index);
+                                        closePopup();
+                                        if (refundTx) {
+                                            printKitchenReceipt(refundTx).then((response) => {
+                                                if (!response.success)
+                                                    console.error('[Refund] Kitchen print failed:', response.error);
+                                            });
+                                        }
+                                    },
+                                },
+                            ]
+                          : []
+                  );
+
             return {
                 title: 'Transaction',
                 options: [
+                    ...editOptions,
+                    ...getPrintersNames().map((printerName) => ({
+                        label: printerName,
+                        action: () => printTransaction(printerName, transaction),
+                    })),
+                    ...deleteAndRefundOptions,
                     {
-                        label: isWaiting ? 'Payer' : 'Modifier Paiement',
-                        action: (index: number) => {
-                            editTransactionWithReversal(index); // set the transaction as current
-                            setTimeout(pay, 100);
-                        },
+                        label: 'Annuler',
+                        action: (index: number) => fallback(index),
                     },
-                    {
-                        label: isWaiting ? 'Reprendre' : 'Modifier Produits',
-                        action: (index: number) => {
-                            editTransactionWithReversal(index);
-                            closePopup();
-                        },
-                    },
-                ]
-                    .concat(
-                        getPrintersNames().map((printerName) => ({
-                            label: printerName,
-                            action: () => printTransaction(printerName, transaction),
-                        }))
-                    )
-                    .concat([
-                        {
-                            label: 'Effacer',
-                            action: (index: number) => {
-                                openPopup('⚠️ Confirmer la suppression ?', ['Continuer', 'Annuler'], (i, option) => {
-                                    if (option !== 'Continuer') return;
-                                    const tx = transactions.at(index);
-                                    deleteTransaction(index);
-                                    closePopup();
-                                    if (tx) {
-                                        printKitchenReceipt(tx).then((response) => {
-                                            if (!response.success)
-                                                console.error('[Delete] Kitchen print failed:', response.error);
-                                        });
-                                    }
-                                });
-                            },
-                        },
-                    ])
-                    .concat(
-                        !isWaiting && !isRefundTransaction(transaction)
-                            ? [
-                                  { label: '', action: () => {} },
-                                  {
-                                      label: REFUND_KEYWORD,
-                                      action: (index: number) => {
-                                          const refundTx = refundTransaction(index);
-                                          closePopup();
-                                          if (refundTx) {
-                                              printKitchenReceipt(refundTx).then((response) => {
-                                                  if (!response.success)
-                                                      console.error('[Refund] Kitchen print failed:', response.error);
-                                              });
-                                          }
-                                      },
-                                  },
-                              ]
-                            : []
-                    )
-                    .concat([
-                        {
-                            label: 'Annuler',
-                            action: (index: number) => fallback(index),
-                        },
-                    ]),
+                ],
             };
         },
         [
@@ -264,6 +276,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
             getPrintersNames,
             transactions,
             refundTransaction,
+            parameters.user.name,
         ]
     );
 
@@ -444,6 +457,11 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
             const transaction = transactionIndex >= 0 ? transactions.at(transactionIndex) : undefined;
             if (isUpdatingTransaction(transaction) || !transaction?.amount || !isStateReady) return;
 
+            // PROCESSING transactions are editable only by their creator. Other
+            // users can view the products but not modify or delete them.
+            const isReadOnlyProcessing =
+                isProcessingTransaction(transaction) && transaction.validator !== parameters.user.name;
+
             // A transaction with no product items is a provision: show a synthetic line so it is
             // still visible in the details (like a product would be).
             const isProvision = transaction.products.length === 0;
@@ -463,34 +481,45 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                         ? fallback()
                         : modifyTransaction(i !== -1 ? transactionIndex : i, (i) => showBoughtProducts(i, fallback)),
                 true,
-                (productIndex) => {
-                    // Provisions have no deletable product items; open the transaction menu instead.
-                    if (isProvision) {
-                        modifyTransaction(transactionIndex, () => showBoughtProducts(transactionIndex, fallback));
-                        return;
-                    }
-                    openPopup(
-                        'Effacer ?',
-                        ['Oui', 'Non'],
-                        (i) => {
-                            if (i === 0) {
-                                deleteBoughtProduct(
-                                    productIndex,
-                                    transactionIndex,
-                                    transaction,
-                                    () => showBoughtProducts(transactionIndex, fallback),
-                                    fallback
-                                );
-                            } else {
-                                showBoughtProducts(transactionIndex, fallback);
-                            }
-                        },
-                        true
-                    );
-                }
+                isReadOnlyProcessing
+                    ? undefined
+                    : (productIndex) => {
+                          // Provisions have no deletable product items; open the transaction menu instead.
+                          if (isProvision) {
+                              modifyTransaction(transactionIndex, () => showBoughtProducts(transactionIndex, fallback));
+                              return;
+                          }
+                          openPopup(
+                              'Effacer ?',
+                              ['Oui', 'Non'],
+                              (i) => {
+                                  if (i === 0) {
+                                      deleteBoughtProduct(
+                                          productIndex,
+                                          transactionIndex,
+                                          transaction,
+                                          () => showBoughtProducts(transactionIndex, fallback),
+                                          fallback
+                                      );
+                                  } else {
+                                      showBoughtProducts(transactionIndex, fallback);
+                                  }
+                              },
+                              true
+                          );
+                      }
             );
         },
-        [transactions, openPopup, displayProduct, toCurrency, modifyTransaction, isStateReady, deleteBoughtProduct]
+        [
+            transactions,
+            openPopup,
+            displayProduct,
+            toCurrency,
+            modifyTransaction,
+            isStateReady,
+            deleteBoughtProduct,
+            parameters.user.name,
+        ]
     );
 
     const sortedTransactions = useMemo(() => {
