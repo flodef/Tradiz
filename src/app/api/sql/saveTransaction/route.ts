@@ -145,33 +145,40 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
     // unique per transaction). Using created_at is unsafe because toSQLDateTime
     // truncates to seconds, causing two transactions within the same second to
     // collide and overwrite each other.
-    const checkQuery = connection.isPostgreSQL
-        ? 'SELECT id FROM dc_pos.transactions WHERE order_id = $1'
-        : 'SELECT id FROM transactions WHERE order_id = ?';
+    const isPg = connection.isPostgreSQL;
+    const prefix = isPg ? 'dc_pos.' : '';
+    const checkQuery = isPg
+        ? `SELECT id FROM ${prefix}transactions WHERE order_id = $1`
+        : `SELECT id FROM ${prefix}transactions WHERE order_id = ?`;
     const [existing] = await connection.execute(checkQuery, [transaction.order_id]);
     const existingRows = existing as IdRow[];
 
     if (existingRows.length > 0) {
-        // Transaction already exists — sync it instead of skipping
+        // Transaction already exists — sync it (update + replace items)
         await handleSyncTransaction(connection, transaction);
         return;
     }
 
-    // Use provided user name or default
-    const userName = transaction.user_name || DEFAULT_USER;
+    // No existing transaction — insert a new one + items
+    await insertTransactionWithItems(connection, transaction);
+}
 
-    // Generate hash for the transaction
+// Insert a new transaction row and its items. Returns the transaction id.
+async function insertTransactionWithItems(connection: Connection, transaction: TransactionData) {
+    const isPg = connection.isPostgreSQL;
+    const prefix = isPg ? 'dc_pos.' : '';
+
+    const userName = transaction.user_name || DEFAULT_USER;
     const hash = generateTransactionHash(transaction);
 
-    // Insert into transactions table (payment_method, currency, and user_name are strings)
-    const insertTransactionQuery = connection.isPostgreSQL
+    const insertTransactionQuery = isPg
         ? `
-        INSERT INTO dc_pos.transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, hash, created_at, updated_at)
+        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, hash, created_at, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING id
     `
         : `
-        INSERT INTO transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, hash, created_at, updated_at)
+        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, hash, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
@@ -190,7 +197,7 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
     ];
 
     let transactionId: number | string;
-    if (connection.isPostgreSQL) {
+    if (isPg) {
         const [rows] = await connection.execute(insertTransactionQuery, params);
         transactionId = (rows as IdRow[])[0].id;
     } else {
@@ -199,31 +206,42 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
         transactionId = (rows as IdRow[])[0].id;
     }
 
-    // Insert products into transaction_items table
-    if (transaction.products && transaction.products.length > 0) {
-        for (const product of transaction.products) {
-            const insertItemQuery = connection.isPostgreSQL
-                ? `
-                INSERT INTO transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            `
-                : `
-                INSERT INTO transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `;
+    await insertTransactionItems(connection, transactionId, transaction.products);
+}
 
-            await connection.execute(insertItemQuery, [
-                transactionId,
-                product.label,
-                product.category,
-                product.amount,
-                product.quantity,
-                product.discount_amount || 0,
-                product.discount_unit || '',
-                product.total,
-                product.vat_rate ?? DEFAULT_VAT_RATE,
-            ]);
-        }
+// Insert transaction items for a given transaction id.
+async function insertTransactionItems(
+    connection: Connection,
+    transactionId: number | string,
+    products?: TransactionProduct[]
+) {
+    const isPg = connection.isPostgreSQL;
+    const prefix = isPg ? 'dc_pos.' : '';
+
+    if (!products || products.length === 0) return;
+
+    for (const product of products) {
+        const insertItemQuery = isPg
+            ? `
+            INSERT INTO ${prefix}transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `
+            : `
+            INSERT INTO ${prefix}transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        await connection.execute(insertItemQuery, [
+            transactionId,
+            product.label,
+            product.category,
+            product.amount,
+            product.quantity,
+            product.discount_amount || 0,
+            product.discount_unit || '',
+            product.total,
+            product.vat_rate ?? DEFAULT_VAT_RATE,
+        ]);
     }
 }
 
@@ -282,80 +300,84 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
 
-    // Find existing transaction by order_id (millisecond precision, unique)
-    const checkQuery = isPg
-        ? `SELECT id FROM ${prefix}transactions WHERE order_id = $1`
-        : `SELECT id FROM ${prefix}transactions WHERE order_id = ?`;
-    const [existing] = await connection.execute(checkQuery, [transaction.order_id]);
-    const existingRows = existing as IdRow[];
-
-    if (existingRows.length === 0) {
-        // No existing row — do a full add
-        await handleAddTransaction(connection, transaction);
-        return;
-    }
-
-    const transactionId = existingRows[0].id;
-
-    // Use provided user name or default
+    // Use UPDATE ... RETURNING to atomically check-and-update.
+    // This prevents a race condition where the transaction is hard-deleted by
+    // a concurrent request between the SELECT and the item INSERT, which would
+    // cause a foreign key violation.
     const userName = transaction.user_name || DEFAULT_USER;
 
-    // Generate new hash for updated transaction
-    const hash = generateTransactionHash(transaction, transactionId);
+    if (isPg) {
+        // PostgreSQL: UPDATE ... RETURNING id atomically updates and returns the id.
+        // If the row was deleted by a concurrent hardDelete, 0 rows are returned.
+        const updateReturningQuery = `
+            UPDATE ${prefix}transactions
+            SET customer_name = $1, user_name = $2, payment_method = $3, amount = $4, currency = $5, change = $6, take_out = $7, hash = $8, updated_at = $9
+            WHERE order_id = $10
+            RETURNING id
+        `;
+        const hash = generateTransactionHash(transaction);
+        const [rows] = await connection.execute(updateReturningQuery, [
+            transaction.customer_name ?? null,
+            userName,
+            transaction.payment_method,
+            transaction.amount,
+            transaction.currency,
+            transaction.change || null,
+            transaction.takeOut ?? false,
+            hash,
+            transaction.updated_at,
+            transaction.order_id,
+        ]);
+        const returnedRows = rows as IdRow[];
 
-    // Update the transaction row (payment_method, currency, and user_name are strings)
-    const updateQuery = isPg
-        ? `
-        UPDATE ${prefix}transactions
-         SET customer_name = $1, user_name = $2, payment_method = $3, amount = $4, currency = $5, change = $6, take_out = $7, hash = $8, updated_at = $9
-         WHERE id = $10
-    `
-        : `
-        UPDATE ${prefix}transactions
-         SET customer_name = ?, user_name = ?, payment_method = ?, amount = ?, currency = ?, change = ?, take_out = ?, hash = ?, updated_at = ?
-         WHERE id = ?
-    `;
-    await connection.execute(updateQuery, [
-        transaction.customer_name ?? null,
-        userName,
-        transaction.payment_method,
-        transaction.amount,
-        transaction.currency,
-        transaction.change || null,
-        transaction.takeOut ?? false,
-        hash,
-        transaction.updated_at,
-        transactionId,
-    ]);
-
-    // Delete old items and re-insert
-    const deleteQuery = isPg
-        ? `DELETE FROM ${prefix}transaction_items WHERE transaction_id = $1`
-        : `DELETE FROM ${prefix}transaction_items WHERE transaction_id = ?`;
-    await connection.execute(deleteQuery, [transactionId]);
-
-    if (transaction.products && transaction.products.length > 0) {
-        for (const product of transaction.products) {
-            const insertQuery = isPg
-                ? `
-                INSERT INTO ${prefix}transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            `
-                : `
-                INSERT INTO ${prefix}transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `;
-            await connection.execute(insertQuery, [
-                transactionId,
-                product.label,
-                product.category,
-                product.amount,
-                product.quantity,
-                product.discount_amount || 0,
-                product.discount_unit || '',
-                product.total,
-                product.vat_rate ?? DEFAULT_VAT_RATE,
-            ]);
+        if (returnedRows.length === 0) {
+            // Transaction was deleted between our SELECT and UPDATE — insert fresh
+            await insertTransactionWithItems(connection, transaction);
+            return;
         }
+
+        const transactionId = returnedRows[0].id;
+
+        // Delete old items and re-insert
+        const deleteQuery = `DELETE FROM ${prefix}transaction_items WHERE transaction_id = $1`;
+        await connection.execute(deleteQuery, [transactionId]);
+        await insertTransactionItems(connection, transactionId, transaction.products);
+    } else {
+        // MariaDB/MySQL: no RETURNING clause, use SELECT ... FOR UPDATE to lock the row
+        const lockQuery = `SELECT id FROM ${prefix}transactions WHERE order_id = ? FOR UPDATE`;
+        const [existing] = await connection.execute(lockQuery, [transaction.order_id]);
+        const existingRows = existing as IdRow[];
+
+        if (existingRows.length === 0) {
+            // Transaction was deleted — insert fresh
+            await insertTransactionWithItems(connection, transaction);
+            return;
+        }
+
+        const transactionId = existingRows[0].id;
+        const hash = generateTransactionHash(transaction, transactionId);
+
+        const updateQuery = `
+            UPDATE ${prefix}transactions
+            SET customer_name = ?, user_name = ?, payment_method = ?, amount = ?, currency = ?, change = ?, take_out = ?, hash = ?, updated_at = ?
+            WHERE id = ?
+        `;
+        await connection.execute(updateQuery, [
+            transaction.customer_name ?? null,
+            userName,
+            transaction.payment_method,
+            transaction.amount,
+            transaction.currency,
+            transaction.change || null,
+            transaction.takeOut ?? false,
+            hash,
+            transaction.updated_at,
+            transactionId,
+        ]);
+
+        // Delete old items and re-insert
+        const deleteQuery = `DELETE FROM ${prefix}transaction_items WHERE transaction_id = ?`;
+        await connection.execute(deleteQuery, [transactionId]);
+        await insertTransactionItems(connection, transactionId, transaction.products);
     }
 }
