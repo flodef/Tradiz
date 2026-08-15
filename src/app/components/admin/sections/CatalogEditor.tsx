@@ -150,10 +150,27 @@ export default function CatalogEditor({
     const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
     const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
     const [activeProductId, setActiveProductId] = useState<string | null>(null);
+    const [isCtrlPressed, setIsCtrlPressed] = useState(false);
     const categoryBarRef = useRef<HTMLDivElement>(null);
     const nameInputRef = useRef<HTMLInputElement | null>(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
+
+    // Track CTRL key state for drag-to-duplicate
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Control') setIsCtrlPressed(true);
+        };
+        const onKeyUp = (e: KeyboardEvent) => {
+            if (e.key === 'Control') setIsCtrlPressed(false);
+        };
+        window.addEventListener('keydown', onKeyDown);
+        window.addEventListener('keyup', onKeyUp);
+        return () => {
+            window.removeEventListener('keydown', onKeyDown);
+            window.removeEventListener('keyup', onKeyUp);
+        };
+    }, []);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -292,14 +309,26 @@ export default function CatalogEditor({
 
             if (toSlot === -1 || toSlot === fromSlot) return;
 
-            // Build a map of slot → product for the current category
-            const slotMap = [...gridSlots];
-            const dragged = slotMap[fromSlot];
-            const target = slotMap[toSlot];
-
+            const dragged = gridSlots[fromSlot];
             if (!dragged) return;
 
-            // Swap or move
+            // CTRL-drag: duplicate the product to the target slot (if empty)
+            if (isCtrlPressed) {
+                const targetSlot = gridSlots[toSlot];
+                if (targetSlot) return; // can only duplicate into an empty slot
+
+                const duplicate: AdminProduct = {
+                    ...dragged,
+                    name: `${dragged.name} (copie)`,
+                    gridPosition: toSlot,
+                };
+                onChange([...products, duplicate]);
+                return;
+            }
+
+            // Normal drag: swap or move
+            const slotMap = [...gridSlots];
+            const target = slotMap[toSlot];
             slotMap[fromSlot] = target; // may be null (empty slot)
             slotMap[toSlot] = dragged;
 
@@ -326,7 +355,7 @@ export default function CatalogEditor({
 
             onChange(result);
         },
-        [gridSlots, products, currentCategory, onChange]
+        [gridSlots, products, currentCategory, onChange, isCtrlPressed]
     );
 
     const handleProductUpdate = useCallback(
@@ -498,7 +527,7 @@ export default function CatalogEditor({
                                     <div
                                         className={twMerge(
                                             'relative h-20 flex flex-col text-center font-semibold text-base border-[3px] rounded-2xl select-none cursor-pointer shadow-2xl rotate-2 scale-105',
-                                            'border-blue-500',
+                                            isCtrlPressed ? 'border-green-500' : 'border-blue-500',
                                             activeProduct.color ? 'text-black dark:text-white' : ''
                                         )}
                                         style={
@@ -507,6 +536,11 @@ export default function CatalogEditor({
                                                 : undefined
                                         }
                                     >
+                                        {isCtrlPressed && (
+                                            <div className="absolute -top-2 -right-2 z-10 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg">
+                                                <IconCopy size={14} />
+                                            </div>
+                                        )}
                                         <TileContent
                                             product={activeProduct}
                                             index={gridSlots.findIndex((s) => s?._gridId === activeProduct._gridId)}
@@ -526,21 +560,12 @@ export default function CatalogEditor({
                         >
                             <div className="flex items-center justify-between">
                                 <h3 className="text-sm font-semibold">Édition produit</h3>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={handleDuplicateProduct}
-                                        className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 cursor-pointer"
-                                        title="Dupliquer le produit"
-                                    >
-                                        <IconCopy size={22} />
-                                    </button>
-                                    <button
-                                        onClick={() => setSelectedProductId(null)}
-                                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
-                                    >
-                                        <IconX size={28} />
-                                    </button>
-                                </div>
+                                <button
+                                    onClick={() => setSelectedProductId(null)}
+                                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
+                                >
+                                    <IconX size={28} />
+                                </button>
                             </div>
 
                             <div>
@@ -587,7 +612,16 @@ export default function CatalogEditor({
                                         isReadOnly={isReadOnly}
                                     />
                                 </div>
-                                <DeleteButton onClick={handleDeleteProduct} title="Supprimer le produit" />
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={handleDuplicateProduct}
+                                        className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 cursor-pointer p-1"
+                                        title="Dupliquer le produit"
+                                    >
+                                        <IconCopy size={22} />
+                                    </button>
+                                    <DeleteButton onClick={handleDeleteProduct} title="Supprimer le produit" />
+                                </div>
                             </div>
                         </div>
                     )}
