@@ -968,15 +968,16 @@ export default function SettingsPage() {
                 body: JSON.stringify({ companies: data }),
             });
 
-            // Check if any companies were deleted and update customers accordingly
+            // Check if any companies were deleted and update customers accordingly.
+            // Renames may already have been applied in CompaniesConfig and are
+            // therefore reflected in customersConfig as well.
             const companyNames = new Set(data.map((c) => c.name));
-            const customersToUpdate = customersConfig.filter((c) => c.company && !companyNames.has(c.company));
+            let updatedCustomers = customersConfig.map((c) =>
+                c.company && !companyNames.has(c.company) ? { ...c, company: undefined } : c
+            );
 
-            let updatedCustomers = customersConfig;
-            if (customersToUpdate.length > 0) {
-                updatedCustomers = customersConfig.map((c) =>
-                    c.company && !companyNames.has(c.company) ? { ...c, company: undefined } : c
-                );
+            // Save customers if anything changed (deletion or rename).
+            if (JSON.stringify(updatedCustomers) !== JSON.stringify(originalCustomers)) {
                 await fetch('/api/sql/updateCustomers', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -984,6 +985,7 @@ export default function SettingsPage() {
                 });
                 setCustomersConfig(updatedCustomers);
                 setOriginalCustomers(updatedCustomers);
+                setHasCustomersChanges(false);
             }
 
             setOriginalCompanies(data);
@@ -1195,6 +1197,7 @@ export default function SettingsPage() {
                     onToggle={() => setOpenSection((prev) => (prev === 'companies' ? null : 'companies'))}
                     icon={<IconBuilding size={24} />}
                     customers={customersConfig}
+                    onCustomersChange={setCustomersConfig}
                     onValidation={setIsCompaniesValid}
                     currencies={currenciesConfig}
                 />

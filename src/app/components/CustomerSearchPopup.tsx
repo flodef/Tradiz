@@ -42,6 +42,12 @@ const CustomerSearchPopup: FC<CustomerSearchPopupProps> = ({
     const optionClass = twMerge(styles.option, 'px-3', getOptionHoverStyles(isMobileDevice, true));
     const vkContext = useVirtualKeyboardContext();
 
+    // Refs to keep the virtual keyboard enter handler in sync with the latest
+    // highlighted index and options, since the handler closure is captured once
+    // at focus time and would otherwise be stale after typing.
+    const highlightedIndexRef = useRef(highlightedIndex);
+    const optionsRef = useRef<Option[]>([]);
+
     useEffect(() => {
         inputRef.current?.focus();
     }, []);
@@ -75,11 +81,18 @@ const CustomerSearchPopup: FC<CustomerSearchPopupProps> = ({
     }, [filteredCustomers, showAddOption]);
 
     useEffect(() => {
+        highlightedIndexRef.current = highlightedIndex;
+    }, [highlightedIndex]);
+    useEffect(() => {
+        optionsRef.current = options;
+    }, [options]);
+
+    useEffect(() => {
         setHighlightedIndex(options.length > 0 ? 0 : -1);
     }, [options.length]);
 
-    const selectOption = (index: number) => {
-        const option = options[index];
+    const selectOption = (index: number, opts: Option[] = options) => {
+        const option = opts[index];
         if (!option) return;
 
         if (option.type === 'customer' && option.customer) {
@@ -194,7 +207,8 @@ const CustomerSearchPopup: FC<CustomerSearchPopupProps> = ({
                     if (vkContext) {
                         vkContext.registerInput(e.target, (newValue: string) => setQuery(newValue));
                         vkContext.registerEnterHandler(() => {
-                            if (highlightedIndex >= 0) selectOption(highlightedIndex);
+                            const idx = highlightedIndexRef.current;
+                            if (idx >= 0) selectOption(idx, optionsRef.current);
                         });
                     }
                 }}

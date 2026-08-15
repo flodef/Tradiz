@@ -20,6 +20,10 @@ import { CustomerListReport } from '@/app/components/CustomerListReport';
 type SortField = 'firstName' | 'lastName' | 'reference' | 'email' | 'phone' | 'company' | 'balance';
 type SortDirection = 'asc' | 'desc' | 'none';
 
+// Sentinel value used in the company filter dropdown to represent customers
+// with no company (company is undefined/null/empty).
+const NONE_COMPANY = '__none__';
+
 interface CustomersConfigProps {
     config: Customer[];
     onChange: (data: Customer[]) => void;
@@ -616,10 +620,52 @@ export default function CustomersConfig({
         setOriginalConfig(strip(customers));
     };
 
+    // Company filter options derived from the actual customers: only companies
+    // that have at least one customer appear, plus "Aucune" when some customers
+    // have no company.
+    const companyFilterOptions = useMemo(() => {
+        const present = new Set<string>();
+        let hasNone = false;
+        for (const c of customers) {
+            const name = (c.company ?? '').trim();
+            if (name) {
+                present.add(name);
+            } else {
+                hasNone = true;
+            }
+        }
+        const opts: { value: string; label: string }[] = [{ value: '', label: 'Toutes les entreprises' }];
+        // Preserve the companies prop ordering for ones that are present.
+        if (companies) {
+            for (const c of companies) {
+                if (present.has(c.name)) opts.push({ value: c.name, label: c.name });
+            }
+        }
+        // Add any companies present in customers but missing from the companies prop.
+        const known = new Set((companies || []).map((c) => c.name));
+        for (const name of present) {
+            if (!known.has(name)) opts.push({ value: name, label: name });
+        }
+        if (hasNone) opts.push({ value: NONE_COMPANY, label: 'Aucune' });
+        return opts;
+    }, [customers, companies]);
+
+    // Reset the filter when its option disappears (e.g. after deleting/renaming).
+    useEffect(() => {
+        if (!companyFilter) return;
+        if (!companyFilterOptions.some((o) => o.value === companyFilter)) {
+            setCompanyFilter('');
+        }
+    }, [companyFilterOptions, companyFilter]);
+
     const filteredCustomers = useMemo(() => {
         let result = sortedCustomers;
         if (companyFilter) {
-            result = result.filter((c) => c.company === companyFilter);
+            if (companyFilter === NONE_COMPANY) {
+                result = result.filter((c) => !c.company);
+            } else {
+                result = result.filter((c) => c.company === companyFilter);
+            }
         }
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase().trim();
@@ -638,9 +684,15 @@ export default function CustomersConfig({
 
     const handlePrintCustomerList = useCallback(() => {
         const customersToPrint = companyFilter
-            ? strip(customers).filter((c) => c.company === companyFilter)
+            ? strip(customers).filter((c) =>
+                  companyFilter === NONE_COMPANY ? !c.company : c.company === companyFilter
+              )
             : strip(customers);
-        const title = companyFilter ? `Liste des clients - ${companyFilter}` : 'Liste des clients';
+        const title = companyFilter
+            ? companyFilter === NONE_COMPANY
+                ? 'Liste des clients - Aucune'
+                : `Liste des clients - ${companyFilter}`
+            : 'Liste des clients';
         openFullscreenPopup(
             title,
             [<CustomerListReport key="customerListReport" customers={customersToPrint} shop={parameters.shop} />],
@@ -717,14 +769,11 @@ export default function CustomersConfig({
                                 className="w-full pl-8 pr-3 py-1.5 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
                             />
                         </div>
-                        {companies && companies.length > 0 && (
+                        {companyFilterOptions.length > 1 && (
                             <AdminSelect
                                 value={companyFilter}
                                 onChange={(e) => setCompanyFilter(e.target.value)}
-                                options={[
-                                    { value: '', label: 'Toutes les entreprises' },
-                                    ...companies.map((c) => ({ value: c.name, label: c.name })),
-                                ]}
+                                options={companyFilterOptions}
                                 className="min-w-48"
                             />
                         )}
@@ -742,10 +791,10 @@ export default function CustomersConfig({
                         )}
                     </div>
                 )}
-                <div className="overflow-x-auto">
+                <div className="overflow-auto max-h-[calc(100vh-16rem)]">
                     <table className="w-full border-collapse">
                         {sortedCustomers.length > 0 && (
-                            <thead>
+                            <thead className="sticky top-0 z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur">
                                 <tr className="border-b-2 border-gray-300 dark:border-gray-600">
                                     <th
                                         className={adminHeaderStyle + ' min-w-32 w-32 cursor-pointer'}

@@ -23,6 +23,7 @@ import PriceInput from '../PriceInput';
 
 interface InternalCompany extends Company {
     _id: number;
+    _originalName: string;
 }
 
 interface SortableRowProps {
@@ -31,6 +32,7 @@ interface SortableRowProps {
     canDelete: boolean;
     currencies: { rate: number; decimals: number; symbol?: string }[];
     onFieldChange: (id: number, field: keyof Company, value: string | number) => void;
+    onNameBlur: (id: number) => void;
     onDelete: (id: number) => void;
     nameInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
     lastAddedIndexRef: React.MutableRefObject<number | null>;
@@ -43,6 +45,7 @@ const SortableRow = memo(function SortableRow({
     canDelete,
     currencies,
     onFieldChange,
+    onNameBlur,
     onDelete,
     nameInputRefs,
     lastAddedIndexRef,
@@ -68,6 +71,7 @@ const SortableRow = memo(function SortableRow({
                         type="text"
                         value={company.name}
                         onChange={(value) => onFieldChange(company._id, 'name', String(value))}
+                        onBlur={() => onNameBlur(company._id)}
                         validation={(value) => String(value).trim().length > 0}
                         isNameField
                         ref={(el) => {
@@ -112,6 +116,7 @@ export default function CompaniesConfig({
     customers,
     onValidation,
     currencies,
+    onCustomersChange,
 }: {
     config: Company[];
     onChange: (data: Company[]) => void;
@@ -126,6 +131,7 @@ export default function CompaniesConfig({
     customers?: Customer[];
     onValidation?: (isValid: boolean) => void;
     currencies: { rate: number; decimals: number; symbol?: string }[];
+    onCustomersChange?: (data: Customer[]) => void;
 }) {
     const { openFullscreenPopup } = usePopup();
     const nextIdRef = useRef(0);
@@ -134,7 +140,7 @@ export default function CompaniesConfig({
     const lastAddedIndexRef = useRef<number | null>(null);
     const nameInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const [companies, setCompanies] = useState<InternalCompany[]>(() =>
-        (config || []).map((c) => ({ ...c, _id: nextIdRef.current++ }))
+        (config || []).map((c) => ({ ...c, _id: nextIdRef.current++, _originalName: c.name }))
     );
     // Store original config to track changes against
     const [originalConfig, setOriginalConfig] = useState<Company[]>(config || []);
@@ -145,7 +151,7 @@ export default function CompaniesConfig({
             return;
         }
         const incoming = config || [];
-        setCompanies(incoming.map((c) => ({ ...c, _id: nextIdRef.current++ })));
+        setCompanies(incoming.map((c) => ({ ...c, _id: nextIdRef.current++, _originalName: c.name })));
         setOriginalConfig(incoming);
     }, [config]);
 
@@ -184,9 +190,63 @@ export default function CompaniesConfig({
         [notifyParent]
     );
 
+    const handleNameBlur = useCallback(
+        (id: number) => {
+            const company = companies.find((c) => c._id === id);
+            if (!company || !company._originalName || company._originalName === company.name) return;
+
+            const oldName = company._originalName;
+            const newName = company.name;
+
+            // New empty name: treat as delete. Revert if it was the only one, otherwise remove.
+            if (!newName.trim()) {
+                setCompanies((prev) => prev.filter((c) => c._id !== id));
+                return;
+            }
+
+            // Check if any customers are associated with this company
+            const associatedCustomers = customers?.filter((c) => c.company === oldName) || [];
+            if (associatedCustomers.length === 0) {
+                // No customers — just update the name silently
+                setCompanies((prev) =>
+                    prev.map((c) => (c._id === id ? { ...c, name: newName, _originalName: newName } : c))
+                );
+                return;
+            }
+
+            openFullscreenPopup(
+                `L'entreprise "${oldName}" a ${associatedCustomers.length} client(s) associé(s). Que souhaitez-vous faire ?`,
+                ['Changer entreprise', 'Sans entreprise', 'Annuler'],
+                (index) => {
+                    if (index === 0) {
+                        // Change company: update customers to the new name
+                        onCustomersChange?.(
+                            (customers || []).map((c) => (c.company === oldName ? { ...c, company: newName } : c))
+                        );
+                        setCompanies((prev) =>
+                            prev.map((c) => (c._id === id ? { ...c, name: newName, _originalName: newName } : c))
+                        );
+                    } else if (index === 1) {
+                        // Remove company from customers
+                        onCustomersChange?.(
+                            (customers || []).map((c) => (c.company === oldName ? { ...c, company: undefined } : c))
+                        );
+                        setCompanies((prev) =>
+                            prev.map((c) => (c._id === id ? { ...c, name: newName, _originalName: newName } : c))
+                        );
+                    } else {
+                        // Cancel: revert to old name
+                        setCompanies((prev) => prev.map((c) => (c._id === id ? { ...c, name: oldName } : c)));
+                    }
+                }
+            );
+        },
+        [companies, customers, onCustomersChange, openFullscreenPopup]
+    );
+
     const handleAddCompany = useCallback(() => {
         setCompanies((prev) => {
-            const updated = [...prev, { name: '', mealPrice: 0, _id: nextIdRef.current++ }];
+            const updated = [...prev, { name: '', mealPrice: 0, _id: nextIdRef.current++, _originalName: '' }];
             lastAddedIndexRef.current = updated.length - 1;
             notifyParent(updated);
             return updated;
@@ -296,6 +356,7 @@ export default function CompaniesConfig({
                                         canDelete={companies.length > 0}
                                         currencies={currencies}
                                         onFieldChange={handleFieldChange}
+                                        onNameBlur={handleNameBlur}
                                         onDelete={handleDeleteCompany}
                                         nameInputRefs={nameInputRefs}
                                         lastAddedIndexRef={lastAddedIndexRef}
