@@ -499,7 +499,7 @@ export default function CatalogEditor({
 
                     {/* Inline edit panel */}
                     {selectedProduct && !isReadOnly && (
-                        <div className="w-64 shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3 bg-white dark:bg-gray-800">
+                        <div className="w-64 shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3 bg-white dark:bg-gray-800 overflow-visible">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-sm font-semibold">Édition produit</h3>
                                 <button
@@ -544,8 +544,8 @@ export default function CatalogEditor({
                                 />
                             </div>
 
-                            <div className="flex items-end justify-between">
-                                <div>
+                            <div className="flex items-end justify-between overflow-visible">
+                                <div className="shrink-0">
                                     <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                                         Couleur
                                     </label>
