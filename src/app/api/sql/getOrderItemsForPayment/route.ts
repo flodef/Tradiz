@@ -3,15 +3,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Connection, getMainDb } from '../db';
 import { OrderData, OrderItem, dbToServiceType } from '@/app/utils/interfaces';
 
-interface PanierRow {
+interface OrderRow {
     id: number;
     short_num_order: string;
     service_type: string;
 }
 
-interface ArticleRow {
+interface ProductItemRow {
     id: string;
-    article_id: number;
+    product_id: number;
     label: string;
     quantity: number;
     price: string;
@@ -21,7 +21,7 @@ interface ArticleRow {
     kitchen_view: number;
 }
 
-interface FormuleRow {
+interface FormulaRow {
     id: number;
     label: string;
     quantity: number;
@@ -30,7 +30,7 @@ interface FormuleRow {
     paid_at?: string | null;
 }
 
-interface FormuleElementRow {
+interface FormulaElementRow {
     category: string;
     choice: string;
     options?: string;
@@ -49,56 +49,56 @@ export async function GET(request: NextRequest) {
     try {
         connection = await getMainDb(shopId);
 
-        // Get panier info
-        const panierQuery = connection.isPostgreSQL
-            ? 'SELECT id, short_order_number AS short_num_order, service_type FROM orders WHERE id = $1'
+        // Get order info
+        const orderQuery = connection.isPostgreSQL
+            ? 'SELECT id, short_order_number AS short_num_order, service_type FROM dc.orders WHERE id = $1'
             : 'SELECT id, short_order_number AS short_num_order, service_type FROM orders WHERE id = ?';
-        const [panierRows] = await connection.execute(panierQuery, [orderId]);
+        const [orderRows] = await connection.execute(orderQuery, [orderId]);
 
-        if (!Array.isArray(panierRows) || panierRows.length === 0) {
+        if (!Array.isArray(orderRows) || orderRows.length === 0) {
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        const panier = (panierRows as PanierRow[])[0];
+        const order = (orderRows as OrderRow[])[0];
         const items: OrderItem[] = [];
 
-        // Get articles (non-formule items)
-        const articleQuery = connection.isPostgreSQL
+        // Get products (non-formula items)
+        const productQuery = connection.isPostgreSQL
             ? `
-            SELECT 
-                rpa.id,
-                rpa.article_id,
-                a.nom as label,
-                rpa.quantite as quantity,
-                a.prix as price,
-                rpa.nom_categorie as category,
-                rpa.option as options,
-                rpa.paid_at,
-                rpa.kitchen_view
-            FROM rel_panier_article rpa
-            JOIN article a ON a.id = rpa.article_id
-            WHERE rpa.panier_id = $1
-            ORDER BY rpa.id
+            SELECT
+                rop.id,
+                rop.product_id,
+                p.name as label,
+                rop.quantity,
+                p.price,
+                rop.category_name as category,
+                rop.options,
+                rop.paid_at,
+                rop.kitchen_view
+            FROM dc.rel_order_product rop
+            JOIN dc.products p ON p.id = rop.product_id
+            WHERE rop.order_id = $1
+            ORDER BY rop.id
         `
             : `
-            SELECT 
-                rpa.id,
-                rpa.article_id,
-                a.nom as label,
-                rpa.quantite as quantity,
-                a.prix as price,
-                rpa.nom_categorie as category,
-                rpa.option as options,
-                rpa.paid_at,
-                rpa.kitchen_view
-            FROM rel_panier_article rpa
-            JOIN article a ON a.id = rpa.article_id
-            WHERE rpa.panier_id = ?
-            ORDER BY rpa.id
+            SELECT
+                rop.id,
+                rop.product_id,
+                p.name as label,
+                rop.quantity,
+                p.price,
+                rop.category_name as category,
+                rop.options,
+                rop.paid_at,
+                rop.kitchen_view
+            FROM rel_order_product rop
+            JOIN products p ON p.id = rop.product_id
+            WHERE rop.order_id = ?
+            ORDER BY rop.id
         `;
-        const [articleRows] = await connection.execute(articleQuery, [orderId]);
+        const [productRows] = await connection.execute(productQuery, [orderId]);
 
-        for (const row of articleRows as ArticleRow[]) {
+        for (const row of productRows as ProductItemRow[]) {
             items.push({
                 id: row.id,
                 type: 'article',
@@ -112,75 +112,75 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        // Get formules
-        const formuleQuery = connection.isPostgreSQL
+        // Get formulas
+        const formulaQuery = connection.isPostgreSQL
             ? `
-            SELECT 
-                rpf.id,
-                f.nom as label,
-                rpf.quantite as quantity,
-                f.prix as price,
-                rpf.note,
-                rpf.paid_at
-            FROM rel_panier_formule rpf
-            JOIN formule f ON f.id = rpf.formule_id
-            WHERE rpf.panier_id = $1
-            ORDER BY rpf.id
+            SELECT
+                rof.id,
+                f.name as label,
+                rof.quantity,
+                f.price,
+                rof.note,
+                rof.paid_at
+            FROM dc.rel_order_formula rof
+            JOIN dc.formulas f ON f.id = rof.formula_id
+            WHERE rof.order_id = $1
+            ORDER BY rof.id
         `
             : `
-            SELECT 
-                rpf.id,
-                f.nom as label,
-                rpf.quantite as quantity,
-                f.prix as price,
-                rpf.note,
-                rpf.paid_at
-            FROM rel_panier_formule rpf
-            JOIN formule f ON f.id = rpf.formule_id
-            WHERE rpf.panier_id = ?
-            ORDER BY rpf.id
+            SELECT
+                rof.id,
+                f.name as label,
+                rof.quantity,
+                f.price,
+                rof.note,
+                rof.paid_at
+            FROM rel_order_formula rof
+            JOIN formulas f ON f.id = rof.formula_id
+            WHERE rof.order_id = ?
+            ORDER BY rof.id
         `;
-        const [formuleRows] = await connection.execute(formuleQuery, [orderId]);
+        const [formulaRows] = await connection.execute(formulaQuery, [orderId]);
 
-        for (const formule of formuleRows as FormuleRow[]) {
-            // Get elements of this formule
+        for (const formula of formulaRows as FormulaRow[]) {
+            // Get elements of this formula
             const elementQuery = connection.isPostgreSQL
                 ? `
-                SELECT 
-                    rpf_ef.nom_categorie as category,
-                    a.nom as choice,
-                    rpf_ef.options
-                FROM rel_pf_ef rpf_ef
-                JOIN article a ON a.id = rpf_ef.id_article
-                WHERE rpf_ef.id_pf = $1
-                ORDER BY rpf_ef.id
+                SELECT
+                    rofe.category_name as category,
+                    p.name as choice,
+                    rofe.options
+                FROM dc.rel_order_formula_element rofe
+                JOIN dc.products p ON p.id = rofe.product_id
+                WHERE rofe.order_formula_id = $1
+                ORDER BY rofe.id
             `
                 : `
-                SELECT 
-                    rpf_ef.nom_categorie as category,
-                    a.nom as choice,
-                    rpf_ef.options
-                FROM rel_pf_ef rpf_ef
-                JOIN article a ON a.id = rpf_ef.id_article
-                WHERE rpf_ef.id_pf = ?
-                ORDER BY rpf_ef.id
+                SELECT
+                    rofe.category_name as category,
+                    p.name as choice,
+                    rofe.options
+                FROM rel_order_formula_element rofe
+                JOIN products p ON p.id = rofe.product_id
+                WHERE rofe.order_formula_id = ?
+                ORDER BY rofe.id
             `;
-            const [elementRows] = await connection.execute(elementQuery, [formule.id]);
+            const [elementRows] = await connection.execute(elementQuery, [formula.id]);
 
-            const elements = (elementRows as FormuleElementRow[]).map((el) => ({
+            const elements = (elementRows as FormulaElementRow[]).map((el) => ({
                 category: el.category,
                 choice: el.choice,
                 options: el.options,
             }));
 
             items.push({
-                id: formule.id.toString(),
+                id: formula.id.toString(),
                 type: 'formule',
-                label: formule.label,
-                quantity: formule.quantity,
-                price: parseFloat(formule.price),
-                note: formule.note,
-                paid_at: formule.paid_at,
+                label: formula.label,
+                quantity: formula.quantity,
+                price: parseFloat(formula.price),
+                note: formula.note,
+                paid_at: formula.paid_at,
                 elements,
             });
         }
@@ -193,9 +193,9 @@ export async function GET(request: NextRequest) {
         const remaining_amount = total_amount - paid_amount;
 
         const orderData: OrderData = {
-            order_id: panier.id,
-            short_num_order: panier.short_num_order,
-            service_type: dbToServiceType(panier.service_type),
+            order_id: order.id,
+            short_num_order: order.short_num_order,
+            service_type: dbToServiceType(order.service_type),
             items,
             total_amount,
             paid_amount,

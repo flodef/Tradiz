@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
         const pgTable = connection.isPostgreSQL ? 'dc.categories' : 'categories';
         const pgCompanies = connection.isPostgreSQL ? 'dc_pos.companies' : '`DC_POS`.companies';
-        const pgPrinters = connection.isPostgreSQL ? 'dc_pos.printers' : 'printers';
+        const pgPrinters = connection.isPostgreSQL ? 'dc_pos.printers' : '`DC_POS`.printers';
 
         // Fetch all companies (name → id) so we can resolve company names to IDs
         const [companyRows] = await connection.execute(`SELECT id, name FROM ${pgCompanies}`);

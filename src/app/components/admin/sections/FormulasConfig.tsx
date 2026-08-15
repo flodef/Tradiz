@@ -745,7 +745,7 @@ export default function FormulasConfig({
                                                             );
                                                             return (
                                                                 <SortableProduct
-                                                                    key={productIndex}
+                                                                    key={product}
                                                                     productIndex={productIndex}
                                                                     product={product}
                                                                     availableOptions={availableOptions}

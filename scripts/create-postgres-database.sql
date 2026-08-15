@@ -374,7 +374,8 @@ CREATE TABLE IF NOT EXISTS dc_pos.transaction_items (
 CREATE TABLE IF NOT EXISTS dc_pos.printers (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    ip_address VARCHAR(45)
+    ip_address VARCHAR(45),
+    note_enabled BOOLEAN NOT NULL DEFAULT true
 );
 
 -- Discounts

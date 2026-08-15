@@ -51,8 +51,8 @@ INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (1
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (17, 'useVirtualKeyboard', 'true', '2026-08-05 14:19:31.010455') ON CONFLICT (id) DO NOTHING;
 
 -- Payment methods (paiements)
-INSERT INTO dc_pos.payment_methods (id, label, address, currency, hidden, created_at) VALUES (1, 'Carte Bancaire', '0', 'Euro', 'f', '2026-07-11 18:17:10.119469') ON CONFLICT (id) DO NOTHING;
-INSERT INTO dc_pos.payment_methods (id, label, address, currency, hidden, created_at) VALUES (2, 'Espèces', '0', 'Euro', 'f', '2026-07-11 18:17:10.153381') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.payment_methods (id, label, address, currency, available, created_at) VALUES (1, 'Carte Bancaire', '0', 'Euro', true, '2026-07-11 18:17:10.119469') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.payment_methods (id, label, address, currency, available, created_at) VALUES (2, 'Espèces', '0', 'Euro', true, '2026-07-11 18:17:10.153381') ON CONFLICT (id) DO NOTHING;
 
 -- Printers (imprimantes)
 INSERT INTO dc_pos.printers (id, name, ip_address) VALUES (1, 'Caisse', 'COM1') ON CONFLICT (id) DO NOTHING;

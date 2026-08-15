@@ -1012,18 +1012,25 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // then clearTotal → deleteTransaction. deleteTransaction's `transactions` closure
     // is stale — it still sees the old PROCESSING tx, so it hard-deletes the tx that was
     // just paid. This uses a functional state update to check the CURRENT state instead.
+    // The side effect (saveTransactions) is deferred to a useEffect so the updater stays pure.
+    const pendingHardDeleteRef = useRef<Transaction | null>(null);
     const clearProcessingTransaction = useCallback(() => {
         setTransactions((prev) => {
             const idx = prev.findIndex((t) => isProcessingTransaction(t) && t.validator === parameters.user.name);
             if (idx < 0) return prev;
-
-            const transaction = prev[idx];
             // Only hard-delete if it's STILL a PROCESSING tx in the current state.
             // If it was already updated to a paid tx by storeTransaction, skip.
-            saveTransactions(DatabaseAction.hardDelete, transaction);
+            pendingHardDeleteRef.current = prev[idx];
             return prev.filter((_, i) => i !== idx);
         });
-    }, [saveTransactions, parameters.user.name]);
+    }, [parameters.user.name]);
+    useEffect(() => {
+        if (pendingHardDeleteRef.current) {
+            const tx = pendingHardDeleteRef.current;
+            pendingHardDeleteRef.current = null;
+            saveTransactions(DatabaseAction.hardDelete, tx);
+        }
+    }, [saveTransactions]);
 
     const toCurrency = useCallback(
         (element: { amount: number; currency?: string } | number | Product | Transaction) => {
@@ -1296,8 +1303,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     saveProcessingTransactionRef.current = saveProcessingTransaction;
 
     const editTransaction = useCallback(
-        (index: number) => {
-            const transaction = transactions.at(index);
+        (index: number, override?: Transaction) => {
+            const transaction = override ?? transactions.at(index);
             if (!transaction?.amount) return;
 
             // Track if this tx was WAITING — the kitchen already received a ticket when it was put on hold.

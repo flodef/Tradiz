@@ -27,8 +27,8 @@ CREATE TABLE IF NOT EXISTS `categories` (
   UNIQUE KEY `name` (`name`),
   KEY `company_id` (`company_id`),
   KEY `printer_id` (`printer_id`),
-  CONSTRAINT `fk_categories_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_categories_printer` FOREIGN KEY (`printer_id`) REFERENCES `printers` (`id`) ON DELETE SET NULL
+  CONSTRAINT `fk_categories_company` FOREIGN KEY (`company_id`) REFERENCES `DC_POS`.`companies` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_categories_printer` FOREIGN KEY (`printer_id`) REFERENCES `DC_POS`.`printers` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Products (was: article)

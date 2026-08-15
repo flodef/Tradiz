@@ -13,7 +13,14 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { IconChevronDown, IconChevronUp, IconInfoCircle, IconSelector } from '@tabler/icons-react';
+import {
+    IconChevronDown,
+    IconChevronRight,
+    IconChevronUp,
+    IconInfoCircle,
+    IconSearch,
+    IconSelector,
+} from '@tabler/icons-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AdminSelect from '../AdminSelect';
 import AvailabilityToggle from '../AvailabilityToggle';
@@ -363,19 +370,10 @@ export default function ProductsConfig({
             {/* Desktop: all controls in one row */}
             <div className="hidden md:flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 <div className="relative">
-                    <svg
-                        className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 opacity-50 pointer-events-none"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"
-                        />
-                    </svg>
+                    <IconSearch
+                        size={14}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none"
+                    />
                     <input
                         type="text"
                         value={search}
@@ -410,19 +408,10 @@ export default function ProductsConfig({
     const mobileSearchRow = (
         <div className="md:hidden pb-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <div className="relative flex-1">
-                <svg
-                    className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 opacity-50 pointer-events-none"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                >
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"
-                    />
-                </svg>
+                <IconSearch
+                    size={14}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none"
+                />
                 <input
                     type="text"
                     value={search}
@@ -637,19 +626,10 @@ export default function ProductsConfig({
                                                     className="p-2 font-semibold text-sm"
                                                 >
                                                     <div className="flex items-center gap-2">
-                                                        <svg
-                                                            className={`w-4 h-4 transition-transform duration-200 ${expandedCategories.has(cat) ? 'rotate-90' : ''}`}
-                                                            fill="none"
-                                                            stroke="currentColor"
-                                                            viewBox="0 0 24 24"
-                                                        >
-                                                            <path
-                                                                strokeLinecap="round"
-                                                                strokeLinejoin="round"
-                                                                strokeWidth={2}
-                                                                d="M9 5l7 7-7 7"
-                                                            />
-                                                        </svg>
+                                                        <IconChevronRight
+                                                            size={16}
+                                                            className={`transition-transform duration-200 ${expandedCategories.has(cat) ? 'rotate-90' : ''}`}
+                                                        />
                                                         {cat}{' '}
                                                         {availFilter === 'all'
                                                             ? `(${categoryGroups[cat].filter(({ p }) => p.stock !== 0).length} / ${categoryGroups[cat].length} produit${categoryGroups[cat].length > 1 ? 's' : ''})`

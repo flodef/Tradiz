@@ -244,10 +244,10 @@ export default function CatalogEditor({
     const handleProductUpdate = useCallback(
         (updated: AdminProduct) => {
             if (!selectedProduct) return;
-            // Find the product in the full products array by matching the same object
-            const result = products.map((p) =>
-                p === currentProducts[gridProducts.findIndex((g) => g._gridId === selectedProductId)] ? updated : p
-            );
+            const idx = gridProducts.findIndex((g) => g._gridId === selectedProductId);
+            if (idx === -1) return;
+            const target = currentProducts[idx];
+            const result = products.map((p) => (p === target ? updated : p));
             onChange(result);
         },
         [selectedProduct, selectedProductId, products, currentProducts, gridProducts, onChange]
@@ -313,7 +313,7 @@ export default function CatalogEditor({
                     >
                         {categoryLabels.map((category, index) => (
                             <div
-                                key={index}
+                                key={category}
                                 className={twMerge(
                                     'flex-1 min-w-fit px-4 py-2 font-semibold text-lg text-center cursor-pointer whitespace-nowrap',
                                     'hover:bg-active-light dark:hover:bg-active-dark',

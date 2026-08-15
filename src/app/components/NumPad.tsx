@@ -625,6 +625,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
         removeProduct,
         clearTotal,
         selectedProduct,
+        setSelectedProduct,
         updateTransaction,
         transactions,
         isDbConnected,
@@ -700,8 +701,12 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                         newValue = parseFloat(newValue) <= max ? newValue : max.toString();
                         setValue(newValue);
                         if (selectedProduct) {
-                            selectedProduct.amount = parseFloat(newValue) / Math.pow(10, maxDecimals);
-                            computeQuantity(selectedProduct, selectedProduct.quantity);
+                            const updated = {
+                                ...selectedProduct,
+                                amount: parseFloat(newValue) / Math.pow(10, maxDecimals),
+                            };
+                            setSelectedProduct(updated);
+                            computeQuantity(updated, updated.quantity);
                             setQuantity(0);
                         }
                     }
@@ -904,8 +909,9 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                     maxDecimals={maxDecimals}
                     onUseResult={(result) => {
                         if (selectedProduct) {
-                            selectedProduct.amount = result;
-                            computeQuantity(selectedProduct, selectedProduct.quantity);
+                            const updated = { ...selectedProduct, amount: result };
+                            setSelectedProduct(updated);
+                            computeQuantity(updated, updated.quantity);
                         } else {
                             setValue((result * Math.pow(10, maxDecimals)).toShortFixed(0));
                             setAmount(result);

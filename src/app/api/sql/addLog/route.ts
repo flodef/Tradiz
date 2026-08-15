@@ -19,6 +19,9 @@ export async function POST(request: Request) {
         if (!Array.isArray(logs) || logs.length === 0) {
             return NextResponse.json({ error: 'Logs array is required' }, { status: 400 });
         }
+        if (logs.length > 1000) {
+            return NextResponse.json({ error: 'Logs array too large (max 1000)' }, { status: 400 });
+        }
 
         connection = await getPosDb(shopId);
 
@@ -29,8 +32,6 @@ export async function POST(request: Request) {
                 : `INSERT INTO dc_sys.logs (level, message, source) VALUES (?, ?, ?)`;
             await connection.execute(query, [log.level, log.message, log.source ?? null]);
         }
-
-        await connection.end();
 
         return NextResponse.json({ success: true, count: logs.length }, { status: 200 });
     } catch (error) {

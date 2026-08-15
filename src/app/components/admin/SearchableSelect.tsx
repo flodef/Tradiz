@@ -1,6 +1,7 @@
 'use client';
 
 import { adminInputStyle } from '@/app/utils/constants';
+import { IconChevronDown } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 interface SearchableSelectProps {
@@ -74,15 +75,7 @@ export default function SearchableSelect({
                 onClick={() => !disabled && setIsOpen(!isOpen)}
             >
                 {selectedLabels || placeholder}
-                <svg
-                    className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
+                <IconChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </div>
             {isOpen && (
                 <div className="absolute z-10 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md mt-1 shadow-lg max-h-60 overflow-y-auto">

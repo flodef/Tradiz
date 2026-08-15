@@ -153,7 +153,7 @@ const SortableRow = memo(function SortableRow({
             <td className="p-2">
                 <div className="space-y-2">
                     {group.options.map((option, index) => (
-                        <div key={index} className="flex items-center gap-2">
+                        <div key={option.value} className="flex items-center gap-2">
                             {isReadOnly ? (
                                 <>
                                     <span className="text-sm">{option.value}</span>

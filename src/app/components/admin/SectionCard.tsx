@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, useState } from 'react';
-import { IconCheck, IconX } from '@tabler/icons-react';
+import { IconCheck, IconChevronRight, IconX } from '@tabler/icons-react';
 import { useIsMobile } from '@/app/utils/mobile';
 import AdminButton from './AdminButton';
 import { twMerge } from 'tailwind-merge';
@@ -57,14 +57,10 @@ export default function SectionCard({
             >
                 <div className="flex justify-between items-start px-2 md:px-6 py-4 gap-2">
                     <div className="flex items-center gap-2">
-                        <svg
-                            className={`w-5 h-5 transition-transform duration-200 ${open ? 'rotate-90' : 'rotate-0'}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
+                        <IconChevronRight
+                            size={20}
+                            className={`transition-transform duration-200 ${open ? 'rotate-90' : 'rotate-0'}`}
+                        />
                         <div className="text-light dark:text-dark">{icon}</div>
                         <h2 className="text-2xl font-semibold text-light dark:text-dark">{title}</h2>
                         {!open && hasChanges && !isReadOnly && (

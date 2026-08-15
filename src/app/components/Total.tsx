@@ -159,11 +159,12 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
             const transaction = transactions.at(index);
             if (!transaction) return;
 
-            // If it's a refund transaction, reverse it first
+            // If it's a refund transaction, reverse it first and pass the reversed
+            // version directly to editTransaction — no in-place array mutation.
             if (isRefundTransaction(transaction)) {
                 const reversedTransaction = reverseTransaction(transaction);
-                // Replace the transaction in the array with the reversed one
-                transactions.splice(index, 1, reversedTransaction);
+                editTransaction(index, reversedTransaction);
+                return;
             }
 
             // Now call editTransaction normally
@@ -413,12 +414,13 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         ) => {
             if (!visibleTransactions.length) return;
 
-            transaction.products.splice(productIndex, 1);
-            transaction.amount = transaction.products.reduce(
+            const updatedProducts = transaction.products.filter((_, i) => i !== productIndex);
+            const updatedAmount = updatedProducts.reduce(
                 (total, product) => total + product.amount * product.quantity,
                 0
             );
-            if (!transaction.amount) {
+            const updatedTransaction = { ...transaction, products: updatedProducts, amount: updatedAmount };
+            if (!updatedAmount) {
                 deleteTransaction(transactionIndex);
                 if (visibleTransactions.length) {
                     backToTransactions();
@@ -427,7 +429,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                 }
                 setNeedRefresh(true);
             } else {
-                updateTransaction(transaction);
+                updateTransaction(updatedTransaction);
                 backToProducts();
             }
         },
