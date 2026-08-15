@@ -151,6 +151,7 @@ export default function CatalogEditor({
     const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
     const [activeProductId, setActiveProductId] = useState<string | null>(null);
     const categoryBarRef = useRef<HTMLDivElement>(null);
+    const nameInputRef = useRef<HTMLInputElement | null>(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
 
@@ -261,6 +262,14 @@ export default function CatalogEditor({
     useEffect(() => {
         setSelectedProductId(null);
     }, [selectedCategoryIndex]);
+
+    // Focus the name input when the inline edit panel opens
+    useEffect(() => {
+        if (selectedProductId && nameInputRef.current) {
+            nameInputRef.current.focus();
+            nameInputRef.current.select();
+        }
+    }, [selectedProductId]);
 
     const handleDragStart = useCallback((event: DragStartEvent) => {
         setActiveProductId(String(event.active.id));
@@ -515,6 +524,9 @@ export default function CatalogEditor({
                                     maxLength={50}
                                     isReadOnly={isReadOnly}
                                     isNameField
+                                    ref={(el) => {
+                                        nameInputRef.current = el;
+                                    }}
                                 />
                             </div>
 
@@ -532,18 +544,17 @@ export default function CatalogEditor({
                                 />
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                    Couleur
-                                </label>
-                                <ColorSwatchPicker
-                                    color={selectedProduct.color ?? ''}
-                                    onChange={(color) => handleProductUpdate({ ...selectedProduct, color })}
-                                    isReadOnly={isReadOnly}
-                                />
-                            </div>
-
-                            <div className="flex justify-end pt-1">
+                            <div className="flex items-end justify-between">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                        Couleur
+                                    </label>
+                                    <ColorSwatchPicker
+                                        color={selectedProduct.color ?? ''}
+                                        onChange={(color) => handleProductUpdate({ ...selectedProduct, color })}
+                                        isReadOnly={isReadOnly}
+                                    />
+                                </div>
                                 <DeleteButton onClick={handleDeleteProduct} title="Supprimer le produit" />
                             </div>
                         </div>
