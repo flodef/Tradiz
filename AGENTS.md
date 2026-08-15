@@ -39,9 +39,10 @@
 
 ## Release Policy
 
--   **NEVER push to main, tag, create GitHub releases, or build installers without explicit user authorization.**
+-   **NEVER push to main, tag, create GitHub releases, build installers, or run `bun run build` / `bun electron:dist:*` without explicit user authorization.**
 -   The user wants to test changes locally before any push/build.
 -   Committing to dev is OK, but pushing to main / tagging / releasing / building must be confirmed first.
+-   Do NOT start a build or release just because a previous turn did one — always wait for an explicit request.
 
 ## Active Work
 
