@@ -376,6 +376,7 @@ export default function SettingsPage() {
                                     showChange: parsed.showChange ?? true,
                                     catalogMode: parsed.catalogMode ?? false,
                                     useTakeOut: parsed.useTakeOut ?? true,
+                                    paymentIconsMode: parsed.paymentIconsMode ?? true,
                                 };
                             }
                         }

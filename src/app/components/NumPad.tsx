@@ -195,6 +195,12 @@ const SearchPopup: FC<SearchPopupProps> = ({
     const optionClass = twMerge(styles.option, 'px-3', getOptionHoverStyles(isMobileDevice, true));
     const vkContext = useVirtualKeyboardContext();
 
+    // Refs to keep the virtual keyboard enter handler in sync with the latest
+    // highlighted index and items, since the handler closure is captured once
+    // at focus time and would otherwise be stale after typing.
+    const highlightedIndexRef = useRef(highlightedIndex);
+    const allItemsRef = useRef<SearchItem[]>([]);
+
     useEffect(() => {
         inputRef.current?.focus();
         // Reset scanner detection when popup opens
@@ -295,6 +301,14 @@ const SearchPopup: FC<SearchPopupProps> = ({
         return items;
     }, [productResults, customerResults, userResults, expandedSections, searchSettings]);
 
+    // Keep refs in sync so the VK enter handler always sees the latest values
+    useEffect(() => {
+        allItemsRef.current = allItems;
+    }, [allItems]);
+    useEffect(() => {
+        highlightedIndexRef.current = highlightedIndex;
+    }, [highlightedIndex]);
+
     // Get category boundaries
     const categoryBoundaries = useMemo(() => {
         const boundaries: { [key: string]: { start: number; end: number } } = {};
@@ -317,11 +331,11 @@ const SearchPopup: FC<SearchPopupProps> = ({
 
     // Auto-highlight first item when query changes and there are results
     useEffect(() => {
-        if (query && allItems.length > 0) {
-            setHighlightedIndex(0);
-        } else {
-            setHighlightedIndex(-1);
-        }
+        const newIndex = query && allItems.length > 0 ? 0 : -1;
+        setHighlightedIndex(newIndex);
+        // Update the ref synchronously so the VK enter handler sees the correct
+        // index immediately, without waiting for a second render cycle.
+        highlightedIndexRef.current = newIndex;
     }, [query, allItems.length]);
 
     // Auto-select when exactly one result matches (e.g. barcode scan in search mode)
@@ -465,10 +479,12 @@ const SearchPopup: FC<SearchPopupProps> = ({
                     if (vkContext) {
                         vkContext.registerInput(e.target, (newValue: string) => setRawInput(newValue));
                         vkContext.registerEnterHandler(() => {
-                            if (highlightedIndex >= 0 && highlightedIndex < allItems.length) {
-                                selectItem(allItems[highlightedIndex]);
-                            } else if (allItems.length > 0) {
-                                selectItem(allItems[0]);
+                            const idx = highlightedIndexRef.current;
+                            const items = allItemsRef.current;
+                            if (idx >= 0 && idx < items.length) {
+                                selectItem(items[idx]);
+                            } else if (items.length > 0) {
+                                selectItem(items[0]);
                             }
                         });
                     }

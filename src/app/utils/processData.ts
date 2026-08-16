@@ -205,6 +205,7 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
                             showChange: parsed.showChange ?? true,
                             catalogMode: parsed.catalogMode ?? false,
                             useTakeOut: parsed.useTakeOut ?? true,
+                            paymentIconsMode: parsed.paymentIconsMode ?? true,
                         };
                     }
                 }
@@ -344,6 +345,7 @@ export const defaultParameters: Parameters = {
         showChange: true,
         catalogMode: false,
         useTakeOut: true,
+        paymentIconsMode: true,
     },
 };
 

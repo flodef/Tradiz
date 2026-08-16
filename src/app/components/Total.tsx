@@ -20,9 +20,18 @@ import { usePopup } from '../hooks/usePopup';
 import { useSummary } from '../hooks/useSummary';
 import { useWindowParam } from '../hooks/useWindowParam';
 import Loading from '../loading';
-import { BACK_KEYWORD, PROVISION_KEYWORD, REFUND_KEYWORD, UPDATING_KEYWORD, WAITING_KEYWORD } from '../utils/constants';
+import {
+    BACK_KEYWORD,
+    DEBIT_KEYWORD,
+    PRINT_KEYWORD,
+    PROVISION_KEYWORD,
+    REFUND_KEYWORD,
+    UPDATING_KEYWORD,
+    WAITING_KEYWORD,
+} from '../utils/constants';
 import { OrderItem, State, Transaction } from '../utils/interfaces';
 import { isMobileSize, useIsMobile, useIsMobileDevice, useLongPressContextMenu } from '../utils/mobile';
+import { getPaymentIcon, IconDotsCircleHorizontal } from '../utils/paymentIcons';
 import { Amount } from './Amount';
 import { OrderItemsSelector } from './OrderItemsSelector';
 import { useAddPopupClass } from './Popup';
@@ -116,6 +125,34 @@ const Item: FC<ItemProps> = ({ label, onClick = () => {}, onContextMenu, classNa
     );
 };
 
+// A single payment-method icon button for the desktop icon bar.
+const PaymentIconButton: FC<{
+    icon: FC<{ size?: number | string; className?: string }>;
+    label: string;
+    onClick: () => void;
+    size: number;
+    className?: string;
+}> = ({ icon: Icon, label, onClick, size, className }) => (
+    <button
+        type="button"
+        title={label}
+        aria-label={label}
+        onClick={(e) => {
+            e.stopPropagation();
+            onClick();
+        }}
+        onContextMenu={(e) => e.stopPropagation()}
+        className={twMerge(
+            'inline-flex items-center justify-center rounded-lg px-2 py-1 transition-colors',
+            'hover:bg-active-light dark:hover:bg-active-dark',
+            'active:bg-secondary-active-light dark:active:bg-secondary-active-dark',
+            className
+        )}
+    >
+        <Icon size={size} />
+    </button>
+);
+
 export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     showLightAdminNav = false,
     compact = false,
@@ -149,8 +186,9 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
-    const { pay, printTransaction, printKitchenReceipt } = usePay();
-    const { state, isStateReady, getPrintersNames, parameters } = useConfig();
+    const { pay, printTransaction, printKitchenReceipt, payWithMethod } = usePay();
+    const { state, isStateReady, getPrintersNames, parameters, paymentMethods, currencies, currencyIndex } =
+        useConfig();
 
     const [needRefresh, setNeedRefresh] = useState(false);
     const visibleTransactions = useMemo(() => transactions.filter((tx) => !isDeletedTransaction(tx)), [transactions]);
@@ -665,6 +703,33 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     );
     const isMobile = useIsMobile();
 
+    // Payment icons mode: show payment methods as clickable icons in the top bar (desktop only).
+    const paymentIconsEnabled = (parameters.display?.paymentIconsMode ?? true) && !isMobile;
+
+    const availablePaymentMethods = useMemo(
+        () =>
+            paymentMethods
+                .filter((m) => m.currency === currencies[currencyIndex].label && m.availability !== false)
+                .map((m) => m.type),
+        [paymentMethods, currencies, currencyIndex]
+    );
+
+    // Non-payment cashier actions shown as icons alongside payment methods.
+    const availableActions = useMemo(() => {
+        const actions: { type: string; label: string }[] = [];
+        if (getPrintersNames().length > 0) actions.push({ type: PRINT_KEYWORD, label: 'Imprimer' });
+        if (parameters.display?.showWaiting !== false)
+            actions.push({ type: 'METTRE ' + WAITING_KEYWORD, label: 'Mettre en attente' });
+        if (parameters.display?.showRefund !== false) actions.push({ type: REFUND_KEYWORD, label: 'Remboursement' });
+        if (parameters.display?.showDebit !== false) actions.push({ type: DEBIT_KEYWORD, label: 'Débit' });
+        return actions;
+    }, [
+        getPrintersNames,
+        parameters.display?.showWaiting,
+        parameters.display?.showRefund,
+        parameters.display?.showDebit,
+    ]);
+
     if (state === State.init || state === State.loading || state === State.error) {
         return (
             <div className={popupClass} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -750,20 +815,71 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                             isMobile={isMobile}
                             onCollapsedChange={(c) => setNavExpanded(!c)}
                         />
-                        <div className={twMerge('flex-1 text-center overflow-hidden whitespace-nowrap')}>
+                        <div
+                            className={twMerge(
+                                'flex-1 overflow-hidden whitespace-nowrap',
+                                paymentIconsEnabled && !navExpanded
+                                    ? 'flex items-center justify-between pl-2'
+                                    : 'text-center'
+                            )}
+                        >
                             {canDisplayTotal ? (
                                 total ? (
-                                    <span
-                                        className={`inline-flex items-center justify-center ${isMobile ? 'gap-1' : 'gap-2'}`}
-                                    >
-                                        {!navExpanded && (
-                                            <>
-                                                <IconWallet className="inline-block" size={isMobile ? 28 : 36} />
-                                                {label}{' '}
-                                            </>
-                                        )}
-                                        <Amount value={total} showZero />
-                                    </span>
+                                    paymentIconsEnabled && !navExpanded ? (
+                                        <>
+                                            <span
+                                                className={`shrink-0 ${compact ? 'text-2xl' : 'text-3xl'}`}
+                                                title={toCurrency(total)}
+                                            >
+                                                <Amount value={total} showZero />
+                                            </span>
+                                            <div
+                                                className="flex items-center gap-1 overflow-x-auto"
+                                                onMouseDown={(e) => e.stopPropagation()}
+                                                onMouseUp={(e) => e.stopPropagation()}
+                                            >
+                                                {availablePaymentMethods.map((method) => (
+                                                    <PaymentIconButton
+                                                        key={method}
+                                                        icon={getPaymentIcon(method)}
+                                                        label={method}
+                                                        onClick={() => payWithMethod(method)}
+                                                        size={compact ? 28 : 36}
+                                                    />
+                                                ))}
+                                                {availableActions.length > 0 && (
+                                                    <div className="w-px h-8 bg-current opacity-20 mx-1 shrink-0" />
+                                                )}
+                                                {availableActions.map((action) => (
+                                                    <PaymentIconButton
+                                                        key={action.type}
+                                                        icon={getPaymentIcon(action.type)}
+                                                        label={action.label}
+                                                        onClick={() => payWithMethod(action.type)}
+                                                        size={compact ? 28 : 36}
+                                                    />
+                                                ))}
+                                                <PaymentIconButton
+                                                    icon={IconDotsCircleHorizontal}
+                                                    label="Plus d'options"
+                                                    onClick={pay}
+                                                    size={compact ? 28 : 36}
+                                                />
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <span
+                                            className={`inline-flex items-center justify-center ${isMobile ? 'gap-1' : 'gap-2'}`}
+                                        >
+                                            {!navExpanded && (
+                                                <>
+                                                    <IconWallet className="inline-block" size={isMobile ? 28 : 36} />
+                                                    {label}{' '}
+                                                </>
+                                            )}
+                                            <Amount value={total} showZero />
+                                        </span>
+                                    )
                                 ) : (
                                     <span>&nbsp;</span>
                                 )

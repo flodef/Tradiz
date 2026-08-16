@@ -75,6 +75,7 @@ export interface DisplaySettings {
     showChange: boolean;
     catalogMode: boolean;
     useTakeOut: boolean;
+    paymentIconsMode?: boolean;
     displayOthers?: boolean;
 }
 

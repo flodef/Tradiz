@@ -126,6 +126,7 @@ export default function ParametersConfig({
                 showChange: true,
                 catalogMode: false,
                 useTakeOut: true,
+                paymentIconsMode: true,
             }),
             [field]: checked,
         } as DisplaySettings);
@@ -535,6 +536,14 @@ export default function ParametersConfig({
                             onChange={(checked) => handleDisplayChange('useTakeOut', checked)}
                             isReadOnly={isReadOnly}
                             label="Sur place / À emporter"
+                        />
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.display?.paymentIconsMode ?? true}
+                            onChange={(checked) => handleDisplayChange('paymentIconsMode', checked)}
+                            isReadOnly={isReadOnly}
+                            label="Icônes de paiement (bureau)"
                         />
                     </div>
                 </div>

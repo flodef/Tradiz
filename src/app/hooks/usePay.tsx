@@ -1219,11 +1219,65 @@ export const usePay = () => {
         setCounterServiceType,
     ]);
 
+    // Pay directly with a specific method, bypassing the payment method popup.
+    // Used by the desktop payment-icons top bar so each icon triggers payment in one click.
+    const payWithMethod = useCallback(
+        (method: string) => {
+            // New payment cycle: unlock selection and service type
+            paymentSelectionLockedRef.current = false;
+            serviceTypeSelectedRef.current = false;
+
+            // Partial payment mode
+            if (orderId && selectedOrderItems.length > 0 && showPartialPaymentSelector) {
+                if (paymentSelectionLockedRef.current) return;
+                paymentSelectionLockedRef.current = true;
+                selectPaymentForPartial(method);
+                return;
+            }
+
+            // Normal payment mode — if order already partially paid, force partial selector
+            if (orderId && orderData && orderData.paid_amount > 0) {
+                setShowPartialPaymentSelector(true);
+                return;
+            }
+
+            const useTakeOut = parameters.display?.useTakeOut !== false;
+            if (!orderId && !useTakeOut) {
+                setCounterServiceType('takeout');
+            }
+
+            if (paymentSelectionLockedRef.current) return;
+            paymentSelectionLockedRef.current = true;
+            selectPayment(method, pay);
+        },
+        [
+            selectPayment,
+            selectPaymentForPartial,
+            orderId,
+            selectedOrderItems,
+            showPartialPaymentSelector,
+            orderData,
+            parameters.display?.useTakeOut,
+            setCounterServiceType,
+            setShowPartialPaymentSelector,
+            pay,
+        ]
+    );
+
     useEffect(() => {
         if (error?.message === 'Transaction timed out') {
             cancelOrConfirmPaiement(pay);
         }
     }, [error, cancelOrConfirmPaiement, pay]);
 
-    return { pay, canPay, canAddProduct, canAddProvision, addProvision, printTransaction, printKitchenReceipt };
+    return {
+        pay,
+        canPay,
+        canAddProduct,
+        canAddProvision,
+        addProvision,
+        printTransaction,
+        printKitchenReceipt,
+        payWithMethod,
+    };
 };

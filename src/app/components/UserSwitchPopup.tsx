@@ -27,6 +27,12 @@ export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({ onSelect, initialQue
     const optionClass = twMerge(styles.option, 'px-3', getOptionHoverStyles(isMobileDevice, true));
     const vkContext = useVirtualKeyboardContext();
 
+    // Refs to keep the virtual keyboard enter handler in sync with the latest
+    // highlighted index and filtered users, since the handler closure is
+    // captured once at focus time and would otherwise be stale after typing.
+    const highlightedIndexRef = useRef(highlightedIndex);
+    const filteredUsersRef = useRef(users);
+
     useEffect(() => {
         inputRef.current?.focus();
     }, []);
@@ -54,8 +60,16 @@ export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({ onSelect, initialQue
         setHighlightedIndex(filteredUsers.length > 0 ? 0 : -1);
     }, [filteredUsers.length]);
 
-    const selectOption = (index: number) => {
-        const user = filteredUsers[index];
+    // Keep refs in sync so the VK enter handler always sees the latest values
+    useEffect(() => {
+        filteredUsersRef.current = filteredUsers;
+    }, [filteredUsers]);
+    useEffect(() => {
+        highlightedIndexRef.current = highlightedIndex;
+    }, [highlightedIndex]);
+
+    const selectOption = (index: number, usersList = filteredUsers) => {
+        const user = usersList[index];
         if (!user) return;
         onSelect(user);
         closePopup();
@@ -96,7 +110,8 @@ export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({ onSelect, initialQue
                     if (vkContext) {
                         vkContext.registerInput(e.target, (newValue: string) => setQuery(newValue));
                         vkContext.registerEnterHandler(() => {
-                            if (highlightedIndex >= 0) selectOption(highlightedIndex);
+                            const idx = highlightedIndexRef.current;
+                            if (idx >= 0) selectOption(idx, filteredUsersRef.current);
                         });
                     }
                 }}
