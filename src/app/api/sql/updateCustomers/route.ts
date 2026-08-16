@@ -94,6 +94,7 @@ export async function POST(request: Request) {
 
                 if (typeof customer.id === 'number') {
                     // Update existing customer including balance (editable from admin)
+                    // fidelity_points is NOT updated here — it's managed by the saveTransaction API
                     const reference = customer.reference
                         ? String(customer.reference)
                         : generateProductReference(customer.id);
@@ -119,16 +120,16 @@ export async function POST(request: Request) {
                     let newId: number;
                     if (conn.isPostgreSQL) {
                         const [insertResult] = await conn.execute(
-                            `INSERT INTO ${table} (first_name, last_name, reference, email, phone, company, balance)
-                             VALUES ($1, $2, $3, $4, $5, $6, $7)
+                            `INSERT INTO ${table} (first_name, last_name, reference, email, phone, company, balance, fidelity_points)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, 0)
                              RETURNING id`,
                             [firstName, lastName, null, email, phone, company, customer.balance]
                         );
                         newId = (insertResult as { id: number }[])[0].id;
                     } else {
                         const [insertResult] = await conn.execute(
-                            `INSERT INTO ${table} (first_name, last_name, reference, email, phone, company, balance)
-                             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                            `INSERT INTO ${table} (first_name, last_name, reference, email, phone, company, balance, fidelity_points)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
                             [firstName, lastName, null, email, phone, company, customer.balance]
                         );
                         newId = (insertResult as unknown as { insertId: number }).insertId;

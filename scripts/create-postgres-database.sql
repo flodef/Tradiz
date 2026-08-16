@@ -277,6 +277,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.customers (
     phone VARCHAR(20) DEFAULT NULL,
     company VARCHAR(255) DEFAULT NULL,
     balance DECIMAL(10,2) DEFAULT 0.00,
+    fidelity_points DECIMAL(10,2) DEFAULT 0.00,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -346,6 +347,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.transactions (
     change VARCHAR(255) DEFAULT '',
     take_out BOOLEAN NOT NULL DEFAULT true,
     employer_share NUMERIC(10,2) DEFAULT NULL,
+    fidelity_points NUMERIC(10,2) DEFAULT NULL,
     hash VARCHAR(64) UNIQUE,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL

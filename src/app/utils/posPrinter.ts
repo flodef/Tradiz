@@ -364,6 +364,14 @@ export async function printReceipt(printerAddresses: string[], receiptData: Rece
             printer.drawLine();
         }
 
+        // Print fidelity points used line if applicable
+        const fidelityPointsUsed = receiptData.transaction.fidelityPointsUsed;
+        if (fidelityPointsUsed && fidelityPointsUsed > 0) {
+            printer.alignLeft();
+            printer.leftRight('Fidélité', '-' + toCurrency(fidelityPointsUsed, currency));
+            printer.drawLine();
+        }
+
         // Print total
         printer.newLine();
         printer.drawLine();

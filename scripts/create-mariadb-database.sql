@@ -268,6 +268,7 @@ CREATE TABLE IF NOT EXISTS `transactions` (
   `change` varchar(255) DEFAULT '',
   `take_out` tinyint(1) NOT NULL DEFAULT 1,
   `employer_share` DECIMAL(10,2) DEFAULT NULL,
+  `fidelity_points` DECIMAL(10,2) DEFAULT NULL,
   `hash` varchar(64) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -375,6 +376,7 @@ CREATE TABLE IF NOT EXISTS `customers` (
   `phone` varchar(20) DEFAULT NULL,
   `company` varchar(255) DEFAULT NULL,
   `balance` decimal(10,2) DEFAULT 0.00,
+  `fidelity_points` decimal(10,2) DEFAULT 0.00,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

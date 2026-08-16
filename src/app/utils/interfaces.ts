@@ -93,6 +93,7 @@ export interface Customer {
     phone?: string;
     company?: string;
     balance?: number;
+    fidelityPoints?: number;
 }
 
 export interface Currency {
@@ -188,6 +189,7 @@ export type Transaction = {
     change?: number;
     takeOut?: boolean;
     employerShare?: number;
+    fidelityPointsUsed?: number;
 };
 
 export type TransactionSet = {

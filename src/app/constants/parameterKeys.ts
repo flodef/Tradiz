@@ -21,6 +21,7 @@ export const PARAMETER_KEYS = {
     DISPLAY_SETTINGS: 'displaySettings',
     USER_SWITCH: 'userSwitch',
     USE_VIRTUAL_KEYBOARD: 'useVirtualKeyboard',
+    FIDELITY_RATE: 'fidelityRate',
 } as const;
 
 export const PARAMETER_KEY_LIST = Object.values(PARAMETER_KEYS);

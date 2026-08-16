@@ -526,6 +526,14 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                 );
             }
 
+            // Add fidelity points used line if the transaction has one
+            if (transaction.fidelityPointsUsed && transaction.fidelityPointsUsed > 0) {
+                productLines.push(
+                    'Fidélité : -' +
+                        toCurrency({ amount: transaction.fidelityPointsUsed, currency: transaction.currency })
+                );
+            }
+
             openPopup(
                 toCurrency(transaction) +
                     ' en ' +

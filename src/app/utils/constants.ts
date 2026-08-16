@@ -84,6 +84,8 @@ export const TRANSACTION_TIME_OUT = 60; // Time out in seconds
 export const SYNC_INTERVAL_MS = 15 * 1000; // Real-time multi-device sync poll interval
 export const BACK_KEYWORD = 'RETOUR';
 export const DEFAULT_CATEGORY = 'Sans catégorie';
+export const FIDELITY_KEYWORD = 'Fidélité';
+export const USE_FIDELITY_KEYWORD = 'UTILISER FIDÉLITÉ';
 
 // Default VAT rate as a percentage, applied when an item has no explicit rate
 export const DEFAULT_VAT_RATE = 20;

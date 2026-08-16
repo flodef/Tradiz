@@ -489,7 +489,21 @@ export default function ParametersConfig({
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
                     Paiements
                 </h3>
-                <div className="flex flex-wrap gap-6">
+                <div className="flex flex-wrap gap-6 items-end">
+                    <AdminInput
+                        label="Taux de fidélité (%)"
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.1}
+                        value={config.fidelityRate ?? 0}
+                        onChange={(e) =>
+                            !isReadOnly &&
+                            handleChange('fidelityRate', Math.max(0, Math.min(100, Number(e.target.value) || 0)))
+                        }
+                        isReadOnly={isReadOnly}
+                        className="w-30"
+                    />
                     <div className="flex items-center gap-3">
                         <Switch
                             checked={config.display?.showWaiting ?? true}

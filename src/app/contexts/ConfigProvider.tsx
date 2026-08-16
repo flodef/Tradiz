@@ -89,6 +89,7 @@ export interface Parameters {
     user: User;
     userSwitch?: boolean;
     useVirtualKeyboard?: boolean;
+    fidelityRate?: number; // Percentage of each transaction amount earned as fidelity points (0 = disabled)
     products?: ProductsSettings;
     search?: SearchSettings;
     display?: DisplaySettings;

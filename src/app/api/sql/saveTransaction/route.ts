@@ -1,4 +1,12 @@
-import { DELETED_KEYWORD, PROCESSING_KEYWORD, DEFAULT_USER, DEFAULT_VAT_RATE } from '@/app/utils/constants';
+import {
+    DELETED_KEYWORD,
+    PROCESSING_KEYWORD,
+    DEFAULT_USER,
+    DEFAULT_VAT_RATE,
+    REFUND_KEYWORD,
+    WAITING_KEYWORD,
+    UPDATING_KEYWORD,
+} from '@/app/utils/constants';
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { Connection, getPosDb } from '../db';
@@ -24,6 +32,7 @@ interface TransactionData {
     change?: string;
     takeOut?: boolean;
     employer_share?: number | null;
+    fidelity_points?: number | null;
     created_at: string;
     updated_at: string;
     products?: TransactionProduct[];
@@ -81,6 +90,14 @@ export async function POST(request: Request) {
                         break;
                     default:
                         throw new Error(`Unknown action: ${action}`);
+                }
+
+                // Update customer fidelity points after the transaction is saved.
+                // Only 'add' and 'sync' actions represent new/updated transactions that
+                // could earn or spend points. 'update' just marks as PROCESSING, and
+                // 'delete'/'hardDelete' remove the transaction.
+                if (action === 'add' || action === 'sync') {
+                    await updateCustomerFidelityPoints(connection, transaction);
                 }
 
                 await connection.commit();
@@ -174,13 +191,13 @@ async function insertTransactionWithItems(connection: Connection, transaction: T
 
     const insertTransactionQuery = isPg
         ? `
-        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, hash, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, fidelity_points, hash, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING id
     `
         : `
-        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, hash, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, fidelity_points, hash, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const params = [
@@ -193,6 +210,7 @@ async function insertTransactionWithItems(connection: Connection, transaction: T
         transaction.change || null,
         transaction.takeOut ?? false,
         transaction.employer_share ?? null,
+        transaction.fidelity_points ?? null,
         hash,
         transaction.created_at,
         transaction.updated_at,
@@ -313,8 +331,8 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
         // If the row was deleted by a concurrent hardDelete, 0 rows are returned.
         const updateReturningQuery = `
             UPDATE ${prefix}transactions
-            SET customer_name = $1, user_name = $2, payment_method = $3, amount = $4, currency = $5, change = $6, take_out = $7, employer_share = $8, hash = $9, updated_at = $10
-            WHERE order_id = $11
+            SET customer_name = $1, user_name = $2, payment_method = $3, amount = $4, currency = $5, change = $6, take_out = $7, employer_share = $8, fidelity_points = $9, hash = $10, updated_at = $11
+            WHERE order_id = $12
             RETURNING id
         `;
         const hash = generateTransactionHash(transaction);
@@ -327,6 +345,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
             transaction.change || null,
             transaction.takeOut ?? false,
             transaction.employer_share ?? null,
+            transaction.fidelity_points ?? null,
             hash,
             transaction.updated_at,
             transaction.order_id,
@@ -362,7 +381,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
 
         const updateQuery = `
             UPDATE ${prefix}transactions
-            SET customer_name = ?, user_name = ?, payment_method = ?, amount = ?, currency = ?, change = ?, take_out = ?, employer_share = ?, hash = ?, updated_at = ?
+            SET customer_name = ?, user_name = ?, payment_method = ?, amount = ?, currency = ?, change = ?, take_out = ?, employer_share = ?, fidelity_points = ?, hash = ?, updated_at = ?
             WHERE id = ?
         `;
         await connection.execute(updateQuery, [
@@ -374,6 +393,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
             transaction.change || null,
             transaction.takeOut ?? false,
             transaction.employer_share ?? null,
+            transaction.fidelity_points ?? null,
             hash,
             transaction.updated_at,
             transactionId,
@@ -384,4 +404,80 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
         await connection.execute(deleteQuery, [transactionId]);
         await insertTransactionItems(connection, transactionId, transaction.products);
     }
+}
+
+// Fidelity points keywords that should not earn points
+const NON_EARNING_METHODS = [
+    WAITING_KEYWORD,
+    PROCESSING_KEYWORD,
+    UPDATING_KEYWORD,
+    DELETED_KEYWORD,
+    'METTRE ' + WAITING_KEYWORD,
+];
+
+/**
+ * Update the customer's fidelity_points balance based on the transaction.
+ *
+ * - Normal payment with a customer: earns points = amount × fidelityRate / 100
+ * - Refund with a customer: deducts points = |amount| × fidelityRate / 100
+ * - Fidelity payment (fidelity_points used): deducts the used points
+ *
+ * The fidelityRate is fetched from the parameters table (key 'fidelityRate').
+ */
+async function updateCustomerFidelityPoints(connection: Connection, transaction: TransactionData): Promise<void> {
+    const customerName = transaction.customer_name?.trim();
+    if (!customerName) return;
+
+    const method = transaction.payment_method;
+    const isRefund = method === REFUND_KEYWORD;
+    const isNonEarning = NON_EARNING_METHODS.includes(method);
+    const fidelityPointsUsed = transaction.fidelity_points ?? 0;
+
+    // Nothing to do if no points used and no points to earn/deduct
+    if (fidelityPointsUsed <= 0 && (isNonEarning || (!isRefund && isNonEarning))) {
+        // Still might need to deduct for refunds even without fidelityPointsUsed
+        if (!isRefund) return;
+    }
+
+    const isPg = connection.isPostgreSQL;
+    const prefix = isPg ? 'dc_pos.' : '';
+
+    // 1. Look up the customer by full name
+    const customerQuery = isPg
+        ? `SELECT id FROM ${prefix}customers WHERE first_name || ' ' || last_name = $1`
+        : `SELECT id FROM customers WHERE CONCAT(first_name, ' ', last_name) = ?`;
+    const [customerRows] = await connection.execute(customerQuery, [customerName]);
+    const customerId = (customerRows as IdRow[])[0]?.id;
+    if (!customerId) return; // Customer not found, skip
+
+    // 2. Fetch the fidelity rate from parameters
+    const paramQuery = isPg
+        ? `SELECT value FROM ${prefix}parameters WHERE key = $1`
+        : `SELECT value FROM parameters WHERE \`key\` = ?`;
+    const [paramRows] = await connection.execute(paramQuery, ['fidelityRate']);
+    const fidelityRate = Number((paramRows as { value: string }[])[0]?.value ?? 0);
+    if (fidelityRate <= 0 && fidelityPointsUsed <= 0) return; // No rate and no points used
+
+    // 3. Calculate the delta
+    let delta = 0;
+
+    // Points used (fidelity payment) — always deducted
+    if (fidelityPointsUsed > 0) {
+        delta -= fidelityPointsUsed;
+    }
+
+    // Points earned on normal payments, or deducted on refunds
+    if (!isNonEarning && fidelityRate > 0) {
+        const amount = Math.abs(transaction.amount);
+        const earnedPoints = (amount * fidelityRate) / 100;
+        delta += isRefund ? -earnedPoints : earnedPoints;
+    }
+
+    if (delta === 0) return;
+
+    // 4. Update the customer's fidelity_points
+    const updateQuery = isPg
+        ? `UPDATE ${prefix}customers SET fidelity_points = fidelity_points + $1 WHERE id = $2`
+        : `UPDATE customers SET fidelity_points = fidelity_points + ? WHERE id = ?`;
+    await connection.execute(updateQuery, [delta, customerId]);
 }

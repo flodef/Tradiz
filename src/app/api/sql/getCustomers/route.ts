@@ -13,6 +13,7 @@ interface CustomerRow {
     phone: string | null;
     company: string | null;
     balance: number | string;
+    fidelity_points: number | string | null;
 }
 
 export async function GET(request: Request) {
@@ -22,10 +23,10 @@ export async function GET(request: Request) {
         connection = await getPosDb(shopId);
 
         const query = connection.isPostgreSQL
-            ? `SELECT id, first_name, last_name, reference, email, phone, company, balance
+            ? `SELECT id, first_name, last_name, reference, email, phone, company, balance, fidelity_points
                FROM dc_pos.customers
                ORDER BY last_name, first_name`
-            : `SELECT id, first_name, last_name, reference, email, phone, company, balance
+            : `SELECT id, first_name, last_name, reference, email, phone, company, balance, fidelity_points
                FROM customers
                ORDER BY last_name, first_name`;
 
@@ -43,6 +44,7 @@ export async function GET(request: Request) {
             phone: row.phone ?? undefined,
             company: row.company ?? undefined,
             balance: Number(row.balance ?? 0),
+            fidelityPoints: Number(row.fidelity_points ?? 0),
         }));
 
         return NextResponse.json({ customers });

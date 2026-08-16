@@ -395,6 +395,11 @@ export default function SettingsPage() {
                     if (value === '') return undefined;
                     return value === 'true';
                 })(),
+                fidelityRate: (() => {
+                    const value = getParam('fidelityRate', 'fidelityRate');
+                    if (value === '' || value === undefined) return undefined;
+                    return Math.max(0, Math.min(100, Number(value) || 0));
+                })(),
             };
 
             setSettings(loadedSettings);
@@ -791,6 +796,7 @@ export default function SettingsPage() {
                 { key: 'displaySettings', value: JSON.stringify(data.display ?? {}) },
                 { key: 'userSwitch', value: String(data.userSwitch ?? true) },
                 { key: 'useVirtualKeyboard', value: String(data.useVirtualKeyboard ?? false) },
+                { key: 'fidelityRate', value: String(data.fidelityRate ?? 0) },
             ];
 
             const response = await fetch('/api/sql/updateParameters', {

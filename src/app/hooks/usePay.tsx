@@ -11,6 +11,7 @@ import {
     CATEGORY_SEPARATOR,
     DEBIT_KEYWORD,
     DELETED_KEYWORD,
+    FIDELITY_KEYWORD,
     IS_LOCAL,
     NON_PAYMENT_KEYWORDS,
     PRINT_KEYWORD,
@@ -20,11 +21,13 @@ import {
     REFUND_KEYWORD,
     SEPARATOR,
     UPDATING_KEYWORD,
+    USE_FIDELITY_KEYWORD,
     WAITING_KEYWORD,
 } from '../utils/constants';
 import {
     Currency,
     Customer,
+    EmptyDiscount,
     InventoryItem,
     Product,
     SERVICE_TYPE_LABELS,
@@ -55,6 +58,7 @@ export const usePay = () => {
     const {
         updateTransaction,
         getCustomerTotal,
+        getCurrentTotal,
         employerShare,
         toCurrency,
         total,
@@ -62,6 +66,7 @@ export const usePay = () => {
         selectedProduct,
         transactions,
         products,
+        addProduct,
         reverseTransaction,
         orderId,
         setOrderId,
@@ -183,6 +188,9 @@ export const usePay = () => {
                 transaction = item;
             } else {
                 const now = floorToSeconds(new Date().getTime());
+                // Extract fidelity points used from the cart (negative product line)
+                const fidelityProduct = products.current.find((p) => p.category === FIDELITY_KEYWORD);
+                const fidelityPointsUsed = fidelityProduct ? Math.abs(fidelityProduct.total ?? 0) : 0;
                 transaction = {
                     validator: parameters.user.name,
                     method,
@@ -193,6 +201,7 @@ export const usePay = () => {
                     products: [...products.current],
                     takeOut: counterServiceType === 'takeout',
                     ...(employerShare > 0 ? { employerShare } : {}),
+                    ...(fidelityPointsUsed > 0 ? { fidelityPointsUsed } : {}),
                 };
             }
             updateTransaction(item);
@@ -472,6 +481,67 @@ export const usePay = () => {
         [resolvePrinterAddresses, parameters.shop, currencies, currencyIndex, openPopup]
     );
 
+    // Open the customer search popup. Extracted as a standalone callback so it can be
+    // reused by both selectPayment and applyFidelity without duplicating the logic.
+    const openCustomerSearchPopup = useCallback(
+        (onCustomerSelected: (customer: Customer) => void, initialQuery: string = '') => {
+            openFullscreenPopup(
+                'Sélectionner un client',
+                [
+                    <CustomerSearchPopup
+                        key="customerSearch"
+                        initialQuery={initialQuery}
+                        onPrintBalance={handlePrintBalance}
+                        onSelectCustomer={(customer) => {
+                            setCurrentCustomer(customer);
+                            onCustomerSelected(customer);
+                        }}
+                        onCreateCustomer={async (customerName) => {
+                            const trimmed = customerName.trim();
+                            const spaceIndex = trimmed.indexOf(' ');
+                            if (spaceIndex === -1) {
+                                openFullscreenPopup(
+                                    'Veuillez ajouter un nom de famille séparé par un espace',
+                                    ['OK'],
+                                    () => openCustomerSearchPopup(onCustomerSelected, trimmed),
+                                    false
+                                );
+                                return;
+                            }
+                            const newCustomer: Customer = {
+                                firstName: trimmed.slice(0, spaceIndex),
+                                lastName: trimmed.slice(spaceIndex + 1),
+                            };
+                            try {
+                                const response = await fetch('/api/sql/addCustomer', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(newCustomer),
+                                });
+                                const result = await response.json();
+                                if (result.success) {
+                                    setCustomers((prev) => [...prev, result.customer]);
+                                    setCurrentCustomer(result.customer);
+                                    onCustomerSelected(result.customer);
+                                } else {
+                                    openPopup('Erreur', [
+                                        'Échec de la création du client: ' + (result.error || 'Erreur inconnue'),
+                                    ]);
+                                }
+                            } catch (error) {
+                                console.error('Error creating customer:', error);
+                                openPopup('Erreur', ['Erreur lors de la création du client']);
+                            }
+                        }}
+                    />,
+                ],
+                () => {},
+                true
+            );
+        },
+        [openFullscreenPopup, handlePrintBalance, setCurrentCustomer, setCustomers, openPopup]
+    );
+
     const openQRCode = useCallback(
         (onCancel: (onConfirm: () => void) => void, onConfirm: () => void) => {
             openPopup(
@@ -600,65 +670,6 @@ export const usePay = () => {
                 setCurrentCustomer(customer);
                 commitTransaction(transaction);
                 closePopup();
-            };
-
-            const openCustomerSearchPopup = (
-                onCustomerSelected: (customer: Customer) => void,
-                initialQuery: string = ''
-            ) => {
-                openFullscreenPopup(
-                    'Sélectionner un client',
-                    [
-                        <CustomerSearchPopup
-                            key="customerSearch"
-                            initialQuery={initialQuery}
-                            onPrintBalance={handlePrintBalance}
-                            onSelectCustomer={(customer) => {
-                                setCurrentCustomer(customer);
-                                onCustomerSelected(customer);
-                            }}
-                            onCreateCustomer={async (customerName) => {
-                                const trimmed = customerName.trim();
-                                const spaceIndex = trimmed.indexOf(' ');
-                                if (spaceIndex === -1) {
-                                    openFullscreenPopup(
-                                        'Veuillez ajouter un nom de famille séparé par un espace',
-                                        ['OK'],
-                                        () => openCustomerSearchPopup(onCustomerSelected, trimmed),
-                                        false
-                                    );
-                                    return;
-                                }
-                                const newCustomer: Customer = {
-                                    firstName: trimmed.slice(0, spaceIndex),
-                                    lastName: trimmed.slice(spaceIndex + 1),
-                                };
-                                try {
-                                    const response = await fetch('/api/sql/addCustomer', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(newCustomer),
-                                    });
-                                    const result = await response.json();
-                                    if (result.success) {
-                                        setCustomers((prev) => [...prev, result.customer]);
-                                        setCurrentCustomer(result.customer);
-                                        onCustomerSelected(result.customer);
-                                    } else {
-                                        openPopup('Erreur', [
-                                            'Échec de la création du client: ' + (result.error || 'Erreur inconnue'),
-                                        ]);
-                                    }
-                                } catch (error) {
-                                    console.error('Error creating customer:', error);
-                                    openPopup('Erreur', ['Erreur lors de la création du client']);
-                                }
-                            }}
-                        />,
-                    ],
-                    () => {},
-                    true
-                );
             };
 
             const showProvisionSubOptions = (customer: Customer) => {
@@ -896,8 +907,6 @@ export const usePay = () => {
             reverseTransaction,
             currentCustomer,
             setCurrentCustomer,
-            setCustomers,
-            handlePrintBalance,
             amount,
             openFullscreenPopup,
             transactions,
@@ -907,12 +916,84 @@ export const usePay = () => {
             setCounterServiceType,
             triggerCashDrawer,
             employerShare,
+            openCustomerSearchPopup,
         ]
     );
 
     const addProvision = useCallback(() => {
         selectPayment(PROVISION_KEYWORD, () => {});
     }, [selectPayment]);
+
+    // Apply fidelity points as a discount to the current cart.
+    // Adds a negative product line "-Fidélité: -XX€" and deducts points from the
+    // customer's local balance. The actual DB deduction happens in saveTransaction.
+    const applyFidelity = useCallback(() => {
+        const fidelityRate = parameters.fidelityRate ?? 0;
+        if (fidelityRate <= 0) {
+            openPopup('Fidélité', ["La fidélité n'est pas activée"]);
+            return;
+        }
+
+        const currentTotal = getCurrentTotal();
+        if (currentTotal <= 0) {
+            openPopup('Fidélité', ['Aucun montant à payer']);
+            return;
+        }
+
+        // Check if a fidelity product is already in the cart
+        const existingFidelity = products.current.find((p) => p.category === FIDELITY_KEYWORD);
+        if (existingFidelity) {
+            openPopup('Fidélité', ['Fidélité déjà utilisée pour cette transaction']);
+            return;
+        }
+
+        const applyFidelity = (customer: Customer) => {
+            const points = customer.fidelityPoints ?? 0;
+            if (points <= 0) {
+                openPopup('Fidélité', ["Ce client n'a pas de points de fidélité"]);
+                return;
+            }
+
+            const fidelityAmount = Math.min(points, currentTotal);
+            if (fidelityAmount <= 0) {
+                openPopup('Fidélité', ['Points insuffisants']);
+                return;
+            }
+
+            // Add a negative product line for the fidelity deduction
+            const fidelityProduct: Product = {
+                label: FIDELITY_KEYWORD,
+                category: FIDELITY_KEYWORD,
+                amount: -fidelityAmount,
+                quantity: 1,
+                total: -fidelityAmount,
+                discount: EmptyDiscount,
+            };
+            addProduct(fidelityProduct);
+
+            // Deduct points from the customer's local balance
+            setCurrentCustomer({
+                ...customer,
+                fidelityPoints: points - fidelityAmount,
+            });
+        };
+
+        if (!currentCustomer) {
+            openCustomerSearchPopup((customer) => applyFidelity(customer));
+            return;
+        }
+
+        applyFidelity(currentCustomer);
+    }, [
+        parameters.fidelityRate,
+        getCurrentTotal,
+        products,
+        addProduct,
+        currentCustomer,
+        setCurrentCustomer,
+        openPopup,
+        openCustomerSearchPopup,
+    ]);
 
     // Function to handle partial payment
     const selectPaymentForPartial = useCallback(
@@ -1155,6 +1236,9 @@ export const usePay = () => {
 
                 if (parameters.display?.showDebit !== false) allOptions.push(DEBIT_KEYWORD);
 
+                // Add fidelity option only if fidelity rate is configured
+                if ((parameters.fidelityRate ?? 0) > 0) allOptions.push(USE_FIDELITY_KEYWORD);
+
                 if (paymentMethodsLabels.length === 1) {
                     if (paymentSelectionLockedRef.current) return;
                     paymentSelectionLockedRef.current = true;
@@ -1172,6 +1256,13 @@ export const usePay = () => {
                             if (option === 'PAIEMENT PARTIEL') {
                                 setShowPartialPaymentSelector(true);
                                 closePopup();
+                                return;
+                            }
+
+                            // Handle USE FIDELITY option — apply fidelity discount
+                            if (option === USE_FIDELITY_KEYWORD) {
+                                closePopup();
+                                applyFidelity();
                                 return;
                             }
 
@@ -1217,6 +1308,8 @@ export const usePay = () => {
         setShowPartialPaymentSelector,
         partialPaymentAmount,
         setCounterServiceType,
+        parameters.fidelityRate,
+        applyFidelity,
     ]);
 
     // Pay directly with a specific method, bypassing the payment method popup.
@@ -1276,6 +1369,7 @@ export const usePay = () => {
         canAddProduct,
         canAddProvision,
         addProvision,
+        applyFidelity,
         printTransaction,
         printKitchenReceipt,
         payWithMethod,

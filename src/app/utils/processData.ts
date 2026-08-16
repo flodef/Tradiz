@@ -224,6 +224,11 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             if (value === '') return undefined;
             return value === 'true';
         })(),
+        fidelityRate: (() => {
+            const value = getParamValue('fidelityRate', 17);
+            if (value === '' || value === undefined) return undefined;
+            return Math.max(0, Math.min(100, Number(value) || 0));
+        })(),
     };
 }
 
@@ -323,6 +328,7 @@ export const defaultParameters: Parameters = {
     user: { name: '', role: Role.service },
     userSwitch: true,
     useVirtualKeyboard: false,
+    fidelityRate: 0,
     products: {
         useVatPerProduct: false,
         useReference: false,

@@ -42,8 +42,8 @@ export async function POST(request: Request) {
         await withTransaction(conn, async () => {
             if (conn.isPostgreSQL) {
                 const insertQuery = `
-                    INSERT INTO dc_pos.customers (first_name, last_name, reference, email, phone, company, balance)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    INSERT INTO dc_pos.customers (first_name, last_name, reference, email, phone, company, balance, fidelity_points)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, 0)
                     RETURNING id
                 `;
                 const [result] = await conn.execute(insertQuery, [
@@ -58,8 +58,8 @@ export async function POST(request: Request) {
                 customerId = (result as { id: number }[])[0].id;
             } else {
                 const insertQuery = `
-                    INSERT INTO customers (first_name, last_name, reference, email, phone, company, balance)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO customers (first_name, last_name, reference, email, phone, company, balance, fidelity_points)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 0)
                 `;
                 const [result] = await conn.execute(insertQuery, [
                     firstName,

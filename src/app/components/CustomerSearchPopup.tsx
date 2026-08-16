@@ -162,6 +162,7 @@ const CustomerSearchPopup: FC<CustomerSearchPopupProps> = ({
 
         if (option.type === 'customer' && option.customer) {
             const customer = option.customer;
+            const fidelityPoints = customer.fidelityPoints ?? 0;
             return (
                 <div
                     key={`customer-${customer.id ?? index}`}
@@ -178,6 +179,11 @@ const CustomerSearchPopup: FC<CustomerSearchPopupProps> = ({
                     <div className={twMerge(styles.optionText, 'flex-1 text-left')}>
                         {customer.firstName} {customer.lastName}
                         {customer.company ? ` (${customer.company})` : ''}
+                        {fidelityPoints > 0 && (
+                            <span className="ml-2 text-sm text-green-600 dark:text-green-400">
+                                {fidelityPoints.toFixed(2)} pts fidélité
+                            </span>
+                        )}
                     </div>
                     {onPrintBalance && (
                         <button

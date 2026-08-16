@@ -1120,6 +1120,12 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                                             : ` [${toCurrency(customerBalance)}]`}
                                     </span>
                                 )}
+                                {currentCustomer && (currentCustomer.fidelityPoints ?? 0) > 0 && (
+                                    <span className="text-sm font-semibold whitespace-nowrap text-green-600 dark:text-green-400">
+                                        {' '}
+                                        [★ {(currentCustomer.fidelityPoints ?? 0).toFixed(2)} pts]
+                                    </span>
+                                )}
                             </span>
                             {currentCustomer && (
                                 <button
