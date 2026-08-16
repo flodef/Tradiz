@@ -131,21 +131,24 @@ const PaymentIconButton: FC<{
     label: string;
     onClick: () => void;
     size: number;
+    disabled?: boolean;
     className?: string;
-}> = ({ icon: Icon, label, onClick, size, className }) => (
+}> = ({ icon: Icon, label, onClick, size, disabled, className }) => (
     <button
         type="button"
         title={label}
         aria-label={label}
+        disabled={disabled}
         onClick={(e) => {
             e.stopPropagation();
-            onClick();
+            if (!disabled) onClick();
         }}
         onContextMenu={(e) => e.stopPropagation()}
         className={twMerge(
             'inline-flex items-center justify-center rounded-lg px-2 py-1 transition-colors',
-            'hover:bg-active-light dark:hover:bg-active-dark',
-            'active:bg-secondary-active-light dark:active:bg-secondary-active-dark',
+            disabled
+                ? 'opacity-40 cursor-not-allowed'
+                : 'hover:bg-active-light dark:hover:bg-active-dark active:bg-secondary-active-light dark:active:bg-secondary-active-dark',
             className
         )}
     >
@@ -186,7 +189,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
-    const { pay, printTransaction, printKitchenReceipt, payWithMethod } = usePay();
+    const { pay, printTransaction, printKitchenReceipt, payWithMethod, canPay } = usePay();
     const { state, isStateReady, getPrintersNames, parameters, paymentMethods, currencies, currencyIndex } =
         useConfig();
 
@@ -845,6 +848,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                                         label={method}
                                                         onClick={() => payWithMethod(method)}
                                                         size={compact ? 28 : 36}
+                                                        disabled={!canPay}
                                                     />
                                                 ))}
                                                 {availableActions.length > 0 && (
@@ -857,6 +861,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                                         label={action.label}
                                                         onClick={() => payWithMethod(action.type)}
                                                         size={compact ? 28 : 36}
+                                                        disabled={!canPay}
                                                     />
                                                 ))}
                                                 <PaymentIconButton
