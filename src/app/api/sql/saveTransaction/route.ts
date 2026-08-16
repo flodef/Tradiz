@@ -93,11 +93,13 @@ export async function POST(request: Request) {
                 }
 
                 // Update customer fidelity points after the transaction is saved.
-                // Only 'add' and 'sync' actions represent new/updated transactions that
-                // could earn or spend points. 'update' just marks as PROCESSING, and
-                // 'delete'/'hardDelete' remove the transaction.
+                // - 'add'/'sync': apply the transaction's point delta (earn/deduct)
+                // - 'delete'/'hardDelete': reverse the delta (restore points)
+                // - 'update': just marks as PROCESSING, no point change
                 if (action === 'add' || action === 'sync') {
-                    await updateCustomerFidelityPoints(connection, transaction);
+                    await updateCustomerFidelityPoints(connection, transaction, false);
+                } else if (action === 'delete' || action === 'hardDelete') {
+                    await updateCustomerFidelityPoints(connection, transaction, true);
                 }
 
                 await connection.commit();
@@ -282,6 +284,9 @@ async function handleDeleteTransaction(connection: Connection, transaction: Tran
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
 
+    // Fetch the original transaction data (for fidelity point reversal) before marking as deleted
+    await fetchOriginalTransactionForFidelity(connection, transaction);
+
     // Update the transaction record to mark it as deleted (lookup by order_id)
     const updateQuery = isPg
         ? `UPDATE ${prefix}transactions SET payment_method = $1, updated_at = $2 WHERE order_id = $3`
@@ -293,6 +298,9 @@ async function handleDeleteTransaction(connection: Connection, transaction: Tran
 async function handleHardDeleteTransaction(connection: Connection, transaction: TransactionData) {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
+
+    // Fetch the original transaction data (for fidelity point reversal) before hard-deleting
+    await fetchOriginalTransactionForFidelity(connection, transaction);
 
     // Completely delete the transaction and its items from the database
     const findQuery = isPg
@@ -313,6 +321,36 @@ async function handleHardDeleteTransaction(connection: Connection, transaction: 
             ? `DELETE FROM ${prefix}transactions WHERE id = $1`
             : `DELETE FROM ${prefix}transactions WHERE id = ?`;
         await connection.execute(deleteTxQuery, [txId]);
+    }
+}
+
+// Fetch the original transaction from DB and populate fidelity-relevant fields on the
+// incoming transaction object, so updateCustomerFidelityPoints can compute the reversal.
+// The client may not send fidelity_points/amount/payment_method for delete actions.
+async function fetchOriginalTransactionForFidelity(connection: Connection, transaction: TransactionData) {
+    // If the client already provided fidelity_points, trust it
+    if (transaction.fidelity_points != null) return;
+
+    const isPg = connection.isPostgreSQL;
+    const prefix = isPg ? 'dc_pos.' : '';
+    const query = isPg
+        ? `SELECT payment_method, amount, customer_name, fidelity_points FROM ${prefix}transactions WHERE order_id = $1`
+        : `SELECT payment_method, amount, customer_name, fidelity_points FROM transactions WHERE order_id = ?`;
+    const [rows] = await connection.execute(query, [transaction.order_id]);
+    const original = (
+        rows as (IdRow & {
+            payment_method: string;
+            amount: number | string;
+            customer_name: string | null;
+            fidelity_points: number | string | null;
+        })[]
+    )[0];
+
+    if (original) {
+        transaction.payment_method = original.payment_method;
+        transaction.amount = Number(original.amount);
+        transaction.customer_name = original.customer_name;
+        transaction.fidelity_points = original.fidelity_points != null ? Number(original.fidelity_points) : null;
     }
 }
 
@@ -418,13 +456,21 @@ const NON_EARNING_METHODS = [
 /**
  * Update the customer's fidelity_points balance based on the transaction.
  *
+ * Normal add/sync:
  * - Normal payment with a customer: earns points = amount × fidelityRate / 100
- * - Refund with a customer: deducts points = |amount| × fidelityRate / 100
+ * - Refund with a customer: deducts points = |amount| × fidelityRate / 100, and restores used points
  * - Fidelity payment (fidelity_points used): deducts the used points
+ *
+ * Reversal (delete/hardDelete):
+ * - Reverses whatever the original transaction did (restores earned points, restores used points)
  *
  * The fidelityRate is fetched from the parameters table (key 'fidelityRate').
  */
-async function updateCustomerFidelityPoints(connection: Connection, transaction: TransactionData): Promise<void> {
+async function updateCustomerFidelityPoints(
+    connection: Connection,
+    transaction: TransactionData,
+    isReversal: boolean
+): Promise<void> {
     const customerName = transaction.customer_name?.trim();
     if (!customerName) return;
 
@@ -433,22 +479,22 @@ async function updateCustomerFidelityPoints(connection: Connection, transaction:
     const isNonEarning = NON_EARNING_METHODS.includes(method);
     const fidelityPointsUsed = transaction.fidelity_points ?? 0;
 
-    // Nothing to do if no points used and no points to earn/deduct
-    if (fidelityPointsUsed <= 0 && (isNonEarning || (!isRefund && isNonEarning))) {
-        // Still might need to deduct for refunds even without fidelityPointsUsed
-        if (!isRefund) return;
-    }
+    // Nothing to do: no points used, and method doesn't earn/deduct points
+    if (fidelityPointsUsed <= 0 && isNonEarning) return;
 
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
 
     // 1. Look up the customer by full name
     const customerQuery = isPg
-        ? `SELECT id FROM ${prefix}customers WHERE first_name || ' ' || last_name = $1`
-        : `SELECT id FROM customers WHERE CONCAT(first_name, ' ', last_name) = ?`;
+        ? `SELECT id, fidelity_points FROM ${prefix}customers WHERE first_name || ' ' || last_name = $1`
+        : `SELECT id, fidelity_points FROM customers WHERE CONCAT(first_name, ' ', last_name) = ?`;
     const [customerRows] = await connection.execute(customerQuery, [customerName]);
-    const customerId = (customerRows as IdRow[])[0]?.id;
-    if (!customerId) return; // Customer not found, skip
+    const customerRow = (customerRows as (IdRow & { fidelity_points: number | string })[])[0];
+    if (!customerRow) return; // Customer not found, skip
+
+    const customerId = customerRow.id;
+    const currentBalance = Number(customerRow.fidelity_points ?? 0);
 
     // 2. Fetch the fidelity rate from parameters
     const paramQuery = isPg
@@ -461,21 +507,50 @@ async function updateCustomerFidelityPoints(connection: Connection, transaction:
     // 3. Calculate the delta
     let delta = 0;
 
-    // Points used (fidelity payment) — always deducted
+    // Points used (fidelity payment):
+    // - Normal add: deduct used points
+    // - Refund add: restore used points (add them back)
+    // - Reversal (delete): reverse whatever the original did
     if (fidelityPointsUsed > 0) {
-        delta -= fidelityPointsUsed;
+        if (isReversal) {
+            // Reversing a normal payment: restore used points
+            // Reversing a refund: deduct them again (undo the restore)
+            delta += isRefund ? -fidelityPointsUsed : fidelityPointsUsed;
+        } else if (isRefund) {
+            // Refund: restore the points that were used
+            delta += fidelityPointsUsed;
+        } else {
+            // Normal payment: deduct the used points
+            delta -= fidelityPointsUsed;
+        }
     }
 
     // Points earned on normal payments, or deducted on refunds
     if (!isNonEarning && fidelityRate > 0) {
         const amount = Math.abs(transaction.amount);
         const earnedPoints = (amount * fidelityRate) / 100;
-        delta += isRefund ? -earnedPoints : earnedPoints;
+
+        if (isReversal) {
+            // Reversing: undo the earn/deduct
+            delta += isRefund ? earnedPoints : -earnedPoints;
+        } else {
+            // Normal: earn on payment, deduct on refund
+            delta += isRefund ? -earnedPoints : earnedPoints;
+        }
     }
 
     if (delta === 0) return;
 
-    // 4. Update the customer's fidelity_points
+    // 4. Validate: don't let balance go negative from this operation
+    const newBalance = currentBalance + delta;
+    if (newBalance < 0) {
+        // Clamp delta so balance doesn't go below 0 (shouldn't happen with proper validation,
+        // but protects against edge cases like manual DB edits)
+        delta = -currentBalance;
+        if (delta === 0) return;
+    }
+
+    // 5. Update the customer's fidelity_points
     const updateQuery = isPg
         ? `UPDATE ${prefix}customers SET fidelity_points = fidelity_points + $1 WHERE id = $2`
         : `UPDATE customers SET fidelity_points = fidelity_points + ? WHERE id = ?`;

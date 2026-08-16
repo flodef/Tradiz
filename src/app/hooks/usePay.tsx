@@ -58,7 +58,6 @@ export const usePay = () => {
     const {
         updateTransaction,
         getCustomerTotal,
-        getCurrentTotal,
         employerShare,
         toCurrency,
         total,
@@ -934,7 +933,9 @@ export const usePay = () => {
             return;
         }
 
-        const currentTotal = getCurrentTotal();
+        // Use getCustomerTotal() (after employer share deduction) so fidelity
+        // only covers what the customer actually pays, not the employer's share.
+        const currentTotal = getCustomerTotal();
         if (currentTotal <= 0) {
             openPopup('Fidélité', ['Aucun montant à payer']);
             return;
@@ -947,7 +948,7 @@ export const usePay = () => {
             return;
         }
 
-        const applyFidelity = (customer: Customer) => {
+        const doApplyFidelity = (customer: Customer) => {
             const points = customer.fidelityPoints ?? 0;
             if (points <= 0) {
                 openPopup('Fidélité', ["Ce client n'a pas de points de fidélité"]);
@@ -978,21 +979,55 @@ export const usePay = () => {
             });
         };
 
+        // Show a confirmation popup with the details before applying
+        const confirmAndApply = (customer: Customer) => {
+            const points = customer.fidelityPoints ?? 0;
+            if (points <= 0) {
+                openPopup('Fidélité', ["Ce client n'a pas de points de fidélité"]);
+                return;
+            }
+
+            const fidelityAmount = Math.min(points, currentTotal);
+            const remainingPoints = points - fidelityAmount;
+            const remainingTotal = currentTotal - fidelityAmount;
+
+            openPopup(
+                'Utiliser la fidélité',
+                [
+                    `Points disponibles : ${points.toFixed(2)}`,
+                    `Points utilisés : ${fidelityAmount.toFixed(2)}`,
+                    `Points restants : ${remainingPoints.toFixed(2)}`,
+                    `Reste à payer : ${toCurrency({ amount: remainingTotal, currency: currencies[currencyIndex].label })}`,
+                    '',
+                    'Confirmer',
+                ],
+                (index, option) => {
+                    if (option === 'Confirmer') {
+                        doApplyFidelity(customer);
+                    }
+                },
+                true
+            );
+        };
+
         if (!currentCustomer) {
-            openCustomerSearchPopup((customer) => applyFidelity(customer));
+            openCustomerSearchPopup((customer) => confirmAndApply(customer));
             return;
         }
 
-        applyFidelity(currentCustomer);
+        confirmAndApply(currentCustomer);
     }, [
         parameters.fidelityRate,
-        getCurrentTotal,
+        getCustomerTotal,
         products,
         addProduct,
         currentCustomer,
         setCurrentCustomer,
         openPopup,
         openCustomerSearchPopup,
+        toCurrency,
+        currencies,
+        currencyIndex,
     ]);
 
     // Function to handle partial payment
