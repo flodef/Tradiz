@@ -191,6 +191,12 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
                             </p>
                         </div>
                         <div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Points de fidélité</p>
+                            <p className="text-lg font-semibold text-green-600 dark:text-green-400">
+                                {(customer.fidelityPoints ?? 0).toFixed(2)} pts
+                            </p>
+                        </div>
+                        <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Référence</p>
                             <p className="text-sm md:text-base font-semibold break-all">{customer.reference || '—'}</p>
                         </div>

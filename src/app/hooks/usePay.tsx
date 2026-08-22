@@ -979,43 +979,12 @@ export const usePay = () => {
             });
         };
 
-        // Show a confirmation popup with the details before applying
-        const confirmAndApply = (customer: Customer) => {
-            const points = customer.fidelityPoints ?? 0;
-            if (points <= 0) {
-                openPopup('Fidélité', ["Ce client n'a pas de points de fidélité"]);
-                return;
-            }
-
-            const fidelityAmount = Math.min(points, currentTotal);
-            const remainingPoints = points - fidelityAmount;
-            const remainingTotal = currentTotal - fidelityAmount;
-
-            openPopup(
-                'Utiliser la fidélité',
-                [
-                    `Points disponibles : ${points.toFixed(2)}`,
-                    `Points utilisés : ${fidelityAmount.toFixed(2)}`,
-                    `Points restants : ${remainingPoints.toFixed(2)}`,
-                    `Reste à payer : ${toCurrency({ amount: remainingTotal, currency: currencies[currencyIndex].label })}`,
-                    '',
-                    'Confirmer',
-                ],
-                (index, option) => {
-                    if (option === 'Confirmer') {
-                        doApplyFidelity(customer);
-                    }
-                },
-                true
-            );
-        };
-
         if (!currentCustomer) {
-            openCustomerSearchPopup((customer) => confirmAndApply(customer));
+            openCustomerSearchPopup((customer) => doApplyFidelity(customer));
             return;
         }
 
-        confirmAndApply(currentCustomer);
+        doApplyFidelity(currentCustomer);
     }, [
         parameters.fidelityRate,
         getCustomerTotal,
@@ -1025,9 +994,6 @@ export const usePay = () => {
         setCurrentCustomer,
         openPopup,
         openCustomerSearchPopup,
-        toCurrency,
-        currencies,
-        currencyIndex,
     ]);
 
     // Function to handle partial payment
