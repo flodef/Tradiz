@@ -638,7 +638,6 @@ export default function CatalogEditor({
                                 </div>
                                 {productsSettings?.useVatPerProduct && (
                                     <div className="w-24">
-                                        <label className={adminTextStyle}>TVA (%)</label>
                                         <ValidatedInput
                                             type="number"
                                             value={String(selectedProduct.vat ?? 0)}
@@ -646,6 +645,7 @@ export default function CatalogEditor({
                                                 handleProductUpdate({ ...selectedProduct, vat: Number(value) || 0 })
                                             }
                                             isReadOnly={isReadOnly}
+                                            label="TVA (%)"
                                         />
                                     </div>
                                 )}
@@ -655,7 +655,6 @@ export default function CatalogEditor({
                                 <div className="flex gap-3">
                                     {productsSettings?.useReference && (
                                         <div className="flex-1">
-                                            <label className={adminTextStyle}>Référence</label>
                                             <ValidatedInput
                                                 type="text"
                                                 value={selectedProduct.reference ?? ''}
@@ -668,12 +667,12 @@ export default function CatalogEditor({
                                                 placeholder="Auto-généré"
                                                 isReadOnly={isReadOnly}
                                                 maxLength={50}
+                                                label="Référence"
                                             />
                                         </div>
                                     )}
                                     {productsSettings?.useStock && (
                                         <div className="w-24">
-                                            <label className={adminTextStyle}>Stock</label>
                                             <ValidatedInput
                                                 type="number"
                                                 value={
@@ -687,6 +686,7 @@ export default function CatalogEditor({
                                                 }
                                                 placeholder="∞"
                                                 isReadOnly={isReadOnly}
+                                                label="Stock"
                                             />
                                         </div>
                                     )}
@@ -695,7 +695,6 @@ export default function CatalogEditor({
 
                             {productsSettings?.usePhoto && (
                                 <div>
-                                    <label className={adminTextStyle}>Photo</label>
                                     <ValidatedInput
                                         type="text"
                                         value={selectedProduct.photo ?? ''}
@@ -704,13 +703,13 @@ export default function CatalogEditor({
                                         }
                                         isReadOnly={isReadOnly}
                                         maxLength={50}
+                                        label="Photo"
                                     />
                                 </div>
                             )}
 
                             {productsSettings?.useDescription && (
                                 <div>
-                                    <label className={adminTextStyle}>Description</label>
                                     <ValidatedInput
                                         type="text"
                                         value={selectedProduct.description ?? ''}
@@ -722,13 +721,14 @@ export default function CatalogEditor({
                                         }
                                         isReadOnly={isReadOnly}
                                         maxLength={300}
+                                        label="Description"
                                     />
                                 </div>
                             )}
 
                             {!productsSettings?.useStock && (
                                 <div className="flex items-center gap-3">
-                                    <label className={adminTextStyle}>Disponibilité</label>
+                                    <label className={adminTextStyle + ' mb-0'}>Disponibilité</label>
                                     <AvailabilityToggle
                                         availability={selectedProduct.stock !== 0}
                                         isReadOnly={isReadOnly}
@@ -754,19 +754,21 @@ export default function CatalogEditor({
                                     </div>
                                     {productsSettings?.useOptions && (
                                         <div
-                                            className="flex items-center gap-1 pb-1"
+                                            className="shrink-0"
                                             title={
                                                 selectedProduct.options
                                                     ? `Options: ${selectedProduct.options}`
                                                     : 'Aucune option'
                                             }
                                         >
-                                            <label className={adminTextStyle + ' mb-0'}>Options</label>
-                                            {selectedProduct.options ? (
-                                                <IconCheck size={18} className="text-green-500" />
-                                            ) : (
-                                                <IconX size={18} className="text-gray-400" />
-                                            )}
+                                            <label className={adminTextStyle}>Options</label>
+                                            <div className="flex justify-center pt-1">
+                                                {selectedProduct.options ? (
+                                                    <IconCheck size={18} className="text-green-500" />
+                                                ) : (
+                                                    <IconX size={18} className="text-gray-400" />
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
