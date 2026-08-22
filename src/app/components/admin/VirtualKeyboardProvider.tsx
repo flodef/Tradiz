@@ -18,6 +18,7 @@ export function useVirtualKeyboardContext() {
 interface ActiveInput {
     element: HTMLInputElement;
     onChange: (value: string) => void;
+    isNumeric: boolean;
 }
 
 export function VirtualKeyboardProvider({ children, enabled }: { children: ReactNode; enabled: boolean }) {
@@ -29,7 +30,13 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
     const registerInput = useCallback(
         (input: HTMLInputElement, onChange: (value: string) => void) => {
             if (!enabled) return;
-            const active: ActiveInput = { element: input, onChange };
+            // Detect numeric inputs: inputMode="decimal" or type="number" or type="tel"
+            const isNumeric =
+                input.inputMode === 'decimal' ||
+                input.inputMode === 'numeric' ||
+                input.type === 'number' ||
+                input.type === 'tel';
+            const active: ActiveInput = { element: input, onChange, isNumeric };
             activeInputRef.current = active;
             setActiveInput(active);
             // Scroll input into view above the keyboard
@@ -208,6 +215,7 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
             {children}
             {enabled && activeInput && (
                 <VirtualKeyboard
+                    isNumeric={activeInput.isNumeric}
                     onKey={handleKey}
                     onBackspace={handleBackspace}
                     onEnter={handleEnter}
