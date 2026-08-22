@@ -1087,6 +1087,7 @@ export default function EditMenuPage() {
                         isOpen={openSection === 'catalog'}
                         onToggle={() => setOpenSection((prev) => (prev === 'catalog' ? null : 'catalog'))}
                         icon={<IconLayoutGrid size={24} />}
+                        productsSettings={productsSettings}
                     />
                 ) : (
                     <>

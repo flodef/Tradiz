@@ -17,12 +17,14 @@ import { SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sort
 import { IconChevronLeft, IconChevronRight, IconCopy, IconX } from '@tabler/icons-react';
 import { AdminProduct } from './ProductsConfig';
 import { Currency } from '@/app/utils/interfaces';
+import { ProductsSettings } from '@/app/contexts/ConfigProvider';
 import { colorToHex } from '@/app/utils/colors';
 import { DEFAULT_CATEGORY } from '@/app/utils/constants';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
 import PriceInput from '../PriceInput';
 import ColorSwatchPicker from '../ColorSwatchPicker';
+import AvailabilityToggle from '../AvailabilityToggle';
 import DeleteButton from '../DeleteButton';
 
 const GRID_COLS = 6;
@@ -42,6 +44,7 @@ interface CatalogEditorProps {
     isOpen?: boolean;
     onToggle?: () => void;
     icon?: React.ReactNode;
+    productsSettings?: ProductsSettings;
 }
 
 interface GridProduct extends AdminProduct {
@@ -148,6 +151,7 @@ export default function CatalogEditor({
     isOpen,
     onToggle,
     icon,
+    productsSettings,
 }: CatalogEditorProps) {
     const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
     const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -631,6 +635,132 @@ export default function CatalogEditor({
                                     label={`Prix (en ${currencySymbol})`}
                                 />
                             </div>
+
+                            {productsSettings?.useVatPerProduct && (
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                        TVA (%)
+                                    </label>
+                                    <ValidatedInput
+                                        type="number"
+                                        value={String(selectedProduct.vat ?? 0)}
+                                        onChange={(value) =>
+                                            handleProductUpdate({ ...selectedProduct, vat: Number(value) || 0 })
+                                        }
+                                        isReadOnly={isReadOnly}
+                                    />
+                                </div>
+                            )}
+
+                            {productsSettings?.useReference && (
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                        Référence
+                                    </label>
+                                    <ValidatedInput
+                                        type="text"
+                                        value={selectedProduct.reference ?? ''}
+                                        onChange={(value) =>
+                                            handleProductUpdate({ ...selectedProduct, reference: String(value) })
+                                        }
+                                        placeholder="Auto-généré"
+                                        isReadOnly={isReadOnly}
+                                        maxLength={50}
+                                    />
+                                </div>
+                            )}
+
+                            {productsSettings?.useStock && (
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                        Stock
+                                    </label>
+                                    <ValidatedInput
+                                        type="number"
+                                        value={selectedProduct.stock === null ? '' : String(selectedProduct.stock)}
+                                        onChange={(value) =>
+                                            handleProductUpdate({
+                                                ...selectedProduct,
+                                                stock: value === '' ? null : Number(value),
+                                            })
+                                        }
+                                        placeholder="∞"
+                                        isReadOnly={isReadOnly}
+                                    />
+                                </div>
+                            )}
+
+                            {productsSettings?.usePhoto && (
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                        Photo
+                                    </label>
+                                    <ValidatedInput
+                                        type="text"
+                                        value={selectedProduct.photo ?? ''}
+                                        onChange={(value) =>
+                                            handleProductUpdate({ ...selectedProduct, photo: String(value) })
+                                        }
+                                        isReadOnly={isReadOnly}
+                                        maxLength={50}
+                                    />
+                                </div>
+                            )}
+
+                            {productsSettings?.useDescription && (
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                        Description
+                                    </label>
+                                    <ValidatedInput
+                                        type="text"
+                                        value={selectedProduct.description ?? ''}
+                                        onChange={(value) =>
+                                            handleProductUpdate({
+                                                ...selectedProduct,
+                                                description: String(value),
+                                            })
+                                        }
+                                        isReadOnly={isReadOnly}
+                                        maxLength={300}
+                                    />
+                                </div>
+                            )}
+
+                            {productsSettings?.useOptions && (
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                        Options
+                                    </label>
+                                    <ValidatedInput
+                                        type="text"
+                                        value={selectedProduct.options ?? ''}
+                                        onChange={(value) =>
+                                            handleProductUpdate({ ...selectedProduct, options: String(value) })
+                                        }
+                                        isReadOnly={isReadOnly}
+                                        maxLength={300}
+                                    />
+                                </div>
+                            )}
+
+                            {!productsSettings?.useStock && (
+                                <div className="flex items-center gap-3">
+                                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                                        Disponibilité
+                                    </label>
+                                    <AvailabilityToggle
+                                        availability={selectedProduct.stock !== 0}
+                                        isReadOnly={isReadOnly}
+                                        onChange={(newValue) =>
+                                            handleProductUpdate({
+                                                ...selectedProduct,
+                                                stock: newValue ? null : 0,
+                                            })
+                                        }
+                                    />
+                                </div>
+                            )}
 
                             <div className="flex items-end justify-between overflow-visible">
                                 <div className="shrink-0">
