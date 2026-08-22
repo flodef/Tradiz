@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { IconBackspace, IconCheck, IconArrowLeft, IconArrowRight } from '@tabler/icons-react';
 
@@ -41,7 +41,16 @@ export default function VirtualKeyboard({
     isNumeric = false,
 }: VirtualKeyboardProps) {
     const [shift, setShift] = useState(false);
-    const [showSymbols, setShowSymbols] = useState(false);
+    // Symbols shown by default in text mode (user can toggle to numbers)
+    const [showSymbols, setShowSymbols] = useState(true);
+
+    // Reset to symbols when switching to a text input
+    useEffect(() => {
+        if (!isNumeric) {
+            setShowSymbols(true);
+            setShift(false);
+        }
+    }, [isNumeric]);
 
     const handleKey = (k: string) => {
         if (shift) {
@@ -59,7 +68,7 @@ export default function VirtualKeyboard({
                 className="fixed bottom-0 left-0 right-0 z-110 bg-white dark:bg-gray-900 border-t-2 border-gray-300 dark:border-gray-700 shadow-2xl p-2 select-none"
                 onMouseDown={(e) => e.preventDefault()}
             >
-                <div className="max-w-5xl mx-auto flex gap-3 items-stretch justify-center">
+                <div className="max-w-5xl mx-auto flex gap-1.5 items-stretch justify-center">
                     {/* 3x3 numpad */}
                     <div className="grid grid-cols-3 gap-1.5">
                         {NUMPAD.map((k) => (
