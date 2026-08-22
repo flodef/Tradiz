@@ -29,25 +29,17 @@ export async function POST(request: Request) {
             }
 
             if (connection.isPostgreSQL) {
-                // PostgreSQL: Check if parameter exists, then update or insert
-                const [existing] = await connection.execute('SELECT id FROM dc_pos.parameters WHERE param_key = $1', [
-                    param.key,
-                ]);
-                const rows = existing as { id: number }[];
-
-                if (rows.length > 0) {
-                    // Update existing
-                    await connection.execute('UPDATE dc_pos.parameters SET param_value = $1 WHERE param_key = $2', [
-                        param.value,
-                        param.key,
-                    ]);
-                } else {
-                    // Insert new
-                    await connection.execute('INSERT INTO dc_pos.parameters (param_key, param_value) VALUES ($1, $2)', [
-                        param.key,
-                        param.value,
-                    ]);
-                }
+                // PostgreSQL: atomic upsert via ON CONFLICT on the unique param_key.
+                // This replaces the previous SELECT-then-INSERT pattern, which was
+                // racy and also failed when parameters_id_seq fell behind MAX(id)
+                // ("duplicate key value violates unique constraint parameters_pkey").
+                await connection.execute(
+                    `INSERT INTO dc_pos.parameters (param_key, param_value)
+                     VALUES ($1, $2)
+                     ON CONFLICT (param_key) DO UPDATE
+                     SET param_value = EXCLUDED.param_value`,
+                    [param.key, param.value]
+                );
             } else {
                 // MariaDB: Use ON DUPLICATE KEY UPDATE
                 const query = `
