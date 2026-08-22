@@ -13,8 +13,18 @@ WHERE p.id NOT IN (
     SELECT MIN(id) FROM dc_pos.parameters GROUP BY param_key
 );
 
-ALTER TABLE dc_pos.parameters
-    ADD CONSTRAINT IF NOT EXISTS parameters_param_key_key UNIQUE (param_key);
+-- PostgreSQL does not support ADD CONSTRAINT IF NOT EXISTS, so use a DO block.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'parameters_param_key_key'
+          AND conrelid = 'dc_pos.parameters'::regclass
+    ) THEN
+        ALTER TABLE dc_pos.parameters
+            ADD CONSTRAINT parameters_param_key_key UNIQUE (param_key);
+    END IF;
+END $$;
 
 -- 2. Resync the SERIAL sequence with the current MAX(id).
 --    This fixes the root cause of the duplicate key error: the sequence was
