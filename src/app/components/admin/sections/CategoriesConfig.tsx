@@ -6,7 +6,6 @@ import {
     DndContext,
     DragEndEvent,
     PointerSensor,
-    TouchSensor,
     useSensor,
     useSensors,
 } from '@dnd-kit/core';
@@ -243,12 +242,7 @@ export default function CategoriesConfig({
         (config || []).map((c) => ({ ...c, _id: nextIdRef.current++, _originalLabel: c.label }))
     );
     const sensors = useSensors(
-        useSensor(PointerSensor),
-        useSensor(TouchSensor, {
-            activationConstraint: {
-                distance: 10,
-            },
-        })
+        useSensor(PointerSensor, { activationConstraint: { distance: 10 } })
     );
     const vatRates = useMemo(() => [20, 10, 5.5, 2.1, 0], []);
 

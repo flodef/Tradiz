@@ -9,7 +9,6 @@ import {
     DragStartEvent,
     DragOverlay,
     PointerSensor,
-    TouchSensor,
     useDroppable,
     useSensor,
     useSensors,
@@ -91,8 +90,11 @@ function SortableTile({ product, index, isSelected, onSelect, currencySymbol }: 
         id: product._gridId,
     });
     // No transform/transition — with DragOverlay, tiles stay in place while dragging
-    const style = {
+    // touch-action: none is critical — without it, touch-screen browsers (especially
+    // Windows 10) fire pointercancel when they detect a scroll gesture, aborting the drag.
+    const style: React.CSSProperties = {
         opacity: isDragging ? 0 : 1,
+        touchAction: 'none',
     };
 
     const bgColor = colorToHex(product.color);
@@ -103,7 +105,7 @@ function SortableTile({ product, index, isSelected, onSelect, currencySymbol }: 
             {...attributes}
             {...listeners}
             className={twMerge(
-                'relative h-20 flex flex-col text-center font-semibold text-base border-[3px] rounded-2xl select-none cursor-pointer shadow-xl',
+                'relative h-20 flex flex-col text-center font-semibold text-base border-[3px] rounded-2xl select-none cursor-pointer shadow-xl touch-none',
                 isSelected ? 'border-blue-500 animate-pulse' : 'border-secondary-light dark:border-secondary-dark',
                 bgColor ? 'text-black dark:text-white' : 'hover:bg-active-light dark:hover:bg-active-dark'
             )}
@@ -171,10 +173,10 @@ export default function CatalogEditor({
         };
     }, []);
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-        useSensor(TouchSensor, { activationConstraint: { distance: 10 } })
-    );
+    // Only PointerSensor — it handles both mouse and touch via the Pointer Events API.
+    // Using TouchSensor alongside PointerSensor causes conflicts on touch-enabled
+    // Windows devices (both sensors fire, one cancels the other's drag).
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 10 } }));
 
     const categoryLabels = useMemo(() => categories.map((c) => c.label), [categories]);
 
@@ -529,7 +531,7 @@ export default function CatalogEditor({
                             onDragEnd={handleDragEnd}
                         >
                             <SortableContext items={sortableItems} strategy={rectSortingStrategy}>
-                                <div className="grid grid-cols-6 auto-rows-20 gap-1 p-1">
+                                <div className="grid grid-cols-6 auto-rows-20 gap-1 p-1 touch-none">
                                     {gridSlots.map((product, index) => {
                                         if (!product) {
                                             return <DroppableEmptyTile key={`empty-${index}`} slotIndex={index} />;

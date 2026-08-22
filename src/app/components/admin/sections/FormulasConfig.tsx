@@ -11,15 +11,7 @@ import AdminSelect from '../AdminSelect';
 import DeleteButton from '../DeleteButton';
 import { usePopup } from '@/app/hooks/usePopup';
 import { IconGripVertical } from '@tabler/icons-react';
-import {
-    closestCenter,
-    DndContext,
-    DragEndEvent,
-    PointerSensor,
-    TouchSensor,
-    useSensor,
-    useSensors,
-} from '@dnd-kit/core';
+import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -343,14 +335,10 @@ export default function FormulasConfig({
     const formulaNameInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const focusAfterDeleteRef = useRef<number | null>(null);
 
-    const sensors = useSensors(
-        useSensor(PointerSensor),
-        useSensor(TouchSensor, {
-            activationConstraint: {
-                distance: 10,
-            },
-        })
-    );
+    // Only PointerSensor — it handles both mouse and touch via the Pointer Events API.
+    // Using TouchSensor alongside PointerSensor causes conflicts on touch-enabled
+    // Windows devices (both sensors fire, one cancels the other's drag).
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 10 } }));
 
     const decimals = useMemo(() => getDecimals(currencies), [currencies]);
 

@@ -7,7 +7,6 @@ import {
     DndContext,
     DragEndEvent,
     PointerSensor,
-    TouchSensor,
     useSensor,
     useSensors,
 } from '@dnd-kit/core';
@@ -130,12 +129,7 @@ export default function ProductsConfig({
     const focusAfterDeleteRef = useRef<number | null>(null);
 
     const sensors = useSensors(
-        useSensor(PointerSensor),
-        useSensor(TouchSensor, {
-            activationConstraint: {
-                distance: 10,
-            },
-        })
+        useSensor(PointerSensor, { activationConstraint: { distance: 10 } })
     );
 
     const categoryOrder = useMemo(() => {

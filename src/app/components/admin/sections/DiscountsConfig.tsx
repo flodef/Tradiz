@@ -5,7 +5,6 @@ import {
     DndContext,
     DragEndEvent,
     PointerSensor,
-    TouchSensor,
     useSensor,
     useSensors,
 } from '@dnd-kit/core';
@@ -206,12 +205,7 @@ export default function DiscountsConfig({
     );
 
     const sensors = useSensors(
-        useSensor(PointerSensor),
-        useSensor(TouchSensor, {
-            activationConstraint: {
-                distance: 10,
-            },
-        })
+        useSensor(PointerSensor, { activationConstraint: { distance: 10 } })
     );
     const units = React.useMemo(() => ['%', ...currencies.map((c) => c.symbol)], [currencies]);
 
