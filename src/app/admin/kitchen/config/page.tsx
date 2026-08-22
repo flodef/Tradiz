@@ -405,6 +405,11 @@ export default function SettingsPage() {
             setOriginalSettings(loadedSettings);
             dbDataLoadedRef.current = true;
 
+            // Sync ConfigProvider parameters so the VirtualKeyboardProvider in
+            // AdminConfigWrapper picks up useVirtualKeyboard from the DB.
+            // Preserve the user (resolved by ConfigProvider, not stored in DB parameters).
+            setParameters({ ...loadedSettings, user: parameters.user });
+
             // Load discounts from DB
             try {
                 const discountsResponse = await fetch('/api/sql/getDiscounts');
