@@ -762,7 +762,7 @@ export default function CatalogEditor({
                                             }
                                         >
                                             <label className={adminTextStyle}>Options</label>
-                                            <div className="flex justify-center pt-1">
+                                            <div className="flex justify-center">
                                                 {selectedProduct.options ? (
                                                     <IconCheck size={28} className="text-green-500" />
                                                 ) : (
