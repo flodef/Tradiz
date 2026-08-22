@@ -594,6 +594,7 @@ export default function SettingsPage() {
         isStateReady,
         seedFromCache,
         openFullscreenPopup,
+        setParameters,
     ]);
 
     // Step 2a: seed the UI instantly from cached config (no loading dots) as soon as it's ready.
