@@ -14,12 +14,12 @@ import {
     useSensors,
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
-import { IconChevronLeft, IconChevronRight, IconCopy, IconX } from '@tabler/icons-react';
+import { IconCheck, IconChevronLeft, IconChevronRight, IconCopy, IconX } from '@tabler/icons-react';
 import { AdminProduct } from './ProductsConfig';
 import { Currency } from '@/app/utils/interfaces';
 import { ProductsSettings } from '@/app/contexts/ConfigProvider';
 import { colorToHex } from '@/app/utils/colors';
-import { DEFAULT_CATEGORY } from '@/app/utils/constants';
+import { adminTextStyle, DEFAULT_CATEGORY } from '@/app/utils/constants';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
 import PriceInput from '../PriceInput';
@@ -622,79 +622,80 @@ export default function CatalogEditor({
                                 />
                             </div>
 
-                            <div>
-                                <PriceInput
-                                    value={selectedProduct.currencies[0] ?? '0'}
-                                    onChange={(value) => {
-                                        const updated = [...selectedProduct.currencies];
-                                        updated[0] = String(value);
-                                        handleProductUpdate({ ...selectedProduct, currencies: updated });
-                                    }}
-                                    currencies={currencies}
-                                    isReadOnly={isReadOnly}
-                                    label={`Prix (en ${currencySymbol})`}
-                                />
+                            <div className="flex gap-3">
+                                <div className="flex-1">
+                                    <PriceInput
+                                        value={selectedProduct.currencies[0] ?? '0'}
+                                        onChange={(value) => {
+                                            const updated = [...selectedProduct.currencies];
+                                            updated[0] = String(value);
+                                            handleProductUpdate({ ...selectedProduct, currencies: updated });
+                                        }}
+                                        currencies={currencies}
+                                        isReadOnly={isReadOnly}
+                                        label={`Prix (en ${currencySymbol})`}
+                                    />
+                                </div>
+                                {productsSettings?.useVatPerProduct && (
+                                    <div className="w-24">
+                                        <label className={adminTextStyle}>TVA (%)</label>
+                                        <ValidatedInput
+                                            type="number"
+                                            value={String(selectedProduct.vat ?? 0)}
+                                            onChange={(value) =>
+                                                handleProductUpdate({ ...selectedProduct, vat: Number(value) || 0 })
+                                            }
+                                            isReadOnly={isReadOnly}
+                                        />
+                                    </div>
+                                )}
                             </div>
 
-                            {productsSettings?.useVatPerProduct && (
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                        TVA (%)
-                                    </label>
-                                    <ValidatedInput
-                                        type="number"
-                                        value={String(selectedProduct.vat ?? 0)}
-                                        onChange={(value) =>
-                                            handleProductUpdate({ ...selectedProduct, vat: Number(value) || 0 })
-                                        }
-                                        isReadOnly={isReadOnly}
-                                    />
-                                </div>
-                            )}
-
-                            {productsSettings?.useReference && (
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                        Référence
-                                    </label>
-                                    <ValidatedInput
-                                        type="text"
-                                        value={selectedProduct.reference ?? ''}
-                                        onChange={(value) =>
-                                            handleProductUpdate({ ...selectedProduct, reference: String(value) })
-                                        }
-                                        placeholder="Auto-généré"
-                                        isReadOnly={isReadOnly}
-                                        maxLength={50}
-                                    />
-                                </div>
-                            )}
-
-                            {productsSettings?.useStock && (
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                        Stock
-                                    </label>
-                                    <ValidatedInput
-                                        type="number"
-                                        value={selectedProduct.stock === null ? '' : String(selectedProduct.stock)}
-                                        onChange={(value) =>
-                                            handleProductUpdate({
-                                                ...selectedProduct,
-                                                stock: value === '' ? null : Number(value),
-                                            })
-                                        }
-                                        placeholder="∞"
-                                        isReadOnly={isReadOnly}
-                                    />
+                            {(productsSettings?.useReference || productsSettings?.useStock) && (
+                                <div className="flex gap-3">
+                                    {productsSettings?.useReference && (
+                                        <div className="flex-1">
+                                            <label className={adminTextStyle}>Référence</label>
+                                            <ValidatedInput
+                                                type="text"
+                                                value={selectedProduct.reference ?? ''}
+                                                onChange={(value) =>
+                                                    handleProductUpdate({
+                                                        ...selectedProduct,
+                                                        reference: String(value),
+                                                    })
+                                                }
+                                                placeholder="Auto-généré"
+                                                isReadOnly={isReadOnly}
+                                                maxLength={50}
+                                            />
+                                        </div>
+                                    )}
+                                    {productsSettings?.useStock && (
+                                        <div className="w-24">
+                                            <label className={adminTextStyle}>Stock</label>
+                                            <ValidatedInput
+                                                type="number"
+                                                value={
+                                                    selectedProduct.stock === null ? '' : String(selectedProduct.stock)
+                                                }
+                                                onChange={(value) =>
+                                                    handleProductUpdate({
+                                                        ...selectedProduct,
+                                                        stock: value === '' ? null : Number(value),
+                                                    })
+                                                }
+                                                placeholder="∞"
+                                                isReadOnly={isReadOnly}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
                             {productsSettings?.usePhoto && (
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                        Photo
-                                    </label>
+                                    <label className={adminTextStyle}>Photo</label>
                                     <ValidatedInput
                                         type="text"
                                         value={selectedProduct.photo ?? ''}
@@ -709,9 +710,7 @@ export default function CatalogEditor({
 
                             {productsSettings?.useDescription && (
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                        Description
-                                    </label>
+                                    <label className={adminTextStyle}>Description</label>
                                     <ValidatedInput
                                         type="text"
                                         value={selectedProduct.description ?? ''}
@@ -727,28 +726,9 @@ export default function CatalogEditor({
                                 </div>
                             )}
 
-                            {productsSettings?.useOptions && (
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                        Options
-                                    </label>
-                                    <ValidatedInput
-                                        type="text"
-                                        value={selectedProduct.options ?? ''}
-                                        onChange={(value) =>
-                                            handleProductUpdate({ ...selectedProduct, options: String(value) })
-                                        }
-                                        isReadOnly={isReadOnly}
-                                        maxLength={300}
-                                    />
-                                </div>
-                            )}
-
                             {!productsSettings?.useStock && (
                                 <div className="flex items-center gap-3">
-                                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                                        Disponibilité
-                                    </label>
+                                    <label className={adminTextStyle}>Disponibilité</label>
                                     <AvailabilityToggle
                                         availability={selectedProduct.stock !== 0}
                                         isReadOnly={isReadOnly}
@@ -763,15 +743,32 @@ export default function CatalogEditor({
                             )}
 
                             <div className="flex items-end justify-between overflow-visible">
-                                <div className="shrink-0">
-                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                        Couleur
-                                    </label>
-                                    <ColorSwatchPicker
-                                        color={selectedProduct.color ?? ''}
-                                        onChange={(color) => handleProductUpdate({ ...selectedProduct, color })}
-                                        isReadOnly={isReadOnly}
-                                    />
+                                <div className="flex items-end gap-4">
+                                    <div className="shrink-0">
+                                        <label className={adminTextStyle}>Couleur</label>
+                                        <ColorSwatchPicker
+                                            color={selectedProduct.color ?? ''}
+                                            onChange={(color) => handleProductUpdate({ ...selectedProduct, color })}
+                                            isReadOnly={isReadOnly}
+                                        />
+                                    </div>
+                                    {productsSettings?.useOptions && (
+                                        <div
+                                            className="flex items-center gap-1 pb-1"
+                                            title={
+                                                selectedProduct.options
+                                                    ? `Options: ${selectedProduct.options}`
+                                                    : 'Aucune option'
+                                            }
+                                        >
+                                            <label className={adminTextStyle + ' mb-0'}>Options</label>
+                                            {selectedProduct.options ? (
+                                                <IconCheck size={18} className="text-green-500" />
+                                            ) : (
+                                                <IconX size={18} className="text-gray-400" />
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button
