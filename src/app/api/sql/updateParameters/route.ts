@@ -30,9 +30,7 @@ export async function POST(request: Request) {
 
             if (connection.isPostgreSQL) {
                 // PostgreSQL: atomic upsert via ON CONFLICT on the unique param_key.
-                // This replaces the previous SELECT-then-INSERT pattern, which was
-                // racy and also failed when parameters_id_seq fell behind MAX(id)
-                // ("duplicate key value violates unique constraint parameters_pkey").
+                // Requires the unique constraint added by migrate-parameters-unique-key.sql.
                 await connection.execute(
                     `INSERT INTO dc_pos.parameters (param_key, param_value)
                      VALUES ($1, $2)
