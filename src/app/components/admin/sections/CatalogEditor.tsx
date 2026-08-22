@@ -101,6 +101,7 @@ function SortableTile({ product, index, isSelected, onSelect, currencySymbol }: 
     };
 
     const bgColor = colorToHex(product.color);
+    const isUnavailable = product.stock === 0;
 
     return (
         <div
@@ -108,9 +109,10 @@ function SortableTile({ product, index, isSelected, onSelect, currencySymbol }: 
             {...attributes}
             {...listeners}
             className={twMerge(
-                'relative h-20 flex flex-col text-center font-semibold text-base border-[3px] rounded-2xl select-none cursor-pointer shadow-xl touch-none',
+                'relative h-20 flex flex-col text-center font-semibold text-base border-[3px] rounded-2xl select-none cursor-pointer shadow-xl touch-none overflow-hidden',
                 isSelected ? 'border-blue-500 animate-pulse' : 'border-secondary-light dark:border-secondary-dark',
-                bgColor ? 'text-black dark:text-white' : 'hover:bg-active-light dark:hover:bg-active-dark'
+                bgColor ? 'text-black dark:text-white' : 'hover:bg-active-light dark:hover:bg-active-dark',
+                isUnavailable && 'opacity-60'
             )}
             style={bgColor ? { ...style, backgroundColor: bgColor } : style}
             onClick={(e) => {
@@ -119,6 +121,13 @@ function SortableTile({ product, index, isSelected, onSelect, currencySymbol }: 
             }}
         >
             <TileContent product={product} index={index} currencySymbol={currencySymbol} />
+            {isUnavailable && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="bg-red-600 text-white text-xs font-bold uppercase tracking-wide px-8 py-0.5 rotate-[-20deg] shadow-lg">
+                        Indisponible
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -561,9 +570,10 @@ export default function CatalogEditor({
                                 {activeProduct ? (
                                     <div
                                         className={twMerge(
-                                            'relative h-20 flex flex-col text-center font-semibold text-base border-[3px] rounded-2xl select-none cursor-pointer shadow-2xl rotate-2 scale-105',
+                                            'relative h-20 flex flex-col text-center font-semibold text-base border-[3px] rounded-2xl select-none cursor-pointer shadow-2xl rotate-2 scale-105 overflow-hidden',
                                             isCtrlPressed ? 'border-green-500' : 'border-blue-500',
-                                            activeProduct.color ? 'text-black dark:text-white' : ''
+                                            activeProduct.color ? 'text-black dark:text-white' : '',
+                                            activeProduct.stock === 0 && 'opacity-60'
                                         )}
                                         style={
                                             activeProduct.color
@@ -581,6 +591,13 @@ export default function CatalogEditor({
                                             index={gridSlots.findIndex((s) => s?._gridId === activeProduct._gridId)}
                                             currencySymbol={currencySymbol}
                                         />
+                                        {activeProduct.stock === 0 && (
+                                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                <div className="bg-red-600 text-white text-xs font-bold uppercase tracking-wide px-8 py-0.5 rotate-[-20deg] shadow-lg">
+                                                    Indisponible
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : null}
                             </DragOverlay>

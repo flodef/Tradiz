@@ -984,7 +984,7 @@ export default function SettingsPage() {
             // Renames may already have been applied in CompaniesConfig and are
             // therefore reflected in customersConfig as well.
             const companyNames = new Set(data.map((c) => c.name));
-            let updatedCustomers = customersConfig.map((c) =>
+            const updatedCustomers = customersConfig.map((c) =>
                 c.company && !companyNames.has(c.company) ? { ...c, company: undefined } : c
             );
 
