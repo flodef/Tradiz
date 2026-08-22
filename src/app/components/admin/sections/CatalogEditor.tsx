@@ -764,9 +764,9 @@ export default function CatalogEditor({
                                             <label className={adminTextStyle}>Options</label>
                                             <div className="flex justify-center pt-1">
                                                 {selectedProduct.options ? (
-                                                    <IconCheck size={18} className="text-green-500" />
+                                                    <IconCheck size={28} className="text-green-500" />
                                                 ) : (
-                                                    <IconX size={18} className="text-gray-400" />
+                                                    <IconX size={28} className="text-gray-400" />
                                                 )}
                                             </div>
                                         </div>
