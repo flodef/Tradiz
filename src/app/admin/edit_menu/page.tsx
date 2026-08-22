@@ -231,6 +231,10 @@ export default function EditMenuPage() {
     // localStorage cache on regular refresh, and the ConfigProvider's own DB
     // fetch may not update it in time for rendering.
     const [catalogMode, setCatalogMode] = useState<boolean>(parameters?.display?.catalogMode === true);
+    // Don't render ProductsConfig or CatalogEditor until catalogMode has been
+    // resolved from the DB fetch. Otherwise the stale localStorage cache value
+    // may show Products first, then flicker to Catalog when the DB value arrives.
+    const [catalogModeResolved, setCatalogModeResolved] = useState(false);
     const [openSection, setOpenSection] = useState<string | null>(
         parameters?.display?.catalogMode ? 'catalog' : 'products'
     );
@@ -386,12 +390,11 @@ export default function EditMenuPage() {
         }
     }, [searchParams, emptyProductsPopupShown, isLoading, openFullscreenPopup]);
 
-    // When catalogMode is updated from the DB fetch, switch the open section
+    // When catalogMode is resolved from the DB fetch, sync the open section.
     useEffect(() => {
-        if (catalogMode) {
-            setOpenSection('catalog');
-        }
-    }, [catalogMode]);
+        if (!catalogModeResolved) return;
+        setOpenSection(catalogMode ? 'catalog' : 'products');
+    }, [catalogMode, catalogModeResolved]);
 
     // Phase 1: seed the UI instantly from cached inventory/currencies (no loading dots).
     // This shows products immediately; the DB fetch below adds fields not present in the
@@ -450,6 +453,7 @@ export default function EditMenuPage() {
                     };
                     setConfig(config);
                     setCatalogMode(parametersRef.current?.display?.catalogMode === true);
+                    setCatalogModeResolved(true);
 
                     setIsLoading(false);
                     return;
@@ -616,6 +620,7 @@ export default function EditMenuPage() {
                 });
                 setOptions(loadedOptions);
                 setOriginalOptions(loadedOptions);
+                setCatalogModeResolved(true);
             } catch (error) {
                 console.error('Error fetching menu data:', error);
                 openFullscreenPopup('Erreur lors du chargement des données', ['OK']);
@@ -1073,24 +1078,24 @@ export default function EditMenuPage() {
                     />
                 )}
 
-                {catalogMode && categories.length > 0 ? (
-                    <CatalogEditor
-                        products={nonFormulaProducts}
-                        categories={categoryOptions}
-                        currencies={currencies}
-                        onChange={handleProductsChange}
-                        onSave={isReadOnly ? undefined : handleProductsSave}
-                        onCancel={handleCancel}
-                        hasChanges={hasProductsChanges}
-                        isReadOnly={isReadOnly}
-                        isLoading={isSavingProducts}
-                        isOpen={openSection === 'catalog'}
-                        onToggle={() => setOpenSection((prev) => (prev === 'catalog' ? null : 'catalog'))}
-                        icon={<IconLayoutGrid size={24} />}
-                        productsSettings={productsSettings}
-                    />
-                ) : (
-                    <>
+                {catalogModeResolved &&
+                    (catalogMode && categories.length > 0 ? (
+                        <CatalogEditor
+                            products={nonFormulaProducts}
+                            categories={categoryOptions}
+                            currencies={currencies}
+                            onChange={handleProductsChange}
+                            onSave={isReadOnly ? undefined : handleProductsSave}
+                            onCancel={handleCancel}
+                            hasChanges={hasProductsChanges}
+                            isReadOnly={isReadOnly}
+                            isLoading={isSavingProducts}
+                            isOpen={openSection === 'catalog'}
+                            onToggle={() => setOpenSection((prev) => (prev === 'catalog' ? null : 'catalog'))}
+                            icon={<IconLayoutGrid size={24} />}
+                            productsSettings={productsSettings}
+                        />
+                    ) : (
                         <ProductsConfig
                             config={nonFormulaProducts}
                             onChange={handleProductsChange}
@@ -1107,23 +1112,24 @@ export default function EditMenuPage() {
                             icon={<IconBox size={24} />}
                             showHeader={nonFormulaProducts.length > 0}
                         />
+                    ))}
 
-                        <FormulasConfig
-                            config={formulas}
-                            categories={categories.map((c) => c.label)}
-                            products={nonFormulaProducts}
-                            currencies={currencies}
-                            onChange={handleFormulasChange}
-                            onSave={isReadOnly ? undefined : handleFormulasSave}
-                            onCancel={handleFormulasCancel}
-                            hasChanges={hasFormulasChanges}
-                            isReadOnly={isReadOnly}
-                            isLoading={isSavingFormulas}
-                            isOpen={openSection === 'formulas'}
-                            onToggle={() => setOpenSection((prev) => (prev === 'formulas' ? null : 'formulas'))}
-                            icon={<IconMathFunction size={24} />}
-                        />
-                    </>
+                {catalogModeResolved && !catalogMode && (
+                    <FormulasConfig
+                        config={formulas}
+                        categories={categories.map((c) => c.label)}
+                        products={nonFormulaProducts}
+                        currencies={currencies}
+                        onChange={handleFormulasChange}
+                        onSave={isReadOnly ? undefined : handleFormulasSave}
+                        onCancel={handleFormulasCancel}
+                        hasChanges={hasFormulasChanges}
+                        isReadOnly={isReadOnly}
+                        isLoading={isSavingFormulas}
+                        isOpen={openSection === 'formulas'}
+                        onToggle={() => setOpenSection((prev) => (prev === 'formulas' ? null : 'formulas'))}
+                        icon={<IconMathFunction size={24} />}
+                    />
                 )}
             </div>
         </AdminPageLayout>
