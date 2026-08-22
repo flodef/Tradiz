@@ -2,14 +2,7 @@
 
 import { adminSortableHeaderStyle, DEFAULT_CATEGORY } from '@/app/utils/constants';
 import { Currency } from '@/app/utils/interfaces';
-import {
-    closestCenter,
-    DndContext,
-    DragEndEvent,
-    PointerSensor,
-    useSensor,
-    useSensors,
-} from '@dnd-kit/core';
+import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
@@ -29,6 +22,7 @@ import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
 import PriceInput from '../PriceInput';
+import { useVirtualKeyboardContext } from '../VirtualKeyboardProvider';
 
 type SortField =
     | 'order'
@@ -117,6 +111,7 @@ export default function ProductsConfig({
 }) {
     const [products, setProducts] = useState(config || []);
     const [search, setSearch] = useState('');
+    const vkContext = useVirtualKeyboardContext();
     const [availFilter, setAvailFilter] = useState<AvailabilityFilter>('all');
     const [sortField, setSortField] = useState<SortField | null>(null);
     const [sortDirection, setSortDirection] = useState<SortDirection>('none');
@@ -128,9 +123,7 @@ export default function ProductsConfig({
     const focusPriceIndexRef = useRef<number | null>(null);
     const focusAfterDeleteRef = useRef<number | null>(null);
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 10 } })
-    );
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 10 } }));
 
     const categoryOrder = useMemo(() => {
         // Use categories prop order as the stable base order
@@ -373,6 +366,18 @@ export default function ProductsConfig({
                         type="text"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
+                        onFocus={(e) => {
+                            if (vkContext) {
+                                vkContext.registerInput(e.target, (newValue: string) => setSearch(newValue));
+                                vkContext.registerEnterHandler(null);
+                            }
+                        }}
+                        onBlur={(e) => {
+                            if (vkContext) {
+                                vkContext.unregisterInput(e.target);
+                                vkContext.registerEnterHandler(null);
+                            }
+                        }}
                         placeholder="Rechercher..."
                         maxLength={15}
                         className="pl-7 pr-6 py-1.5 w-40 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 dark:text-gray-200 focus:outline-none"
@@ -411,6 +416,18 @@ export default function ProductsConfig({
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
+                    onFocus={(e) => {
+                        if (vkContext) {
+                            vkContext.registerInput(e.target, (newValue: string) => setSearch(newValue));
+                            vkContext.registerEnterHandler(null);
+                        }
+                    }}
+                    onBlur={(e) => {
+                        if (vkContext) {
+                            vkContext.unregisterInput(e.target);
+                            vkContext.registerEnterHandler(null);
+                        }
+                    }}
                     placeholder="Rechercher..."
                     maxLength={15}
                     className="pl-7 pr-6 py-1.5 w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 dark:text-gray-200 focus:outline-none"

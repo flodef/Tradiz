@@ -12,7 +12,6 @@ import CustomersConfig from '@/app/components/admin/sections/CustomersConfig';
 import CompaniesConfig from '@/app/components/admin/sections/CompaniesConfig';
 import DevicesConfig from '@/app/components/admin/sections/DevicesConfig';
 import PrintersConfig from '@/app/components/admin/sections/PrintersConfig';
-import { VirtualKeyboardProvider } from '@/app/components/admin/VirtualKeyboardProvider';
 import { Parameters, Config } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
@@ -1079,197 +1078,195 @@ export default function SettingsPage() {
     }
 
     return (
-        <VirtualKeyboardProvider enabled={settings.useVirtualKeyboard ?? false}>
-            <AdminPageLayout title="Configuration" hasChanges={hasChanges} onSave={handleSaveAll}>
-                {isReadOnly && (
-                    <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 dark:border-yellow-600 rounded-lg">
-                        <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                            <strong>Mode lecture seule :</strong> La base de données n'est pas configurée. Les
-                            modifications ne seront pas enregistrées.
-                        </p>
-                    </div>
-                )}
+        <AdminPageLayout title="Configuration" hasChanges={hasChanges} onSave={handleSaveAll}>
+            {isReadOnly && (
+                <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 dark:border-yellow-600 rounded-lg">
+                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                        <strong>Mode lecture seule :</strong> La base de données n'est pas configurée. Les modifications
+                        ne seront pas enregistrées.
+                    </p>
+                </div>
+            )}
 
-                <ParametersConfig
-                    config={settings}
-                    users={usersConfig}
-                    onChange={setSettings}
-                    onSave={handleParametersSave}
-                    onCancel={handleCancel}
-                    hasChanges={hasSettingsChanges}
-                    isReadOnly={isReadOnly}
-                    isSiretValid={isSiretValid}
-                    onSiretValidation={setIsSiretValid}
-                    isLoading={isSavingParameters}
-                    isOpen={openSection === 'parameters'}
-                    onToggle={() => setOpenSection((prev) => (prev === 'parameters' ? null : 'parameters'))}
-                    icon={<IconSettings size={24} />}
-                />
+            <ParametersConfig
+                config={settings}
+                users={usersConfig}
+                onChange={setSettings}
+                onSave={handleParametersSave}
+                onCancel={handleCancel}
+                hasChanges={hasSettingsChanges}
+                isReadOnly={isReadOnly}
+                isSiretValid={isSiretValid}
+                onSiretValidation={setIsSiretValid}
+                isLoading={isSavingParameters}
+                isOpen={openSection === 'parameters'}
+                onToggle={() => setOpenSection((prev) => (prev === 'parameters' ? null : 'parameters'))}
+                icon={<IconSettings size={24} />}
+            />
 
-                <DiscountsConfig
-                    config={discounts}
-                    onChange={setDiscounts}
-                    onSave={handleDiscountsSave}
-                    onCancel={handleCancel}
-                    hasChanges={hasDiscountsChanges}
-                    currencies={currenciesConfig}
-                    isReadOnly={isReadOnly}
-                    isLoading={isSavingDiscounts}
-                    isOpen={openSection === 'discounts'}
-                    onToggle={() => setOpenSection((prev) => (prev === 'discounts' ? null : 'discounts'))}
-                    icon={<IconDiscount size={24} />}
-                />
+            <DiscountsConfig
+                config={discounts}
+                onChange={setDiscounts}
+                onSave={handleDiscountsSave}
+                onCancel={handleCancel}
+                hasChanges={hasDiscountsChanges}
+                currencies={currenciesConfig}
+                isReadOnly={isReadOnly}
+                isLoading={isSavingDiscounts}
+                isOpen={openSection === 'discounts'}
+                onToggle={() => setOpenSection((prev) => (prev === 'discounts' ? null : 'discounts'))}
+                icon={<IconDiscount size={24} />}
+            />
 
-                <CurrenciesConfig
-                    config={currenciesConfig}
-                    onChange={setCurrenciesConfig}
-                    onSave={handleCurrenciesSave}
-                    onCancel={handleCancel}
-                    hasChanges={hasCurrenciesChanges}
-                    isReadOnly={isReadOnly}
-                    isLoading={isSavingCurrencies}
-                    isOpen={openSection === 'currencies'}
-                    onToggle={() => setOpenSection((prev) => (prev === 'currencies' ? null : 'currencies'))}
-                    icon={<IconCurrency size={24} />}
-                />
+            <CurrenciesConfig
+                config={currenciesConfig}
+                onChange={setCurrenciesConfig}
+                onSave={handleCurrenciesSave}
+                onCancel={handleCancel}
+                hasChanges={hasCurrenciesChanges}
+                isReadOnly={isReadOnly}
+                isLoading={isSavingCurrencies}
+                isOpen={openSection === 'currencies'}
+                onToggle={() => setOpenSection((prev) => (prev === 'currencies' ? null : 'currencies'))}
+                icon={<IconCurrency size={24} />}
+            />
 
-                <PaymentsConfig
-                    config={paymentsConfig}
-                    onChange={setPaymentsConfig}
-                    onSave={handlePaymentsSave}
-                    onCancel={handleCancel}
-                    hasChanges={hasPaymentsChanges}
-                    currencies={currenciesConfig}
-                    isReadOnly={isReadOnly}
-                    isLoading={isSavingPayments}
-                    isOpen={openSection === 'payments'}
-                    onToggle={() => setOpenSection((prev) => (prev === 'payments' ? null : 'payments'))}
-                    icon={<IconCreditCard size={24} />}
-                />
+            <PaymentsConfig
+                config={paymentsConfig}
+                onChange={setPaymentsConfig}
+                onSave={handlePaymentsSave}
+                onCancel={handleCancel}
+                hasChanges={hasPaymentsChanges}
+                currencies={currenciesConfig}
+                isReadOnly={isReadOnly}
+                isLoading={isSavingPayments}
+                isOpen={openSection === 'payments'}
+                onToggle={() => setOpenSection((prev) => (prev === 'payments' ? null : 'payments'))}
+                icon={<IconCreditCard size={24} />}
+            />
 
-                <UsersConfig
-                    config={usersConfig}
-                    onChange={setUsersConfig}
-                    onSave={handleUsersSave}
-                    onCancel={handleCancel}
-                    hasChanges={hasUsersChanges}
-                    isReadOnly={isReadOnly}
-                    isLoading={isSavingUsers}
-                    isOpen={openSection === 'users'}
-                    onToggle={() => setOpenSection((prev) => (prev === 'users' ? null : 'users'))}
-                    icon={<IconUserScan size={24} />}
-                    onValidation={setIsUsersValid}
-                />
+            <UsersConfig
+                config={usersConfig}
+                onChange={setUsersConfig}
+                onSave={handleUsersSave}
+                onCancel={handleCancel}
+                hasChanges={hasUsersChanges}
+                isReadOnly={isReadOnly}
+                isLoading={isSavingUsers}
+                isOpen={openSection === 'users'}
+                onToggle={() => setOpenSection((prev) => (prev === 'users' ? null : 'users'))}
+                icon={<IconUserScan size={24} />}
+                onValidation={setIsUsersValid}
+            />
 
-                <DevicesConfig
-                    config={devicesConfig}
-                    users={usersConfig}
-                    onChange={setDevicesConfig}
-                    onSave={handleDevicesSave}
-                    onCancel={handleCancel}
-                    hasChanges={hasDevicesChanges}
-                    isReadOnly={isReadOnly}
-                    isLoading={isSavingDevices}
-                    isOpen={openSection === 'devices'}
-                    onToggle={() => setOpenSection((prev) => (prev === 'devices' ? null : 'devices'))}
-                    icon={<IconDeviceTablet size={24} />}
-                    onValidation={setIsDevicesValid}
-                />
+            <DevicesConfig
+                config={devicesConfig}
+                users={usersConfig}
+                onChange={setDevicesConfig}
+                onSave={handleDevicesSave}
+                onCancel={handleCancel}
+                hasChanges={hasDevicesChanges}
+                isReadOnly={isReadOnly}
+                isLoading={isSavingDevices}
+                isOpen={openSection === 'devices'}
+                onToggle={() => setOpenSection((prev) => (prev === 'devices' ? null : 'devices'))}
+                icon={<IconDeviceTablet size={24} />}
+                onValidation={setIsDevicesValid}
+            />
 
-                <CustomersConfig
-                    config={customersConfig}
-                    onChange={setCustomersConfig}
-                    isReadOnly={isReadOnly}
-                    onSave={handleCustomersSave}
-                    onCancel={handleCancel}
-                    hasChanges={hasCustomersChanges}
-                    isLoading={isSavingCustomers}
-                    isOpen={openSection === 'customers'}
-                    onToggle={() => setOpenSection((prev) => (prev === 'customers' ? null : 'customers'))}
-                    icon={<IconUsersGroup size={24} />}
-                    onValidation={setIsCustomersValid}
-                    companies={companiesConfig}
-                    onCompaniesChange={setCompaniesConfig}
-                />
+            <CustomersConfig
+                config={customersConfig}
+                onChange={setCustomersConfig}
+                isReadOnly={isReadOnly}
+                onSave={handleCustomersSave}
+                onCancel={handleCancel}
+                hasChanges={hasCustomersChanges}
+                isLoading={isSavingCustomers}
+                isOpen={openSection === 'customers'}
+                onToggle={() => setOpenSection((prev) => (prev === 'customers' ? null : 'customers'))}
+                icon={<IconUsersGroup size={24} />}
+                onValidation={setIsCustomersValid}
+                companies={companiesConfig}
+                onCompaniesChange={setCompaniesConfig}
+            />
 
-                <CompaniesConfig
-                    config={companiesConfig}
-                    onChange={setCompaniesConfig}
-                    onSave={handleCompaniesSave}
-                    onCancel={handleCancel}
-                    hasChanges={hasCompaniesChanges}
-                    isReadOnly={isReadOnly}
-                    isLoading={isSavingCompanies}
-                    isOpen={openSection === 'companies'}
-                    onToggle={() => setOpenSection((prev) => (prev === 'companies' ? null : 'companies'))}
-                    icon={<IconBuilding size={24} />}
-                    customers={customersConfig}
-                    onCustomersChange={setCustomersConfig}
-                    onValidation={setIsCompaniesValid}
-                    currencies={currenciesConfig}
-                />
+            <CompaniesConfig
+                config={companiesConfig}
+                onChange={setCompaniesConfig}
+                onSave={handleCompaniesSave}
+                onCancel={handleCancel}
+                hasChanges={hasCompaniesChanges}
+                isReadOnly={isReadOnly}
+                isLoading={isSavingCompanies}
+                isOpen={openSection === 'companies'}
+                onToggle={() => setOpenSection((prev) => (prev === 'companies' ? null : 'companies'))}
+                icon={<IconBuilding size={24} />}
+                customers={customersConfig}
+                onCustomersChange={setCustomersConfig}
+                onValidation={setIsCompaniesValid}
+                currencies={currenciesConfig}
+            />
 
-                <PrintersConfig
-                    config={printersConfig}
-                    onChange={setPrintersConfig}
-                    onSave={handlePrintersSave}
-                    onCancel={handleCancel}
-                    hasChanges={hasPrintersChanges}
-                    isReadOnly={isReadOnly}
-                    isLoading={isSavingPrinters}
-                    isOpen={openSection === 'printers'}
-                    onToggle={() => setOpenSection((prev) => (prev === 'printers' ? null : 'printers'))}
-                    icon={<IconPrinter size={24} />}
-                    onValidation={setIsPrintersValid}
-                />
+            <PrintersConfig
+                config={printersConfig}
+                onChange={setPrintersConfig}
+                onSave={handlePrintersSave}
+                onCancel={handleCancel}
+                hasChanges={hasPrintersChanges}
+                isReadOnly={isReadOnly}
+                isLoading={isSavingPrinters}
+                isOpen={openSection === 'printers'}
+                onToggle={() => setOpenSection((prev) => (prev === 'printers' ? null : 'printers'))}
+                icon={<IconPrinter size={24} />}
+                onValidation={setIsPrintersValid}
+            />
 
-                <ColorsConfig
-                    config={colorsConfig}
-                    onChange={setColorsConfig}
-                    onSave={handleColorsSave}
-                    onCancel={handleCancel}
-                    hasChanges={hasColorsChanges}
-                    isReadOnly={isReadOnly}
-                    themeName={themeName}
-                    onThemeNameChange={handleThemeNameChange}
-                    isLoading={isSavingColors}
-                    selectedThemeIndex={selectedThemeIndex}
-                    onThemeSelect={handleThemeSelect}
-                    customThemeNames={customThemeNames}
-                    onCustomThemeNamesChange={handleCustomThemeNamesChange}
-                    isOpen={openSection === 'colors'}
-                    onToggle={() => setOpenSection((prev) => (prev === 'colors' ? null : 'colors'))}
-                    icon={<IconPalette size={24} />}
-                />
+            <ColorsConfig
+                config={colorsConfig}
+                onChange={setColorsConfig}
+                onSave={handleColorsSave}
+                onCancel={handleCancel}
+                hasChanges={hasColorsChanges}
+                isReadOnly={isReadOnly}
+                themeName={themeName}
+                onThemeNameChange={handleThemeNameChange}
+                isLoading={isSavingColors}
+                selectedThemeIndex={selectedThemeIndex}
+                onThemeSelect={handleThemeSelect}
+                customThemeNames={customThemeNames}
+                onCustomThemeNamesChange={handleCustomThemeNamesChange}
+                isOpen={openSection === 'colors'}
+                onToggle={() => setOpenSection((prev) => (prev === 'colors' ? null : 'colors'))}
+                icon={<IconPalette size={24} />}
+            />
 
-                {!isReadOnly && hasChanges && (
-                    <div className="mt-6 flex justify-end gap-4">
-                        {!isSaving && (
-                            <AdminButton onClick={handleCancel} variant="secondary">
-                                Annuler
-                            </AdminButton>
-                        )}
-                        <AdminButton
-                            onClick={handleSaveAll}
-                            isLoading={isSaving}
-                            disabled={
-                                (hasSettingsChanges && !isSiretValid) ||
-                                (hasUsersChanges && !isUsersValid) ||
-                                (hasDevicesChanges && !isDevicesValid) ||
-                                (hasCustomersChanges && !isCustomersValid) ||
-                                (hasDiscountsChanges && !isDiscountsValid) ||
-                                (hasPrintersChanges && !isPrintersValid) ||
-                                (hasCompaniesChanges && !isCompaniesValid) ||
-                                isSaving
-                            }
-                            variant="save"
-                            className={isMobile ? 'px-3 py-2' : ''}
-                        >
-                            {isMobile ? 'Enregistrer tout' : 'Enregistrer tous les paramètres'}
+            {!isReadOnly && hasChanges && (
+                <div className="mt-6 flex justify-end gap-4">
+                    {!isSaving && (
+                        <AdminButton onClick={handleCancel} variant="secondary">
+                            Annuler
                         </AdminButton>
-                    </div>
-                )}
-            </AdminPageLayout>
-        </VirtualKeyboardProvider>
+                    )}
+                    <AdminButton
+                        onClick={handleSaveAll}
+                        isLoading={isSaving}
+                        disabled={
+                            (hasSettingsChanges && !isSiretValid) ||
+                            (hasUsersChanges && !isUsersValid) ||
+                            (hasDevicesChanges && !isDevicesValid) ||
+                            (hasCustomersChanges && !isCustomersValid) ||
+                            (hasDiscountsChanges && !isDiscountsValid) ||
+                            (hasPrintersChanges && !isPrintersValid) ||
+                            (hasCompaniesChanges && !isCompaniesValid) ||
+                            isSaving
+                        }
+                        variant="save"
+                        className={isMobile ? 'px-3 py-2' : ''}
+                    >
+                        {isMobile ? 'Enregistrer tout' : 'Enregistrer tous les paramètres'}
+                    </AdminButton>
+                </div>
+            )}
+        </AdminPageLayout>
     );
 }
