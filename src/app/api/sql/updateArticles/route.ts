@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
 import { generateProductReference } from '@/app/utils/productReference';
 import { DEFAULT_VAT_RATE } from '@/app/utils/constants';
+import { GRID_COLS, encodeGridPosition, encodeSortOrder } from '@/app/utils/sortOrder';
 
 interface Product {
     name: string;
@@ -17,9 +18,6 @@ interface Product {
     color?: string;
     gridPosition?: number;
 }
-
-// Grid dimensions — must match CatalogEditor.tsx
-const GRID_COLS = 6;
 
 // Compute encoded sort_order: (categoryIndex + 1) * 10000 + positionWithinCategory
 // Category order is derived from first appearance in the products array.
@@ -65,7 +63,7 @@ export function computeSortOrders(products: Product[]): number[] {
         let pos: number;
         if (p.gridPosition != null && p.gridPosition >= 0) {
             // Convert gridPosition (row-major 0–35) to catalog position: row * 100 + col
-            const catalogPos = Math.floor(p.gridPosition / GRID_COLS) * 100 + (p.gridPosition % GRID_COLS);
+            const catalogPos = encodeGridPosition(p.gridPosition);
             if (!usedPositions[cat].has(catalogPos)) {
                 pos = catalogPos;
                 usedPositions[cat].add(pos);
@@ -87,7 +85,7 @@ export function computeSortOrders(products: Product[]): number[] {
             }
             usedPositions[cat].add(pos);
         }
-        return (catIdx + 1) * 10000 + pos;
+        return encodeSortOrder(catIdx, pos);
     });
 }
 

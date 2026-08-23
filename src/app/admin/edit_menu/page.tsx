@@ -15,6 +15,7 @@ import { DEFAULT_CATEGORY, USE_DIGICARTE } from '@/app/utils/constants';
 import { applyCategoryDeletionToFormulas, isSameCategory, renameFormulaCategory } from '@/app/utils/category';
 import { Category, InventoryItem } from '@/app/utils/interfaces';
 import { clearLoadDataCache } from '@/app/utils/processData';
+import { encodeGridPosition, encodeSortOrder, decodeGridPosition } from '@/app/utils/sortOrder';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconCategory, IconListDetails, IconBox, IconMathFunction, IconLayoutGrid } from '@tabler/icons-react';
 import { useSearchParams } from 'next/navigation';
@@ -105,17 +106,17 @@ function buildInventoryFromAdminProducts(products: AdminProduct[]): InventoryIte
         const catIdx = categoryOrder.indexOf(category);
         const item = inventory[categoryIndex[category]];
 
-        // Compute sortOrder using the same encoding as computeSortOrders:
+        // Compute sortOrder using the shared encoding:
         // (catIdx + 1) * 10000 + position
         // Catalog mode: position = row * 100 + col (from gridPosition)
         // List mode: position = sequential index within category
         let position: number;
         if (p.gridPosition != null && p.gridPosition >= 0) {
-            position = Math.floor(p.gridPosition / 6) * 100 + (p.gridPosition % 6);
+            position = encodeGridPosition(p.gridPosition);
         } else {
             position = item.products.length;
         }
-        const sortOrder = (catIdx + 1) * 10000 + position;
+        const sortOrder = encodeSortOrder(catIdx, position);
 
         item.products.push({
             label: label.toFirstUpperCase(),
@@ -170,17 +171,7 @@ function buildProductsFromInventory(inventory: InventoryItem[]): AdminProduct[] 
         const category = item.category === DEFAULT_CATEGORY ? '' : item.category;
         item.products.forEach((product) => {
             // Decode gridPosition from sortOrder if in catalog-mode range
-            // position = row * 100 + col; gridPosition = row * 6 + col
-            let gridPosition: number | undefined;
-            const so = product.sortOrder;
-            if (so != null) {
-                const pos = so % 10000;
-                const row = Math.floor(pos / 100);
-                const col = pos % 100;
-                if (row >= 0 && row < 6 && col >= 0 && col < 6) {
-                    gridPosition = row * 6 + col;
-                }
-            }
+            const gridPosition = product.sortOrder != null ? decodeGridPosition(product.sortOrder) : undefined;
             products.push({
                 name: product.label,
                 category,
@@ -533,17 +524,8 @@ export default function EditMenuPage() {
                 const isCatalogMode = fetchedCatalogMode;
                 if (Array.isArray(productsData.products)) {
                     for (const p of productsData.products) {
-                        let gridPosition: number | undefined;
-                        if (p.sortOrder != null && isCatalogMode) {
-                            // Decode: positionWithinCategory = row * 100 + col
-                            // gridPosition (row-major 0–35) = row * 6 + col
-                            const pos = p.sortOrder % 10000;
-                            const row = Math.floor(pos / 100);
-                            const col = pos % 100;
-                            if (row < 6 && col < 6) {
-                                gridPosition = row * 6 + col;
-                            }
-                        }
+                        const gridPosition =
+                            p.sortOrder != null && isCatalogMode ? decodeGridPosition(p.sortOrder) : undefined;
                         loadedProducts.push({
                             name: String(p.label),
                             category: String(p.category),
@@ -620,11 +602,13 @@ export default function EditMenuPage() {
                 });
                 setOptions(loadedOptions);
                 setOriginalOptions(loadedOptions);
-                setCatalogModeResolved(true);
             } catch (error) {
                 console.error('Error fetching menu data:', error);
                 openFullscreenPopup('Erreur lors du chargement des données', ['OK']);
             } finally {
+                // Resolve unconditionally: on failure we fall back to the cached
+                // localStorage catalogMode rather than rendering nothing at all.
+                setCatalogModeResolved(true);
                 setIsLoading(false);
             }
         };
@@ -967,6 +951,11 @@ export default function EditMenuPage() {
 
     const nonFormulaProducts = useMemo(() => products.filter((p) => p.category !== FORMULA_CATEGORY), [products]);
 
+    // The catalog grid needs at least one category to place tiles into, so we fall
+    // back to the list editor when there are none. Formulas belong to the list
+    // editor, so both gates must use this same predicate.
+    const showCatalog = catalogMode && categories.length > 0;
+
     // Redirect if using Digicarte
     if (USE_DIGICARTE) return null;
 
@@ -1079,7 +1068,7 @@ export default function EditMenuPage() {
                 )}
 
                 {catalogModeResolved &&
-                    (catalogMode && categories.length > 0 ? (
+                    (showCatalog ? (
                         <CatalogEditor
                             products={nonFormulaProducts}
                             categories={categoryOptions}
@@ -1114,7 +1103,7 @@ export default function EditMenuPage() {
                         />
                     ))}
 
-                {catalogModeResolved && !catalogMode && (
+                {catalogModeResolved && !showCatalog && (
                     <FormulasConfig
                         config={formulas}
                         categories={categories.map((c) => c.label)}

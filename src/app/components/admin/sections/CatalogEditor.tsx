@@ -27,9 +27,7 @@ import ColorSwatchPicker from '../ColorSwatchPicker';
 import AvailabilityToggle from '../AvailabilityToggle';
 import DeleteButton from '../DeleteButton';
 
-const GRID_COLS = 6;
-const GRID_ROWS = 6;
-const MAX_PRODUCTS = GRID_COLS * GRID_ROWS;
+import { MAX_PRODUCTS } from '@/app/utils/sortOrder';
 
 interface CatalogEditorProps {
     products: AdminProduct[];
@@ -109,7 +107,7 @@ function SortableTile({ product, index, isSelected, onSelect, currencySymbol }: 
             {...attributes}
             {...listeners}
             className={twMerge(
-                'relative h-20 flex flex-col text-center font-semibold text-base border-[3px] rounded-2xl select-none cursor-pointer shadow-xl touch-none overflow-hidden',
+                'relative h-20 flex flex-col text-center font-semibold text-base border-[3px] rounded-2xl select-none cursor-pointer shadow-xl overflow-hidden',
                 isSelected ? 'border-blue-500 animate-pulse' : 'border-secondary-light dark:border-secondary-dark',
                 bgColor ? 'text-black dark:text-white' : 'hover:bg-active-light dark:hover:bg-active-dark',
                 isUnavailable && 'opacity-60'

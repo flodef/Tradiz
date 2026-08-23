@@ -3,7 +3,7 @@
 import { adminInputStyle } from '@/app/utils/constants';
 import { IconChevronDown } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useVirtualKeyboardContext } from './VirtualKeyboardProvider';
+import { useVirtualKeyboardInput } from './VirtualKeyboardProvider';
 
 interface SearchableSelectProps {
     options: { label: string; value: string }[];
@@ -25,7 +25,7 @@ export default function SearchableSelect({
     const [searchTerm, setSearchTerm] = useState('');
     const [isOpen, setIsOpen] = useState(false);
     const selectRef = useRef<HTMLDivElement>(null);
-    const vkContext = useVirtualKeyboardContext();
+    const vkInput = useVirtualKeyboardInput(setSearchTerm);
 
     const selectedLabels = useMemo(() => {
         if (isMulti && Array.isArray(value)) {
@@ -87,18 +87,8 @@ export default function SearchableSelect({
                         className={adminInputStyle()}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        onFocus={(e) => {
-                            if (vkContext) {
-                                vkContext.registerInput(e.target, (newValue: string) => setSearchTerm(newValue));
-                                vkContext.registerEnterHandler(null);
-                            }
-                        }}
-                        onBlur={(e) => {
-                            if (vkContext) {
-                                vkContext.unregisterInput(e.target);
-                                vkContext.registerEnterHandler(null);
-                            }
-                        }}
+                        onFocus={vkInput.onFocus}
+                        onBlur={vkInput.onBlur}
                     />
                     {filteredOptions.length === 0 ? (
                         <div className="p-3 text-gray-500 dark:text-gray-400">Aucun résultat</div>

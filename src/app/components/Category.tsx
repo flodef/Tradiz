@@ -22,6 +22,7 @@ import { Catalog, CatalogFormula, EmptyDiscount, InventoryItem, Role, State } fr
 import { useIsMobile, useIsMobileDevice, useLongPressContextMenu } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
 import { colorToHex } from '../utils/colors';
+import { GRID_COLS, GRID_ROWS, MAX_PRODUCTS, decodeGridSlot } from '../utils/sortOrder';
 import '../utils/extensions'; // Registers String.prototype.toFirstUpperCase
 import { useAddPopupClass } from './Popup';
 
@@ -743,30 +744,18 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
     if (catalogMode) {
         const selectedItem = displayInventory[selectedCategoryIndex] ?? displayInventory[0];
         const products = selectedItem?.products ?? [];
-        const GRID_COLS = 6;
-        const GRID_ROWS = 6;
-        const MAX_PRODUCTS = GRID_COLS * GRID_ROWS;
         const showOthers = parameters.display?.displayOthers === true;
 
-        // Build a 6×6 grid positioned by sortOrder encoding:
-        // sort_order = (catIdx + 1) * 10000 + position
-        // Catalog mode: position = row * 100 + col (0-based, so 000–505)
-        // List mode: position = sequential index (0, 1, 2, …)
+        // Build a 6×6 grid positioned by sortOrder encoding.
         // We decode the position part and try to place by row/col; if that
         // fails (list mode or out-of-range), fall back to sequential slots.
         const gridSlots: ((typeof products)[number] | null)[] = new Array(MAX_PRODUCTS).fill(null);
         let fallbackIndex = 0;
         for (const product of products) {
-            const so = product.sortOrder ?? 0;
-            const pos = so % 10000;
-            const row = Math.floor(pos / 100);
-            const col = pos % 100;
-            if (row >= 0 && row < GRID_ROWS && col >= 0 && col < GRID_COLS) {
-                const slotIndex = row * GRID_COLS + col;
-                if (!gridSlots[slotIndex]) {
-                    gridSlots[slotIndex] = product;
-                    continue;
-                }
+            const slotIndex = decodeGridSlot(product.sortOrder ?? 0);
+            if (slotIndex != null && !gridSlots[slotIndex]) {
+                gridSlots[slotIndex] = product;
+                continue;
             }
             // Fallback: place in next available slot
             while (fallbackIndex < MAX_PRODUCTS && gridSlots[fallbackIndex]) fallbackIndex++;

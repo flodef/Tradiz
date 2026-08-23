@@ -11,7 +11,7 @@ import DeleteButtonCell from '../DeleteButtonCell';
 import ValidatedInput from '../ValidatedInput';
 import AdminSelect from '../AdminSelect';
 import AdminButton from '../AdminButton';
-import { useVirtualKeyboardContext } from '../VirtualKeyboardProvider';
+import { useVirtualKeyboardInput } from '../VirtualKeyboardProvider';
 import { normalizeFirstName, normalizeFamilyName, emailRegex, frenchPhoneRegex } from '@/app/utils/regex';
 import { twMerge } from 'tailwind-merge';
 import { usePopup } from '@/app/hooks/usePopup';
@@ -61,7 +61,7 @@ const CompanySearchPopup: FC<CompanySearchPopupProps> = ({
     onSelectNoCompany,
 }) => {
     const [query, setQuery] = useState(initialQuery);
-    const vkContext = useVirtualKeyboardContext();
+    const vkInput = useVirtualKeyboardInput(setQuery);
 
     const filteredCompanies = useMemo(() => {
         if (!query) return companies;
@@ -74,18 +74,8 @@ const CompanySearchPopup: FC<CompanySearchPopupProps> = ({
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                onFocus={(e) => {
-                    if (vkContext) {
-                        vkContext.registerInput(e.target, (newValue: string) => setQuery(newValue));
-                        vkContext.registerEnterHandler(null);
-                    }
-                }}
-                onBlur={(e) => {
-                    if (vkContext) {
-                        vkContext.unregisterInput(e.target);
-                        vkContext.registerEnterHandler(null);
-                    }
-                }}
+                onFocus={vkInput.onFocus}
+                onBlur={vkInput.onBlur}
                 placeholder="Rechercher une entreprise..."
                 className="w-full p-2 border rounded mb-4 dark:bg-gray-700 dark:border-gray-600"
                 autoFocus
@@ -255,7 +245,6 @@ export default function CustomersConfig({
 }: CustomersConfigProps) {
     const { openFullscreenPopup, closePopup } = usePopup();
     const { parameters } = useConfig();
-    const vkContext = useVirtualKeyboardContext();
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
@@ -273,6 +262,7 @@ export default function CustomersConfig({
     const [companySearchQuery, setCompanySearchQuery] = useState('');
     const [shouldOpenCompanySearch, setShouldOpenCompanySearch] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const vkSearchInput = useVirtualKeyboardInput(setSearchQuery);
     const [companyFilter, setCompanyFilter] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -780,20 +770,8 @@ export default function CustomersConfig({
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                onFocus={(e) => {
-                                    if (vkContext) {
-                                        vkContext.registerInput(e.target, (newValue: string) =>
-                                            setSearchQuery(newValue)
-                                        );
-                                        vkContext.registerEnterHandler(null);
-                                    }
-                                }}
-                                onBlur={(e) => {
-                                    if (vkContext) {
-                                        vkContext.unregisterInput(e.target);
-                                        vkContext.registerEnterHandler(null);
-                                    }
-                                }}
+                                onFocus={vkSearchInput.onFocus}
+                                onBlur={vkSearchInput.onBlur}
                                 placeholder="Rechercher un client..."
                                 className="w-full pl-8 pr-3 py-1.5 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
                             />

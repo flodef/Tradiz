@@ -407,8 +407,8 @@ export default function SettingsPage() {
 
             // Sync ConfigProvider parameters so the VirtualKeyboardProvider in
             // AdminConfigWrapper picks up useVirtualKeyboard from the DB.
-            // Preserve the user (resolved by ConfigProvider, not stored in DB parameters).
-            setParameters({ ...loadedSettings, user: parameters.user });
+            // Merge rather than replace to preserve any runtime-only fields.
+            setParameters({ ...parameters, ...loadedSettings });
 
             // Load discounts from DB
             try {

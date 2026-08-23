@@ -15,6 +15,29 @@ export function useVirtualKeyboardContext() {
     return useContext(VirtualKeyboardContext);
 }
 
+/**
+ * Convenience hook that returns onFocus/onBlur handlers for an input that
+ * should trigger the virtual keyboard. The `onChange` callback receives
+ * the new value whenever the keyboard types/backspaces.
+ */
+export function useVirtualKeyboardInput(onChange: (value: string) => void) {
+    const vkContext = useVirtualKeyboardContext();
+    return {
+        onFocus: (e: React.FocusEvent<HTMLInputElement>) => {
+            if (vkContext) {
+                vkContext.registerInput(e.target, onChange);
+                vkContext.registerEnterHandler(null);
+            }
+        },
+        onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
+            if (vkContext) {
+                vkContext.unregisterInput(e.target);
+                vkContext.registerEnterHandler(null);
+            }
+        },
+    };
+}
+
 interface ActiveInput {
     element: HTMLInputElement;
     onChange: (value: string) => void;

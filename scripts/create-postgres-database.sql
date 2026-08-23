@@ -309,7 +309,7 @@ CREATE INDEX IF NOT EXISTS idx_balance_history_created_at ON dc_pos.balance_hist
 CREATE TABLE IF NOT EXISTS dc_pos.parameters (
     id SERIAL PRIMARY KEY,
     param_key VARCHAR(255) NOT NULL UNIQUE,
-    param_value TEXT,
+    param_value VARCHAR(255),
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
