@@ -974,11 +974,14 @@ export default function SettingsPage() {
         setIsSavingCompanies(true);
         setIsSaving(true);
         try {
-            await fetch('/api/sql/updateCompanies', {
+            const response = await fetch('/api/sql/updateCompanies', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ companies: data }),
             });
+            if (!response.ok) {
+                throw new Error(`updateCompanies failed: ${response.status}`);
+            }
 
             // Check if any companies were deleted and update customers accordingly.
             // Renames may already have been applied in CompaniesConfig and are
@@ -990,11 +993,14 @@ export default function SettingsPage() {
 
             // Save customers if anything changed (deletion or rename).
             if (JSON.stringify(updatedCustomers) !== JSON.stringify(originalCustomers)) {
-                await fetch('/api/sql/updateCustomers', {
+                const customersResponse = await fetch('/api/sql/updateCustomers', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ customers: updatedCustomers }),
                 });
+                if (!customersResponse.ok) {
+                    throw new Error(`updateCustomers failed: ${customersResponse.status}`);
+                }
                 setCustomersConfig(updatedCustomers);
                 setOriginalCustomers(updatedCustomers);
                 setHasCustomersChanges(false);

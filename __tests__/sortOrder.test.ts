@@ -142,4 +142,83 @@ describe('computeSortOrders', () => {
         // Second falls back to auto (0) → sort_order 10000
         expect(computeSortOrders(products)).toEqual([10003, 10000]);
     });
+
+    // --- Regression: auto-assigned positions must use grid slot encoding ---
+
+    it('auto-assigned positions use grid slot encoding (row*100+col), never col >= 6', () => {
+        // 8 auto-assigned products + 1 with gridPosition in a single category (catalog mode).
+        // With the old raw counter, auto positions would be 0..7, where 6 and 7
+        // have col >= 6 which the frontend cannot decode.
+        // With grid slot encoding: 0, 1, 2, 3, 4, 5, 100, 101 (skipping the taken gridPosition slot)
+        const products = [
+            { category: 'A', name: 'G', stock: 0, currencies: [], gridPosition: 2 },
+            ...Array.from({ length: 8 }, (_, i) => ({
+                category: 'A',
+                name: `P${i}`,
+                stock: 0,
+                currencies: [],
+            })),
+        ];
+        const orders = computeSortOrders(products);
+        // Extract positionWithinCategory = sort_order - 10000
+        const positions = orders.map((o) => o - 10000);
+        // Every position must have col = pos % 100 < 6
+        for (const pos of positions) {
+            expect(pos % 100).toBeLessThan(6);
+        }
+        // G takes slot 2, auto fills 0, 1, 3, 4, 5, 100, 101, 102
+        expect(positions).toEqual([2, 0, 1, 3, 4, 5, 100, 101, 102]);
+    });
+
+    it('auto-assigned positions fill grid row by row without collisions', () => {
+        // 13 auto-assigned products + 1 with gridPosition in same category (catalog mode).
+        // Should fill 2 full rows (12 slots) + 1 in row 3, skipping the taken gridPosition slot.
+        const products = [
+            { category: 'Cat', name: 'G', stock: 0, currencies: [], gridPosition: 0 },
+            ...Array.from({ length: 13 }, (_, i) => ({
+                category: 'Cat',
+                name: `P${i}`,
+                stock: 0,
+                currencies: [],
+            })),
+        ];
+        const orders = computeSortOrders(products);
+        const positions = orders.map((o) => o - 10000);
+        // All unique
+        expect(new Set(positions).size).toBe(14);
+        // Every position has col < 6
+        for (const pos of positions) {
+            expect(pos % 100).toBeLessThan(6);
+        }
+        // G takes slot 0, auto fills 1-5, 100-105, 200
+        expect(positions[0]).toBe(0); // G
+        expect(positions[1]).toBe(1);
+        expect(positions[5]).toBe(5);
+        expect(positions[6]).toBe(100);
+        expect(positions[11]).toBe(105);
+        expect(positions[12]).toBe(200);
+        expect(positions[13]).toBe(201);
+    });
+
+    it('mixed gridPosition and auto-assigned: auto slots skip taken positions', () => {
+        // Product at gridPosition 0 (pos 0) and gridPosition 1 (pos 1)
+        // Then 7 auto-assigned should get: 2, 3, 4, 5, 100, 101, 102
+        const products = [
+            { category: 'A', name: 'G1', stock: 0, currencies: [], gridPosition: 0 },
+            { category: 'A', name: 'G2', stock: 0, currencies: [], gridPosition: 1 },
+            ...Array.from({ length: 7 }, (_, i) => ({
+                category: 'A',
+                name: `A${i}`,
+                stock: 0,
+                currencies: [],
+            })),
+        ];
+        const orders = computeSortOrders(products);
+        const positions = orders.map((o) => o - 10000);
+        // First two are grid-assigned
+        expect(positions[0]).toBe(0);
+        expect(positions[1]).toBe(1);
+        // Auto-assigned skip 0 and 1, fill 2-5 then 100-102
+        expect(positions.slice(2)).toEqual([2, 3, 4, 5, 100, 101, 102]);
+    });
 });

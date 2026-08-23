@@ -50,10 +50,10 @@ import { resolveSelectionAfterDelete } from './dataProvider/productHelpers';
 import { useShopId } from '../hooks/useShopId';
 
 enum DatabaseAction {
-    add,
-    update,
-    delete,
-    hardDelete,
+    add = 'add',
+    update = 'update',
+    delete = 'delete',
+    hardDelete = 'hardDelete',
 }
 
 export interface DataProviderProps {
@@ -471,12 +471,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     transaction: {
                         id: transaction.createdDate,
                         order_id: String(transaction.createdDate),
+                        customer_name: transaction.customerName ?? null,
                         user_name: transaction.validator,
                         payment_method: transaction.method,
                         amount: transaction.amount,
                         currency: transaction.currency,
                         change: encodeCashNote(transaction.cashAmount, transaction.change),
                         takeOut: transaction.takeOut ?? false,
+                        employer_share: transaction.employerShare ?? null,
+                        fidelity_points: transaction.fidelityPointsUsed ?? null,
                         created_at: toSQLDateTime(transaction.createdDate),
                         updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
                         products: transaction.products.map((product) => ({
@@ -487,6 +490,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             discount_amount: product.discount.amount,
                             discount_unit: product.discount.unit,
                             total: product.total || 0,
+                            vat_rate: product.vatRate,
                         })),
                     },
                 }),
@@ -832,8 +836,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const saveTransactions = useCallback(
         async (action: DatabaseAction, transaction: Transaction) => {
-            if (!transaction) return;
-
             transaction.modifiedDate = transaction.modifiedDate ? new Date().getTime() : transaction.createdDate;
             transaction.amount = transaction.amount.clean(
                 currencies.find(({ label }) => label === transaction.currency)?.decimals
@@ -874,7 +876,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 try {
                     // Prepare the transaction data for SQL DB
                     const sqlTransactionData = {
-                        action: DatabaseAction[action],
+                        action,
                         transaction: {
                             id: index,
                             order_id: orderId || String(transaction.createdDate),

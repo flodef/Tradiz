@@ -43,13 +43,25 @@ export function computeSortOrders(products: Product[]): number[] {
     for (const p of products) {
         if (!categoryOrder.includes(p.category)) categoryOrder.push(p.category);
     }
+
+    // Detect which categories are in catalog mode (at least one product has gridPosition)
+    const catalogCategories = new Set<string>();
+    for (const p of products) {
+        if (p.gridPosition != null && p.gridPosition >= 0) {
+            catalogCategories.add(p.category);
+        }
+    }
+
     const usedPositions: Record<string, Set<number>> = {};
     const nextAuto: Record<string, number> = {};
+    const nextAutoSlot: Record<string, number> = {};
     return products.map((p) => {
         const cat = p.category;
         if (!usedPositions[cat]) usedPositions[cat] = new Set();
         if (nextAuto[cat] === undefined) nextAuto[cat] = 0;
+        if (nextAutoSlot[cat] === undefined) nextAutoSlot[cat] = 0;
         const catIdx = categoryOrder.indexOf(cat);
+        const isCatalogMode = catalogCategories.has(cat);
         let pos: number;
         if (p.gridPosition != null && p.gridPosition >= 0) {
             // Convert gridPosition (row-major 0–35) to catalog position: row * 100 + col
@@ -59,19 +71,45 @@ export function computeSortOrders(products: Product[]): number[] {
                 usedPositions[cat].add(pos);
             } else {
                 // Duplicate gridPosition — fall back to auto
-                while (usedPositions[cat].has(nextAuto[cat])) nextAuto[cat]++;
-                pos = nextAuto[cat];
+                if (isCatalogMode) {
+                    pos = nextAutoGridSlot(usedPositions[cat], nextAutoSlot, cat);
+                } else {
+                    pos = nextAutoSequential(usedPositions[cat], nextAuto, cat);
+                }
                 usedPositions[cat].add(pos);
-                nextAuto[cat]++;
             }
         } else {
-            while (usedPositions[cat].has(nextAuto[cat])) nextAuto[cat]++;
-            pos = nextAuto[cat];
+            // Auto-assign: use grid slot encoding in catalog mode, sequential in list mode
+            if (isCatalogMode) {
+                pos = nextAutoGridSlot(usedPositions[cat], nextAutoSlot, cat);
+            } else {
+                pos = nextAutoSequential(usedPositions[cat], nextAuto, cat);
+            }
             usedPositions[cat].add(pos);
-            nextAuto[cat]++;
         }
         return (catIdx + 1) * 10000 + pos;
     });
+}
+
+// Find the next available sequential position (list mode).
+function nextAutoSequential(used: Set<number>, nextAuto: Record<string, number>, cat: string): number {
+    while (used.has(nextAuto[cat])) nextAuto[cat]++;
+    const pos = nextAuto[cat];
+    nextAuto[cat]++;
+    return pos;
+}
+
+// Find the next available grid slot, encoded as row * 100 + col.
+// Iterates through slots in row-major order: (0,0), (0,1), … (0,5), (1,0), (1,1), …
+function nextAutoGridSlot(used: Set<number>, nextAutoSlot: Record<string, number>, cat: string): number {
+    while (true) {
+        const slot = nextAutoSlot[cat];
+        const row = Math.floor(slot / GRID_COLS);
+        const col = slot % GRID_COLS;
+        const encoded = row * 100 + col;
+        nextAutoSlot[cat]++;
+        if (!used.has(encoded)) return encoded;
+    }
 }
 
 export async function POST(request: Request) {

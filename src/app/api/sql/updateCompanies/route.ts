@@ -1,6 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getPosDb, DbConnection } from '../db';
+import { getPosDb, DbConnection, withTransaction } from '../db';
 
 interface Company {
     id?: number;
@@ -19,72 +19,91 @@ export async function POST(request: Request) {
         }
 
         connection = await getPosDb(shopId);
+        const conn = connection;
 
-        const table = connection.isPostgreSQL ? 'dc_pos.companies' : 'companies';
+        const table = conn.isPostgreSQL ? 'dc_pos.companies' : 'companies';
+        const isPg = conn.isPostgreSQL;
 
-        // Fetch existing companies (id, name) so we can preserve IDs when names match.
-        // Categories reference companies via company_id FK, so deleting + re-inserting
-        // would break those links. Instead, we UPSERT by name and delete only removed ones.
-        const [existingRows] = (await connection.execute(`SELECT id, name FROM ${table}`)) as {
-            id: number;
-            name: string;
-        }[][];
-        const existingByName = new Map<string, number>();
-        for (const row of existingRows) {
-            existingByName.set(row.name, Number(row.id));
-        }
+        await withTransaction(conn, async () => {
+            // Fetch existing companies (id, name) so we can preserve IDs on rename.
+            // Categories reference companies via company_id FK, so deleting + re-inserting
+            // would break those links. We match by id when available, by name as fallback.
+            const [existingRows] = (await conn.execute(`SELECT id, name FROM ${table}`)) as {
+                id: number;
+                name: string;
+            }[][];
+            const existingById = new Map<number, string>();
+            const existingByName = new Map<string, number>();
+            for (const row of existingRows) {
+                existingById.set(Number(row.id), row.name);
+                existingByName.set(row.name, Number(row.id));
+            }
 
-        const seenNames = new Set<string>();
+            const seenIds = new Set<number>();
+            const seenNames = new Set<string>();
 
-        for (const company of companies) {
-            const name = company.name;
-            const mealPrice = company.mealPrice ?? 0;
-            seenNames.add(name);
+            for (const company of companies) {
+                const name = company.name;
+                const mealPrice = company.mealPrice ?? 0;
+                seenNames.add(name);
 
-            const existingId = existingByName.get(name);
-            if (existingId !== undefined) {
-                // Update existing company (preserves id → category FKs stay valid)
-                if (connection.isPostgreSQL) {
-                    await connection.execute(`UPDATE ${table} SET name = $1, meal_price = $2 WHERE id = $3`, [
-                        name,
-                        mealPrice,
-                        existingId,
-                    ]);
+                // If the client provided an id, update that row (preserves FKs on rename)
+                if (company.id != null && existingById.has(company.id)) {
+                    seenIds.add(company.id);
+                    if (isPg) {
+                        await conn.execute(`UPDATE ${table} SET name = $1, meal_price = $2 WHERE id = $3`, [
+                            name,
+                            mealPrice,
+                            company.id,
+                        ]);
+                    } else {
+                        await conn.execute(`UPDATE ${table} SET name = ?, meal_price = ? WHERE id = ?`, [
+                            name,
+                            mealPrice,
+                            company.id,
+                        ]);
+                    }
+                } else if (existingByName.has(name)) {
+                    // No id from client, but name matches — update existing
+                    const existingId = existingByName.get(name)!;
+                    seenIds.add(existingId);
+                    if (isPg) {
+                        await conn.execute(`UPDATE ${table} SET name = $1, meal_price = $2 WHERE id = $3`, [
+                            name,
+                            mealPrice,
+                            existingId,
+                        ]);
+                    } else {
+                        await conn.execute(`UPDATE ${table} SET name = ?, meal_price = ? WHERE id = ?`, [
+                            name,
+                            mealPrice,
+                            existingId,
+                        ]);
+                    }
                 } else {
-                    await connection.execute(`UPDATE ${table} SET name = ?, meal_price = ? WHERE id = ?`, [
-                        name,
-                        mealPrice,
-                        existingId,
-                    ]);
-                }
-            } else {
-                // Insert new company
-                if (connection.isPostgreSQL) {
-                    await connection.execute(`INSERT INTO ${table} (name, meal_price) VALUES ($1, $2)`, [
-                        name,
-                        mealPrice,
-                    ]);
-                } else {
-                    await connection.execute(`INSERT INTO ${table} (name, meal_price) VALUES (?, ?)`, [
-                        name,
-                        mealPrice,
-                    ]);
+                    // Insert new company
+                    if (isPg) {
+                        await conn.execute(`INSERT INTO ${table} (name, meal_price) VALUES ($1, $2)`, [
+                            name,
+                            mealPrice,
+                        ]);
+                    } else {
+                        await conn.execute(`INSERT INTO ${table} (name, meal_price) VALUES (?, ?)`, [name, mealPrice]);
+                    }
                 }
             }
-        }
 
-        // Delete companies that no longer exist in the new list
-        for (const [name, id] of existingByName) {
-            if (!seenNames.has(name)) {
-                if (connection.isPostgreSQL) {
-                    await connection.execute(`DELETE FROM ${table} WHERE id = $1`, [id]);
-                } else {
-                    await connection.execute(`DELETE FROM ${table} WHERE id = ?`, [id]);
+            // Delete companies that no longer exist in the new list
+            for (const [id, name] of existingById) {
+                if (!seenIds.has(id) && !seenNames.has(name)) {
+                    if (isPg) {
+                        await conn.execute(`DELETE FROM ${table} WHERE id = $1`, [id]);
+                    } else {
+                        await conn.execute(`DELETE FROM ${table} WHERE id = ?`, [id]);
+                    }
                 }
             }
-        }
-
-        await connection.end();
+        });
 
         return NextResponse.json({ success: true }, { status: 200 });
     } catch (error) {
