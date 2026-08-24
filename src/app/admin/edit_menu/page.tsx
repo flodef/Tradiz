@@ -10,6 +10,7 @@ import { Config, ProductsSettings } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
 import { useUserRole } from '@/app/hooks/useUserRole';
+import { useWindowParam } from '@/app/hooks/useWindowParam';
 import Loading from '@/app/loading';
 import { DEFAULT_CATEGORY, USE_DIGICARTE } from '@/app/utils/constants';
 import { applyCategoryDeletionToFormulas, isSameCategory, renameFormulaCategory } from '@/app/utils/category';
@@ -204,6 +205,7 @@ export default function EditMenuPage() {
         isStateReady,
     } = useConfig();
     const { isCashier } = useUserRole();
+    const { isOnline } = useWindowParam();
     const { openFullscreenPopup } = usePopup();
     const searchParams = useSearchParams();
     const [products, setProducts] = useState<AdminProduct[]>([]);
@@ -973,7 +975,10 @@ export default function EditMenuPage() {
             <AdminPageLayout title="Édition des produits" hasChanges={false}>
                 <div className="p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-lg">
                     <p className="text-red-800 dark:text-red-200">
-                        <strong>Accès refusé :</strong> Cette page est réservée aux administrateurs et caissiers.
+                        <strong>{!isOnline ? 'Hors ligne' : 'Accès refusé'} :</strong>{' '}
+                        {!isOnline
+                            ? 'Vérifiez votre connexion internet puis rechargez la page.'
+                            : 'Cette page est réservée aux administrateurs et caissiers.'}
                     </p>
                 </div>
             </AdminPageLayout>
@@ -992,7 +997,7 @@ export default function EditMenuPage() {
             )}
 
             <div className="space-y-6">
-                {categories.length > 0 && (
+                {catalogModeResolved && categories.length > 0 && (
                     <CategoriesConfig
                         config={categories}
                         isReadOnly={isReadOnly}

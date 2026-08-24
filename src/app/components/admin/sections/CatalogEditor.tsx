@@ -49,6 +49,12 @@ interface GridProduct extends AdminProduct {
     _gridId: string;
 }
 
+const stripGridId = (p: GridProduct): AdminProduct => {
+    const { _gridId, ...rest } = p;
+    void _gridId;
+    return rest as AdminProduct;
+};
+
 interface SortableTileProps {
     product: GridProduct;
     index: number;
@@ -357,7 +363,7 @@ export default function CatalogEditor({
                 if (targetSlot) return; // can only duplicate into an empty slot
 
                 const duplicate: AdminProduct = {
-                    ...dragged,
+                    ...stripGridId(dragged),
                     name: `${dragged.name} (copie)`,
                     reference: undefined, // clear — reference has a unique DB constraint
                     gridPosition: toSlot,
@@ -377,7 +383,7 @@ export default function CatalogEditor({
             for (let i = 0; i < MAX_PRODUCTS; i++) {
                 const p = slotMap[i];
                 if (p) {
-                    reorderedCatProducts.push({ ...p, gridPosition: i });
+                    reorderedCatProducts.push({ ...stripGridId(p), gridPosition: i });
                 }
             }
 
@@ -404,7 +410,8 @@ export default function CatalogEditor({
             const idx = gridProducts.findIndex((g) => g._gridId === selectedProductId);
             if (idx === -1) return;
             const target = currentProducts[idx];
-            const result = products.map((p) => (p === target ? updated : p));
+            const cleanUpdated = stripGridId(updated as GridProduct);
+            const result = products.map((p) => (p === target ? cleanUpdated : p));
             onChange(result);
         },
         [selectedProduct, selectedProductId, products, currentProducts, gridProducts, onChange]
@@ -456,7 +463,7 @@ export default function CatalogEditor({
         while (firstEmpty < MAX_PRODUCTS && usedSlots.has(firstEmpty)) firstEmpty++;
 
         const duplicate: AdminProduct = {
-            ...selectedProduct,
+            ...stripGridId(selectedProduct),
             name: `${selectedProduct.name} (copie)`,
             reference: undefined, // clear — reference has a unique DB constraint
             gridPosition: firstEmpty < MAX_PRODUCTS ? firstEmpty : undefined,

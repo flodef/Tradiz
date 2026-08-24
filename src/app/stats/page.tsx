@@ -6,6 +6,7 @@ import { useConfig } from '@/app/hooks/useConfig';
 import { useShopId } from '@/app/hooks/useShopId';
 import { usePopup } from '@/app/hooks/usePopup';
 import { useUserRole } from '@/app/hooks/useUserRole';
+import { useWindowParam } from '@/app/hooks/useWindowParam';
 import {
     DELETED_KEYWORD,
     DEFAULT_VAT_RATE,
@@ -69,6 +70,7 @@ interface StatisticsData {
 
 export default function StatsPage() {
     const { isCashier } = useUserRole();
+    const { isOnline } = useWindowParam();
     const { parameters, currencies, currencyIndex, resolvePrinterAddresses } = useConfig();
     const { shopId, isResolved: isShopIdResolved } = useShopId();
     const { openFullscreenPopup, closePopup } = usePopup();
@@ -387,7 +389,10 @@ export default function StatsPage() {
             <AdminPageLayout title="Statistiques">
                 <div className="p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-lg">
                     <p className="text-red-800 dark:text-red-200">
-                        <strong>Accès refusé :</strong> Cette page est réservée aux administrateurs et caissiers.
+                        <strong>{!isOnline ? 'Hors ligne' : 'Accès refusé'} :</strong>{' '}
+                        {!isOnline
+                            ? 'Vérifiez votre connexion internet puis rechargez la page.'
+                            : 'Cette page est réservée aux administrateurs et caissiers.'}
                     </p>
                 </div>
             </AdminPageLayout>

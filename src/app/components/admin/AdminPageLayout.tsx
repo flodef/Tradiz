@@ -2,6 +2,7 @@
 
 import TopNav from '@/app/components/admin/TopNav';
 import { CloseButton } from '@/app/components/CloseButton';
+import { OfflineBanner } from '@/app/components/OfflineBanner';
 import { useUnsavedChanges } from '@/app/hooks/useUnsavedChanges';
 import { ReactNode, useState } from 'react';
 
@@ -23,6 +24,7 @@ export default function AdminPageLayout({ title, children, action, hasChanges = 
 
     return (
         <div className="min-h-screen bg-linear-to-tr from-main-from-light to-main-to-light dark:from-main-from-dark dark:to-main-to-dark text-writing-light dark:text-writing-dark">
+            <OfflineBanner />
             <div
                 className="sticky top-0 z-40 flex items-center border-b border-black/10 dark:border-white/10 bg-white/30 dark:bg-black/30 backdrop-blur px-2 py-1 min-h-14"
                 style={{ position: 'sticky' }}
