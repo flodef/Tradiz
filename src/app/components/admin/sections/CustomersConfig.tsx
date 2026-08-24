@@ -3,10 +3,19 @@
 import { Customer, Company } from '@/app/utils/interfaces';
 import { adminHeaderStyle } from '@/app/utils/constants';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IconChevronDown, IconChevronUp, IconPrinter, IconSearch, IconSelector, IconUpload } from '@tabler/icons-react';
+import {
+    IconChevronDown,
+    IconChevronUp,
+    IconEdit,
+    IconPrinter,
+    IconSearch,
+    IconSelector,
+    IconUpload,
+} from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import { useIsMobile } from '@/app/utils/mobile';
 import SectionCard from '../SectionCard';
+import DeleteButton from '../DeleteButton';
 import DeleteButtonCell from '../DeleteButtonCell';
 import ValidatedInput from '../ValidatedInput';
 import AdminSelect from '../AdminSelect';
@@ -114,120 +123,173 @@ const CompanySearchPopup: FC<CompanySearchPopupProps> = ({
 function Row({
     customer,
     isReadOnly,
-    onChange,
+    onEdit,
     onDelete,
-    companies,
-    firstNameInputRefs,
-    lastAddedIdRef,
-    index,
 }: {
     customer: InternalCustomer;
     isReadOnly: boolean;
-    onChange: (customer: InternalCustomer) => void;
+    onEdit: () => void;
     onDelete: () => void;
-    companies?: Company[];
-    firstNameInputRefs: React.MutableRefObject<Map<number, HTMLInputElement>>;
-    lastAddedIdRef: React.MutableRefObject<number | null>;
-    index: number;
 }) {
+    return (
+        <tr
+            className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
+            onClick={onEdit}
+        >
+            <td className="p-2 text-sm truncate max-w-32">{customer.firstName}</td>
+            <td className="p-2 text-sm truncate max-w-32">{customer.lastName}</td>
+            <td className="p-2 text-sm truncate max-w-32 text-gray-500 dark:text-gray-400">
+                {customer.reference || '—'}
+            </td>
+            <td className="p-2 text-sm truncate max-w-40 text-gray-500 dark:text-gray-400">{customer.email || '—'}</td>
+            <td className="p-2 text-sm truncate max-w-36 text-gray-500 dark:text-gray-400">{customer.phone || '—'}</td>
+            <td className="p-2 text-sm truncate max-w-40">{customer.company || '—'}</td>
+            <td className="p-2 text-sm text-right tabular-nums">{customer.balance ?? 0}</td>
+            <td className="p-2 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                {!isReadOnly && (
+                    <button
+                        type="button"
+                        onClick={onEdit}
+                        className="p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-600 cursor-pointer"
+                        title="Modifier le client"
+                    >
+                        <IconEdit size={28} stroke={2} />
+                    </button>
+                )}
+                <DeleteButtonCell isReadOnly={isReadOnly} onDelete={onDelete} title="Supprimer le client" />
+            </td>
+        </tr>
+    );
+}
+
+interface CustomerEditPopupProps {
+    customer: InternalCustomer;
+    companies?: Company[];
+    isReadOnly?: boolean;
+    onSave: (customer: InternalCustomer) => void;
+    onDelete: () => void;
+    onCancel: () => void;
+}
+
+const CustomerEditPopup: FC<CustomerEditPopupProps> = ({
+    customer,
+    companies,
+    isReadOnly,
+    onSave,
+    onDelete,
+    onCancel,
+}) => {
+    const [draft, setDraft] = useState<InternalCustomer>(customer);
+
     const companyOptions = useMemo(() => {
         const opts = [{ value: '', label: 'Aucune' }];
         if (companies) {
-            companies.forEach((c) => {
-                opts.push({ value: c.name, label: c.name });
-            });
+            companies.forEach((c) => opts.push({ value: c.name, label: c.name }));
         }
         return opts;
     }, [companies]);
 
+    const isValid = draft.firstName?.trim() && draft.lastName?.trim();
+    const emailValid = !draft.email || emailRegex.test(draft.email);
+    const phoneValid = !draft.phone || frenchPhoneRegex.test(draft.phone);
+
     return (
-        <tr className="border-b border-gray-200 dark:border-gray-700">
-            <td className="p-2">
-                <ValidatedInput
-                    value={customer.firstName}
-                    onChange={(value) => onChange({ ...customer, firstName: normalizeFirstName(String(value)) })}
-                    placeholder="Prénom"
-                    isReadOnly={isReadOnly}
-                    validation={(value) => String(value).trim().length > 0}
-                    className="min-w-32"
-                    isNameField
-                    ref={(el) => {
-                        if (el) {
-                            firstNameInputRefs.current.set(index, el);
-                            if (lastAddedIdRef.current === customer._id) {
-                                el.focus();
-                            }
-                        } else {
-                            firstNameInputRefs.current.delete(index);
-                        }
-                    }}
-                />
-            </td>
-            <td className="p-2">
-                <ValidatedInput
-                    value={customer.lastName}
-                    onChange={(value) => onChange({ ...customer, lastName: normalizeFamilyName(String(value)) })}
-                    placeholder="Nom"
-                    isReadOnly={isReadOnly}
-                    validation={(value) => String(value).trim().length > 0}
-                    className="min-w-32"
-                    isNameField
-                />
-            </td>
-            <td className="p-2">
-                <ValidatedInput
-                    value={customer.reference ?? ''}
-                    onChange={(value) => onChange({ ...customer, reference: String(value) })}
-                    placeholder="Auto-généré"
-                    isReadOnly={isReadOnly}
-                    className="min-w-32"
-                />
-            </td>
-            <td className="p-2">
-                <ValidatedInput
-                    value={customer.email ?? ''}
-                    onChange={(value) => onChange({ ...customer, email: String(value) })}
-                    placeholder="Email"
-                    isReadOnly={isReadOnly}
-                    validation={(value) => !value || emailRegex.test(String(value))}
-                    className="min-w-40"
-                />
-            </td>
-            <td className="p-2">
-                <ValidatedInput
-                    value={customer.phone ?? ''}
-                    onChange={(value) => onChange({ ...customer, phone: String(value) })}
-                    placeholder="Téléphone"
-                    isReadOnly={isReadOnly}
-                    validation={(value) => !value || frenchPhoneRegex.test(String(value))}
-                    className="w-36"
-                />
-            </td>
-            <td className="p-2">
+        <div className="p-4 space-y-4 max-w-lg mx-auto">
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Prénom *</label>
+                    <ValidatedInput
+                        value={draft.firstName}
+                        onChange={(value) => setDraft((d) => ({ ...d, firstName: normalizeFirstName(String(value)) }))}
+                        placeholder="Prénom"
+                        validation={(value) => String(value).trim().length > 0}
+                        isNameField
+                        isReadOnly={isReadOnly}
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Nom *</label>
+                    <ValidatedInput
+                        value={draft.lastName}
+                        onChange={(value) => setDraft((d) => ({ ...d, lastName: normalizeFamilyName(String(value)) }))}
+                        placeholder="Nom"
+                        validation={(value) => String(value).trim().length > 0}
+                        isNameField
+                        isReadOnly={isReadOnly}
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Référence</label>
+                    <ValidatedInput
+                        value={draft.reference ?? ''}
+                        onChange={(value) => setDraft((d) => ({ ...d, reference: String(value) }))}
+                        placeholder="Auto-généré"
+                        isReadOnly={isReadOnly}
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Solde</label>
+                    <ValidatedInput
+                        type="number"
+                        value={String(draft.balance ?? 0)}
+                        onChange={(value) => setDraft((d) => ({ ...d, balance: parseFloat(String(value)) || 0 }))}
+                        placeholder="0"
+                        className="w-full text-right"
+                        isReadOnly={isReadOnly}
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Email</label>
+                    <ValidatedInput
+                        value={draft.email ?? ''}
+                        onChange={(value) => setDraft((d) => ({ ...d, email: String(value) }))}
+                        placeholder="Email"
+                        validation={(value) => !value || emailRegex.test(String(value))}
+                        isReadOnly={isReadOnly}
+                    />
+                    {!emailValid && <p className="text-xs text-red-500 mt-1">Email invalide</p>}
+                </div>
+                <div>
+                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Téléphone</label>
+                    <ValidatedInput
+                        value={draft.phone ?? ''}
+                        onChange={(value) => setDraft((d) => ({ ...d, phone: String(value) }))}
+                        placeholder="Téléphone"
+                        validation={(value) => !value || frenchPhoneRegex.test(String(value))}
+                        isReadOnly={isReadOnly}
+                    />
+                    {!phoneValid && <p className="text-xs text-red-500 mt-1">Téléphone invalide</p>}
+                </div>
+            </div>
+            <div>
+                <label className="block text-sm font-medium mb-1 dark:text-gray-300">Entreprise</label>
                 <AdminSelect
-                    value={customer.company || ''}
+                    value={draft.company || ''}
                     onChange={(e) =>
-                        onChange({ ...customer, company: e.target.value === '' ? undefined : String(e.target.value) })
+                        setDraft((d) => ({ ...d, company: e.target.value === '' ? undefined : String(e.target.value) }))
                     }
                     options={companyOptions}
-                    className="min-w-40"
                     isReadOnly={isReadOnly || !companies?.length}
                 />
-            </td>
-            <td className="p-2">
-                <ValidatedInput
-                    type="number"
-                    value={String(customer.balance ?? 0)}
-                    onChange={(value) => onChange({ ...customer, balance: parseFloat(String(value)) || 0 })}
-                    placeholder="0"
-                    isReadOnly={isReadOnly}
-                    className="w-24 text-right"
-                />
-            </td>
-            <DeleteButtonCell isReadOnly={isReadOnly} onDelete={onDelete} title="Supprimer le client" />
-        </tr>
+            </div>
+            <div className="flex justify-between items-center pt-2">
+                <DeleteButton onClick={onDelete} title="Supprimer le client" />
+                <div className="flex gap-2">
+                    <AdminButton variant="secondary" onClick={onCancel}>
+                        Annuler
+                    </AdminButton>
+                    <AdminButton
+                        variant="primary"
+                        onClick={() => onSave(draft)}
+                        disabled={isReadOnly || !isValid || !emailValid || !phoneValid}
+                    >
+                        Valider
+                    </AdminButton>
+                </div>
+            </div>
+        </div>
     );
-}
+};
 
 export default function CustomersConfig({
     config,
@@ -249,7 +311,6 @@ export default function CustomersConfig({
     const selfUpdateRef = useRef(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
     const lastAddedIdRef = useRef<number | null>(null);
-    const firstNameInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const [customers, setCustomers] = useState<InternalCustomer[]>(() =>
         (config || []).map((c: Customer) => ({ ...c, _id: nextIdRef.current++ }))
     );
@@ -590,6 +651,45 @@ export default function CustomersConfig({
         [notifyParent]
     );
 
+    const handleDeleteCustomer = useCallback(
+        (id: number) => {
+            setCustomers((prev) => {
+                const updated = prev.filter((c) => c._id !== id);
+                notifyParent(updated);
+                return updated;
+            });
+        },
+        [notifyParent]
+    );
+
+    const handleEditCustomer = useCallback(
+        (customer: InternalCustomer) => {
+            const content = (
+                <CustomerEditPopup
+                    customer={customer}
+                    companies={companies}
+                    isReadOnly={isReadOnly}
+                    onSave={(updated) => {
+                        handleCustomerChange(customer._id, updated);
+                        closePopup();
+                    }}
+                    onDelete={() => {
+                        handleDeleteCustomer(customer._id);
+                        closePopup();
+                    }}
+                    onCancel={closePopup}
+                />
+            );
+            openFullscreenPopup(
+                `Modifier ${customer.firstName} ${customer.lastName}`.trim() || 'Nouveau client',
+                [content],
+                () => {},
+                true
+            );
+        },
+        [companies, isReadOnly, closePopup, handleCustomerChange, handleDeleteCustomer, openFullscreenPopup]
+    );
+
     const handleAddCustomer = useCallback(() => {
         const newId = nextIdRef.current++;
         const newCustomer: InternalCustomer = {
@@ -607,18 +707,8 @@ export default function CustomersConfig({
         selfUpdateRef.current = true;
         setCustomers(updated);
         onChange(strip(updated));
-    }, [customers, onChange]);
-
-    const handleDeleteCustomer = useCallback(
-        (id: number) => {
-            setCustomers((prev) => {
-                const updated = prev.filter((c) => c._id !== id);
-                notifyParent(updated);
-                return updated;
-            });
-        },
-        [notifyParent]
-    );
+        handleEditCustomer(newCustomer);
+    }, [customers, onChange, handleEditCustomer]);
 
     const handleSave = () => {
         onSave?.(strip(customers));
@@ -761,7 +851,7 @@ export default function CustomersConfig({
                 {/* Search + company filter bar */}
                 {customers.length > 0 && (
                     <div className="flex flex-wrap items-center gap-3 mb-3">
-                        <div className="relative flex-1 min-w-48 max-w-xs">
+                        <div className="relative min-w-0">
                             <IconSearch
                                 size={16}
                                 className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
@@ -772,8 +862,9 @@ export default function CustomersConfig({
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 onFocus={vkSearchInput.onFocus}
                                 onBlur={vkSearchInput.onBlur}
-                                placeholder="Rechercher un client..."
-                                className="w-full pl-8 pr-3 py-1.5 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                                placeholder="Rechercher..."
+                                maxLength={10}
+                                className="w-28 pl-8 pr-2 py-1.5 text-sm border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
                             />
                         </div>
                         {companyFilterOptions.length > 1 && (
@@ -804,7 +895,7 @@ export default function CustomersConfig({
                             <thead className="sticky top-0 z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur">
                                 <tr className="border-b-2 border-gray-300 dark:border-gray-600">
                                     <th
-                                        className={adminHeaderStyle + ' min-w-32 w-32 cursor-pointer'}
+                                        className={adminHeaderStyle + ' cursor-pointer'}
                                         onClick={() => handleSort('firstName')}
                                     >
                                         <div className="flex items-center gap-1">
@@ -812,7 +903,7 @@ export default function CustomersConfig({
                                         </div>
                                     </th>
                                     <th
-                                        className={adminHeaderStyle + ' min-w-32 w-32 cursor-pointer'}
+                                        className={adminHeaderStyle + ' cursor-pointer'}
                                         onClick={() => handleSort('lastName')}
                                     >
                                         <div className="flex items-center gap-1">
@@ -820,7 +911,7 @@ export default function CustomersConfig({
                                         </div>
                                     </th>
                                     <th
-                                        className={adminHeaderStyle + ' min-w-32 w-32 cursor-pointer'}
+                                        className={adminHeaderStyle + ' cursor-pointer'}
                                         onClick={() => handleSort('reference')}
                                     >
                                         <div className="flex items-center gap-1">
@@ -828,7 +919,7 @@ export default function CustomersConfig({
                                         </div>
                                     </th>
                                     <th
-                                        className={adminHeaderStyle + ' min-w-40 w-40 cursor-pointer'}
+                                        className={adminHeaderStyle + ' cursor-pointer'}
                                         onClick={() => handleSort('email')}
                                     >
                                         <div className="flex items-center gap-1">
@@ -836,7 +927,7 @@ export default function CustomersConfig({
                                         </div>
                                     </th>
                                     <th
-                                        className={adminHeaderStyle + ' min-w-36 w-36 cursor-pointer'}
+                                        className={adminHeaderStyle + ' cursor-pointer'}
                                         onClick={() => handleSort('phone')}
                                     >
                                         <div className="flex items-center gap-1">
@@ -844,7 +935,7 @@ export default function CustomersConfig({
                                         </div>
                                     </th>
                                     <th
-                                        className={adminHeaderStyle + ' min-w-40 w-40 cursor-pointer'}
+                                        className={adminHeaderStyle + ' cursor-pointer'}
                                         onClick={() => handleSort('company')}
                                     >
                                         <div className="flex items-center gap-1">
@@ -852,29 +943,25 @@ export default function CustomersConfig({
                                         </div>
                                     </th>
                                     <th
-                                        className={adminHeaderStyle + ' min-w-24 w-24 cursor-pointer'}
+                                        className={adminHeaderStyle + ' cursor-pointer text-right'}
                                         onClick={() => handleSort('balance')}
                                     >
-                                        <div className="flex items-center gap-1">
+                                        <div className="flex items-center gap-1 justify-end">
                                             Solde <SortIcon field="balance" />
                                         </div>
                                     </th>
-                                    {!isReadOnly && <th className="w-8"></th>}
+                                    {!isReadOnly && <th className="w-20"></th>}
                                 </tr>
                             </thead>
                         )}
                         <tbody>
-                            {filteredCustomers.map((customer, index) => (
+                            {filteredCustomers.map((customer) => (
                                 <Row
                                     key={customer._id}
                                     customer={customer}
                                     isReadOnly={isReadOnly}
-                                    onChange={(updated) => handleCustomerChange(customer._id, updated)}
+                                    onEdit={() => handleEditCustomer(customer)}
                                     onDelete={() => handleDeleteCustomer(customer._id)}
-                                    companies={companies}
-                                    firstNameInputRefs={firstNameInputRefs}
-                                    lastAddedIdRef={lastAddedIdRef}
-                                    index={index}
                                 />
                             ))}
                             {filteredCustomers.length === 0 && sortedCustomers.length > 0 && (
