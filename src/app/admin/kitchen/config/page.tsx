@@ -578,10 +578,8 @@ export default function SettingsPage() {
             }
             openFullscreenPopup(
                 'Erreur de chargement',
-                [
-                    "Les paramètres n'ont pas pu être chargés depuis la base de données. Veuillez rafraîchir la page ou vérifier la connexion.",
-                ],
-                () => {}
+                ["Les données n'ont pas pu être chargées correctement. Veuillez vérifier la connexion internet."],
+                () => window.location.reload()
             );
         } finally {
             setIsLoading(false);

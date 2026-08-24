@@ -1,6 +1,7 @@
 'use client';
 
 import { Customer, Company } from '@/app/utils/interfaces';
+import '@/app/utils/extensions';
 import { adminHeaderStyle } from '@/app/utils/constants';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -16,7 +17,6 @@ import * as XLSX from 'xlsx';
 import { useIsMobile } from '@/app/utils/mobile';
 import SectionCard from '../SectionCard';
 import DeleteButton from '../DeleteButton';
-import DeleteButtonCell from '../DeleteButtonCell';
 import ValidatedInput from '../ValidatedInput';
 import AdminSelect from '../AdminSelect';
 import AdminButton from '../AdminButton';
@@ -124,12 +124,10 @@ function Row({
     customer,
     isReadOnly,
     onEdit,
-    onDelete,
 }: {
     customer: InternalCustomer;
     isReadOnly: boolean;
     onEdit: () => void;
-    onDelete: () => void;
 }) {
     return (
         <tr
@@ -144,7 +142,9 @@ function Row({
             <td className="p-2 text-sm truncate max-w-40 text-gray-500 dark:text-gray-400">{customer.email || '—'}</td>
             <td className="p-2 text-sm truncate max-w-36 text-gray-500 dark:text-gray-400">{customer.phone || '—'}</td>
             <td className="p-2 text-sm truncate max-w-40">{customer.company || '—'}</td>
-            <td className="p-2 text-sm text-right tabular-nums">{customer.balance ?? 0}</td>
+            <td className="p-2 text-sm text-right tabular-nums">
+                {isReadOnly ? (customer.balance ?? 0).toLocaleCurrency() : customer.balance ?? 0}
+            </td>
             <td className="p-2 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                 {!isReadOnly && (
                     <button
@@ -156,7 +156,6 @@ function Row({
                         <IconEdit size={28} stroke={2} />
                     </button>
                 )}
-                <DeleteButtonCell isReadOnly={isReadOnly} onDelete={onDelete} title="Supprimer le client" />
             </td>
         </tr>
     );
@@ -229,14 +228,17 @@ const CustomerEditPopup: FC<CustomerEditPopupProps> = ({
                 </div>
                 <div>
                     <label className="block text-sm font-medium mb-1 dark:text-gray-300">Solde</label>
-                    <ValidatedInput
-                        type="number"
-                        value={String(draft.balance ?? 0)}
-                        onChange={(value) => setDraft((d) => ({ ...d, balance: parseFloat(String(value)) || 0 }))}
-                        placeholder="0"
-                        className="w-full text-right"
-                        isReadOnly={isReadOnly}
-                    />
+                    {isReadOnly ? (
+                        <div className="text-right tabular-nums">{(draft.balance ?? 0).toLocaleCurrency()}</div>
+                    ) : (
+                        <ValidatedInput
+                            type="number"
+                            value={String(draft.balance ?? 0)}
+                            onChange={(value) => setDraft((d) => ({ ...d, balance: parseFloat(String(value)) || 0 }))}
+                            placeholder="0"
+                            className="w-full text-right"
+                        />
+                    )}
                 </div>
                 <div>
                     <label className="block text-sm font-medium mb-1 dark:text-gray-300">Email</label>
@@ -677,7 +679,7 @@ export default function CustomersConfig({
                         handleDeleteCustomer(customer._id);
                         closePopup();
                     }}
-                    onCancel={closePopup}
+                    onCancel={() => closePopup()}
                 />
             );
             openFullscreenPopup(
@@ -961,7 +963,6 @@ export default function CustomersConfig({
                                     customer={customer}
                                     isReadOnly={isReadOnly}
                                     onEdit={() => handleEditCustomer(customer)}
-                                    onDelete={() => handleDeleteCustomer(customer._id)}
                                 />
                             ))}
                             {filteredCustomers.length === 0 && sortedCustomers.length > 0 && (
