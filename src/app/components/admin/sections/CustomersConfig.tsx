@@ -484,7 +484,7 @@ export default function CustomersConfig({
 
         // Create new company if it doesn't exist
         if (effectiveCompanyName && !existingCompany && onCompaniesChange) {
-            const newCompany: Company = { name: effectiveCompanyName, mealPrice: 0 };
+            const newCompany: Company = { name: effectiveCompanyName, employerShare: 0 };
             onCompaniesChange([...(companies || []), newCompany]);
         }
 

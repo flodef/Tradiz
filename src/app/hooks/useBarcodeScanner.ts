@@ -7,7 +7,7 @@ interface UseBarcodeScannerProps {
     inventory: InventoryItem[];
     customers: Customer[];
     users: User[];
-    onMatchProduct: (item: { category: string; label: string; amount: number }) => void;
+    onMatchProduct: (item: { category: string; label: string; amount: number; employerShare?: number }) => void;
     onMatchCustomer: (customer: Customer) => void;
     onMatchUser: (user: User) => void;
     enabled?: boolean;
@@ -44,6 +44,7 @@ export function useBarcodeScanner({
                     category: productMatch.category,
                     label: productMatch.label,
                     amount: productMatch.prices[0],
+                    employerShare: productMatch.employerShare ?? undefined,
                 });
                 return;
             }

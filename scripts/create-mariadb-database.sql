@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS `products` (
   `options` varchar(1000) DEFAULT '',
   `order_count` int(11) NOT NULL DEFAULT 0,
   `vat_rate` decimal(5,2) NOT NULL DEFAULT 20.00,
+  `employer_share` decimal(8,2) DEFAULT NULL,
   `color` varchar(50) NOT NULL DEFAULT '',
   `category_key` int GENERATED ALWAYS AS (COALESCE(`category_id`, 0)) STORED,
   PRIMARY KEY (`id`),
@@ -386,7 +387,7 @@ CREATE TABLE IF NOT EXISTS `customers` (
 CREATE TABLE IF NOT EXISTS `companies` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
-  `meal_price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `employer_share` decimal(10,2) NOT NULL DEFAULT 0.00,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)

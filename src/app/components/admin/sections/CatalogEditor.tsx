@@ -16,7 +16,7 @@ import {
 import { SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { IconCheck, IconChevronLeft, IconChevronRight, IconCopy, IconX } from '@tabler/icons-react';
 import { AdminProduct } from './ProductsConfig';
-import { Currency } from '@/app/utils/interfaces';
+import { Category, Company, Currency } from '@/app/utils/interfaces';
 import { ProductsSettings } from '@/app/contexts/ConfigProvider';
 import { colorToHex } from '@/app/utils/colors';
 import { adminTextStyle, DEFAULT_CATEGORY } from '@/app/utils/constants';
@@ -32,6 +32,8 @@ import { MAX_PRODUCTS } from '@/app/utils/sortOrder';
 interface CatalogEditorProps {
     products: AdminProduct[];
     categories: { label: string; value: string }[];
+    allCategories: Category[];
+    companies: Company[];
     currencies: Currency[];
     onChange: (data: AdminProduct[]) => void;
     onSave?: (data: AdminProduct[]) => void;
@@ -154,6 +156,8 @@ function DroppableEmptyTile({ slotIndex }: { slotIndex: number }) {
 export default function CatalogEditor({
     products,
     categories,
+    allCategories,
+    companies,
     currencies,
     onChange,
     onSave,
@@ -196,6 +200,16 @@ export default function CatalogEditor({
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 10 } }));
 
     const categoryLabels = useMemo(() => categories.map((c) => c.label), [categories]);
+
+    const categoryCompanyShare = useMemo(() => {
+        const map = new Map<string, number | undefined>();
+        for (const cat of allCategories) {
+            if (!cat.company) continue;
+            const company = companies.find((c) => c.name === cat.company);
+            if (company) map.set(cat.label, company.employerShare);
+        }
+        return map;
+    }, [allCategories, companies]);
 
     // Group products by category, preserving array order
     const productsByCategory = useMemo(() => {
@@ -672,6 +686,31 @@ export default function CatalogEditor({
                                     </div>
                                 )}
                             </div>
+
+                            {(() => {
+                                const share = categoryCompanyShare.get(selectedProduct.category || DEFAULT_CATEGORY);
+                                if (share === undefined) return null;
+                                return (
+                                    <div className="flex gap-3">
+                                        <div className="w-full">
+                                            <PriceInput
+                                                value={selectedProduct.employerShare ?? ''}
+                                                onChange={(value) =>
+                                                    handleProductUpdate({
+                                                        ...selectedProduct,
+                                                        employerShare: value === '' ? undefined : Number(value),
+                                                    })
+                                                }
+                                                currencies={currencies}
+                                                placeholder={share.toFixed(2)}
+                                                isReadOnly={isReadOnly}
+                                                label="Quote part"
+                                                className="w-full"
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })()}
 
                             {(productsSettings?.useReference || productsSettings?.useStock) && (
                                 <div className="flex gap-3">

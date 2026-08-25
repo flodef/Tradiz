@@ -101,7 +101,8 @@ export function computeResetTimes(closingHour: number, now?: Date) {
 }
 
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
-    const { currencies, currencyIndex, setCurrency, parameters, isKitchenViewEnabled, categories } = useConfig();
+    const { currencies, currencyIndex, setCurrency, parameters, isKitchenViewEnabled, categories, customers } =
+        useConfig();
     const { isOnline } = useWindowParam();
     const { openFullscreenPopup } = usePopup();
 
@@ -1125,17 +1126,20 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     // Compute the employer share: if the current customer belongs to a company
     // with a meal price, and at least one product is from a category tied to
-    // that company, the employer pays up to the meal price (capped at the total).
+    // that company, the employer pays the highest per-product share (or the
+    // company meal price, if none) and it is capped at the total.
     const getEmployerShare = useCallback(() => {
         if (!currentCustomer?.company) return 0;
         const company = companies.find((c) => c.name === currentCustomer.company);
-        if (!company || !company.mealPrice || company.mealPrice <= 0) return 0;
-        const hasCompanyProduct = products.current.some((product) => {
+        if (!company || !company.employerShare || company.employerShare <= 0) return 0;
+        let share = 0;
+        for (const product of products.current) {
             const category = categories.find((c) => c.name === product.category);
-            return category?.company === currentCustomer.company;
-        });
-        if (!hasCompanyProduct) return 0;
-        return Math.min(company.mealPrice, getCurrentTotal());
+            if (category?.company !== currentCustomer.company) continue;
+            share = Math.max(share, product.employerShare != null ? product.employerShare : company.employerShare);
+        }
+        if (share <= 0) return 0;
+        return Math.min(share, getCurrentTotal());
     }, [currentCustomer?.company, companies, categories, getCurrentTotal]);
 
     // The amount the customer actually pays: products total minus the employer
@@ -1377,9 +1381,18 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             : undefined;
         if (processingTransaction) {
             transactionId.current = processingTransaction.createdDate;
+            if (processingTransaction.customerName) {
+                const restored = customers.find(
+                    (c) => `${c.firstName} ${c.lastName}`.trim() === processingTransaction.customerName?.trim()
+                );
+                if (restored) {
+                    setCurrentCustomer(restored);
+                    previousCustomerRef.current = restored;
+                }
+            }
             processingTransaction.products.forEach(addProduct);
         }
-    }, [transactions, parameters.user, addProduct]);
+    }, [transactions, parameters.user, addProduct, customers]);
 
     // Debounced save of current products as a PROCESSING transaction so they survive
     // navigation to admin or page refresh. Called from addProduct/deleteProduct.
@@ -1404,6 +1417,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (hasProducts && !existingProcessing) {
                 // Create a new PROCESSING transaction
                 const now = floorToSeconds(new Date().getTime());
+                const customerName = currentCustomer
+                    ? `${currentCustomer.firstName} ${currentCustomer.lastName}`.trim() || undefined
+                    : undefined;
                 const transaction: Transaction = {
                     validator: parameters.user.name,
                     method: PROCESSING_KEYWORD,
@@ -1414,6 +1430,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     products: products.current.map((p) => ({ ...p })),
                     takeOut: counterServiceTypeRef.current === 'takeout',
                     ...(employerShare > 0 ? { employerShare } : {}),
+                    ...(customerName ? { customerName } : {}),
                 };
                 transactionId.current = now;
                 storeTransaction(transaction);
@@ -1426,6 +1443,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     existingProcessing.employerShare = employerShare;
                 } else {
                     delete existingProcessing.employerShare;
+                }
+                const existingCustomerName = currentCustomer
+                    ? `${currentCustomer.firstName} ${currentCustomer.lastName}`.trim() || undefined
+                    : undefined;
+                if (existingCustomerName) {
+                    existingProcessing.customerName = existingCustomerName;
+                } else {
+                    delete existingProcessing.customerName;
                 }
                 existingProcessing.modifiedDate = floorToSeconds(new Date().getTime());
                 storeTransaction(existingProcessing);
@@ -1441,6 +1466,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         employerShare,
         storeTransaction,
         saveTransactions,
+        currentCustomer,
     ]);
     saveProcessingTransactionRef.current = saveProcessingTransaction;
 
@@ -1603,6 +1629,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 getCurrentTotal,
                 getCustomerTotal,
                 employerShare,
+                getEmployerShare,
                 amount,
                 setAmount,
                 quantity,

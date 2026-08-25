@@ -198,7 +198,7 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
                         </div>
                         <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Référence</p>
-                            <p className="text-sm md:text-base font-semibold break-all">{customer.reference || '—'}</p>
+                            <p className="text-sm md:text-lg font-semibold break-all">{customer.reference || '—'}</p>
                         </div>
                         <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Nombre d&apos;achats</p>

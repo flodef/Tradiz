@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 interface CompanyRow {
     id: number;
     name: string;
-    meal_price: number;
+    employer_share: number;
 }
 
 // Detects "relation/table does not exist" errors across Postgres (42P01) and MySQL/MariaDB (1146)
@@ -23,8 +23,8 @@ export async function GET(request: Request) {
         connection = await getPosDb(shopId);
 
         const query = connection.isPostgreSQL
-            ? 'SELECT id, name, meal_price FROM dc_pos.companies ORDER BY name'
-            : 'SELECT id, name, meal_price FROM companies ORDER BY name';
+            ? 'SELECT id, name, employer_share FROM dc_pos.companies ORDER BY name'
+            : 'SELECT id, name, employer_share FROM companies ORDER BY name';
 
         const result = await connection.execute(query);
         const rows = result[0] as CompanyRow[];
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
         const companies = rows.map((row) => ({
             id: row.id,
             name: String(row.name),
-            mealPrice: Number(row.meal_price ?? 0),
+            employerShare: Number(row.employer_share ?? 0),
         }));
 
         return NextResponse.json({ companies });

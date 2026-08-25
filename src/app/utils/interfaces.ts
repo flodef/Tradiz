@@ -56,7 +56,7 @@ export interface Device {
 export interface Company {
     id?: number;
     name: string;
-    mealPrice: number;
+    employerShare: number;
 }
 
 export interface BillingReport {
@@ -64,7 +64,7 @@ export interface BillingReport {
     companyName: string;
     startDate: string;
     endDate: string;
-    mealPrice: number;
+    employerShare: number;
     vatRate: number;
     mealCount: number;
     totalAmount: number;
@@ -125,6 +125,7 @@ export interface InventoryItem {
         reference?: string | null;
         color?: string;
         sortOrder?: number;
+        employerShare?: number | null;
     }[];
 }
 
@@ -171,6 +172,7 @@ export type Product = DataElement & {
     mercurial?: Mercurial;
     options?: string;
     vatRate?: number;
+    employerShare?: number;
 };
 
 export type Transaction = {

@@ -14,7 +14,7 @@ import { useWindowParam } from '@/app/hooks/useWindowParam';
 import Loading from '@/app/loading';
 import { DEFAULT_CATEGORY, USE_DIGICARTE } from '@/app/utils/constants';
 import { applyCategoryDeletionToFormulas, isSameCategory, renameFormulaCategory } from '@/app/utils/category';
-import { Category, InventoryItem } from '@/app/utils/interfaces';
+import { Category, Company, InventoryItem } from '@/app/utils/interfaces';
 import { clearLoadDataCache } from '@/app/utils/processData';
 import { encodeGridPosition, encodeSortOrder, decodeGridPosition } from '@/app/utils/sortOrder';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -128,6 +128,7 @@ function buildInventoryFromAdminProducts(products: AdminProduct[]): InventoryIte
             reference: p.reference ? String(p.reference).trim() : null,
             color: p.color ?? '',
             sortOrder,
+            employerShare: p.employerShare ?? null,
         });
     }
 
@@ -182,6 +183,7 @@ function buildProductsFromInventory(inventory: InventoryItem[]): AdminProduct[] 
                 reference: product.reference ?? undefined,
                 options: product.options ?? undefined,
                 color: product.color ?? undefined,
+                employerShare: product.employerShare ?? undefined,
                 gridPosition,
             });
         });
@@ -238,6 +240,7 @@ export default function EditMenuPage() {
     const [dbCategories, setDbCategories] = useState<
         { name: string; company: string | null; printer: string | null; sortOrder: number; originalName?: string }[]
     >([]);
+    const [companies, setCompanies] = useState<Company[]>([]);
     const [originalDbCategories, setOriginalDbCategories] = useState<
         { name: string; company: string | null; printer: string | null; sortOrder: number; originalName?: string }[]
     >([]);
@@ -455,14 +458,30 @@ export default function EditMenuPage() {
                 dataLoadedRef.current = true;
 
                 // Always fetch fresh data from DB in background
-                const [productsResponse, parametersResponse, categoriesResponse] = await Promise.all([
-                    fetch('/api/sql/getAllArticles'),
-                    fetch('/api/sql/getParameters'),
-                    fetch('/api/sql/getCategories'),
-                ]);
+                const [productsResponse, parametersResponse, categoriesResponse, companiesResponse] = await Promise.all(
+                    [
+                        fetch('/api/sql/getAllArticles'),
+                        fetch('/api/sql/getParameters'),
+                        fetch('/api/sql/getCategories'),
+                        fetch('/api/sql/getCompanies'),
+                    ]
+                );
                 const productsData = await productsResponse.json();
                 const parametersData = await parametersResponse.json();
                 const categoriesData = await categoriesResponse.json();
+                const companiesData = await companiesResponse.json();
+
+                // Load companies
+                if (Array.isArray(companiesData.companies)) {
+                    const mappedCompanies = companiesData.companies.map(
+                        (c: { id?: number; name: string; employerShare: number }) => ({
+                            id: c.id,
+                            name: String(c.name),
+                            employerShare: Number(c.employerShare ?? 0),
+                        })
+                    );
+                    setCompanies(mappedCompanies);
+                }
 
                 // Load DB categories
                 if (Array.isArray(categoriesData.categories)) {
@@ -539,6 +558,7 @@ export default function EditMenuPage() {
                             options: p.options ? String(p.options) : undefined,
                             color: p.color ? String(p.color) : undefined,
                             currencies: (p.prices ?? []).map(String),
+                            employerShare: p.employerShare != null ? Number(p.employerShare) : undefined,
                             gridPosition,
                         });
                     }
@@ -1077,6 +1097,8 @@ export default function EditMenuPage() {
                         <CatalogEditor
                             products={nonFormulaProducts}
                             categories={categoryOptions}
+                            allCategories={categories}
+                            companies={companies}
                             currencies={currencies}
                             onChange={handleProductsChange}
                             onSave={isReadOnly ? undefined : handleProductsSave}
@@ -1097,6 +1119,8 @@ export default function EditMenuPage() {
                             onCancel={handleCancel}
                             hasChanges={hasProductsChanges}
                             categories={categoryOptions}
+                            allCategories={categories}
+                            companies={companies}
                             currencies={currencies}
                             isReadOnly={isReadOnly}
                             isLoading={isSavingProducts}

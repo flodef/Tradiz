@@ -17,6 +17,7 @@ interface Product {
     options?: string;
     color?: string;
     gridPosition?: number;
+    employerShare?: number;
 }
 
 // Compute encoded sort_order: (categoryIndex + 1) * 10000 + positionWithinCategory
@@ -185,7 +186,7 @@ export async function POST(request: Request) {
             }
 
             const cols =
-                'name, price, category_id, stock, reference, photo, description, sort_order, vat_rate, options, color';
+                'name, price, category_id, stock, reference, photo, description, sort_order, vat_rate, options, color, employer_share';
             const rowValues: unknown[] = [];
             const placeholders: string[] = [];
 
@@ -200,12 +201,13 @@ export async function POST(request: Request) {
                 const description = product.description ?? '';
                 const options = product.options ?? '';
                 const color = product.color ?? '';
+                const employerShare = product.employerShare ?? null;
                 const categoryId = catMap.get(product.category) ?? null;
 
                 const start = rowValues.length + 1;
                 const row = connection.isPostgreSQL
-                    ? Array.from({ length: 11 }, (_, j) => `$${start + j}`).join(', ')
-                    : '?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?';
+                    ? Array.from({ length: 12 }, (_, j) => `$${start + j}`).join(', ')
+                    : '?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?';
                 placeholders.push(`(${row})`);
                 rowValues.push(
                     product.name,
@@ -218,7 +220,8 @@ export async function POST(request: Request) {
                     sortOrder,
                     vatRate,
                     options,
-                    color
+                    color,
+                    employerShare
                 );
             }
 

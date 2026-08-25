@@ -162,7 +162,7 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                                 className={twMerge(
                                     styles.option,
                                     typeof option === 'string'
-                                        ? 'grid auto-cols-fr text-left pl-2 gap-4'
+                                        ? 'grid grid-cols-1 content-center text-left pl-2 gap-1'
                                         : 'flex justify-around items-center text-center py-0',
                                     getOptionHoverStyles(isMobileDevice, typeof option === 'string'),
                                     typeof option === 'string' && !isMobile && validIndex === selectedIndex
@@ -172,7 +172,7 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                                 )}
                                 style={
                                     typeof option === 'string'
-                                        ? { gridTemplateColumns: `repeat(${option.split('\n').length}, 1fr)` }
+                                        ? { gridTemplateRows: `repeat(${option.split('\n').length}, minmax(0, 1fr))` }
                                         : undefined
                                 }
                                 key={index}
@@ -186,7 +186,7 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                             >
                                 {typeof option === 'string'
                                     ? option.split('\n').map((line, idx) => (
-                                          <div key={idx} className={styles.optionText}>
+                                          <div key={idx} className={twMerge(styles.optionText, 'whitespace-nowrap')}>
                                               {line}
                                           </div>
                                       ))

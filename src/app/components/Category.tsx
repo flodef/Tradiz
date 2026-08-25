@@ -280,6 +280,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
                 discount: EmptyDiscount,
                 amount: baseAmount + extra,
                 vatRate: item.rate,
+                employerShare: product?.employerShare != null ? product.employerShare : undefined,
                 ...(options && options.length > 0 ? { options: JSON.stringify(options) } : {}),
             });
 

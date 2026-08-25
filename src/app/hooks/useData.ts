@@ -16,6 +16,7 @@ export interface DataContextState {
     getCurrentTotal: () => number;
     getCustomerTotal: () => number;
     employerShare: number;
+    getEmployerShare: () => number;
     amount: number;
     setAmount: (amount: number) => void;
     quantity: number;

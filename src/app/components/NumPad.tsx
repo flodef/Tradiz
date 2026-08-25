@@ -148,7 +148,7 @@ interface SearchPopupProps {
     customers: Customer[];
     users: User[];
     searchSettings?: { searchCustomers: boolean; searchProducts: boolean; searchUsers: boolean };
-    onSelectProduct: (item: { category: string; label: string; amount: number }) => void;
+    onSelectProduct: (item: { category: string; label: string; amount: number; employerShare?: number }) => void;
     onSelectCustomer: (customer: Customer) => void;
     onSelectUser: (user: User) => void;
 }
@@ -161,6 +161,7 @@ interface ProductWithCategory {
     stock: number | null;
     order: number;
     reference?: string | null;
+    employerShare?: number | null;
 }
 
 type SearchItem =
@@ -346,6 +347,7 @@ const SearchPopup: FC<SearchPopupProps> = ({
                     category: item.data.category,
                     label: item.data.label,
                     amount: item.data.prices[0],
+                    employerShare: item.data.employerShare ?? undefined,
                 });
             } else if (item.type === 'customer') {
                 onSelectCustomer(item.data);
@@ -530,6 +532,7 @@ const SearchPopup: FC<SearchPopupProps> = ({
                                                     category: item.category,
                                                     label: item.label,
                                                     amount: item.prices[0],
+                                                    employerShare: item.employerShare ?? undefined,
                                                 })
                                             }
                                         >
@@ -674,6 +677,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                 amount: item.amount,
                 label: item.label,
                 discount: EmptyDiscount,
+                employerShare: item.employerShare,
             });
         },
         onMatchCustomer: (customer) => {
@@ -885,6 +889,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                         amount: item.amount,
                         label: item.label,
                         discount: EmptyDiscount,
+                        employerShare: item.employerShare,
                     });
                     closePopup();
                 }}

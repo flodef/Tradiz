@@ -5,7 +5,7 @@ import { getPosDb, DbConnection, withTransaction } from '../db';
 interface Company {
     id?: number;
     name: string;
-    mealPrice: number;
+    employerShare: number;
 }
 
 export async function POST(request: Request) {
@@ -44,22 +44,22 @@ export async function POST(request: Request) {
 
             for (const company of companies) {
                 const name = company.name;
-                const mealPrice = company.mealPrice ?? 0;
+                const employerShare = company.employerShare ?? 0;
                 seenNames.add(name);
 
                 // If the client provided an id, update that row (preserves FKs on rename)
                 if (company.id != null && existingById.has(company.id)) {
                     seenIds.add(company.id);
                     if (isPg) {
-                        await conn.execute(`UPDATE ${table} SET name = $1, meal_price = $2 WHERE id = $3`, [
+                        await conn.execute(`UPDATE ${table} SET name = $1, employer_share = $2 WHERE id = $3`, [
                             name,
-                            mealPrice,
+                            employerShare,
                             company.id,
                         ]);
                     } else {
-                        await conn.execute(`UPDATE ${table} SET name = ?, meal_price = ? WHERE id = ?`, [
+                        await conn.execute(`UPDATE ${table} SET name = ?, employer_share = ? WHERE id = ?`, [
                             name,
-                            mealPrice,
+                            employerShare,
                             company.id,
                         ]);
                     }
@@ -68,27 +68,30 @@ export async function POST(request: Request) {
                     const existingId = existingByName.get(name)!;
                     seenIds.add(existingId);
                     if (isPg) {
-                        await conn.execute(`UPDATE ${table} SET name = $1, meal_price = $2 WHERE id = $3`, [
+                        await conn.execute(`UPDATE ${table} SET name = $1, employer_share = $2 WHERE id = $3`, [
                             name,
-                            mealPrice,
+                            employerShare,
                             existingId,
                         ]);
                     } else {
-                        await conn.execute(`UPDATE ${table} SET name = ?, meal_price = ? WHERE id = ?`, [
+                        await conn.execute(`UPDATE ${table} SET name = ?, employer_share = ? WHERE id = ?`, [
                             name,
-                            mealPrice,
+                            employerShare,
                             existingId,
                         ]);
                     }
                 } else {
                     // Insert new company
                     if (isPg) {
-                        await conn.execute(`INSERT INTO ${table} (name, meal_price) VALUES ($1, $2)`, [
+                        await conn.execute(`INSERT INTO ${table} (name, employer_share) VALUES ($1, $2)`, [
                             name,
-                            mealPrice,
+                            employerShare,
                         ]);
                     } else {
-                        await conn.execute(`INSERT INTO ${table} (name, meal_price) VALUES (?, ?)`, [name, mealPrice]);
+                        await conn.execute(`INSERT INTO ${table} (name, employer_share) VALUES (?, ?)`, [
+                            name,
+                            employerShare,
+                        ]);
                     }
                 }
             }

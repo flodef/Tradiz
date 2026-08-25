@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS dc.products (
     options VARCHAR(1000) DEFAULT '',
     order_count INTEGER NOT NULL DEFAULT 0,
     vat_rate NUMERIC(5,2) NOT NULL DEFAULT 20.00,
+    employer_share NUMERIC(8,2) DEFAULT NULL,
     color VARCHAR(50) NOT NULL DEFAULT ''
 );
 
@@ -285,7 +286,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.customers (
 CREATE TABLE IF NOT EXISTS dc_pos.companies (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,
-    meal_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    employer_share DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

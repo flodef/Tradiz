@@ -535,7 +535,7 @@ export default function StatsPage() {
                             </div>
                             <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
                                 <p className="text-sm text-gray-600 dark:text-gray-300">Prix / Quote part</p>
-                                <p className="text-lg font-bold">{billingReport.mealPrice.toFixed(2)} €</p>
+                                <p className="text-lg font-bold">{billingReport.employerShare.toFixed(2)} €</p>
                             </div>
                             <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
                                 <p className="text-sm text-gray-600 dark:text-gray-300">Total repas</p>

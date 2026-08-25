@@ -30,17 +30,17 @@ export async function GET(request: Request) {
         connection = await getPosDb(shopId);
 
         const companyQuery = connection.isPostgreSQL
-            ? 'SELECT id, meal_price FROM dc_pos.companies WHERE name = $1'
-            : 'SELECT id, meal_price FROM companies WHERE name = ?';
+            ? 'SELECT id, employer_share FROM dc_pos.companies WHERE name = $1'
+            : 'SELECT id, employer_share FROM companies WHERE name = ?';
         const [companyRows] = await connection.execute(companyQuery, [companyName]);
-        const company = (companyRows as { id: number; meal_price: number }[])[0];
+        const company = (companyRows as { id: number; employer_share: number }[])[0];
 
         if (!company) {
             return NextResponse.json({ error: 'Company not found' }, { status: 404 });
         }
 
-        const mealPrice = Number(company.meal_price ?? 0);
-        if (mealPrice <= 0) {
+        const employerShare = Number(company.employer_share ?? 0);
+        if (employerShare <= 0) {
             return NextResponse.json({ error: 'Company meal price is not set' }, { status: 400 });
         }
 
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
         const aggregation = await aggregateMealsByCustomer(connection, companyName, startAt, endAt);
 
         const customers = aggregation.customers.map((c) => {
-            const totalAmount = Number(c.meal_count) * mealPrice;
+            const totalAmount = Number(c.meal_count) * employerShare;
             const totalHT = totalAmount / (1 + vatRate);
             const totalTVA = totalAmount - totalHT;
             return {
@@ -79,7 +79,7 @@ export async function GET(request: Request) {
             companyName,
             startDate,
             endDate,
-            mealPrice,
+            employerShare,
             vatRate,
             mealCount,
             totalAmount,

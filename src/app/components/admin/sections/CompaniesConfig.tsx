@@ -82,8 +82,8 @@ const SortableRow = memo(function SortableRow({
             </td>
             <td className="p-2">
                 <PriceInput
-                    value={company.mealPrice}
-                    onChange={(value) => onFieldChange(company._id, 'mealPrice', Number(value))}
+                    value={company.employerShare}
+                    onChange={(value) => onFieldChange(company._id, 'employerShare', Number(value))}
                     currencies={currencies}
                     isReadOnly={isReadOnly}
                     className="w-24"
@@ -152,8 +152,8 @@ export default function CompaniesConfig({
         []
     );
 
-    // Check if all companies have valid name and mealPrice
-    const isValid = companies.every((company) => company.name?.trim() && company.mealPrice > 0);
+    // Check if all companies have valid name and employerShare
+    const isValid = companies.every((company) => company.name?.trim() && company.employerShare > 0);
 
     // Notify parent of validation state
     useEffect(() => {
@@ -241,7 +241,7 @@ export default function CompaniesConfig({
 
     const handleAddCompany = useCallback(() => {
         setCompanies((prev) => {
-            const updated = [...prev, { name: '', mealPrice: 0, _id: nextIdRef.current++, _originalName: '' }];
+            const updated = [...prev, { name: '', employerShare: 0, _id: nextIdRef.current++, _originalName: '' }];
             lastAddedIndexRef.current = updated.length - 1;
             notifyParent(updated);
             return updated;

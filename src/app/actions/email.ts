@@ -181,7 +181,7 @@ export async function sendBillingReportEmail(report: BillingReport, to?: string)
     const endLabel = formatReportDate(report.endDate);
     const companyName = escapeHtml(report.companyName);
 
-    const mealPrice = Number(report.mealPrice ?? 0).toFixed(2);
+    const employerShare = Number(report.employerShare ?? 0).toFixed(2);
     const totalHT = Number(report.totalHT ?? 0).toFixed(2);
     const totalTVA = Number(report.totalTVA ?? 0).toFixed(2);
     const totalAmount = Number(report.totalAmount ?? 0).toFixed(2);
@@ -209,7 +209,7 @@ export async function sendBillingReportEmail(report: BillingReport, to?: string)
           <p>Bonjour,</p>
           <p>Voici la facture pour <strong>${companyName}</strong> du ${startLabel} au ${endLabel}.</p>
           <table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #ccc;">
-            <tr><td style="padding: 5px; border: 1px solid #ccc;">Prix / Quote part TTC</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${mealPrice} €</td></tr>
+            <tr><td style="padding: 5px; border: 1px solid #ccc;">Prix / Quote part TTC</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${employerShare} €</td></tr>
             <tr><td style="padding: 5px; border: 1px solid #ccc;">Nombre total de repas</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${report.mealCount}</td></tr>
             <tr><td style="padding: 5px; border: 1px solid #ccc;">Total HT ${vatRatePercent}%</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${totalHT} €</td></tr>
             <tr><td style="padding: 5px; border: 1px solid #ccc;">TVA ${vatRatePercent}%</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${totalTVA} €</td></tr>

@@ -166,6 +166,8 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     const {
         total,
         employerShare,
+        getEmployerShare,
+        getCurrentTotal,
         amount,
         selectedProduct,
         currentCustomer,
@@ -421,12 +423,13 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                   (product) => categories.find((c) => c.name === product.category)?.company === currentCustomer.company
               )
             : -1;
-        if (employerShare > 0 && showProductsCompanyIndex >= 0) {
-            productLines[showProductsCompanyIndex] += '\n- quote part employeur = ' + toCurrency(employerShare);
+        const liveEmployerShare = getEmployerShare();
+        if (liveEmployerShare > 0 && showProductsCompanyIndex >= 0) {
+            productLines[showProductsCompanyIndex] += '\n- quote part employeur = ' + toCurrency(liveEmployerShare);
         }
 
         openPopup(
-            products.current.length + ' produits : ' + toCurrency(total),
+            products.current.length + ' produits : ' + toCurrency(Math.max(0, getCurrentTotal() - liveEmployerShare)),
             productLines.concat(printerOptions).concat(['', payLabel]),
             (index, option) => {
                 if (option === payLabel) {
@@ -477,8 +480,8 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         selectedProduct,
         getPrintersNames,
         printTransaction,
-        employerShare,
-        total,
+        getEmployerShare,
+        getCurrentTotal,
         currentCustomer,
         categories,
     ]);

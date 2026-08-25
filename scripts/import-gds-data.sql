@@ -66,10 +66,10 @@ INSERT INTO dc_pos.devices (id, label, public_key, user_id, connected, last_seen
 -- ============================================================
 -- Companies
 -- ============================================================
-INSERT INTO dc_pos.companies (name, meal_price) VALUES ('Alcatel', 10.00) ON CONFLICT (name) DO NOTHING;
-INSERT INTO dc_pos.companies (name, meal_price) VALUES ('Genesis', 6.95) ON CONFLICT (name) DO NOTHING;
-INSERT INTO dc_pos.companies (name, meal_price) VALUES ('DGAC employé', 9.00) ON CONFLICT (name) DO NOTHING;
-INSERT INTO dc_pos.companies (name, meal_price) VALUES ('DGAC cadre', 10.62) ON CONFLICT (name) DO NOTHING;
+INSERT INTO dc_pos.companies (name, employer_share) VALUES ('Alcatel', 7.50) ON CONFLICT (name) DO NOTHING;
+INSERT INTO dc_pos.companies (name, employer_share) VALUES ('Genesis', 6.95) ON CONFLICT (name) DO NOTHING;
+INSERT INTO dc_pos.companies (name, employer_share) VALUES ('DGAC employé', 10.62) ON CONFLICT (name) DO NOTHING;
+INSERT INTO dc_pos.companies (name, employer_share) VALUES ('DGAC cadre', 9.00) ON CONFLICT (name) DO NOTHING;
 
 -- ============================================================
 -- ============================================================
@@ -632,13 +632,13 @@ SELECT setval('dc.products_id_seq', GREATEST(COALESCE((SELECT MAX(id) FROM dc.pr
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (141, 'BURGER + DESSERT + CANETTE', 16.0, '2000', (SELECT id FROM dc.categories WHERE name = 'ALCATEL'), 10.0, 'light orange') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (151, 'POISSON XL', 16.5, '2001', (SELECT id FROM dc.categories WHERE name = 'ALCATEL'), 10.0, 'red') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (211, 'PLAT DU JOUR + CANETTE + DESSERT', 14.0, '2002', (SELECT id FROM dc.categories WHERE name = 'ALCATEL'), 10.0, 'light blue') ON CONFLICT (reference) DO NOTHING;
-INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (221, 'PLAT NORMAL', 10.5, '2003', (SELECT id FROM dc.categories WHERE name = 'ALCATEL'), 10.0, 'light yellow') ON CONFLICT (reference) DO NOTHING;
+INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, employer_share, color) VALUES (221, 'PLAT NORMAL', 10.5, '2003', (SELECT id FROM dc.categories WHERE name = 'ALCATEL'), 10.0, 6.50, 'light yellow') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (241, 'ANIMATION + DESSERT + BIERE 25CL', 21.0, '2004', (SELECT id FROM dc.categories WHERE name = 'ALCATEL'), 10.0, 'light orange') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (251, 'POISSON DU JOUR', 15.0, '2005', (SELECT id FROM dc.categories WHERE name = 'ALCATEL'), 10.0, 'red') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (331, 'SALADE / QUICHE VIENN + CANETTE', 13.0, '2006', (SELECT id FROM dc.categories WHERE name = 'ALCATEL'), 10.0, 'light orange') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (411, 'PLAT XL FORMULE', 15.4, '2007', (SELECT id FROM dc.categories WHERE name = 'ALCATEL'), 10.0, 'light green') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (421, 'PLAT XL', 12.5, '2008', (SELECT id FROM dc.categories WHERE name = 'ALCATEL'), 10.0, 'light yellow') ON CONFLICT (reference) DO NOTHING;
-INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (431, 'FORMULE GOURMANDE 3', 10.5, '2009', (SELECT id FROM dc.categories WHERE name = 'ALCATEL'), 10.0, 'light green') ON CONFLICT (reference) DO NOTHING;
+INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, employer_share, color) VALUES (431, 'FORMULE GOURMANDE 3', 10.5, '2009', (SELECT id FROM dc.categories WHERE name = 'ALCATEL'), 10.0, 4.60, 'light green') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (511, 'SUPPLEMENT CIDRE', 1.0, '2010', (SELECT id FROM dc.categories WHERE name = 'ALCATEL'), 10.0, 'light blue') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (551, 'SOUPE', 3.0, '2011', (SELECT id FROM dc.categories WHERE name = 'ALCATEL'), 10.0, 'red') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (111, 'TRADITION JBF, CROQUE, CROISSANT JAMBON', 4.4, '2012', (SELECT id FROM dc.categories WHERE name = 'SALÉ SEUL'), 10.0, 'light yellow') ON CONFLICT (reference) DO NOTHING;
@@ -750,7 +750,7 @@ INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_ra
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (251, 'ANIMATION PLAT', 18.0, '2119', (SELECT id FROM dc.categories WHERE name = 'GENESIS'), 10.0, 'light green') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (341, 'PATISSERIE', 1.0, '2120', (SELECT id FROM dc.categories WHERE name = 'GENESIS'), 10.0, 'red') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (351, 'DESSERT', 3.7, '2121', (SELECT id FROM dc.categories WHERE name = 'GENESIS'), 10.0, 'light green') ON CONFLICT (reference) DO NOTHING;
-INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (411, 'FORMULE 1', 7.8, '2122', (SELECT id FROM dc.categories WHERE name = 'GENESIS'), 10.0, 'light yellow') ON CONFLICT (reference) DO NOTHING;
+INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, employer_share, color) VALUES (411, 'FORMULE 1', 7.8, '2122', (SELECT id FROM dc.categories WHERE name = 'GENESIS'), 10.0, 5.95, 'light yellow') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (421, 'FORMULE 2', 10.5, '2123', (SELECT id FROM dc.categories WHERE name = 'GENESIS'), 10.0, 'light green') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (531, 'SUPPLEMENT CIDRE', 1.0, '2124', (SELECT id FROM dc.categories WHERE name = 'GENESIS'), 10.0, 'purple') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (111, 'FORMULE DGAC PLAT JOUR', 15.2, '2125', (SELECT id FROM dc.categories WHERE name = 'DGAC CADRE'), 10.0, 'light green') ON CONFLICT (reference) DO NOTHING;

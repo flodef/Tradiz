@@ -16,6 +16,7 @@ interface ArticleRow {
     description: string;
     color: string;
     sort_order: number;
+    employer_share: string | null;
 }
 
 interface FormulaElement {
@@ -57,7 +58,7 @@ export async function GET(request: Request) {
             ? `
             SELECT p.name as label, p.price as amount, p.vat_rate as rate,
                    COALESCE(c.name, '') as category, p.options, p.stock, p.reference,
-                   p.photo, p.description, p.color, p.sort_order
+                   p.photo, p.description, p.color, p.sort_order, p.employer_share
             FROM dc.products p
             LEFT JOIN dc.categories c ON p.category_id = c.id
             ORDER BY p.sort_order ASC
@@ -65,7 +66,7 @@ export async function GET(request: Request) {
             : `
             SELECT p.name as label, p.price as amount, p.vat_rate as rate,
                    COALESCE(c.name, '') as category, p.options, p.stock, p.reference,
-                   p.photo, p.description, p.color, p.sort_order
+                   p.photo, p.description, p.color, p.sort_order, p.employer_share
             FROM products p
             LEFT JOIN categories c ON p.category_id = c.id
             ORDER BY p.sort_order ASC
@@ -154,6 +155,7 @@ export async function GET(request: Request) {
                 prices: [Number.isFinite(price) ? price : 0],
                 options: row.options || null,
                 sortOrder: Number(row.sort_order) || 0,
+                employerShare: row.employer_share != null ? Number(row.employer_share) : null,
             };
         });
 

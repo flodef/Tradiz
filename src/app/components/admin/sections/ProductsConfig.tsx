@@ -1,7 +1,7 @@
 'use client';
 
 import { adminSortableHeaderStyle, DEFAULT_CATEGORY } from '@/app/utils/constants';
-import { Currency } from '@/app/utils/interfaces';
+import { Category, Company, Currency } from '@/app/utils/interfaces';
 import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -17,12 +17,16 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import AdminSelect from '../AdminSelect';
 import AvailabilityToggle from '../AvailabilityToggle';
 import ColorSwatchPicker from '../ColorSwatchPicker';
+import DeleteButton from '../DeleteButton';
 import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
 import PriceInput from '../PriceInput';
 import { useVirtualKeyboardContext } from '../VirtualKeyboardProvider';
+import { usePopup } from '@/app/hooks/usePopup';
+import AdminButton from '../AdminButton';
+import { ProductsSettings } from '@/app/contexts/ConfigProvider';
 
 type SortField =
     | 'order'
@@ -51,6 +55,7 @@ export interface AdminProduct {
     options?: string;
     color?: string;
     gridPosition?: number;
+    employerShare?: number;
 }
 
 type AvailabilityFilter = 'all' | 'available' | 'unavailable';
@@ -70,6 +75,233 @@ function SortableRow({ id, children, isReadOnly }: { id: string; children: React
     );
 }
 
+interface ProductEditPopupProps {
+    product: AdminProduct;
+    index: number;
+    categories: { label: string; value: string }[];
+    allCategories: Category[];
+    companies: Company[];
+    currencies: Currency[];
+    productsSettings: ProductsSettings | undefined;
+    isReadOnly: boolean;
+    onSave: (product: AdminProduct) => void;
+    onDelete: () => void;
+    onCancel: () => void;
+}
+
+function ProductEditPopup({
+    product,
+    index,
+    categories,
+    allCategories,
+    companies,
+    currencies,
+    productsSettings,
+    isReadOnly,
+    onSave,
+    onDelete,
+    onCancel,
+}: ProductEditPopupProps) {
+    const categoryCompanyShare = useMemo(() => {
+        const map = new Map<string, number | undefined>();
+        for (const cat of allCategories) {
+            if (!cat.company) continue;
+            const company = companies.find((c) => c.name === cat.company);
+            if (company) map.set(cat.label, company.employerShare);
+        }
+        return map;
+    }, [allCategories, companies]);
+    const [draft, setDraft] = useState<AdminProduct>(product);
+    const mainCurrency = useMemo(() => currencies.find((c) => c.rate === 1) ?? currencies[0], [currencies]);
+    const currencySymbol = mainCurrency?.symbol ?? '';
+
+    const update = useCallback((updates: Partial<AdminProduct>) => {
+        setDraft((d) => ({ ...d, ...updates }));
+    }, []);
+
+    const isValid = draft.name?.trim().length > 0;
+
+    return (
+        <div className="p-4 space-y-4 max-w-lg mx-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold mb-2">
+                {product.name ? `Modifier ${product.name}` : `Nouveau produit #${index + 1}`}
+            </h3>
+
+            <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Nom</label>
+                    <ValidatedInput
+                        type="text"
+                        value={draft.name}
+                        onChange={(value) => update({ name: String(value) })}
+                        placeholder="Nom du produit"
+                        maxLength={50}
+                        isReadOnly={isReadOnly}
+                        isNameField
+                        validation={(value) => String(value).trim().length > 0}
+                    />
+                </div>
+                <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Catégorie</label>
+                    <AdminSelect
+                        value={draft.category}
+                        onChange={(e) => update({ category: e.target.value })}
+                        options={categories}
+                        isReadOnly={isReadOnly || categories.length === 1}
+                    />
+                </div>
+                {productsSettings?.useReference && (
+                    <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            Référence
+                        </label>
+                        <ValidatedInput
+                            type="text"
+                            value={draft.reference ?? ''}
+                            onChange={(value) => update({ reference: String(value) })}
+                            placeholder="Auto-généré"
+                            isReadOnly={isReadOnly}
+                            maxLength={50}
+                        />
+                    </div>
+                )}
+                <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                        Prix {currencySymbol ? `(${currencySymbol})` : ''}
+                    </label>
+                    <PriceInput
+                        value={draft.currencies[0] ?? '0'}
+                        onChange={(value) => {
+                            const updated = [...draft.currencies];
+                            updated[0] = String(value);
+                            update({ currencies: updated });
+                        }}
+                        currencies={currencies}
+                        isReadOnly={isReadOnly}
+                    />
+                </div>
+                {(() => {
+                    const share = categoryCompanyShare.get(draft.category || DEFAULT_CATEGORY);
+                    if (share === undefined) return null;
+                    return (
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                Quote part
+                            </label>
+                            <ValidatedInput
+                                type="number"
+                                value={draft.employerShare == null ? '' : String(draft.employerShare)}
+                                onChange={(value) =>
+                                    update({ employerShare: value === '' ? undefined : Number(value) })
+                                }
+                                placeholder={share.toFixed(2)}
+                                isReadOnly={isReadOnly}
+                            />
+                        </div>
+                    );
+                })()}
+                {productsSettings?.useVatPerProduct && (
+                    <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            TVA (%)
+                        </label>
+                        <ValidatedInput
+                            type="number"
+                            value={String(draft.vat ?? 0)}
+                            onChange={(value) => update({ vat: Number(value) || 0 })}
+                            isReadOnly={isReadOnly}
+                        />
+                    </div>
+                )}
+                {productsSettings?.useStock && (
+                    <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Stock</label>
+                        <ValidatedInput
+                            type="number"
+                            value={draft.stock === null ? '' : String(draft.stock)}
+                            onChange={(value) => update({ stock: value === '' ? null : Number(value) })}
+                            placeholder="∞"
+                            isReadOnly={isReadOnly}
+                        />
+                    </div>
+                )}
+                {!productsSettings?.useStock && (
+                    <div className="col-span-1">
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            Disponibilité
+                        </label>
+                        <AvailabilityToggle
+                            availability={draft.stock !== 0}
+                            isReadOnly={isReadOnly}
+                            onChange={(newValue) => update({ stock: newValue ? null : 0 })}
+                        />
+                    </div>
+                )}
+                {productsSettings?.usePhoto && (
+                    <div className="col-span-2">
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Photo</label>
+                        <ValidatedInput
+                            type="text"
+                            value={draft.photo ?? ''}
+                            onChange={(value) => update({ photo: String(value) })}
+                            isReadOnly={isReadOnly}
+                            maxLength={50}
+                        />
+                    </div>
+                )}
+                {productsSettings?.useDescription && (
+                    <div className="col-span-2">
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            Description
+                        </label>
+                        <ValidatedInput
+                            type="text"
+                            value={draft.description ?? ''}
+                            onChange={(value) => update({ description: String(value) })}
+                            isReadOnly={isReadOnly}
+                            maxLength={300}
+                        />
+                    </div>
+                )}
+                {productsSettings?.useOptions && (
+                    <div className="col-span-2">
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            Options
+                        </label>
+                        <ValidatedInput
+                            type="text"
+                            value={draft.options ?? ''}
+                            onChange={(value) => update({ options: String(value) })}
+                            isReadOnly={isReadOnly}
+                            maxLength={300}
+                        />
+                    </div>
+                )}
+                <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Couleur</label>
+                    <ColorSwatchPicker
+                        color={draft.color ?? ''}
+                        onChange={(newColor) => update({ color: newColor })}
+                        isReadOnly={isReadOnly}
+                    />
+                </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-2">
+                <DeleteButton onClick={onDelete} title="Supprimer le produit" />
+                <div className="flex gap-2">
+                    <AdminButton variant="secondary" onClick={onCancel}>
+                        Annuler
+                    </AdminButton>
+                    <AdminButton variant="primary" onClick={() => onSave(draft)} disabled={isReadOnly || !isValid}>
+                        Valider
+                    </AdminButton>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function ProductsConfig({
     config,
     onChange,
@@ -77,6 +309,8 @@ export default function ProductsConfig({
     onCancel,
     hasChanges = false,
     categories,
+    allCategories,
+    companies,
     currencies,
     isReadOnly = false,
     isLoading = false,
@@ -92,6 +326,8 @@ export default function ProductsConfig({
     onCancel?: () => void;
     hasChanges?: boolean;
     categories: { label: string; value: string }[];
+    allCategories: Category[];
+    companies: Company[];
     currencies: Currency[];
     isReadOnly?: boolean;
     isLoading?: boolean;
@@ -112,6 +348,7 @@ export default function ProductsConfig({
     const [products, setProducts] = useState(config || []);
     const [search, setSearch] = useState('');
     const vkContext = useVirtualKeyboardContext();
+    const { openFullscreenPopup, closePopup } = usePopup();
     const [availFilter, setAvailFilter] = useState<AvailabilityFilter>('all');
     const [sortField, setSortField] = useState<SortField | null>(null);
     const [sortDirection, setSortDirection] = useState<SortDirection>('none');
@@ -124,6 +361,16 @@ export default function ProductsConfig({
     const focusAfterDeleteRef = useRef<number | null>(null);
 
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 10 } }));
+
+    const categoryCompanyShare = useMemo(() => {
+        const map = new Map<string, number | undefined>();
+        for (const cat of allCategories) {
+            if (!cat.company) continue;
+            const company = companies.find((c) => c.name === cat.company);
+            if (company) map.set(cat.label, company.employerShare);
+        }
+        return map;
+    }, [allCategories, companies]);
 
     const categoryOrder = useMemo(() => {
         // Use categories prop order as the stable base order
@@ -179,25 +426,78 @@ export default function ProductsConfig({
         [onChange]
     );
 
-    const handleProductChange = (index: number, updatedProduct: AdminProduct) => {
-        const prev = products[index];
-        if (prev && prev.category !== updatedProduct.category) {
-            focusPriceIndexRef.current = index;
-        }
-        const newProducts = [...products];
-        newProducts[index] = updatedProduct;
-        setProducts(newProducts);
-        notifyParent(newProducts);
-    };
+    const handleProductChange = useCallback(
+        (index: number, updatedProduct: AdminProduct) => {
+            const prev = products[index];
+            if (prev && prev.category !== updatedProduct.category) {
+                focusPriceIndexRef.current = index;
+            }
+            const newProducts = [...products];
+            newProducts[index] = updatedProduct;
+            setProducts(newProducts);
+            notifyParent(newProducts);
+        },
+        [products, notifyParent]
+    );
 
-    const handleDeleteProduct = (index: number) => {
-        const newProducts = products.filter((_, i) => i !== index);
-        if (newProducts.length > 0) {
-            focusAfterDeleteRef.current = Math.max(0, index - 1);
-        }
-        setProducts(newProducts);
-        notifyParent(newProducts);
-    };
+    const handleDeleteProduct = useCallback(
+        (index: number) => {
+            const newProducts = products.filter((_, i) => i !== index);
+            if (newProducts.length > 0) {
+                focusAfterDeleteRef.current = Math.max(0, index - 1);
+            }
+            setProducts(newProducts);
+            notifyParent(newProducts);
+        },
+        [products, notifyParent]
+    );
+
+    const handleEditProduct = useCallback(
+        (index: number) => {
+            const product = products[index];
+            if (!product) return;
+            const content = (
+                <ProductEditPopup
+                    product={product}
+                    index={index}
+                    categories={categories}
+                    allCategories={allCategories}
+                    companies={companies}
+                    currencies={currencies}
+                    productsSettings={productsSettings}
+                    isReadOnly={isReadOnly}
+                    onSave={(updated) => {
+                        handleProductChange(index, updated);
+                        closePopup();
+                    }}
+                    onDelete={() => {
+                        handleDeleteProduct(index);
+                        closePopup();
+                    }}
+                    onCancel={() => closePopup()}
+                />
+            );
+            openFullscreenPopup(
+                product.name ? `Modifier ${product.name}` : 'Nouveau produit',
+                [content],
+                () => {},
+                true
+            );
+        },
+        [
+            products,
+            categories,
+            allCategories,
+            companies,
+            currencies,
+            productsSettings,
+            isReadOnly,
+            handleProductChange,
+            handleDeleteProduct,
+            openFullscreenPopup,
+            closePopup,
+        ]
+    );
 
     const handleReorder = (updated: AdminProduct[]) => {
         setProducts(updated);
@@ -520,6 +820,9 @@ export default function ProductsConfig({
                                                 <SortIcon field="price" />
                                             </div>
                                         </th>
+                                        <th className={adminSortableHeaderStyle + ' min-w-20 w-20'}>
+                                            <div className="flex items-center gap-1">Quote part</div>
+                                        </th>
                                         {productsSettings?.useVatPerProduct && (
                                             <th
                                                 className={adminSortableHeaderStyle + ' min-w-16 w-16'}
@@ -626,7 +929,7 @@ export default function ProductsConfig({
                                             >
                                                 <td
                                                     colSpan={(() => {
-                                                        let count = isReadOnly ? 5 : 6; // base: drag + name + category + price + stock/availability + delete
+                                                        let count = isReadOnly ? 6 : 7; // base: drag + name + category + price + stock/availability + delete
                                                         if (productsSettings?.useReference) count++;
                                                         if (productsSettings?.useVatPerProduct) count++;
                                                         if (productsSettings?.usePhoto) count++;
@@ -744,6 +1047,35 @@ export default function ProductsConfig({
                                                                     }}
                                                                 />
                                                             </td>
+                                                            {(() => {
+                                                                const share = categoryCompanyShare.get(
+                                                                    p.category || DEFAULT_CATEGORY
+                                                                );
+                                                                if (share === undefined) return <td className="p-2" />;
+                                                                return (
+                                                                    <td className="p-2">
+                                                                        <ValidatedInput
+                                                                            type="number"
+                                                                            isReadOnly={isReadOnly}
+                                                                            value={
+                                                                                p.employerShare == null
+                                                                                    ? ''
+                                                                                    : String(p.employerShare)
+                                                                            }
+                                                                            onChange={(value) =>
+                                                                                handleProductChange(i, {
+                                                                                    ...p,
+                                                                                    employerShare:
+                                                                                        value === ''
+                                                                                            ? undefined
+                                                                                            : Number(value),
+                                                                                })
+                                                                            }
+                                                                            placeholder={share.toFixed(2)}
+                                                                        />
+                                                                    </td>
+                                                                );
+                                                            })()}
                                                             {productsSettings?.useVatPerProduct && (
                                                                 <td className="p-2">
                                                                     <ValidatedInput
@@ -873,6 +1205,9 @@ export default function ProductsConfig({
                                                             <DeleteButtonCell
                                                                 isReadOnly={isReadOnly}
                                                                 onDelete={() => handleDeleteProduct(i)}
+                                                                onEdit={
+                                                                    p.options ? () => handleEditProduct(i) : undefined
+                                                                }
                                                             />
                                                         </SortableRow>
                                                     ))}

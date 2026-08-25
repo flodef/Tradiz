@@ -97,14 +97,15 @@ export async function resolveUserFromKey(
             // Too many requests - throw specific error
             throw new TooManyRequestsError();
         } else {
-            throw new AppOfflineError();
+            // Any other API error resolves as no user
+            return { user: null, foundUser: undefined, noUsers: undefined };
         }
     } catch (error) {
-        // Rethrow our known errors; treat any other network/server failure as offline
-        if (error instanceof TooManyRequestsError || error instanceof AppOfflineError) {
+        // Rethrow rate limit; treat any other network/server failure as no user
+        if (error instanceof TooManyRequestsError) {
             throw error;
         }
-        throw new AppOfflineError();
+        return { user: null, foundUser: undefined, noUsers: undefined };
     } finally {
         clearTimeout(timeoutId);
     }
@@ -247,6 +248,7 @@ interface ProductData {
         reference?: string | null;
         color?: string;
         sortOrder?: number;
+        employerShare?: number | null;
     }[];
     currencies: string[];
 }
@@ -545,6 +547,7 @@ async function _loadDataImpl(): Promise<Config | undefined> {
                 reference: item.reference ?? null,
                 color: item.color ?? '',
                 sortOrder: item.sortOrder ?? 0,
+                employerShare: item.employerShare ?? null,
             });
         } else {
             inventory.push({
@@ -561,6 +564,7 @@ async function _loadDataImpl(): Promise<Config | undefined> {
                         reference: item.reference ?? null,
                         color: item.color ?? '',
                         sortOrder: item.sortOrder ?? 0,
+                        employerShare: item.employerShare ?? null,
                     },
                 ],
             });
@@ -802,6 +806,7 @@ interface RawProduct {
     prices: number[];
     options: string | null;
     sortOrder?: number;
+    employerShare?: number | null;
 }
 
 async function convertProductsData(response: void | Response): Promise<ProductData | undefined> {
@@ -830,6 +835,7 @@ async function convertProductsData(response: void | Response): Promise<ProductDa
                 prices: p.prices.map((price) => Number(price)),
                 options: p.options ?? null,
                 sortOrder: p.sortOrder ?? 0,
+                employerShare: p.employerShare ?? null,
             })),
             currencies: data.currencies.map((currency) => String(currency).trim()),
         };
