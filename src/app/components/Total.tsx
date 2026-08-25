@@ -29,7 +29,7 @@ import {
     UPDATING_KEYWORD,
     WAITING_KEYWORD,
 } from '../utils/constants';
-import { OrderItem, State, Transaction } from '../utils/interfaces';
+import { OrderItem, Product, State, Transaction } from '../utils/interfaces';
 import { isMobileSize, useIsMobile, useIsMobileDevice, useLongPressContextMenu } from '../utils/mobile';
 import { getPaymentIcon } from '../utils/paymentIcons';
 import { getPublicKey } from '../utils/processData';
@@ -66,6 +66,15 @@ function TopNavWithRoleCheck({
 
 const payLabel = 'PAYER';
 const totalLabel = 'TOTAL';
+
+function findCompanyProductIndex(
+    productList: Product[],
+    categories: { name: string; company?: string | null }[],
+    company?: string | null
+): number {
+    if (!company) return -1;
+    return productList.findIndex((product) => categories.find((c) => c.name === product.category)?.company === company);
+}
 
 interface ItemProps {
     className?: string;
@@ -418,11 +427,11 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         const printerOptions = getPrintersNames();
 
         const productLines = products.current.map((product) => displayProduct(product));
-        const showProductsCompanyIndex = currentCustomer?.company
-            ? products.current.findIndex(
-                  (product) => categories.find((c) => c.name === product.category)?.company === currentCustomer.company
-              )
-            : -1;
+        const showProductsCompanyIndex = findCompanyProductIndex(
+            products.current,
+            categories,
+            currentCustomer?.company
+        );
         const liveEmployerShare = getEmployerShare();
         if (liveEmployerShare > 0 && showProductsCompanyIndex >= 0) {
             productLines[showProductsCompanyIndex] += '\n- quote part employeur = ' + toCurrency(liveEmployerShare);
@@ -751,11 +760,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         return actions;
     }, [getPrintersNames, parameters.display?.showWaiting, parameters.display?.showRefund]);
 
-    const companyProductIndex = currentCustomer?.company
-        ? products.current.findIndex(
-              (product) => categories.find((c) => c.name === product.category)?.company === currentCustomer.company
-          )
-        : -1;
+    const companyProductIndex = findCompanyProductIndex(products.current, categories, currentCustomer?.company);
 
     if (state === State.init || state === State.loading || state === State.error) {
         return (

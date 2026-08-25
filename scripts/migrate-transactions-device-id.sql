@@ -5,5 +5,5 @@
 -- PostgreSQL
 ALTER TABLE dc_pos.transactions ADD COLUMN IF NOT EXISTS device_id VARCHAR(255) DEFAULT NULL;
 
--- MariaDB (run separately if using MariaDB)
--- ALTER TABLE transactions ADD COLUMN IF NOT EXISTS device_id VARCHAR(255) DEFAULT NULL;
+-- MariaDB
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS device_id VARCHAR(255) DEFAULT NULL;

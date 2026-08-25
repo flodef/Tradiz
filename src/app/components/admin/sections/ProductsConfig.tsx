@@ -1054,23 +1054,19 @@ export default function ProductsConfig({
                                                                 if (share === undefined) return <td className="p-2" />;
                                                                 return (
                                                                     <td className="p-2">
-                                                                        <ValidatedInput
-                                                                            type="number"
-                                                                            isReadOnly={isReadOnly}
-                                                                            value={
-                                                                                p.employerShare == null
-                                                                                    ? ''
-                                                                                    : String(p.employerShare)
-                                                                            }
+                                                                        <PriceInput
+                                                                            value={p.employerShare ?? ''}
                                                                             onChange={(value) =>
                                                                                 handleProductChange(i, {
                                                                                     ...p,
                                                                                     employerShare:
-                                                                                        value === ''
+                                                                                        value === '' || value === 0
                                                                                             ? undefined
                                                                                             : Number(value),
                                                                                 })
                                                                             }
+                                                                            currencies={currencies}
+                                                                            isReadOnly={isReadOnly}
                                                                             placeholder={share.toFixed(2)}
                                                                         />
                                                                     </td>

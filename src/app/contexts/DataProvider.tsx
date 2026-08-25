@@ -1145,8 +1145,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // The amount the customer actually pays: products total minus the employer
     // share (capped at 0 so the total never goes negative).
     const getCustomerTotal = useCallback(() => {
-        return Math.max(0, getCurrentTotal() - employerShare);
-    }, [getCurrentTotal, employerShare]);
+        return Math.max(0, getCurrentTotal() - getEmployerShare());
+    }, [getCurrentTotal, getEmployerShare]);
 
     const updateTotal = useCallback(() => {
         const share = getEmployerShare();
@@ -1315,6 +1315,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 deleteProduct(products.current.indexOf(p));
             } else {
                 computeQuantity(p, p.quantity - 1);
+                saveProcessingTransactionRef.current();
             }
         },
         [selectedProduct, products, computeQuantity, deleteProduct]
@@ -1407,6 +1408,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
         autoSaveProcessingRef.current = setTimeout(() => {
             const hasProducts = products.current.length > 0;
+            const liveShare = getEmployerShare();
             const currentDeviceId = getPublicKey();
             const existingProcessing = transactions.find(
                 (t) =>
@@ -1429,7 +1431,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     currency: currencies[currencyIndex].label,
                     products: products.current.map((p) => ({ ...p })),
                     takeOut: counterServiceTypeRef.current === 'takeout',
-                    ...(employerShare > 0 ? { employerShare } : {}),
+                    ...(liveShare > 0 ? { employerShare: liveShare } : {}),
                     ...(customerName ? { customerName } : {}),
                 };
                 transactionId.current = now;
@@ -1439,8 +1441,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 // Update the existing PROCESSING transaction with current products
                 existingProcessing.products = products.current.map((p) => ({ ...p }));
                 existingProcessing.amount = getCustomerTotal();
-                if (employerShare > 0) {
-                    existingProcessing.employerShare = employerShare;
+                if (liveShare > 0) {
+                    existingProcessing.employerShare = liveShare;
                 } else {
                     delete existingProcessing.employerShare;
                 }
@@ -1463,7 +1465,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         currencies,
         currencyIndex,
         getCustomerTotal,
-        employerShare,
+        getEmployerShare,
         storeTransaction,
         saveTransactions,
         currentCustomer,
@@ -1506,6 +1508,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!item || (typeof item === 'string' && !products.current.length)) return;
 
             const currentTime = floorToSeconds(new Date().getTime()); // floor to seconds to match SQL TIMESTAMP precision
+            const liveShare = getEmployerShare();
             // When paying, find the existing PROCESSING transaction to update.
             // transactionId.current may be 0 because saveTransactions resets it to 0 after an 'add'
             // (which is what saveProcessingTransaction uses). Fall back to looking up the PROCESSING
@@ -1542,7 +1545,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                           products: products.current,
                           takeOut: counterServiceTypeRef.current === 'takeout',
                           deviceId: existingTransaction?.deviceId,
-                          ...(employerShare > 0 ? { employerShare } : {}),
+                          ...(liveShare > 0 ? { employerShare: liveShare } : {}),
                           ...(shortNumOrder ? { shortNumOrder } : {}),
                       };
 
@@ -1562,7 +1565,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             parameters,
             shortNumOrder,
             transactions,
-            employerShare,
+            getEmployerShare,
         ]
     );
 
