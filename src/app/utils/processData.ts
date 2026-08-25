@@ -70,6 +70,9 @@ export async function resolveUserFromKey(
         };
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     try {
         // Collect browser data for logging
         const browserData = {
@@ -82,6 +85,7 @@ export async function resolveUserFromKey(
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ publicKey, browserData }),
+            signal: controller.signal,
         });
 
         if (resolveResponse.ok) {
@@ -92,19 +96,18 @@ export async function resolveUserFromKey(
         } else if (resolveResponse.status === 429) {
             // Too many requests - throw specific error
             throw new TooManyRequestsError();
+        } else {
+            throw new AppOfflineError();
         }
     } catch (error) {
-        // Rethrow our rate-limit error so callers can handle it; swallow network errors
-        if (error instanceof TooManyRequestsError) {
+        // Rethrow our known errors; treat any other network/server failure as offline
+        if (error instanceof TooManyRequestsError || error instanceof AppOfflineError) {
             throw error;
         }
-        // Network error - return null
+        throw new AppOfflineError();
+    } finally {
+        clearTimeout(timeoutId);
     }
-
-    return {
-        user: null,
-        foundUser: undefined,
-    };
 }
 
 interface RawParameters {

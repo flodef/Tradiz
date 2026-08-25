@@ -48,6 +48,7 @@ html[data-theme-ready='0'] body {
     --color-secondary-active-dark: var(--secondary-active-dark-color);
     --color-ok: #22c55e;
     --color-error: #ef4444;
+    --z-100: 100;
 
     --background-image-gradient-radial: radial-gradient(var(--tw-gradient-stops));
     --background-image-gradient-conic: conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops));

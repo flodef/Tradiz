@@ -1219,23 +1219,25 @@ export const usePay = () => {
                     .filter((item) => item.currency === currencies[currencyIndex].label && item.availability !== false)
                     .map((item) => item.type);
 
-                // Add print option for manual printing before payment
-                const printerOptions = getPrintersNames().length > 0 ? [PRINT_KEYWORD] : [];
+                // Build the options list: payment methods, then debit, then a separator, then print and other actions
+                const allOptions = [...paymentMethodsLabels];
 
-                // Add separator and additional options
-                const allOptions = paymentMethodsLabels.concat(printerOptions).concat(['']);
+                if (parameters.display?.showDebit !== false) allOptions.push(DEBIT_KEYWORD);
+
+                allOptions.push('');
+
+                const printerOptions = getPrintersNames().length > 0 ? [PRINT_KEYWORD] : [];
+                allOptions.push(...printerOptions);
 
                 // Add PARTIAL PAYMENT option only if orderId is set AND order has at least 2 items
                 if (orderId && orderData && orderData.items.length >= 2) {
                     allOptions.push('PAIEMENT PARTIEL');
                 }
 
-                // Add waiting, refund, and debit options based on display settings (default to true if not set)
+                // Add waiting and refund options based on display settings (default to true if not set)
                 if (parameters.display?.showWaiting !== false) allOptions.push('METTRE ' + WAITING_KEYWORD);
 
                 if (parameters.display?.showRefund !== false) allOptions.push(REFUND_KEYWORD);
-
-                if (parameters.display?.showDebit !== false) allOptions.push(DEBIT_KEYWORD);
 
                 // Add fidelity option only if fidelity rate is configured
                 if ((parameters.fidelityRate ?? 0) > 0) allOptions.push(USE_FIDELITY_KEYWORD);

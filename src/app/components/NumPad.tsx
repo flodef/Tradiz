@@ -1157,19 +1157,26 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                             onClick={onClear}
                             onContextMenu={onClearTotal}
                         />
-                        {hasAmount ? (
-                            displayOnly ? (
+                        {displayOnly ? (
+                            hasSearchEnabled ? (
+                                <ImageButton
+                                    icon={IconSearch}
+                                    className={f + color}
+                                    onClick={openSearchPopup}
+                                    onContextMenu={openSearchPopup}
+                                />
+                            ) : hasAmount || total ? (
                                 <ImageButton {...actionButtonProps} className={f + (total ? color : 'invisible')} />
                             ) : (
-                                <FunctionButton
-                                    className={f2}
-                                    input="&times;"
-                                    onInput={multiply}
-                                    onContextMenu={discount ?? mercuriale}
-                                />
+                                <div className={f2}></div>
                             )
-                        ) : displayOnly && total ? (
-                            <ImageButton {...actionButtonProps} className={f + (total ? color : 'invisible')} />
+                        ) : hasAmount ? (
+                            <FunctionButton
+                                className={f2}
+                                input="&times;"
+                                onInput={multiply}
+                                onContextMenu={discount ?? mercuriale}
+                            />
                         ) : hasSearchEnabled ? (
                             <ImageButton
                                 icon={IconSearch}

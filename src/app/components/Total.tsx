@@ -31,7 +31,7 @@ import {
 } from '../utils/constants';
 import { OrderItem, State, Transaction } from '../utils/interfaces';
 import { isMobileSize, useIsMobile, useIsMobileDevice, useLongPressContextMenu } from '../utils/mobile';
-import { getPaymentIcon, IconDotsCircleHorizontal } from '../utils/paymentIcons';
+import { getPaymentIcon } from '../utils/paymentIcons';
 import { getPublicKey } from '../utils/processData';
 import { Amount } from './Amount';
 import { OrderItemsSelector } from './OrderItemsSelector';
@@ -146,7 +146,7 @@ const PaymentIconButton: FC<{
         }}
         onContextMenu={(e) => e.stopPropagation()}
         className={twMerge(
-            'inline-flex items-center justify-center rounded-lg px-2 py-1 transition-colors',
+            'inline-flex items-center justify-center h-full aspect-square p-0 rounded-none transition-colors',
             disabled
                 ? 'opacity-40 cursor-not-allowed'
                 : 'hover:bg-active-light dark:hover:bg-active-dark active:bg-secondary-active-light dark:active:bg-secondary-active-dark',
@@ -168,6 +168,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         employerShare,
         amount,
         selectedProduct,
+        currentCustomer,
         transactions,
         editTransaction,
         refundTransaction,
@@ -190,8 +191,8 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
-    const { pay, printTransaction, printKitchenReceipt, payWithMethod, canPay } = usePay();
-    const { state, isStateReady, getPrintersNames, parameters, paymentMethods, currencies, currencyIndex } =
+    const { pay, printTransaction, printKitchenReceipt, payWithMethod } = usePay();
+    const { state, isStateReady, getPrintersNames, parameters, paymentMethods, currencies, currencyIndex, categories } =
         useConfig();
 
     const [needRefresh, setNeedRefresh] = useState(false);
@@ -415,8 +416,13 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         const printerOptions = getPrintersNames();
 
         const productLines = products.current.map((product) => displayProduct(product));
-        if (employerShare > 0 && productLines.length > 0) {
-            productLines[productLines.length - 1] += '\n- quote part employeur = ' + toCurrency(employerShare);
+        const showProductsCompanyIndex = currentCustomer?.company
+            ? products.current.findIndex(
+                  (product) => categories.find((c) => c.name === product.category)?.company === currentCustomer.company
+              )
+            : -1;
+        if (employerShare > 0 && showProductsCompanyIndex >= 0) {
+            productLines[showProductsCompanyIndex] += '\n- quote part employeur = ' + toCurrency(employerShare);
         }
 
         openPopup(
@@ -473,6 +479,8 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         printTransaction,
         employerShare,
         total,
+        currentCustomer,
+        categories,
     ]);
 
     const deleteBoughtProduct = useCallback(
@@ -737,14 +745,14 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         if (parameters.display?.showWaiting !== false)
             actions.push({ type: 'METTRE ' + WAITING_KEYWORD, label: 'Mettre en attente' });
         if (parameters.display?.showRefund !== false) actions.push({ type: REFUND_KEYWORD, label: 'Remboursement' });
-        if (parameters.display?.showDebit !== false) actions.push({ type: DEBIT_KEYWORD, label: 'Débit' });
         return actions;
-    }, [
-        getPrintersNames,
-        parameters.display?.showWaiting,
-        parameters.display?.showRefund,
-        parameters.display?.showDebit,
-    ]);
+    }, [getPrintersNames, parameters.display?.showWaiting, parameters.display?.showRefund]);
+
+    const companyProductIndex = currentCustomer?.company
+        ? products.current.findIndex(
+              (product) => categories.find((c) => c.name === product.category)?.company === currentCustomer.company
+          )
+        : -1;
 
     if (state === State.init || state === State.loading || state === State.error) {
         return (
@@ -806,26 +814,15 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                         compact
                             ? 'top-0 left-0 text-center font-bold'
                             : 'top-0 left-0 md:left-1/2 text-center font-bold',
-                        'border-b-4 border-active-light dark:border-active-dark',
+                        'border-b-4 border-active-light dark:border-active-dark z-10',
                         compact
-                            ? 'block text-4xl py-1 shrink-0'
+                            ? 'block text-4xl h-14 shrink-0'
                             : isMobile
-                              ? 'md:hidden text-4xl py-1'
-                              : 'hidden md:block text-5xl py-3',
-                        !isMobile ? clickClassName : ''
+                              ? 'md:hidden text-4xl h-14'
+                              : 'hidden md:block text-5xl h-20'
                     )}
-                    onClick={
-                        (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length)
-                            ? handleClick
-                            : undefined
-                    }
-                    onContextMenu={
-                        (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length)
-                            ? handleClick
-                            : undefined
-                    }
                 >
-                    <div className="flex items-center gap-0 w-full pl-1">
+                    <div className="flex items-center h-full gap-0 w-full pl-0">
                         <TopNavWithRoleCheck
                             showLightAdminNav={showLightAdminNav}
                             isMobile={isMobile}
@@ -833,24 +830,30 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                         />
                         <div
                             className={twMerge(
-                                'flex-1 overflow-hidden whitespace-nowrap',
+                                'flex-1 h-full overflow-hidden whitespace-nowrap',
                                 paymentIconsEnabled && !navExpanded
-                                    ? 'flex items-center justify-between pl-2'
+                                    ? 'flex items-center justify-between pl-0'
                                     : 'text-center'
                             )}
+                            style={{ paddingRight: isMobile ? undefined : '3.5rem' }}
                         >
                             {canDisplayTotal ? (
                                 total ? (
                                     paymentIconsEnabled && !navExpanded ? (
                                         <>
                                             <span
-                                                className={`shrink-0 ${compact ? 'text-2xl' : 'text-3xl'}`}
+                                                className={twMerge(
+                                                    `shrink-0 h-full inline-flex items-center px-2 ${compact ? 'text-5xl' : 'text-6xl'}`,
+                                                    clickClassName
+                                                )}
                                                 title={toCurrency(total)}
+                                                onClick={handleClick}
+                                                onContextMenu={handleClick}
                                             >
                                                 <Amount value={total} showZero />
                                             </span>
                                             <div
-                                                className="flex items-center gap-1 overflow-x-auto"
+                                                className="flex items-center h-full gap-1 overflow-x-auto"
                                                 onMouseDown={(e) => e.stopPropagation()}
                                                 onMouseUp={(e) => e.stopPropagation()}
                                             >
@@ -860,12 +863,20 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                                         icon={getPaymentIcon(method)}
                                                         label={method}
                                                         onClick={() => payWithMethod(method)}
-                                                        size={compact ? 28 : 36}
-                                                        disabled={!canPay}
+                                                        size={compact ? 40 : 52}
                                                     />
                                                 ))}
+                                                {parameters.display?.showDebit !== false && (
+                                                    <PaymentIconButton
+                                                        key={DEBIT_KEYWORD}
+                                                        icon={getPaymentIcon(DEBIT_KEYWORD)}
+                                                        label="Débit"
+                                                        onClick={() => payWithMethod(DEBIT_KEYWORD)}
+                                                        size={compact ? 40 : 52}
+                                                    />
+                                                )}
                                                 {availableActions.length > 0 && (
-                                                    <div className="w-px h-8 bg-current opacity-20 mx-1 shrink-0" />
+                                                    <div className="w-px h-10 bg-current opacity-20 mx-1 shrink-0" />
                                                 )}
                                                 {availableActions.map((action) => (
                                                     <PaymentIconButton
@@ -873,21 +884,19 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                                         icon={getPaymentIcon(action.type)}
                                                         label={action.label}
                                                         onClick={() => payWithMethod(action.type)}
-                                                        size={compact ? 28 : 36}
-                                                        disabled={!canPay}
+                                                        size={compact ? 40 : 52}
                                                     />
                                                 ))}
-                                                <PaymentIconButton
-                                                    icon={IconDotsCircleHorizontal}
-                                                    label="Plus d'options"
-                                                    onClick={pay}
-                                                    size={compact ? 28 : 36}
-                                                />
                                             </div>
                                         </>
                                     ) : (
                                         <span
-                                            className={`inline-flex items-center justify-center ${isMobile ? 'gap-1' : 'gap-2'}`}
+                                            className={twMerge(
+                                                `inline-flex items-center h-full w-full justify-center pl-0 pr-0 ${isMobile ? 'gap-1' : 'gap-2'} ${compact ? 'text-5xl' : 'text-6xl'}`,
+                                                clickClassName
+                                            )}
+                                            onClick={handleClick}
+                                            onContextMenu={handleClick}
                                         >
                                             {!navExpanded && (
                                                 <>
@@ -903,7 +912,12 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                 )
                             ) : (
                                 <span
-                                    className={`inline-flex items-center justify-center ${isMobile ? 'gap-1' : 'gap-2'}`}
+                                    className={twMerge(
+                                        `inline-flex items-center h-full w-full justify-center pl-0 pr-0 ${isMobile ? 'gap-1' : 'gap-2'}`,
+                                        clickClassName
+                                    )}
+                                    onClick={handleClick}
+                                    onContextMenu={handleClick}
                                 >
                                     {!navExpanded && <IconReceipt className="inline-block" size={isMobile ? 28 : 36} />}
                                     {!navExpanded && 'Ticket : '}
@@ -929,7 +943,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                         ? products.current
                               .map((product, index) => ({
                                   product:
-                                      index === products.current.length - 1 && employerShare > 0
+                                      index === companyProductIndex && employerShare > 0
                                           ? displayProduct(product) +
                                             '\n- quote part employeur = ' +
                                             toCurrency(employerShare)

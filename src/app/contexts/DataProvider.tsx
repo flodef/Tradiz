@@ -49,11 +49,22 @@ import { useMercurial } from './dataProvider/useMercurial';
 import { resolveSelectionAfterDelete } from './dataProvider/productHelpers';
 import { useShopId } from '../hooks/useShopId';
 
+const fetchWithTimeout = async (input: RequestInfo | URL, init?: RequestInit, timeout = 15000): Promise<Response> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    try {
+        return await fetch(input, { ...init, signal: controller.signal });
+    } finally {
+        clearTimeout(timeoutId);
+    }
+};
+
 enum DatabaseAction {
     add = 'add',
     update = 'update',
     delete = 'delete',
     hardDelete = 'hardDelete',
+    sync = 'sync',
 }
 
 export interface DataProviderProps {
@@ -90,7 +101,7 @@ export function computeResetTimes(closingHour: number, now?: Date) {
 }
 
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
-    const { currencies, currencyIndex, setCurrency, parameters, isKitchenViewEnabled } = useConfig();
+    const { currencies, currencyIndex, setCurrency, parameters, isKitchenViewEnabled, categories } = useConfig();
     const { isOnline } = useWindowParam();
     const { openFullscreenPopup } = usePopup();
 
@@ -127,6 +138,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [counterServiceType, setCounterServiceTypeState] = useState<ServiceType>('takeout');
     const [contextTableId, setContextTableId] = useState('');
     const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
+    const previousCustomerRef = useRef<Customer | null>(null);
     const [companies, setCompanies] = useState<Company[]>([]);
     const counterServiceTypeRef = useRef<ServiceType>('takeout');
     const setCounterServiceType = useCallback((type: ServiceType) => {
@@ -158,14 +170,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             .catch((error) => console.error('Failed to fetch companies:', error));
     }, [isDbConnected]);
 
-    // Compute employer share: if the current customer belongs to a company with
-    // a meal price > 0, the employer pays part of the meal (capped at the total).
-    const employerShare = useMemo(() => {
-        if (!currentCustomer?.company) return 0;
-        const company = companies.find((c) => c.name === currentCustomer.company);
-        if (!company || !company.mealPrice || company.mealPrice <= 0) return 0;
-        return company.mealPrice;
-    }, [currentCustomer?.company, companies]);
+    // Employer share amount (updated when the customer or cart changes).
+    const [employerShare, setEmployerShare] = useState(0);
 
     useEffect(() => {
         setCurrentMercurial(parameters.mercurial);
@@ -523,7 +529,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         const sinceMs = new Date(lastServerSyncTime.current).getTime() - 5000;
                         urlParams.append('since', new Date(sinceMs).toISOString());
                     }
-                    const response = await fetch(`/api/sql/getTransactions?${urlParams.toString()}`);
+                    const response = await fetchWithTimeout(
+                        `/api/sql/getTransactions?${urlParams.toString()}`,
+                        undefined,
+                        15000
+                    );
                     if (!response.ok) {
                         console.error('SQL DB sync error:', await response.json());
                         return 0;
@@ -538,8 +548,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     let batchOffset = 0;
                     let hasMore = true;
                     while (hasMore) {
-                        const response = await fetch(
-                            `/api/sql/getTransactions?period=full&includeDeleted=true&limit=${BATCH_SIZE}&offset=${batchOffset}`
+                        const response = await fetchWithTimeout(
+                            `/api/sql/getTransactions?period=full&includeDeleted=true&limit=${BATCH_SIZE}&offset=${batchOffset}`,
+                            undefined,
+                            30000
                         );
                         if (!response.ok) {
                             console.error('SQL DB sync error:', await response.json());
@@ -673,11 +685,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (syncInProgress.current) return;
             try {
                 const publicKey = getPublicKey();
-                const heartbeat = await fetch('/api/sql/heartbeat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ publicKey }),
-                });
+                const heartbeat = await fetchWithTimeout(
+                    '/api/sql/heartbeat',
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ publicKey }),
+                    },
+                    10000
+                );
                 if (!heartbeat.ok) return;
                 // Always sync — even when no other devices are detected.
                 // Devices may not be registered in the DB, or the heartbeat may
@@ -1107,6 +1123,21 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         return products.current ? products.current.reduce((t, { total }) => t + (total ?? 0), 0) : 0;
     }, [products]);
 
+    // Compute the employer share: if the current customer belongs to a company
+    // with a meal price, and at least one product is from a category tied to
+    // that company, the employer pays up to the meal price (capped at the total).
+    const getEmployerShare = useCallback(() => {
+        if (!currentCustomer?.company) return 0;
+        const company = companies.find((c) => c.name === currentCustomer.company);
+        if (!company || !company.mealPrice || company.mealPrice <= 0) return 0;
+        const hasCompanyProduct = products.current.some((product) => {
+            const category = categories.find((c) => c.name === product.category);
+            return category?.company === currentCustomer.company;
+        });
+        if (!hasCompanyProduct) return 0;
+        return Math.min(company.mealPrice, getCurrentTotal());
+    }, [currentCustomer?.company, companies, categories, getCurrentTotal]);
+
     // The amount the customer actually pays: products total minus the employer
     // share (capped at 0 so the total never goes negative).
     const getCustomerTotal = useCallback(() => {
@@ -1114,8 +1145,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, [getCurrentTotal, employerShare]);
 
     const updateTotal = useCallback(() => {
-        setTotal(getCustomerTotal());
-    }, [getCustomerTotal]);
+        const share = getEmployerShare();
+        setEmployerShare(share);
+        setTotal(Math.max(0, getCurrentTotal() - share));
+    }, [getEmployerShare, getCurrentTotal]);
 
     const clearAmount = useCallback(() => {
         setAmount(0);
@@ -1134,11 +1167,30 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         setOrderId('');
     }, [clearAmount, clearProcessingTransaction]);
 
-    // Recalculate the total when the employer share changes (e.g. customer
-    // selected/deselected, or companies list loaded after products were added).
+    // Recalculate the total when the customer, companies, or categories change
+    // so the employer share is re-evaluated against the current cart.
     useEffect(() => {
+        const previousCustomer = previousCustomerRef.current;
+        previousCustomerRef.current = currentCustomer;
+
+        if (previousCustomer !== currentCustomer && products.current.length > 0) {
+            const filtered = products.current.filter((product) => {
+                const category = categories.find((c) => c.name === product.category);
+                if (!category?.company) return true;
+                return category.company === currentCustomer?.company;
+            });
+            if (filtered.length !== products.current.length) {
+                products.current = filtered;
+                if (selectedProduct && !filtered.includes(selectedProduct)) {
+                    setSelectedProduct(undefined);
+                    setAmount(0);
+                    setQuantity(0);
+                }
+                saveProcessingTransactionRef.current();
+            }
+        }
         if (products.current.length > 0) updateTotal();
-    }, [employerShare, updateTotal]);
+    }, [currentCustomer, companies, categories, products, updateTotal, selectedProduct]);
 
     const computeDiscount = useCallback((product: Product) => {
         return product.discount.unit === '%'
@@ -1303,16 +1355,18 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     useEffect(() => {
+        const currentDeviceId = getPublicKey();
         // If clearTotal was recently called, don't restore a stale PROCESSING transaction.
         // Keep blocking until the processing transaction is actually gone from state.
         if (clearRequestedRef.current) {
             const processingStillExists = transactions.some(
-                (t) => isProcessingTransaction(t) && t.validator === parameters.user.name
+                (t) =>
+                    isProcessingTransaction(t) &&
+                    (t.deviceId === currentDeviceId || (t.validator === parameters.user.name && !t.deviceId))
             );
             if (!processingStillExists) clearRequestedRef.current = false;
             return;
         }
-        const currentDeviceId = getPublicKey();
         const processingTransaction = !products.current.length
             ? transactions.find(
                   (transaction) =>
@@ -1375,7 +1429,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }
                 existingProcessing.modifiedDate = floorToSeconds(new Date().getTime());
                 storeTransaction(existingProcessing);
-                saveTransactions(DatabaseAction.update, existingProcessing);
+                saveTransactions(DatabaseAction.sync, existingProcessing);
             }
         }, 500);
     }, [

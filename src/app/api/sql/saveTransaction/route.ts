@@ -280,11 +280,12 @@ async function handleUpdateTransaction(connection: Connection, transaction: Tran
     // Update the transaction record to mark it as processing (lookup by order_id —
     // millisecond precision, unique per transaction)
     const updateQuery = isPg
-        ? `UPDATE ${prefix}transactions SET payment_method = $1, device_id = $2, updated_at = $3 WHERE order_id = $4`
-        : `UPDATE ${prefix}transactions SET payment_method = ?, device_id = ?, updated_at = ? WHERE order_id = ?`;
+        ? `UPDATE ${prefix}transactions SET payment_method = $1, user_name = $2, device_id = $3, updated_at = $4 WHERE order_id = $5`
+        : `UPDATE ${prefix}transactions SET payment_method = ?, user_name = ?, device_id = ?, updated_at = ? WHERE order_id = ?`;
 
     await connection.execute(updateQuery, [
         PROCESSING_KEYWORD,
+        transaction.user_name || DEFAULT_USER,
         transaction.device_id ?? null,
         transaction.updated_at,
         transaction.order_id,

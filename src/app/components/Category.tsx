@@ -140,6 +140,9 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
     const { openPopup, updatePopup, openFullscreenPopup, closePopup } = usePopup();
     const { isLocalhost, isDemo } = useWindowParam();
 
+    const showOthers = parameters.display?.displayOthers === true;
+    const useOptions = parameters.products?.useOptions === true;
+
     const [hasSentEmail, setHasSentEmail] = useState(false);
 
     // Use hook for screen size config with hydration safety
@@ -305,7 +308,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
                 }
                 // Article with options?
                 const article = catalog.articles.find((a) => a.nom === label);
-                if (article?.options) {
+                if (useOptions && article?.options) {
                     try {
                         const parsed = JSON.parse(article.options);
                         // Handle both formats: single object {type, options} or array of objects
@@ -465,9 +468,9 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
     const buildProductListPopup = (item: InventoryItem) => {
         const sorted = [...item.products].sort((a, b) => a.label.localeCompare(b.label));
         const entries: string[] = sorted.map((p) =>
-            p.options && !isSingleElementFormula(p.options) ? `${p.label}${ARROW}` : p.label
+            p.options && useOptions && !isSingleElementFormula(p.options) ? `${p.label}${ARROW}` : p.label
         );
-        entries.push('', OTHER_KEYWORD);
+        if (showOthers) entries.push('', OTHER_KEYWORD);
 
         const action = (index: number, option: string) => {
             if (index < 0) {
@@ -481,7 +484,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
                 return;
             }
             const product = sorted[index];
-            if (product.options && !isSingleElementFormula(product.options)) {
+            if (product.options && useOptions && !isSingleElementFormula(product.options)) {
                 productListScrollRef.current = getPopupScroll();
                 openOptionsSubPopup(item, product);
             } else {
@@ -496,7 +499,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
     const openProductListPopup = (item: InventoryItem) => {
         setSelectedProduct({
             category: item.category,
-            label: OTHER_KEYWORD,
+            label: showOthers ? OTHER_KEYWORD : '',
             quantity: 0,
             discount: EmptyDiscount,
             amount: 0,
@@ -516,6 +519,10 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
         item: InventoryItem,
         product: { label: string; prices: number[]; options?: string | null }
     ) => {
+        if (!useOptions || !product.options) {
+            handleProductSelection(item, product.label);
+            return;
+        }
         let optionTypes: OptionDef[];
         try {
             const parsed = JSON.parse(product.options!);
@@ -610,20 +617,22 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
         if (!item) return;
 
         if (eventType === 'contextmenu' || item.products.length === 0) {
-            addProduct({
-                category: item.category,
-                label: OTHER_KEYWORD,
-                quantity: 1,
-                discount: EmptyDiscount,
-                amount: amount,
-                vatRate: item.rate,
-            });
+            if (showOthers) {
+                addProduct({
+                    category: item.category,
+                    label: OTHER_KEYWORD,
+                    quantity: 1,
+                    discount: EmptyDiscount,
+                    amount: amount,
+                    vatRate: item.rate,
+                });
+            }
             return;
         }
 
         if (item.products.length === 1) {
             const product = item.products[0];
-            if (product.options) {
+            if (product.options && useOptions) {
                 openOptionsSubPopup(item, product);
             } else {
                 handleProductSelection(item, product.label);
@@ -744,7 +753,6 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
     if (catalogMode) {
         const selectedItem = displayInventory[selectedCategoryIndex] ?? displayInventory[0];
         const products = selectedItem?.products ?? [];
-        const showOthers = parameters.display?.displayOthers === true;
 
         // Build a 6×6 grid positioned by sortOrder encoding.
         // We decode the position part and try to place by row/col; if that
@@ -886,7 +894,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
                         if (!product) {
                             return <div key={index} className="h-20" />;
                         }
-                        const hasOptions = product.options && !isSingleElementFormula(product.options);
+                        const hasOptions = product.options && useOptions && !isSingleElementFormula(product.options);
                         const bgColor = colorToHex(product.color);
                         const price = product.prices[currencyIndex] ?? product.prices[0] ?? 0;
                         return (
@@ -917,7 +925,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
                                     lang="fr"
                                 >
                                     {product.label}
-                                    {Boolean(hasOptions) && <span className="text-xs opacity-70"> ▸</span>}
+                                    {Boolean(hasOptions) && <span className="text-xl opacity-90">&nbsp;{ARROW}</span>}
                                 </div>
                                 {price > 0 && (
                                     <div className="h-5 flex items-center justify-end text-sm font-normal leading-none pr-2">

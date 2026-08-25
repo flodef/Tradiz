@@ -227,7 +227,7 @@ export const MainContent: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdmi
             onClick={handleClick}
         >
             {/* Always-visible close button in top right corner */}
-            <div className="fixed top-2 right-0 z-50">
+            <div className="fixed top-2 right-0 z-100" id="close-app-button">
                 {USE_DIGICARTE && modeFonctionnement !== 'lite' && (
                     <CloseButton
                         onClose={() => postMessageToParent(CLOSE)}
