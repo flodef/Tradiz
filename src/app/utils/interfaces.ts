@@ -190,6 +190,7 @@ export type Transaction = {
     takeOut?: boolean;
     employerShare?: number;
     fidelityPointsUsed?: number;
+    deviceId?: string;
 };
 
 export type TransactionSet = {

@@ -872,6 +872,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const index = transaction.createdDate;
             transactionId.current = action === DatabaseAction.update ? index : 0;
 
+            // Tag the current device on all PROCESSING transactions
+            if (isProcessingTransaction(transaction)) {
+                transaction.deviceId = getPublicKey();
+            }
+
             if (USE_DIGICARTE || (await checkDbConfig())) {
                 try {
                     // Prepare the transaction data for SQL DB
@@ -893,6 +898,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             takeOut: transaction.takeOut ?? false,
                             employer_share: transaction.employerShare ?? null,
                             fidelity_points: transaction.fidelityPointsUsed ?? null,
+                            device_id: transaction.deviceId ?? null,
                             created_at: toSQLDateTime(transaction.createdDate),
                             updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
                             products: transaction.products.map((product) => ({
@@ -1005,18 +1011,31 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const deleteTransaction = useCallback(
         (index?: number) => {
             if (!transactions.length) return;
+            const currentDeviceId = getPublicKey();
 
             index = index ?? transactions.findIndex(({ createdDate }) => createdDate === transactionId.current);
-            // If not found by transactionId, fall back to finding the PROCESSING tx by validator.
-            // This happens because saveTransactions resets transactionId.current to 0 after 'add'.
+            // If not found by transactionId, fall back to finding the PROCESSING tx by device.
+            // This happens because saveTransactions resets transactionId.current to 0 after an 'add'
+            // (which is what saveProcessingTransaction uses). Fall back to finding the PROCESSING
+            // tx by validator for pre-device_id transactions.
             if (index < 0) {
                 index = transactions.findIndex(
-                    (t) => isProcessingTransaction(t) && t.validator === parameters.user.name
+                    (t) =>
+                        isProcessingTransaction(t) &&
+                        (t.deviceId === currentDeviceId || (t.validator === parameters.user.name && !t.deviceId))
                 );
             }
 
             if (index >= 0) {
                 const transaction = transactions[index];
+                // Refuse to delete a PROCESSING transaction that does not belong to this device.
+                if (
+                    isProcessingTransaction(transaction) &&
+                    transaction.deviceId &&
+                    transaction.deviceId !== currentDeviceId
+                )
+                    return;
+
                 if (isProcessingTransaction(transaction)) {
                     // PROCESSING transactions are transient — hard-delete them from DB
                     // instead of leaving a DELETED record. saveTransactions handles
@@ -1041,8 +1060,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // The side effect (saveTransactions) is deferred to a useEffect so the updater stays pure.
     const pendingHardDeleteRef = useRef<Transaction | null>(null);
     const clearProcessingTransaction = useCallback(() => {
+        const currentDeviceId = getPublicKey();
         setTransactions((prev) => {
-            const idx = prev.findIndex((t) => isProcessingTransaction(t) && t.validator === parameters.user.name);
+            const idx = prev.findIndex(
+                (t) =>
+                    isProcessingTransaction(t) &&
+                    (t.deviceId === currentDeviceId || (t.validator === parameters.user.name && !t.deviceId))
+            );
             if (idx < 0) return prev;
             // Only hard-delete if it's STILL a PROCESSING tx in the current state.
             // If it was already updated to a paid tx by storeTransaction, skip.
@@ -1288,10 +1312,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!processingStillExists) clearRequestedRef.current = false;
             return;
         }
+        const currentDeviceId = getPublicKey();
         const processingTransaction = !products.current.length
             ? transactions.find(
                   (transaction) =>
-                      isProcessingTransaction(transaction) && transaction.validator === parameters.user.name
+                      isProcessingTransaction(transaction) &&
+                      (transaction.deviceId === currentDeviceId ||
+                          (transaction.validator === parameters.user.name && !transaction.deviceId))
               )
             : undefined;
         if (processingTransaction) {
@@ -1313,8 +1340,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
         autoSaveProcessingRef.current = setTimeout(() => {
             const hasProducts = products.current.length > 0;
+            const currentDeviceId = getPublicKey();
             const existingProcessing = transactions.find(
-                (t) => isProcessingTransaction(t) && t.validator === parameters.user.name
+                (t) =>
+                    isProcessingTransaction(t) &&
+                    (t.deviceId === currentDeviceId || (t.validator === parameters.user.name && !t.deviceId))
             );
 
             if (hasProducts && !existingProcessing) {
@@ -1365,6 +1395,16 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const transaction = override ?? transactions.at(index);
             if (!transaction?.amount) return;
 
+            // Refuse to edit a PROCESSING transaction that does not belong to this device.
+            if (isProcessingTransaction(transaction)) {
+                const currentDeviceId = getPublicKey();
+                if (transaction.deviceId) {
+                    if (transaction.deviceId !== currentDeviceId) return;
+                } else if (transaction.validator !== parameters.user.name) {
+                    return;
+                }
+            }
+
             // Track if this tx was WAITING — the kitchen already received a ticket when it was put on hold.
             wasWaitingBeforeEditRef.current = isWaitingTransaction(transaction);
             // Snapshot the original products to compute the delta when the tx is committed
@@ -1378,7 +1418,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             saveTransactions(DatabaseAction.update, transaction);
         },
-        [transactions, saveTransactions, addProduct, setCurrency]
+        [transactions, saveTransactions, addProduct, setCurrency, parameters.user.name]
     );
 
     const updateTransaction = useCallback(
@@ -1391,14 +1431,20 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             // (which is what saveProcessingTransaction uses). Fall back to looking up the PROCESSING
             // tx by validator so we can reuse its createdDate — this makes the PAID tx replace the
             // PROCESSING tx (same createdDate) instead of creating a duplicate row in the DB.
+            const currentDeviceId = getPublicKey();
             const existingTransaction = transactionId.current
                 ? transactions.find((tx) => tx.createdDate === transactionId.current)
-                : transactions.find((t) => isProcessingTransaction(t) && t.validator === parameters.user.name);
+                : transactions.find(
+                      (t) =>
+                          isProcessingTransaction(t) &&
+                          (t.deviceId === currentDeviceId || (t.validator === parameters.user.name && !t.deviceId))
+                  );
 
             const transaction: Transaction =
                 typeof item === 'object'
                     ? {
                           ...item,
+                          deviceId: item.deviceId ?? existingTransaction?.deviceId,
                           createdDate:
                               (existingTransaction?.createdDate || transactionId.current) && !isRefundTransaction(item)
                                   ? existingTransaction?.createdDate || transactionId.current
@@ -1415,6 +1461,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                           customerName: existingTransaction?.customerName,
                           products: products.current,
                           takeOut: counterServiceTypeRef.current === 'takeout',
+                          deviceId: existingTransaction?.deviceId,
                           ...(employerShare > 0 ? { employerShare } : {}),
                           ...(shortNumOrder ? { shortNumOrder } : {}),
                       };

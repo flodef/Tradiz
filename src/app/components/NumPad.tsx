@@ -1129,7 +1129,11 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                             </span>
                             {currentCustomer && (
                                 <button
-                                    onClick={() => setCurrentCustomer(null)}
+                                    onClick={() =>
+                                        openPopup('⚠️ Supprimer le client ?', ['Confirmer', 'Annuler'], (i) => {
+                                            if (i === 0) setCurrentCustomer(null);
+                                        })
+                                    }
                                     className="shrink-0 p-1 hover:bg-active-light dark:hover:bg-active-dark rounded"
                                 >
                                     <IconX size={24} stroke={3} />

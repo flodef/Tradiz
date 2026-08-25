@@ -348,6 +348,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.transactions (
     take_out BOOLEAN NOT NULL DEFAULT true,
     employer_share NUMERIC(10,2) DEFAULT NULL,
     fidelity_points NUMERIC(10,2) DEFAULT NULL,
+    device_id VARCHAR(255) DEFAULT NULL,
     hash VARCHAR(64) UNIQUE,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL

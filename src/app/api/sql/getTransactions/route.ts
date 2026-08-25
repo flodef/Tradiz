@@ -20,6 +20,8 @@ interface TransactionRow {
     change: string;
     take_out: boolean;
     employer_share?: number | null;
+    deviceid?: string | null;
+    deviceId?: string | null;
     createddate?: number; // PostgreSQL lowercases unquoted aliases
     modifieddate?: number;
     createdDate?: number; // MariaDB preserves case
@@ -116,6 +118,7 @@ export async function GET(request: Request) {
                 t.change,
                 t.take_out,
                 t.employer_share,
+                t.device_id as deviceid,
                 (EXTRACT(EPOCH FROM t.created_at) * 1000)::bigint as createddate,
                 (EXTRACT(EPOCH FROM t.updated_at) * 1000)::bigint as modifieddate
             FROM dc_pos.transactions t
@@ -135,6 +138,7 @@ export async function GET(request: Request) {
                 t.change,
                 t.take_out,
                 t.employer_share,
+                t.device_id as deviceId,
                 (UNIX_TIMESTAMP(t.created_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as createdDate,
                 (UNIX_TIMESTAMP(t.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate
             FROM transactions t
@@ -203,6 +207,7 @@ export async function GET(request: Request) {
                 ...(parsedChange !== undefined ? { change: parsedChange } : {}),
                 ...(row.take_out ? { takeOut: true } : { takeOut: false }),
                 ...(row.employer_share != null ? { employerShare: Number(row.employer_share) } : {}),
+                ...(row.deviceid ?? row.deviceId ? { deviceId: String(row.deviceid ?? row.deviceId) } : {}),
             });
         }
 

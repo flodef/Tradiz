@@ -32,6 +32,7 @@ import {
 import { OrderItem, State, Transaction } from '../utils/interfaces';
 import { isMobileSize, useIsMobile, useIsMobileDevice, useLongPressContextMenu } from '../utils/mobile';
 import { getPaymentIcon, IconDotsCircleHorizontal } from '../utils/paymentIcons';
+import { getPublicKey } from '../utils/processData';
 import { Amount } from './Amount';
 import { OrderItemsSelector } from './OrderItemsSelector';
 import { useAddPopupClass } from './Popup';
@@ -198,11 +199,15 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
 
     const label = useIsMobile() ? totalLabel : payLabel;
 
-    // PROCESSING transactions are editable only by the user who created them.
-    // Other users can view/print but not modify, delete, or refund them.
+    // PROCESSING transactions are editable only by the device that created them.
+    // Other devices/users can view/print but not modify, delete, or refund them.
     const isReadOnlyProcessingForUser = useCallback(
-        (transaction: Transaction) =>
-            isProcessingTransaction(transaction) && transaction.validator !== parameters.user?.name,
+        (transaction: Transaction) => {
+            if (!isProcessingTransaction(transaction)) return false;
+            const currentDeviceId = getPublicKey();
+            if (transaction.deviceId) return transaction.deviceId !== currentDeviceId;
+            return transaction.validator !== parameters.user?.name;
+        },
         [parameters.user?.name]
     );
 
@@ -410,8 +415,8 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         const printerOptions = getPrintersNames();
 
         const productLines = products.current.map((product) => displayProduct(product));
-        if (employerShare > 0) {
-            productLines.push('Quote part employeur : -' + toCurrency(employerShare));
+        if (employerShare > 0 && productLines.length > 0) {
+            productLines[productLines.length - 1] += '\n- quote part employeur = ' + toCurrency(employerShare);
         }
 
         openPopup(
@@ -922,8 +927,13 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                 <div className="flex-1 overflow-y-auto">
                     {canDisplayTotal
                         ? products.current
-                              .map((product) => ({
-                                  product: displayProduct(product),
+                              .map((product, index) => ({
+                                  product:
+                                      index === products.current.length - 1 && employerShare > 0
+                                          ? displayProduct(product) +
+                                            '\n- quote part employeur = ' +
+                                            toCurrency(employerShare)
+                                          : displayProduct(product),
                                   isSelectedProduct: product === selectedProduct,
                               }))
                               .map(({ product, isSelectedProduct }, index) => (

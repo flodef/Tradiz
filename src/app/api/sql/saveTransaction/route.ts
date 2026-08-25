@@ -34,6 +34,7 @@ interface TransactionData {
     takeOut?: boolean;
     employer_share?: number | null;
     fidelity_points?: number | null;
+    device_id?: string | null;
     created_at: string;
     updated_at: string;
     products?: TransactionProduct[];
@@ -158,6 +159,7 @@ export function generateTransactionHash(transaction: TransactionData, transactio
         transaction.currency,
         transaction.created_at,
         transaction.change || '',
+        transaction.device_id || '',
     ].join('|');
 
     return createHash('sha256').update(data).digest('hex').slice(0, 16);
@@ -196,13 +198,13 @@ async function insertTransactionWithItems(connection: Connection, transaction: T
 
     const insertTransactionQuery = isPg
         ? `
-        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, fidelity_points, hash, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, fidelity_points, device_id, hash, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING id
     `
         : `
-        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, fidelity_points, hash, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, fidelity_points, device_id, hash, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const params = [
@@ -216,6 +218,7 @@ async function insertTransactionWithItems(connection: Connection, transaction: T
         transaction.takeOut ?? false,
         transaction.employer_share ?? null,
         transaction.fidelity_points ?? null,
+        transaction.device_id ?? null,
         hash,
         transaction.created_at,
         transaction.updated_at,
@@ -277,10 +280,15 @@ async function handleUpdateTransaction(connection: Connection, transaction: Tran
     // Update the transaction record to mark it as processing (lookup by order_id —
     // millisecond precision, unique per transaction)
     const updateQuery = isPg
-        ? `UPDATE ${prefix}transactions SET payment_method = $1, updated_at = $2 WHERE order_id = $3`
-        : `UPDATE ${prefix}transactions SET payment_method = ?, updated_at = ? WHERE order_id = ?`;
+        ? `UPDATE ${prefix}transactions SET payment_method = $1, device_id = $2, updated_at = $3 WHERE order_id = $4`
+        : `UPDATE ${prefix}transactions SET payment_method = ?, device_id = ?, updated_at = ? WHERE order_id = ?`;
 
-    await connection.execute(updateQuery, [PROCESSING_KEYWORD, transaction.updated_at, transaction.order_id]);
+    await connection.execute(updateQuery, [
+        PROCESSING_KEYWORD,
+        transaction.device_id ?? null,
+        transaction.updated_at,
+        transaction.order_id,
+    ]);
 }
 
 async function handleDeleteTransaction(connection: Connection, transaction: TransactionData) {
@@ -412,8 +420,8 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
         // If the row was deleted by a concurrent hardDelete, 0 rows are returned.
         const updateReturningQuery = `
             UPDATE ${prefix}transactions
-            SET customer_name = $1, user_name = $2, payment_method = $3, amount = $4, currency = $5, change = $6, take_out = $7, employer_share = $8, fidelity_points = $9, hash = $10, updated_at = $11
-            WHERE order_id = $12
+            SET customer_name = $1, user_name = $2, payment_method = $3, amount = $4, currency = $5, change = $6, take_out = $7, employer_share = $8, fidelity_points = $9, device_id = $10, hash = $11, updated_at = $12
+            WHERE order_id = $13
             RETURNING id
         `;
         const hash = generateTransactionHash(transaction);
@@ -427,6 +435,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
             transaction.takeOut ?? false,
             transaction.employer_share ?? null,
             transaction.fidelity_points ?? null,
+            transaction.device_id ?? null,
             hash,
             transaction.updated_at,
             transaction.order_id,
@@ -462,7 +471,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
 
         const updateQuery = `
             UPDATE ${prefix}transactions
-            SET customer_name = ?, user_name = ?, payment_method = ?, amount = ?, currency = ?, change = ?, take_out = ?, employer_share = ?, fidelity_points = ?, hash = ?, updated_at = ?
+            SET customer_name = ?, user_name = ?, payment_method = ?, amount = ?, currency = ?, change = ?, take_out = ?, employer_share = ?, fidelity_points = ?, device_id = ?, hash = ?, updated_at = ?
             WHERE id = ?
         `;
         await connection.execute(updateQuery, [
@@ -475,6 +484,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
             transaction.takeOut ?? false,
             transaction.employer_share ?? null,
             transaction.fidelity_points ?? null,
+            transaction.device_id ?? null,
             hash,
             transaction.updated_at,
             transactionId,

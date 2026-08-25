@@ -269,6 +269,7 @@ CREATE TABLE IF NOT EXISTS `transactions` (
   `take_out` tinyint(1) NOT NULL DEFAULT 1,
   `employer_share` DECIMAL(10,2) DEFAULT NULL,
   `fidelity_points` DECIMAL(10,2) DEFAULT NULL,
+  `device_id` VARCHAR(255) DEFAULT NULL,
   `hash` varchar(64) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
