@@ -79,7 +79,7 @@ function flushLogsToDb() {
         });
         req.write(data);
         req.end();
-    } catch (e) {
+    } catch {
         // Silently ignore — don't let logging break the app.
     }
 }
@@ -112,7 +112,7 @@ function clearLogsOnStartup() {
         });
         req.write(data);
         req.end();
-    } catch (e) {
+    } catch {
         // Silently ignore.
     }
 }
@@ -207,21 +207,47 @@ function writeComPort(data) {
 
 async function findDisplayPort() {
     let configuredPort = process.env.TRADIZ_DISPLAY_PORT;
+    let configuredBaud = parseInt(process.env.TRADIZ_DISPLAY_BAUDRATE || '0', 10);
 
-    // If no env-configured port, try to fetch the 'Ecran client' printer from the API
+    // If no env-configured port, try to fetch device hardware config from the API
     if (!configuredPort) {
         try {
             var http = require('http');
             var port = process.env.PORT || 3001;
+
+            // Read the public key so we can look up the correct device
+            var publicKey = null;
+            try {
+                var keyPath = path.join(app.getPath('userData'), 'publickey');
+                if (fs.existsSync(keyPath)) {
+                    publicKey = fs.readFileSync(keyPath, 'utf8').trim();
+                }
+            } catch (err) {
+                console.log('Could not read public key: ' + err.message);
+            }
+
             var displayConfig = await new Promise((resolve) => {
-                var req = http.get('http://127.0.0.1:' + port + '/api/sql/getPrinters', (res) => {
+                var req = http.get('http://127.0.0.1:' + port + '/api/sql/getDevices', (res) => {
                     var body = '';
                     res.on('data', (chunk) => (body += chunk));
                     res.on('end', () => {
                         try {
                             var data = JSON.parse(body);
-                            var screen = (data.printers || []).find((p) => p.label === 'Ecran client');
-                            resolve(screen ? screen.ipAddress : null);
+                            var devices = data.devices || [];
+                            // Find this device by public key
+                            var device = publicKey ? devices.find((d) => d.key === publicKey) : null;
+                            // Fallback: first device with a backscreenCom
+                            if (!device) {
+                                device = devices.find((d) => d.backscreenCom);
+                            }
+                            if (device && device.backscreenCom) {
+                                resolve({
+                                    port: device.backscreenCom,
+                                    baud: device.backscreenBaud || null,
+                                });
+                            } else {
+                                resolve(null);
+                            }
                         } catch {
                             resolve(null);
                         }
@@ -233,9 +259,15 @@ async function findDisplayPort() {
                     resolve(null);
                 });
             });
+
             if (displayConfig) {
-                configuredPort = displayConfig;
-                console.log('Found Ecran client port from API: ' + configuredPort);
+                configuredPort = displayConfig.port;
+                if (displayConfig.baud) {
+                    configuredBaud = displayConfig.baud;
+                }
+                console.log(
+                    'Found display config: ' + configuredPort + (configuredBaud ? ' @ ' + configuredBaud + ' baud' : '')
+                );
             }
         } catch {
             // API not available yet, continue with auto-detect
@@ -243,13 +275,14 @@ async function findDisplayPort() {
     }
 
     if (!configuredPort) {
-        console.log('No customer display configured (set "Ecran client" role in printer config).');
+        console.log('No customer display configured (set backscreen COM in device config).');
         return null;
     }
 
-    // Try the configured baud rate first, then fall back to common baud rates
-    var configuredBaud = parseInt(process.env.TRADIZ_DISPLAY_BAUDRATE || '9600', 10);
-    var BAUD_RATES = [configuredBaud, 9600, 4800, 19200, 38400, 57600, 115200, 2400];
+    // Build baud rate list: configured baud first, then common rates
+    var BAUD_RATES = configuredBaud
+        ? [configuredBaud, 9600, 4800, 19200, 38400, 57600, 115200, 2400]
+        : [9600, 4800, 19200, 38400, 57600, 115200, 2400];
     // Remove duplicates
     BAUD_RATES = [...new Set(BAUD_RATES)];
 
@@ -1170,19 +1203,99 @@ ipcMain.on('customer-display', (_event, payload) => {
     }
 });
 
-ipcMain.on('test-display', async () => {
-    // If the display is already connected, just write to it
-    if (displayPort) {
+ipcMain.on('test-display', async (_event, testParams) => {
+    var targetPort = testParams && testParams.port;
+    var targetBaud = testParams && testParams.baud;
+
+    // If the display is already connected and no specific port is requested, just write to it
+    if (displayPort && !targetPort) {
         writeToDisplay('TEST ECRAN CLIENT', 'Tradiz 2x20 LCD');
         return;
     }
 
-    // Display not connected — scan all available COM ports at all common baud
-    // rates and send a test message to each combination. The user watches which
-    // port + baud rate makes the LCD light up, then configures that port as
-    // "Ecran client" and sets TRADIZ_DISPLAY_BAUDRATE if it's not 9600.
+    // If a specific port + baud is provided, test only that combination
+    if (targetPort) {
+        var baud = targetBaud || 9600;
+        console.log('[TEST DISPLAY] Testing ' + targetPort + ' @ ' + baud + ' baud...');
+
+        var l1 = (targetPort + ' ' + baud).slice(0, 20).padEnd(20, ' ');
+        var l2 = 'ECRAN CLIENT OK'.slice(0, 20).padEnd(20, ' ');
+        var buf = Buffer.concat([DISPLAY_CMD.INIT, Buffer.from(l1, 'latin1'), Buffer.from(l2, 'latin1')]);
+
+        var SerialPort = null;
+        try {
+            SerialPort = require('serialport').SerialPort;
+        } catch (err) {
+            console.error('[TEST DISPLAY] SerialPort module not available:', err.message);
+        }
+
+        if (SerialPort) {
+            try {
+                var port = new SerialPort({
+                    path: targetPort,
+                    baudRate: baud,
+                    autoOpen: false,
+                });
+                await new Promise(function (resolve) {
+                    port.open(function (err) {
+                        if (err) {
+                            console.log(
+                                '[TEST DISPLAY] Could not open ' + targetPort + ' @ ' + baud + ': ' + err.message
+                            );
+                            resolve();
+                            return;
+                        }
+                        port.write(buf, function (werr) {
+                            if (werr) {
+                                console.log(
+                                    '[TEST DISPLAY] Write failed on ' + targetPort + ' @ ' + baud + ': ' + werr.message
+                                );
+                            } else {
+                                console.log('[TEST DISPLAY] Test sent to ' + targetPort + ' @ ' + baud + ' OK');
+                            }
+                            port.close();
+                            resolve();
+                        });
+                    });
+                });
+                return;
+            } catch (err) {
+                console.log('[TEST DISPLAY] Error testing ' + targetPort + ': ' + err.message);
+                return;
+            }
+        } else {
+            // fs fallback
+            try {
+                require('child_process').execSync(
+                    'mode ' +
+                        targetPort +
+                        ': BAUD=' +
+                        baud +
+                        ' PARITY=N DATA=8 STOP=1 to=off xon=off odsr=off octs=off dtr=on rts=on',
+                    { stdio: 'pipe' }
+                );
+            } catch (err) {
+                console.log('[TEST DISPLAY] Could not configure ' + targetPort + ' @ ' + baud + ': ' + err.message);
+            }
+            try {
+                var targetPath = '\\\\.\\' + targetPort;
+                var fd = fs.openSync(targetPath, 'r+');
+                try {
+                    fs.writeSync(fd, buf, 0, buf.length, null);
+                    console.log('[TEST DISPLAY] Test sent to ' + targetPort + ' @ ' + baud + ' (fs mode) OK');
+                } finally {
+                    fs.closeSync(fd);
+                }
+            } catch (err) {
+                console.log('[TEST DISPLAY] fs mode failed on ' + targetPort + ' @ ' + baud + ': ' + err.message);
+            }
+            return;
+        }
+    }
+
+    // No specific port — scan all available COM ports at all common baud rates
     console.log('[TEST DISPLAY] Scanning all COM ports × baud rates...');
-    var SerialPort = null;
+    SerialPort = null;
     try {
         SerialPort = require('serialport').SerialPort;
     } catch (err) {
@@ -1197,7 +1310,7 @@ ipcMain.on('test-display', async () => {
 
         // Check if port exists
         try {
-            var fd = fs.openSync(path, 'r');
+            fd = fs.openSync(path, 'r');
             fs.closeSync(fd);
         } catch {
             continue;
@@ -1210,17 +1323,17 @@ ipcMain.on('test-display', async () => {
         }
 
         for (var b = 0; b < BAUD_RATES.length; b++) {
-            var baud = BAUD_RATES[b];
+            baud = BAUD_RATES[b];
             console.log('[TEST DISPLAY] Sending test to ' + portName + ' @ ' + baud + ' baud...');
 
-            var l1 = (portName + ' ' + baud).slice(0, 20).padEnd(20, ' ');
-            var l2 = 'ECRAN CLIENT OK'.slice(0, 20).padEnd(20, ' ');
-            var buf = Buffer.concat([DISPLAY_CMD.INIT, Buffer.from(l1, 'latin1'), Buffer.from(l2, 'latin1')]);
+            l1 = (portName + ' ' + baud).slice(0, 20).padEnd(20, ' ');
+            l2 = 'ECRAN CLIENT OK'.slice(0, 20).padEnd(20, ' ');
+            buf = Buffer.concat([DISPLAY_CMD.INIT, Buffer.from(l1, 'latin1'), Buffer.from(l2, 'latin1')]);
 
             // Try serialport module first (configures baud rate properly)
             if (SerialPort) {
                 try {
-                    var port = new SerialPort({
+                    port = new SerialPort({
                         path: portName,
                         baudRate: parseInt(baud, 10),
                         autoOpen: false,

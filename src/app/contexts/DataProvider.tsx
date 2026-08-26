@@ -116,6 +116,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const transactionId = useRef(0);
     const areTransactionLoaded = useRef(false);
+    const [transactionsLoaded, setTransactionsLoaded] = useState(false);
     // Set to true by clearTotal to prevent the product-restore effect from re-adding
     // stale items from PROCESSING transactions when transactions load asynchronously.
     const clearRequestedRef = useRef(false);
@@ -304,6 +305,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     setLocalStorageItem(filename, currentDayTransactions);
                     setTransactions(currentDayTransactions);
                     areTransactionLoaded.current = true;
+                    setTransactionsLoaded(true);
                     setTransactionsFilename(filename);
                     return;
                 }
@@ -314,6 +316,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const currentDayTransactions = localTransactions.filter((tx) => tx.createdDate >= lastResetTime);
             setTransactions(currentDayTransactions);
             areTransactionLoaded.current = true;
+            setTransactionsLoaded(true);
             setTransactionsFilename(filename);
         };
 
@@ -331,6 +334,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const performDayReset = useCallback(() => {
         areTransactionLoaded.current = false;
+        setTransactionsLoaded(false);
         setTransactionsFilename('');
         nextResetTime.current = getResetTimes().next;
     }, [getResetTimes]);
@@ -1033,14 +1037,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             index = index ?? transactions.findIndex(({ createdDate }) => createdDate === transactionId.current);
             // If not found by transactionId, fall back to finding the PROCESSING tx by device.
             // This happens because saveTransactions resets transactionId.current to 0 after an 'add'
-            // (which is what saveProcessingTransaction uses). Fall back to finding the PROCESSING
-            // tx by validator for pre-device_id transactions.
+            // (which is what saveProcessingTransaction uses).
             if (index < 0) {
-                index = transactions.findIndex(
-                    (t) =>
-                        isProcessingTransaction(t) &&
-                        (t.deviceId === currentDeviceId || (t.validator === parameters.user.name && !t.deviceId))
-                );
+                index = transactions.findIndex((t) => isProcessingTransaction(t) && t.deviceId === currentDeviceId);
             }
 
             if (index >= 0) {
@@ -1066,7 +1065,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }
             }
         },
-        [transactions, saveTransactions, storeTransaction, parameters.user.name]
+        [transactions, saveTransactions, storeTransaction]
     );
 
     // clearTotal calls deleteTransaction to remove the PROCESSING tx after payment.
@@ -1079,18 +1078,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const clearProcessingTransaction = useCallback(() => {
         const currentDeviceId = getPublicKey();
         setTransactions((prev) => {
-            const idx = prev.findIndex(
-                (t) =>
-                    isProcessingTransaction(t) &&
-                    (t.deviceId === currentDeviceId || (t.validator === parameters.user.name && !t.deviceId))
-            );
+            const idx = prev.findIndex((t) => isProcessingTransaction(t) && t.deviceId === currentDeviceId);
             if (idx < 0) return prev;
             // Only hard-delete if it's STILL a PROCESSING tx in the current state.
             // If it was already updated to a paid tx by storeTransaction, skip.
             pendingHardDeleteRef.current = prev[idx];
             return prev.filter((_, i) => i !== idx);
         });
-    }, [parameters.user.name]);
+    }, []);
     // Flush the deferred hard-delete. Depends on `transactions` (not just
     // saveTransactions) because clearProcessingTransaction always changes
     // `transactions` when it sets the ref — relying on saveTransactions'
@@ -1365,19 +1360,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         // Keep blocking until the processing transaction is actually gone from state.
         if (clearRequestedRef.current) {
             const processingStillExists = transactions.some(
-                (t) =>
-                    isProcessingTransaction(t) &&
-                    (t.deviceId === currentDeviceId || (t.validator === parameters.user.name && !t.deviceId))
+                (t) => isProcessingTransaction(t) && t.deviceId === currentDeviceId
             );
             if (!processingStillExists) clearRequestedRef.current = false;
             return;
         }
         const processingTransaction = !products.current.length
             ? transactions.find(
-                  (transaction) =>
-                      isProcessingTransaction(transaction) &&
-                      (transaction.deviceId === currentDeviceId ||
-                          (transaction.validator === parameters.user.name && !transaction.deviceId))
+                  (transaction) => isProcessingTransaction(transaction) && transaction.deviceId === currentDeviceId
               )
             : undefined;
         if (processingTransaction) {
@@ -1411,9 +1401,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const liveShare = getEmployerShare();
             const currentDeviceId = getPublicKey();
             const existingProcessing = transactions.find(
-                (t) =>
-                    isProcessingTransaction(t) &&
-                    (t.deviceId === currentDeviceId || (t.validator === parameters.user.name && !t.deviceId))
+                (t) => isProcessingTransaction(t) && t.deviceId === currentDeviceId
             );
 
             if (hasProducts && !existingProcessing) {
@@ -1480,11 +1468,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             // Refuse to edit a PROCESSING transaction that does not belong to this device.
             if (isProcessingTransaction(transaction)) {
                 const currentDeviceId = getPublicKey();
-                if (transaction.deviceId) {
-                    if (transaction.deviceId !== currentDeviceId) return;
-                } else if (transaction.validator !== parameters.user.name) {
-                    return;
-                }
+                if (transaction.deviceId !== currentDeviceId) return;
             }
 
             // Track if this tx was WAITING — the kitchen already received a ticket when it was put on hold.
@@ -1500,7 +1484,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             saveTransactions(DatabaseAction.update, transaction);
         },
-        [transactions, saveTransactions, addProduct, setCurrency, parameters.user.name]
+        [transactions, saveTransactions, addProduct, setCurrency]
     );
 
     const updateTransaction = useCallback(
@@ -1517,11 +1501,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const currentDeviceId = getPublicKey();
             const existingTransaction = transactionId.current
                 ? transactions.find((tx) => tx.createdDate === transactionId.current)
-                : transactions.find(
-                      (t) =>
-                          isProcessingTransaction(t) &&
-                          (t.deviceId === currentDeviceId || (t.validator === parameters.user.name && !t.deviceId))
-                  );
+                : transactions.find((t) => isProcessingTransaction(t) && t.deviceId === currentDeviceId);
 
             const transaction: Transaction =
                 typeof item === 'object'
@@ -1684,6 +1664,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 setCurrentCustomer,
                 wasWaitingBeforeEditRef,
                 originalProductsSnapshotRef,
+                transactionsLoaded,
             }}
         >
             {children}

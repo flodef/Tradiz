@@ -194,6 +194,9 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         deleteProduct,
         displayProduct,
         updateTransaction,
+        wasWaitingBeforeEditRef,
+        originalProductsSnapshotRef,
+        transactionsLoaded,
         orderId,
         setSelectedOrderItems,
         setPartialPaymentAmount,
@@ -765,9 +768,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     if (state === State.init || state === State.loading || state === State.error) {
         return (
             <div className={popupClass} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div className={compact ? 'block' : 'hidden md:block'}>
-                    <Loading />
-                </div>
+                <Loading fullscreen={false} />
             </div>
         );
     }
@@ -808,7 +809,14 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
 
     const showTopBar = (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length);
 
-    if (!showTopBar && !compact) {
+    if (!showTopBar) {
+        if (!transactionsLoaded) {
+            return (
+                <div className={popupClass} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Loading fullscreen={false} />
+                </div>
+            );
+        }
         return <div className={popupClass} />;
     }
 
@@ -851,7 +859,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                         <>
                                             <span
                                                 className={twMerge(
-                                                    `shrink-0 h-full inline-flex items-center px-2 ${compact ? 'text-5xl' : 'text-6xl'}`,
+                                                    `shrink-0 h-full inline-flex items-center px-2 ${compact ? 'text-5xl' : isMobile ? 'text-4xl' : 'text-6xl'}`,
                                                     clickClassName
                                                 )}
                                                 title={toCurrency(total)}
@@ -900,7 +908,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                     ) : (
                                         <span
                                             className={twMerge(
-                                                `inline-flex items-center h-full w-full justify-center pl-0 pr-0 ${isMobile ? 'gap-1' : 'gap-2'} ${compact ? 'text-5xl' : 'text-6xl'}`,
+                                                `inline-flex items-center h-full w-full justify-center pl-0 pr-0 ${isMobile ? 'gap-1' : 'gap-2'} ${compact ? 'text-5xl' : isMobile ? 'text-4xl' : 'text-6xl'}`,
                                                 clickClassName
                                             )}
                                             onClick={handleClick}

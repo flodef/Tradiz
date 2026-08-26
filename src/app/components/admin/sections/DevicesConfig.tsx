@@ -3,11 +3,15 @@
 import { Device, User } from '@/app/utils/interfaces';
 import { adminHeaderStyle } from '@/app/utils/constants';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IconChevronDown, IconChevronUp, IconSelector } from '@tabler/icons-react';
+import { IconChevronDown, IconChevronUp, IconDeviceTv, IconSelector } from '@tabler/icons-react';
 import SectionCard from '../SectionCard';
 import DeleteButtonCell from '../DeleteButtonCell';
 import ValidatedInput from '../ValidatedInput';
 import AdminSelect from '../AdminSelect';
+
+const COMMON_BAUD_RATES = [4800, 9600, 19200, 38400, 57600, 115200, 2400];
+
+const BAUD_OPTIONS = COMMON_BAUD_RATES.map((rate) => ({ label: String(rate), value: rate }));
 
 type SortField = 'label' | 'key' | 'user';
 type SortDirection = 'asc' | 'desc' | 'none';
@@ -31,18 +35,30 @@ interface InternalDevice extends Device {
     _id: number;
 }
 
+function comPortOptions(availableComPorts: number[], currentValue?: string | null) {
+    const usedNums = availableComPorts;
+    const options = usedNums.map((p) => ({ label: `COM${p}`, value: `COM${p}` }));
+    if (currentValue && !options.some((o) => o.value === currentValue)) {
+        options.push({ label: currentValue, value: currentValue });
+    }
+    options.push({ label: '—', value: '' });
+    return options;
+}
+
 function Row({
     device,
     users,
     isReadOnly,
     onChange,
     onDelete,
+    availableComPorts,
 }: {
     device: InternalDevice;
     users: User[];
     isReadOnly: boolean;
     onChange: (device: InternalDevice) => void;
     onDelete: () => void;
+    availableComPorts: number[];
 }) {
     const validUsers = useMemo(() => users.filter((u) => u.id !== undefined), [users]);
     const singleUser = validUsers.length === 1 ? validUsers[0] : undefined;
@@ -97,6 +113,84 @@ function Row({
                     className="min-w-40"
                 />
             </td>
+            <td className="p-2">
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1">
+                        <AdminSelect
+                            value={device.backscreenCom ?? ''}
+                            onChange={(e) =>
+                                onChange({
+                                    ...device,
+                                    backscreenCom: e.target.value || null,
+                                    backscreenBaud: e.target.value ? device.backscreenBaud ?? 9600 : null,
+                                })
+                            }
+                            isReadOnly={isReadOnly}
+                            options={comPortOptions(availableComPorts, device.backscreenCom)}
+                            className="w-20"
+                        />
+                        {device.backscreenCom && !isReadOnly && (
+                            <button
+                                type="button"
+                                title="Tester l'écran client"
+                                onClick={() =>
+                                    window.electronAPI?.testDisplay?.({
+                                        port: device.backscreenCom!,
+                                        baud: device.backscreenBaud ?? 9600,
+                                    })
+                                }
+                                className="shrink-0 p-1 text-gray-600 dark:text-gray-300 hover:text-active-light dark:hover:text-active-dark"
+                            >
+                                <IconDeviceTv size={18} />
+                            </button>
+                        )}
+                    </div>
+                    {device.backscreenCom && (
+                        <AdminSelect
+                            value={device.backscreenBaud ?? 9600}
+                            onChange={(e) => onChange({ ...device, backscreenBaud: Number(e.target.value) })}
+                            isReadOnly={isReadOnly}
+                            options={BAUD_OPTIONS}
+                            className="w-20"
+                        />
+                    )}
+                </div>
+            </td>
+            <td className="p-2">
+                <div className="flex flex-col gap-1">
+                    <AdminSelect
+                        value={device.printerCom ?? ''}
+                        onChange={(e) =>
+                            onChange({
+                                ...device,
+                                printerCom: e.target.value || null,
+                                printerBaud: e.target.value ? device.printerBaud ?? 9600 : null,
+                            })
+                        }
+                        isReadOnly={isReadOnly}
+                        options={comPortOptions(availableComPorts, device.printerCom)}
+                        className="w-24"
+                    />
+                    {device.printerCom && (
+                        <AdminSelect
+                            value={device.printerBaud ?? 9600}
+                            onChange={(e) => onChange({ ...device, printerBaud: Number(e.target.value) })}
+                            isReadOnly={isReadOnly}
+                            options={BAUD_OPTIONS}
+                            className="w-24"
+                        />
+                    )}
+                </div>
+            </td>
+            <td className="p-2">
+                <AdminSelect
+                    value={device.cashDrawerCom ?? ''}
+                    onChange={(e) => onChange({ ...device, cashDrawerCom: e.target.value || null })}
+                    isReadOnly={isReadOnly}
+                    options={comPortOptions(availableComPorts, device.cashDrawerCom)}
+                    className="w-24"
+                />
+            </td>
             <DeleteButtonCell isReadOnly={isReadOnly} onDelete={onDelete} title="Supprimer l'appareil" />
         </tr>
     );
@@ -124,6 +218,19 @@ export default function DevicesConfig({
     const [originalConfig, setOriginalConfig] = useState<Device[]>(config || []);
     const [sortField, setSortField] = useState<SortField | null>(null);
     const [sortDirection, setSortDirection] = useState<SortDirection>('none');
+    const [availableComPorts, setAvailableComPorts] = useState<number[]>([]);
+
+    useEffect(() => {
+        if (isReadOnly) return;
+        fetch('/api/list-com-ports')
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.ports && Array.isArray(data.ports)) {
+                    setAvailableComPorts(data.ports);
+                }
+            })
+            .catch(() => {});
+    }, [isReadOnly]);
 
     useEffect(() => {
         if (selfUpdateRef.current) {
@@ -300,6 +407,9 @@ export default function DevicesConfig({
                                         Utilisateur <SortIcon field="user" />
                                     </div>
                                 </th>
+                                <th className={adminHeaderStyle + ' w-32'}>Écran client</th>
+                                <th className={adminHeaderStyle + ' w-28'}>Imprimante</th>
+                                <th className={adminHeaderStyle + ' w-24'}>Tiroir caisse</th>
                                 {!isReadOnly && <th className="w-8"></th>}
                             </tr>
                         </thead>
@@ -313,6 +423,7 @@ export default function DevicesConfig({
                                 isReadOnly={isReadOnly}
                                 onChange={(updated) => handleDeviceChange(device._id, updated)}
                                 onDelete={() => handleDeleteDevice(device._id)}
+                                availableComPorts={availableComPorts}
                             />
                         ))}
                     </tbody>

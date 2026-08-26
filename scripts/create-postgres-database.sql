@@ -265,7 +265,12 @@ CREATE TABLE IF NOT EXISTS dc_pos.devices (
     user_id INTEGER REFERENCES dc_pos.users(id) ON DELETE SET NULL,
     connected BOOLEAN NOT NULL DEFAULT false,
     last_seen TIMESTAMP WITH TIME ZONE DEFAULT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    backscreen_com VARCHAR(10) DEFAULT NULL,
+    backscreen_baud INTEGER DEFAULT NULL,
+    printer_com VARCHAR(10) DEFAULT NULL,
+    printer_baud INTEGER DEFAULT NULL,
+    cash_drawer_com VARCHAR(10) DEFAULT NULL
 );
 
 -- Customers

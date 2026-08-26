@@ -62,9 +62,9 @@ function resolvePrinterAddress(address: string): string {
  * Baud rate defaults to 9600 (the most common thermal printer default) and can be
  * overridden with TRADIZ_PRINTER_BAUDRATE.
  */
-function configureComPort(comPort: string): void {
+function configureComPort(comPort: string, baudRate?: number): void {
     const port = comPort.trim().toUpperCase();
-    const baud = process.env.TRADIZ_PRINTER_BAUDRATE || '9600';
+    const baud = baudRate ? String(baudRate) : process.env.TRADIZ_PRINTER_BAUDRATE || '9600';
     // to=off: no timeout, dtr/rts=on: assert control lines so the printer sees us,
     // xon=off: no software flow control (ESC/POS is binary — XON/XOFF would eat 0x11/0x13 bytes)
     const cmd = `mode ${port}: BAUD=${baud} PARITY=N DATA=8 STOP=1 to=off xon=off odsr=off octs=off dtr=on rts=on`;
@@ -88,11 +88,11 @@ function configureComPort(comPort: string): void {
  */
 let comPortWriteChain: Promise<void> = Promise.resolve();
 
-function writeToComPort(comPort: string, buffer: Buffer): Promise<void> {
+function writeToComPort(comPort: string, buffer: Buffer, baudRate?: number): Promise<void> {
     const path = '\\\\.\\' + comPort.trim().toUpperCase();
     const run = () =>
         new Promise<void>((resolve, reject) => {
-            configureComPort(comPort);
+            configureComPort(comPort, baudRate);
             console.log(`[PRINTER] Opening ${path} for writing, buffer size: ${buffer.length} bytes`);
             let fd: number;
             try {
@@ -132,8 +132,9 @@ function writeToComPort(comPort: string, buffer: Buffer): Promise<void> {
 async function executePrint(printer: ThermalPrinter): Promise<void> {
     const comPort = (printer as unknown as { _comPort?: string })._comPort;
     if (comPort) {
+        const comBaud = (printer as unknown as { _comBaud?: number })._comBaud;
         const buffer = printer.getBuffer();
-        await writeToComPort(comPort, buffer);
+        await writeToComPort(comPort, buffer, comBaud);
         return;
     }
     await printer.execute();
@@ -927,7 +928,7 @@ export async function printBillingDetail(
  *
  * Works for both COM port and TCP/IP connected printers.
  */
-export async function openCashDrawer(printerAddress: string): Promise<PrintResponse> {
+export async function openCashDrawer(printerAddress: string, baudRate?: number): Promise<PrintResponse> {
     if (IS_DEV) {
         console.log(`[MOCK] Opening cash drawer on ${printerAddress}`);
         return { success: true };
@@ -942,6 +943,9 @@ export async function openCashDrawer(printerAddress: string): Promise<PrintRespo
         }
 
         const printer = result.printer;
+        if (baudRate) {
+            (printer as unknown as { _comBaud?: number })._comBaud = baudRate;
+        }
         // Send the full ESC/POS cash drawer kick command for both pins:
         //   ESC p m t1 t2
         //   m=0 → pin 2, m=1 → pin 5

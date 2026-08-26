@@ -7,6 +7,11 @@ interface Device {
     label: string;
     key: string;
     userId?: number;
+    backscreenCom?: string | null;
+    backscreenBaud?: number | null;
+    printerCom?: string | null;
+    printerBaud?: number | null;
+    cashDrawerCom?: string | null;
 }
 
 export async function POST(request: Request) {
@@ -30,13 +35,29 @@ export async function POST(request: Request) {
                 const key = device.key || '';
                 const userId = device.userId ?? null;
 
+                const backscreenCom = device.backscreenCom ?? null;
+                const backscreenBaud = device.backscreenBaud ?? null;
+                const printerCom = device.printerCom ?? null;
+                const printerBaud = device.printerBaud ?? null;
+                const cashDrawerCom = device.cashDrawerCom ?? null;
+
                 if (device.id) {
                     // Update existing device by id
                     await db.execute(
                         db.isPostgreSQL
-                            ? 'UPDATE dc_pos.devices SET label = $1, public_key = $2, user_id = $3 WHERE id = $4'
-                            : 'UPDATE devices SET label = ?, public_key = ?, user_id = ? WHERE id = ?',
-                        [label, key, userId, device.id]
+                            ? 'UPDATE dc_pos.devices SET label = $1, public_key = $2, user_id = $3, backscreen_com = $4, backscreen_baud = $5, printer_com = $6, printer_baud = $7, cash_drawer_com = $8 WHERE id = $9'
+                            : 'UPDATE devices SET label = ?, public_key = ?, user_id = ?, backscreen_com = ?, backscreen_baud = ?, printer_com = ?, printer_baud = ?, cash_drawer_com = ? WHERE id = ?',
+                        [
+                            label,
+                            key,
+                            userId,
+                            backscreenCom,
+                            backscreenBaud,
+                            printerCom,
+                            printerBaud,
+                            cashDrawerCom,
+                            device.id,
+                        ]
                     );
                     savedIds.push(device.id);
                     continue;
@@ -54,17 +75,26 @@ export async function POST(request: Request) {
                 if (existingId) {
                     await db.execute(
                         db.isPostgreSQL
-                            ? 'UPDATE dc_pos.devices SET label = $1, user_id = $2 WHERE id = $3'
-                            : 'UPDATE devices SET label = ?, user_id = ? WHERE id = ?',
-                        [label, userId, existingId]
+                            ? 'UPDATE dc_pos.devices SET label = $1, user_id = $2, backscreen_com = $3, backscreen_baud = $4, printer_com = $5, printer_baud = $6, cash_drawer_com = $7 WHERE id = $8'
+                            : 'UPDATE devices SET label = ?, user_id = ?, backscreen_com = ?, backscreen_baud = ?, printer_com = ?, printer_baud = ?, cash_drawer_com = ? WHERE id = ?',
+                        [
+                            label,
+                            userId,
+                            backscreenCom,
+                            backscreenBaud,
+                            printerCom,
+                            printerBaud,
+                            cashDrawerCom,
+                            existingId,
+                        ]
                     );
                     savedIds.push(existingId);
                 } else {
                     const newId = await executeInsert(
                         db,
-                        'INSERT INTO dc_pos.devices (label, public_key, user_id) VALUES ($1, $2, $3) RETURNING id',
-                        'INSERT INTO devices (label, public_key, user_id) VALUES (?, ?, ?)',
-                        [label, key, userId]
+                        'INSERT INTO dc_pos.devices (label, public_key, user_id, backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
+                        'INSERT INTO devices (label, public_key, user_id, backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                        [label, key, userId, backscreenCom, backscreenBaud, printerCom, printerBaud, cashDrawerCom]
                     );
                     if (newId) {
                         savedIds.push(newId);

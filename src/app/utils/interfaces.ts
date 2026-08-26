@@ -51,6 +51,11 @@ export interface Device {
     label: string;
     key: string;
     userId?: number;
+    backscreenCom?: string | null;
+    backscreenBaud?: number | null;
+    printerCom?: string | null;
+    printerBaud?: number | null;
+    cashDrawerCom?: string | null;
 }
 
 export interface Company {

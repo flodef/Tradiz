@@ -16,16 +16,10 @@ export const PRINTER_ROLE = {
     cashier: 'Caisse',
     kitchen: 'Cuisine',
     bar: 'Bar',
-    customerDisplay: 'Ecran client',
 } as const;
 
 // Ordered list used in PrintersConfig as dropdown options
-export const PRINTER_ROLES = [
-    PRINTER_ROLE.cashier,
-    PRINTER_ROLE.kitchen,
-    PRINTER_ROLE.bar,
-    PRINTER_ROLE.customerDisplay,
-] as const;
+export const PRINTER_ROLES = [PRINTER_ROLE.cashier, PRINTER_ROLE.kitchen, PRINTER_ROLE.bar] as const;
 
 // Role labels (French translations)
 export const ROLE_LABELS: Record<Role, string> = {

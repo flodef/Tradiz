@@ -73,6 +73,7 @@ export interface DataContextState {
     setCurrentCustomer: (customer: Customer | null) => void;
     wasWaitingBeforeEditRef: RefObject<boolean>;
     originalProductsSnapshotRef: RefObject<Product[]>;
+    transactionsLoaded: boolean;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);

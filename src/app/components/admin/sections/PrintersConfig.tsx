@@ -1,40 +1,21 @@
 import { usePopup } from '@/app/hooks/usePopup';
-import { adminHeaderStyle, PRINTER_ROLE, PRINTER_ROLES } from '@/app/utils/constants';
+import { adminHeaderStyle, PRINTER_ROLES } from '@/app/utils/constants';
 import { Printer } from '@/app/utils/interfaces';
 import { testPrint } from '@/app/utils/posPrinter';
-import {
-    closestCenter,
-    DndContext,
-    DragEndEvent,
-    PointerSensor,
-    useSensor,
-    useSensors,
-} from '@dnd-kit/core';
+import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { IconCheck, IconDeviceTv, IconLoader2, IconPrinter, IconSearch, IconX } from '@tabler/icons-react';
+import { IconCheck, IconLoader2, IconPrinter, IconSearch, IconX } from '@tabler/icons-react';
 import { useEffect, useRef, useState } from 'react';
 import AdminSelect from '../AdminSelect';
 import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
-import Switch from '../Switch';
 
 import AdminButton from '../AdminButton';
 
 interface InternalPrinter extends Printer {
     _id: number;
-}
-
-const comPortRegex = /^COM\d+$/i;
-
-function isComPort(address: string): boolean {
-    return comPortRegex.test(address.trim());
-}
-
-function getComPortNumber(address: string): string {
-    const match = address.match(/COM(\d+)/i);
-    return match ? match[1] : '';
 }
 
 function isLastOctet(address: string): boolean {
@@ -49,8 +30,6 @@ function PrinterRow({
     onChange,
     onDelete,
     availableRoles,
-    availableComPorts,
-    usedComPorts,
     usedIpAddresses,
     localIp,
 }: {
@@ -60,21 +39,13 @@ function PrinterRow({
     onChange: (printer: InternalPrinter) => void;
     onDelete: () => void;
     availableRoles: string[];
-    availableComPorts: number[];
-    usedComPorts: number[];
     usedIpAddresses: string[];
     localIp: string | null;
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
     const [isTesting, setIsTesting] = useState(false);
     const [testResult, setTestResult] = useState<string | null>(null);
-    const isCom = isComPort(printer.ipAddress);
-    const comNum = isCom ? getComPortNumber(printer.ipAddress) : '';
-    const isAddressValid = isCom ? comPortRegex.test(printer.ipAddress) : isLastOctet(printer.ipAddress);
-    const comPortsAvailable = availableComPorts.length > 0;
-    const hasComValue = isCom && Boolean(comNum);
-    const currentComNum = isCom ? Number(comNum) : 0;
-    const freeComPorts = availableComPorts.filter((p) => !usedComPorts.includes(p) || p === currentComNum);
+    const isAddressValid = isLastOctet(printer.ipAddress);
     const ownLastOctet = localIp?.split('.')[3] ?? '';
     const ipOptions = Array.from({ length: 254 }, (_, i) => String(i + 1))
         .filter((ip) => !usedIpAddresses.includes(ip) && ip !== ownLastOctet)
@@ -87,7 +58,6 @@ function PrinterRow({
                 ? [{ label: printer.ipAddress, value: printer.ipAddress }]
                 : []
         );
-    const isScreen = printer.label === PRINTER_ROLE.customerDisplay;
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
@@ -112,71 +82,16 @@ function PrinterRow({
             </td>
             <td className="p-2">
                 <div className="flex items-center gap-2 justify-end">
-                    {comPortsAvailable && !isScreen && (
-                        <>
-                            <Switch
-                                checked={isCom}
-                                onChange={(checked) => {
-                                    setTestResult(null);
-                                    if (checked) {
-                                        onChange({
-                                            ...printer,
-                                            ipAddress: `COM${freeComPorts[0] || availableComPorts[0]}`,
-                                        });
-                                    } else {
-                                        onChange({ ...printer, ipAddress: '' });
-                                    }
-                                }}
-                                isReadOnly={isReadOnly}
-                            />
-                            <span className="text-xs text-gray-500 dark:text-gray-400 w-6">{isCom ? 'COM' : 'IP'}</span>
-                        </>
-                    )}
-                    {isCom || isScreen ? (
-                        comPortsAvailable || hasComValue ? (
-                            <AdminSelect
-                                value={Number(comNum) || freeComPorts[0] || availableComPorts[0]}
-                                onChange={(e) => {
-                                    const port = e.target.value;
-                                    setTestResult(null);
-                                    onChange({ ...printer, ipAddress: `COM${port}` });
-                                }}
-                                isReadOnly={isReadOnly || !comPortsAvailable}
-                                className="w-24"
-                                options={(freeComPorts.length
-                                    ? freeComPorts
-                                    : availableComPorts.length
-                                      ? availableComPorts
-                                      : [Number(comNum)].filter(Boolean)
-                                ).map((p) => ({
-                                    label: `COM${p}`,
-                                    value: p,
-                                }))}
-                            />
-                        ) : (
-                            <AdminSelect
-                                value={printer.ipAddress}
-                                onChange={(e) => {
-                                    setTestResult(null);
-                                    onChange({ ...printer, ipAddress: e.target.value });
-                                }}
-                                isReadOnly={isReadOnly}
-                                className="w-24"
-                                options={ipOptions}
-                            />
-                        )
-                    ) : (
-                        <AdminSelect
-                            value={printer.ipAddress}
-                            onChange={(e) => {
-                                setTestResult(null);
-                                onChange({ ...printer, ipAddress: e.target.value });
-                            }}
-                            isReadOnly={isReadOnly}
-                            className="w-24"
-                            options={ipOptions}
-                        />
-                    )}
+                    <AdminSelect
+                        value={printer.ipAddress}
+                        onChange={(e) => {
+                            setTestResult(null);
+                            onChange({ ...printer, ipAddress: e.target.value });
+                        }}
+                        isReadOnly={isReadOnly}
+                        className="w-24"
+                        options={ipOptions}
+                    />
                 </div>
             </td>
             <td className="p-2">
@@ -184,15 +99,9 @@ function PrinterRow({
                     onClick={async () => {
                         setIsTesting(true);
                         setTestResult(null);
-                        if (isScreen) {
-                            window.electronAPI?.testDisplay?.();
-                            setTestResult('OK');
-                            setIsTesting(false);
-                        } else {
-                            const res = await testPrint(printer.ipAddress);
-                            setTestResult(res.success ? 'OK' : res.error || 'Erreur');
-                            setIsTesting(false);
-                        }
+                        const res = await testPrint(printer.ipAddress);
+                        setTestResult(res.success ? 'OK' : res.error || 'Erreur');
+                        setIsTesting(false);
                     }}
                     disabled={isTesting || !printer.ipAddress || !isAddressValid}
                     className="text-xs py-1 px-2.5"
@@ -203,8 +112,6 @@ function PrinterRow({
                         <IconCheck size={18} stroke={3} className="text-green-600" />
                     ) : testResult ? (
                         <IconX size={18} stroke={3} className="text-red-500" />
-                    ) : isScreen ? (
-                        <IconDeviceTv size={18} />
                     ) : (
                         <IconPrinter size={18} />
                     )}
@@ -247,7 +154,6 @@ export default function PrintersConfig({
         (config || []).map((p) => ({ ...p, _id: nextIdRef.current++ }))
     );
     const [isScanning, setIsScanning] = useState(false);
-    const [availableComPorts, setAvailableComPorts] = useState<number[]>([]);
     const [localIp, setLocalIp] = useState<string | null>(null);
     const foundPrintersRef = useRef<{ ip: string; lastOctet?: number; label: string }[]>([]);
     const { openFullscreenPopup } = usePopup();
@@ -259,18 +165,6 @@ export default function PrintersConfig({
         }
         setPrinters((config || []).map((p) => ({ ...p, _id: nextIdRef.current++ })));
     }, [config]);
-
-    useEffect(() => {
-        if (isReadOnly) return;
-        fetch('/api/list-com-ports')
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.ports && Array.isArray(data.ports)) {
-                    setAvailableComPorts(data.ports);
-                }
-            })
-            .catch(() => {});
-    }, [isReadOnly]);
 
     useEffect(() => {
         fetch('/api/local-ip')
@@ -295,7 +189,7 @@ export default function PrintersConfig({
     const isValid =
         printers.every((p) => {
             const labelOk = PRINTER_ROLES.includes(p.label as (typeof PRINTER_ROLES)[number]);
-            const addrOk = isComPort(p.ipAddress) ? comPortRegex.test(p.ipAddress) : isLastOctet(p.ipAddress);
+            const addrOk = isLastOctet(p.ipAddress);
             return labelOk && addrOk;
         }) && new Set(printers.map((p) => p.label)).size === printers.length;
 
@@ -314,22 +208,12 @@ export default function PrintersConfig({
     const handleAddPrinter = () => {
         const availableRole = PRINTER_ROLES.find((r) => !usedRoles.has(r));
         if (!availableRole) return;
-        // Default to COM mode if COM ports are available
-        const usedComPorts = new Set(
-            printers.filter((p) => isComPort(p.ipAddress)).map((p) => Number(getComPortNumber(p.ipAddress)))
-        );
-        const firstFreeCom = availableComPorts.find((p) => !usedComPorts.has(p));
-        const defaultAddress = firstFreeCom
-            ? `COM${firstFreeCom}`
-            : (() => {
-                  const usedIps = new Set(printers.filter((p) => !isComPort(p.ipAddress)).map((p) => p.ipAddress));
-                  const ownLastOctet = localIp?.split('.')[3] ?? '';
-                  return (
-                      Array.from({ length: 254 }, (_, i) => String(i + 1)).find(
-                          (ip) => !usedIps.has(ip) && ip !== ownLastOctet
-                      ) ?? ''
-                  );
-              })();
+        const usedIps = new Set(printers.map((p) => p.ipAddress));
+        const ownLastOctet = localIp?.split('.')[3] ?? '';
+        const defaultAddress =
+            Array.from({ length: 254 }, (_, i) => String(i + 1)).find(
+                (ip) => !usedIps.has(ip) && ip !== ownLastOctet
+            ) ?? '';
         const newPrinter: InternalPrinter = {
             label: availableRole,
             ipAddress: defaultAddress,
@@ -390,16 +274,6 @@ export default function PrintersConfig({
     const handleAutoDetect = async () => {
         setIsScanning(true);
         foundPrintersRef.current = [];
-
-        // Test COM ports in parallel and update available list
-        fetch('/api/list-com-ports')
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.ports && Array.isArray(data.ports)) {
-                    setAvailableComPorts(data.ports);
-                }
-            })
-            .catch(() => {});
 
         try {
             const res = await fetch('/api/scan-printers');
@@ -465,20 +339,18 @@ export default function PrintersConfig({
         setIsScanning(false);
     };
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 10 } })
-    );
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 10 } }));
 
     return (
         <SectionCard
-            title="Imprimantes / Ecran"
+            title="Imprimantes"
             onSave={onSave ? () => onSave(printers.map(({ _id: _, ...rest }) => rest)) : undefined}
             onCancel={onCancel}
             hasChanges={hasChanges}
             onAdd={hasAvailableRole ? handleAddPrinter : undefined}
             isValid={isValid}
             saveDisabled={!isValid}
-            addLabel="Ajouter une imprimante / écran"
+            addLabel="Ajouter une imprimante"
             isReadOnly={isReadOnly}
             isLoading={isLoading}
             isOpen={isOpen}
@@ -525,15 +397,8 @@ export default function PrintersConfig({
                                                         !printers.some((p) => p.label === role)
                                                 ),
                                             ]}
-                                            availableComPorts={availableComPorts}
-                                            usedComPorts={printers
-                                                .filter((_, i) => i !== index)
-                                                .filter((p) => isComPort(p.ipAddress))
-                                                .map((p) => Number(getComPortNumber(p.ipAddress)))
-                                                .filter((n) => !isNaN(n))}
                                             usedIpAddresses={printers
                                                 .filter((_, i) => i !== index)
-                                                .filter((p) => !isComPort(p.ipAddress))
                                                 .map((p) => p.ipAddress)
                                                 .filter(Boolean)}
                                             localIp={localIp}

@@ -14,7 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         return () => ipcRenderer.removeListener('mini-message', handler);
     },
     sendCustomerDisplay: (payload) => ipcRenderer.send('customer-display', payload),
-    testDisplay: () => ipcRenderer.send('test-display'),
+    testDisplay: (params) => ipcRenderer.send('test-display', params),
     onUpdateAvailable: (callback) => {
         const handler = (_event, info) => callback(info);
         ipcRenderer.on('update-available', handler);

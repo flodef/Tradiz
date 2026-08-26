@@ -210,9 +210,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     );
 
     const getPrintersNames = useCallback(() => {
-        const printersNames = printers.filter(
-            ({ label: name }) => name !== LOCAL_PRINTER_KEYWORD && name !== PRINTER_ROLE.customerDisplay
-        );
+        const printersNames = printers.filter(({ label: name }) => name !== LOCAL_PRINTER_KEYWORD);
         if (!printersNames.length) return [];
 
         return printersNames.length === 1

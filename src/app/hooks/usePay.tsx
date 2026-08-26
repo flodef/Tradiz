@@ -37,6 +37,7 @@ import {
 import { CLOSE, postCustomerDisplay, postMessageToParent, REFRESH } from '../utils/message';
 import { printBalanceStatement, printKitchenTicket, printReceipt } from '../utils/posPrinter';
 import { buildCustomerDisplay, buildPaymentDisplay, holdChangeDisplay } from '../utils/customerDisplay';
+import { getPublicKey } from '../utils/processData';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
 import { useData } from './useData';
@@ -236,25 +237,51 @@ export const usePay = () => {
     );
 
     // Opens the cash drawer connected to the cashier printer's DK port (RJ11).
+    // Priority: device's cashDrawerCom > device's printerCom > cashier printer from PrintersConfig.
     const triggerCashDrawer = useCallback(() => {
-        const cashierAddr = getPrinterAddressByRole(PRINTER_ROLE.cashier);
-        if (!cashierAddr) {
-            console.warn('[CASH DRAWER] No cashier printer configured (role: "Caisse") — drawer will not open');
-            return;
-        }
-        console.log(`[CASH DRAWER] Triggering open on ${cashierAddr}`);
-        fetch('/api/open-cash-drawer', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ printerAddress: cashierAddr }),
-        })
-            .then(async (res) => {
-                if (!res.ok) {
-                    const body = await res.json().catch(() => ({}));
-                    console.error('[CASH DRAWER] API error:', res.status, body?.error || res.statusText);
+        const publicKey = getPublicKey();
+        const fetchAndOpen = async () => {
+            let address: string | undefined;
+            let baudRate: number | undefined;
+
+            // Try device hardware config first
+            if (publicKey) {
+                try {
+                    const res = await fetch(`/api/sql/getDeviceHardware?publicKey=${encodeURIComponent(publicKey)}`);
+                    if (res.ok) {
+                        const hw = await res.json();
+                        address = hw.cashDrawerCom || hw.printerCom || undefined;
+                        baudRate = hw.printerBaud || undefined;
+                    }
+                } catch {
+                    // Fall back to printer config
                 }
+            }
+
+            // Fall back to cashier printer from PrintersConfig
+            if (!address) {
+                address = getPrinterAddressByRole(PRINTER_ROLE.cashier);
+            }
+
+            if (!address) {
+                console.warn('[CASH DRAWER] No cash drawer COM or cashier printer configured — drawer will not open');
+                return;
+            }
+            console.log(`[CASH DRAWER] Triggering open on ${address}${baudRate ? ` @ ${baudRate} baud` : ''}`);
+            fetch('/api/open-cash-drawer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ printerAddress: address, baudRate }),
             })
-            .catch((err) => console.error('[CASH DRAWER] Failed to open:', err));
+                .then(async (res) => {
+                    if (!res.ok) {
+                        const body = await res.json().catch(() => ({}));
+                        console.error('[CASH DRAWER] API error:', res.status, body?.error || res.statusText);
+                    }
+                })
+                .catch((err) => console.error('[CASH DRAWER] Failed to open:', err));
+        };
+        fetchAndOpen();
     }, [getPrinterAddressByRole]);
 
     // Ref local pour éviter de redemander le type de service lors de l'appel récursif à pay()
