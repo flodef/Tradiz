@@ -9,15 +9,7 @@ import { useData } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { useWindowParam } from '../hooks/useWindowParam';
 import { useScreenSizeConfig } from '../utils/screenSizeConfig';
-import {
-    ARROW,
-    BACK_KEYWORD,
-    CONFIG_KEYWORD,
-    DEV_EMAIL,
-    OTHER_KEYWORD,
-    ROLE_LABELS,
-    USE_DIGICARTE,
-} from '../utils/constants';
+import { ARROW, BACK_KEYWORD, DEV_EMAIL, OTHER_KEYWORD, ROLE_LABELS, USE_DIGICARTE } from '../utils/constants';
 import { Catalog, CatalogFormula, EmptyDiscount, InventoryItem, Role, State } from '../utils/interfaces';
 import { useIsMobile, useIsMobileDevice, useLongPressContextMenu } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
@@ -346,31 +338,9 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
                     return;
                 }
 
-                // Check if there are saved parameters in localStorage
-                const savedParameters = localStorage.getItem(CONFIG_KEYWORD);
-                if (!savedParameters) {
-                    // No saved data, set state to fatal
-                    setTimeout(() => setState(State.fatal), 100);
-                    return;
-                }
-
-                // Has saved data, extract lastModified from saved parameters
-                const parsedParams = JSON.parse(savedParameters);
-                const rawLastModified = parsedParams?.lastModified;
-                const savedLastModified =
-                    rawLastModified && !Number.isNaN(Number(rawLastModified))
-                        ? new Date(Number(rawLastModified)).toLocaleString()
-                        : rawLastModified;
-                openFullscreenPopup(
-                    'Erreur chargement données',
-                    [
-                        `Utiliser ${savedLastModified ? 'sauvegarde du ' + savedLastModified : 'dernières sauvegarde'}`,
-                        'Réessayer',
-                    ],
-                    (index) => {
-                        setState(index === 1 ? State.init : State.loaded);
-                    }
-                );
+                openFullscreenPopup('Erreur chargement données', ['Réessayer'], () => {
+                    setState(State.init);
+                });
                 break;
             case State.unidentified: {
                 const accessRoles = Object.values(Role).filter((role) => role !== Role.admin);
