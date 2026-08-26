@@ -162,7 +162,9 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                                 className={twMerge(
                                     styles.option,
                                     typeof option === 'string'
-                                        ? 'grid grid-cols-1 content-center text-left pl-2 gap-1'
+                                        ? option.includes('\t')
+                                            ? 'flex flex-row items-center text-left pl-2 gap-2'
+                                            : 'grid grid-cols-1 content-center text-left pl-2 gap-1'
                                         : 'flex justify-around items-center text-center py-0',
                                     getOptionHoverStyles(isMobileDevice, typeof option === 'string'),
                                     typeof option === 'string' && !isMobile && validIndex === selectedIndex
@@ -171,7 +173,7 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                                     popupIsSpecial && popupIsSpecial(validOption) ? 'animate-pulse' : ''
                                 )}
                                 style={
-                                    typeof option === 'string'
+                                    typeof option === 'string' && !option.includes('\t')
                                         ? { gridTemplateRows: `repeat(${option.split('\n').length}, minmax(0, 1fr))` }
                                         : undefined
                                 }
@@ -185,11 +187,23 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                                 }}
                             >
                                 {typeof option === 'string'
-                                    ? option.split('\n').map((line, idx) => (
-                                          <div key={idx} className={twMerge(styles.optionText, 'whitespace-nowrap')}>
-                                              {line}
-                                          </div>
-                                      ))
+                                    ? option.includes('\t')
+                                        ? option.split('\t').map((col, idx) => (
+                                              <div
+                                                  key={idx}
+                                                  className={twMerge(styles.optionText, 'whitespace-nowrap flex-1')}
+                                              >
+                                                  {col.trim()}
+                                              </div>
+                                          ))
+                                        : option.split('\n').map((line, idx) => (
+                                              <div
+                                                  key={idx}
+                                                  className={twMerge(styles.optionText, 'whitespace-nowrap')}
+                                              >
+                                                  {line}
+                                              </div>
+                                          ))
                                     : option}
                             </div>
                         );

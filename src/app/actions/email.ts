@@ -104,11 +104,11 @@ export async function sendSummaryEmail(summaryData: SummaryData): Promise<boolea
                     .map((line) =>
                         line.includes('_____')
                             ? `<tr style="width: 100%;"><td colspan="4" style="padding: 10px 0;"><hr style="border: none; height: 1px; background-color: #ccc; margin: 0;"/></td></tr>`
-                            : line.includes('==>')
+                            : line.includes('⟹')
                               ? `
                                 <tr style="width: 100%;">
                                     ${line
-                                        .split('==>')
+                                        .split('⟹')
                                         .map(
                                             (item, index) =>
                                                 `<td colspan="2" style="width: 50%; padding: 5px; text-align: ${
@@ -118,7 +118,18 @@ export async function sendSummaryEmail(summaryData: SummaryData): Promise<boolea
                                         .join('')}
                                 </tr>
                                 `
-                              : `<tr style="width: 100%;">
+                              : line.includes('\t')
+                                ? `<tr style="width: 100%;">
+                                    ${line
+                                        .split('\t')
+                                        .filter((item) => item.trim())
+                                        .map(
+                                            (item) =>
+                                                `<td style="width: 25%; text-align: center; padding: 5px;">${item.trim()}</td>`
+                                        )
+                                        .join('')}
+                                  </tr>`
+                                : `<tr style="width: 100%;">
                               ${line
                                   .split('  ')
                                   .filter((item) => item.trim())

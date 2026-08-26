@@ -300,36 +300,55 @@ export async function printReceipt(
         // Print items header
         printer.drawLine();
         printer.alignLeft();
-        printer.tableCustom([
-            { text: 'QTE', align: 'LEFT', cols: 4 },
-            { text: '', align: 'LEFT', cols: 1 },
-            { text: 'DESIGNATION', align: 'LEFT', cols: 26 },
-            { text: '', align: 'LEFT', cols: 1 },
-            { text: 'P.U.', align: 'LEFT', cols: 7 },
-            { text: '', align: 'LEFT', cols: 1 },
-            { text: 'TOTAL', align: 'LEFT', cols: 8 },
-        ]);
-        printer.drawLine();
 
-        // Print each item
-        receiptData.transaction.products.forEach((item) => {
-            let label = item.label;
-            if (item.discount.amount > 0) {
-                label += ` (-${item.discount.amount}${item.discount.unit})`;
-            }
-            const labelLength = label.length;
-            label = labelLength > 26 ? label.slice(0, 23) + '...' : label;
+        const showDetails = receiptData.showDetails !== false; // default true
 
+        if (showDetails) {
             printer.tableCustom([
-                { text: `x${item.quantity}`, align: 'LEFT', cols: 4 },
+                { text: 'QTE', align: 'LEFT', cols: 4 },
                 { text: '', align: 'LEFT', cols: 1 },
-                { text: label, align: 'LEFT', cols: 26 },
+                { text: 'DESIGNATION', align: 'LEFT', cols: 26 },
                 { text: '', align: 'LEFT', cols: 1 },
-                { text: toCurrency(item.amount, currency), align: 'LEFT', cols: 7 },
+                { text: 'P.U.', align: 'LEFT', cols: 7 },
                 { text: '', align: 'LEFT', cols: 1 },
-                { text: toCurrency(item.total || 0, currency), align: 'LEFT', cols: 8 },
+                { text: 'TOTAL', align: 'LEFT', cols: 8 },
             ]);
-        });
+            printer.drawLine();
+
+            // Print each item
+            receiptData.transaction.products.forEach((item) => {
+                let label = item.label;
+                if (item.discount.amount > 0) {
+                    label += ` (-${item.discount.amount}${item.discount.unit})`;
+                }
+                const labelLength = label.length;
+                label = labelLength > 26 ? label.slice(0, 23) + '...' : label;
+
+                printer.tableCustom([
+                    { text: `x${item.quantity}`, align: 'LEFT', cols: 4 },
+                    { text: '', align: 'LEFT', cols: 1 },
+                    { text: label, align: 'LEFT', cols: 26 },
+                    { text: '', align: 'LEFT', cols: 1 },
+                    { text: toCurrency(item.amount, currency), align: 'LEFT', cols: 7 },
+                    { text: '', align: 'LEFT', cols: 1 },
+                    { text: toCurrency(item.total || 0, currency), align: 'LEFT', cols: 8 },
+                ]);
+            });
+        } else {
+            // Sans détail: print a single summary line
+            printer.drawLine();
+            const totalItems = receiptData.transaction.products.reduce((sum, item) => sum + item.quantity, 0);
+            printer.tableCustom([
+                { text: `x${totalItems}`, align: 'LEFT', cols: 4 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: 'Repas', align: 'LEFT', cols: 26 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: '', align: 'LEFT', cols: 7 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: toCurrency(receiptData.transaction.amount, currency), align: 'LEFT', cols: 8 },
+            ]);
+            printer.drawLine();
+        }
 
         // Calculate totals by VAT rate
         const vatTotals = new Map<number, { ht: number; tva: number; ttc: number }>();
@@ -691,12 +710,12 @@ export async function printSummary(printerAddresses: string[], summaryData: Summ
                 printer.newLine();
                 printer.drawLine();
                 printer.newLine();
-            } else if (line.includes('==>')) {
-                printer.leftRight(line.split('==>')[0].trim(), toCurrency(line.split('==>')[1], currency));
-            } else if (line.includes('\n'))
+            } else if (line.includes('⟹')) {
+                printer.leftRight(line.split('⟹')[0].trim(), toCurrency(line.split('⟹')[1], currency));
+            } else if (line.includes('\t'))
                 printer.table(
                     line
-                        .split('\n')
+                        .split('\t')
                         .map((s) => (s.includes('.') || s.includes(',') ? toCurrency(s, currency) : s.trim()))
                 );
             else printer.println(line);

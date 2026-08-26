@@ -52,6 +52,7 @@ export type ReceiptData = {
     inventory?: InventoryItem[];
     orderNumber?: string;
     serviceType?: ServiceType;
+    showDetails?: boolean;
 };
 
 export const usePay = () => {
@@ -307,7 +308,12 @@ export const usePay = () => {
     );
 
     const printTransactionReceipt = useCallback(
-        async (printerName?: string, transaction?: Transaction, printerAddressOverride?: string) => {
+        async (
+            printerName?: string,
+            transaction?: Transaction,
+            printerAddressOverride?: string,
+            showDetails?: boolean
+        ) => {
             // Prepare receipt data
             let currentTransaction = transaction;
             const currency = currencies[currencyIndex];
@@ -374,6 +380,7 @@ export const usePay = () => {
                     inventory: inventory,
                     orderNumber: orderData?.short_num_order,
                     serviceType: orderData?.service_type,
+                    showDetails: showDetails !== false,
                 },
                 comBaud
             );
@@ -481,9 +488,9 @@ export const usePay = () => {
     autoPrintRef.current = autoPrint;
 
     const printTransaction = useCallback(
-        (printerName?: string, transaction?: Transaction) => {
+        (printerName?: string, transaction?: Transaction, showDetails?: boolean) => {
             openPopup('Imprimer', ['Impression en cours ...']);
-            printTransactionReceipt(printerName, transaction).then((response) => {
+            printTransactionReceipt(printerName, transaction, undefined, showDetails).then((response) => {
                 if (!response.success) openPopup('Erreur', [response.error || "Impossible d'imprimer"]);
                 else closePopup();
             });
@@ -758,6 +765,7 @@ export const usePay = () => {
             const needsServiceType =
                 !orderId &&
                 !NON_PAYMENT_KEYWORDS.includes(paymentType) &&
+                !paymentType.startsWith(PRINT_KEYWORD) &&
                 paymentType !== PROVISION_KEYWORD &&
                 useTakeOut;
 
@@ -779,7 +787,7 @@ export const usePay = () => {
 
             // Notify the customer-facing display about the payment type. Internal actions
             // (printing, putting on hold, refunding...) are not payments and must not be shown.
-            if (!NON_PAYMENT_KEYWORDS.includes(paymentType)) {
+            if (!NON_PAYMENT_KEYWORDS.includes(paymentType) && !paymentType.startsWith(PRINT_KEYWORD)) {
                 postCustomerDisplay(buildPaymentDisplay(paymentType, getCustomerTotal(), currencies[currencyIndex]));
             }
 
@@ -1284,8 +1292,15 @@ export const usePay = () => {
 
                 allOptions.push('');
 
-                const printerOptions = getPrintersNames().length > 0 ? [PRINT_KEYWORD] : [];
-                allOptions.push(...printerOptions);
+                const printerNames = getPrintersNames();
+                if (printerNames.length > 0) {
+                    // For each printer, add both detail options
+                    for (const pName of printerNames) {
+                        const isSingle = printerNames.length === 1;
+                        const base = isSingle ? PRINT_KEYWORD : pName;
+                        allOptions.push(base + ' (sans détail)', base + ' (avec détail)');
+                    }
+                }
 
                 // Add PARTIAL PAYMENT option only if orderId is set AND order has at least 2 items
                 if (orderId && orderData && orderData.items.length >= 2) {
@@ -1328,10 +1343,17 @@ export const usePay = () => {
                             }
 
                             // Handle printer options
-                            const printerOptions = getPrintersNames();
-                            if (printerOptions.includes(option)) {
+                            const printerNames = getPrintersNames();
+                            const isPrintOption =
+                                option.startsWith(PRINT_KEYWORD) &&
+                                (option.includes('(sans détail)') || option.includes('(avec détail)'));
+                            if (isPrintOption) {
+                                const showDetails = option.includes('(avec détail)');
+                                // Match the printer name from the option
+                                const matchedPrinter = printerNames.find((pName) => option.startsWith(pName));
+                                const printerName = printerNames.length === 1 ? printerNames[0] : matchedPrinter;
                                 // Print the receipt
-                                printTransaction(option);
+                                printTransaction(printerName, undefined, showDetails);
                                 // Put transaction in waiting status and close popup
                                 updateTransaction(WAITING_KEYWORD);
                                 closePopup();

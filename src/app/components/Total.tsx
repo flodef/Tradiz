@@ -317,10 +317,16 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                 title: 'Transaction',
                 options: [
                     ...editOptions,
-                    ...getPrintersNames().map((printerName) => ({
-                        label: printerName,
-                        action: () => printTransaction(printerName, transaction),
-                    })),
+                    ...getPrintersNames().flatMap((printerName) => [
+                        {
+                            label: printerName + ' (sans détail)',
+                            action: () => printTransaction(printerName, transaction, false),
+                        },
+                        {
+                            label: printerName + ' (avec détail)',
+                            action: () => printTransaction(printerName, transaction, true),
+                        },
+                    ]),
                     ...deleteAndRefundOptions,
                     {
                         label: 'Annuler',

@@ -8,7 +8,7 @@ import {
     isRefundTransaction,
     isWaitingTransaction,
 } from '../contexts/dataProvider/transactionHelpers';
-import { ARROW, BACK_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
+import { ARROW, BACK_KEYWORD, PRINT_KEYWORD, PRINTER_ROLE, SEPARATOR } from '../utils/constants';
 import { formatFrenchDate, getFormattedDate } from '../utils/date';
 import { Currency, DataElement, SyncAction, Transaction } from '../utils/interfaces';
 import { printSummary } from '../utils/posPrinter';
@@ -249,39 +249,38 @@ export const useSummary = () => {
                             category +
                             ' x ' +
                             quantity +
-                            ' ==> ' +
+                            ' ⟹ ' +
                             toCurrency(amount)
                     )
                     .concat([''])
-                    .concat(['TAUX'.padEnd(8) + '\n HT \n TVA \n TTC '])
+                    .concat(['TAUX'.padEnd(8) + '\t HT \t TVA \t TTC '])
                     .concat(
                         taxAmount
                             .map((t) => {
                                 return t
                                     ? ('T' + (isNaN(t.index) ? '' : t.index) + ' ' + t.rate + '%').padEnd(8) +
-                                          '\n' +
+                                          '\t' +
                                           toCurrency(t.ht) +
-                                          '\n' +
+                                          '\t' +
                                           toCurrency(t.tva) +
-                                          '\n' +
+                                          '\t' +
                                           toCurrency(t.total)
                                     : '';
                             })
                             .concat([
                                 'TOTAL'.padEnd(8) +
-                                    '\n' +
+                                    '\t' +
                                     toCurrency(totalTaxes.ht) +
-                                    '\n' +
+                                    '\t' +
                                     toCurrency(totalTaxes.tva) +
-                                    '\n' +
+                                    '\t' +
                                     toCurrency(totalTaxes.total),
                             ])
                     )
                     .concat([''])
                     .concat(
                         payments.map(
-                            ({ category, quantity, amount }) =>
-                                category + ' x ' + quantity + ' ==> ' + toCurrency(amount)
+                            ({ category, quantity, amount }) => category + ' x ' + quantity + ' ⟹ ' + toCurrency(amount)
                         ) ?? []
                     ),
             };
@@ -871,7 +870,7 @@ export const useSummary = () => {
             );
 
             const detail = array.map(
-                ({ label, quantity, amount }) => label + ' x ' + quantity + ' ==> ' + toCurrency(amount)
+                ({ label, quantity, amount }) => label + ' x ' + quantity + ' ⟹ ' + toCurrency(amount)
             );
 
             openPopup(
@@ -894,7 +893,7 @@ export const useSummary = () => {
                     const label = products.length
                         ? `${products.length} produit${products.length > 1 ? 's' : ''}`
                         : 'Provision';
-                    return label + ' ==> ' + toCurrency(amount) + ' le ' + frenchDateStr + ' à ' + frenchTimeStr;
+                    return label + ' ⟹ ' + toCurrency(amount) + ' le ' + frenchDateStr + ' à ' + frenchTimeStr;
                 });
 
             openPopup(
@@ -1112,10 +1111,19 @@ export const useSummary = () => {
             const transactionsDate = getTransactionsDate(getFilteredTransactions());
             const isDailyPeriod = transactionsDate.period === HistoricalPeriod.day;
             const formattedDate = getFormattedDate(transactionsDate.date, isDailyPeriod ? 3 : 2);
+
+            // Ticket Z should only be printed on the cashier printer, not kitchen/bar.
+            const cashierPrinterNames = getPrintersNames().filter((name) => {
+                // Single printer: name is just PRINT_KEYWORD ('Impression')
+                if (!name.includes(SEPARATOR)) return true;
+                // Multiple printers: name is 'Impression : Caisse' — keep only cashier
+                return name.split(SEPARATOR)[1]?.trim() === PRINTER_ROLE.cashier;
+            });
+
             openPopup(
                 'Ticket Z ' + (hasTransactions ? formattedDate : ''),
                 (hasTransactions ? ['Email', 'Feuille de calcul'] : [])
-                    .concat(hasTransactions ? getPrintersNames() : [])
+                    .concat(hasTransactions ? cashierPrinterNames : [])
                     .concat(isDbConnected && hasTransactions && isDailyPeriod ? ['Resynchroniser jour'] : [])
                     .concat(isDbConnected ? ['Menu Synchronisation'] : [])
                     .concat(
