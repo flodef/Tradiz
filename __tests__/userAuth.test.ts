@@ -46,21 +46,17 @@ describe('resolveUserFromKey', () => {
         expect(result.user).toBeNull();
     });
 
-    it('returns null user on API error', async () => {
+    it('throws ConnectionError on API error', async () => {
         mockFetch.mockResolvedValueOnce({
             ok: false,
             status: 500,
         });
-        const result = await resolveUserFromKey('any_key');
-        expect(result.foundUser).toBeUndefined();
-        expect(result.user).toBeNull();
+        await expect(resolveUserFromKey('any_key')).rejects.toThrow('Erreur de connexion');
     });
 
-    it('returns null user on network error', async () => {
+    it('throws ConnectionError on network error', async () => {
         mockFetch.mockRejectedValueOnce(new Error('Network error'));
-        const result = await resolveUserFromKey('any_key');
-        expect(result.foundUser).toBeUndefined();
-        expect(result.user).toBeNull();
+        await expect(resolveUserFromKey('any_key')).rejects.toThrow('Erreur de connexion');
     });
 
     it('returns cashier user from API', async () => {

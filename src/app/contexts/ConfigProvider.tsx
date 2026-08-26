@@ -343,10 +343,15 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
         // Still resolve the user so the TopNav and admin pages know the role.
         if (window.location.pathname.includes(ADMIN_CONFIG_URL)) {
             initPublicKey().then(() => {
-                resolveUserFromKey(getPublicKey()).then(({ user }) => {
-                    if (user) setParameters((prev) => ({ ...prev, user }));
-                    setState(State.loaded);
-                });
+                resolveUserFromKey(getPublicKey())
+                    .then(({ user }) => {
+                        if (user) setParameters((prev) => ({ ...prev, user }));
+                        setState(State.loaded);
+                    })
+                    .catch(() => {
+                        // Connection error on admin page — proceed with cached data
+                        setState(State.loaded);
+                    });
             });
             return;
         }

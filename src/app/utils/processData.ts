@@ -47,6 +47,10 @@ export class TooManyRequestsError extends Error {
     name = 'TooManyRequestsError';
     message = 'Too many requests. Please try again later.';
 }
+export class ConnectionError extends Error {
+    name = 'ConnectionError';
+    message = 'Erreur de connexion à la base de données';
+}
 export class UserNotFoundError extends Error {
     name = 'UserNotFoundError';
     message = 'Utilisateur non identifié';
@@ -97,15 +101,15 @@ export async function resolveUserFromKey(
             // Too many requests - throw specific error
             throw new TooManyRequestsError();
         } else {
-            // Any other API error resolves as no user
-            return { user: null, foundUser: undefined, noUsers: undefined };
+            // Server error (500, etc.) — likely a transient DB failure, not a genuine "user not found"
+            throw new ConnectionError();
         }
     } catch (error) {
-        // Rethrow rate limit; treat any other network/server failure as no user
-        if (error instanceof TooManyRequestsError) {
+        // Rethrow known errors; treat network/abort failures as connection errors
+        if (error instanceof TooManyRequestsError || error instanceof ConnectionError) {
             throw error;
         }
-        return { user: null, foundUser: undefined, noUsers: undefined };
+        throw new ConnectionError();
     } finally {
         clearTimeout(timeoutId);
     }
