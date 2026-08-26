@@ -1201,9 +1201,7 @@ export default function ProductsConfig({
                                                             <DeleteButtonCell
                                                                 isReadOnly={isReadOnly}
                                                                 onDelete={() => handleDeleteProduct(i)}
-                                                                onEdit={
-                                                                    p.options ? () => handleEditProduct(i) : undefined
-                                                                }
+                                                                onEdit={() => handleEditProduct(i)}
                                                             />
                                                         </SortableRow>
                                                     ))}

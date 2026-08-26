@@ -670,7 +670,9 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
         //   (hidden otherwise, including when no customer is selected)
         const visible = withProducts.filter((item) => {
             const comp = categoryCompany.get(item.category);
-            return !comp || comp === customerCompany;
+            if (comp && comp !== customerCompany) return false;
+            if (!showOthers && item.products.length === 0) return false;
+            return true;
         });
 
         // When a company customer is selected, move their company-specific categories to the front
@@ -681,7 +683,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
             ];
         }
         return visible;
-    }, [inventory, configCategories, currentCustomer]);
+    }, [inventory, configCategories, currentCustomer, showOthers]);
 
     // ── Large-screen UX: catalog mode uses inline grid, not popups ──
     const isMobile = useIsMobile();

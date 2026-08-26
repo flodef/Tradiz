@@ -665,7 +665,7 @@ export default function CustomersConfig({
     );
 
     const handleEditCustomer = useCallback(
-        (customer: InternalCustomer) => {
+        (customer: InternalCustomer, isNew = false) => {
             const content = (
                 <CustomerEditPopup
                     customer={customer}
@@ -679,11 +679,16 @@ export default function CustomersConfig({
                         handleDeleteCustomer(customer._id);
                         closePopup();
                     }}
-                    onCancel={() => closePopup()}
+                    onCancel={() => {
+                        if (isNew) handleDeleteCustomer(customer._id);
+                        closePopup();
+                    }}
                 />
             );
             openFullscreenPopup(
-                `Modifier ${customer.firstName} ${customer.lastName}`.trim() || 'Nouveau client',
+                isNew
+                    ? 'Nouveau client'
+                    : `Modifier ${customer.firstName} ${customer.lastName}`.trim() || 'Modifier le client',
                 [content],
                 () => {},
                 true
@@ -709,7 +714,7 @@ export default function CustomersConfig({
         selfUpdateRef.current = true;
         setCustomers(updated);
         onChange(strip(updated));
-        handleEditCustomer(newCustomer);
+        handleEditCustomer(newCustomer, true);
     }, [customers, onChange, handleEditCustomer]);
 
     const handleSave = () => {
