@@ -56,6 +56,7 @@ export interface Device {
     printerCom?: string | null;
     printerBaud?: number | null;
     cashDrawerCom?: string | null;
+    cashDrawerBaud?: number | null;
 }
 
 export interface Company {

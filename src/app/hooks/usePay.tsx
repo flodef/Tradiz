@@ -251,7 +251,12 @@ export const usePay = () => {
                     if (res.ok) {
                         const hw = await res.json();
                         address = hw.cashDrawerCom || hw.printerCom || undefined;
-                        baudRate = hw.printerBaud || undefined;
+                        // Use the baud rate that matches the port we're actually targeting.
+                        if (hw.cashDrawerCom) {
+                            baudRate = hw.cashDrawerBaud || undefined;
+                        } else if (hw.printerCom) {
+                            baudRate = hw.printerBaud || undefined;
+                        }
                     }
                 } catch {
                     // Fall back to printer config
@@ -330,22 +335,48 @@ export const usePay = () => {
 
             if (!currentTransaction) return { error: 'Aucune transaction à imprimer' };
 
-            const printerAddresses = printerAddressOverride
-                ? [printerAddressOverride]
-                : resolvePrinterAddresses(printerName);
+            // Check if the current device has a local COM printer configured.
+            // If so, use it (with the correct baud rate) instead of the IP-based cashier printer.
+            let comBaud: number | undefined;
+            let printerAddresses: string[];
+            if (printerAddressOverride) {
+                printerAddresses = [printerAddressOverride];
+            } else {
+                const publicKey = getPublicKey();
+                let devicePrinterCom: string | undefined;
+                if (publicKey) {
+                    try {
+                        const hwRes = await fetch(
+                            `/api/sql/getDeviceHardware?publicKey=${encodeURIComponent(publicKey)}`
+                        );
+                        if (hwRes.ok) {
+                            const hw = await hwRes.json();
+                            devicePrinterCom = hw.printerCom || undefined;
+                            comBaud = hw.printerBaud || undefined;
+                        }
+                    } catch {
+                        // Fall back to PrintersConfig
+                    }
+                }
+                printerAddresses = devicePrinterCom ? [devicePrinterCom] : resolvePrinterAddresses(printerName);
+            }
             if (!printerAddresses.length) return { error: 'Imprimante non trouvée' };
 
             // Print the receipt
-            return await printReceipt(printerAddresses, {
-                shop: parameters.shop,
-                transaction: currentTransaction,
-                currency,
-                thanksMessage: parameters.thanksMessage,
-                userName: parameters.user.name,
-                inventory: inventory,
-                orderNumber: orderData?.short_num_order,
-                serviceType: orderData?.service_type,
-            });
+            return await printReceipt(
+                printerAddresses,
+                {
+                    shop: parameters.shop,
+                    transaction: currentTransaction,
+                    currency,
+                    thanksMessage: parameters.thanksMessage,
+                    userName: parameters.user.name,
+                    inventory: inventory,
+                    orderNumber: orderData?.short_num_order,
+                    serviceType: orderData?.service_type,
+                },
+                comBaud
+            );
         },
         [
             parameters,

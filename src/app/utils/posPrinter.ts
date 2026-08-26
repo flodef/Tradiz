@@ -143,7 +143,7 @@ async function executePrint(printer: ThermalPrinter): Promise<void> {
 /**
  * Checks if the printer is on the same subnet as the device, or a COM port
  */
-const initPrinter = async (printerAddresses: string[]) => {
+const initPrinter = async (printerAddresses: string[], comBaud?: number) => {
     // If in DEV mode, return a mock printer that prints to the console
     if (IS_DEV) return { printer: await createMockPrinter() };
 
@@ -164,6 +164,7 @@ const initPrinter = async (printerAddresses: string[]) => {
             });
             // Attach COM port info so executePrint knows to use fs
             (printer as unknown as { _comPort: string })._comPort = comPort.trim().toUpperCase();
+            if (comBaud) (printer as unknown as { _comBaud?: number })._comBaud = comBaud;
             return { printer };
         } catch (err) {
             return { error: "Impossible d'ouvrir le port " + comPort + ': ' + (err as Error).message };
@@ -265,9 +266,13 @@ const toCurrency = (amount: number | string, currency: Currency) =>
 /**
  * Server action to print a receipt with standard formatting
  */
-export async function printReceipt(printerAddresses: string[], receiptData: ReceiptData): Promise<PrintResponse> {
+export async function printReceipt(
+    printerAddresses: string[],
+    receiptData: ReceiptData,
+    comBaud?: number
+): Promise<PrintResponse> {
     try {
-        const { printer, error } = await initPrinter(printerAddresses);
+        const { printer, error } = await initPrinter(printerAddresses, comBaud);
         if (!printer || error) return { error };
 
         const currentDate = new Date();

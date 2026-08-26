@@ -57,7 +57,6 @@ INSERT INTO dc_pos.payment_methods (id, label, address, currency, available, cre
 -- Printers (imprimantes)
 INSERT INTO dc_pos.printers (id, name, ip_address) VALUES (1, 'Caisse', 'COM1') ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.printers (id, name, ip_address) VALUES (2, 'Cuisine', '195') ON CONFLICT (id) DO NOTHING;
-INSERT INTO dc_pos.printers (id, name, ip_address) VALUES (3, 'Ecran client', 'COM7') ON CONFLICT (id) DO NOTHING;
 
 -- Devices (appareils) — references users
 INSERT INTO dc_pos.devices (id, label, public_key, user_id, connected, last_seen, created_at) VALUES (1, 'Gds', 'aynn2aloo9kp62q1idmjd', 1, 'f', '2026-08-05 17:51:52.644778+00', '2026-07-13 23:00:33.245727') ON CONFLICT (id) DO NOTHING;

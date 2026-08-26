@@ -270,7 +270,8 @@ CREATE TABLE IF NOT EXISTS dc_pos.devices (
     backscreen_baud INTEGER DEFAULT NULL,
     printer_com VARCHAR(10) DEFAULT NULL,
     printer_baud INTEGER DEFAULT NULL,
-    cash_drawer_com VARCHAR(10) DEFAULT NULL
+    cash_drawer_com VARCHAR(10) DEFAULT NULL,
+    cash_drawer_baud INTEGER DEFAULT NULL
 );
 
 -- Customers

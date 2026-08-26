@@ -10,6 +10,7 @@ interface DeviceHardwareRow {
     printer_com: string | null;
     printer_baud: number | null;
     cash_drawer_com: string | null;
+    cash_drawer_baud: number | null;
 }
 
 export async function GET(request: Request) {
@@ -25,13 +26,11 @@ export async function GET(request: Request) {
 
         const result = await connection.execute(
             connection.isPostgreSQL
-                ? 'SELECT backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com FROM dc_pos.devices WHERE public_key = $1 LIMIT 1'
-                : 'SELECT backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com FROM devices WHERE public_key = ? LIMIT 1',
+                ? 'SELECT backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com, cash_drawer_baud FROM dc_pos.devices WHERE public_key = $1 LIMIT 1'
+                : 'SELECT backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com, cash_drawer_baud FROM devices WHERE public_key = ? LIMIT 1',
             [publicKey]
         );
         const rows = result[0] as DeviceHardwareRow[];
-
-        await connection.end();
 
         if (!rows.length) {
             return NextResponse.json({ error: 'Device not found' }, { status: 404 });
@@ -44,6 +43,7 @@ export async function GET(request: Request) {
             printerCom: row.printer_com ?? null,
             printerBaud: row.printer_baud ?? null,
             cashDrawerCom: row.cash_drawer_com ?? null,
+            cashDrawerBaud: row.cash_drawer_baud ?? null,
         });
     } catch (error) {
         console.error('Error fetching device hardware:', error);

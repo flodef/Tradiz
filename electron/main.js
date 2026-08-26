@@ -236,10 +236,6 @@ async function findDisplayPort() {
                             var devices = data.devices || [];
                             // Find this device by public key
                             var device = publicKey ? devices.find((d) => d.key === publicKey) : null;
-                            // Fallback: first device with a backscreenCom
-                            if (!device) {
-                                device = devices.find((d) => d.backscreenCom);
-                            }
                             if (device && device.backscreenCom) {
                                 resolve({
                                     port: device.backscreenCom,

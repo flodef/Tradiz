@@ -367,6 +367,7 @@ CREATE TABLE IF NOT EXISTS `devices` (
   `printer_com` varchar(10) DEFAULT NULL,
   `printer_baud` int(11) DEFAULT NULL,
   `cash_drawer_com` varchar(10) DEFAULT NULL,
+  `cash_drawer_baud` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `public_key` (`public_key`),
   KEY `user_id` (`user_id`),

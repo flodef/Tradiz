@@ -194,8 +194,6 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         deleteProduct,
         displayProduct,
         updateTransaction,
-        wasWaitingBeforeEditRef,
-        originalProductsSnapshotRef,
         transactionsLoaded,
         orderId,
         setSelectedOrderItems,
@@ -809,8 +807,8 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
 
     const showTopBar = (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length);
 
-    if (!showTopBar) {
-        if (!transactionsLoaded) {
+    if (!showTopBar && !compact) {
+        if (!transactionsLoaded && isStateReady) {
             return (
                 <div className={popupClass} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Loading fullscreen={false} />

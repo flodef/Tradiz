@@ -2,6 +2,7 @@
 
 import { Device, User } from '@/app/utils/interfaces';
 import { adminHeaderStyle } from '@/app/utils/constants';
+import { getPublicKey } from '@/app/utils/processData';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconChevronDown, IconChevronUp, IconDeviceTv, IconSelector } from '@tabler/icons-react';
 import SectionCard from '../SectionCard';
@@ -129,7 +130,7 @@ function Row({
                             options={comPortOptions(availableComPorts, device.backscreenCom)}
                             className="w-20"
                         />
-                        {device.backscreenCom && !isReadOnly && (
+                        {device.backscreenCom && !isReadOnly && device.key === getPublicKey() && (
                             <button
                                 type="button"
                                 title="Tester l'écran client"
@@ -183,13 +184,30 @@ function Row({
                 </div>
             </td>
             <td className="p-2">
-                <AdminSelect
-                    value={device.cashDrawerCom ?? ''}
-                    onChange={(e) => onChange({ ...device, cashDrawerCom: e.target.value || null })}
-                    isReadOnly={isReadOnly}
-                    options={comPortOptions(availableComPorts, device.cashDrawerCom)}
-                    className="w-24"
-                />
+                <div className="flex flex-col gap-1">
+                    <AdminSelect
+                        value={device.cashDrawerCom ?? ''}
+                        onChange={(e) =>
+                            onChange({
+                                ...device,
+                                cashDrawerCom: e.target.value || null,
+                                cashDrawerBaud: e.target.value ? device.cashDrawerBaud ?? 9600 : null,
+                            })
+                        }
+                        isReadOnly={isReadOnly}
+                        options={comPortOptions(availableComPorts, device.cashDrawerCom)}
+                        className="w-24"
+                    />
+                    {device.cashDrawerCom && (
+                        <AdminSelect
+                            value={device.cashDrawerBaud ?? 9600}
+                            onChange={(e) => onChange({ ...device, cashDrawerBaud: Number(e.target.value) })}
+                            isReadOnly={isReadOnly}
+                            options={BAUD_OPTIONS}
+                            className="w-24"
+                        />
+                    )}
+                </div>
             </td>
             <DeleteButtonCell isReadOnly={isReadOnly} onDelete={onDelete} title="Supprimer l'appareil" />
         </tr>

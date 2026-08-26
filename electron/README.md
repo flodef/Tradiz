@@ -46,4 +46,4 @@ L'application Electron Windows verifie au demarrage les dernieres releases GitHu
 
 -   **Imprimante thermique** : ESC/POS compatible, port reseau 9100 (Epson par defaut).
 -   **Lecteur de codes-barres** : clavier USB, envoie les chiffres suivis d'un `Enter`.
--   **Ecran client** : fenetre secondaire Electron que l'on peut deplacer sur un second ecran ou afficheur VFD/LCD.
+-   **Ecran client** : afficheur LCD 2x20 caractères sur port série (COM), configurable par appareil dans Parametres > Appareils.
