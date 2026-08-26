@@ -122,17 +122,15 @@ export async function sendSummaryEmail(summaryData: SummaryData): Promise<boolea
                                 ? `<tr style="width: 100%;">
                                     ${line
                                         .split('\t')
-                                        .filter((item) => item.trim())
                                         .map(
                                             (item) =>
-                                                `<td style="width: 25%; text-align: center; padding: 5px;">${item.trim()}</td>`
+                                                `<td style="width: 25%; text-align: center; padding: 5px;">${item.trim() || '&nbsp;'}</td>`
                                         )
                                         .join('')}
                                   </tr>`
                                 : `<tr style="width: 100%;">
                               ${line
                                   .split('  ')
-                                  .filter((item) => item.trim())
                                   .map((item) => `<td style="width: 25%; text-align: center;">${item.trim()}</td>`)
                                   .join('')}
                               </tr>`

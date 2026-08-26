@@ -24,6 +24,8 @@ import {
     BACK_KEYWORD,
     DEBIT_KEYWORD,
     PRINT_KEYWORD,
+    PRINT_NO_DETAIL,
+    PRINT_WITH_DETAIL,
     PROVISION_KEYWORD,
     REFUND_KEYWORD,
     UPDATING_KEYWORD,
@@ -319,11 +321,11 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                     ...editOptions,
                     ...getPrintersNames().flatMap((printerName) => [
                         {
-                            label: printerName + ' (sans détail)',
+                            label: printerName + PRINT_NO_DETAIL,
                             action: () => printTransaction(printerName, transaction, false),
                         },
                         {
-                            label: printerName + ' (avec détail)',
+                            label: printerName + PRINT_WITH_DETAIL,
                             action: () => printTransaction(printerName, transaction, true),
                         },
                     ]),

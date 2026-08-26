@@ -23,7 +23,6 @@ import {
     CURRENT_USER_KEYWORD,
     LOCAL_PRINTER_KEYWORD,
     PRINT_KEYWORD,
-    PRINTER_ROLE,
     SEPARATOR,
     USE_DIGICARTE,
 } from '../utils/constants';
@@ -226,8 +225,8 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                           printers.find(({ label: n }) => n === printerName),
                           printers.find(({ label: n }) => n === LOCAL_PRINTER_KEYWORD),
                       ]
-                    : printers.filter(({ label }) => label === PRINTER_ROLE.cashier)
-            ).filter(Boolean) as Printer[]; // Default to the cashier printer only
+                    : printers.filter(({ label }) => label !== LOCAL_PRINTER_KEYWORD)
+            ).filter(Boolean) as Printer[];
             if (!printer.length) return [];
 
             return printer.map(({ ipAddress: address }) => address);
@@ -239,6 +238,15 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
         (role: string) => {
             const printer = printers.find(({ label }) => label === role);
             return printer?.ipAddress;
+        },
+        [printers]
+    );
+
+    const getPrinterNamesByRole = useCallback(
+        (role: string) => {
+            const rolePrinters = printers.filter(({ label }) => label === role);
+            if (!rolePrinters.length) return [];
+            return rolePrinters.map(() => PRINT_KEYWORD + SEPARATOR + role);
         },
         [printers]
     );
@@ -444,6 +452,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                 getPrintersNames,
                 resolvePrinterAddresses,
                 getPrinterAddressByRole,
+                getPrinterNamesByRole,
                 customers,
                 setCustomers,
                 users,

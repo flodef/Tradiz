@@ -15,6 +15,8 @@ import {
     IS_LOCAL,
     NON_PAYMENT_KEYWORDS,
     PRINT_KEYWORD,
+    PRINT_NO_DETAIL,
+    PRINT_WITH_DETAIL,
     PRINTER_ROLE,
     PROCESSING_KEYWORD,
     PROVISION_KEYWORD,
@@ -765,7 +767,6 @@ export const usePay = () => {
             const needsServiceType =
                 !orderId &&
                 !NON_PAYMENT_KEYWORDS.includes(paymentType) &&
-                !paymentType.startsWith(PRINT_KEYWORD) &&
                 paymentType !== PROVISION_KEYWORD &&
                 useTakeOut;
 
@@ -787,7 +788,7 @@ export const usePay = () => {
 
             // Notify the customer-facing display about the payment type. Internal actions
             // (printing, putting on hold, refunding...) are not payments and must not be shown.
-            if (!NON_PAYMENT_KEYWORDS.includes(paymentType) && !paymentType.startsWith(PRINT_KEYWORD)) {
+            if (!NON_PAYMENT_KEYWORDS.includes(paymentType)) {
                 postCustomerDisplay(buildPaymentDisplay(paymentType, getCustomerTotal(), currencies[currencyIndex]));
             }
 
@@ -1298,7 +1299,7 @@ export const usePay = () => {
                     for (const pName of printerNames) {
                         const isSingle = printerNames.length === 1;
                         const base = isSingle ? PRINT_KEYWORD : pName;
-                        allOptions.push(base + ' (sans détail)', base + ' (avec détail)');
+                        allOptions.push(base + PRINT_NO_DETAIL, base + PRINT_WITH_DETAIL);
                     }
                 }
 
@@ -1346,9 +1347,9 @@ export const usePay = () => {
                             const printerNames = getPrintersNames();
                             const isPrintOption =
                                 option.startsWith(PRINT_KEYWORD) &&
-                                (option.includes('(sans détail)') || option.includes('(avec détail)'));
+                                (option.includes(PRINT_NO_DETAIL) || option.includes(PRINT_WITH_DETAIL));
                             if (isPrintOption) {
-                                const showDetails = option.includes('(avec détail)');
+                                const showDetails = option.includes(PRINT_WITH_DETAIL);
                                 // Match the printer name from the option
                                 const matchedPrinter = printerNames.find((pName) => option.startsWith(pName));
                                 const printerName = printerNames.length === 1 ? printerNames[0] : matchedPrinter;

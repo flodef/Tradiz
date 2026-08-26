@@ -33,7 +33,15 @@ enum HistoricalPeriod {
 }
 
 export const useSummary = () => {
-    const { currencies, currencyIndex, inventory, parameters, getPrintersNames, resolvePrinterAddresses } = useConfig();
+    const {
+        currencies,
+        currencyIndex,
+        inventory,
+        parameters,
+        getPrintersNames,
+        getPrinterNamesByRole,
+        resolvePrinterAddresses,
+    } = useConfig();
     const {
         transactions,
         toCurrency,
@@ -253,12 +261,16 @@ export const useSummary = () => {
                             toCurrency(amount)
                     )
                     .concat([''])
-                    .concat(['TAUX'.padEnd(8) + '\t HT \t TVA \t TTC '])
+                    .concat(['TAUX\t HT \t TVA \t TTC '])
                     .concat(
                         taxAmount
                             .map((t) => {
                                 return t
-                                    ? ('T' + (isNaN(t.index) ? '' : t.index) + ' ' + t.rate + '%').padEnd(8) +
+                                    ? 'T' +
+                                          (isNaN(t.index) ? '' : t.index) +
+                                          ' ' +
+                                          t.rate +
+                                          '%' +
                                           '\t' +
                                           toCurrency(t.ht) +
                                           '\t' +
@@ -268,7 +280,7 @@ export const useSummary = () => {
                                     : '';
                             })
                             .concat([
-                                'TOTAL'.padEnd(8) +
+                                'TOTAL' +
                                     '\t' +
                                     toCurrency(totalTaxes.ht) +
                                     '\t' +
@@ -1113,17 +1125,14 @@ export const useSummary = () => {
             const formattedDate = getFormattedDate(transactionsDate.date, isDailyPeriod ? 3 : 2);
 
             // Ticket Z should only be printed on the cashier printer, not kitchen/bar.
-            const cashierPrinterNames = getPrintersNames().filter((name) => {
-                // Single printer: name is just PRINT_KEYWORD ('Impression')
-                if (!name.includes(SEPARATOR)) return true;
-                // Multiple printers: name is 'Impression : Caisse' — keep only cashier
-                return name.split(SEPARATOR)[1]?.trim() === PRINTER_ROLE.cashier;
-            });
+            const cashierPrinterNames = getPrinterNamesByRole(PRINTER_ROLE.cashier);
+            // Fallback: if no cashier-specific printer, use all printers (single-printer case)
+            const ticketZPrinterNames = cashierPrinterNames.length > 0 ? cashierPrinterNames : getPrintersNames();
 
             openPopup(
                 'Ticket Z ' + (hasTransactions ? formattedDate : ''),
                 (hasTransactions ? ['Email', 'Feuille de calcul'] : [])
-                    .concat(hasTransactions ? cashierPrinterNames : [])
+                    .concat(hasTransactions ? ticketZPrinterNames : [])
                     .concat(isDbConnected && hasTransactions && isDailyPeriod ? ['Resynchroniser jour'] : [])
                     .concat(isDbConnected ? ['Menu Synchronisation'] : [])
                     .concat(
@@ -1204,6 +1213,7 @@ export const useSummary = () => {
         isDbConnected,
         showSyncMenu,
         getPrintersNames,
+        getPrinterNamesByRole,
         parameters,
     ]);
 

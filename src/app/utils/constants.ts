@@ -9,6 +9,8 @@ export const OTHER_KEYWORD = 'Autres';
 export const TRANSACTIONS_KEYWORD = 'Transactions';
 export const PRINT_KEYWORD = 'Impression';
 export const LOCAL_PRINTER_KEYWORD = 'Local';
+export const PRINT_NO_DETAIL = ' (sans détail)';
+export const PRINT_WITH_DETAIL = ' (avec détail)';
 
 // Printer roles. These labels are persisted in the DB, so always reference them
 // through PRINTER_ROLE instead of hardcoding the strings at call sites.
