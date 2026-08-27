@@ -54,6 +54,7 @@ export default function SettingsPage() {
         parameters,
         setParameters,
         setConfig,
+        setDevicePrinterCom,
         discounts: configDiscounts,
         currencies,
         paymentMethods: configPayments,
@@ -303,6 +304,7 @@ export default function SettingsPage() {
                     serial: getParam('serial', 'SIRET'),
                     id: getParam('id', 'Identifiant'),
                     email: getParam('email', 'Email de contact'),
+                    phone: getParam('phone', 'Téléphone'),
                 },
                 thanksMessage: getParam('thanksMessage', 'Message de remerciement') || 'Merci de votre visite !',
                 mercurial: (getParam('mercurial', 'Mercuriale quadratique') || Mercurial.none) as Mercurial,
@@ -720,6 +722,11 @@ export default function SettingsPage() {
             if (!response.ok) throw new Error('Failed to save devices');
             setOriginalDevices(data);
             setHasDevicesChanges(false);
+
+            // Update ConfigProvider's devicePrinterCom so hasCashierPrinter reflects the new config
+            const pk = getPublicKey();
+            const currentDevice = data.find((d) => d.key === pk);
+            setDevicePrinterCom(currentDevice?.printerCom || undefined);
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
             openFullscreenPopup("Erreur lors de l'enregistrement des appareils.", ['OK']);
@@ -771,6 +778,7 @@ export default function SettingsPage() {
                 { key: 'serial', value: data.shop.serial },
                 { key: 'id', value: data.shop.id },
                 { key: 'email', value: data.shop.email },
+                { key: 'phone', value: data.shop.phone ?? '' },
                 { key: 'thanksMessage', value: data.thanksMessage },
                 { key: 'mercurial', value: data.mercurial },
                 { key: 'closingHour', value: String(data.closingHour) },

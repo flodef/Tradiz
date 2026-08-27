@@ -1165,6 +1165,20 @@ export const useSummary = () => {
                         case 'Menu Synchronisation':
                             showSyncMenu(showTransactionsSummaryMenu);
                             break;
+                        case 'Resynchroniser jour': {
+                            const todayDate = getFormattedDate(new Date(), 3);
+                            openPopup('Synchronisation', ['Synchronisation en cours...'], () => {}, true);
+                            (async () => {
+                                const count = await syncSpecificDayFromSQL(todayDate);
+                                refreshHistoricalKeys();
+                                openPopup('Synchronisation', [
+                                    count > 0
+                                        ? `${count} transaction(s) synchronisée(s)`
+                                        : 'Aucune transaction trouvée pour ce jour',
+                                ]);
+                            })();
+                            break;
+                        }
                         case 'Historique par jour':
                         case 'Historique par mois':
                         case 'Historique par année fiscale':
@@ -1211,6 +1225,7 @@ export const useSummary = () => {
         showSyncMenu,
         hasCashierPrinter,
         parameters,
+        syncSpecificDayFromSQL,
     ]);
 
     return {

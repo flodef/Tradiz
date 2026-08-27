@@ -972,7 +972,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                     {!navExpanded && <IconReceipt className="inline-block" size={isMobile ? 28 : 36} />}
                                     {!navExpanded && 'Ticket : '}
                                     {visibleTransactions.length}
-                                    <span className="text-xl self-end">{`vente${(visibleTransactions.length ?? 0) > 1 ? 's' : ''}`}</span>
+                                    <span className="text-xl">{`vente${(visibleTransactions.length ?? 0) > 1 ? 's' : ''}`}</span>
                                 </span>
                             )}
                         </div>

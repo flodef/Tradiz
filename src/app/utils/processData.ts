@@ -173,6 +173,7 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             serial: getParamValue('serial', 4),
             id: getParamValue('id', 5),
             email: getParamValue('email', 6) || devEmail,
+            phone: getParamValue('phone', 18) || '',
         },
         thanksMessage: getParamValue('thanksMessage', 7) || 'Merci de votre visite !',
         mercurial: (getParamValue('mercurial', 8) || Mercurial.none) as Mercurial,
@@ -342,7 +343,7 @@ export const defaultColors: Color[] = [
 ];
 
 export const defaultParameters: Parameters = {
-    shop: { name: '', email: DEV_EMAIL, address: '', zipCode: '', city: '', id: '', serial: '' },
+    shop: { name: '', email: DEV_EMAIL, address: '', zipCode: '', city: '', id: '', serial: '', phone: '' },
     thanksMessage: '',
     mercurial: Mercurial.none,
     lastModified: Date.now().toString(),

@@ -463,6 +463,21 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             }
                         }
                     }
+
+                    // Remove local PROCESSING transactions that are no longer in the cloud.
+                    // This handles hard-deletes from other devices: when POS2 hard-deletes a
+                    // PROCESSING tx, it disappears from the server response. We must remove
+                    // the stale local copy so it doesn't linger on POS1.
+                    const cloudTimestamps = new Set(
+                        cloudTransactionSet.transactions.map((t) => floorToSeconds(t.createdDate))
+                    );
+                    const beforeLen = updateTransactionSet.transactions.length;
+                    updateTransactionSet.transactions = updateTransactionSet.transactions.filter(
+                        (tx) => !isProcessingTransaction(tx) || cloudTimestamps.has(floorToSeconds(tx.createdDate))
+                    );
+                    const removedCount = beforeLen - updateTransactionSet.transactions.length;
+                    if (removedCount > 0) syncedCount += removedCount;
+
                     updateLocalTransaction(updateTransactionSet);
                 }
             }
@@ -846,13 +861,22 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     await idbSetTransactions(filename, transactions);
                 }
 
+                // If syncing today, update the current transactions state so
+                // the ticket count and other UI elements reflect the fresh data.
+                const todayFilename = getTransactionFileName(resolvedShopId);
+                if (filename === todayFilename) {
+                    const { last: lastResetTime } = getResetTimes();
+                    const currentDayTransactions = transactions.filter((tx) => tx.createdDate >= lastResetTime);
+                    setTransactions(currentDayTransactions);
+                }
+
                 return transactions.length;
             } catch (error) {
                 console.error('Error syncing specific day from SQL:', error);
                 return 0;
             }
         },
-        [resolvedShopId]
+        [resolvedShopId, getResetTimes]
     );
 
     const saveTransactions = useCallback(

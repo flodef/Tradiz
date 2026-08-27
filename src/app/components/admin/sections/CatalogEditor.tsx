@@ -706,6 +706,12 @@ export default function CatalogEditor({
                                                 isReadOnly={isReadOnly}
                                                 label="Quote part"
                                                 className="w-full"
+                                                validation={(value) =>
+                                                    value === '' ||
+                                                    value === undefined ||
+                                                    (!isNaN(parseFloat(String(value))) &&
+                                                        parseFloat(String(value)) >= 0)
+                                                }
                                             />
                                         </div>
                                     </div>

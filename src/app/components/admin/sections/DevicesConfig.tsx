@@ -4,6 +4,7 @@ import { Device, User } from '@/app/utils/interfaces';
 import { adminHeaderStyle } from '@/app/utils/constants';
 import { getPublicKey } from '@/app/utils/processData';
 import { testPrint } from '@/app/utils/posPrinter';
+import { usePopup } from '@/app/hooks/usePopup';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconChevronDown, IconChevronUp, IconSelector, IconPlayerPlay } from '@tabler/icons-react';
 import SectionCard from '../SectionCard';
@@ -69,6 +70,7 @@ function Row({
     const validUsers = useMemo(() => users.filter((u) => u.id !== undefined), [users]);
     const singleUser = validUsers.length === 1 ? validUsers[0] : undefined;
     const defaultUserId = singleUser ? singleUser.id : validUsers[0]?.id;
+    const { openFullscreenPopup } = usePopup();
     const userOptions = useMemo(
         () =>
             validUsers.map((user) => ({
@@ -87,68 +89,131 @@ function Row({
 
     const isCurrentDevice = device.key === getPublicKey();
     const [testState, setTestState] = useState<TestState>('idle');
-    const [testMessage, setTestMessage] = useState('');
 
     const runHardwareTest = useCallback(async () => {
         setTestState('running');
-        setTestMessage('Test en cours...');
         const steps: string[] = [];
 
-        // 1. Test customer display (backscreen) — try all baud rates
-        if (device.backscreenCom) {
-            steps.push('Écran client:');
-            for (const baud of ALL_BAUD_RATES) {
+        const hasConfiguredPorts = device.backscreenCom || device.cashDrawerCom || device.printerCom;
+
+        if (!hasConfiguredPorts && availableComPorts.length > 0) {
+            // No ports configured — test all available COM ports for each device
+            steps.push('Aucun port configuré — test de tous les ports disponibles:');
+            for (const portNum of availableComPorts) {
+                const portName = `COM${portNum}`;
+                let portFound = false;
+
+                // Test as display
+                for (const baud of ALL_BAUD_RATES) {
+                    try {
+                        window.electronAPI?.testDisplay?.({ port: portName, baud });
+                        steps.push(`  ${portName} @ ${baud} (écran) envoyé`);
+                        portFound = true;
+                        break;
+                    } catch {
+                        // continue
+                    }
+                }
+
+                // Test as printer
                 try {
-                    window.electronAPI?.testDisplay?.({
-                        port: device.backscreenCom,
-                        baud,
-                    });
-                    steps.push(`  ${device.backscreenCom} @ ${baud} envoyé`);
+                    const res = await testPrint(portName);
+                    if (res.success) {
+                        steps.push(`  ${portName} (imprimante) OK`);
+                        portFound = true;
+                    }
                 } catch {
-                    steps.push(`  ${device.backscreenCom} @ ${baud} échec`);
+                    // continue
+                }
+
+                // Test as cash drawer
+                try {
+                    const res = await fetch('/api/open-cash-drawer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ printerAddress: portName, baudRate: 9600 }),
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        steps.push(`  ${portName} (tiroir) OK`);
+                        portFound = true;
+                    }
+                } catch {
+                    // continue
+                }
+
+                if (!portFound) {
+                    steps.push(`  ${portName}: aucun périphérique détecté`);
                 }
             }
-        }
+        } else {
+            // Test only configured ports
+            // 1. Test customer display (backscreen) — try all baud rates
+            if (device.backscreenCom) {
+                steps.push('Écran client:');
+                for (const baud of ALL_BAUD_RATES) {
+                    try {
+                        window.electronAPI?.testDisplay?.({
+                            port: device.backscreenCom,
+                            baud,
+                        });
+                        steps.push(`  ${device.backscreenCom} @ ${baud} envoyé`);
+                    } catch {
+                        steps.push(`  ${device.backscreenCom} @ ${baud} échec`);
+                    }
+                }
+            }
 
-        // 2. Test cash drawer
-        if (device.cashDrawerCom) {
-            steps.push('Tiroir caisse:');
-            try {
-                const res = await fetch('/api/open-cash-drawer', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        printerAddress: device.cashDrawerCom,
-                        baudRate: device.cashDrawerBaud ?? 9600,
-                    }),
-                });
-                const data = await res.json();
-                if (data.success) steps.push('  Ouverture envoyée OK');
-                else steps.push(`  Erreur: ${data.error}`);
-            } catch (err) {
-                steps.push(`  Erreur: ${(err as Error).message}`);
+            // 2. Test cash drawer
+            if (device.cashDrawerCom) {
+                steps.push('Tiroir caisse:');
+                try {
+                    const res = await fetch('/api/open-cash-drawer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            printerAddress: device.cashDrawerCom,
+                            baudRate: device.cashDrawerBaud ?? 9600,
+                        }),
+                    });
+                    const data = await res.json();
+                    if (data.success) steps.push('  Ouverture envoyée OK');
+                    else steps.push(`  Erreur: ${data.error}`);
+                } catch (err) {
+                    steps.push(`  Erreur: ${(err as Error).message}`);
+                }
+            }
+
+            // 3. Test printer
+            if (device.printerCom) {
+                steps.push('Imprimante:');
+                try {
+                    const res = await testPrint(device.printerCom);
+                    if (res.success) steps.push('  Test impression envoyé OK');
+                    else steps.push(`  Erreur: ${res.error}`);
+                } catch (err) {
+                    steps.push(`  Erreur: ${(err as Error).message}`);
+                }
+            }
+
+            if (!device.backscreenCom && !device.cashDrawerCom && !device.printerCom) {
+                steps.push('Aucun port configuré sur cet appareil');
             }
         }
 
-        // 3. Test printer — testPrint already tries all baud rates for COM ports
-        if (device.printerCom) {
-            steps.push('Imprimante:');
-            try {
-                const res = await testPrint(device.printerCom);
-                if (res.success) steps.push('  Test impression envoyé OK');
-                else steps.push(`  Erreur: ${res.error}`);
-            } catch (err) {
-                steps.push(`  Erreur: ${(err as Error).message}`);
-            }
-        }
-
-        if (!device.backscreenCom && !device.cashDrawerCom && !device.printerCom) {
-            steps.push('Aucun port configuré sur cet appareil');
-        }
-
-        setTestMessage(steps.join('\n'));
         setTestState('done');
-    }, [device.backscreenCom, device.cashDrawerCom, device.cashDrawerBaud, device.printerCom]);
+        // Show results in a popup
+        openFullscreenPopup(steps.join('\n'), ['OK'], () => {
+            setTestState('idle');
+        });
+    }, [
+        device.backscreenCom,
+        device.cashDrawerCom,
+        device.cashDrawerBaud,
+        device.printerCom,
+        availableComPorts,
+        openFullscreenPopup,
+    ]);
 
     return (
         <tr className="border-b border-gray-200 dark:border-gray-700">
@@ -276,11 +341,6 @@ function Row({
                         >
                             <IconPlayerPlay size={18} />
                         </button>
-                        {testState === 'done' && testMessage && (
-                            <pre className="text-xs text-gray-500 dark:text-gray-400 whitespace-pre-wrap max-w-48">
-                                {testMessage}
-                            </pre>
-                        )}
                     </div>
                 )}
             </td>

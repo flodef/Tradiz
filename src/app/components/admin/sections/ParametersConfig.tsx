@@ -3,6 +3,7 @@
 import { Parameters, ProductsSettings, SearchSettings, DisplaySettings } from '@/app/contexts/ConfigProvider';
 import { DEFAULT_DISPLAY_SETTINGS } from '@/app/utils/processData';
 import { adminTextStyle } from '@/app/utils/constants';
+import { frenchPhoneRegex } from '@/app/utils/regex';
 import { Mercurial, User } from '@/app/utils/interfaces';
 import AdminInput from '../AdminInput';
 import AdminSelect from '../AdminSelect';
@@ -161,6 +162,18 @@ export default function ParametersConfig({
                         placeholder="Email"
                         isReadOnly={isReadOnly}
                         className="flex-1 min-w-40 max-w-xs"
+                    />
+                    <ValidatedInput
+                        label="Téléphone"
+                        value={String(config.shop.phone || '')}
+                        onChange={(value) => handleShopChange('phone', String(value))}
+                        placeholder="06 12 34 56 78"
+                        isReadOnly={isReadOnly}
+                        className="flex-1 min-w-40 max-w-xs"
+                        validation={(value) => {
+                            const v = String(value).trim();
+                            return v === '' || frenchPhoneRegex.test(v);
+                        }}
                     />
                     <SiretInput
                         value={String(config.shop.serial || '')}

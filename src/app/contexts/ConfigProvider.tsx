@@ -49,6 +49,7 @@ export interface Shop {
     serial: string;
     email: string;
     id: string;
+    phone: string;
 }
 
 export interface ProductsSettings {
@@ -310,13 +311,22 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     }, [colors]);
 
     // Persist the current user to localStorage so the next session can restore it.
+    // Also sync the config so the cached config has the correct user on restart.
     useEffect(() => {
         if (parameters.user && parameters.user.name) {
             localStorage.setItem(CURRENT_USER_KEYWORD, JSON.stringify(parameters.user));
-        } else {
-            localStorage.removeItem(CURRENT_USER_KEYWORD);
+            setConfig((prevConfig) => {
+                if (!prevConfig) return prevConfig;
+                if (prevConfig.parameters.user?.name === parameters.user.name) return prevConfig;
+                return {
+                    ...prevConfig,
+                    parameters: { ...prevConfig.parameters, user: parameters.user },
+                };
+            });
         }
-    }, [parameters.user]);
+        // Don't remove CURRENT_USER_KEYWORD on empty name — that's just the
+        // default state before data loads, not an explicit user logout.
+    }, [parameters.user, setConfig]);
 
     // When loaded with an empty inventory, send admins/cashiers straight to the menu editor
     // so they can recreate the catalog instead of staring at a blank or error screen.
@@ -477,6 +487,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                 getPrinterAddressByRole,
                 getPrinterNamesByRole,
                 hasCashierPrinter,
+                setDevicePrinterCom,
                 customers,
                 setCustomers,
                 users,

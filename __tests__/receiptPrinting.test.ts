@@ -103,7 +103,6 @@ describe('summary arrow separator', () => {
 describe('mealCount receipt VAT computation', () => {
     it('computes VAT from transaction.amount when mealCount is set', () => {
         const DEFAULT_VAT_RATE = 0.055;
-        const mealCount = 3;
         const totalAmount = 15.0;
 
         // Replicate the mealCount branch logic from posPrinter.ts
@@ -118,7 +117,6 @@ describe('mealCount receipt VAT computation', () => {
 
     it('does not use product totals when mealCount is set', () => {
         const DEFAULT_VAT_RATE = 0.055;
-        const mealCount = 2;
         // Products array may be empty or have different totals
         const products = [
             { total: 5.0, category: 'Plat' },

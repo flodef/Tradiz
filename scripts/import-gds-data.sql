@@ -38,7 +38,7 @@ INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (3
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (4, 'city', 'GUIPAVAS', '2026-07-11 18:10:47.702789') ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (5, 'serial', '81996835500019', '2026-07-11 18:10:47.747818') ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (6, 'id', '', '2026-07-11 18:10:47.793788') ON CONFLICT (id) DO NOTHING;
-INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (7, 'email', 'flo@tradiz.fr', '2026-07-11 18:10:47.950789') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (7, 'email', 'la-gourmandise-de-sylvie@orange.fr', '2026-07-11 18:10:47.950789') ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (8, 'thanksMessage', 'Merci de votre visite !', '2026-07-11 18:10:47.996712') ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (9, 'mercurial', 'Aucune', '2026-07-11 18:10:48.140792') ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (10, 'closingHour', '0', '2026-07-11 18:10:48.185824') ON CONFLICT (id) DO NOTHING;
@@ -49,6 +49,8 @@ INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (1
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (15, 'displaySettings', '{"showWaiting":false,"showRefund":true,"showProvision":true,"showDebit":true,"showChange":true,"catalogMode":true,"useTakeOut":true}', '2026-07-11 18:10:48.623759') ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (16, 'userSwitch', 'true', '2026-07-19 13:25:12.864751') ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (17, 'useVirtualKeyboard', 'true', '2026-08-05 14:19:31.010455') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (18, 'phone', '0298487248', '2026-08-27 20:00:00.000000') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (19, 'fidelityRate', '3', '2026-08-27 20:00:00.000000') ON CONFLICT (id) DO NOTHING;
 
 -- Payment methods (paiements)
 INSERT INTO dc_pos.payment_methods (id, label, address, currency, available, created_at) VALUES (1, 'Carte Bancaire', '0', 'Euro', true, '2026-07-11 18:17:10.119469') ON CONFLICT (id) DO NOTHING;

@@ -173,12 +173,12 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
     };
 
     return (
-        <div className="p-4 text-left space-y-4 text-gray-900 dark:text-gray-100">
+        <div className="p-4 text-left space-y-4 text-gray-900 dark:text-gray-100 w-full">
             {isLoading ? (
                 <p className="text-center">Chargement...</p>
             ) : (
                 <>
-                    <div className="grid grid-cols-2 gap-0">
+                    <div className="grid grid-cols-2 gap-2 w-full">
                         <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Solde actuel</p>
                             <p
@@ -219,27 +219,27 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
                             <p className="text-lg font-semibold">{toCurrency(totalDiscount)}</p>
                         </div>
                     </div>
-                    <div>
+                    <div className="w-full">
                         {transactions.length > 0 && (
                             <p className="text-sm text-gray-500 dark:text-gray-400 pb-2 border-b border-gray-300 dark:border-gray-600">
                                 10 dernières opérations
                             </p>
                         )}
-                        <ul className="space-y-2 max-h-64 overflow-y-auto pt-2">
+                        <ul className="space-y-2 max-h-64 overflow-y-auto pt-2 w-full">
                             {transactions.length === 0 ? (
                                 <li className="text-sm text-gray-500 dark:text-gray-400">Aucune opération</li>
                             ) : (
                                 transactions.map((transaction, index) => (
                                     <li
                                         key={index}
-                                        className="flex justify-between border-b border-gray-200 dark:border-gray-700 py-1 hover:bg-orange-100 dark:hover:bg-orange-900/30 cursor-pointer"
+                                        className="flex justify-between border-b border-gray-200 dark:border-gray-700 py-1 hover:bg-orange-100 dark:hover:bg-orange-900/30 cursor-pointer w-full"
                                         onClick={() => openTransactionDetails(transaction)}
                                     >
-                                        <span className="text-sm">
+                                        <span className="text-sm wrap-break-word">
                                             {new Date(transaction.createdDate).toLocaleString('fr-FR')} -{' '}
                                             {getTransactionLabel(transaction)}
                                         </span>
-                                        <span className="text-sm font-medium">
+                                        <span className="text-sm font-medium shrink-0 pl-2">
                                             {transaction.products.length === 0
                                                 ? getBalanceChangeText(transaction)
                                                 : toCurrency(transaction)}
