@@ -419,8 +419,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // If not, add the transaction, if yes, check which one has the biggest "modifiedDate".
     // If it's the cloud one, update the local, if it's the local one, update the cloud.
     // Then, check if the "transaction set" in local exists in the cloud, using the same method as above.
+    // `isAuthoritative` must only be true when `cloudTransactionSets` holds the COMPLETE set of
+    // transactions for the given day. Incremental syncs (`since=`) return a partial delta, and
+    // pruning against a delta would destroy transactions that simply weren't modified recently.
     const fullSync = useCallback(
-        async (cloudTransactionSets: TransactionSet[], _syncPeriod: SyncPeriod): Promise<number> => {
+        async (
+            cloudTransactionSets: TransactionSet[],
+            _syncPeriod: SyncPeriod,
+            isAuthoritative = false
+        ): Promise<number> => {
             const localTransactionSets = await getLocalTransactions();
             let syncedCount = 0;
 
@@ -464,19 +471,28 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         }
                     }
 
-                    // Remove local PROCESSING transactions that are no longer in the cloud.
-                    // This handles hard-deletes from other devices: when POS2 hard-deletes a
-                    // PROCESSING tx, it disappears from the server response. We must remove
-                    // the stale local copy so it doesn't linger on POS1.
-                    const cloudTimestamps = new Set(
-                        cloudTransactionSet.transactions.map((t) => floorToSeconds(t.createdDate))
-                    );
-                    const beforeLen = updateTransactionSet.transactions.length;
-                    updateTransactionSet.transactions = updateTransactionSet.transactions.filter(
-                        (tx) => !isProcessingTransaction(tx) || cloudTimestamps.has(floorToSeconds(tx.createdDate))
-                    );
-                    const removedCount = beforeLen - updateTransactionSet.transactions.length;
-                    if (removedCount > 0) syncedCount += removedCount;
+                    // Remove PROCESSING transactions owned by OTHER devices that are no longer in
+                    // the cloud. This propagates hard-deletes across devices: when POS2 deletes its
+                    // PROCESSING tx, it disappears from the server and must not linger on POS1.
+                    //
+                    // Guards:
+                    // - `isAuthoritative`: never prune from a partial (incremental) delta.
+                    // - today's set only: historical archives never hold PROCESSING rows.
+                    // - other devices only: this device owns its own cart and may not have pushed
+                    //   it to SQL yet, so pruning it would wipe the cashier's in-progress sale.
+                    if (isAuthoritative && localTransactionSet.id === transactionsFilename) {
+                        const currentDeviceId = getPublicKey();
+                        const cloudTimestamps = new Set(
+                            cloudTransactionSet.transactions.map((t) => floorToSeconds(t.createdDate))
+                        );
+                        updateTransactionSet.transactions = updateTransactionSet.transactions.filter(
+                            (tx) =>
+                                !isProcessingTransaction(tx) ||
+                                !tx.deviceId ||
+                                tx.deviceId === currentDeviceId ||
+                                cloudTimestamps.has(floorToSeconds(tx.createdDate))
+                        );
+                    }
 
                     updateLocalTransaction(updateTransactionSet);
                 }
@@ -537,6 +553,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 // Include deleted transactions so deletions propagate across devices
                 const sqlTransactions: Transaction[] = [];
                 let latestServerNow: string | undefined;
+                // A response is authoritative (a complete snapshot) only when we did NOT send
+                // `since`. Incremental responses are partial deltas and must not drive deletions.
+                let isAuthoritative = true;
                 if (syncPeriod === SyncPeriod.day) {
                     const today = new Date().toISOString().split('T')[0];
                     const urlParams = new URLSearchParams({
@@ -548,6 +567,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         // Overlap by 5s to be tolerant of clock skew / second precision.
                         const sinceMs = new Date(lastServerSyncTime.current).getTime() - 5000;
                         urlParams.append('since', new Date(sinceMs).toISOString());
+                        isAuthoritative = false;
                     }
                     const response = await fetchWithTimeout(
                         `/api/sql/getTransactions?${urlParams.toString()}`,
@@ -615,7 +635,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                                 transactions: dayTransactions,
                             },
                         ];
-                        syncedCount += await fullSync(cloudTransactionSets, syncPeriod);
+                        syncedCount += await fullSync(cloudTransactionSets, syncPeriod, isAuthoritative);
                         syncedDays++;
                         // Progress from 40% to 70% based on days synced
                         onProgress?.(40 + Math.floor((syncedDays / totalDays) * 30));

@@ -5,6 +5,7 @@ import { CashPaymentPopup } from '../components/CashPaymentPopup';
 import { ChangeDisplayPopup } from '../components/ChangeDisplayPopup';
 import { Shop } from '../contexts/ConfigProvider';
 import { floorToSeconds } from '../contexts/DataProvider';
+import { computeFidelityDelta } from '../utils/fidelity';
 import { isWaitingTransaction } from '../contexts/dataProvider/transactionHelpers';
 import {
     ARROW,
@@ -209,47 +210,35 @@ export const usePay = () => {
             }
             updateTransaction(item);
 
-            // Update local customer fidelity points to match the server-side computation
-            const fidelityRate = parameters.fidelityRate ?? 0;
+            // Optimistically mirror the server-side fidelity update so the balance shown on the
+            // next screen is already correct. `computeFidelityDelta` is the shared source of
+            // truth, so this can never drift from what saveTransaction persists.
             const customerName =
                 transaction.customerName ||
                 (currentCustomer ? `${currentCustomer.firstName} ${currentCustomer.lastName}`.trim() : '');
-            const isNonEarning = [
-                WAITING_KEYWORD,
-                PROCESSING_KEYWORD,
-                UPDATING_KEYWORD,
-                DELETED_KEYWORD,
-                'METTRE ' + WAITING_KEYWORD,
-                PRINT_KEYWORD,
-            ].includes(method);
-            const isRefund = method === REFUND_KEYWORD;
-            const fidelityPointsUsed = transaction.fidelityPointsUsed ?? 0;
-
-            if (customerName && fidelityRate > 0 && !isNonEarning) {
-                const earnedPoints = (Math.abs(transaction.amount) * fidelityRate) / 100;
-                const delta = isRefund ? -earnedPoints : earnedPoints;
-                const usedDelta = fidelityPointsUsed > 0 ? (isRefund ? fidelityPointsUsed : -fidelityPointsUsed) : 0;
-                const totalDelta = delta + usedDelta;
-                if (totalDelta !== 0) {
+            if (customerName) {
+                const fidelityDelta = computeFidelityDelta(
+                    method,
+                    transaction.amount,
+                    transaction.fidelityPointsUsed ?? 0,
+                    parameters.fidelityRate ?? 0
+                );
+                if (fidelityDelta !== 0) {
+                    // Prefer matching on id (names are not unique); fall back to the full name,
+                    // which is what the server matches on.
+                    const customerId = currentCustomer?.id;
                     setCustomers((prev) =>
                         prev.map((c) => {
-                            const name = `${c.firstName} ${c.lastName}`.trim();
-                            if (name !== customerName) return c;
-                            const newPoints = Math.max(0, (c.fidelityPoints ?? 0) + totalDelta);
-                            return { ...c, fidelityPoints: newPoints };
+                            const isMatch =
+                                customerId != null && c.id != null
+                                    ? c.id === customerId
+                                    : `${c.firstName} ${c.lastName}`.trim() === customerName;
+                            if (!isMatch) return c;
+                            // Server clamps at zero, so clamp here too.
+                            return { ...c, fidelityPoints: Math.max(0, (c.fidelityPoints ?? 0) + fidelityDelta) };
                         })
                     );
                 }
-            } else if (customerName && fidelityPointsUsed > 0 && isRefund) {
-                // Refund restores used fidelity points
-                setCustomers((prev) =>
-                    prev.map((c) => {
-                        const name = `${c.firstName} ${c.lastName}`.trim();
-                        if (name !== customerName) return c;
-                        const newPoints = (c.fidelityPoints ?? 0) + fidelityPointsUsed;
-                        return { ...c, fidelityPoints: newPoints };
-                    })
-                );
             }
 
             if (method !== WAITING_KEYWORD) {

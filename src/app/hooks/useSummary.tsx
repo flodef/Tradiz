@@ -1226,6 +1226,7 @@ export const useSummary = () => {
         hasCashierPrinter,
         parameters,
         syncSpecificDayFromSQL,
+        refreshHistoricalKeys,
     ]);
 
     return {

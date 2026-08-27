@@ -1,12 +1,5 @@
-import {
-    DELETED_KEYWORD,
-    PROCESSING_KEYWORD,
-    DEFAULT_USER,
-    DEFAULT_VAT_RATE,
-    REFUND_KEYWORD,
-    WAITING_KEYWORD,
-    UPDATING_KEYWORD,
-} from '@/app/utils/constants';
+import { DELETED_KEYWORD, PROCESSING_KEYWORD, DEFAULT_USER, DEFAULT_VAT_RATE } from '@/app/utils/constants';
+import { computeFidelityDelta } from '@/app/utils/fidelity';
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { Connection, getPosDb } from '../db';
@@ -498,53 +491,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
     }
 }
 
-// Fidelity points keywords that should not earn points
-const NON_EARNING_METHODS = [
-    WAITING_KEYWORD,
-    PROCESSING_KEYWORD,
-    UPDATING_KEYWORD,
-    DELETED_KEYWORD,
-    'METTRE ' + WAITING_KEYWORD,
-];
-
-/**
- * Compute the forward fidelity point delta for a single transaction.
- * Callers negate the result for reversal operations.
- *
- * - Normal payment with a customer: earns points = amount × fidelityRate / 100
- * - Refund with a customer: deducts points = |amount| × fidelityRate / 100, and restores used points
- * - Fidelity payment (fidelity_points used): deducts the used points
- */
-export function computeFidelityDelta(
-    method: string,
-    amount: number,
-    fidelityPointsUsed: number,
-    fidelityRate: number
-): number {
-    const isRefund = method === REFUND_KEYWORD;
-    const isNonEarning = NON_EARNING_METHODS.includes(method);
-
-    if (fidelityPointsUsed <= 0 && isNonEarning) return 0;
-    if (fidelityRate <= 0 && fidelityPointsUsed <= 0) return 0;
-
-    let delta = 0;
-
-    if (fidelityPointsUsed > 0) {
-        if (isRefund) {
-            delta += fidelityPointsUsed;
-        } else {
-            delta -= fidelityPointsUsed;
-        }
-    }
-
-    if (!isNonEarning && fidelityRate > 0) {
-        const absAmount = Math.abs(amount);
-        const earnedPoints = (absAmount * fidelityRate) / 100;
-        delta += isRefund ? -earnedPoints : earnedPoints;
-    }
-
-    return delta;
-}
+export { computeFidelityDelta };
 
 /**
  * Idempotent fidelity update for add/sync: reverse the old delta, then apply the new delta.
