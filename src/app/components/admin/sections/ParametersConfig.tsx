@@ -1,6 +1,7 @@
 'use client';
 
 import { Parameters, ProductsSettings, SearchSettings, DisplaySettings } from '@/app/contexts/ConfigProvider';
+import { DEFAULT_DISPLAY_SETTINGS } from '@/app/utils/processData';
 import { adminTextStyle } from '@/app/utils/constants';
 import { Mercurial, User } from '@/app/utils/interfaces';
 import AdminInput from '../AdminInput';
@@ -118,16 +119,7 @@ export default function ParametersConfig({
 
     const handleDisplayChange = (field: keyof DisplaySettings, checked: boolean) => {
         handleChange('display', {
-            ...(config.display ?? {
-                showWaiting: true,
-                showRefund: true,
-                showProvision: true,
-                showDebit: true,
-                showChange: true,
-                catalogMode: false,
-                useTakeOut: true,
-                paymentIconsMode: true,
-            }),
+            ...(config.display ?? DEFAULT_DISPLAY_SETTINGS),
             [field]: checked,
         } as DisplaySettings);
     };

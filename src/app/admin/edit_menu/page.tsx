@@ -15,7 +15,7 @@ import Loading from '@/app/loading';
 import { DEFAULT_CATEGORY, USE_DIGICARTE } from '@/app/utils/constants';
 import { applyCategoryDeletionToFormulas, isSameCategory, renameFormulaCategory } from '@/app/utils/category';
 import { Category, Company, InventoryItem } from '@/app/utils/interfaces';
-import { clearLoadDataCache } from '@/app/utils/processData';
+import { clearLoadDataCache, DEFAULT_DISPLAY_SETTINGS } from '@/app/utils/processData';
 import { encodeGridPosition, encodeSortOrder, decodeGridPosition } from '@/app/utils/sortOrder';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconCategory, IconListDetails, IconBox, IconMathFunction, IconLayoutGrid } from '@tabler/icons-react';
@@ -577,14 +577,9 @@ export default function EditMenuPage() {
                 const updatedParameters = {
                     ...paramForConfig,
                     display: {
-                        showWaiting: paramForConfig.display?.showWaiting ?? true,
-                        showRefund: paramForConfig.display?.showRefund ?? true,
-                        showProvision: paramForConfig.display?.showProvision ?? true,
-                        showDebit: paramForConfig.display?.showDebit ?? true,
-                        showChange: paramForConfig.display?.showChange ?? true,
+                        ...DEFAULT_DISPLAY_SETTINGS,
+                        ...paramForConfig.display,
                         catalogMode: fetchedCatalogMode,
-                        useTakeOut: paramForConfig.display?.useTakeOut ?? false,
-                        displayOthers: paramForConfig.display?.displayOthers,
                     },
                     lastModified: Date.now().toString(),
                 };

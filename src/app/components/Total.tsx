@@ -206,8 +206,17 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
     const { pay, printTransaction, printKitchenReceipt, payWithMethod } = usePay();
-    const { state, isStateReady, getPrintersNames, parameters, paymentMethods, currencies, currencyIndex, categories } =
-        useConfig();
+    const {
+        state,
+        isStateReady,
+        getPrintersNames,
+        hasCashierPrinter,
+        parameters,
+        paymentMethods,
+        currencies,
+        currencyIndex,
+        categories,
+    } = useConfig();
 
     const [needRefresh, setNeedRefresh] = useState(false);
     const visibleTransactions = useMemo(() => transactions.filter((tx) => !isDeletedTransaction(tx)), [transactions]);
@@ -319,16 +328,34 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                 title: 'Transaction',
                 options: [
                     ...editOptions,
-                    ...getPrintersNames().flatMap((printerName) => [
-                        {
-                            label: printerName + PRINT_NO_DETAIL,
-                            action: () => printTransaction(printerName, transaction, false),
-                        },
-                        {
-                            label: printerName + PRINT_WITH_DETAIL,
-                            action: () => printTransaction(printerName, transaction, true),
-                        },
-                    ]),
+                    ...(hasCashierPrinter()
+                        ? [
+                              {
+                                  label: PRINT_KEYWORD + PRINT_NO_DETAIL,
+                                  action: () => {
+                                      closePopup(() => {
+                                          openPopup(
+                                              'Nombre de repas',
+                                              ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Annuler'],
+                                              (idx, opt) => {
+                                                  if (idx < 0 || opt === 'Annuler') {
+                                                      closePopup();
+                                                      return;
+                                                  }
+                                                  const mealCount = parseInt(opt, 10) || 1;
+                                                  printTransaction(transaction, false, mealCount);
+                                                  closePopup();
+                                              }
+                                          );
+                                      });
+                                  },
+                              },
+                              {
+                                  label: PRINT_KEYWORD + PRINT_WITH_DETAIL,
+                                  action: () => printTransaction(transaction, true),
+                              },
+                          ]
+                        : []),
                     ...deleteAndRefundOptions,
                     {
                         label: 'Annuler',
@@ -346,7 +373,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
             printKitchenReceipt,
             openPopup,
             closePopup,
-            getPrintersNames,
+            hasCashierPrinter,
             transactions,
             refundTransaction,
             isReadOnlyProcessingForUser,
@@ -434,7 +461,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     const showProducts = useCallback(() => {
         if (!products.current.length) return;
 
-        const printerOptions = getPrintersNames();
+        const printerOptions = hasCashierPrinter() ? [PRINT_KEYWORD] : [];
 
         const productLines = products.current.map((product) => displayProduct(product));
         const showProductsCompanyIndex = findCompanyProductIndex(
@@ -455,7 +482,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                     pay();
                 } else if (printerOptions.includes(option)) {
                     // Handle print option - create a temporary transaction to print
-                    printTransaction(option);
+                    printTransaction(undefined, true);
                 } else if (index >= 0) {
                     closePopup(() => selectProduct(index));
                 }
@@ -497,7 +524,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         toCurrency,
         selectProduct,
         selectedProduct,
-        getPrintersNames,
+        hasCashierPrinter,
         printTransaction,
         getEmployerShare,
         getCurrentTotal,
@@ -763,12 +790,12 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     // Non-payment cashier actions shown as icons alongside payment methods.
     const availableActions = useMemo(() => {
         const actions: { type: string; label: string }[] = [];
-        if (getPrintersNames().length > 0) actions.push({ type: PRINT_KEYWORD, label: 'Imprimer' });
+        if (hasCashierPrinter()) actions.push({ type: PRINT_KEYWORD, label: 'Imprimer' });
         if (parameters.display?.showWaiting !== false)
             actions.push({ type: 'METTRE ' + WAITING_KEYWORD, label: 'Mettre en attente' });
         if (parameters.display?.showRefund !== false) actions.push({ type: REFUND_KEYWORD, label: 'Remboursement' });
         return actions;
-    }, [getPrintersNames, parameters.display?.showWaiting, parameters.display?.showRefund]);
+    }, [hasCashierPrinter, parameters.display?.showWaiting, parameters.display?.showRefund]);
 
     const companyProductIndex = findCompanyProductIndex(products.current, categories, currentCustomer?.company);
 

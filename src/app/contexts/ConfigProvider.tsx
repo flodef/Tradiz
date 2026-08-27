@@ -352,15 +352,19 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     }, [loadConfig]);
 
     // Pre-fetch device hardware (COM port) so hasCashierPrinter can work synchronously.
+    // Must await initPublicKey() first — in Electron, getPublicKey() without it falls through
+    // to localStorage and may generate a brand-new key that doesn't match the real device.
     useEffect(() => {
-        const pk = getPublicKey();
-        if (!pk) return;
-        fetch(`/api/sql/getDeviceHardware?publicKey=${encodeURIComponent(pk)}`)
-            .then((r) => (r.ok ? r.json() : null))
-            .then((hw) => {
-                if (hw?.printerCom) setDevicePrinterCom(hw.printerCom);
-            })
-            .catch(() => {});
+        initPublicKey().then(() => {
+            const pk = getPublicKey();
+            if (!pk) return;
+            fetch(`/api/sql/getDeviceHardware?publicKey=${encodeURIComponent(pk)}`)
+                .then((r) => (r.ok ? r.json() : null))
+                .then((hw) => {
+                    if (hw?.printerCom) setDevicePrinterCom(hw.printerCom);
+                })
+                .catch(() => {});
+        });
     }, []);
 
     useEffect(() => {

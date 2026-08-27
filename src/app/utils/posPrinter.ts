@@ -297,17 +297,14 @@ export async function printReceipt(
         if (receiptData.transaction.validator) printer.println(`Vendeur•se : ${receiptData.transaction.validator}`);
         printer.newLine();
 
-        // Print items header
-        printer.drawLine();
-        printer.alignLeft();
-
         const showDetails = receiptData.showDetails !== false; // default true
         const mealCount = receiptData.mealCount;
 
+        printer.drawLine();
+        printer.alignLeft();
+
         if (mealCount && mealCount > 0) {
             // No-detail receipt: print only the meal count line
-            printer.drawLine();
-            printer.alignLeft();
             printer.tableCustom([
                 { text: `x${mealCount}`, align: 'LEFT', cols: 4 },
                 { text: '', align: 'LEFT', cols: 1 },
@@ -320,9 +317,6 @@ export async function printReceipt(
             printer.drawLine();
         } else {
             // Print items header
-            printer.drawLine();
-            printer.alignLeft();
-
             printer.tableCustom([
                 { text: 'QTE', align: 'LEFT', cols: 4 },
                 { text: '', align: 'LEFT', cols: 1 },
@@ -385,31 +379,42 @@ export async function printReceipt(
         let totalHT = 0;
         let totalTTC = 0;
 
-        receiptData.transaction.products.forEach((item) => {
-            // Use item.vatRate if available, otherwise fall back to category rate, default to DEFAULT_VAT_RATE
-            const rawRate =
-                item.vatRate ??
-                receiptData.inventory?.find((inv) => inv.category === item.category)?.rate ??
-                DEFAULT_VAT_RATE;
+        if (mealCount && mealCount > 0) {
+            // No-detail receipt: compute VAT from the single total amount
+            const vatRate = DEFAULT_VAT_RATE >= 1 ? DEFAULT_VAT_RATE / 100 : DEFAULT_VAT_RATE;
+            const totalAmount = receiptData.transaction.amount;
+            const totalAmountHT = totalAmount / (1 + vatRate);
+            const totalAmountTVA = totalAmount - totalAmountHT;
+            totalHT = totalAmountHT;
+            totalTTC = totalAmount;
+            vatTotals.set(vatRate, { ht: totalAmountHT, tva: totalAmountTVA, ttc: totalAmount });
+        } else {
+            receiptData.transaction.products.forEach((item) => {
+                // Use item.vatRate if available, otherwise fall back to category rate, default to DEFAULT_VAT_RATE
+                const rawRate =
+                    item.vatRate ??
+                    receiptData.inventory?.find((inv) => inv.category === item.category)?.rate ??
+                    DEFAULT_VAT_RATE;
 
-            // Normalize rate to decimal: values >= 1 are treated as percentages (e.g. 5.5 → 0.055, 20 → 0.20)
-            const vatRate = rawRate >= 1 ? rawRate / 100 : rawRate;
+                // Normalize rate to decimal: values >= 1 are treated as percentages (e.g. 5.5 → 0.055, 20 → 0.20)
+                const vatRate = rawRate >= 1 ? rawRate / 100 : rawRate;
 
-            const itemTotalTTC = item.total || 0;
-            const itemTotalHT = itemTotalTTC / (1 + vatRate);
-            const itemTVA = itemTotalTTC - itemTotalHT;
+                const itemTotalTTC = item.total || 0;
+                const itemTotalHT = itemTotalTTC / (1 + vatRate);
+                const itemTVA = itemTotalTTC - itemTotalHT;
 
-            totalHT += itemTotalHT;
-            totalTTC += itemTotalTTC;
+                totalHT += itemTotalHT;
+                totalTTC += itemTotalTTC;
 
-            if (!vatTotals.has(vatRate)) {
-                vatTotals.set(vatRate, { ht: 0, tva: 0, ttc: 0 });
-            }
-            const current = vatTotals.get(vatRate)!;
-            current.ht += itemTotalHT;
-            current.tva += itemTVA;
-            current.ttc += itemTotalTTC;
-        });
+                if (!vatTotals.has(vatRate)) {
+                    vatTotals.set(vatRate, { ht: 0, tva: 0, ttc: 0 });
+                }
+                const current = vatTotals.get(vatRate)!;
+                current.ht += itemTotalHT;
+                current.tva += itemTVA;
+                current.ttc += itemTotalTTC;
+            });
+        }
 
         // Print employer share line if applicable
         const employerShare = receiptData.transaction.employerShare;

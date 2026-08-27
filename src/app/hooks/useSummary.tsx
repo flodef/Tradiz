@@ -9,11 +9,11 @@ import {
     isRefundTransaction,
     isWaitingTransaction,
 } from '../contexts/dataProvider/transactionHelpers';
-import { ARROW, BACK_KEYWORD, PRINT_KEYWORD, PRINTER_ROLE, SEPARATOR } from '../utils/constants';
+import { ARROW, BACK_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
 import { formatFrenchDate, getFormattedDate } from '../utils/date';
 import { Currency, DataElement, SyncAction, Transaction } from '../utils/interfaces';
 import { printSummary } from '../utils/posPrinter';
-import { getDevicePrinter } from '../utils/processData';
+import { resolveCashierPrinter } from '../utils/processData';
 import { getStorageUsage, idbGetAllKeys, idbGetTransactions } from '../utils/transactionStore';
 import { useConfig } from './useConfig';
 import { useData } from './useData';
@@ -1070,54 +1070,43 @@ export const useSummary = () => {
         [toCurrency, getTransactionsDetails, getTaxesByCategory, getTaxAmountByCategory, getFilteredTransactions]
     );
 
-    const printTransactionsSummary = useCallback(
-        async (printerName?: string) => {
-            const filteredTransactions = getFilteredTransactions();
-            if (!filteredTransactions.length) return { error: 'Aucune transaction' };
+    const printTransactionsSummary = useCallback(async () => {
+        const filteredTransactions = getFilteredTransactions();
+        if (!filteredTransactions.length) return { error: 'Aucune transaction' };
 
-            // Check if the current device has a local COM printer configured.
-            // If so, use it (with the correct baud rate) instead of the IP-based cashier printer.
-            const { com: devicePrinterCom, baud: comBaud } = await getDevicePrinter();
-            let printerAddresses: string[];
-            if (devicePrinterCom) {
-                printerAddresses = [devicePrinterCom];
-            } else {
-                const cashierAddr = getPrinterAddressByRole(PRINTER_ROLE.cashier);
-                if (!cashierAddr) return { error: 'Aucune imprimante de caisse configurée' };
-                printerAddresses = [cashierAddr];
-            }
-            if (!printerAddresses.length) return { error: 'Imprimante non trouvée' };
+        const resolved = await resolveCashierPrinter(getPrinterAddressByRole);
+        if ('error' in resolved) return { error: resolved.error };
+        const { addresses: printerAddresses, baud: comBaud } = resolved;
+        if (!printerAddresses.length) return { error: 'Imprimante non trouvée' };
 
-            // Get transaction summary data
-            const { summary } = getTransactionsData(filteredTransactions);
+        // Get transaction summary data
+        const { summary } = getTransactionsData(filteredTransactions);
 
-            // Get period description
-            const period = getPeriodDescription(filteredTransactions);
+        // Get period description
+        const period = getPeriodDescription(filteredTransactions);
 
-            // Print the Ticket Z using server action
-            return await printSummary(
-                printerAddresses,
-                {
-                    shop: parameters.shop,
-                    period,
-                    amount: '',
-                    transactions: filteredTransactions,
-                    currency: currencies[currencyIndex],
-                    summary,
-                },
-                comBaud
-            );
-        },
-        [
-            getFilteredTransactions,
-            getPeriodDescription,
-            getTransactionsData,
-            parameters,
-            getPrinterAddressByRole,
-            currencies,
-            currencyIndex,
-        ]
-    );
+        // Print the Ticket Z using server action
+        return await printSummary(
+            printerAddresses,
+            {
+                shop: parameters.shop,
+                period,
+                amount: '',
+                transactions: filteredTransactions,
+                currency: currencies[currencyIndex],
+                summary,
+            },
+            comBaud
+        );
+    }, [
+        getFilteredTransactions,
+        getPeriodDescription,
+        getTransactionsData,
+        parameters,
+        getPrinterAddressByRole,
+        currencies,
+        currencyIndex,
+    ]);
 
     const showTransactionsSummaryMenu = useCallback(() => {
         const hasTransactions = transactions.length || tempTransactions.current.length;
@@ -1153,7 +1142,7 @@ export const useSummary = () => {
                     switch (option.split(SEPARATOR)[0]) {
                         case PRINT_KEYWORD:
                             openPopup('Imprimer', ['Impression en cours...']);
-                            printTransactionsSummary(option).then((response) => {
+                            printTransactionsSummary().then((response) => {
                                 if (!response.success) openPopup('Erreur', [response.error || "Impossible d'imprimer"]);
                                 else closePopup();
                             });

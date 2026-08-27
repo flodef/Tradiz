@@ -32,7 +32,7 @@ import {
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { useWindowParam } from '@/app/hooks/useWindowParam';
 import { useIsMobile } from '@/app/utils/mobile';
-import { clearLoadDataCache, defaultParameters, getPublicKey } from '@/app/utils/processData';
+import { clearLoadDataCache, defaultParameters, getPublicKey, parseDisplaySettings } from '@/app/utils/processData';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Loading from '@/app/loading';
 import {
@@ -364,27 +364,7 @@ export default function SettingsPage() {
                     return undefined;
                 })(),
                 display: (() => {
-                    try {
-                        const value = getParam('displaySettings', 'Paramètres affichage');
-                        if (value) {
-                            const parsed = JSON.parse(value);
-                            if (parsed && typeof parsed === 'object') {
-                                return {
-                                    showWaiting: parsed.showWaiting ?? true,
-                                    showRefund: parsed.showRefund ?? true,
-                                    showProvision: parsed.showProvision ?? true,
-                                    showDebit: parsed.showDebit ?? true,
-                                    showChange: parsed.showChange ?? true,
-                                    catalogMode: parsed.catalogMode ?? false,
-                                    useTakeOut: parsed.useTakeOut ?? true,
-                                    paymentIconsMode: parsed.paymentIconsMode ?? true,
-                                };
-                            }
-                        }
-                    } catch {
-                        // Invalid JSON
-                    }
-                    return undefined;
+                    return parseDisplaySettings(getParam('displaySettings', 'Paramètres affichage'));
                 })(),
                 userSwitch: (() => {
                     const value = getParam('userSwitch', 'Changement utilisateur');

@@ -39,7 +39,7 @@ import {
 import { CLOSE, postCustomerDisplay, postMessageToParent, REFRESH } from '../utils/message';
 import { printBalanceStatement, printKitchenTicket, printReceipt } from '../utils/posPrinter';
 import { buildCustomerDisplay, buildPaymentDisplay, holdChangeDisplay } from '../utils/customerDisplay';
-import { getDevicePrinter, getPublicKey } from '../utils/processData';
+import { getPublicKey, resolveCashierPrinter } from '../utils/processData';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
 import { useData } from './useData';
@@ -305,13 +305,20 @@ export const usePay = () => {
     const canAddProduct = useMemo(() => Boolean(amount && selectedProduct), [amount, selectedProduct]);
 
     const canAddProvision = useMemo(
-        () => Boolean(amount > 0 && !selectedProduct && !total && !canAddProduct),
-        [amount, selectedProduct, total, canAddProduct]
+        () =>
+            Boolean(
+                parameters.display?.showProvision !== false &&
+                    amount > 0 &&
+                    !selectedProduct &&
+                    !total &&
+                    !canPay &&
+                    !canAddProduct
+            ),
+        [parameters.display?.showProvision, amount, selectedProduct, total, canPay, canAddProduct]
     );
 
     const printTransactionReceipt = useCallback(
         async (
-            printerName?: string,
             transaction?: Transaction,
             printerAddressOverride?: string,
             showDetails?: boolean,
@@ -344,22 +351,15 @@ export const usePay = () => {
 
             if (!currentTransaction) return { error: 'Aucune transaction à imprimer' };
 
-            // Check if the current device has a local COM printer configured.
-            // If so, use it (with the correct baud rate) instead of the IP-based cashier printer.
-            let comBaud: number | undefined;
             let printerAddresses: string[];
+            let comBaud: number | undefined;
             if (printerAddressOverride) {
                 printerAddresses = [printerAddressOverride];
             } else {
-                const { com: devicePrinterCom, baud } = await getDevicePrinter();
-                comBaud = baud;
-                if (devicePrinterCom) {
-                    printerAddresses = [devicePrinterCom];
-                } else {
-                    const cashierAddr = getPrinterAddressByRole(PRINTER_ROLE.cashier);
-                    if (!cashierAddr) return { error: 'Aucune imprimante de caisse configurée' };
-                    printerAddresses = [cashierAddr];
-                }
+                const resolved = await resolveCashierPrinter(getPrinterAddressByRole);
+                if ('error' in resolved) return { error: resolved.error };
+                printerAddresses = resolved.addresses;
+                comBaud = resolved.baud;
             }
             if (!printerAddresses.length) return { error: 'Imprimante non trouvée' };
 
@@ -484,9 +484,9 @@ export const usePay = () => {
     autoPrintRef.current = autoPrint;
 
     const printTransaction = useCallback(
-        (printerName?: string, transaction?: Transaction, showDetails?: boolean, mealCount?: number) => {
+        (transaction?: Transaction, showDetails?: boolean, mealCount?: number) => {
             openPopup('Imprimer', ['Impression en cours ...']);
-            printTransactionReceipt(printerName, transaction, undefined, showDetails, mealCount).then((response) => {
+            printTransactionReceipt(transaction, undefined, showDetails, mealCount).then((response) => {
                 if (!response.success) openPopup('Erreur', [response.error || "Impossible d'imprimer"]);
                 else closePopup();
             });
@@ -510,18 +510,12 @@ export const usePay = () => {
                         created_at: string;
                     }>;
                 };
-                const { com: devicePrinterCom, baud: comBaud } = await getDevicePrinter();
-                let printerAddresses: string[];
-                if (devicePrinterCom) {
-                    printerAddresses = [devicePrinterCom];
-                } else {
-                    const cashierAddr = getPrinterAddressByRole(PRINTER_ROLE.cashier);
-                    if (!cashierAddr) {
-                        openPopup('Erreur', ['Aucune imprimante de caisse configurée']);
-                        return;
-                    }
-                    printerAddresses = [cashierAddr];
+                const resolved = await resolveCashierPrinter(getPrinterAddressByRole);
+                if ('error' in resolved) {
+                    openPopup('Erreur', [resolved.error]);
+                    return;
                 }
+                const { addresses: printerAddresses, baud: comBaud } = resolved;
                 if (!printerAddresses.length) {
                     openPopup('Erreur', ['Aucune imprimante configurée']);
                     return;
@@ -1355,7 +1349,7 @@ export const usePay = () => {
                                 const showDetails = option.includes(PRINT_WITH_DETAIL);
                                 if (showDetails) {
                                     // Print the receipt with details on the cashier printer
-                                    printTransaction(undefined, undefined, true);
+                                    printTransaction(undefined, true);
                                     updateTransaction(WAITING_KEYWORD);
                                     closePopup();
                                 } else {
@@ -1364,11 +1358,14 @@ export const usePay = () => {
                                     closePopup(() => {
                                         openPopup(
                                             'Nombre de repas',
-                                            ['1', '2', '3', '4', '5', '6', '7', '8'],
+                                            ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Annuler'],
                                             (idx, opt) => {
-                                                if (idx < 0) return;
+                                                if (idx < 0 || opt === 'Annuler') {
+                                                    closePopup();
+                                                    return;
+                                                }
                                                 const mealCount = parseInt(opt, 10) || 1;
-                                                printTransaction(undefined, undefined, false, mealCount);
+                                                printTransaction(undefined, false, mealCount);
                                                 updateTransaction(WAITING_KEYWORD);
                                                 closePopup();
                                             }

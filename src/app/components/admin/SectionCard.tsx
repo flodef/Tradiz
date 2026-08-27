@@ -53,7 +53,11 @@ export default function SectionCard({
 
     useEffect(() => {
         if (open && !wasOpenRef.current) {
-            sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            sectionRef.current?.scrollIntoView({
+                behavior: prefersReducedMotion ? 'auto' : 'smooth',
+                block: 'start',
+            });
         }
         wasOpenRef.current = open;
     }, [open]);
@@ -61,7 +65,7 @@ export default function SectionCard({
     return (
         <div
             ref={sectionRef}
-            className="bg-white/30 dark:bg-black/20 shadow-lg rounded-lg mb-6 border border-black/10 dark:border-white/10 overflow-hidden scroll-mt-16"
+            className="bg-white/30 dark:bg-black/20 shadow-lg rounded-lg mb-6 border border-black/10 dark:border-white/10 overflow-hidden scroll-mt-20"
         >
             <div
                 className="cursor-pointer select-none"

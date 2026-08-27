@@ -1,5 +1,5 @@
 import { SHOP_ID } from '../constants/shop';
-import { Config, Parameters } from '../contexts/ConfigProvider';
+import { Config, DisplaySettings, Parameters } from '../contexts/ConfigProvider';
 import {
     Color,
     Currency,
@@ -19,6 +19,7 @@ import {
     DEFAULT_CATEGORY,
     DEV_EMAIL,
     IS_DEV,
+    PRINTER_ROLE,
     PROVISION_KEYWORD,
 } from './constants';
 import './extensions';
@@ -120,6 +121,39 @@ interface RawParameters {
     values: (string | undefined)[];
 }
 
+export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
+    showWaiting: true,
+    showRefund: true,
+    showProvision: true,
+    showDebit: true,
+    showChange: true,
+    catalogMode: false,
+    useTakeOut: true,
+    paymentIconsMode: true,
+};
+
+export function parseDisplaySettings(json: string | undefined | null): DisplaySettings | undefined {
+    if (!json) return undefined;
+    try {
+        const parsed = JSON.parse(json);
+        if (parsed && typeof parsed === 'object') {
+            return {
+                showWaiting: parsed.showWaiting ?? true,
+                showRefund: parsed.showRefund ?? true,
+                showProvision: parsed.showProvision ?? true,
+                showDebit: parsed.showDebit ?? true,
+                showChange: parsed.showChange ?? true,
+                catalogMode: parsed.catalogMode ?? false,
+                useTakeOut: parsed.useTakeOut ?? true,
+                paymentIconsMode: parsed.paymentIconsMode ?? true,
+            };
+        }
+    } catch {
+        // Invalid JSON
+    }
+    return undefined;
+}
+
 /**
  * Builds Parameters object from raw parameter data.
  */
@@ -200,36 +234,7 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             return undefined;
         })(),
         display: (() => {
-            try {
-                const value = getParamValue('displaySettings', 14);
-                if (value) {
-                    const parsed = JSON.parse(value);
-                    if (parsed && typeof parsed === 'object') {
-                        return {
-                            showWaiting: parsed.showWaiting ?? true,
-                            showRefund: parsed.showRefund ?? true,
-                            showProvision: parsed.showProvision ?? true,
-                            showDebit: parsed.showDebit ?? true,
-                            showChange: parsed.showChange ?? true,
-                            catalogMode: parsed.catalogMode ?? false,
-                            useTakeOut: parsed.useTakeOut ?? true,
-                            paymentIconsMode: parsed.paymentIconsMode ?? true,
-                        };
-                    }
-                }
-            } catch {
-                // Invalid JSON, use default
-            }
-            return {
-                showWaiting: true,
-                showRefund: true,
-                showProvision: true,
-                showDebit: true,
-                showChange: true,
-                catalogMode: false,
-                useTakeOut: true,
-                paymentIconsMode: true,
-            };
+            return parseDisplaySettings(getParamValue('displaySettings', 14)) ?? DEFAULT_DISPLAY_SETTINGS;
         })(),
         userSwitch: (() => {
             const value = getParamValue('userSwitch', 15);
@@ -361,16 +366,7 @@ export const defaultParameters: Parameters = {
         searchProducts: false,
         searchUsers: false,
     },
-    display: {
-        showWaiting: true,
-        showRefund: true,
-        showProvision: true,
-        showDebit: true,
-        showChange: true,
-        catalogMode: false,
-        useTakeOut: true,
-        paymentIconsMode: true,
-    },
+    display: { ...DEFAULT_DISPLAY_SETTINGS },
 };
 
 export const defaultCurrencies: Currency[] = [
@@ -442,6 +438,21 @@ export async function getDevicePrinter(): Promise<{ com?: string; baud?: number 
         // Fall back to PrintersConfig
     }
     return {};
+}
+
+export interface ResolvedPrinter {
+    addresses: string[];
+    baud?: number;
+}
+
+export async function resolveCashierPrinter(
+    getPrinterAddressByRole: (role: string) => string | undefined
+): Promise<ResolvedPrinter | { error: string }> {
+    const { com, baud } = await getDevicePrinter();
+    if (com) return { addresses: [com], baud };
+    const cashierAddr = getPrinterAddressByRole(PRINTER_ROLE.cashier);
+    if (!cashierAddr) return { error: 'Aucune imprimante de caisse configurée' };
+    return { addresses: [cashierAddr], baud };
 }
 
 const loadDataCache = new Map<string, Promise<Config | undefined>>();
