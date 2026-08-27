@@ -220,7 +220,16 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             } catch {
                 // Invalid JSON, use default
             }
-            return undefined;
+            return {
+                showWaiting: true,
+                showRefund: true,
+                showProvision: true,
+                showDebit: true,
+                showChange: true,
+                catalogMode: false,
+                useTakeOut: true,
+                paymentIconsMode: true,
+            };
         })(),
         userSwitch: (() => {
             const value = getParamValue('userSwitch', 15);
@@ -415,6 +424,24 @@ export function getPublicKey() {
     }
 
     return publicKey;
+}
+
+export async function getDevicePrinter(): Promise<{ com?: string; baud?: number }> {
+    const publicKey = getPublicKey();
+    if (!publicKey) return {};
+    try {
+        const hwRes = await fetch(`/api/sql/getDeviceHardware?publicKey=${encodeURIComponent(publicKey)}`);
+        if (hwRes.ok) {
+            const hw = await hwRes.json();
+            return {
+                com: hw.printerCom || undefined,
+                baud: hw.printerBaud || undefined,
+            };
+        }
+    } catch {
+        // Fall back to PrintersConfig
+    }
+    return {};
 }
 
 const loadDataCache = new Map<string, Promise<Config | undefined>>();

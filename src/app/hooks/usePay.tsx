@@ -39,7 +39,7 @@ import {
 import { CLOSE, postCustomerDisplay, postMessageToParent, REFRESH } from '../utils/message';
 import { printBalanceStatement, printKitchenTicket, printReceipt } from '../utils/posPrinter';
 import { buildCustomerDisplay, buildPaymentDisplay, holdChangeDisplay } from '../utils/customerDisplay';
-import { getPublicKey } from '../utils/processData';
+import { getDevicePrinter, getPublicKey } from '../utils/processData';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
 import { useData } from './useData';
@@ -55,6 +55,7 @@ export type ReceiptData = {
     orderNumber?: string;
     serviceType?: ServiceType;
     showDetails?: boolean;
+    mealCount?: number;
 };
 
 export const usePay = () => {
@@ -94,9 +95,8 @@ export const usePay = () => {
         currencies,
         currencyIndex,
         parameters,
-        getPrintersNames,
-        resolvePrinterAddresses,
         getPrinterAddressByRole,
+        hasCashierPrinter,
         inventory,
         setCustomers,
     } = useConfig();
@@ -305,8 +305,8 @@ export const usePay = () => {
     const canAddProduct = useMemo(() => Boolean(amount && selectedProduct), [amount, selectedProduct]);
 
     const canAddProvision = useMemo(
-        () => Boolean(parameters.display?.showProvision && amount > 0 && !selectedProduct && !canPay && !canAddProduct),
-        [parameters.display?.showProvision, amount, selectedProduct, canPay, canAddProduct]
+        () => Boolean(amount > 0 && !selectedProduct && !total && !canAddProduct),
+        [amount, selectedProduct, total, canAddProduct]
     );
 
     const printTransactionReceipt = useCallback(
@@ -314,7 +314,8 @@ export const usePay = () => {
             printerName?: string,
             transaction?: Transaction,
             printerAddressOverride?: string,
-            showDetails?: boolean
+            showDetails?: boolean,
+            mealCount?: number
         ) => {
             // Prepare receipt data
             let currentTransaction = transaction;
@@ -350,23 +351,15 @@ export const usePay = () => {
             if (printerAddressOverride) {
                 printerAddresses = [printerAddressOverride];
             } else {
-                const publicKey = getPublicKey();
-                let devicePrinterCom: string | undefined;
-                if (publicKey) {
-                    try {
-                        const hwRes = await fetch(
-                            `/api/sql/getDeviceHardware?publicKey=${encodeURIComponent(publicKey)}`
-                        );
-                        if (hwRes.ok) {
-                            const hw = await hwRes.json();
-                            devicePrinterCom = hw.printerCom || undefined;
-                            comBaud = hw.printerBaud || undefined;
-                        }
-                    } catch {
-                        // Fall back to PrintersConfig
-                    }
+                const { com: devicePrinterCom, baud } = await getDevicePrinter();
+                comBaud = baud;
+                if (devicePrinterCom) {
+                    printerAddresses = [devicePrinterCom];
+                } else {
+                    const cashierAddr = getPrinterAddressByRole(PRINTER_ROLE.cashier);
+                    if (!cashierAddr) return { error: 'Aucune imprimante de caisse configurée' };
+                    printerAddresses = [cashierAddr];
                 }
-                printerAddresses = devicePrinterCom ? [devicePrinterCom] : resolvePrinterAddresses(printerName);
             }
             if (!printerAddresses.length) return { error: 'Imprimante non trouvée' };
 
@@ -383,6 +376,7 @@ export const usePay = () => {
                     orderNumber: orderData?.short_num_order,
                     serviceType: orderData?.service_type,
                     showDetails: showDetails !== false,
+                    mealCount,
                 },
                 comBaud
             );
@@ -390,7 +384,7 @@ export const usePay = () => {
         [
             parameters,
             transactions,
-            resolvePrinterAddresses,
+            getPrinterAddressByRole,
             inventory,
             products,
             getCustomerTotal,
@@ -490,9 +484,9 @@ export const usePay = () => {
     autoPrintRef.current = autoPrint;
 
     const printTransaction = useCallback(
-        (printerName?: string, transaction?: Transaction, showDetails?: boolean) => {
+        (printerName?: string, transaction?: Transaction, showDetails?: boolean, mealCount?: number) => {
             openPopup('Imprimer', ['Impression en cours ...']);
-            printTransactionReceipt(printerName, transaction, undefined, showDetails).then((response) => {
+            printTransactionReceipt(printerName, transaction, undefined, showDetails, mealCount).then((response) => {
                 if (!response.success) openPopup('Erreur', [response.error || "Impossible d'imprimer"]);
                 else closePopup();
             });
@@ -516,35 +510,50 @@ export const usePay = () => {
                         created_at: string;
                     }>;
                 };
-                const printerAddresses = resolvePrinterAddresses();
+                const { com: devicePrinterCom, baud: comBaud } = await getDevicePrinter();
+                let printerAddresses: string[];
+                if (devicePrinterCom) {
+                    printerAddresses = [devicePrinterCom];
+                } else {
+                    const cashierAddr = getPrinterAddressByRole(PRINTER_ROLE.cashier);
+                    if (!cashierAddr) {
+                        openPopup('Erreur', ['Aucune imprimante de caisse configurée']);
+                        return;
+                    }
+                    printerAddresses = [cashierAddr];
+                }
                 if (!printerAddresses.length) {
                     openPopup('Erreur', ['Aucune imprimante configurée']);
                     return;
                 }
-                const result = await printBalanceStatement(printerAddresses, {
-                    customer: {
-                        firstName: customer.firstName,
-                        lastName: customer.lastName,
-                        reference: customer.reference,
+                const result = await printBalanceStatement(
+                    printerAddresses,
+                    {
+                        customer: {
+                            firstName: customer.firstName,
+                            lastName: customer.lastName,
+                            reference: customer.reference,
+                        },
+                        balance,
+                        history: history.map((entry) => ({
+                            amount: entry.amount,
+                            operation: entry.operation,
+                            previousBalance: entry.previous_balance,
+                            newBalance: entry.new_balance,
+                            createdAt: entry.created_at,
+                        })),
+                        shop: parameters.shop,
+                        currency: currencies[currencyIndex],
                     },
-                    balance,
-                    history: history.map((entry) => ({
-                        amount: entry.amount,
-                        operation: entry.operation,
-                        previousBalance: entry.previous_balance,
-                        newBalance: entry.new_balance,
-                        createdAt: entry.created_at,
-                    })),
-                    shop: parameters.shop,
-                    currency: currencies[currencyIndex],
-                });
+                    comBaud
+                );
                 if (!result.success) openPopup('Erreur', [result.error || "Impossible d'imprimer le relevé"]);
             } catch (error) {
                 console.error('Failed to print balance:', error);
                 openPopup('Erreur', ["Erreur lors de l'impression du relevé de solde"]);
             }
         },
-        [resolvePrinterAddresses, parameters.shop, currencies, currencyIndex, openPopup]
+        [getPrinterAddressByRole, parameters.shop, currencies, currencyIndex, openPopup]
     );
 
     // Open the customer search popup. Extracted as a standalone callback so it can be
@@ -1293,14 +1302,9 @@ export const usePay = () => {
 
                 allOptions.push('');
 
-                const printerNames = getPrintersNames();
-                if (printerNames.length > 0) {
-                    // For each printer, add both detail options
-                    for (const pName of printerNames) {
-                        const isSingle = printerNames.length === 1;
-                        const base = isSingle ? PRINT_KEYWORD : pName;
-                        allOptions.push(base + PRINT_NO_DETAIL, base + PRINT_WITH_DETAIL);
-                    }
+                // Receipts should only print on the cashier printer, not kitchen/bar.
+                if (hasCashierPrinter()) {
+                    allOptions.push(PRINT_KEYWORD + PRINT_NO_DETAIL, PRINT_KEYWORD + PRINT_WITH_DETAIL);
                 }
 
                 // Add PARTIAL PAYMENT option only if orderId is set AND order has at least 2 items
@@ -1344,20 +1348,33 @@ export const usePay = () => {
                             }
 
                             // Handle printer options
-                            const printerNames = getPrintersNames();
                             const isPrintOption =
                                 option.startsWith(PRINT_KEYWORD) &&
                                 (option.includes(PRINT_NO_DETAIL) || option.includes(PRINT_WITH_DETAIL));
                             if (isPrintOption) {
                                 const showDetails = option.includes(PRINT_WITH_DETAIL);
-                                // Match the printer name from the option
-                                const matchedPrinter = printerNames.find((pName) => option.startsWith(pName));
-                                const printerName = printerNames.length === 1 ? printerNames[0] : matchedPrinter;
-                                // Print the receipt
-                                printTransaction(printerName, undefined, showDetails);
-                                // Put transaction in waiting status and close popup
-                                updateTransaction(WAITING_KEYWORD);
-                                closePopup();
+                                if (showDetails) {
+                                    // Print the receipt with details on the cashier printer
+                                    printTransaction(undefined, undefined, true);
+                                    updateTransaction(WAITING_KEYWORD);
+                                    closePopup();
+                                } else {
+                                    // No detail: ask for meal count, then print only "X x repas complet"
+                                    paymentSelectionLockedRef.current = false;
+                                    closePopup(() => {
+                                        openPopup(
+                                            'Nombre de repas',
+                                            ['1', '2', '3', '4', '5', '6', '7', '8'],
+                                            (idx, opt) => {
+                                                if (idx < 0) return;
+                                                const mealCount = parseInt(opt, 10) || 1;
+                                                printTransaction(undefined, undefined, false, mealCount);
+                                                updateTransaction(WAITING_KEYWORD);
+                                                closePopup();
+                                            }
+                                        );
+                                    });
+                                }
                                 return;
                             }
 
@@ -1375,7 +1392,7 @@ export const usePay = () => {
         closePopup,
         getCustomerTotal,
         paymentMethods,
-        getPrintersNames,
+        hasCashierPrinter,
         printTransaction,
         updateTransaction,
         toCurrency,

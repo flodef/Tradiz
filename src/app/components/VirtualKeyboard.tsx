@@ -25,7 +25,7 @@ const SYMBOLS_9: string[] = ['+', '.', '-', '_', ',', "'", '/', '!', '?'];
 const SYMBOL_FOR_0 = ':';
 
 const keyBtn =
-    'flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-700 active:bg-gray-400 dark:active:bg-gray-600 transition-colors text-lg font-medium select-none cursor-pointer';
+    'flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-700 active:bg-gray-400 dark:active:bg-gray-600 transition-colors text-xl font-medium select-none cursor-pointer';
 
 const validateBtn =
     'flex items-center justify-center rounded-lg bg-green-500 text-white hover:bg-green-600 active:bg-green-700 dark:bg-green-600 dark:hover:bg-green-500 dark:active:bg-green-700 transition-colors select-none cursor-pointer';

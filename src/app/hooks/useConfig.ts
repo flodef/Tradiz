@@ -38,6 +38,7 @@ export interface ConfigContextState {
     resolvePrinterAddresses: (name?: string) => string[];
     getPrinterAddressByRole: (role: string) => string | undefined;
     getPrinterNamesByRole: (role: string) => string[];
+    hasCashierPrinter: () => boolean;
     customers: Customer[];
     setCustomers: (value: Customer[] | ((prev: Customer[]) => Customer[])) => void;
     users: User[];

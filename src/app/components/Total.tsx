@@ -295,7 +295,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                           },
                       },
                   ].concat(
-                      !isWaiting && !isRefundTransaction(transaction)
+                      !isWaiting && !isRefundTransaction(transaction) && parameters.display?.showRefund !== false
                           ? [
                                 { label: '', action: () => {} },
                                 {
@@ -350,6 +350,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
             transactions,
             refundTransaction,
             isReadOnlyProcessingForUser,
+            parameters.display?.showRefund,
         ]
     );
 

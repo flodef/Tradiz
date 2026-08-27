@@ -661,7 +661,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
         toCurrency,
     } = useData();
     const { openPopup, closePopup, isPopupOpen, openFullscreenPopup } = usePopup();
-    const { pay, canAddProduct } = usePay();
+    const { pay, canAddProduct, canAddProvision, addProvision } = usePay();
     const { showTransactionsSummary, showTransactionsSummaryMenu, getHistoricalTransactions, refreshHistoricalKeys } =
         useSummary();
 
@@ -976,7 +976,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
         : '';
     const s =
         'w-[72px] h-[72px] sm:w-20 sm:h-20 rounded-2xl flex justify-center m-2.5 sm:m-3 items-center text-5xl sm:text-6xl ';
-    const sx = s + (canAddProduct || total ? color : 'invisible');
+    const sx = s + (canAddProduct || total || canAddProvision ? color : 'invisible');
 
     const f = 'text-5xl w-14 h-14 p-2 rounded-full leading-[0.7] ';
 
@@ -984,8 +984,12 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
     const actionButtonProps = {
         icon: IconWallet,
         onClick: () => {
-            clearAmount();
-            pay();
+            if (canAddProvision) {
+                addProvision();
+            } else {
+                clearAmount();
+                pay();
+            }
         },
         onContextMenu: total ? () => updateTransaction(WAITING_KEYWORD) : () => {},
     };
@@ -1170,8 +1174,11 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                                     onClick={openSearchPopup}
                                     onContextMenu={openSearchPopup}
                                 />
-                            ) : hasAmount || total ? (
-                                <ImageButton {...actionButtonProps} className={f + (total ? color : 'invisible')} />
+                            ) : hasAmount || total || canAddProvision ? (
+                                <ImageButton
+                                    {...actionButtonProps}
+                                    className={f + (total || canAddProvision ? color : 'invisible')}
+                                />
                             ) : (
                                 <div className={f2}></div>
                             )

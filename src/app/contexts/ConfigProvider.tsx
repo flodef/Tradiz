@@ -23,6 +23,7 @@ import {
     CURRENT_USER_KEYWORD,
     LOCAL_PRINTER_KEYWORD,
     PRINT_KEYWORD,
+    PRINTER_ROLE,
     SEPARATOR,
     USE_DIGICARTE,
 } from '../utils/constants';
@@ -151,6 +152,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     const [discounts, setDiscounts] = useState<Discount[]>([]);
     const [colors, setColors] = useState<Color[]>([]);
     const [printers, setPrinters] = useState<Printer[]>([]);
+    const [devicePrinterCom, setDevicePrinterCom] = useState<string | undefined>(undefined);
     const [customers, setCustomersState] = useState<Customer[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [categories, setCategories] = useState<CategoryData[]>([]);
@@ -251,6 +253,11 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
         [printers]
     );
 
+    const hasCashierPrinter = useCallback(
+        () => devicePrinterCom != null || printers.some(({ label }) => label === PRINTER_ROLE.cashier),
+        [devicePrinterCom, printers]
+    );
+
     const loadConfig = useCallback((data: Config | undefined) => {
         if (!data) return;
 
@@ -343,6 +350,18 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
         window.addEventListener('storage', handleStorageChange);
         return () => window.removeEventListener('storage', handleStorageChange);
     }, [loadConfig]);
+
+    // Pre-fetch device hardware (COM port) so hasCashierPrinter can work synchronously.
+    useEffect(() => {
+        const pk = getPublicKey();
+        if (!pk) return;
+        fetch(`/api/sql/getDeviceHardware?publicKey=${encodeURIComponent(pk)}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((hw) => {
+                if (hw?.printerCom) setDevicePrinterCom(hw.printerCom);
+            })
+            .catch(() => {});
+    }, []);
 
     useEffect(() => {
         if (state !== State.init) return;
@@ -453,6 +472,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                 resolvePrinterAddresses,
                 getPrinterAddressByRole,
                 getPrinterNamesByRole,
+                hasCashierPrinter,
                 customers,
                 setCustomers,
                 users,

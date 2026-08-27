@@ -302,61 +302,83 @@ export async function printReceipt(
         printer.alignLeft();
 
         const showDetails = receiptData.showDetails !== false; // default true
+        const mealCount = receiptData.mealCount;
 
-        printer.tableCustom([
-            { text: 'QTE', align: 'LEFT', cols: 4 },
-            { text: '', align: 'LEFT', cols: 1 },
-            { text: 'DESIGNATION', align: 'LEFT', cols: 26 },
-            { text: '', align: 'LEFT', cols: 1 },
-            { text: 'P.U.', align: 'LEFT', cols: 7 },
-            { text: '', align: 'LEFT', cols: 1 },
-            { text: 'TOTAL', align: 'LEFT', cols: 8 },
-        ]);
-        printer.drawLine();
-
-        // Print each item
-        receiptData.transaction.products.forEach((item) => {
-            let label = item.label;
-            if (item.discount.amount > 0) {
-                label += ` (-${item.discount.amount}${item.discount.unit})`;
-            }
-            const labelLength = label.length;
-            label = labelLength > 26 ? label.slice(0, 23) + '...' : label;
+        if (mealCount && mealCount > 0) {
+            // No-detail receipt: print only the meal count line
+            printer.drawLine();
+            printer.alignLeft();
+            printer.tableCustom([
+                { text: `x${mealCount}`, align: 'LEFT', cols: 4 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: 'repas complet', align: 'LEFT', cols: 26 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: '', align: 'LEFT', cols: 7 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: toCurrency(receiptData.transaction.amount, currency), align: 'LEFT', cols: 8 },
+            ]);
+            printer.drawLine();
+        } else {
+            // Print items header
+            printer.drawLine();
+            printer.alignLeft();
 
             printer.tableCustom([
-                { text: `x${item.quantity}`, align: 'LEFT', cols: 4 },
+                { text: 'QTE', align: 'LEFT', cols: 4 },
                 { text: '', align: 'LEFT', cols: 1 },
-                { text: label, align: 'LEFT', cols: 26 },
+                { text: 'DESIGNATION', align: 'LEFT', cols: 26 },
                 { text: '', align: 'LEFT', cols: 1 },
-                { text: toCurrency(item.amount, currency), align: 'LEFT', cols: 7 },
+                { text: 'P.U.', align: 'LEFT', cols: 7 },
                 { text: '', align: 'LEFT', cols: 1 },
-                { text: toCurrency(item.total || 0, currency), align: 'LEFT', cols: 8 },
+                { text: 'TOTAL', align: 'LEFT', cols: 8 },
             ]);
+            printer.drawLine();
 
-            // In detail mode, expand formula/article options as indented sub-lines
-            if (showDetails && item.options) {
-                try {
-                    const parsedOptions: Array<{ type: string; value: string; price: number }> = JSON.parse(
-                        item.options
-                    );
-                    for (const opt of parsedOptions) {
-                        const optLabel = `  ${opt.value}`;
-                        const truncated = optLabel.length > 26 ? optLabel.slice(0, 23) + '...' : optLabel;
-                        printer.tableCustom([
-                            { text: '', align: 'LEFT', cols: 4 },
-                            { text: '', align: 'LEFT', cols: 1 },
-                            { text: truncated, align: 'LEFT', cols: 26 },
-                            { text: '', align: 'LEFT', cols: 1 },
-                            { text: '', align: 'LEFT', cols: 7 },
-                            { text: '', align: 'LEFT', cols: 1 },
-                            { text: '', align: 'LEFT', cols: 8 },
-                        ]);
-                    }
-                } catch {
-                    // Not valid JSON options, skip
+            // Print each item
+            receiptData.transaction.products.forEach((item) => {
+                let label = item.label;
+                if (item.discount.amount > 0) {
+                    label += ` (-${item.discount.amount}${item.discount.unit})`;
                 }
-            }
-        });
+                const labelLength = label.length;
+                label = labelLength > 26 ? label.slice(0, 23) + '...' : label;
+
+                printer.tableCustom([
+                    { text: `x${item.quantity}`, align: 'LEFT', cols: 4 },
+                    { text: '', align: 'LEFT', cols: 1 },
+                    { text: label, align: 'LEFT', cols: 26 },
+                    { text: '', align: 'LEFT', cols: 1 },
+                    { text: toCurrency(item.amount, currency), align: 'LEFT', cols: 7 },
+                    { text: '', align: 'LEFT', cols: 1 },
+                    { text: toCurrency(item.total || 0, currency), align: 'LEFT', cols: 8 },
+                ]);
+
+                // In detail mode, expand formula/article options as indented sub-lines
+                if (showDetails && item.options) {
+                    try {
+                        const parsedOptions: Array<{ type: string; value: string; price: number }> = JSON.parse(
+                            item.options
+                        );
+                        for (const opt of parsedOptions) {
+                            const optLabel = `  ${opt.value}`;
+                            const truncated = optLabel.length > 26 ? optLabel.slice(0, 23) + '...' : optLabel;
+                            printer.tableCustom([
+                                { text: '', align: 'LEFT', cols: 4 },
+                                { text: '', align: 'LEFT', cols: 1 },
+                                { text: truncated, align: 'LEFT', cols: 26 },
+                                { text: '', align: 'LEFT', cols: 1 },
+                                { text: '', align: 'LEFT', cols: 7 },
+                                { text: '', align: 'LEFT', cols: 1 },
+                                { text: '', align: 'LEFT', cols: 8 },
+                            ]);
+                        }
+                    } catch {
+                        // Not valid JSON options, skip
+                    }
+                }
+            });
+            printer.drawLine();
+        }
 
         // Calculate totals by VAT rate
         const vatTotals = new Map<number, { ht: number; tva: number; ttc: number }>();
@@ -563,10 +585,11 @@ export async function printBalanceStatement(
         }>;
         shop: Shop;
         currency: Currency;
-    }
+    },
+    comBaud?: number
 ): Promise<PrintResponse> {
     try {
-        const { printer, error } = await initPrinter(printerAddresses);
+        const { printer, error } = await initPrinter(printerAddresses, comBaud);
         if (!printer || error) return { error };
 
         const currentDate = new Date();
@@ -646,9 +669,13 @@ export async function printBalanceStatement(
 /**
  * Server action to print a Ticket Z summary (Z report)
  */
-export async function printSummary(printerAddresses: string[], summaryData: SummaryData): Promise<PrintResponse> {
+export async function printSummary(
+    printerAddresses: string[],
+    summaryData: SummaryData,
+    comBaud?: number
+): Promise<PrintResponse> {
     try {
-        const { printer, error } = await initPrinter(printerAddresses);
+        const { printer, error } = await initPrinter(printerAddresses, comBaud);
         if (!printer || error) return { error };
 
         const currentDate = new Date();

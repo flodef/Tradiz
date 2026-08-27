@@ -237,16 +237,15 @@ export default function ParametersConfig({
                             />
                         </div>
                     </div>
-                    <AdminInput
+                    <ValidatedInput
                         label="Taux de fidélité (%)"
                         type="number"
                         min={0}
                         max={100}
                         step={0.1}
                         value={config.fidelityRate ?? 0}
-                        onChange={(e) =>
-                            !isReadOnly &&
-                            handleChange('fidelityRate', Math.max(0, Math.min(100, Number(e.target.value) || 0)))
+                        onChange={(value) =>
+                            !isReadOnly && handleChange('fidelityRate', Math.max(0, Math.min(100, Number(value) || 0)))
                         }
                         isReadOnly={isReadOnly}
                         className="w-30"

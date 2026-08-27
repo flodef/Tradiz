@@ -3,8 +3,9 @@
 import { Device, User } from '@/app/utils/interfaces';
 import { adminHeaderStyle } from '@/app/utils/constants';
 import { getPublicKey } from '@/app/utils/processData';
+import { testPrint } from '@/app/utils/posPrinter';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IconChevronDown, IconChevronUp, IconDeviceTv, IconSelector } from '@tabler/icons-react';
+import { IconChevronDown, IconChevronUp, IconSelector, IconPlayerPlay } from '@tabler/icons-react';
 import SectionCard from '../SectionCard';
 import DeleteButtonCell from '../DeleteButtonCell';
 import ValidatedInput from '../ValidatedInput';
@@ -46,6 +47,10 @@ function comPortOptions(availableComPorts: number[], currentValue?: string | nul
     return options;
 }
 
+const ALL_BAUD_RATES = [9600, 19200, 38400, 57600, 115200, 2400, 4800];
+
+type TestState = 'idle' | 'running' | 'done' | 'error';
+
 function Row({
     device,
     users,
@@ -79,6 +84,71 @@ function Row({
             onChange({ ...device, userId: defaultUserId });
         }
     }, [device, defaultUserId, onChange]);
+
+    const isCurrentDevice = device.key === getPublicKey();
+    const [testState, setTestState] = useState<TestState>('idle');
+    const [testMessage, setTestMessage] = useState('');
+
+    const runHardwareTest = useCallback(async () => {
+        setTestState('running');
+        setTestMessage('Test en cours...');
+        const steps: string[] = [];
+
+        // 1. Test customer display (backscreen) — try all baud rates
+        if (device.backscreenCom) {
+            steps.push('Écran client:');
+            for (const baud of ALL_BAUD_RATES) {
+                try {
+                    window.electronAPI?.testDisplay?.({
+                        port: device.backscreenCom,
+                        baud,
+                    });
+                    steps.push(`  ${device.backscreenCom} @ ${baud} envoyé`);
+                } catch {
+                    steps.push(`  ${device.backscreenCom} @ ${baud} échec`);
+                }
+            }
+        }
+
+        // 2. Test cash drawer
+        if (device.cashDrawerCom) {
+            steps.push('Tiroir caisse:');
+            try {
+                const res = await fetch('/api/open-cash-drawer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        printerAddress: device.cashDrawerCom,
+                        baudRate: device.cashDrawerBaud ?? 9600,
+                    }),
+                });
+                const data = await res.json();
+                if (data.success) steps.push('  Ouverture envoyée OK');
+                else steps.push(`  Erreur: ${data.error}`);
+            } catch (err) {
+                steps.push(`  Erreur: ${(err as Error).message}`);
+            }
+        }
+
+        // 3. Test printer — testPrint already tries all baud rates for COM ports
+        if (device.printerCom) {
+            steps.push('Imprimante:');
+            try {
+                const res = await testPrint(device.printerCom);
+                if (res.success) steps.push('  Test impression envoyé OK');
+                else steps.push(`  Erreur: ${res.error}`);
+            } catch (err) {
+                steps.push(`  Erreur: ${(err as Error).message}`);
+            }
+        }
+
+        if (!device.backscreenCom && !device.cashDrawerCom && !device.printerCom) {
+            steps.push('Aucun port configuré sur cet appareil');
+        }
+
+        setTestMessage(steps.join('\n'));
+        setTestState('done');
+    }, [device.backscreenCom, device.cashDrawerCom, device.cashDrawerBaud, device.printerCom]);
 
     return (
         <tr className="border-b border-gray-200 dark:border-gray-700">
@@ -130,21 +200,6 @@ function Row({
                             options={comPortOptions(availableComPorts, device.backscreenCom)}
                             className="w-20"
                         />
-                        {device.backscreenCom && !isReadOnly && device.key === getPublicKey() && (
-                            <button
-                                type="button"
-                                title="Tester l'écran client"
-                                onClick={() =>
-                                    window.electronAPI?.testDisplay?.({
-                                        port: device.backscreenCom!,
-                                        baud: device.backscreenBaud ?? 9600,
-                                    })
-                                }
-                                className="shrink-0 p-1 text-gray-600 dark:text-gray-300 hover:text-active-light dark:hover:text-active-dark"
-                            >
-                                <IconDeviceTv size={18} />
-                            </button>
-                        )}
                     </div>
                     {device.backscreenCom && (
                         <AdminSelect
@@ -208,6 +263,26 @@ function Row({
                         />
                     )}
                 </div>
+            </td>
+            <td className="p-2">
+                {isCurrentDevice && !isReadOnly && (
+                    <div className="flex flex-col items-center gap-1">
+                        <button
+                            type="button"
+                            title="Tester le matériel (écran, tiroir, imprimante)"
+                            onClick={runHardwareTest}
+                            disabled={testState === 'running'}
+                            className="shrink-0 p-1 text-gray-600 dark:text-gray-300 hover:text-active-light dark:hover:text-active-dark disabled:opacity-50"
+                        >
+                            <IconPlayerPlay size={18} />
+                        </button>
+                        {testState === 'done' && testMessage && (
+                            <pre className="text-xs text-gray-500 dark:text-gray-400 whitespace-pre-wrap max-w-48">
+                                {testMessage}
+                            </pre>
+                        )}
+                    </div>
+                )}
             </td>
             <DeleteButtonCell isReadOnly={isReadOnly} onDelete={onDelete} title="Supprimer l'appareil" />
         </tr>
@@ -428,6 +503,7 @@ export default function DevicesConfig({
                                 <th className={adminHeaderStyle + ' w-32'}>Écran client</th>
                                 <th className={adminHeaderStyle + ' w-28'}>Imprimante</th>
                                 <th className={adminHeaderStyle + ' w-24'}>Tiroir caisse</th>
+                                {!isReadOnly && <th className={adminHeaderStyle + ' w-32'}>Test</th>}
                                 {!isReadOnly && <th className="w-8"></th>}
                             </tr>
                         </thead>

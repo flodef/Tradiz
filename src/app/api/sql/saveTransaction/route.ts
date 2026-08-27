@@ -563,10 +563,10 @@ async function updateCustomerFidelityPointsIdempotent(
 
     // Fetch fidelity rate once
     const paramQuery = isPg
-        ? `SELECT value FROM ${prefix}parameters WHERE key = $1`
-        : `SELECT value FROM parameters WHERE \`key\` = ?`;
+        ? `SELECT param_value FROM ${prefix}parameters WHERE param_key = $1`
+        : `SELECT param_value FROM parameters WHERE param_key = ?`;
     const [paramRows] = await connection.execute(paramQuery, ['fidelityRate']);
-    const fidelityRate = Number((paramRows as { value: string }[])[0]?.value ?? 0);
+    const fidelityRate = Number((paramRows as { param_value: string }[])[0]?.param_value ?? 0);
 
     // Compute new delta
     const newDelta = computeFidelityDelta(
@@ -634,10 +634,10 @@ async function updateCustomerFidelityPoints(
 
     // Fetch fidelity rate
     const paramQuery = isPg
-        ? `SELECT value FROM ${prefix}parameters WHERE key = $1`
-        : `SELECT value FROM parameters WHERE \`key\` = ?`;
+        ? `SELECT param_value FROM ${prefix}parameters WHERE param_key = $1`
+        : `SELECT param_value FROM parameters WHERE param_key = ?`;
     const [paramRows] = await connection.execute(paramQuery, ['fidelityRate']);
-    const fidelityRate = Number((paramRows as { value: string }[])[0]?.value ?? 0);
+    const fidelityRate = Number((paramRows as { param_value: string }[])[0]?.param_value ?? 0);
 
     const delta = computeFidelityDelta(
         transaction.payment_method,

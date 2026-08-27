@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useRef, useState, useEffect } from 'react';
 import { IconCheck, IconChevronRight, IconX } from '@tabler/icons-react';
 import { useIsMobile } from '@/app/utils/mobile';
 import AdminButton from './AdminButton';
@@ -48,9 +48,21 @@ export default function SectionCard({
     const [internalOpen, setInternalOpen] = useState(defaultOpen);
     const open = isOpen !== undefined ? isOpen : internalOpen;
     const isMobile = useIsMobile();
+    const sectionRef = useRef<HTMLDivElement>(null);
+    const wasOpenRef = useRef(open);
+
+    useEffect(() => {
+        if (open && !wasOpenRef.current) {
+            sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        wasOpenRef.current = open;
+    }, [open]);
 
     return (
-        <div className="bg-white/30 dark:bg-black/20 shadow-lg rounded-lg mb-6 border border-black/10 dark:border-white/10 overflow-hidden">
+        <div
+            ref={sectionRef}
+            className="bg-white/30 dark:bg-black/20 shadow-lg rounded-lg mb-6 border border-black/10 dark:border-white/10 overflow-hidden scroll-mt-16"
+        >
             <div
                 className="cursor-pointer select-none"
                 onClick={() => (onToggle ? onToggle() : setInternalOpen((o) => !o))}

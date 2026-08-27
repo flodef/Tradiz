@@ -887,16 +887,17 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }
             }
 
+            // Tag the current device on all PROCESSING transactions before persisting
+            // so that localStorage/IndexedDB and the SQL DB both receive the deviceId.
+            if (isProcessingTransaction(transaction)) {
+                transaction.deviceId = getPublicKey();
+            }
+
             // Always persist to localStorage (including deleted-flagged transactions)
             setLocalStorageItem(transactionsFilename, transactionsToSave);
 
             const index = transaction.createdDate;
             transactionId.current = action === DatabaseAction.update ? index : 0;
-
-            // Tag the current device on all PROCESSING transactions
-            if (isProcessingTransaction(transaction)) {
-                transaction.deviceId = getPublicKey();
-            }
 
             if (USE_DIGICARTE || (await checkDbConfig())) {
                 try {
@@ -1419,6 +1420,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     currency: currencies[currencyIndex].label,
                     products: products.current.map((p) => ({ ...p })),
                     takeOut: counterServiceTypeRef.current === 'takeout',
+                    deviceId: currentDeviceId,
                     ...(liveShare > 0 ? { employerShare: liveShare } : {}),
                     ...(customerName ? { customerName } : {}),
                 };

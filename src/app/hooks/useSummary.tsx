@@ -5,6 +5,7 @@ import { sendSummaryEmail } from '../actions/email';
 import { Shop } from '../contexts/ConfigProvider';
 import {
     isDeletedTransaction,
+    isProcessingTransaction,
     isRefundTransaction,
     isWaitingTransaction,
 } from '../contexts/dataProvider/transactionHelpers';
@@ -12,6 +13,7 @@ import { ARROW, BACK_KEYWORD, PRINT_KEYWORD, PRINTER_ROLE, SEPARATOR } from '../
 import { formatFrenchDate, getFormattedDate } from '../utils/date';
 import { Currency, DataElement, SyncAction, Transaction } from '../utils/interfaces';
 import { printSummary } from '../utils/posPrinter';
+import { getDevicePrinter } from '../utils/processData';
 import { getStorageUsage, idbGetAllKeys, idbGetTransactions } from '../utils/transactionStore';
 import { useConfig } from './useConfig';
 import { useData } from './useData';
@@ -33,15 +35,8 @@ enum HistoricalPeriod {
 }
 
 export const useSummary = () => {
-    const {
-        currencies,
-        currencyIndex,
-        inventory,
-        parameters,
-        getPrintersNames,
-        getPrinterNamesByRole,
-        resolvePrinterAddresses,
-    } = useConfig();
+    const { currencies, currencyIndex, inventory, parameters, getPrinterAddressByRole, hasCashierPrinter } =
+        useConfig();
     const {
         transactions,
         toCurrency,
@@ -105,7 +100,8 @@ export const useSummary = () => {
             (transaction) =>
                 matchesCurrency(transaction.currency) &&
                 !isDeletedTransaction(transaction) &&
-                !isWaitingTransaction(transaction)
+                !isWaitingTransaction(transaction) &&
+                !isProcessingTransaction(transaction)
         );
     }, [currencies, currencyIndex, transactions]);
 
@@ -1079,7 +1075,17 @@ export const useSummary = () => {
             const filteredTransactions = getFilteredTransactions();
             if (!filteredTransactions.length) return { error: 'Aucune transaction' };
 
-            const printerAddresses = resolvePrinterAddresses(printerName);
+            // Check if the current device has a local COM printer configured.
+            // If so, use it (with the correct baud rate) instead of the IP-based cashier printer.
+            const { com: devicePrinterCom, baud: comBaud } = await getDevicePrinter();
+            let printerAddresses: string[];
+            if (devicePrinterCom) {
+                printerAddresses = [devicePrinterCom];
+            } else {
+                const cashierAddr = getPrinterAddressByRole(PRINTER_ROLE.cashier);
+                if (!cashierAddr) return { error: 'Aucune imprimante de caisse configurée' };
+                printerAddresses = [cashierAddr];
+            }
             if (!printerAddresses.length) return { error: 'Imprimante non trouvée' };
 
             // Get transaction summary data
@@ -1089,21 +1095,25 @@ export const useSummary = () => {
             const period = getPeriodDescription(filteredTransactions);
 
             // Print the Ticket Z using server action
-            return await printSummary(printerAddresses, {
-                shop: parameters.shop,
-                period,
-                amount: '',
-                transactions: filteredTransactions,
-                currency: currencies[currencyIndex],
-                summary,
-            });
+            return await printSummary(
+                printerAddresses,
+                {
+                    shop: parameters.shop,
+                    period,
+                    amount: '',
+                    transactions: filteredTransactions,
+                    currency: currencies[currencyIndex],
+                    summary,
+                },
+                comBaud
+            );
         },
         [
             getFilteredTransactions,
             getPeriodDescription,
             getTransactionsData,
             parameters,
-            resolvePrinterAddresses,
+            getPrinterAddressByRole,
             currencies,
             currencyIndex,
         ]
@@ -1125,9 +1135,7 @@ export const useSummary = () => {
             const formattedDate = getFormattedDate(transactionsDate.date, isDailyPeriod ? 3 : 2);
 
             // Ticket Z should only be printed on the cashier printer, not kitchen/bar.
-            const cashierPrinterNames = getPrinterNamesByRole(PRINTER_ROLE.cashier);
-            // Fallback: if no cashier-specific printer, use all printers (single-printer case)
-            const ticketZPrinterNames = cashierPrinterNames.length > 0 ? cashierPrinterNames : getPrintersNames();
+            const ticketZPrinterNames = hasCashierPrinter() ? [PRINT_KEYWORD] : [];
 
             openPopup(
                 'Ticket Z ' + (hasTransactions ? formattedDate : ''),
@@ -1212,8 +1220,7 @@ export const useSummary = () => {
         getTransactionsDate,
         isDbConnected,
         showSyncMenu,
-        getPrintersNames,
-        getPrinterNamesByRole,
+        hasCashierPrinter,
         parameters,
     ]);
 
