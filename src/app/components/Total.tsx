@@ -205,7 +205,8 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
-    const { pay, printTransaction, printKitchenReceipt, payWithMethod } = usePay();
+    const { pay, printTransaction, printKitchenReceipt, payWithMethod, canAddProvision, payProvisionWithMethod } =
+        usePay();
     const {
         state,
         isStateReady,
@@ -888,7 +889,36 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                             style={{ paddingRight: isMobile ? undefined : '3.5rem' }}
                         >
                             {canDisplayTotal ? (
-                                total ? (
+                                canAddProvision && paymentIconsEnabled && !navExpanded ? (
+                                    <>
+                                        <span
+                                            className={twMerge(
+                                                `shrink-0 h-full inline-flex items-center px-2 ${compact ? 'text-5xl' : isMobile ? 'text-4xl' : 'text-6xl'}`,
+                                                clickClassName
+                                            )}
+                                            title={toCurrency(amount)}
+                                            onClick={handleClick}
+                                            onContextMenu={handleClick}
+                                        >
+                                            <Amount value={amount} showZero />
+                                        </span>
+                                        <div
+                                            className="flex items-center h-full gap-1 overflow-x-auto"
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            onMouseUp={(e) => e.stopPropagation()}
+                                        >
+                                            {availablePaymentMethods.map((method) => (
+                                                <PaymentIconButton
+                                                    key={method}
+                                                    icon={getPaymentIcon(method)}
+                                                    label={method}
+                                                    onClick={() => payProvisionWithMethod(method)}
+                                                    size={compact ? 40 : 52}
+                                                />
+                                            ))}
+                                        </div>
+                                    </>
+                                ) : total ? (
                                     paymentIconsEnabled && !navExpanded ? (
                                         <>
                                             <span

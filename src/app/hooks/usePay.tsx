@@ -733,70 +733,109 @@ export const usePay = () => {
         ]
     );
 
+    const finalizeProvisionPayment = useCallback(
+        async (customer: Customer, selectedOption: string) => {
+            const provisionAmount = getCustomerTotal() || amount;
+            const now = floorToSeconds(new Date().getTime());
+            const fullName = `${customer.firstName} ${customer.lastName}`.trim();
+            const transaction: Transaction = {
+                validator: parameters.user.name,
+                method: selectedOption,
+                amount: provisionAmount,
+                createdDate: now,
+                modifiedDate: now,
+                currency: currencies[currencyIndex].label,
+                products: [],
+                customerName: fullName,
+            };
+            setCurrentCustomer(customer);
+            commitTransaction(transaction);
+            closePopup();
+        },
+        [
+            getCustomerTotal,
+            amount,
+            parameters.user.name,
+            currencies,
+            currencyIndex,
+            setCurrentCustomer,
+            commitTransaction,
+            closePopup,
+        ]
+    );
+
+    const finalizeDebitPayment = useCallback(
+        async (customer: Customer) => {
+            const debitAmount = getCustomerTotal();
+            const now = floorToSeconds(new Date().getTime());
+            const fullName = `${customer.firstName} ${customer.lastName}`.trim();
+            const transaction: Transaction = {
+                validator: parameters.user.name,
+                method: DEBIT_KEYWORD,
+                amount: debitAmount,
+                createdDate: now,
+                modifiedDate: now,
+                currency: currencies[currencyIndex].label,
+                products: products.current,
+                customerName: fullName,
+                ...(employerShare > 0 ? { employerShare } : {}),
+            };
+            setCurrentCustomer(customer);
+            commitTransaction(transaction);
+            closePopup();
+        },
+        [
+            getCustomerTotal,
+            parameters.user.name,
+            currencies,
+            currencyIndex,
+            products,
+            employerShare,
+            setCurrentCustomer,
+            commitTransaction,
+            closePopup,
+        ]
+    );
+
+    const showProvisionSubOptions = useCallback(
+        (customer: Customer) => {
+            const subOptions = paymentMethods
+                .filter(
+                    (m) =>
+                        m.currency === currencies[currencyIndex].label &&
+                        m.availability !== false &&
+                        m.type.toLowerCase() !== DEBIT_KEYWORD.toLowerCase() &&
+                        m.type.toLowerCase() !== PROVISION_KEYWORD.toLowerCase()
+                )
+                .map((m) => m.type);
+            if (subOptions.length === 0) {
+                openPopup('Erreur', ['Aucune méthode de paiement disponible']);
+                return;
+            }
+            openPopup('Mode de paiement PROVISION', subOptions, (index, selectedOption) => {
+                if (index < 0) return;
+                finalizeProvisionPayment(customer, selectedOption);
+            });
+        },
+        [paymentMethods, currencies, currencyIndex, openPopup, finalizeProvisionPayment]
+    );
+
+    // Pay a provision (customer balance top-up) directly with a specific payment method.
+    // Bypasses the sub-options popup — used by the desktop payment-icons bar when an amount
+    // is entered without a product. If no customer is selected, prompts for one first.
+    const payProvisionWithMethod = useCallback(
+        (method: string) => {
+            if (!currentCustomer) {
+                openCustomerSearchPopup((customer) => finalizeProvisionPayment(customer, method));
+                return;
+            }
+            finalizeProvisionPayment(currentCustomer, method);
+        },
+        [currentCustomer, openCustomerSearchPopup, finalizeProvisionPayment]
+    );
+
     const selectPayment = useCallback(
         (option: string, fallback: () => void) => {
-            const finalizeProvisionPayment = async (customer: Customer, selectedOption: string) => {
-                const provisionAmount = getCustomerTotal() || amount;
-                // Floor to seconds to match SQL TIMESTAMP precision, otherwise the transaction
-                // is treated as a distinct entry when merging with SQL data (duplicate in the UI).
-                const now = floorToSeconds(new Date().getTime());
-                const fullName = `${customer.firstName} ${customer.lastName}`.trim();
-                const transaction: Transaction = {
-                    validator: parameters.user.name,
-                    method: selectedOption,
-                    amount: provisionAmount,
-                    createdDate: now,
-                    modifiedDate: now,
-                    currency: currencies[currencyIndex].label,
-                    products: [],
-                    customerName: fullName,
-                };
-                setCurrentCustomer(customer);
-                commitTransaction(transaction);
-                closePopup();
-            };
-
-            const finalizeDebitPayment = async (customer: Customer) => {
-                // Capture the amount before updateTransaction, which may reset the current total.
-                const debitAmount = getCustomerTotal();
-                const now = floorToSeconds(new Date().getTime());
-                const fullName = `${customer.firstName} ${customer.lastName}`.trim();
-                const transaction: Transaction = {
-                    validator: parameters.user.name,
-                    method: DEBIT_KEYWORD,
-                    amount: debitAmount,
-                    createdDate: now,
-                    modifiedDate: now,
-                    currency: currencies[currencyIndex].label,
-                    products: products.current,
-                    customerName: fullName,
-                    ...(employerShare > 0 ? { employerShare } : {}),
-                };
-                setCurrentCustomer(customer);
-                commitTransaction(transaction);
-                closePopup();
-            };
-
-            const showProvisionSubOptions = (customer: Customer) => {
-                const subOptions = paymentMethods
-                    .filter(
-                        (m) =>
-                            m.currency === currencies[currencyIndex].label &&
-                            m.availability !== false &&
-                            m.type.toLowerCase() !== DEBIT_KEYWORD.toLowerCase() &&
-                            m.type.toLowerCase() !== PROVISION_KEYWORD.toLowerCase()
-                    )
-                    .map((m) => m.type);
-                if (subOptions.length === 0) {
-                    openPopup('Erreur', ['Aucune méthode de paiement disponible']);
-                    return;
-                }
-                openPopup('Mode de paiement PROVISION', subOptions, (index, selectedOption) => {
-                    if (index < 0) return;
-                    finalizeProvisionPayment(customer, selectedOption);
-                });
-            };
-
             const paymentType = option.split(SEPARATOR)[0].split(ARROW)[0].split(CATEGORY_SEPARATOR)[0].trim();
 
             // On demande le type de service uniquement si l'option useTakeOut est activée,
@@ -1022,6 +1061,9 @@ export const usePay = () => {
             triggerCashDrawer,
             employerShare,
             openCustomerSearchPopup,
+            finalizeProvisionPayment,
+            finalizeDebitPayment,
+            showProvisionSubOptions,
         ]
     );
 
@@ -1503,6 +1545,7 @@ export const usePay = () => {
         canAddProduct,
         canAddProvision,
         addProvision,
+        payProvisionWithMethod,
         applyFidelity,
         printTransaction,
         printKitchenReceipt,
