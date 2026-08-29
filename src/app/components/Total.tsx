@@ -842,7 +842,8 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         );
     }
 
-    const showTopBar = (canDisplayTotal && total) || (!canDisplayTotal && visibleTransactions.length);
+    const showTopBar =
+        (canDisplayTotal && (total || canAddProvision)) || (!canDisplayTotal && visibleTransactions.length);
 
     if (!showTopBar && !compact) {
         if (!transactionsLoaded && isStateReady) {
