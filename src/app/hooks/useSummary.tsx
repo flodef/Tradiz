@@ -38,6 +38,38 @@ enum HistoricalPeriod {
     year,
 }
 
+interface SummaryAggregates {
+    totalAmount: number;
+    transactionCount: number;
+    productCount: number;
+    firstTransactionDate: number;
+    lastTransactionDate: number;
+}
+
+function buildSummaryAggregates(transactions: Transaction[]): SummaryAggregates {
+    let totalAmount = 0;
+    let transactionCount = 0;
+    let productCount = 0;
+    let firstTransactionDate = Infinity;
+    let lastTransactionDate = -Infinity;
+
+    for (const tx of transactions) {
+        totalAmount += tx.amount;
+        transactionCount += isRefundTransaction(tx) ? -1 : 1;
+        for (const p of tx.products) productCount += p.quantity;
+        if (tx.createdDate < firstTransactionDate) firstTransactionDate = tx.createdDate;
+        if (tx.createdDate > lastTransactionDate) lastTransactionDate = tx.createdDate;
+    }
+
+    return {
+        totalAmount,
+        transactionCount,
+        productCount: Math.round(productCount),
+        firstTransactionDate,
+        lastTransactionDate,
+    };
+}
+
 export const useSummary = () => {
     const { currencies, currencyIndex, inventory, parameters, getPrinterAddressByRole, hasCashierPrinter } =
         useConfig();
@@ -927,12 +959,9 @@ export const useSummary = () => {
             }
 
             const { summary, categories, payments } = getTransactionsData(filteredTransactions);
+            const agg = buildSummaryAggregates(filteredTransactions);
             const totalProducts = categories.reduce((total, category) => total + category.quantity, 0) ?? 0;
-            const totalAmount = filteredTransactions.reduce((total, transaction) => total + transaction.amount, 0);
-            const transactionCount = filteredTransactions.reduce(
-                (count, tx) => count + (isRefundTransaction(tx) ? -1 : 1),
-                0
-            );
+            const { totalAmount, transactionCount } = agg;
 
             openPopup(
                 `${totalProducts} produit${totalProducts > 1 ? 's' : ''} | ${transactionCount} vente${
@@ -988,27 +1017,13 @@ export const useSummary = () => {
         const period = getPeriodDescription(filteredTransactions);
         const amount = toCurrency(payments.reduce((total, payment) => total + payment.amount, 0));
 
-        const totalAmount = filteredTransactions.reduce((total, tx) => total + tx.amount, 0);
-        const transactionCount = filteredTransactions.reduce(
-            (count, tx) => count + (isRefundTransaction(tx) ? -1 : 1),
-            0
-        );
-        const productCount = Math.round(
-            filteredTransactions.reduce((total, tx) => total + tx.products.reduce((sum, p) => sum + p.quantity, 0), 0)
-        );
-        const sortedByDate = [...filteredTransactions].sort((a, b) => a.createdDate - b.createdDate);
-        const firstTransactionDate = sortedByDate[0]?.createdDate ?? Date.now();
-        const lastTransactionDate = sortedByDate[sortedByDate.length - 1]?.createdDate ?? Date.now();
+        const agg = buildSummaryAggregates(filteredTransactions);
 
         return await sendSummaryEmail({
             shop: parameters.shop,
             period,
             amount,
-            transactionCount,
-            productCount,
-            totalAmount,
-            firstTransactionDate,
-            lastTransactionDate,
+            ...agg,
             currency: currencies[currencyIndex],
             summary,
         });
@@ -1100,22 +1115,12 @@ export const useSummary = () => {
         if (!printerAddresses.length) return { error: 'Imprimante non trouvée' };
 
         // Get transaction summary data
-        const { summary, payments } = getTransactionsData(filteredTransactions);
+        const { summary } = getTransactionsData(filteredTransactions);
 
         // Get period description
         const period = getPeriodDescription(filteredTransactions);
 
-        const totalAmount = filteredTransactions.reduce((total, tx) => total + tx.amount, 0);
-        const transactionCount = filteredTransactions.reduce(
-            (count, tx) => count + (isRefundTransaction(tx) ? -1 : 1),
-            0
-        );
-        const productCount = Math.round(
-            filteredTransactions.reduce((total, tx) => total + tx.products.reduce((sum, p) => sum + p.quantity, 0), 0)
-        );
-        const sortedByDate = [...filteredTransactions].sort((a, b) => a.createdDate - b.createdDate);
-        const firstTransactionDate = sortedByDate[0]?.createdDate ?? Date.now();
-        const lastTransactionDate = sortedByDate[sortedByDate.length - 1]?.createdDate ?? Date.now();
+        const agg = buildSummaryAggregates(filteredTransactions);
 
         // Print the Ticket Z using server action
         return await printSummary(
@@ -1123,12 +1128,8 @@ export const useSummary = () => {
             {
                 shop: parameters.shop,
                 period,
-                amount: toCurrency(payments.reduce((total, payment) => total + payment.amount, 0)),
-                transactionCount,
-                productCount,
-                totalAmount,
-                firstTransactionDate,
-                lastTransactionDate,
+                amount: '',
+                ...agg,
                 currency: currencies[currencyIndex],
                 summary,
             },
@@ -1142,7 +1143,6 @@ export const useSummary = () => {
         getPrinterAddressByRole,
         currencies,
         currencyIndex,
-        toCurrency,
     ]);
 
     const showTransactionsSummaryMenu = useCallback(() => {
