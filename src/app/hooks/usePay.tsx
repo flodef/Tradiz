@@ -1061,8 +1061,6 @@ export const usePay = () => {
             parameters.display?.useTakeOut,
             reverseTransaction,
             currentCustomer,
-            setCurrentCustomer,
-            amount,
             openFullscreenPopup,
             transactions,
             getPrinterAddressByRole,
@@ -1072,7 +1070,6 @@ export const usePay = () => {
             triggerCashDrawer,
             employerShare,
             openCustomerSearchPopup,
-            finalizeProvisionPayment,
             finalizeDebitPayment,
             showProvisionSubOptions,
         ]

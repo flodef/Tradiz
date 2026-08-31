@@ -126,3 +126,38 @@ describe('fidelity idempotency (reversal = -forward)', () => {
         expect(totalDelta).toBe(10);
     });
 });
+
+describe('item-less transactions (provisions) never earn nor lose points', () => {
+    const FIDELITY_RATE = 10;
+
+    it('a provision earns nothing', () => {
+        // Balance top-up: no products → no earn even with a real tender.
+        const delta = computeFidelityDelta('Espèces', 100, 0, FIDELITY_RATE, false);
+        expect(delta).toBe(0);
+    });
+
+    it('deleting a provision does not debit points that were never earned', () => {
+        // Regression: the delete/hardDelete reversal path used to default hasProducts to
+        // true, so reversing an item-less provision subtracted 10 phantom points.
+        const forward = computeFidelityDelta('Espèces', 100, 0, FIDELITY_RATE, false);
+        const reversal = -computeFidelityDelta('Espèces', 100, 0, FIDELITY_RATE, false);
+
+        expect(forward).toBe(0);
+        // -0 === 0, but Object.is(-0, 0) is false, so compare numerically.
+        expect(reversal === 0).toBe(true);
+        expect(forward + reversal).toBe(0);
+    });
+
+    it('still deducts points spent on an item-less transaction, and restores them on delete', () => {
+        const forward = computeFidelityDelta('Espèces', 100, 5, FIDELITY_RATE, false);
+        const reversal = -computeFidelityDelta('Espèces', 100, 5, FIDELITY_RATE, false);
+
+        expect(forward).toBe(-5);
+        expect(reversal).toBe(5);
+    });
+
+    it('a normal sale with items is unaffected', () => {
+        const delta = computeFidelityDelta('Espèces', 100, 0, FIDELITY_RATE, true);
+        expect(delta).toBe(10);
+    });
+});

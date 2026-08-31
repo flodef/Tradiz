@@ -16,6 +16,7 @@ import {
     HeaderTradeSettlementType,
     IDType,
     PercentType,
+    SupplyChainEventType,
     SupplyChainTradeTransactionType,
     TaxCategoryCodeType,
     TaxRegistrationType,
@@ -207,7 +208,14 @@ function buildInvoiceModel(input: FacturXInput): CrossIndustryInvoiceType {
             sellerTradeParty: sellerParty,
             buyerTradeParty: buyerParty,
         }),
-        applicableHeaderTradeDelivery: new HeaderTradeDeliveryType({}),
+        applicableHeaderTradeDelivery: new HeaderTradeDeliveryType({
+            actualDeliverySupplyChainEvent: new SupplyChainEventType({
+                occurrenceDateTime: new DateTimeType({
+                    dateTimeString: formatDate(new Date().toISOString().split('T')[0]),
+                    format: '102',
+                }),
+            }),
+        }),
         applicableHeaderTradeSettlement: new HeaderTradeSettlementType({
             invoiceCurrencyCode: new CurrencyCodeType({ value: currencyCode }),
             applicableTradeTax: [tradeTax],

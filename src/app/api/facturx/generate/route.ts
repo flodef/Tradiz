@@ -1,11 +1,9 @@
-import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { generateFacturX, type FacturXInput } from '@/app/actions/facturx';
 import type { BillingReport } from '@/app/utils/interfaces';
 import type { Shop } from '@/app/contexts/ConfigProvider';
 
 export async function POST(request: Request) {
-    const shopId = getShopIdFromRequest(request);
     try {
         const body = await request.json();
         const { report, shop, invoiceNumber, currencyCode } = body as {

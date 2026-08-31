@@ -67,11 +67,12 @@ export async function POST(request: Request) {
             await connection.beginTransaction();
 
             try {
-                // For add/sync, fetch the OLD transaction's fidelity-relevant fields
-                // BEFORE the handler overwrites the row. This lets us reverse the
-                // previously applied delta so re-syncing is idempotent.
+                // Fetch the OLD transaction's fidelity-relevant fields BEFORE the handler
+                // overwrites or removes the row. For add/sync this lets us reverse the
+                // previously applied delta so re-syncing is idempotent; for delete/hardDelete
+                // it tells us whether the row had items (item-less provisions never earn).
                 let oldFidelityData: OldFidelityData | null = null;
-                if (action === 'add' || action === 'sync') {
+                if (action === 'add' || action === 'sync' || action === 'delete' || action === 'hardDelete') {
                     oldFidelityData = await fetchOldFidelityData(connection, transaction.order_id);
                 }
 
@@ -104,7 +105,12 @@ export async function POST(request: Request) {
                 if (action === 'add' || action === 'sync') {
                     await updateCustomerFidelityPointsIdempotent(connection, transaction, oldFidelityData);
                 } else if (action === 'delete' || action === 'hardDelete') {
-                    await updateCustomerFidelityPoints(connection, transaction, true);
+                    await updateCustomerFidelityPoints(
+                        connection,
+                        transaction,
+                        true,
+                        oldFidelityData?.has_items ?? true
+                    );
                 }
 
                 await connection.commit();
@@ -576,7 +582,8 @@ async function updateCustomerFidelityPointsIdempotent(
 async function updateCustomerFidelityPoints(
     connection: Connection,
     transaction: TransactionData,
-    isReversal: boolean
+    isReversal: boolean,
+    hasProducts = true
 ): Promise<void> {
     const customerName = transaction.customer_name?.trim();
     if (!customerName) return;
@@ -595,7 +602,8 @@ async function updateCustomerFidelityPoints(
         transaction.payment_method,
         transaction.amount,
         transaction.fidelity_points ?? 0,
-        fidelityRate
+        fidelityRate,
+        hasProducts
     );
 
     // For reversal, negate the delta

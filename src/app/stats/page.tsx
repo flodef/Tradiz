@@ -93,6 +93,7 @@ export default function StatsPage() {
     const [printLoading, setPrintLoading] = useState(false);
     const [facturxLoading, setFacturxLoading] = useState(false);
     const [pennylaneLoading, setPennylaneLoading] = useState(false);
+    const invoiceNumberRef = useRef('');
 
     type DatePreset = 'week' | 'month' | 'quarter' | 'semester' | 'year' | 'ytd';
 
@@ -370,16 +371,39 @@ export default function StatsPage() {
 
     const handlePrintDetail = useCallback(() => runBillingPrint(printBillingDetail), [runBillingPrint]);
 
-    const generateInvoiceNumber = useCallback(() => {
+    // Reserve a sequential invoice number from the server (stored in the parameters table).
+    // The first call for a given company+period increments the counter; subsequent calls
+    // reuse the cached value so Factur-X and PennyLane share the same number.
+    const getInvoiceNumber = useCallback(async (): Promise<string> => {
+        if (invoiceNumberRef.current) return invoiceNumberRef.current;
         if (!billingReport) return '';
-        const today = new Date();
-        const yyyymm = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`;
-        return `FAC-${yyyymm}-${billingReport.companyId}`;
+        const period = billingReport.startDate.substring(0, 7).replace('-', '');
+        try {
+            const response = await fetch('/api/sql/nextInvoiceNumber', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ companyId: billingReport.companyId, period }),
+            });
+            const data = await response.json();
+            if (data.invoiceNumber) {
+                invoiceNumberRef.current = data.invoiceNumber;
+                return data.invoiceNumber;
+            }
+        } catch {
+            // fall through to fallback below
+        }
+        // Fallback: derive from period + companyId without sequence (should not normally happen)
+        return `FAC-${period}-${billingReport.companyId}`;
+    }, [billingReport]);
+
+    // Reset the cached invoice number when the billing report changes.
+    useEffect(() => {
+        invoiceNumberRef.current = '';
     }, [billingReport]);
 
     const handleDownloadFacturX = useCallback(async () => {
         if (!billingReport || !shop) return;
-        const invoiceNumber = generateInvoiceNumber();
+        const invoiceNumber = await getInvoiceNumber();
         setFacturxLoading(true);
         try {
             const response = await fetch('/api/facturx/generate', {
@@ -406,11 +430,11 @@ export default function StatsPage() {
         } finally {
             setFacturxLoading(false);
         }
-    }, [billingReport, shop, generateInvoiceNumber, openFullscreenPopup, closePopup]);
+    }, [billingReport, shop, getInvoiceNumber, openFullscreenPopup, closePopup]);
 
     const handlePushToPennyLane = useCallback(async () => {
         if (!billingReport || !shop) return;
-        const invoiceNumber = generateInvoiceNumber();
+        const invoiceNumber = await getInvoiceNumber();
         setPennylaneLoading(true);
         try {
             const response = await fetch('/api/pennylane/push', {
@@ -420,7 +444,6 @@ export default function StatsPage() {
                     report: billingReport,
                     shop,
                     invoiceNumber,
-                    pennylaneToken: parameters.pennylaneToken,
                 }),
             });
             const data = await response.json();
@@ -434,7 +457,7 @@ export default function StatsPage() {
         } finally {
             setPennylaneLoading(false);
         }
-    }, [billingReport, shop, generateInvoiceNumber, parameters.pennylaneToken, openFullscreenPopup, closePopup]);
+    }, [billingReport, shop, getInvoiceNumber, openFullscreenPopup, closePopup]);
 
     // Redirect to Grafana dashboard if using Digicarte
     if (USE_DIGICARTE) {

@@ -1,6 +1,7 @@
 import { SHOP_ID } from '../constants/shop';
 import { Config, DisplaySettings, Parameters } from '../contexts/ConfigProvider';
 import {
+    CategoryData,
     Color,
     Currency,
     Customer,
@@ -11,7 +12,6 @@ import {
     Printer,
     Role,
     User,
-    CategoryData,
 } from '../utils/interfaces';
 import {
     CURRENT_USER_KEYWORD,

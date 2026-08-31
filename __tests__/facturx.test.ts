@@ -30,6 +30,7 @@ vi.mock('@stafyniaksacha/facturx/models', () => {
         'HeaderTradeSettlementType',
         'IDType',
         'PercentType',
+        'SupplyChainEventType',
         'SupplyChainTradeTransactionType',
         'TaxCategoryCodeType',
         'TaxRegistrationType',

@@ -795,6 +795,19 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         [paymentMethods, currencies, currencyIndex]
     );
 
+    // A provision tops the customer balance up, so it must be settled with a real tender.
+    // Débit spends the balance and Provision is the operation itself — both would produce a
+    // nonsensical balance movement. Mirrors the sub-options filter in usePay.
+    const provisionPaymentMethods = useMemo(
+        () =>
+            availablePaymentMethods.filter(
+                (m) =>
+                    m.toLowerCase() !== DEBIT_KEYWORD.toLowerCase() &&
+                    m.toLowerCase() !== PROVISION_KEYWORD.toLowerCase()
+            ),
+        [availablePaymentMethods]
+    );
+
     // Non-payment cashier actions shown as icons alongside payment methods.
     const availableActions = useMemo(() => {
         const actions: { type: string; label: string }[] = [];
@@ -918,7 +931,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                             onMouseDown={(e) => e.stopPropagation()}
                                             onMouseUp={(e) => e.stopPropagation()}
                                         >
-                                            {availablePaymentMethods.map((method) => (
+                                            {provisionPaymentMethods.map((method) => (
                                                 <PaymentIconButton
                                                     key={method}
                                                     icon={getPaymentIcon(method)}

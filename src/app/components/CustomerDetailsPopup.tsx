@@ -14,6 +14,7 @@ import { computeFidelityDelta } from '@/app/utils/fidelity';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePay } from '@/app/hooks/usePay';
 import { IconPrinter } from '@tabler/icons-react';
+import { twMerge } from 'tailwind-merge';
 
 interface BalanceEntry {
     amount: number;
@@ -194,7 +195,7 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
         );
     };
 
-    const getFidelityText = (transaction: Transaction) => {
+    const getFidelity = (transaction: Transaction) => {
         const delta = computeFidelityDelta(
             transaction.method,
             transaction.amount,
@@ -204,7 +205,7 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
         );
         if (delta === 0) return null;
         const sign = delta > 0 ? '+' : '';
-        return `${sign}${delta.toFixed(2)} pts`;
+        return { text: `${sign}${delta.toFixed(2)} pts`, isPositive: delta > 0 };
     };
 
     const getTransactionLabel = (transaction: Transaction) => {
@@ -284,11 +285,22 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
                                                 ? getBalanceChangeText(transaction)
                                                 : toCurrency(transaction)}
                                         </span>
-                                        {getFidelityText(transaction) && (
-                                            <span className="text-xs shrink-0 pl-2 text-green-600 dark:text-green-400">
-                                                {getFidelityText(transaction)}
-                                            </span>
-                                        )}
+                                        {(() => {
+                                            const fidelity = getFidelity(transaction);
+                                            if (!fidelity) return null;
+                                            return (
+                                                <span
+                                                    className={twMerge(
+                                                        'text-xs shrink-0 pl-2',
+                                                        fidelity.isPositive
+                                                            ? 'text-green-600 dark:text-green-400'
+                                                            : 'text-red-600 dark:text-red-400'
+                                                    )}
+                                                >
+                                                    {fidelity.text}
+                                                </span>
+                                            );
+                                        })()}
                                         <button
                                             className="shrink-0 pl-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
                                             onClick={(e) => {

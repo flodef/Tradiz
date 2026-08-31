@@ -132,9 +132,8 @@ export async function GET(request: Request) {
             LIMIT 10
         `;
 
-        const totalsParams = isPg
-            ? [customerName, DELETED_KEYWORD, PROCESSING_KEYWORD]
-            : [customerName, DELETED_KEYWORD, PROCESSING_KEYWORD];
+        // Same placeholder order in both dialects for the totals query.
+        const totalsParams = [customerName, DELETED_KEYWORD, PROCESSING_KEYWORD];
         const [[totals]] = await connection.execute(totalsQuery, totalsParams);
         const txParams = isPg
             ? [customerName, DEFAULT_USER, DELETED_KEYWORD, PROCESSING_KEYWORD]
