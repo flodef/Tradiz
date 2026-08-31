@@ -686,19 +686,14 @@ export async function printSummary(
         const currentDate = new Date();
         const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
 
-        // Calculate average ticket amount
-        const totalAmount = summaryData.transactions.reduce((total, transaction) => total + transaction.amount, 0);
-        const transactionCount = summaryData.transactions.reduce(
-            (count, tx) => count + (isRefundTransaction(tx) ? -1 : 1),
-            0
-        );
-        const productCount = Math.round(
-            summaryData.transactions.reduce(
-                (total, transaction) =>
-                    total + transaction.products.reduce((total, product) => total + product.quantity, 0),
-                0
-            )
-        );
+        // Use pre-computed aggregates from summaryData
+        const {
+            totalAmount,
+            transactionCount,
+            productCount,
+            firstTransactionDate: firstDate,
+            lastTransactionDate: lastDate,
+        } = summaryData;
         const averageTicket = transactionCount > 0 ? totalAmount / transactionCount : 0;
         const currency = summaryData.currency;
 
@@ -712,20 +707,9 @@ export async function printSummary(
         printer.newLine();
         printShopInfo(printer, summaryData.shop);
 
-        // Find first and last transaction dates
-        let firstTransactionDate = currentDate;
-        let lastTransactionDate = currentDate;
-
-        if (summaryData.transactions.length > 0) {
-            // Sort transactions by creation date
-            const sortedTransactions = [...summaryData.transactions].sort((a, b) => a.createdDate - b.createdDate);
-
-            // Get first and last transaction dates
-            firstTransactionDate = new Date(sortedTransactions[0].createdDate);
-            lastTransactionDate = new Date(sortedTransactions[sortedTransactions.length - 1].createdDate);
-        }
-
         // Format the transaction dates
+        const firstTransactionDate = new Date(firstDate);
+        const lastTransactionDate = new Date(lastDate);
         const { frenchDateStr: firstDateStr, frenchTimeStr: firstTimeStr } = formatFrenchDate(firstTransactionDate);
         const { frenchDateStr: lastDateStr, frenchTimeStr: lastTimeStr } = formatFrenchDate(lastTransactionDate);
 

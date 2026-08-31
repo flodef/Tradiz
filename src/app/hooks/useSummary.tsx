@@ -23,7 +23,11 @@ export type SummaryData = {
     shop: Shop;
     period: string;
     amount: string;
-    transactions: Transaction[];
+    transactionCount: number;
+    productCount: number;
+    totalAmount: number;
+    firstTransactionDate: number;
+    lastTransactionDate: number;
     currency: Currency;
     summary: string[];
 };
@@ -984,11 +988,27 @@ export const useSummary = () => {
         const period = getPeriodDescription(filteredTransactions);
         const amount = toCurrency(payments.reduce((total, payment) => total + payment.amount, 0));
 
+        const totalAmount = filteredTransactions.reduce((total, tx) => total + tx.amount, 0);
+        const transactionCount = filteredTransactions.reduce(
+            (count, tx) => count + (isRefundTransaction(tx) ? -1 : 1),
+            0
+        );
+        const productCount = Math.round(
+            filteredTransactions.reduce((total, tx) => total + tx.products.reduce((sum, p) => sum + p.quantity, 0), 0)
+        );
+        const sortedByDate = [...filteredTransactions].sort((a, b) => a.createdDate - b.createdDate);
+        const firstTransactionDate = sortedByDate[0]?.createdDate ?? Date.now();
+        const lastTransactionDate = sortedByDate[sortedByDate.length - 1]?.createdDate ?? Date.now();
+
         return await sendSummaryEmail({
             shop: parameters.shop,
             period,
             amount,
-            transactions: filteredTransactions,
+            transactionCount,
+            productCount,
+            totalAmount,
+            firstTransactionDate,
+            lastTransactionDate,
             currency: currencies[currencyIndex],
             summary,
         });
@@ -1080,10 +1100,22 @@ export const useSummary = () => {
         if (!printerAddresses.length) return { error: 'Imprimante non trouvée' };
 
         // Get transaction summary data
-        const { summary } = getTransactionsData(filteredTransactions);
+        const { summary, payments } = getTransactionsData(filteredTransactions);
 
         // Get period description
         const period = getPeriodDescription(filteredTransactions);
+
+        const totalAmount = filteredTransactions.reduce((total, tx) => total + tx.amount, 0);
+        const transactionCount = filteredTransactions.reduce(
+            (count, tx) => count + (isRefundTransaction(tx) ? -1 : 1),
+            0
+        );
+        const productCount = Math.round(
+            filteredTransactions.reduce((total, tx) => total + tx.products.reduce((sum, p) => sum + p.quantity, 0), 0)
+        );
+        const sortedByDate = [...filteredTransactions].sort((a, b) => a.createdDate - b.createdDate);
+        const firstTransactionDate = sortedByDate[0]?.createdDate ?? Date.now();
+        const lastTransactionDate = sortedByDate[sortedByDate.length - 1]?.createdDate ?? Date.now();
 
         // Print the Ticket Z using server action
         return await printSummary(
@@ -1091,8 +1123,12 @@ export const useSummary = () => {
             {
                 shop: parameters.shop,
                 period,
-                amount: '',
-                transactions: filteredTransactions,
+                amount: toCurrency(payments.reduce((total, payment) => total + payment.amount, 0)),
+                transactionCount,
+                productCount,
+                totalAmount,
+                firstTransactionDate,
+                lastTransactionDate,
                 currency: currencies[currencyIndex],
                 summary,
             },
@@ -1106,6 +1142,7 @@ export const useSummary = () => {
         getPrinterAddressByRole,
         currencies,
         currencyIndex,
+        toCurrency,
     ]);
 
     const showTransactionsSummaryMenu = useCallback(() => {

@@ -1,7 +1,6 @@
 'use server';
 
 import nodemailer, { type SendMailOptions } from 'nodemailer';
-import { isRefundTransaction } from '../contexts/dataProvider/transactionHelpers';
 import type { SummaryData } from '../hooks/useSummary';
 import type { BillingReport } from '../utils/interfaces';
 import { DEV_EMAIL, IS_DEV } from '../utils/constants';
@@ -74,18 +73,7 @@ export async function sendUserAccessRequest(email: string, role: string, publicK
  */
 export async function sendSummaryEmail(summaryData: SummaryData): Promise<boolean> {
     try {
-        const totalAmount = summaryData.transactions.reduce((total, transaction) => total + transaction.amount, 0);
-        const transactionCount = summaryData.transactions.reduce(
-            (count, tx) => count + (isRefundTransaction(tx) ? -1 : 1),
-            0
-        );
-        const productCount = Math.round(
-            summaryData.transactions.reduce(
-                (total, transaction) =>
-                    total + transaction.products.reduce((total, product) => total + product.quantity, 0),
-                0
-            )
-        );
+        const { totalAmount, transactionCount, productCount } = summaryData;
         const averageTicket = transactionCount > 0 ? totalAmount / transactionCount : 0;
         const averageTicketFormatted = `${averageTicket.toFixed(summaryData.currency.decimals)}${summaryData.currency.symbol}`;
 
