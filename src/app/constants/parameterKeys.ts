@@ -11,6 +11,7 @@ export const PARAMETER_KEYS = {
     SHOP_SERIAL: 'serial',
     SHOP_ID: 'id',
     SHOP_EMAIL: 'email',
+    SHOP_VAT_NUMBER: 'vatNumber',
     THANKS_MESSAGE: 'thanksMessage',
     MERCURIAL: 'mercurial',
     CLOSING_HOUR: 'closingHour',
@@ -22,6 +23,7 @@ export const PARAMETER_KEYS = {
     USER_SWITCH: 'userSwitch',
     USE_VIRTUAL_KEYBOARD: 'useVirtualKeyboard',
     FIDELITY_RATE: 'fidelityRate',
+    PENNYLANE_TOKEN: 'pennylaneToken',
 } as const;
 
 export const PARAMETER_KEY_LIST = Object.values(PARAMETER_KEYS);

@@ -304,6 +304,8 @@ export default function SettingsPage() {
                     id: getParam('id', 'Identifiant'),
                     email: getParam('email', 'Email de contact'),
                     phone: getParam('phone', 'Téléphone'),
+                    vatNumber: getParam('vatNumber', 'N° TVA'),
+                    country: 'FR',
                 },
                 thanksMessage: getParam('thanksMessage', 'Message de remerciement') || 'Merci de votre visite !',
                 mercurial: (getParam('mercurial', 'Mercuriale quadratique') || Mercurial.none) as Mercurial,
@@ -382,6 +384,7 @@ export default function SettingsPage() {
                     if (value === '' || value === undefined) return undefined;
                     return Math.max(0, Math.min(100, Number(value) || 0));
                 })(),
+                pennylaneToken: getParam('pennylaneToken', 'pennylaneToken') || undefined,
             };
 
             setSettings(loadedSettings);
@@ -778,6 +781,7 @@ export default function SettingsPage() {
                 { key: 'id', value: data.shop.id },
                 { key: 'email', value: data.shop.email },
                 { key: 'phone', value: data.shop.phone ?? '' },
+                { key: 'vatNumber', value: data.shop.vatNumber ?? '' },
                 { key: 'thanksMessage', value: data.thanksMessage },
                 { key: 'mercurial', value: data.mercurial },
                 { key: 'closingHour', value: String(data.closingHour) },
@@ -789,6 +793,7 @@ export default function SettingsPage() {
                 { key: 'userSwitch', value: String(data.userSwitch ?? true) },
                 { key: 'useVirtualKeyboard', value: String(data.useVirtualKeyboard ?? false) },
                 { key: 'fidelityRate', value: String(data.fidelityRate ?? 0) },
+                { key: 'pennylaneToken', value: data.pennylaneToken ?? '' },
             ];
 
             const response = await fetch('/api/sql/updateParameters', {

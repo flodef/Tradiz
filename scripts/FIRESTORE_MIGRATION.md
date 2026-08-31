@@ -188,7 +188,7 @@ bun run migrate-firestore --shop myshop --overwrite
 The script auto-creates payment methods, but you can pre-create them:
 
 ```sql
-INSERT INTO payment_methods (label, currency) VALUES ('Espèce', '€');
+INSERT INTO payment_methods (label, currency) VALUES ('Espèces', '€');
 INSERT INTO payment_methods (label, currency) VALUES ('Carte Bancaire', '€');
 ```
 

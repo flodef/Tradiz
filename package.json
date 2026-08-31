@@ -1,6 +1,6 @@
 {
   "name": "tradiz",
-  "version": "1.442.0",
+  "version": "1.446.0",
   "description": "Tradiz cash register and management application",
   "author": "Tradiz <contact@tradiz.fr>",
   "private": true,
@@ -37,6 +37,7 @@
     "@solana/pay": "0.2.6",
     "@solana/spl-token": "latest",
     "@solana/web3.js": "3.0.0-rc.2",
+    "@stafyniaksacha/facturx": "^0.6.1",
     "@tabler/icons-react": "latest",
     "@tailwindcss/postcss": "latest",
     "@types/nodemailer": "latest",

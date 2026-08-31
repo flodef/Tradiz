@@ -12,6 +12,7 @@ import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
 import PriceInput from '../PriceInput';
+import SiretInput from '../SiretInput';
 
 interface InternalCompany extends Company {
     _id: number;
@@ -51,47 +52,124 @@ const SortableRow = memo(function SortableRow({
         transition,
         opacity: isDragging ? 0.5 : 1,
     };
+    const [showDetails, setShowDetails] = useState(false);
 
     return (
-        <tr ref={setNodeRef} style={style} className="border-b border-gray-200 dark:border-gray-700">
-            <DragHandleCell isReadOnly={isReadOnly} attributes={attributes} listeners={listeners} />
-            <td className="p-2">
-                {isReadOnly ? (
-                    <div className="text-sm">{company.name}</div>
-                ) : (
-                    <ValidatedInput
-                        type="text"
-                        value={company.name}
-                        onChange={(value) => onFieldChange(company._id, 'name', String(value))}
-                        onBlur={() => onNameBlur(company._id)}
-                        validation={(value) => String(value).trim().length > 0}
-                        isNameField
-                        ref={(el) => {
-                            if (el) {
-                                nameInputRefs.current.set(index, el);
-                                if (lastAddedIndexRef.current === index) {
-                                    el.focus();
-                                    lastAddedIndexRef.current = null;
+        <>
+            <tr ref={setNodeRef} style={style} className="border-b border-gray-200 dark:border-gray-700">
+                <DragHandleCell isReadOnly={isReadOnly} attributes={attributes} listeners={listeners} />
+                <td className="p-2">
+                    {isReadOnly ? (
+                        <div className="text-sm">{company.name}</div>
+                    ) : (
+                        <ValidatedInput
+                            type="text"
+                            value={company.name}
+                            onChange={(value) => onFieldChange(company._id, 'name', String(value))}
+                            onBlur={() => onNameBlur(company._id)}
+                            validation={(value) => String(value).trim().length > 0}
+                            isNameField
+                            ref={(el) => {
+                                if (el) {
+                                    nameInputRefs.current.set(index, el);
+                                    if (lastAddedIndexRef.current === index) {
+                                        el.focus();
+                                        lastAddedIndexRef.current = null;
+                                    }
+                                } else {
+                                    nameInputRefs.current.delete(index);
                                 }
-                            } else {
-                                nameInputRefs.current.delete(index);
-                            }
-                        }}
+                            }}
+                        />
+                    )}
+                </td>
+                <td className="p-2">
+                    <PriceInput
+                        value={company.employerShare}
+                        onChange={(value) => onFieldChange(company._id, 'employerShare', Number(value))}
+                        currencies={currencies}
+                        isReadOnly={isReadOnly}
+                        className="w-24"
+                        validation={(value) => Number(value) > 0}
                     />
-                )}
-            </td>
-            <td className="p-2">
-                <PriceInput
-                    value={company.employerShare}
-                    onChange={(value) => onFieldChange(company._id, 'employerShare', Number(value))}
-                    currencies={currencies}
+                </td>
+                <td className="p-2 text-center">
+                    <button
+                        type="button"
+                        onClick={() => setShowDetails(!showDetails)}
+                        className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                        title="Facturation électronique"
+                    >
+                        {showDetails ? '▲' : '▼'}
+                    </button>
+                </td>
+                <DeleteButtonCell
                     isReadOnly={isReadOnly}
-                    className="w-24"
-                    validation={(value) => Number(value) > 0}
+                    onDelete={() => onDelete(company._id)}
+                    canDelete={canDelete}
                 />
-            </td>
-            <DeleteButtonCell isReadOnly={isReadOnly} onDelete={() => onDelete(company._id)} canDelete={canDelete} />
-        </tr>
+            </tr>
+            {showDetails && (
+                <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    <td colSpan={isReadOnly ? 4 : 5} className="p-3">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            <div className="col-span-2 md:col-span-1">
+                                <label className="text-xs text-gray-500 dark:text-gray-400">SIRET</label>
+                                <SiretInput
+                                    value={String(company.siret || '')}
+                                    onChange={(value: string) => onFieldChange(company._id, 'siret', value)}
+                                    isReadOnly={isReadOnly}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 dark:text-gray-400">N° TVA</label>
+                                <ValidatedInput
+                                    type="text"
+                                    value={String(company.vatNumber || '')}
+                                    onChange={(value) => onFieldChange(company._id, 'vatNumber', String(value))}
+                                    placeholder="FR12345678901"
+                                    isReadOnly={isReadOnly}
+                                    className="w-full"
+                                />
+                            </div>
+                            <div className="col-span-2 md:col-span-2">
+                                <label className="text-xs text-gray-500 dark:text-gray-400">Adresse</label>
+                                <ValidatedInput
+                                    type="text"
+                                    value={String(company.address || '')}
+                                    onChange={(value) => onFieldChange(company._id, 'address', String(value))}
+                                    placeholder="Adresse de facturation"
+                                    isReadOnly={isReadOnly}
+                                    className="w-full"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 dark:text-gray-400">Code postal</label>
+                                <ValidatedInput
+                                    type="text"
+                                    value={String(company.zipCode || '')}
+                                    onChange={(value) => onFieldChange(company._id, 'zipCode', String(value))}
+                                    placeholder="75000"
+                                    isReadOnly={isReadOnly}
+                                    className="w-full"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 dark:text-gray-400">Ville</label>
+                                <ValidatedInput
+                                    type="text"
+                                    value={String(company.city || '')}
+                                    onChange={(value) => onFieldChange(company._id, 'city', String(value))}
+                                    placeholder="Paris"
+                                    isReadOnly={isReadOnly}
+                                    className="w-full"
+                                />
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            )}
+        </>
     );
 });
 
@@ -331,6 +409,7 @@ export default function CompaniesConfig({
                                         {!isReadOnly && <th className="w-12"></th>}
                                         <th className={adminHeaderStyle}>Nom</th>
                                         <th className={adminHeaderStyle + ' w-32'}>Prix Repas (€)</th>
+                                        <th className="w-10"></th>
                                         {!isReadOnly && <th className="w-16"></th>}
                                     </tr>
                                 </thead>

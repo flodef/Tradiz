@@ -30,7 +30,6 @@ const ICON_MAP: Record<string, PaymentIconType> = {
     'Carte bancaire': IconCreditCard,
     CB: IconCreditCard,
     Espèces: IconCash,
-    Espèce: IconCash,
     Chèque: IconReceipt2,
     'Ticket Restaurant': IconTicket,
     'Ticket restaurant': IconTicket,

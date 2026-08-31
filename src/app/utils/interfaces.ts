@@ -63,11 +63,21 @@ export interface Company {
     id?: number;
     name: string;
     employerShare: number;
+    siret?: string;
+    vatNumber?: string;
+    address?: string;
+    zipCode?: string;
+    city?: string;
 }
 
 export interface BillingReport {
     companyId: number;
     companyName: string;
+    companySiret?: string;
+    companyVatNumber?: string;
+    companyAddress?: string;
+    companyZipCode?: string;
+    companyCity?: string;
     startDate: string;
     endDate: string;
     employerShare: number;

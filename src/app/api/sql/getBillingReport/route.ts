@@ -30,10 +30,20 @@ export async function GET(request: Request) {
         connection = await getPosDb(shopId);
 
         const companyQuery = connection.isPostgreSQL
-            ? 'SELECT id, employer_share FROM dc_pos.companies WHERE name = $1'
-            : 'SELECT id, employer_share FROM companies WHERE name = ?';
+            ? 'SELECT id, employer_share, siret, vat_number, address, zip_code, city FROM dc_pos.companies WHERE name = $1'
+            : 'SELECT id, employer_share, siret, vat_number, address, zip_code, city FROM companies WHERE name = ?';
         const [companyRows] = await connection.execute(companyQuery, [companyName]);
-        const company = (companyRows as { id: number; employer_share: number }[])[0];
+        const company = (
+            companyRows as {
+                id: number;
+                employer_share: number;
+                siret: string | null;
+                vat_number: string | null;
+                address: string | null;
+                zip_code: string | null;
+                city: string | null;
+            }[]
+        )[0];
 
         if (!company) {
             return NextResponse.json({ error: 'Company not found' }, { status: 404 });
@@ -77,6 +87,11 @@ export async function GET(request: Request) {
         const report = {
             companyId: Number(company.id),
             companyName,
+            companySiret: company.siret ?? undefined,
+            companyVatNumber: company.vat_number ?? undefined,
+            companyAddress: company.address ?? undefined,
+            companyZipCode: company.zip_code ?? undefined,
+            companyCity: company.city ?? undefined,
             startDate,
             endDate,
             employerShare,

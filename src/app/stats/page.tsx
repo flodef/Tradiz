@@ -91,6 +91,8 @@ export default function StatsPage() {
     const [billingLoading, setBillingLoading] = useState(false);
     const [billingError, setBillingError] = useState('');
     const [printLoading, setPrintLoading] = useState(false);
+    const [facturxLoading, setFacturxLoading] = useState(false);
+    const [pennylaneLoading, setPennylaneLoading] = useState(false);
 
     type DatePreset = 'week' | 'month' | 'quarter' | 'semester' | 'year' | 'ytd';
 
@@ -368,6 +370,72 @@ export default function StatsPage() {
 
     const handlePrintDetail = useCallback(() => runBillingPrint(printBillingDetail), [runBillingPrint]);
 
+    const generateInvoiceNumber = useCallback(() => {
+        if (!billingReport) return '';
+        const today = new Date();
+        const yyyymm = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`;
+        return `FAC-${yyyymm}-${billingReport.companyId}`;
+    }, [billingReport]);
+
+    const handleDownloadFacturX = useCallback(async () => {
+        if (!billingReport || !shop) return;
+        const invoiceNumber = generateInvoiceNumber();
+        setFacturxLoading(true);
+        try {
+            const response = await fetch('/api/facturx/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ report: billingReport, shop, invoiceNumber }),
+            });
+            if (!response.ok) {
+                const err = await response.json();
+                openFullscreenPopup(err.error || 'Erreur generation Factur-X', ['OK'], () => closePopup());
+            } else {
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `facture-${invoiceNumber}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+        } catch {
+            openFullscreenPopup('Erreur lors de la generation Factur-X', ['OK'], () => closePopup());
+        } finally {
+            setFacturxLoading(false);
+        }
+    }, [billingReport, shop, generateInvoiceNumber, openFullscreenPopup, closePopup]);
+
+    const handlePushToPennyLane = useCallback(async () => {
+        if (!billingReport || !shop) return;
+        const invoiceNumber = generateInvoiceNumber();
+        setPennylaneLoading(true);
+        try {
+            const response = await fetch('/api/pennylane/push', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    report: billingReport,
+                    shop,
+                    invoiceNumber,
+                    pennylaneToken: parameters.pennylaneToken,
+                }),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                openFullscreenPopup(data.error || 'Erreur envoi PennyLane', ['OK'], () => closePopup());
+            } else {
+                openFullscreenPopup(`Facture envoyee a PennyLane (ID: ${data.invoiceId})`, ['OK'], () => closePopup());
+            }
+        } catch {
+            openFullscreenPopup("Erreur lors de l'envoi a PennyLane", ['OK'], () => closePopup());
+        } finally {
+            setPennylaneLoading(false);
+        }
+    }, [billingReport, shop, generateInvoiceNumber, parameters.pennylaneToken, openFullscreenPopup, closePopup]);
+
     // Redirect to Grafana dashboard if using Digicarte
     if (USE_DIGICARTE) {
         if (typeof window !== 'undefined') window.location.href = '/stats/d/vue-dc-1/vue-dc';
@@ -513,7 +581,13 @@ export default function StatsPage() {
                                     Imprimer total TVA
                                 </AdminButton>
                                 <AdminButton onClick={handlePrintDetail} isLoading={printLoading}>
-                                    Imprimer détail par salarié
+                                    Imprimer detail par salarie
+                                </AdminButton>
+                                <AdminButton onClick={handleDownloadFacturX} isLoading={facturxLoading}>
+                                    Factur-X PDF
+                                </AdminButton>
+                                <AdminButton onClick={handlePushToPennyLane} isLoading={pennylaneLoading}>
+                                    Envoyer PennyLane
                                 </AdminButton>
                             </>
                         )}

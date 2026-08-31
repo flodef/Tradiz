@@ -181,6 +181,14 @@ export default function ParametersConfig({
                         onValidation={onSiretValidation}
                         isReadOnly={isReadOnly}
                     />
+                    <ValidatedInput
+                        label="N° TVA intracommunautaire"
+                        value={String(config.shop.vatNumber || '')}
+                        onChange={(value) => handleShopChange('vatNumber', String(value))}
+                        placeholder="FR12345678901"
+                        isReadOnly={isReadOnly}
+                        className="flex-1 min-w-40 max-w-xs"
+                    />
                     <div className="w-full flex flex-wrap gap-4 items-end">
                         <ValidatedInput
                             label="Adresse"
@@ -282,6 +290,23 @@ export default function ParametersConfig({
                         onChange={() => {}}
                         isReadOnly={true}
                         className="w-32"
+                    />
+                </div>
+            </div>
+
+            {/* Subsection: Facturation électronique */}
+            <div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
+                    Facturation électronique
+                </h3>
+                <div className="flex flex-wrap gap-4 items-end">
+                    <ValidatedInput
+                        label="Token API PennyLane"
+                        value={config.pennylaneToken || ''}
+                        onChange={(value) => handleChange('pennylaneToken', String(value))}
+                        placeholder="Token d'accès PennyLane"
+                        isReadOnly={isReadOnly}
+                        className="flex-1 min-w-60 max-w-md"
                     />
                 </div>
             </div>

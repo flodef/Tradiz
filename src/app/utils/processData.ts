@@ -174,6 +174,8 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             id: getParamValue('id', 5),
             email: getParamValue('email', 6) || devEmail,
             phone: getParamValue('phone', 18) || '',
+            vatNumber: getParamValue('vatNumber', 19) || '',
+            country: 'FR',
         },
         thanksMessage: getParamValue('thanksMessage', 7) || 'Merci de votre visite !',
         mercurial: (getParamValue('mercurial', 8) || Mercurial.none) as Mercurial,
@@ -251,6 +253,10 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             const value = getParamValue('fidelityRate', 17);
             if (value === '' || value === undefined) return undefined;
             return Math.max(0, Math.min(100, Number(value) || 0));
+        })(),
+        pennylaneToken: (() => {
+            const value = getParamValue('pennylaneToken', 20);
+            return value || undefined;
         })(),
     };
 }
@@ -343,7 +349,18 @@ export const defaultColors: Color[] = [
 ];
 
 export const defaultParameters: Parameters = {
-    shop: { name: '', email: DEV_EMAIL, address: '', zipCode: '', city: '', id: '', serial: '', phone: '' },
+    shop: {
+        name: '',
+        email: DEV_EMAIL,
+        address: '',
+        zipCode: '',
+        city: '',
+        id: '',
+        serial: '',
+        phone: '',
+        vatNumber: '',
+        country: 'FR',
+    },
     thanksMessage: '',
     mercurial: Mercurial.none,
     lastModified: Date.now().toString(),
@@ -387,7 +404,7 @@ export const defaultPaymentMethods: PaymentMethod[] = [
         availability: true,
     },
     {
-        type: 'Espèce',
+        type: 'Espèces',
         currency: 'Euro',
         availability: true,
     },

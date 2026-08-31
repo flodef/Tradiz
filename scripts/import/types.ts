@@ -51,7 +51,8 @@ export interface TransactionSet {
 
 export const PAYMENT_METHOD_MAP: Record<string, string> = {
     // Standard payment methods
-    Espèce: 'Espèce',
+    Espèce: 'Espèces',
+    Espèces: 'Espèces',
     'Carte Bancaire': 'Carte Bancaire',
     Chèque: 'Chèque',
     Crypto: CRYPTO_KEYWORD,

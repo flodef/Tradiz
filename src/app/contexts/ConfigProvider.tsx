@@ -50,6 +50,8 @@ export interface Shop {
     email: string;
     id: string;
     phone: string;
+    vatNumber?: string;
+    country?: string;
 }
 
 export interface ProductsSettings {
@@ -91,6 +93,7 @@ export interface Parameters {
     userSwitch?: boolean;
     useVirtualKeyboard?: boolean;
     fidelityRate?: number; // Percentage of each transaction amount earned as fidelity points (0 = disabled)
+    pennylaneToken?: string; // PennyLane API access token for e-invoicing
     products?: ProductsSettings;
     search?: SearchSettings;
     display?: DisplaySettings;

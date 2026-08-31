@@ -114,7 +114,7 @@ const baseConfig: Config = {
         { label: 'secondary-active', light: '#fff', dark: '#000' },
     ],
     parameters: {
-        shop: { name: 'Test', address: '', zipCode: '', city: '', serial: '', email: '', id: '1' },
+        shop: { name: 'Test', address: '', zipCode: '', city: '', serial: '', email: '', id: '1', phone: '' },
         thanksMessage: '',
         mercurial: Mercurial.none,
         lastModified: '0',

@@ -394,6 +394,11 @@ CREATE TABLE IF NOT EXISTS `companies` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   `employer_share` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `siret` varchar(14) DEFAULT NULL,
+  `vat_number` varchar(50) DEFAULT NULL,
+  `address` varchar(255) DEFAULT NULL,
+  `zip_code` varchar(10) DEFAULT NULL,
+  `city` varchar(100) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)

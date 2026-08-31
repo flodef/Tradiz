@@ -175,7 +175,7 @@ describe('Ticket Z PROCESSING exclusion', () => {
                 validator: 'T',
             },
             {
-                method: 'Espèce',
+                method: 'Espèces',
                 amount: 20,
                 currency: 'EUR',
                 createdDate: 5,
@@ -192,6 +192,6 @@ describe('Ticket Z PROCESSING exclusion', () => {
 
         expect(filtered).toHaveLength(2);
         expect(filtered[0].method).toBe('CB');
-        expect(filtered[1].method).toBe('Espèce');
+        expect(filtered[1].method).toBe('Espèces');
     });
 });

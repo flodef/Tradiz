@@ -8,6 +8,11 @@ interface CompanyRow {
     id: number;
     name: string;
     employer_share: number;
+    siret: string | null;
+    vat_number: string | null;
+    address: string | null;
+    zip_code: string | null;
+    city: string | null;
 }
 
 // Detects "relation/table does not exist" errors across Postgres (42P01) and MySQL/MariaDB (1146)
@@ -23,8 +28,8 @@ export async function GET(request: Request) {
         connection = await getPosDb(shopId);
 
         const query = connection.isPostgreSQL
-            ? 'SELECT id, name, employer_share FROM dc_pos.companies ORDER BY name'
-            : 'SELECT id, name, employer_share FROM companies ORDER BY name';
+            ? 'SELECT id, name, employer_share, siret, vat_number, address, zip_code, city FROM dc_pos.companies ORDER BY name'
+            : 'SELECT id, name, employer_share, siret, vat_number, address, zip_code, city FROM companies ORDER BY name';
 
         const result = await connection.execute(query);
         const rows = result[0] as CompanyRow[];
@@ -35,6 +40,11 @@ export async function GET(request: Request) {
             id: row.id,
             name: String(row.name),
             employerShare: Number(row.employer_share ?? 0),
+            ...(row.siret ? { siret: String(row.siret) } : {}),
+            ...(row.vat_number ? { vatNumber: String(row.vat_number) } : {}),
+            ...(row.address ? { address: String(row.address) } : {}),
+            ...(row.zip_code ? { zipCode: String(row.zip_code) } : {}),
+            ...(row.city ? { city: String(row.city) } : {}),
         }));
 
         return NextResponse.json({ companies });

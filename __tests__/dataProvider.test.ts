@@ -86,14 +86,14 @@ describe('Transaction CRUD Operations', () => {
             const newTx = makeTx({
                 createdDate: 1000,
                 validator: 'John Doe',
-                method: 'Espèce',
+                method: 'Espèces',
                 amount: 42.5,
                 currency: 'EUR',
             });
             const result = storeTransactionInArray(transactions, newTx);
 
             expect(result[0].validator).toBe('John Doe');
-            expect(result[0].method).toBe('Espèce');
+            expect(result[0].method).toBe('Espèces');
             expect(result[0].amount).toBe(42.5);
             expect(result[0].currency).toBe('EUR');
         });
@@ -133,7 +133,7 @@ describe('Transaction CRUD Operations', () => {
         });
 
         it('should update payment method', () => {
-            const transactions = [makeTx({ createdDate: 1000, method: 'Espèce' })];
+            const transactions = [makeTx({ createdDate: 1000, method: 'Espèces' })];
             const updatedTx = makeTx({ createdDate: 1000, method: 'Carte Bancaire' });
             const result = storeTransactionInArray(transactions, updatedTx);
 

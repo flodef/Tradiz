@@ -6,6 +6,11 @@ interface Company {
     id?: number;
     name: string;
     employerShare: number;
+    siret?: string;
+    vatNumber?: string;
+    address?: string;
+    zipCode?: string;
+    city?: string;
 }
 
 export async function POST(request: Request) {
@@ -51,47 +56,95 @@ export async function POST(request: Request) {
                 if (company.id != null && existingById.has(company.id)) {
                     seenIds.add(company.id);
                     if (isPg) {
-                        await conn.execute(`UPDATE ${table} SET name = $1, employer_share = $2 WHERE id = $3`, [
-                            name,
-                            employerShare,
-                            company.id,
-                        ]);
+                        await conn.execute(
+                            `UPDATE ${table} SET name = $1, employer_share = $2, siret = $3, vat_number = $4, address = $5, zip_code = $6, city = $7 WHERE id = $8`,
+                            [
+                                name,
+                                employerShare,
+                                company.siret ?? null,
+                                company.vatNumber ?? null,
+                                company.address ?? null,
+                                company.zipCode ?? null,
+                                company.city ?? null,
+                                company.id,
+                            ]
+                        );
                     } else {
-                        await conn.execute(`UPDATE ${table} SET name = ?, employer_share = ? WHERE id = ?`, [
-                            name,
-                            employerShare,
-                            company.id,
-                        ]);
+                        await conn.execute(
+                            `UPDATE ${table} SET name = ?, employer_share = ?, siret = ?, vat_number = ?, address = ?, zip_code = ?, city = ? WHERE id = ?`,
+                            [
+                                name,
+                                employerShare,
+                                company.siret ?? null,
+                                company.vatNumber ?? null,
+                                company.address ?? null,
+                                company.zipCode ?? null,
+                                company.city ?? null,
+                                company.id,
+                            ]
+                        );
                     }
                 } else if (existingByName.has(name)) {
                     // No id from client, but name matches — update existing
                     const existingId = existingByName.get(name)!;
                     seenIds.add(existingId);
                     if (isPg) {
-                        await conn.execute(`UPDATE ${table} SET name = $1, employer_share = $2 WHERE id = $3`, [
-                            name,
-                            employerShare,
-                            existingId,
-                        ]);
+                        await conn.execute(
+                            `UPDATE ${table} SET name = $1, employer_share = $2, siret = $3, vat_number = $4, address = $5, zip_code = $6, city = $7 WHERE id = $8`,
+                            [
+                                name,
+                                employerShare,
+                                company.siret ?? null,
+                                company.vatNumber ?? null,
+                                company.address ?? null,
+                                company.zipCode ?? null,
+                                company.city ?? null,
+                                existingId,
+                            ]
+                        );
                     } else {
-                        await conn.execute(`UPDATE ${table} SET name = ?, employer_share = ? WHERE id = ?`, [
-                            name,
-                            employerShare,
-                            existingId,
-                        ]);
+                        await conn.execute(
+                            `UPDATE ${table} SET name = ?, employer_share = ?, siret = ?, vat_number = ?, address = ?, zip_code = ?, city = ? WHERE id = ?`,
+                            [
+                                name,
+                                employerShare,
+                                company.siret ?? null,
+                                company.vatNumber ?? null,
+                                company.address ?? null,
+                                company.zipCode ?? null,
+                                company.city ?? null,
+                                existingId,
+                            ]
+                        );
                     }
                 } else {
                     // Insert new company
                     if (isPg) {
-                        await conn.execute(`INSERT INTO ${table} (name, employer_share) VALUES ($1, $2)`, [
-                            name,
-                            employerShare,
-                        ]);
+                        await conn.execute(
+                            `INSERT INTO ${table} (name, employer_share, siret, vat_number, address, zip_code, city) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                            [
+                                name,
+                                employerShare,
+                                company.siret ?? null,
+                                company.vatNumber ?? null,
+                                company.address ?? null,
+                                company.zipCode ?? null,
+                                company.city ?? null,
+                            ]
+                        );
                     } else {
-                        await conn.execute(`INSERT INTO ${table} (name, employer_share) VALUES (?, ?)`, [
-                            name,
-                            employerShare,
-                        ]);
+                        await conn.execute(
+                            `INSERT INTO ${table} (name, employer_share, siret, vat_number, address, zip_code, city) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                            [
+                                name,
+                                employerShare,
+                                company.siret ?? null,
+                                company.vatNumber ?? null,
+                                company.address ?? null,
+                                company.zipCode ?? null,
+                                company.city ?? null,
+                            ]
+                        );
                     }
                 }
             }
