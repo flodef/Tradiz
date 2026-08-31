@@ -1,4 +1,4 @@
-import { DELETED_KEYWORD, DEFAULT_USER } from '@/app/utils/constants';
+import { DELETED_KEYWORD, DEFAULT_USER, PROCESSING_KEYWORD } from '@/app/utils/constants';
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
@@ -14,6 +14,7 @@ interface TransactionRow {
     currency: string;
     change: string | null;
     take_out: boolean;
+    fidelity_points: number | null;
     createddate: number;
     modifieddate: number;
     createdDate?: number;
@@ -65,7 +66,7 @@ export async function GET(request: Request) {
                     COALESCE(SUM((ti.amount * ti.quantity) - ti.total), 0) AS discount
                 FROM dc_pos.transactions t
                 LEFT JOIN dc_pos.transaction_items ti ON ti.transaction_id = t.id
-                WHERE t.customer_name = $1 AND t.payment_method != $2
+                WHERE t.customer_name = $1 AND t.payment_method NOT IN ($2, $3)
                 GROUP BY t.id, t.amount
                 HAVING COUNT(ti.id) > 0
             ) sub
@@ -82,13 +83,11 @@ export async function GET(request: Request) {
                     COALESCE(SUM((ti.amount * ti.quantity) - ti.total), 0) AS discount
                 FROM transactions t
                 LEFT JOIN transaction_items ti ON ti.transaction_id = t.id
-                WHERE t.customer_name = ? AND t.payment_method != ?
+                WHERE t.customer_name = ? AND t.payment_method NOT IN (?, ?)
                 GROUP BY t.id, t.amount
                 HAVING COUNT(ti.id) > 0
             ) sub
         `;
-
-        const [[totals]] = await connection.execute(totalsQuery, [customerName, DELETED_KEYWORD]);
 
         // Latest 10 non-deleted transactions for this customer.
         const transactionsQuery = isPg
@@ -103,11 +102,12 @@ export async function GET(request: Request) {
                 t.currency,
                 t.change,
                 t.take_out,
+                t.fidelity_points,
                 (EXTRACT(EPOCH FROM t.created_at) * 1000)::bigint as createddate,
                 (EXTRACT(EPOCH FROM t.updated_at) * 1000)::bigint as modifieddate
             FROM dc_pos.transactions t
             LEFT JOIN dc.orders o ON o.id::text = t.order_id
-            WHERE t.customer_name = $1 AND t.payment_method != $3
+            WHERE t.customer_name = $1 AND t.payment_method NOT IN ($3, $4)
             ORDER BY t.created_at DESC
             LIMIT 10
         `
@@ -122,19 +122,24 @@ export async function GET(request: Request) {
                 t.currency,
                 t.change,
                 t.take_out,
+                t.fidelity_points,
                 (UNIX_TIMESTAMP(t.created_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as createdDate,
                 (UNIX_TIMESTAMP(t.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate
             FROM transactions t
             LEFT JOIN \`DC\`.orders o ON o.id = t.order_id
-            WHERE t.customer_name = ? AND t.payment_method != ?
+            WHERE t.customer_name = ? AND t.payment_method NOT IN (?, ?)
             ORDER BY t.created_at DESC
             LIMIT 10
         `;
 
-        const params = isPg
-            ? [customerName, DEFAULT_USER, DELETED_KEYWORD]
-            : [DEFAULT_USER, customerName, DELETED_KEYWORD];
-        const [transactionRows] = await connection.execute(transactionsQuery, params);
+        const totalsParams = isPg
+            ? [customerName, DELETED_KEYWORD, PROCESSING_KEYWORD]
+            : [customerName, DELETED_KEYWORD, PROCESSING_KEYWORD];
+        const [[totals]] = await connection.execute(totalsQuery, totalsParams);
+        const txParams = isPg
+            ? [customerName, DEFAULT_USER, DELETED_KEYWORD, PROCESSING_KEYWORD]
+            : [DEFAULT_USER, customerName, DELETED_KEYWORD, PROCESSING_KEYWORD];
+        const [transactionRows] = await connection.execute(transactionsQuery, txParams);
         const rows = transactionRows as TransactionRow[];
 
         // Running balances are derived from the transactions table (single source of truth),
@@ -188,6 +193,7 @@ export async function GET(request: Request) {
                 products,
                 ...(row.short_num_order ? { shortNumOrder: String(row.short_num_order) } : {}),
                 ...(row.take_out ? { takeOut: true } : { takeOut: false }),
+                ...(row.fidelity_points != null ? { fidelityPointsUsed: Number(row.fidelity_points) } : {}),
                 ...(balanceEntry ? { previousBalance: balanceEntry.previousBalance } : {}),
                 ...(balanceEntry ? { newBalance: balanceEntry.newBalance } : {}),
             };

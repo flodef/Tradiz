@@ -18,7 +18,7 @@ import {
     IconWallet,
 } from '@tabler/icons-react';
 import { FC } from 'react';
-import { PRINT_KEYWORD, REFUND_KEYWORD, WAITING_KEYWORD } from './constants';
+import { PRINT_KEYWORD, REFUND_KEYWORD, WAITING_KEYWORD, USE_FIDELITY_KEYWORD } from './constants';
 
 export type PaymentIconType = FC<{ size?: number | string; className?: string }>;
 
@@ -48,6 +48,7 @@ const ICON_MAP: Record<string, PaymentIconType> = {
     [WAITING_KEYWORD]: IconHourglass,
     ['METTRE ' + WAITING_KEYWORD]: IconHourglass,
     [REFUND_KEYWORD]: IconReceiptRefund,
+    [USE_FIDELITY_KEYWORD]: IconAward,
     'PAIEMENT PARTIEL': IconPercentage,
     DEBIT: IconBuildingBank,
     PROVISION: IconCoins,

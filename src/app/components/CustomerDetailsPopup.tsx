@@ -2,7 +2,18 @@ import { Customer, Transaction } from '@/app/utils/interfaces';
 import { useData } from '@/app/hooks/useData';
 import { usePopup } from '@/app/hooks/usePopup';
 import { useEffect, useState } from 'react';
-import { BACK_KEYWORD, PROVISION_KEYWORD } from '@/app/utils/constants';
+import {
+    BACK_KEYWORD,
+    PROVISION_KEYWORD,
+    PRINT_KEYWORD,
+    PRINT_NO_DETAIL,
+    PRINT_WITH_DETAIL,
+} from '@/app/utils/constants';
+import { isProcessingTransaction } from '@/app/contexts/dataProvider/transactionHelpers';
+import { computeFidelityDelta } from '@/app/utils/fidelity';
+import { useConfig } from '@/app/hooks/useConfig';
+import { usePay } from '@/app/hooks/usePay';
+import { IconPrinter } from '@tabler/icons-react';
 
 interface BalanceEntry {
     amount: number;
@@ -32,13 +43,15 @@ interface CustomerDetailsPopupProps {
 export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupProps) {
     const { toCurrency, displayProduct } = useData();
     const { openFullscreenPopup } = usePopup();
+    const { parameters } = useConfig();
+    const { printTransaction } = usePay();
     const [balance, setBalance] = useState<number>(customer.balance ?? 0);
     const [history, setHistory] = useState<BalanceEntry[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [purchaseCount, setPurchaseCount] = useState(0);
     const [totalAmount, setTotalAmount] = useState(0);
     const [totalDiscount, setTotalDiscount] = useState(0);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(() => !customerDetailsCache.has(customer.id ?? -1));
 
     const customerName = `${customer.firstName} ${customer.lastName}`.trim();
     const companySuffix = customer.company ? ` (${customer.company})` : '';
@@ -89,7 +102,9 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
                         previous_balance: Number(entry.previous_balance),
                         new_balance: Number(entry.new_balance),
                     }));
-                    const transactionsValue = customerTransactions ?? [];
+                    const transactionsValue = (customerTransactions ?? []).filter(
+                        (t: Transaction) => !isProcessingTransaction(t)
+                    );
                     const purchaseCountValue = Number(count ?? 0);
                     const totalAmountValue = Number(amount ?? 0);
                     const totalDiscountValue = Number(discount ?? 0);
@@ -147,8 +162,12 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
             (transaction.shortNumOrder ? ` [#${transaction.shortNumOrder}]` : '');
 
         if (isProvision) {
-            const lines = [PROVISION_KEYWORD, '', BACK_KEYWORD];
+            const lines = [PROVISION_KEYWORD, '', PRINT_KEYWORD + PRINT_WITH_DETAIL, '', BACK_KEYWORD];
             openFullscreenPopup(title, lines, (_, option) => {
+                if (option === PRINT_KEYWORD + PRINT_WITH_DETAIL) {
+                    printTransaction(transaction, true);
+                    return;
+                }
                 if (option === BACK_KEYWORD) openCustomerDetails();
             });
             return;
@@ -158,13 +177,34 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
             title,
             transaction.products
                 .map((product) => displayProduct(product, transaction.currency))
-                .concat(['', BACK_KEYWORD]),
+                .concat(['', PRINT_KEYWORD + PRINT_WITH_DETAIL, PRINT_KEYWORD + PRINT_NO_DETAIL, '', BACK_KEYWORD]),
             (_, option) => {
+                if (option === PRINT_KEYWORD + PRINT_WITH_DETAIL) {
+                    printTransaction(transaction, true);
+                    return;
+                }
+                if (option === PRINT_KEYWORD + PRINT_NO_DETAIL) {
+                    printTransaction(transaction, false);
+                    return;
+                }
                 if (option === BACK_KEYWORD) {
                     openCustomerDetails();
                 }
             }
         );
+    };
+
+    const getFidelityText = (transaction: Transaction) => {
+        const delta = computeFidelityDelta(
+            transaction.method,
+            transaction.amount,
+            transaction.fidelityPointsUsed ?? 0,
+            parameters.fidelityRate ?? 0,
+            Boolean(transaction.products?.length)
+        );
+        if (delta === 0) return null;
+        const sign = delta > 0 ? '+' : '';
+        return `${sign}${delta.toFixed(2)} pts`;
     };
 
     const getTransactionLabel = (transaction: Transaction) => {
@@ -198,7 +238,7 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
                         </div>
                         <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Référence</p>
-                            <p className="text-sm md:text-lg font-semibold break-all">{customer.reference || '—'}</p>
+                            <p className="text-lg font-semibold break-all">{customer.reference || '—'}</p>
                         </div>
                         <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Nombre d&apos;achats</p>
@@ -244,6 +284,21 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
                                                 ? getBalanceChangeText(transaction)
                                                 : toCurrency(transaction)}
                                         </span>
+                                        {getFidelityText(transaction) && (
+                                            <span className="text-xs shrink-0 pl-2 text-green-600 dark:text-green-400">
+                                                {getFidelityText(transaction)}
+                                            </span>
+                                        )}
+                                        <button
+                                            className="shrink-0 pl-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                printTransaction(transaction, true);
+                                            }}
+                                            title="Imprimer"
+                                        >
+                                            <IconPrinter size={18} />
+                                        </button>
                                     </li>
                                 ))
                             )}

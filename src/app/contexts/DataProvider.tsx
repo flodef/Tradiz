@@ -129,6 +129,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // Set to true by editTransaction to suppress auto-save during addProduct calls
     // (editTransaction already saves the PROCESSING tx via saveTransactions).
     const suppressAutoSaveRef = useRef(false);
+    // Tracks the createdDate of the current PROCESSING transaction so that
+    // saveProcessingTransaction's debounced timeout doesn't create a duplicate
+    // when it fires with a stale `transactions` closure.
+    const processingTxCreatedDateRef = useRef<number>(0);
     const syncInProgress = useRef(false);
     const lastServerSyncTime = useRef<string | undefined>(undefined);
     const [orderId, setOrderId] = useState('');
@@ -931,9 +935,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }
             }
 
-            // Tag the current device on all PROCESSING transactions before persisting
+            // Tag the current device on all transactions before persisting
             // so that localStorage/IndexedDB and the SQL DB both receive the deviceId.
-            if (isProcessingTransaction(transaction)) {
+            if (!transaction.deviceId) {
                 transaction.deviceId = getPublicKey();
             }
 
@@ -1101,6 +1105,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     // PROCESSING transactions are transient — hard-delete them from DB
                     // instead of leaving a DELETED record. saveTransactions handles
                     // removing from both React state (via transactionsToSave) and IndexedDB.
+                    processingTxCreatedDateRef.current = 0;
                     saveTransactions(DatabaseAction.hardDelete, transaction);
                     setTransactions((prev) => prev.filter((_, i) => i !== index));
                 } else {
@@ -1205,6 +1210,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const clearTotal = useCallback(() => {
         products.current = [];
         clearRequestedRef.current = true;
+        // Cancel any pending debounced save so it doesn't re-save a stale
+        // PROCESSING transaction after we've just cleared it.
+        if (autoSaveProcessingRef.current) {
+            clearTimeout(autoSaveProcessingRef.current);
+            autoSaveProcessingRef.current = null;
+        }
+        processingTxCreatedDateRef.current = 0;
         clearProcessingTransaction();
         clearAmount();
         setShortNumOrder('');
@@ -1309,6 +1321,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             if (!products.current.length) {
                 clearRequestedRef.current = true;
+                // Cancel any pending debounced save so it doesn't re-save a stale
+                // PROCESSING transaction after we've just hard-deleted it.
+                if (autoSaveProcessingRef.current) {
+                    clearTimeout(autoSaveProcessingRef.current);
+                    autoSaveProcessingRef.current = null;
+                }
                 deleteTransaction();
             }
 
@@ -1417,6 +1435,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             : undefined;
         if (processingTransaction) {
             transactionId.current = processingTransaction.createdDate;
+            processingTxCreatedDateRef.current = processingTransaction.createdDate;
             if (processingTransaction.customerName) {
                 const restored = customers.find(
                     (c) => `${c.firstName} ${c.lastName}`.trim() === processingTransaction.customerName?.trim()
@@ -1449,9 +1468,16 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 (t) => isProcessingTransaction(t) && t.deviceId === currentDeviceId
             );
 
+            if (hasProducts && !existingProcessing && processingTxCreatedDateRef.current) {
+                // A PROCESSING tx was already created but isn't in the stale `transactions`
+                // closure yet. Skip this save — the next debounced call will find it and update.
+                return;
+            }
+
             if (hasProducts && !existingProcessing) {
                 // Create a new PROCESSING transaction
                 const now = floorToSeconds(new Date().getTime());
+                processingTxCreatedDateRef.current = now;
                 const customerName = currentCustomer
                     ? `${currentCustomer.firstName} ${currentCustomer.lastName}`.trim() || undefined
                     : undefined;
@@ -1473,6 +1499,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 saveTransactions(DatabaseAction.add, transaction);
             } else if (hasProducts && existingProcessing) {
                 // Update the existing PROCESSING transaction with current products
+                processingTxCreatedDateRef.current = existingProcessing.createdDate;
                 existingProcessing.products = products.current.map((p) => ({ ...p }));
                 existingProcessing.amount = getCustomerTotal();
                 if (liveShare > 0) {
@@ -1527,6 +1554,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             transaction.products.forEach(addProduct);
             suppressAutoSaveRef.current = false;
             transaction.method = PROCESSING_KEYWORD;
+            processingTxCreatedDateRef.current = transaction.createdDate;
 
             saveTransactions(DatabaseAction.update, transaction);
         },
@@ -1553,7 +1581,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 typeof item === 'object'
                     ? {
                           ...item,
-                          deviceId: item.deviceId ?? existingTransaction?.deviceId,
+                          deviceId: item.deviceId ?? existingTransaction?.deviceId ?? currentDeviceId,
                           createdDate:
                               (existingTransaction?.createdDate || transactionId.current) && !isRefundTransaction(item)
                                   ? existingTransaction?.createdDate || transactionId.current
@@ -1570,7 +1598,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                           customerName: existingTransaction?.customerName,
                           products: products.current,
                           takeOut: counterServiceTypeRef.current === 'takeout',
-                          deviceId: existingTransaction?.deviceId,
+                          deviceId: existingTransaction?.deviceId ?? currentDeviceId,
                           ...(liveShare > 0 ? { employerShare: liveShare } : {}),
                           ...(shortNumOrder ? { shortNumOrder } : {}),
                       };

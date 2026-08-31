@@ -2,51 +2,49 @@
 
 import AdminButton from '@/app/components/admin/AdminButton';
 import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
-import CurrenciesConfig from '@/app/components/admin/sections/CurrenciesConfig';
+import ColorsConfig from '@/app/components/admin/sections/ColorsConfig';
+import CompaniesConfig from '@/app/components/admin/sections/CompaniesConfig';
+import CustomersConfig from '@/app/components/admin/sections/CustomersConfig';
+import DevicesConfig from '@/app/components/admin/sections/DevicesConfig';
 import DiscountsConfig from '@/app/components/admin/sections/DiscountsConfig';
 import ParametersConfig from '@/app/components/admin/sections/ParametersConfig';
 import PaymentsConfig from '@/app/components/admin/sections/PaymentsConfig';
-import ColorsConfig from '@/app/components/admin/sections/ColorsConfig';
-import UsersConfig from '@/app/components/admin/sections/UsersConfig';
-import CustomersConfig from '@/app/components/admin/sections/CustomersConfig';
-import CompaniesConfig from '@/app/components/admin/sections/CompaniesConfig';
-import DevicesConfig from '@/app/components/admin/sections/DevicesConfig';
 import PrintersConfig from '@/app/components/admin/sections/PrintersConfig';
-import { Parameters, Config } from '@/app/contexts/ConfigProvider';
+import UsersConfig from '@/app/components/admin/sections/UsersConfig';
+import { Config, Parameters } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
-import { USE_DIGICARTE, INTERNAL_PAYMENT_METHODS } from '@/app/utils/constants';
+import { useUserRole } from '@/app/hooks/useUserRole';
+import { useWindowParam } from '@/app/hooks/useWindowParam';
+import Loading from '@/app/loading';
+import { INTERNAL_PAYMENT_METHODS, USE_DIGICARTE } from '@/app/utils/constants';
 import {
+    Color,
+    Company,
     Currency,
+    Customer,
+    Device,
     Discount,
     Mercurial,
     PaymentMethod,
-    Color,
-    User,
-    Device,
-    Role,
-    Customer,
-    Company,
     Printer,
+    Role,
+    User,
 } from '@/app/utils/interfaces';
-import { useUserRole } from '@/app/hooks/useUserRole';
-import { useWindowParam } from '@/app/hooks/useWindowParam';
 import { useIsMobile } from '@/app/utils/mobile';
 import { clearLoadDataCache, defaultParameters, getPublicKey, parseDisplaySettings } from '@/app/utils/processData';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Loading from '@/app/loading';
 import {
-    IconSettings,
-    IconDiscount,
-    IconCurrency,
-    IconCreditCard,
-    IconUserScan,
-    IconPalette,
-    IconUsersGroup,
     IconBuilding,
+    IconCreditCard,
     IconDeviceTablet,
+    IconDiscount,
+    IconPalette,
     IconPrinter,
+    IconSettings,
+    IconUserScan,
+    IconUsersGroup,
 } from '@tabler/icons-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export default function SettingsPage() {
     const isMobile = useIsMobile();
@@ -119,6 +117,7 @@ export default function SettingsPage() {
     const dbDataLoadedRef = useRef(false);
     const [isSavingParameters, setIsSavingParameters] = useState(false);
     const [isSavingDiscounts, setIsSavingDiscounts] = useState(false);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [isSavingCurrencies, setIsSavingCurrencies] = useState(false);
     const [isSavingPayments, setIsSavingPayments] = useState(false);
     const [isSavingColors, setIsSavingColors] = useState(false);
@@ -1121,6 +1120,7 @@ export default function SettingsPage() {
                 icon={<IconDiscount size={24} />}
             />
 
+            {/* CurrenciesConfig hidden — no one is using it for now
             <CurrenciesConfig
                 config={currenciesConfig}
                 onChange={setCurrenciesConfig}
@@ -1133,6 +1133,7 @@ export default function SettingsPage() {
                 onToggle={() => setOpenSection((prev) => (prev === 'currencies' ? null : 'currencies'))}
                 icon={<IconCurrency size={24} />}
             />
+            */}
 
             <PaymentsConfig
                 config={paymentsConfig}

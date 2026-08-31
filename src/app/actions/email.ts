@@ -1,9 +1,9 @@
 'use server';
 
-import nodemailer, { SendMailOptions } from 'nodemailer';
+import nodemailer, { type SendMailOptions } from 'nodemailer';
 import { isRefundTransaction } from '../contexts/dataProvider/transactionHelpers';
-import { SummaryData } from '../hooks/useSummary';
-import { BillingReport } from '../utils/interfaces';
+import type { SummaryData } from '../hooks/useSummary';
+import type { BillingReport } from '../utils/interfaces';
 import { DEV_EMAIL, IS_DEV } from '../utils/constants';
 
 // Configure nodemailer transporter
@@ -19,6 +19,11 @@ const transporter = nodemailer.createTransport({
 
 async function sendEmail(email: SendMailOptions): Promise<boolean> {
     try {
+        if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+            console.error('SMTP not configured: missing SMTP_HOST, SMTP_USER, or SMTP_PASSWORD');
+            return false;
+        }
+
         const mailOptions: SendMailOptions = {
             ...email,
             to: IS_DEV ? DEV_EMAIL : email.to,

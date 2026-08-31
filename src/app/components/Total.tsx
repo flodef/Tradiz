@@ -29,6 +29,7 @@ import {
     PROVISION_KEYWORD,
     REFUND_KEYWORD,
     UPDATING_KEYWORD,
+    USE_FIDELITY_KEYWORD,
     WAITING_KEYWORD,
 } from '../utils/constants';
 import { OrderItem, Product, State, Transaction } from '../utils/interfaces';
@@ -66,8 +67,8 @@ function TopNavWithRoleCheck({
     );
 }
 
-const payLabel = 'PAYER';
-const totalLabel = 'TOTAL';
+const payLabel = 'Payer';
+const totalLabel = 'Total';
 
 function findCompanyProductIndex(
     productList: Product[],
@@ -205,12 +206,18 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
-    const { pay, printTransaction, printKitchenReceipt, payWithMethod, canAddProvision, payProvisionWithMethod } =
-        usePay();
+    const {
+        pay,
+        printTransaction,
+        printKitchenReceipt,
+        payWithMethod,
+        canAddProvision,
+        payProvisionWithMethod,
+        applyFidelity,
+    } = usePay();
     const {
         state,
         isStateReady,
-        getPrintersNames,
         hasCashierPrinter,
         parameters,
         paymentMethods,
@@ -477,9 +484,9 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
 
         openPopup(
             products.current.length + ' produits : ' + toCurrency(Math.max(0, getCurrentTotal() - liveEmployerShare)),
-            productLines.concat(printerOptions).concat(['', payLabel]),
+            productLines.concat(printerOptions).concat(['', payLabel.toUpperCase()]),
             (index, option) => {
-                if (option === payLabel) {
+                if (option === payLabel.toUpperCase()) {
                     pay();
                 } else if (printerOptions.includes(option)) {
                     // Handle print option - create a temporary transaction to print
@@ -772,7 +779,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     const popupClass = useAddPopupClass(
         compact
             ? 'relative w-1/2 h-full overflow-hidden border-l-4 border-active-light dark:border-active-dark flex flex-col '
-            : 'inset-x-0 h-[70px] md:absolute md:left-1/2 md:h-full md:border-l-4 overflow-hidden ' +
+            : 'inset-x-0 h-[52px] md:absolute md:left-1/2 md:h-full md:border-l-4 overflow-hidden ' +
                   'md:border-secondary-active-light md:dark:border-secondary-active-dark '
     );
     const isMobile = useIsMobile();
@@ -795,8 +802,10 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         if (parameters.display?.showWaiting !== false)
             actions.push({ type: 'METTRE ' + WAITING_KEYWORD, label: 'Mettre en attente' });
         if (parameters.display?.showRefund !== false) actions.push({ type: REFUND_KEYWORD, label: 'Remboursement' });
+        if ((parameters.fidelityRate ?? 0) > 0)
+            actions.push({ type: USE_FIDELITY_KEYWORD, label: 'Utiliser fidélité' });
         return actions;
-    }, [hasCashierPrinter, parameters.display?.showWaiting, parameters.display?.showRefund]);
+    }, [hasCashierPrinter, parameters.display?.showWaiting, parameters.display?.showRefund, parameters.fidelityRate]);
 
     const companyProductIndex = findCompanyProductIndex(products.current, categories, currentCustomer?.company);
 
@@ -842,17 +851,18 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         );
     }
 
+    if (!transactionsLoaded && isStateReady && !compact) {
+        return (
+            <div className={popupClass} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span className="text-lg font-semibold animate-pulse">Chargement...</span>
+            </div>
+        );
+    }
+
     const showTopBar =
         (canDisplayTotal && (total || canAddProvision)) || (!canDisplayTotal && visibleTransactions.length);
 
     if (!showTopBar && !compact) {
-        if (!transactionsLoaded && isStateReady) {
-            return (
-                <div className={popupClass} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Loading fullscreen={false} />
-                </div>
-            );
-        }
         return <div className={popupClass} />;
     }
 
@@ -964,7 +974,11 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                                         key={action.type}
                                                         icon={getPaymentIcon(action.type)}
                                                         label={action.label}
-                                                        onClick={() => payWithMethod(action.type)}
+                                                        onClick={() =>
+                                                            action.type === USE_FIDELITY_KEYWORD
+                                                                ? applyFidelity()
+                                                                : payWithMethod(action.type)
+                                                        }
                                                         size={compact ? 40 : 52}
                                                     />
                                                 ))}
@@ -973,7 +987,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                     ) : (
                                         <span
                                             className={twMerge(
-                                                `inline-flex items-center h-full w-full justify-center pl-0 pr-0 ${isMobile ? 'gap-1' : 'gap-2'} ${compact ? 'text-5xl' : isMobile ? 'text-4xl' : 'text-6xl'}`,
+                                                `inline-flex items-center h-full w-full justify-center pl-0 pr-0 ${isMobile ? 'gap-1' : 'gap-2'} ${compact ? 'text-4xl' : isMobile ? 'text-4xl' : 'text-6xl'}`,
                                                 clickClassName
                                             )}
                                             onClick={handleClick}
@@ -982,7 +996,8 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                             {!navExpanded && (
                                                 <>
                                                     <IconWallet className="inline-block" size={isMobile ? 28 : 36} />
-                                                    {label}{' '}
+                                                    {label}
+                                                    {' : '}
                                                 </>
                                             )}
                                             <Amount value={total} showZero />
@@ -1003,7 +1018,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                     {!navExpanded && <IconReceipt className="inline-block" size={isMobile ? 28 : 36} />}
                                     {!navExpanded && 'Ticket : '}
                                     {visibleTransactions.length}
-                                    <span className="text-xl">{`vente${(visibleTransactions.length ?? 0) > 1 ? 's' : ''}`}</span>
+                                    <span className="text-xl mt-auto pb-1.5">{`vente${(visibleTransactions.length ?? 0) > 1 ? 's' : ''}`}</span>
                                 </span>
                             )}
                         </div>

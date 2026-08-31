@@ -52,22 +52,22 @@ export default function TopNav({
                 id: 'cash_register',
                 href: ADMIN_CONFIG_URL,
                 label: 'Configuration',
-                icon: <IconSettings size={28} />,
-                hidden: !isAdmin, // Admin only
+                icon: <IconSettings size={32} />,
+                hidden: !isAdmin,
             },
             {
                 id: 'edit_menu',
                 href: ADMIN_EDIT_MENU_URL,
                 label: 'Edition menu',
-                icon: <IconPencil size={28} />,
-                hidden: !isCashier, // Admin and Cashier
+                icon: <IconPencil size={32} />,
+                hidden: !isCashier,
             },
             {
                 id: 'kpi',
                 href: USE_DIGICARTE ? ADMIN_STATS_URL : ADMIN_STATS_URL.split('/').slice(0, 2).join('/'),
                 label: 'Statistiques',
-                icon: <IconChartPie size={28} />,
-                hidden: !isCashier || !isGrafanaAccessEnabled, // Admin and Cashier
+                icon: <IconChartPie size={32} />,
+                hidden: !isCashier || !isGrafanaAccessEnabled,
             },
         ],
         [isGrafanaAccessEnabled, isAdmin, isCashier]
@@ -81,7 +81,7 @@ export default function TopNav({
 
     const baseClass = inline
         ? 'flex items-center gap-1 rounded-2xl border border-black/10 bg-white/85 p-1 shadow-md backdrop-blur dark:border-white/10 dark:bg-black/45 shrink-0'
-        : 'fixed top-3 left-3 z-50 flex items-center gap-2 rounded-2xl border border-black/10 bg-white/85 p-1 shadow-md backdrop-blur dark:border-white/10 dark:bg-black/45';
+        : 'fixed top-2 left-2 z-50 flex items-center gap-1 md:gap-2 rounded-2xl border border-black/10 bg-white/85 p-1 shadow-md backdrop-blur dark:border-white/10 dark:bg-black/45';
 
     return (
         <div id="nav" className={twMerge(baseClass, className)}>
@@ -96,7 +96,7 @@ export default function TopNav({
                                 return (
                                     <span
                                         key={item.id}
-                                        className="flex h-12 w-12 items-center justify-center rounded-xl opacity-40 cursor-default"
+                                        className="flex h-9 w-9 md:h-12 md:w-12 items-center justify-center rounded-xl opacity-40 cursor-default"
                                         aria-label={item.label}
                                         title={item.label}
                                     >
@@ -117,7 +117,7 @@ export default function TopNav({
                                     key={item.id}
                                     href={item.href}
                                     onClick={handleClick}
-                                    className="flex h-12 w-12 items-center justify-center rounded-xl transition hover:bg-black/5 dark:hover:bg-white/10"
+                                    className="flex h-9 w-9 md:h-12 md:w-12 items-center justify-center rounded-xl transition hover:bg-black/5 dark:hover:bg-white/10"
                                     aria-label={item.label}
                                     title={item.label}
                                 >
@@ -130,11 +130,11 @@ export default function TopNav({
             <button
                 type="button"
                 onClick={handleToggle}
-                className="flex h-12 w-12 items-center justify-center cursor-pointer rounded-xl text-3xl transition hover:bg-black/5 dark:hover:bg-white/10"
+                className="flex h-9 w-9 md:h-12 md:w-12 items-center justify-center cursor-pointer rounded-xl text-2xl md:text-3xl transition hover:bg-black/5 dark:hover:bg-white/10"
                 aria-label={collapsed ? 'Afficher la navigation' : 'Masquer la navigation'}
                 title={collapsed ? 'Afficher la navigation' : 'Masquer la navigation'}
             >
-                {collapsed ? <IconChevronRight size={24} aria-hidden /> : <IconChevronLeft size={24} aria-hidden />}
+                {collapsed ? <IconChevronRight size={28} aria-hidden /> : <IconChevronLeft size={28} aria-hidden />}
             </button>
         </div>
     );

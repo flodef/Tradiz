@@ -221,7 +221,8 @@ export const usePay = () => {
                     method,
                     transaction.amount,
                     transaction.fidelityPointsUsed ?? 0,
-                    parameters.fidelityRate ?? 0
+                    parameters.fidelityRate ?? 0,
+                    Boolean(transaction.products?.length)
                 );
                 if (fidelityDelta !== 0) {
                     // Prefer matching on id (names are not unique); fall back to the full name,
@@ -748,7 +749,16 @@ export const usePay = () => {
                 products: [],
                 customerName: fullName,
             };
-            setCurrentCustomer(customer);
+            // Optimistically update the customer's balance so the NumPad shows
+            // the new value immediately, without waiting for the API refetch.
+            const updatedCustomer = {
+                ...customer,
+                balance: (customer.balance ?? 0) + provisionAmount,
+            };
+            setCurrentCustomer(updatedCustomer);
+            setCustomers((prev) =>
+                prev.map((c) => (c.id === customer.id ? { ...c, balance: (c.balance ?? 0) + provisionAmount } : c))
+            );
             commitTransaction(transaction);
             closePopup();
         },
@@ -759,6 +769,7 @@ export const usePay = () => {
             currencies,
             currencyIndex,
             setCurrentCustomer,
+            setCustomers,
             commitTransaction,
             closePopup,
         ]

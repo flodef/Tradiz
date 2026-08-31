@@ -336,6 +336,7 @@ interface OldFidelityData {
     amount: number;
     customer_name: string | null;
     fidelity_points: number | null;
+    has_items: boolean;
 }
 
 // Fetch the old transaction's fidelity-relevant fields BEFORE overwriting the row.
@@ -344,8 +345,8 @@ async function fetchOldFidelityData(connection: Connection, orderId: string): Pr
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
     const query = isPg
-        ? `SELECT payment_method, amount, customer_name, fidelity_points FROM ${prefix}transactions WHERE order_id = $1`
-        : `SELECT payment_method, amount, customer_name, fidelity_points FROM transactions WHERE order_id = ?`;
+        ? `SELECT payment_method, amount, customer_name, fidelity_points, EXISTS (SELECT 1 FROM ${prefix}transaction_items ti WHERE ti.transaction_id = t.id) AS has_items FROM ${prefix}transactions t WHERE t.order_id = $1`
+        : `SELECT payment_method, amount, customer_name, fidelity_points, EXISTS (SELECT 1 FROM transaction_items ti WHERE ti.transaction_id = t.id) AS has_items FROM transactions t WHERE t.order_id = ?`;
     const [rows] = await connection.execute(query, [orderId]);
     const original = (
         rows as {
@@ -353,6 +354,7 @@ async function fetchOldFidelityData(connection: Connection, orderId: string): Pr
             amount: number | string;
             customer_name: string | null;
             fidelity_points: number | string | null;
+            has_items: boolean | number | string;
         }[]
     )[0];
 
@@ -363,6 +365,7 @@ async function fetchOldFidelityData(connection: Connection, orderId: string): Pr
         amount: Number(original.amount),
         customer_name: original.customer_name,
         fidelity_points: original.fidelity_points != null ? Number(original.fidelity_points) : null,
+        has_items: original.has_items === true || original.has_items === 1 || original.has_items === '1',
     };
 }
 
@@ -520,7 +523,8 @@ async function updateCustomerFidelityPointsIdempotent(
         transaction.payment_method,
         transaction.amount,
         transaction.fidelity_points ?? 0,
-        fidelityRate
+        fidelityRate,
+        Boolean(transaction.products?.length)
     );
 
     // Compute reversal of old delta (if transaction already existed)
@@ -530,7 +534,8 @@ async function updateCustomerFidelityPointsIdempotent(
             oldData.payment_method,
             oldData.amount,
             oldData.fidelity_points ?? 0,
-            fidelityRate
+            fidelityRate,
+            Boolean(oldData.has_items)
         );
         // Reversal means undo → negate the original delta
         reversalDelta = -reversalDelta;

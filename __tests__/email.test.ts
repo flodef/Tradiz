@@ -13,7 +13,9 @@ vi.mock('nodemailer', () => ({
 describe('sendMissingParametersRequest', () => {
     beforeEach(() => {
         // Reset process.env before each test
+        process.env.SMTP_HOST = 'smtp.example.com';
         process.env.SMTP_USER = 'admin@example.com';
+        process.env.SMTP_PASSWORD = 'password';
         process.env.SMTP_FROM_EMAIL = 'noreply@tradiz.fr';
         process.env.IS_DEV = 'false';
     });

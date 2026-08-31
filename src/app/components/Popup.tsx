@@ -193,8 +193,7 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                                                   key={idx}
                                                   className={twMerge(
                                                       styles.optionText,
-                                                      'whitespace-nowrap flex-1 text-sm',
-                                                      idx === 0 ? 'text-center' : 'text-right'
+                                                      'whitespace-nowrap flex-1 text-left'
                                                   )}
                                               >
                                                   {col.trim()}

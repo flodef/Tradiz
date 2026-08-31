@@ -1,6 +1,15 @@
 'use client';
 
-import { IconBackspace, IconCalculator, IconSearch, IconShoppingCart, IconWallet, IconX } from '@tabler/icons-react';
+import {
+    IconBackspace,
+    IconCalculator,
+    IconCoin,
+    IconSearch,
+    IconShoppingCart,
+    IconStar,
+    IconWallet,
+    IconX,
+} from '@tabler/icons-react';
 import { FC, MouseEventHandler, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { isDeletedTransaction } from '../contexts/dataProvider/transactionHelpers';
@@ -659,6 +668,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
         setCurrentCustomer,
         currentCustomer,
         toCurrency,
+        products,
     } = useData();
     const { openPopup, closePopup, isPopupOpen, openFullscreenPopup } = usePopup();
     const { pay, canAddProduct, canAddProvision, addProvision } = usePay();
@@ -870,7 +880,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
             .sort((a, b) => a.amount - b.amount);
         openPopup(
             `Remise (${selectedProduct.discount.amount ? selectedProduct.discount.amount + selectedProduct.discount.unit : 'Aucune'})`,
-            displayDiscounts.map((d) => (d.amount ? d.amount + d.unit : ['Aucune'])),
+            displayDiscounts.map((d) => (d.amount ? d.amount + d.unit : 'Aucune')),
             (index) => setDiscount(selectedProduct, index < 0 ? selectedProduct.discount : displayDiscounts[index])
         );
     }, [openPopup, selectedProduct, discounts, setDiscount]);
@@ -968,6 +978,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
     ];
 
     const hasAmount = selectedProduct || amount;
+    const hasCartDiscounts = total > 0 && products.current.some((p) => p.discount.amount > 0);
     const hasSearchEnabled =
         parameters.search?.searchCustomers || parameters.search?.searchProducts || parameters.search?.searchUsers;
     const color = isStateReady
@@ -1003,7 +1014,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
     const f1 = f + (hasAmount || total ? color : 'invisible');
     const f2 =
         f +
-        (hasAmount
+        (hasAmount || hasCartDiscounts
             ? quantity
                 ? 'bg-secondary-active-light dark:bg-secondary-active-dark text-popup-dark dark:text-popup-light '
                 : color
@@ -1080,7 +1091,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                     style={displayOnly ? {} : shouldUseOverflow ? { left: left } : {}}
                 >
                     {(currentCustomer || parameters.user) && (
-                        <div className="flex items-center justify-center gap-2 text-lg font-semibold">
+                        <div className="flex items-center justify-center gap-2 text-lg font-semibold leading-tight">
                             <span
                                 className={twMerge(
                                     'whitespace-nowrap overflow-hidden',
@@ -1114,36 +1125,51 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                                           : undefined
                                 }
                             >
-                                {currentCustomer
-                                    ? `${isNegativeBalance ? '⚠️' : ''} Client : ${isMobileSize() ? `${currentCustomer.firstName.charAt(0)}.` : currentCustomer.firstName} ${currentCustomer.lastName}${currentCustomer.company ? ` (${currentCustomer.company})` : ''}`
-                                    : parameters.user.name}
-                                {currentCustomer && customerBalance !== null && (
-                                    <span
-                                        className={twMerge(
-                                            'text-sm font-semibold whitespace-nowrap',
-                                            isNegativeBalance && 'text-red-600 dark:text-red-400 animate-pulse'
-                                        )}
-                                    >
-                                        {isNegativeBalance
-                                            ? ` [- ${toCurrency(Math.abs(customerBalance))}]`
-                                            : ` [${toCurrency(customerBalance)}]`}
-                                    </span>
-                                )}
-                                {currentCustomer && (currentCustomer.fidelityPoints ?? 0) > 0 && (
-                                    <span className="text-sm font-semibold whitespace-nowrap text-green-600 dark:text-green-400">
-                                        {' '}
-                                        [★ {(currentCustomer.fidelityPoints ?? 0).toFixed(2)} pts]
-                                    </span>
+                                {currentCustomer ? (
+                                    <div className="flex flex-col leading-none">
+                                        <span className="whitespace-nowrap">
+                                            {isNegativeBalance ? '⚠️ ' : ''}
+                                            {currentCustomer.firstName} {currentCustomer.lastName}
+                                            {currentCustomer.company ? ` (${currentCustomer.company})` : ''}
+                                        </span>
+                                        <span className="flex items-center gap-2 text-sm font-semibold whitespace-nowrap mt-0.5">
+                                            {customerBalance !== null && (
+                                                <span
+                                                    className={twMerge(
+                                                        'flex items-center gap-0.5',
+                                                        isNegativeBalance &&
+                                                            'text-red-600 dark:text-red-400 animate-pulse'
+                                                    )}
+                                                >
+                                                    <IconCoin size={14} />
+                                                    {isNegativeBalance
+                                                        ? `- ${toCurrency(Math.abs(customerBalance))}`
+                                                        : toCurrency(customerBalance)}
+                                                </span>
+                                            )}
+                                            {(currentCustomer.fidelityPoints ?? 0) > 0 && (
+                                                <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
+                                                    <IconStar size={14} />
+                                                    {(currentCustomer.fidelityPoints ?? 0).toFixed(2)}
+                                                </span>
+                                            )}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    parameters.user.name
                                 )}
                             </span>
                             {currentCustomer && (
                                 <button
                                     onClick={() =>
                                         openPopup('⚠️ Supprimer le client ?', ['Confirmer', 'Annuler'], (i) => {
-                                            if (i === 0) setCurrentCustomer(null);
+                                            if (i === 0) {
+                                                clearTotal();
+                                                setCurrentCustomer(null);
+                                            }
                                         })
                                     }
-                                    className="shrink-0 p-1 hover:bg-active-light dark:hover:bg-active-dark rounded"
+                                    className="shrink-0 p-1 hover:bg-active-light dark:hover:bg-active-dark rounded cursor-pointer"
                                 >
                                     <IconX size={24} stroke={3} />
                                 </button>
@@ -1182,7 +1208,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                             ) : (
                                 <div className={f2}></div>
                             )
-                        ) : hasAmount ? (
+                        ) : hasAmount || hasCartDiscounts ? (
                             <FunctionButton
                                 className={f2}
                                 input="&times;"

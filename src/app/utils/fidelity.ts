@@ -1,10 +1,4 @@
-import {
-    DELETED_KEYWORD,
-    PROCESSING_KEYWORD,
-    REFUND_KEYWORD,
-    UPDATING_KEYWORD,
-    WAITING_KEYWORD,
-} from './constants';
+import { DELETED_KEYWORD, PROCESSING_KEYWORD, REFUND_KEYWORD, UPDATING_KEYWORD, WAITING_KEYWORD } from './constants';
 
 // Payment methods that never earn fidelity points. Points that were *spent* on such a
 // transaction are still deducted — only the earning side is suppressed.
@@ -31,10 +25,11 @@ export function computeFidelityDelta(
     method: string,
     amount: number,
     fidelityPointsUsed: number,
-    fidelityRate: number
+    fidelityRate: number,
+    hasProducts = true
 ): number {
     const isRefund = method === REFUND_KEYWORD;
-    const isNonEarning = NON_EARNING_METHODS.includes(method);
+    const isNonEarning = NON_EARNING_METHODS.includes(method) || !hasProducts;
 
     if (fidelityPointsUsed <= 0 && isNonEarning) return 0;
     if (fidelityRate <= 0 && fidelityPointsUsed <= 0) return 0;

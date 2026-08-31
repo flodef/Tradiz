@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useRef, useCallback, ReactNode } from 'react';
 import VirtualKeyboard from '../VirtualKeyboard';
+import { useIsMobileDevice } from '@/app/utils/mobile';
 
 interface VirtualKeyboardContextValue {
     registerInput: (input: HTMLInputElement, onChange: (value: string) => void) => void;
@@ -49,10 +50,11 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
     const activeInputRef = useRef<ActiveInput | null>(null);
     const isTabbingRef = useRef(false);
     const enterHandlerRef = useRef<(() => void) | null>(null);
+    const isMobileDevice = useIsMobileDevice();
 
     const registerInput = useCallback(
         (input: HTMLInputElement, onChange: (value: string) => void) => {
-            if (!enabled) return;
+            if (!enabled || isMobileDevice) return;
             // Detect numeric inputs: inputMode="decimal" or type="number" or type="tel"
             const isNumeric =
                 input.inputMode === 'decimal' ||
@@ -67,7 +69,7 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
                 input.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, 100);
         },
-        [enabled]
+        [enabled, isMobileDevice]
     );
 
     const unregisterInput = useCallback((input: HTMLInputElement) => {
