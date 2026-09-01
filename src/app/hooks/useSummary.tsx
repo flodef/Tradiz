@@ -334,6 +334,37 @@ export const useSummary = () => {
 
     const showSyncMenu = useCallback(
         (backCallback = closePopup) => {
+            const clearLocalData = () => {
+                const prefix = transactionsFilename?.split('_')[0] ?? '';
+                const keysToDelete: string[] = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.split('_')[0] === prefix) {
+                        keysToDelete.push(key);
+                    }
+                }
+                keysToDelete.forEach((key) => localStorage.removeItem(key));
+                indexedDB.deleteDatabase('TradizTransactions');
+                refreshHistoricalKeys();
+            };
+
+            const runSync = (action: SyncAction) => {
+                const isExport = action === SyncAction.export;
+                openPopup('Synchronisation', [isExport ? 'Export en cours...' : 'Synchronisation 0%'], () => {}, true);
+                processTransactions(action, undefined, undefined, (percent) => {
+                    if (!isExport) updatePopup('Synchronisation', [`Synchronisation ${percent}%`]);
+                }).then((count) => {
+                    refreshHistoricalKeys();
+                    if (isExport) {
+                        openPopup('Synchronisation', ['Fichier exporté']);
+                    } else {
+                        openPopup('Synchronisation', [
+                            count > 0 ? `${count} transaction(s) synchronisée(s)` : 'Aucune transaction à synchroniser',
+                        ]);
+                    }
+                });
+            };
+
             if (isDbConnected) {
                 // Check if there's data to migrate in localStorage
                 openPopup(
@@ -451,30 +482,25 @@ export const useSummary = () => {
 
                                 showMonthSelection(backCallback);
                             });
-                        } else if (action) {
-                            const isExport = action === SyncAction.export;
+                        } else if (action === SyncAction.fullsync) {
                             openPopup(
-                                'Synchronisation',
-                                [isExport ? 'Export en cours...' : 'Synchronisation 0%'],
-                                () => {},
-                                true
+                                '⚠️ Attention - Suppression des données',
+                                [
+                                    'La synchronisation complète va supprimer les données locales avant de télécharger.',
+                                    'Confirmer la suppression',
+                                    'Annuler',
+                                ],
+                                (_, confirmOption) => {
+                                    if (confirmOption === 'Confirmer la suppression') {
+                                        clearLocalData();
+                                        runSync(SyncAction.fullsync);
+                                    } else {
+                                        showSyncMenu();
+                                    }
+                                }
                             );
-                            processTransactions(action, undefined, undefined, (percent) => {
-                                if (!isExport) {
-                                    updatePopup('Synchronisation', [`Synchronisation ${percent}%`]);
-                                }
-                            }).then((count) => {
-                                refreshHistoricalKeys();
-                                if (isExport) {
-                                    openPopup('Synchronisation', ['Fichier exporté']);
-                                } else {
-                                    openPopup('Synchronisation', [
-                                        count > 0
-                                            ? `${count} transaction(s) synchronisée(s)`
-                                            : 'Aucune transaction à synchroniser',
-                                    ]);
-                                }
-                            });
+                        } else if (action) {
+                            runSync(action);
                         } else if (option === 'Stockage') {
                             getStorageUsage().then((usage) => {
                                 openPopup(
@@ -500,21 +526,7 @@ export const useSummary = () => {
                                 ['Confirmer la suppression', 'Annuler'],
                                 (_, confirmOption) => {
                                     if (confirmOption === 'Confirmer la suppression') {
-                                        // Clear localStorage
-                                        const prefix = transactionsFilename?.split('_')[0] ?? '';
-                                        const keysToDelete: string[] = [];
-                                        for (let i = 0; i < localStorage.length; i++) {
-                                            const key = localStorage.key(i);
-                                            if (key && key.split('_')[0] === prefix) {
-                                                keysToDelete.push(key);
-                                            }
-                                        }
-                                        keysToDelete.forEach((key) => localStorage.removeItem(key));
-
-                                        // Clear IndexedDB
-                                        indexedDB.deleteDatabase('TradizTransactions');
-
-                                        refreshHistoricalKeys();
+                                        clearLocalData();
                                         openPopup('Suppression', ['Données locales supprimées.']);
                                     } else {
                                         showSyncMenu();
