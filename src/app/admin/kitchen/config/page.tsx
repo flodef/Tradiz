@@ -340,6 +340,7 @@ export default function SettingsPage() {
                                     useDescription: parsed.useDescription ?? false,
                                     useOptions: parsed.useOptions ?? false,
                                     useColor: parsed.useColor ?? false,
+                                    useEmployerShare: parsed.useEmployerShare ?? false,
                                 };
                             }
                         }

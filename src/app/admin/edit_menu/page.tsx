@@ -532,6 +532,7 @@ export default function EditMenuPage() {
                                     useDescription: parsed.useDescription ?? false,
                                     useOptions: parsed.useOptions ?? false,
                                     useColor: parsed.useColor ?? false,
+                                    useEmployerShare: parsed.useEmployerShare ?? false,
                                 });
                             }
                         } catch {

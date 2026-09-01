@@ -210,6 +210,7 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
                             useDescription: parsed.useDescription ?? false,
                             useOptions: parsed.useOptions ?? false,
                             useColor: parsed.useColor ?? false,
+                            useEmployerShare: parsed.useEmployerShare ?? false,
                         };
                     }
                 }
@@ -378,6 +379,7 @@ export const defaultParameters: Parameters = {
         useDescription: false,
         useOptions: false,
         useColor: false,
+        useEmployerShare: false,
     },
     search: {
         searchCustomers: false,

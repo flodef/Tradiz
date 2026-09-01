@@ -169,7 +169,7 @@ export default function ParametersConfig({
                         onChange={(value) => handleShopChange('phone', String(value))}
                         placeholder="06 12 34 56 78"
                         isReadOnly={isReadOnly}
-                        className="flex-1 min-w-40 max-w-xs"
+                        className="flex-1 min-w-28 max-w-28"
                         validation={(value) => {
                             const v = String(value).trim();
                             return v === '' || frenchPhoneRegex.test(v);
@@ -182,7 +182,7 @@ export default function ParametersConfig({
                         isReadOnly={isReadOnly}
                     />
                     <ValidatedInput
-                        label="N° TVA intracommunautaire"
+                        label="N° TVA intracom"
                         value={String(config.shop.vatNumber || '')}
                         onChange={(value) => handleShopChange('vatNumber', String(value))}
                         placeholder="FR12345678901"
@@ -330,6 +330,7 @@ export default function ParametersConfig({
                                         useDescription: false,
                                         useOptions: false,
                                         useColor: false,
+                                        useEmployerShare: false,
                                     }),
                                     useVatPerProduct: checked,
                                 } as ProductsSettings)
@@ -351,6 +352,7 @@ export default function ParametersConfig({
                                         useDescription: false,
                                         useOptions: false,
                                         useColor: false,
+                                        useEmployerShare: false,
                                     }),
                                     useReference: checked,
                                 } as ProductsSettings)
@@ -372,6 +374,7 @@ export default function ParametersConfig({
                                         useDescription: false,
                                         useOptions: false,
                                         useColor: false,
+                                        useEmployerShare: false,
                                     }),
                                     useStock: checked,
                                 } as ProductsSettings)
@@ -393,6 +396,7 @@ export default function ParametersConfig({
                                         useDescription: false,
                                         useOptions: false,
                                         useColor: false,
+                                        useEmployerShare: false,
                                     }),
                                     usePhoto: checked,
                                 } as ProductsSettings)
@@ -414,6 +418,7 @@ export default function ParametersConfig({
                                         useDescription: false,
                                         useOptions: false,
                                         useColor: false,
+                                        useEmployerShare: false,
                                     }),
                                     useDescription: checked,
                                 } as ProductsSettings)
@@ -435,6 +440,7 @@ export default function ParametersConfig({
                                         useDescription: false,
                                         useOptions: false,
                                         useColor: false,
+                                        useEmployerShare: false,
                                     }),
                                     useOptions: checked,
                                 } as ProductsSettings)
@@ -456,12 +462,35 @@ export default function ParametersConfig({
                                         useDescription: false,
                                         useOptions: false,
                                         useColor: false,
+                                        useEmployerShare: false,
                                     }),
                                     useColor: checked,
                                 } as ProductsSettings)
                             }
                             isReadOnly={isReadOnly}
                             label="Utiliser couleur produit"
+                        />
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.products?.useEmployerShare ?? false}
+                            onChange={(checked) =>
+                                handleChange('products', {
+                                    ...(config.products ?? {
+                                        useVatPerProduct: false,
+                                        useReference: false,
+                                        useStock: false,
+                                        usePhoto: false,
+                                        useDescription: false,
+                                        useOptions: false,
+                                        useColor: false,
+                                        useEmployerShare: false,
+                                    }),
+                                    useEmployerShare: checked,
+                                } as ProductsSettings)
+                            }
+                            isReadOnly={isReadOnly}
+                            label="Utiliser quote-part"
                         />
                     </div>
                 </div>
@@ -586,7 +615,7 @@ export default function ParametersConfig({
                             checked={config.display?.paymentIconsMode ?? true}
                             onChange={(checked) => handleDisplayChange('paymentIconsMode', checked)}
                             isReadOnly={isReadOnly}
-                            label="Icônes de paiement (bureau)"
+                            label="Icônes de paiement"
                         />
                     </div>
                 </div>
@@ -629,7 +658,7 @@ export default function ParametersConfig({
                             checked={config.display?.displayOthers ?? false}
                             onChange={(checked) => handleDisplayChange('displayOthers', checked)}
                             isReadOnly={isReadOnly}
-                            label="Afficher 'Autres' dans le catalogue"
+                            label="Afficher 'Autres' dans liste de produits"
                         />
                     </div>
                 </div>

@@ -687,7 +687,7 @@ export default function CatalogEditor({
                                 )}
                             </div>
 
-                            {(() => {
+                            {productsSettings?.useEmployerShare && (() => {
                                 const share = categoryCompanyShare.get(selectedProduct.category || DEFAULT_CATEGORY);
                                 if (share === undefined) return null;
                                 return (

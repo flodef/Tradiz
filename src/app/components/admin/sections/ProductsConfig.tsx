@@ -180,7 +180,7 @@ function ProductEditPopup({
                         isReadOnly={isReadOnly}
                     />
                 </div>
-                {(() => {
+                {productsSettings?.useEmployerShare && (() => {
                     const share = categoryCompanyShare.get(draft.category || DEFAULT_CATEGORY);
                     if (share === undefined) return null;
                     return (
@@ -341,6 +341,7 @@ export default function ProductsConfig({
         useDescription: boolean;
         useOptions: boolean;
         useColor: boolean;
+        useEmployerShare: boolean;
     };
     icon?: React.ReactNode;
     showHeader?: boolean;
@@ -651,6 +652,18 @@ export default function ProductsConfig({
 
     const isValid = products.every((p) => p.name?.trim()) && duplicateNames.size === 0;
 
+    const useEditMode = (() => {
+        const optionalColumns =
+            (productsSettings?.useReference ? 1 : 0) +
+            (productsSettings?.useEmployerShare ? 1 : 0) +
+            (productsSettings?.useVatPerProduct ? 1 : 0) +
+            (productsSettings?.usePhoto ? 1 : 0) +
+            (productsSettings?.useDescription ? 1 : 0) +
+            (productsSettings?.useOptions ? 1 : 0) +
+            (productsSettings?.useColor ? 1 : 0);
+        return optionalColumns > 2;
+    })();
+
     const mainCurrency = currencies.find((c) => c.rate === 1) ?? currencies[0];
 
     const headerControls = (
@@ -820,9 +833,11 @@ export default function ProductsConfig({
                                                 <SortIcon field="price" />
                                             </div>
                                         </th>
-                                        <th className={adminSortableHeaderStyle + ' min-w-20 w-20'}>
-                                            <div className="flex items-center gap-1">Quote part</div>
-                                        </th>
+                                        {productsSettings?.useEmployerShare && (
+                                            <th className={adminSortableHeaderStyle + ' min-w-20 w-20'}>
+                                                <div className="flex items-center gap-1">Quote part</div>
+                                            </th>
+                                        )}
                                         {productsSettings?.useVatPerProduct && (
                                             <th
                                                 className={adminSortableHeaderStyle + ' min-w-16 w-16'}
@@ -831,17 +846,6 @@ export default function ProductsConfig({
                                                 <div className="flex items-center gap-1">
                                                     TVA (%)
                                                     <SortIcon field="vat" />
-                                                </div>
-                                            </th>
-                                        )}
-                                        {productsSettings?.useReference && (
-                                            <th
-                                                className={adminSortableHeaderStyle + ' min-w-32 w-32'}
-                                                onClick={() => handleSort('reference')}
-                                            >
-                                                <div className="flex items-center gap-1">
-                                                    Référence
-                                                    <SortIcon field="reference" />
                                                 </div>
                                             </th>
                                         )}
@@ -929,7 +933,8 @@ export default function ProductsConfig({
                                             >
                                                 <td
                                                     colSpan={(() => {
-                                                        let count = isReadOnly ? 6 : 7; // base: drag + name + category + price + stock/availability + delete
+                                                        let count = isReadOnly ? 5 : 6; // base: name + category + price + stock/availability + (drag + delete if !readOnly)
+                                                        if (productsSettings?.useEmployerShare) count++;
                                                         if (productsSettings?.useReference) count++;
                                                         if (productsSettings?.useVatPerProduct) count++;
                                                         if (productsSettings?.usePhoto) count++;
@@ -1047,7 +1052,7 @@ export default function ProductsConfig({
                                                                     }}
                                                                 />
                                                             </td>
-                                                            {(() => {
+                                                            {productsSettings?.useEmployerShare && (() => {
                                                                 const share = categoryCompanyShare.get(
                                                                     p.category || DEFAULT_CATEGORY
                                                                 );
@@ -1083,22 +1088,6 @@ export default function ProductsConfig({
                                                                                 vat: Number(value) || 0,
                                                                             })
                                                                         }
-                                                                        isReadOnly={isReadOnly}
-                                                                    />
-                                                                </td>
-                                                            )}
-                                                            {productsSettings?.useReference && (
-                                                                <td className="p-2">
-                                                                    <ValidatedInput
-                                                                        type="text"
-                                                                        value={p.reference ?? ''}
-                                                                        onChange={(value) =>
-                                                                            handleProductChange(i, {
-                                                                                ...p,
-                                                                                reference: String(value),
-                                                                            })
-                                                                        }
-                                                                        placeholder="Auto-généré"
                                                                         isReadOnly={isReadOnly}
                                                                     />
                                                                 </td>
@@ -1200,8 +1189,8 @@ export default function ProductsConfig({
                                                             )}
                                                             <DeleteButtonCell
                                                                 isReadOnly={isReadOnly}
-                                                                onDelete={() => handleDeleteProduct(i)}
-                                                                onEdit={() => handleEditProduct(i)}
+                                                                onDelete={useEditMode ? undefined : () => handleDeleteProduct(i)}
+                                                                onEdit={useEditMode ? () => handleEditProduct(i) : undefined}
                                                             />
                                                         </SortableRow>
                                                     ))}

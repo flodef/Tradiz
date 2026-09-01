@@ -62,6 +62,7 @@ export interface ProductsSettings {
     useDescription: boolean;
     useOptions: boolean;
     useColor: boolean;
+    useEmployerShare: boolean;
 }
 
 export interface SearchSettings {
