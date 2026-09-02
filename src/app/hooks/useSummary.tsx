@@ -9,7 +9,7 @@ import {
     isRefundTransaction,
     isWaitingTransaction,
 } from '../contexts/dataProvider/transactionHelpers';
-import { ARROW, BACK_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
+import { ARROW, BACK_KEYWORD, DEBIT_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
 import { formatFrenchDate, getFormattedDate } from '../utils/date';
 import { Currency, DataElement, SyncAction, Transaction } from '../utils/interfaces';
 import { printSummary } from '../utils/posPrinter';
@@ -18,6 +18,12 @@ import { getStorageUsage, idbGetAllKeys, idbGetTransactions } from '../utils/tra
 import { useConfig } from './useConfig';
 import { useData } from './useData';
 import { usePopup } from './usePopup';
+
+export type ProvisionBreakdownEntry = {
+    method: string;
+    customerName: string;
+    amount: number;
+};
 
 export type SummaryData = {
     shop: Shop;
@@ -30,6 +36,10 @@ export type SummaryData = {
     lastTransactionDate: number;
     currency: Currency;
     summary: string[];
+    payments: DataElement[];
+    provisionBreakdown: ProvisionBreakdownEntry[];
+    debitTotal: number;
+    employerShareTotal: number;
 };
 
 enum HistoricalPeriod {
@@ -226,6 +236,9 @@ export const useSummary = () => {
     const getTransactionsDetails = useCallback((transactions: Transaction[]) => {
         const categories: DataElement[] = [];
         const payments: DataElement[] = [];
+        const provisionMap = new Map<string, number>();
+        let debitTotal = 0;
+        let employerShareTotal = 0;
 
         transactions.forEach((transaction) => {
             const isRefund = isRefundTransaction(transaction);
@@ -240,6 +253,27 @@ export const useSummary = () => {
                     quantity: isRefund ? -1 : 1,
                     amount: transaction.amount,
                 });
+            }
+
+            // Track DEBIT payments (Crédits Clients Accordés)
+            if (transaction.method?.toUpperCase() === DEBIT_KEYWORD) {
+                debitTotal += transaction.amount;
+            }
+
+            // Track employer share (Hors CA)
+            if (transaction.employerShare && transaction.employerShare > 0) {
+                employerShareTotal += transaction.employerShare;
+            }
+
+            // Per-customer provision breakdown (transactions with no products)
+            if (transaction.products.length === 0 && transaction.customerName) {
+                const key = transaction.method + '\t' + transaction.customerName;
+                const existing = provisionMap.get(key);
+                if (existing !== undefined) {
+                    provisionMap.set(key, existing + transaction.amount);
+                } else {
+                    provisionMap.set(key, transaction.amount);
+                }
             }
 
             // Only process products for non-provision transactions
@@ -260,14 +294,32 @@ export const useSummary = () => {
             }
         });
 
-        return { categories, payments };
+        const provisionBreakdown: ProvisionBreakdownEntry[] = [];
+        for (const [key, amount] of provisionMap) {
+            const [method, customerName] = key.split('\t');
+            provisionBreakdown.push({ method, customerName, amount });
+        }
+        provisionBreakdown.sort(
+            (a, b) => a.method.localeCompare(b.method) || a.customerName.localeCompare(b.customerName)
+        );
+
+        return { categories, payments, provisionBreakdown, debitTotal, employerShareTotal };
     }, []);
 
     const getTransactionsData = useCallback(
         (transactions: Transaction[]) => {
-            if (!transactions.length) return { categories: [], payments: [], summary: [] };
+            if (!transactions.length)
+                return {
+                    categories: [],
+                    payments: [],
+                    summary: [],
+                    provisionBreakdown: [],
+                    debitTotal: 0,
+                    employerShareTotal: 0,
+                };
 
-            const { categories, payments } = getTransactionsDetails(transactions);
+            const { categories, payments, provisionBreakdown, debitTotal, employerShareTotal } =
+                getTransactionsDetails(transactions);
             const taxes = getTaxesByCategory();
             const taxAmount = getTaxAmountByCategory(taxes, categories);
             const totalTaxes = { total: 0, ht: 0, tva: 0 };
@@ -280,6 +332,9 @@ export const useSummary = () => {
             return {
                 categories: categories,
                 payments: payments,
+                provisionBreakdown,
+                debitTotal,
+                employerShareTotal,
                 summary: categories
                     .map(
                         ({ category, quantity, amount }) =>
@@ -1025,7 +1080,8 @@ export const useSummary = () => {
         const filteredTransactions = getFilteredTransactions();
         if (!filteredTransactions.length) return false;
 
-        const { summary, payments } = getTransactionsData(filteredTransactions);
+        const { summary, payments, provisionBreakdown, debitTotal, employerShareTotal } =
+            getTransactionsData(filteredTransactions);
         const period = getPeriodDescription(filteredTransactions);
         const amount = toCurrency(payments.reduce((total, payment) => total + payment.amount, 0));
 
@@ -1038,6 +1094,10 @@ export const useSummary = () => {
             ...agg,
             currency: currencies[currencyIndex],
             summary,
+            payments,
+            provisionBreakdown,
+            debitTotal,
+            employerShareTotal,
         });
     }, [
         parameters.shop,
@@ -1127,7 +1187,8 @@ export const useSummary = () => {
         if (!printerAddresses.length) return { error: 'Imprimante non trouvée' };
 
         // Get transaction summary data
-        const { summary } = getTransactionsData(filteredTransactions);
+        const { summary, payments, provisionBreakdown, debitTotal, employerShareTotal } =
+            getTransactionsData(filteredTransactions);
 
         // Get period description
         const period = getPeriodDescription(filteredTransactions);
@@ -1144,6 +1205,10 @@ export const useSummary = () => {
                 ...agg,
                 currency: currencies[currencyIndex],
                 summary,
+                payments,
+                provisionBreakdown,
+                debitTotal,
+                employerShareTotal,
             },
             comBaud
         );

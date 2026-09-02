@@ -561,135 +561,141 @@ export default function StatsPage() {
             </div>
 
             {/* Billing Report Section */}
-            <div className="mb-6 bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
-                <h2 className="text-xl font-bold mb-4">Facturation entreprise</h2>
-                <div className="flex flex-col md:flex-row gap-4 mb-4">
-                    <div className="flex-1">
-                        <label className="block text-sm font-medium mb-1">Entreprise</label>
-                        <select
-                            value={selectedCompany}
-                            onChange={(e) => setSelectedCompany(e.target.value)}
-                            className="w-full px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
-                        >
-                            {companies.length === 0 && <option value="">Aucune entreprise</option>}
-                            {companies.map((company) => (
-                                <option key={company.id || company.name} value={company.name}>
-                                    {company.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="w-32">
-                        <label className="block text-sm font-medium mb-1">TVA (%)</label>
-                        <input
-                            type="number"
-                            value={vatRate}
-                            min={0}
-                            step={0.5}
-                            onChange={(e) => setVatRate(Number(e.target.value))}
-                            className="w-full px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
-                        />
-                    </div>
-                    <div className="flex items-end gap-2 flex-wrap">
-                        <AdminButton
-                            onClick={generateBillingReport}
-                            disabled={billingLoading || !selectedCompany || !startDate || !endDate}
-                            isLoading={billingLoading}
-                        >
-                            {billingLoading ? 'Calcul...' : 'Calculer'}
-                        </AdminButton>
-                        {billingReport && (
-                            <>
-                                <AdminButton onClick={handlePrintSummary} isLoading={printLoading}>
-                                    Imprimer total TVA
-                                </AdminButton>
-                                <AdminButton onClick={handlePrintDetail} isLoading={printLoading}>
-                                    Imprimer detail par salarie
-                                </AdminButton>
-                                <AdminButton onClick={handleDownloadFacturX} isLoading={facturxLoading}>
-                                    Factur-X PDF
-                                </AdminButton>
-                                <AdminButton onClick={handlePushToPennyLane} isLoading={pennylaneLoading}>
-                                    Envoyer PennyLane
-                                </AdminButton>
-                            </>
-                        )}
-                    </div>
-                </div>
-
-                {billingError && (
-                    <div className="p-3 mb-4 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded">
-                        {billingError}
-                    </div>
-                )}
-
-                {billingReport && (
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                            <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
-                                <p className="text-sm text-gray-600 dark:text-gray-300">Compte n°</p>
-                                <p className="text-lg font-bold">{billingReport.companyId}</p>
-                            </div>
-                            <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
-                                <p className="text-sm text-gray-600 dark:text-gray-300">Prix / Quote part</p>
-                                <p className="text-lg font-bold">{billingReport.employerShare.toFixed(2)} €</p>
-                            </div>
-                            <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
-                                <p className="text-sm text-gray-600 dark:text-gray-300">Total repas</p>
-                                <p className="text-lg font-bold">{billingReport.mealCount}</p>
-                            </div>
-                            <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
-                                <p className="text-sm text-gray-600 dark:text-gray-300">Total HT</p>
-                                <p className="text-lg font-bold">{billingReport.totalHT.toFixed(2)} €</p>
-                            </div>
-                            <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
-                                <p className="text-sm text-gray-600 dark:text-gray-300">Total TVA</p>
-                                <p className="text-lg font-bold">{billingReport.totalTVA.toFixed(2)} €</p>
-                            </div>
+            {companies.length > 0 && (
+                <div className="mb-6 bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                    <h2 className="text-xl font-bold mb-4">Facturation entreprise</h2>
+                    <div className="flex flex-col md:flex-row gap-4 mb-4">
+                        <div className="flex-1">
+                            <label className="block text-sm font-medium mb-1">Entreprise</label>
+                            <select
+                                value={selectedCompany}
+                                onChange={(e) => setSelectedCompany(e.target.value)}
+                                className="w-full px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
+                            >
+                                {companies.length === 0 && <option value="">Aucune entreprise</option>}
+                                {companies.map((company) => (
+                                    <option key={company.id || company.name} value={company.name}>
+                                        {company.name}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="border-b dark:border-gray-700">
-                                        <th className="text-left py-2">N° Cpt</th>
-                                        <th className="text-left py-2">Désignation</th>
-                                        <th className="text-right py-2">Qté</th>
-                                        <th className="text-right py-2">CA</th>
-                                        <th className="text-right py-2">TVA</th>
-                                        <th className="text-right py-2">TTC</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {billingReport.customers.map((customer) => (
-                                        <tr key={customer.customerId} className="border-b dark:border-gray-700">
-                                            <td className="py-2 font-mono">
-                                                {customer.reference || String(customer.customerId).padStart(6, '0')}
-                                            </td>
-                                            <td className="py-2">
-                                                {customer.lastName} {customer.firstName}
-                                            </td>
-                                            <td className="py-2 text-right">{customer.mealCount}</td>
-                                            <td className="py-2 text-right">{customer.totalAmount.toFixed(2)} €</td>
-                                            <td className="py-2 text-right">{customer.totalTVA.toFixed(2)} €</td>
-                                            <td className="py-2 text-right">{customer.totalAmount.toFixed(2)} €</td>
+                        <div className="w-32">
+                            <label className="block text-sm font-medium mb-1">TVA (%)</label>
+                            <input
+                                type="number"
+                                value={vatRate}
+                                min={0}
+                                step={0.5}
+                                onChange={(e) => setVatRate(Number(e.target.value))}
+                                className="w-full px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
+                            />
+                        </div>
+                        <div className="flex items-end gap-2 flex-wrap">
+                            <AdminButton
+                                onClick={generateBillingReport}
+                                disabled={billingLoading || !selectedCompany || !startDate || !endDate}
+                                isLoading={billingLoading}
+                            >
+                                {billingLoading ? 'Calcul...' : 'Calculer'}
+                            </AdminButton>
+                            {billingReport && (
+                                <>
+                                    <AdminButton onClick={handlePrintSummary} isLoading={printLoading}>
+                                        Imprimer total TVA
+                                    </AdminButton>
+                                    <AdminButton onClick={handlePrintDetail} isLoading={printLoading}>
+                                        Imprimer detail par salarie
+                                    </AdminButton>
+                                    <AdminButton onClick={handleDownloadFacturX} isLoading={facturxLoading}>
+                                        Factur-X PDF
+                                    </AdminButton>
+                                    <AdminButton onClick={handlePushToPennyLane} isLoading={pennylaneLoading}>
+                                        Envoyer PennyLane
+                                    </AdminButton>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {billingError && (
+                        <div className="p-3 mb-4 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded">
+                            {billingError}
+                        </div>
+                    )}
+
+                    {billingReport && (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
+                                    <p className="text-sm text-gray-600 dark:text-gray-300">Compte n°</p>
+                                    <p className="text-lg font-bold">{billingReport.companyId}</p>
+                                </div>
+                                <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
+                                    <p className="text-sm text-gray-600 dark:text-gray-300">Prix / Quote part</p>
+                                    <p className="text-lg font-bold">{billingReport.employerShare.toFixed(2)} €</p>
+                                </div>
+                                <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
+                                    <p className="text-sm text-gray-600 dark:text-gray-300">Total repas</p>
+                                    <p className="text-lg font-bold">{billingReport.mealCount}</p>
+                                </div>
+                                <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
+                                    <p className="text-sm text-gray-600 dark:text-gray-300">Total HT</p>
+                                    <p className="text-lg font-bold">{billingReport.totalHT.toFixed(2)} €</p>
+                                </div>
+                                <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
+                                    <p className="text-sm text-gray-600 dark:text-gray-300">Total TVA</p>
+                                    <p className="text-lg font-bold">{billingReport.totalTVA.toFixed(2)} €</p>
+                                </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b dark:border-gray-700">
+                                            <th className="text-left py-2">N° Cpt</th>
+                                            <th className="text-left py-2">Désignation</th>
+                                            <th className="text-right py-2">Qté</th>
+                                            <th className="text-right py-2">CA</th>
+                                            <th className="text-right py-2">TVA</th>
+                                            <th className="text-right py-2">TTC</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                                <tfoot>
-                                    <tr className="font-bold border-b dark:border-gray-700">
-                                        <td className="py-2">Total</td>
-                                        <td className="py-2" />
-                                        <td className="py-2 text-right">{billingReport.mealCount}</td>
-                                        <td className="py-2 text-right">{billingReport.totalAmount.toFixed(2)} €</td>
-                                        <td className="py-2 text-right">{billingReport.totalTVA.toFixed(2)} €</td>
-                                        <td className="py-2 text-right">{billingReport.totalAmount.toFixed(2)} €</td>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {billingReport.customers.map((customer) => (
+                                            <tr key={customer.customerId} className="border-b dark:border-gray-700">
+                                                <td className="py-2 font-mono">
+                                                    {customer.reference || String(customer.customerId).padStart(6, '0')}
+                                                </td>
+                                                <td className="py-2">
+                                                    {customer.lastName} {customer.firstName}
+                                                </td>
+                                                <td className="py-2 text-right">{customer.mealCount}</td>
+                                                <td className="py-2 text-right">{customer.totalAmount.toFixed(2)} €</td>
+                                                <td className="py-2 text-right">{customer.totalTVA.toFixed(2)} €</td>
+                                                <td className="py-2 text-right">{customer.totalAmount.toFixed(2)} €</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr className="font-bold border-b dark:border-gray-700">
+                                            <td className="py-2">Total</td>
+                                            <td className="py-2" />
+                                            <td className="py-2 text-right">{billingReport.mealCount}</td>
+                                            <td className="py-2 text-right">
+                                                {billingReport.totalAmount.toFixed(2)} €
+                                            </td>
+                                            <td className="py-2 text-right">{billingReport.totalTVA.toFixed(2)} €</td>
+                                            <td className="py-2 text-right">
+                                                {billingReport.totalAmount.toFixed(2)} €
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
                         </div>
-                    </div>
-                )}
-            </div>
+                    )}
+                </div>
+            )}
 
             {/* Daily Revenue Chart */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">

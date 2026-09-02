@@ -269,6 +269,17 @@ function printReceiptFooter(printer: ThermalPrinter, shop: Shop, validator?: str
     printer.println('Merci de votre visite');
 }
 
+function printInternalHeader(printer: ThermalPrinter, shop: Shop) {
+    printer.alignCenter();
+    printer.setTextDoubleHeight();
+    printer.bold(true);
+    printer.println(shop.name.toUpperCase());
+    printer.bold(false);
+    printer.setTextNormal();
+    if (shop.serial) printer.println('SIRET ' + shop.serial);
+    printer.newLine();
+}
+
 const toCurrency = (amount: number | string, currency: Currency) =>
     Number(
         amount
@@ -799,19 +810,16 @@ export async function printSummary(
             productCount,
             firstTransactionDate: firstDate,
             lastTransactionDate: lastDate,
+            payments,
+            provisionBreakdown,
+            debitTotal,
+            employerShareTotal,
         } = summaryData;
         const averageTicket = transactionCount > 0 ? totalAmount / transactionCount : 0;
         const currency = summaryData.currency;
 
-        // Create a simpler header for the ticket
-        printer.alignCenter();
-        printer.setTextDoubleHeight();
-        printer.bold(true);
-        printer.invert(true);
-        printer.println('                    Ticket Z                    ');
-        printer.invert(false);
-        printer.newLine();
-        printReceiptHeader(printer, summaryData.shop);
+        // ── Internal header (shop name large + SIRET, centered) ──
+        printInternalHeader(printer, summaryData.shop);
 
         // Format the transaction dates
         const firstTransactionDate = new Date(firstDate);
@@ -832,6 +840,48 @@ export async function printSummary(
         printer.newLine();
 
         // Separator line
+        printer.drawLine();
+        printer.newLine();
+
+        // ── Payment summary (Nbr Règlements / Totaux) ──
+        printer.bold(true);
+        printer.leftRight('Nbr Règlements', 'Totaux');
+        printer.bold(false);
+        for (const payment of payments) {
+            printer.leftRight(`${payment.quantity}  ${payment.category}`, toCurrency(payment.amount, currency));
+        }
+        if (employerShareTotal > 0) {
+            printer.leftRight(
+                `${toCurrency(employerShareTotal, currency)} Hors CA`,
+                toCurrency(totalAmount + employerShareTotal, currency)
+            );
+        }
+        printer.newLine();
+        printer.leftRight('TOTAL NET EN CAISSE', toCurrency(totalAmount, currency));
+        printer.newLine();
+
+        // ── Crédits Clients Accordés (DEBIT payments) + Règl. Clients ──
+        if (debitTotal > 0) {
+            printer.leftRight('Crédits Clients Accordés', toCurrency(debitTotal, currency));
+        }
+        printer.leftRight('Règl. Clients (total)', toCurrency(totalAmount, currency));
+        printer.newLine();
+
+        // ── Répartition Total Caisse (per-customer provisions) ──
+        if (provisionBreakdown.length) {
+            printer.bold(true);
+            printer.println('Répartition Total Caisse');
+            printer.bold(false);
+            let provisionSubtotal = 0;
+            for (const entry of provisionBreakdown) {
+                printer.leftRight(`${entry.method} ${entry.customerName}`, toCurrency(entry.amount, currency));
+                provisionSubtotal += entry.amount;
+            }
+            printer.leftRight('Solde Mouvements Caisse', toCurrency(provisionSubtotal, currency));
+            printer.newLine();
+        }
+
+        // ── Categories + VAT table (from summary lines) ──
         printer.drawLine();
         printer.newLine();
 
