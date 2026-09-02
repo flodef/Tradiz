@@ -57,6 +57,15 @@ export type ReceiptData = {
     serviceType?: ServiceType;
     showDetails?: boolean;
     mealCount?: number;
+    customer?: { firstName: string; lastName: string; reference?: string; company?: string } | null;
+    company?: {
+        name: string;
+        siret?: string;
+        vatNumber?: string;
+        address?: string;
+        zipCode?: string;
+        city?: string;
+    } | null;
 };
 
 export const usePay = () => {
@@ -87,6 +96,7 @@ export const usePay = () => {
         counterServiceType,
         currentCustomer,
         setCurrentCustomer,
+        companies,
         wasWaitingBeforeEditRef,
         originalProductsSnapshotRef,
     } = useData();
@@ -345,11 +355,11 @@ export const usePay = () => {
         () =>
             Boolean(
                 parameters.display?.showProvision !== false &&
-                    amount > 0 &&
-                    !selectedProduct &&
-                    !total &&
-                    !canPay &&
-                    !canAddProduct
+                amount > 0 &&
+                !selectedProduct &&
+                !total &&
+                !canPay &&
+                !canAddProduct
             ),
         [parameters.display?.showProvision, amount, selectedProduct, total, canPay, canAddProduct]
     );
@@ -414,6 +424,17 @@ export const usePay = () => {
                     serviceType: orderData?.service_type,
                     showDetails: showDetails !== false,
                     mealCount,
+                    customer: currentCustomer
+                        ? {
+                              firstName: currentCustomer.firstName,
+                              lastName: currentCustomer.lastName,
+                              reference: currentCustomer.reference,
+                              company: currentCustomer.company,
+                          }
+                        : null,
+                    company: currentCustomer?.company
+                        ? (companies.find((c) => c.name === currentCustomer.company) ?? null)
+                        : null,
                 },
                 comBaud
             );
@@ -429,6 +450,8 @@ export const usePay = () => {
             currencies,
             currencyIndex,
             orderData,
+            companies,
+            currentCustomer,
         ]
     );
 

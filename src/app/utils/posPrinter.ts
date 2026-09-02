@@ -240,19 +240,33 @@ function isSameSubnet(ip1: string, ip2: string, subnetMask = '255.255.255.0') {
     return network1.every((octet, i) => octet === network2[i]);
 }
 
-function printShopInfo(printer: ThermalPrinter, shop: Shop) {
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0';
+
+function printReceiptHeader(printer: ThermalPrinter, shop: Shop) {
     printer.alignCenter();
     printer.setTextDoubleHeight();
     printer.bold(true);
     printer.println(shop.name.toUpperCase());
     printer.bold(false);
     printer.setTextNormal();
-    printer.newLine();
     if (shop.address) printer.println(shop.address);
     if (shop.zipCode && shop.city) printer.println(shop.zipCode + ' ' + shop.city);
-    if (shop.serial) printer.println('SIRET : ' + shop.serial);
+    if (shop.country) printer.println(shop.country);
+    if (shop.phone) printer.println('Tél : ' + shop.phone);
     if (shop.email) printer.println(shop.email);
     printer.newLine();
+}
+
+function printReceiptFooter(printer: ThermalPrinter, shop: Shop, validator?: string) {
+    printer.alignCenter();
+    if (shop.serial) printer.println('SIRET ' + shop.serial + ' - NAF 5610C');
+    if (shop.vatNumber) printer.println('TVA Intracom ' + shop.vatNumber);
+    printer.println('SARL - RCS');
+    printer.println(`Tradiz v${APP_VERSION} - (NF525)`);
+    if (validator) printer.println('Service : ' + validator);
+    printer.println('Caisse 1');
+    printer.newLine();
+    printer.println('Merci de votre visite');
 }
 
 const toCurrency = (amount: number | string, currency: Currency) =>
@@ -286,45 +300,74 @@ export async function printReceipt(
         const currency = receiptData.currency;
 
         // Print header
-        printShopInfo(printer, receiptData.shop);
-        printer.println(`Date : ${frenchDateStr} ${frenchTimeStr}`);
-        printer.println(`N° de reçu : ${receiptNumber}`);
-        if (receiptData.orderNumber) printer.println(`N° de commande : ${receiptData.orderNumber}`);
-        if (receiptData.serviceType) {
-            const serviceLabel = SERVICE_TYPE_LABELS[receiptData.serviceType];
-            printer.println(`Service : ${serviceLabel}`);
+        printReceiptHeader(printer, receiptData.shop);
+        printer.drawLine();
+
+        // Print customer block if available
+        if (receiptData.customer) {
+            printer.alignLeft();
+            const custName = `${receiptData.customer.firstName} ${receiptData.customer.lastName}`.trim();
+            printer.println(custName);
+            if (receiptData.company?.address) printer.println(receiptData.company.address);
+            if (receiptData.company?.zipCode && receiptData.company?.city)
+                printer.println(receiptData.company.zipCode + ' ' + receiptData.company.city);
+            if (receiptData.customer.reference) printer.println(`Compte n° ${receiptData.customer.reference}`);
         }
-        if (receiptData.transaction.validator) printer.println(`Vendeur•se : ${receiptData.transaction.validator}`);
-        printer.newLine();
+
+        printer.drawLine();
+        printer.alignLeft();
+        printer.println(`Date : ${frenchDateStr} - ${frenchTimeStr}`);
 
         const showDetails = receiptData.showDetails !== false; // default true
         const mealCount = receiptData.mealCount;
+        const isJustificatif = mealCount !== undefined && mealCount > 0;
+
+        if (isJustificatif) {
+            // Justificatif format (no-detail receipt)
+            printer.println(`Justificatif n° 1/1 Imp. N° 1`);
+            if (receiptData.transaction.shortNumOrder) {
+                printer.println(`${receiptData.transaction.shortNumOrder}-1 Tick du ${frenchDateStr}-${frenchTimeStr}`);
+            }
+        } else {
+            // Facturation format (detailed receipt)
+            printer.println(`Reçu de facturation pour Facture n°${receiptNumber}`);
+            if (isRefundTransaction(receiptData.transaction) && receiptData.transaction.shortNumOrder) {
+                printer.println(`Annulation Facture n°${receiptData.transaction.shortNumOrder}`);
+            }
+        }
+        if (receiptData.transaction.validator) printer.println(`Vendeur•se : ${receiptData.transaction.validator}`);
+        printer.newLine();
 
         printer.drawLine();
         printer.alignLeft();
 
         if (mealCount && mealCount > 0) {
-            // No-detail receipt: print only the meal count line
+            // Justificatif: print meal count line with unit price
+            const unitPrice = receiptData.transaction.amount / mealCount;
             printer.tableCustom([
-                { text: `x${mealCount}`, align: 'LEFT', cols: 4 },
+                { text: `${mealCount} x`, align: 'LEFT', cols: 4 },
                 { text: '', align: 'LEFT', cols: 1 },
-                { text: 'repas complet', align: 'LEFT', cols: 26 },
+                { text: 'Repas complet(s)', align: 'LEFT', cols: 22 },
                 { text: '', align: 'LEFT', cols: 1 },
                 { text: '', align: 'LEFT', cols: 7 },
                 { text: '', align: 'LEFT', cols: 1 },
-                { text: toCurrency(receiptData.transaction.amount, currency), align: 'LEFT', cols: 8 },
+                { text: toCurrency(unitPrice, currency), align: 'LEFT', cols: 8 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: '1', align: 'LEFT', cols: 3 },
             ]);
             printer.drawLine();
         } else {
             // Print items header
             printer.tableCustom([
-                { text: 'QTE', align: 'LEFT', cols: 4 },
+                { text: 'Qté', align: 'LEFT', cols: 4 },
                 { text: '', align: 'LEFT', cols: 1 },
-                { text: 'DESIGNATION', align: 'LEFT', cols: 26 },
+                { text: 'Désignation', align: 'LEFT', cols: 22 },
                 { text: '', align: 'LEFT', cols: 1 },
-                { text: 'P.U.', align: 'LEFT', cols: 7 },
+                { text: 'P.U', align: 'LEFT', cols: 7 },
                 { text: '', align: 'LEFT', cols: 1 },
-                { text: 'TOTAL', align: 'LEFT', cols: 8 },
+                { text: 'Tot.TTC', align: 'LEFT', cols: 8 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: 'T', align: 'LEFT', cols: 3 },
             ]);
             printer.drawLine();
 
@@ -335,16 +378,26 @@ export async function printReceipt(
                     label += ` (-${item.discount.amount}${item.discount.unit})`;
                 }
                 const labelLength = label.length;
-                label = labelLength > 26 ? label.slice(0, 23) + '...' : label;
+                label = labelLength > 22 ? label.slice(0, 19) + '...' : label;
+
+                // Determine VAT rate code (1=5.5%, 2=10%, 3=20%, etc.)
+                const rawRate =
+                    item.vatRate ??
+                    receiptData.inventory?.find((inv) => inv.category === item.category)?.rate ??
+                    DEFAULT_VAT_RATE;
+                const vatRate = rawRate >= 1 ? rawRate / 100 : rawRate;
+                const vatCode = vatRate <= 0.056 ? '1' : vatRate <= 0.11 ? '2' : '3';
 
                 printer.tableCustom([
-                    { text: `x${item.quantity}`, align: 'LEFT', cols: 4 },
+                    { text: `${item.quantity}`, align: 'LEFT', cols: 4 },
                     { text: '', align: 'LEFT', cols: 1 },
-                    { text: label, align: 'LEFT', cols: 26 },
+                    { text: label, align: 'LEFT', cols: 22 },
                     { text: '', align: 'LEFT', cols: 1 },
                     { text: toCurrency(item.amount, currency), align: 'LEFT', cols: 7 },
                     { text: '', align: 'LEFT', cols: 1 },
                     { text: toCurrency(item.total || 0, currency), align: 'LEFT', cols: 8 },
+                    { text: '', align: 'LEFT', cols: 1 },
+                    { text: vatCode, align: 'LEFT', cols: 3 },
                 ]);
 
                 // In detail mode, expand formula/article options as indented sub-lines
@@ -355,15 +408,17 @@ export async function printReceipt(
                         );
                         for (const opt of parsedOptions) {
                             const optLabel = `  ${opt.value}`;
-                            const truncated = optLabel.length > 26 ? optLabel.slice(0, 23) + '...' : optLabel;
+                            const truncated = optLabel.length > 22 ? optLabel.slice(0, 19) + '...' : optLabel;
                             printer.tableCustom([
                                 { text: '', align: 'LEFT', cols: 4 },
                                 { text: '', align: 'LEFT', cols: 1 },
-                                { text: truncated, align: 'LEFT', cols: 26 },
+                                { text: truncated, align: 'LEFT', cols: 22 },
                                 { text: '', align: 'LEFT', cols: 1 },
                                 { text: '', align: 'LEFT', cols: 7 },
                                 { text: '', align: 'LEFT', cols: 1 },
                                 { text: '', align: 'LEFT', cols: 8 },
+                                { text: '', align: 'LEFT', cols: 1 },
+                                { text: '', align: 'LEFT', cols: 3 },
                             ]);
                         }
                     } catch {
@@ -416,85 +471,136 @@ export async function printReceipt(
             });
         }
 
-        // Print employer share line if applicable
+        // Print employer share as a negative line item in the items table
         const employerShare = receiptData.transaction.employerShare;
-        if (employerShare && employerShare > 0) {
-            printer.alignLeft();
-            printer.leftRight('Quote part employeur', '-' + toCurrency(employerShare, currency));
+        const isRefund = isRefundTransaction(receiptData.transaction);
+        if (employerShare && employerShare !== 0 && !(mealCount && mealCount > 0)) {
+            const shareAmount = -Math.abs(employerShare);
+            const shareQty = isRefund ? '-1' : '1';
+            printer.tableCustom([
+                { text: shareQty, align: 'LEFT', cols: 4 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: 'PART EMPLOYEUR', align: 'LEFT', cols: 22 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: toCurrency(shareAmount, currency), align: 'LEFT', cols: 7 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: toCurrency(shareAmount, currency), align: 'LEFT', cols: 8 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: '3', align: 'LEFT', cols: 3 },
+            ]);
             printer.drawLine();
         }
 
-        // Print fidelity points used line if applicable
+        // Print fidelity points used as a negative line item
         const fidelityPointsUsed = receiptData.transaction.fidelityPointsUsed;
-        if (fidelityPointsUsed && fidelityPointsUsed > 0) {
-            printer.alignLeft();
-            printer.leftRight('Fidélité', '-' + toCurrency(fidelityPointsUsed, currency));
+        if (fidelityPointsUsed && fidelityPointsUsed !== 0 && !(mealCount && mealCount > 0)) {
+            const fidAmount = -Math.abs(fidelityPointsUsed);
+            const fidQty = isRefund ? '-1' : '1';
+            printer.tableCustom([
+                { text: fidQty, align: 'LEFT', cols: 4 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: 'Fidélité', align: 'LEFT', cols: 22 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: toCurrency(fidAmount, currency), align: 'LEFT', cols: 7 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: toCurrency(fidAmount, currency), align: 'LEFT', cols: 8 },
+                { text: '', align: 'LEFT', cols: 1 },
+                { text: '1', align: 'LEFT', cols: 3 },
+            ]);
             printer.drawLine();
         }
 
-        // Print total
-        printer.newLine();
-        printer.drawLine();
+        // Print article count (facturation only)
+        if (!isJustificatif) {
+            printer.alignLeft();
+            const articleCount = receiptData.transaction.products.length;
+            printer.println(`Nombre d'articles : ${articleCount}`);
+        }
 
-        // Print totals HT by VAT rate
-        printer.alignLeft();
-        vatTotals.forEach((values, rate) => {
-            const ratePercent = (rate * 100).toFixed(0);
-            printer.leftRight(`Total HT ${ratePercent}%`, toCurrency(values.ht, currency));
-        });
-
-        // Print VAT by rate (without extra newlines)
-        vatTotals.forEach((values, rate) => {
-            const ratePercent = (rate * 100).toFixed(0);
-            printer.leftRight(`TVA ${ratePercent}%`, toCurrency(values.tva, currency));
-        });
-
-        // Print total HT
-        printer.leftRight('TOTAL HT', toCurrency(totalHT, currency));
-
-        printer.drawLine();
-
-        // Print total TTC (larger and bold, isolated)
-        // If there's an employer share, show the products total then the customer-paid total
+        // Print total TTC (larger and bold)
+        const netAmount =
+            employerShare && employerShare !== 0
+                ? totalTTC - employerShare - (fidelityPointsUsed ?? 0)
+                : totalTTC - (fidelityPointsUsed ?? 0);
         printer.setTextDoubleHeight();
         printer.bold(true);
-        if (employerShare && employerShare > 0) {
-            printer.leftRight('Total produits', toCurrency(totalTTC, currency));
-            printer.leftRight('NET À PAYER', toCurrency(Math.max(0, totalTTC - employerShare), currency));
-        } else {
-            printer.leftRight('TOTAL TTC', toCurrency(totalTTC, currency));
-        }
+        printer.leftRight(isJustificatif ? 'TOTAL TTC:' : 'NET TTC', toCurrency(netAmount, currency));
         printer.bold(false);
         printer.setTextNormal();
         printer.drawLine();
 
-        // Print payment method if available
-        printer.alignCenter();
-        printer.println(paymentMethod ? `Mode de paiement: ${paymentMethod}` : 'À RÉGLER');
+        // Add employer share as 0% VAT negative entry (for normal receipts)
+        // or positive entry (for cancellation receipts where employerShare is negative)
+        if (employerShare && employerShare !== 0) {
+            const rate0 = 0;
+            if (!vatTotals.has(rate0)) {
+                vatTotals.set(rate0, { ht: -employerShare, tva: 0, ttc: -employerShare });
+            } else {
+                const v = vatTotals.get(rate0)!;
+                v.ht -= employerShare;
+                v.ttc -= employerShare;
+            }
+        }
+        const totalHTFinal = totalHT - (employerShare ?? 0);
 
-        // Print cash details and change for cash payments
-        if (receiptData.transaction.cashAmount !== undefined) {
-            printer.leftRight('MONTANT REÇU', toCurrency(receiptData.transaction.cashAmount, currency));
-            if (receiptData.transaction.change !== undefined && receiptData.transaction.change > 0) {
-                printer.leftRight('MONNAIE À RENDRE', toCurrency(receiptData.transaction.change, currency));
+        // Print VAT breakdown table
+        printer.alignLeft();
+        printer.tableCustom([
+            { text: 'Code TVA', align: 'LEFT', cols: 12 },
+            { text: 'HT', align: 'LEFT', cols: 12 },
+            { text: 'TVA', align: 'LEFT', cols: 12 },
+            { text: 'TTC', align: 'LEFT', cols: 12 },
+        ]);
+
+        Array.from(vatTotals.keys())
+            .sort((a, b) => a - b)
+            .forEach((rate) => {
+                const values = vatTotals.get(rate)!;
+                const code = rate <= 0.056 ? '1' : rate <= 0.11 ? '2' : '3';
+                const rateStr = isJustificatif ? (rate * 100).toFixed(2) : (rate * 100).toFixed(2) + '%';
+                printer.tableCustom([
+                    { text: `(${code}) ${rateStr}`, align: 'LEFT', cols: 12 },
+                    { text: toCurrency(values.ht, currency), align: 'LEFT', cols: 12 },
+                    { text: toCurrency(values.tva, currency), align: 'LEFT', cols: 12 },
+                    { text: toCurrency(values.ttc, currency), align: 'LEFT', cols: 12 },
+                ]);
+            });
+
+        printer.leftRight(isJustificatif ? 'TOTAL. HT' : 'TOTAL HT', toCurrency(totalHTFinal, currency));
+
+        if (isJustificatif) {
+            // Justificatif: payment line + non-valable notice
+            printer.newLine();
+            if (paymentMethod) {
+                printer.leftRight(`(B) ${paymentMethod}`, toCurrency(netAmount, currency));
+            }
+            printer.newLine();
+            printer.alignCenter();
+            printer.println('Justificatif non valable pour encaissement');
+        } else {
+            // Facturation: solde créditeur + payment method
+            printer.println('A la date de facturation');
+            printer.leftRight('Solde Créditeur', toCurrency(netAmount, currency));
+            printer.newLine();
+
+            // Print payment method if available
+            printer.alignCenter();
+            printer.println(paymentMethod ? `Mode de paiement: ${paymentMethod}` : 'À RÉGLER');
+
+            // Print cash details and change for cash payments
+            if (receiptData.transaction.cashAmount !== undefined) {
+                printer.leftRight('MONTANT REÇU', toCurrency(receiptData.transaction.cashAmount, currency));
+                if (receiptData.transaction.change !== undefined && receiptData.transaction.change > 0) {
+                    printer.leftRight('MONNAIE À RENDRE', toCurrency(receiptData.transaction.change, currency));
+                }
             }
         }
 
         printer.newLine();
 
-        // Print legal mention
-        printer.alignCenter();
-        printer.println('Logiciel de caisse conforme');
-        printer.println("à l'article 286 I-3 bis du CGI");
-        printer.newLine();
+        // Print legal footer
+        printReceiptFooter(printer, receiptData.shop, receiptData.transaction.validator);
 
-        // Print thank you message
-        printer.alignCenter();
-        printer.println(
-            paymentMethod
-                ? receiptData.thanksMessage || 'Merci pour votre achat !'
-                : 'Merci de passer par la caisse avant de partir !'
-        );
         printer.cut();
 
         // Execute print
@@ -609,7 +715,7 @@ export async function printBalanceStatement(
         printer.println('                   RELEVÉ DE SOLDE                   ');
         printer.invert(false);
         printer.newLine();
-        printShopInfo(printer, balanceData.shop);
+        printReceiptHeader(printer, balanceData.shop);
 
         // Print date
         printer.println(`Date : ${frenchDateStr} ${frenchTimeStr}`);
@@ -705,7 +811,7 @@ export async function printSummary(
         printer.println('                    Ticket Z                    ');
         printer.invert(false);
         printer.newLine();
-        printShopInfo(printer, summaryData.shop);
+        printReceiptHeader(printer, summaryData.shop);
 
         // Format the transaction dates
         const firstTransactionDate = new Date(firstDate);

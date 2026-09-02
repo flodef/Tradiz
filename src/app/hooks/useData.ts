@@ -1,5 +1,6 @@
 import { ChangeEvent, createContext, RefObject, useContext } from 'react';
 import {
+    Company,
     Customer,
     Discount,
     Mercurial,
@@ -71,6 +72,7 @@ export interface DataContextState {
     checkAndPerformDayReset: () => boolean;
     currentCustomer: Customer | null;
     setCurrentCustomer: (customer: Customer | null) => void;
+    companies: Company[];
     wasWaitingBeforeEditRef: RefObject<boolean>;
     originalProductsSnapshotRef: RefObject<Product[]>;
     transactionsLoaded: boolean;

@@ -325,6 +325,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                                 if (!response.success)
                                                     console.error('[Refund] Kitchen print failed:', response.error);
                                             });
+                                            printTransaction(refundTx, true);
                                         }
                                     },
                                 },

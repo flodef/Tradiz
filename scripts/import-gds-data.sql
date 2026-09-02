@@ -51,6 +51,7 @@ INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (1
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (17, 'useVirtualKeyboard', 'true', '2026-08-05 14:19:31.010455') ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (18, 'phone', '0298487248', '2026-08-27 20:00:00.000000') ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (19, 'fidelityRate', '3', '2026-08-27 20:00:00.000000') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (20, 'vatNumber', 'FR15819968355', '2026-08-27 20:00:00.000000') ON CONFLICT (id) DO NOTHING;
 
 -- Payment methods (paiements)
 INSERT INTO dc_pos.payment_methods (id, label, address, currency, available, created_at) VALUES (1, 'Carte Bancaire', '0', 'Euro', true, '2026-07-11 18:17:10.119469') ON CONFLICT (id) DO NOTHING;

@@ -8,9 +8,7 @@ export function VersionChecker() {
 
     // Auto-reload when a genuine update is detected (in an effect, never during render)
     useEffect(() => {
-        if (updateAvailable) {
-            window.location.reload();
-        }
+        if (updateAvailable) window.location.reload();
     }, [updateAvailable]);
 
     return null;

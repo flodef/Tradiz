@@ -1636,6 +1636,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 ...transaction,
                 amount: -transaction.amount,
                 products: reversedProducts,
+                ...(transaction.employerShare ? { employerShare: -transaction.employerShare } : {}),
+                ...(transaction.fidelityPointsUsed ? { fidelityPointsUsed: -transaction.fidelityPointsUsed } : {}),
             };
         },
         [computeQuantity]
@@ -1736,6 +1738,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 checkAndPerformDayReset,
                 currentCustomer,
                 setCurrentCustomer,
+                companies,
                 wasWaitingBeforeEditRef,
                 originalProductsSnapshotRef,
                 transactionsLoaded,
