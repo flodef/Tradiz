@@ -1102,12 +1102,24 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     return;
 
                 if (isProcessingTransaction(transaction)) {
-                    // PROCESSING transactions are transient — hard-delete them from DB
-                    // instead of leaving a DELETED record. saveTransactions handles
-                    // removing from both React state (via transactionsToSave) and IndexedDB.
+                    // Soft-delete PROCESSING transactions (mark as DELETED) instead of
+                    // hard-deleting them. This ensures the deletion propagates to other
+                    // devices via incremental sync: the updated modifiedDate makes the
+                    // DELETED tx appear in the sync response, and fullSync replaces the
+                    // local PROCESSING tx with the DELETED version (filtered out by UI).
+                    // hardDelete is only used for clearProcessingTransaction (payment),
+                    // where the paid tx replaces the PROCESSING tx with the same createdDate.
                     processingTxCreatedDateRef.current = 0;
-                    saveTransactions(DatabaseAction.hardDelete, transaction);
-                    setTransactions((prev) => prev.filter((_, i) => i !== index));
+                    if (autoSaveProcessingRef.current) {
+                        clearTimeout(autoSaveProcessingRef.current);
+                        autoSaveProcessingRef.current = null;
+                    }
+                    // Clear the cart so saveProcessingTransaction doesn't re-create the tx.
+                    products.current = [];
+                    clearRequestedRef.current = true;
+                    transaction.method = DELETED_KEYWORD;
+                    storeTransaction(transaction);
+                    saveTransactions(DatabaseAction.delete, transaction);
                 } else {
                     transaction.method = DELETED_KEYWORD;
                     storeTransaction(transaction);

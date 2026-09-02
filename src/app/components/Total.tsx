@@ -664,11 +664,18 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         const waitingTransactions = transactions
             .filter(isWaitingTransaction)
             .sort((a, b) => b.createdDate - a.createdDate);
+        const processingTransactions = transactions
+            .filter(isProcessingTransaction)
+            .sort((a, b) => b.createdDate - a.createdDate);
         const confirmedTransactions = transactions
             .filter(isConfirmedTransaction)
             .sort((a, b) => b.createdDate - a.createdDate);
-        const hasSeparation = waitingTransactions.length && confirmedTransactions.length;
-        return waitingTransactions.concat(hasSeparation ? [{} as Transaction] : []).concat(confirmedTransactions);
+        const hasSeparation =
+            waitingTransactions.length && (processingTransactions.length || confirmedTransactions.length);
+        return waitingTransactions
+            .concat(hasSeparation ? [{} as Transaction] : [])
+            .concat(processingTransactions)
+            .concat(confirmedTransactions);
     }, [transactions]);
 
     const getTransactionIndex = useCallback(
