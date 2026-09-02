@@ -1,7 +1,7 @@
 'use client';
 
 import { Parameters, ProductsSettings, SearchSettings, DisplaySettings } from '@/app/contexts/ConfigProvider';
-import { DEFAULT_DISPLAY_SETTINGS } from '@/app/utils/processData';
+import { DEFAULT_DISPLAY_SETTINGS, DEFAULT_PRODUCTS_SETTINGS } from '@/app/utils/processData';
 import { adminTextStyle } from '@/app/utils/constants';
 import { frenchPhoneRegex } from '@/app/utils/regex';
 import { Mercurial, User } from '@/app/utils/interfaces';
@@ -322,16 +322,7 @@ export default function ParametersConfig({
                             checked={config.products?.useVatPerProduct ?? false}
                             onChange={(checked) =>
                                 handleChange('products', {
-                                    ...(config.products ?? {
-                                        useVatPerProduct: false,
-                                        useReference: false,
-                                        useStock: false,
-                                        usePhoto: false,
-                                        useDescription: false,
-                                        useOptions: false,
-                                        useColor: false,
-                                        useEmployerShare: false,
-                                    }),
+                                    ...(config.products ?? DEFAULT_PRODUCTS_SETTINGS),
                                     useVatPerProduct: checked,
                                 } as ProductsSettings)
                             }
@@ -344,16 +335,7 @@ export default function ParametersConfig({
                             checked={config.products?.useReference ?? false}
                             onChange={(checked) =>
                                 handleChange('products', {
-                                    ...(config.products ?? {
-                                        useVatPerProduct: false,
-                                        useReference: false,
-                                        useStock: false,
-                                        usePhoto: false,
-                                        useDescription: false,
-                                        useOptions: false,
-                                        useColor: false,
-                                        useEmployerShare: false,
-                                    }),
+                                    ...(config.products ?? DEFAULT_PRODUCTS_SETTINGS),
                                     useReference: checked,
                                 } as ProductsSettings)
                             }
@@ -366,16 +348,7 @@ export default function ParametersConfig({
                             checked={config.products?.useStock ?? false}
                             onChange={(checked) =>
                                 handleChange('products', {
-                                    ...(config.products ?? {
-                                        useVatPerProduct: false,
-                                        useReference: false,
-                                        useStock: false,
-                                        usePhoto: false,
-                                        useDescription: false,
-                                        useOptions: false,
-                                        useColor: false,
-                                        useEmployerShare: false,
-                                    }),
+                                    ...(config.products ?? DEFAULT_PRODUCTS_SETTINGS),
                                     useStock: checked,
                                 } as ProductsSettings)
                             }
@@ -388,16 +361,7 @@ export default function ParametersConfig({
                             checked={config.products?.usePhoto ?? false}
                             onChange={(checked) =>
                                 handleChange('products', {
-                                    ...(config.products ?? {
-                                        useVatPerProduct: false,
-                                        useReference: false,
-                                        useStock: false,
-                                        usePhoto: false,
-                                        useDescription: false,
-                                        useOptions: false,
-                                        useColor: false,
-                                        useEmployerShare: false,
-                                    }),
+                                    ...(config.products ?? DEFAULT_PRODUCTS_SETTINGS),
                                     usePhoto: checked,
                                 } as ProductsSettings)
                             }
@@ -410,16 +374,7 @@ export default function ParametersConfig({
                             checked={config.products?.useDescription ?? false}
                             onChange={(checked) =>
                                 handleChange('products', {
-                                    ...(config.products ?? {
-                                        useVatPerProduct: false,
-                                        useReference: false,
-                                        useStock: false,
-                                        usePhoto: false,
-                                        useDescription: false,
-                                        useOptions: false,
-                                        useColor: false,
-                                        useEmployerShare: false,
-                                    }),
+                                    ...(config.products ?? DEFAULT_PRODUCTS_SETTINGS),
                                     useDescription: checked,
                                 } as ProductsSettings)
                             }
@@ -432,16 +387,7 @@ export default function ParametersConfig({
                             checked={config.products?.useOptions ?? false}
                             onChange={(checked) =>
                                 handleChange('products', {
-                                    ...(config.products ?? {
-                                        useVatPerProduct: false,
-                                        useReference: false,
-                                        useStock: false,
-                                        usePhoto: false,
-                                        useDescription: false,
-                                        useOptions: false,
-                                        useColor: false,
-                                        useEmployerShare: false,
-                                    }),
+                                    ...(config.products ?? DEFAULT_PRODUCTS_SETTINGS),
                                     useOptions: checked,
                                 } as ProductsSettings)
                             }
@@ -454,16 +400,7 @@ export default function ParametersConfig({
                             checked={config.products?.useColor ?? false}
                             onChange={(checked) =>
                                 handleChange('products', {
-                                    ...(config.products ?? {
-                                        useVatPerProduct: false,
-                                        useReference: false,
-                                        useStock: false,
-                                        usePhoto: false,
-                                        useDescription: false,
-                                        useOptions: false,
-                                        useColor: false,
-                                        useEmployerShare: false,
-                                    }),
+                                    ...(config.products ?? DEFAULT_PRODUCTS_SETTINGS),
                                     useColor: checked,
                                 } as ProductsSettings)
                             }
@@ -476,16 +413,7 @@ export default function ParametersConfig({
                             checked={config.products?.useEmployerShare ?? false}
                             onChange={(checked) =>
                                 handleChange('products', {
-                                    ...(config.products ?? {
-                                        useVatPerProduct: false,
-                                        useReference: false,
-                                        useStock: false,
-                                        usePhoto: false,
-                                        useDescription: false,
-                                        useOptions: false,
-                                        useColor: false,
-                                        useEmployerShare: false,
-                                    }),
+                                    ...(config.products ?? DEFAULT_PRODUCTS_SETTINGS),
                                     useEmployerShare: checked,
                                 } as ProductsSettings)
                             }

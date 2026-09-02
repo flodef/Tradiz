@@ -1,5 +1,5 @@
 import { SHOP_ID } from '../constants/shop';
-import { Config, DisplaySettings, Parameters } from '../contexts/ConfigProvider';
+import { Config, DisplaySettings, Parameters, ProductsSettings } from '../contexts/ConfigProvider';
 import {
     CategoryData,
     Color,
@@ -132,6 +132,17 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
     paymentIconsMode: true,
 };
 
+export const DEFAULT_PRODUCTS_SETTINGS: ProductsSettings = {
+    useVatPerProduct: false,
+    useReference: false,
+    useStock: false,
+    usePhoto: false,
+    useDescription: false,
+    useOptions: false,
+    useColor: false,
+    useEmployerShare: false,
+};
+
 export function parseDisplaySettings(json: string | undefined | null): DisplaySettings | undefined {
     if (!json) return undefined;
     try {
@@ -161,7 +172,7 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
     // Helper function: lookup by key first, then by index
     const getParamValue = (key: string, fallbackIndex: number): string => {
         const keyIndex = param.keys.findIndex((k) => k === key);
-        return keyIndex !== -1 ? param.values.at(keyIndex) ?? '' : param.values.at(fallbackIndex) ?? '';
+        return keyIndex !== -1 ? (param.values.at(keyIndex) ?? '') : (param.values.at(fallbackIndex) ?? '');
     };
 
     return {
@@ -371,16 +382,7 @@ export const defaultParameters: Parameters = {
     userSwitch: true,
     useVirtualKeyboard: false,
     fidelityRate: 0,
-    products: {
-        useVatPerProduct: false,
-        useReference: false,
-        useStock: false,
-        usePhoto: false,
-        useDescription: false,
-        useOptions: false,
-        useColor: false,
-        useEmployerShare: false,
-    },
+    products: { ...DEFAULT_PRODUCTS_SETTINGS },
     search: {
         searchCustomers: false,
         searchProducts: false,

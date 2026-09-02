@@ -180,26 +180,27 @@ function ProductEditPopup({
                         isReadOnly={isReadOnly}
                     />
                 </div>
-                {productsSettings?.useEmployerShare && (() => {
-                    const share = categoryCompanyShare.get(draft.category || DEFAULT_CATEGORY);
-                    if (share === undefined) return null;
-                    return (
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                Quote part
-                            </label>
-                            <ValidatedInput
-                                type="number"
-                                value={draft.employerShare == null ? '' : String(draft.employerShare)}
-                                onChange={(value) =>
-                                    update({ employerShare: value === '' ? undefined : Number(value) })
-                                }
-                                placeholder={share.toFixed(2)}
-                                isReadOnly={isReadOnly}
-                            />
-                        </div>
-                    );
-                })()}
+                {productsSettings?.useEmployerShare &&
+                    (() => {
+                        const share = categoryCompanyShare.get(draft.category || DEFAULT_CATEGORY);
+                        if (share === undefined) return null;
+                        return (
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                    Quote part
+                                </label>
+                                <ValidatedInput
+                                    type="number"
+                                    value={draft.employerShare == null ? '' : String(draft.employerShare)}
+                                    onChange={(value) =>
+                                        update({ employerShare: value === '' ? undefined : Number(value) })
+                                    }
+                                    placeholder={share.toFixed(2)}
+                                    isReadOnly={isReadOnly}
+                                />
+                            </div>
+                        );
+                    })()}
                 {productsSettings?.useVatPerProduct && (
                     <div>
                         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
@@ -933,7 +934,7 @@ export default function ProductsConfig({
                                             >
                                                 <td
                                                     colSpan={(() => {
-                                                        let count = isReadOnly ? 5 : 6; // base: name + category + price + stock/availability + (drag + delete if !readOnly)
+                                                        let count = isReadOnly ? 4 : 6; // base: name + category + price + stock/availability + (drag + delete if !readOnly)
                                                         if (productsSettings?.useEmployerShare) count++;
                                                         if (productsSettings?.useReference) count++;
                                                         if (productsSettings?.useVatPerProduct) count++;
@@ -1052,31 +1053,33 @@ export default function ProductsConfig({
                                                                     }}
                                                                 />
                                                             </td>
-                                                            {productsSettings?.useEmployerShare && (() => {
-                                                                const share = categoryCompanyShare.get(
-                                                                    p.category || DEFAULT_CATEGORY
-                                                                );
-                                                                if (share === undefined) return <td className="p-2" />;
-                                                                return (
-                                                                    <td className="p-2">
-                                                                        <PriceInput
-                                                                            value={p.employerShare ?? ''}
-                                                                            onChange={(value) =>
-                                                                                handleProductChange(i, {
-                                                                                    ...p,
-                                                                                    employerShare:
-                                                                                        value === '' || value === 0
-                                                                                            ? undefined
-                                                                                            : Number(value),
-                                                                                })
-                                                                            }
-                                                                            currencies={currencies}
-                                                                            isReadOnly={isReadOnly}
-                                                                            placeholder={share.toFixed(2)}
-                                                                        />
-                                                                    </td>
-                                                                );
-                                                            })()}
+                                                            {productsSettings?.useEmployerShare &&
+                                                                (() => {
+                                                                    const share = categoryCompanyShare.get(
+                                                                        p.category || DEFAULT_CATEGORY
+                                                                    );
+                                                                    if (share === undefined)
+                                                                        return <td className="p-2" />;
+                                                                    return (
+                                                                        <td className="p-2">
+                                                                            <PriceInput
+                                                                                value={p.employerShare ?? ''}
+                                                                                onChange={(value) =>
+                                                                                    handleProductChange(i, {
+                                                                                        ...p,
+                                                                                        employerShare:
+                                                                                            value === '' || value === 0
+                                                                                                ? undefined
+                                                                                                : Number(value),
+                                                                                    })
+                                                                                }
+                                                                                currencies={currencies}
+                                                                                isReadOnly={isReadOnly}
+                                                                                placeholder={share.toFixed(2)}
+                                                                            />
+                                                                        </td>
+                                                                    );
+                                                                })()}
                                                             {productsSettings?.useVatPerProduct && (
                                                                 <td className="p-2">
                                                                     <ValidatedInput
@@ -1189,8 +1192,14 @@ export default function ProductsConfig({
                                                             )}
                                                             <DeleteButtonCell
                                                                 isReadOnly={isReadOnly}
-                                                                onDelete={useEditMode ? undefined : () => handleDeleteProduct(i)}
-                                                                onEdit={useEditMode ? () => handleEditProduct(i) : undefined}
+                                                                onDelete={
+                                                                    useEditMode
+                                                                        ? undefined
+                                                                        : () => handleDeleteProduct(i)
+                                                                }
+                                                                onEdit={
+                                                                    useEditMode ? () => handleEditProduct(i) : undefined
+                                                                }
                                                             />
                                                         </SortableRow>
                                                     ))}

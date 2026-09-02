@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
         // Fetch all printers (name → id) so we can resolve printer names to IDs
         // printer_id column may not exist yet — detect and fall back gracefully
-        let printerIdByName = new Map<string, number>();
+        const printerIdByName = new Map<string, number>();
         let hasPrinterColumn = true;
         try {
             const [printerRows] = await connection.execute(`SELECT id, name FROM ${pgPrinters}`);
@@ -82,9 +82,9 @@ export async function POST(request: Request) {
                 const cat = categories[i];
                 const name = cat.name;
                 const companyName = cat.company ?? null;
-                const companyId = companyName ? companyIdByName.get(companyName) ?? null : null;
+                const companyId = companyName ? (companyIdByName.get(companyName) ?? null) : null;
                 const printerName = cat.printer ?? null;
-                const printerId = printerName ? printerIdByName.get(printerName) ?? null : null;
+                const printerId = printerName ? (printerIdByName.get(printerName) ?? null) : null;
                 const sortOrder = cat.sortOrder ?? i;
 
                 // Look up by originalName if renamed, otherwise by name

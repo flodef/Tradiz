@@ -266,7 +266,7 @@ export default function CatalogEditor({
     }, [gridProducts]);
 
     // The product currently being dragged (for DragOverlay rendering)
-    const activeProduct = activeProductId ? gridSlots.find((s) => s?._gridId === activeProductId) ?? null : null;
+    const activeProduct = activeProductId ? (gridSlots.find((s) => s?._gridId === activeProductId) ?? null) : null;
 
     const selectedProduct = useMemo(() => {
         if (!selectedProductId) return null;
@@ -687,36 +687,39 @@ export default function CatalogEditor({
                                 )}
                             </div>
 
-                            {productsSettings?.useEmployerShare && (() => {
-                                const share = categoryCompanyShare.get(selectedProduct.category || DEFAULT_CATEGORY);
-                                if (share === undefined) return null;
-                                return (
-                                    <div className="flex gap-3">
-                                        <div className="w-full">
-                                            <PriceInput
-                                                value={selectedProduct.employerShare ?? ''}
-                                                onChange={(value) =>
-                                                    handleProductUpdate({
-                                                        ...selectedProduct,
-                                                        employerShare: value === '' ? undefined : Number(value),
-                                                    })
-                                                }
-                                                currencies={currencies}
-                                                placeholder={share.toFixed(2)}
-                                                isReadOnly={isReadOnly}
-                                                label="Quote part"
-                                                className="w-full"
-                                                validation={(value) =>
-                                                    value === '' ||
-                                                    value === undefined ||
-                                                    (!isNaN(parseFloat(String(value))) &&
-                                                        parseFloat(String(value)) >= 0)
-                                                }
-                                            />
+                            {productsSettings?.useEmployerShare &&
+                                (() => {
+                                    const share = categoryCompanyShare.get(
+                                        selectedProduct.category || DEFAULT_CATEGORY
+                                    );
+                                    if (share === undefined) return null;
+                                    return (
+                                        <div className="flex gap-3">
+                                            <div className="w-full">
+                                                <PriceInput
+                                                    value={selectedProduct.employerShare ?? ''}
+                                                    onChange={(value) =>
+                                                        handleProductUpdate({
+                                                            ...selectedProduct,
+                                                            employerShare: value === '' ? undefined : Number(value),
+                                                        })
+                                                    }
+                                                    currencies={currencies}
+                                                    placeholder={share.toFixed(2)}
+                                                    isReadOnly={isReadOnly}
+                                                    label="Quote part"
+                                                    className="w-full"
+                                                    validation={(value) =>
+                                                        value === '' ||
+                                                        value === undefined ||
+                                                        (!isNaN(parseFloat(String(value))) &&
+                                                            parseFloat(String(value)) >= 0)
+                                                    }
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
-                                );
-                            })()}
+                                    );
+                                })()}
 
                             {(productsSettings?.useReference || productsSettings?.useStock) && (
                                 <div className="flex gap-3">
