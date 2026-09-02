@@ -261,7 +261,7 @@ export const useSummary = () => {
             }
 
             // Track employer share (Hors CA)
-            if (transaction.employerShare && transaction.employerShare > 0) {
+            if (transaction.employerShare && transaction.employerShare !== 0) {
                 employerShareTotal += transaction.employerShare;
             }
 

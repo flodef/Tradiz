@@ -178,7 +178,6 @@ function formatReportDate(date: string): string {
  * Send a billing report by email
  */
 export async function sendBillingReportEmail(report: BillingReport, to?: string): Promise<boolean> {
-    const vatRatePercent = (report.vatRate * 100).toFixed(0);
     const startLabel = formatReportDate(report.startDate);
     const endLabel = formatReportDate(report.endDate);
     const companyName = escapeHtml(report.companyName);
@@ -187,6 +186,18 @@ export async function sendBillingReportEmail(report: BillingReport, to?: string)
     const totalHT = Number(report.totalHT ?? 0).toFixed(2);
     const totalTVA = Number(report.totalTVA ?? 0).toFixed(2);
     const totalAmount = Number(report.totalAmount ?? 0).toFixed(2);
+
+    const vatRows =
+        report.vatBreakdown && report.vatBreakdown.length > 0
+            ? report.vatBreakdown
+                  .map(
+                      (vat) => `
+                <tr><td style="padding: 5px; border: 1px solid #ccc;">Total HT ${escapeHtml(vat.label)}</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${Number(vat.ht).toFixed(2)} €</td></tr>
+                <tr><td style="padding: 5px; border: 1px solid #ccc;">TVA ${escapeHtml(vat.label)}</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${Number(vat.tva).toFixed(2)} €</td></tr>`
+                  )
+                  .join('')
+            : `<tr><td style="padding: 5px; border: 1px solid #ccc;">Total HT</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${totalHT} €</td></tr>
+               <tr><td style="padding: 5px; border: 1px solid #ccc;">TVA</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${totalTVA} €</td></tr>`;
 
     const rows =
         report.customers && report.customers.length > 0
@@ -213,8 +224,7 @@ export async function sendBillingReportEmail(report: BillingReport, to?: string)
           <table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #ccc;">
             <tr><td style="padding: 5px; border: 1px solid #ccc;">Prix / Quote part TTC</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${employerShare} €</td></tr>
             <tr><td style="padding: 5px; border: 1px solid #ccc;">Nombre total de repas</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${report.mealCount}</td></tr>
-            <tr><td style="padding: 5px; border: 1px solid #ccc;">Total HT ${vatRatePercent}%</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${totalHT} €</td></tr>
-            <tr><td style="padding: 5px; border: 1px solid #ccc;">TVA ${vatRatePercent}%</td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;">${totalTVA} €</td></tr>
+            ${vatRows}
             <tr><td style="padding: 5px; border: 1px solid #ccc;"><strong>Total TTC à facturer</strong></td><td style="padding: 5px; border: 1px solid #ccc; text-align: right;"><strong>${totalAmount} €</strong></td></tr>
           </table>
           <p>Détail par personne :</p>

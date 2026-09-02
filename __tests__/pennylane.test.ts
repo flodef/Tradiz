@@ -51,6 +51,12 @@ const mockReport: BillingReport = {
             totalTVA: 28.33,
         },
     ],
+    ticketCount: 100,
+    customerPaidAmount: 850,
+    vatBreakdown: [],
+    ventilations: [],
+    paymentTotals: [],
+    refundCount: 0,
 };
 
 const mockShop: Shop = {

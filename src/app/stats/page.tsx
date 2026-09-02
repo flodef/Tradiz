@@ -9,7 +9,6 @@ import { useUserRole } from '@/app/hooks/useUserRole';
 import { useWindowParam } from '@/app/hooks/useWindowParam';
 import {
     DELETED_KEYWORD,
-    DEFAULT_VAT_RATE,
     PROCESSING_KEYWORD,
     REFUND_KEYWORD,
     USE_DIGICARTE,
@@ -86,7 +85,6 @@ export default function StatsPage() {
 
     const [companies, setCompanies] = useState<Company[]>([]);
     const [selectedCompany, setSelectedCompany] = useState('');
-    const [vatRate, setVatRate] = useState(DEFAULT_VAT_RATE);
     const [billingReport, setBillingReport] = useState<BillingReport | null>(null);
     const [billingLoading, setBillingLoading] = useState(false);
     const [billingError, setBillingError] = useState('');
@@ -323,7 +321,6 @@ export default function StatsPage() {
                 companyName: selectedCompany,
                 startDate,
                 endDate,
-                vatRate: String(vatRate),
             });
             const response = await fetch(`/api/sql/getBillingReport?${params.toString()}`);
             const data = await response.json();
@@ -340,7 +337,7 @@ export default function StatsPage() {
         } finally {
             setBillingLoading(false);
         }
-    }, [selectedCompany, startDate, endDate, vatRate]);
+    }, [selectedCompany, startDate, endDate]);
 
     const runBillingPrint = useCallback(
         async (print: typeof printBillingSummary) => {
@@ -579,17 +576,6 @@ export default function StatsPage() {
                                     </option>
                                 ))}
                             </select>
-                        </div>
-                        <div className="w-32">
-                            <label className="block text-sm font-medium mb-1">TVA (%)</label>
-                            <input
-                                type="number"
-                                value={vatRate}
-                                min={0}
-                                step={0.5}
-                                onChange={(e) => setVatRate(Number(e.target.value))}
-                                className="w-full px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
-                            />
                         </div>
                         <div className="flex items-end gap-2 flex-wrap">
                             <AdminButton

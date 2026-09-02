@@ -1,13 +1,9 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
-import { DEFAULT_VAT_RATE } from '@/app/utils/constants';
 import { toSQLDateTime } from '@/app/utils/date';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
 import { aggregateMealsByCustomer } from '../billingHelpers';
-
-function normalizeVatRate(raw: number): number {
-    return raw >= 1 ? raw / 100 : raw;
-}
+import { getCompanyTransactionStats } from '../billingStats';
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
@@ -15,14 +11,9 @@ export async function GET(request: Request) {
     const companyName = searchParams.get('companyName');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
-    const vatParam = searchParams.get('vatRate');
-    const vatRate = normalizeVatRate(vatParam ? Number(vatParam) : DEFAULT_VAT_RATE);
 
-    if (!companyName || !startDate || !endDate || isNaN(vatRate)) {
-        return NextResponse.json(
-            { error: 'Missing or invalid companyName, startDate, endDate or vatRate' },
-            { status: 400 }
-        );
+    if (!companyName || !startDate || !endDate) {
+        return NextResponse.json({ error: 'Missing or invalid companyName, startDate or endDate' }, { status: 400 });
     }
 
     let connection: DbConnection | undefined;
@@ -60,10 +51,17 @@ export async function GET(request: Request) {
         const endAt = toSQLDateTime(end);
 
         const aggregation = await aggregateMealsByCustomer(connection, companyName, startAt, endAt);
+        const stats = await getCompanyTransactionStats(connection, companyName, startAt, endAt);
+
+        // Determine the dominant VAT rate from the breakdown for customer-level calculation
+        const dominantVat =
+            stats.vatBreakdown.length > 0
+                ? stats.vatBreakdown.reduce((prev, curr) => (curr.ca > prev.ca ? curr : prev)).vatRate
+                : 0.1;
 
         const customers = aggregation.customers.map((c) => {
             const totalAmount = Number(c.meal_count) * employerShare;
-            const totalHT = totalAmount / (1 + vatRate);
+            const totalHT = totalAmount / (1 + dominantVat);
             const totalTVA = totalAmount - totalHT;
             return {
                 customerId: Number(c.customer_id),
@@ -95,12 +93,18 @@ export async function GET(request: Request) {
             startDate,
             endDate,
             employerShare,
-            vatRate,
+            vatRate: dominantVat,
             mealCount,
             totalAmount,
             totalHT,
             totalTVA,
             customers,
+            ticketCount: stats.ticketCount,
+            customerPaidAmount: stats.customerPaidAmount,
+            vatBreakdown: stats.vatBreakdown,
+            ventilations: stats.ventilations,
+            paymentTotals: stats.paymentTotals,
+            refundCount: stats.refundCount,
         };
 
         return NextResponse.json({ report });

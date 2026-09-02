@@ -397,7 +397,7 @@ export async function printReceipt(
                     receiptData.inventory?.find((inv) => inv.category === item.category)?.rate ??
                     DEFAULT_VAT_RATE;
                 const vatRate = rawRate >= 1 ? rawRate / 100 : rawRate;
-                const vatCode = vatRate <= 0.056 ? '1' : vatRate <= 0.11 ? '2' : '3';
+                const vatCode = vatRate === 0 ? '0' : vatRate <= 0.056 ? '1' : vatRate <= 0.11 ? '2' : '3';
 
                 printer.tableCustom([
                     { text: `${item.quantity}`, align: 'LEFT', cols: 4 },
@@ -567,7 +567,7 @@ export async function printReceipt(
             .sort((a, b) => a - b)
             .forEach((rate) => {
                 const values = vatTotals.get(rate)!;
-                const code = rate <= 0.056 ? '1' : rate <= 0.11 ? '2' : '3';
+                const code = rate === 0 ? '0' : rate <= 0.056 ? '1' : rate <= 0.11 ? '2' : '3';
                 const rateStr = isJustificatif ? (rate * 100).toFixed(2) : (rate * 100).toFixed(2) + '%';
                 printer.tableCustom([
                     { text: `(${code}) ${rateStr}`, align: 'LEFT', cols: 12 },
@@ -927,15 +927,6 @@ export async function printSummary(
     }
 }
 
-const BANNER_WIDTH = 48;
-
-function centerText(text: string, width: number): string {
-    const pad = Math.max(0, width - text.length);
-    const left = Math.floor(pad / 2);
-    const right = pad - left;
-    return ' '.repeat(left) + text + ' '.repeat(right);
-}
-
 function toFrenchAmount(amount: number): string {
     const [int, dec] = amount.toFixed(2).split('.');
     const intWithSpaces = int.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -952,14 +943,6 @@ function formatAccountNumber(reference: string): string {
     return trimmed;
 }
 
-function printShopBanner(printer: ThermalPrinter, shop: Shop): void {
-    const name = shop.name.toUpperCase();
-    printer.println('*'.repeat(BANNER_WIDTH));
-    printer.println('*' + centerText(name, BANNER_WIDTH - 2) + '*');
-    printer.println('*'.repeat(BANNER_WIDTH));
-    printer.newLine();
-}
-
 function printBillingHeader(printer: ThermalPrinter, title: string, report: BillingReport, shop: Shop): void {
     const currentDate = new Date();
     const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
@@ -968,18 +951,18 @@ function printBillingHeader(printer: ThermalPrinter, title: string, report: Bill
     const endLabel = new Date(`${report.endDate}T00:00:00`).toLocaleDateString('fr-FR');
     const timeLabel = `${frenchTimeStr.split(':')[0]}h${frenchTimeStr.split(':')[1]}`;
 
-    printShopBanner(printer, shop);
+    // Simplified header: shop name (large) + SIRET, centered
+    printInternalHeader(printer, shop);
 
+    printer.drawLine();
     printer.alignCenter();
-    printer.setTextDoubleHeight();
-    printer.bold(true);
     printer.println(title);
-    printer.bold(false);
-    printer.setTextNormal();
     printer.newLine();
 
     printer.alignLeft();
-    printer.println(`Compta n° ${report.companyId} du ${startLabel} au ${endLabel} ${timeLabel}`);
+    printer.println(
+        `${report.companyName} - Compte n°${report.companyId} du ${startLabel} au ${endLabel} à ${timeLabel}`
+    );
     printer.println(`Imprimé le ${frenchDateStr} à ${timeLabel}`);
     printer.newLine();
 }
@@ -997,46 +980,84 @@ export async function printBillingSummary(
         const { printer, error } = await initPrinter(printerAddresses);
         if (!printer || error) return { error };
 
-        printBillingHeader(printer, `Ventes Facturées : Statistiques de Caisses - ${report.companyName}`, report, shop);
+        printBillingHeader(printer, 'Ventes Facturées : Statistiques de Caisses', report, shop);
 
-        const vatPercent = Number(report.vatRate * 100).toFixed(0);
+        const startLabel = new Date(`${report.startDate}T00:00:00`).toLocaleDateString('fr-FR');
+        const endLabel = new Date(`${report.endDate}T00:00:00`).toLocaleDateString('fr-FR');
+        const dateRange = `du ${startLabel} au ${endLabel.slice(5)}`;
 
-        printer.drawLine();
-        printer.setTextDoubleHeight();
+        // Table header
+        printer.tableCustom([
+            { text: '', align: 'LEFT', cols: 24 },
+            { text: 'Qté', align: 'RIGHT', cols: 12 },
+            { text: 'CA', align: 'RIGHT', cols: 12 },
+        ]);
+
+        // Date range row
+        printer.tableCustom([
+            { text: dateRange, align: 'LEFT', cols: 24 },
+            { text: String(report.mealCount), align: 'RIGHT', cols: 12 },
+            { text: '', align: 'RIGHT', cols: 12 },
+        ]);
+
+        // TOTAUX row
         printer.bold(true);
-        printer.leftRight('TOTAL REPAS', `${report.mealCount}`);
-        printer.setTextNormal();
+        printer.tableCustom([
+            { text: `CA TOTAL (${report.ticketCount} Tickets)`, align: 'LEFT', cols: 24 },
+            { text: String(report.mealCount), align: 'RIGHT', cols: 12 },
+            { text: toFrenchAmount(report.customerPaidAmount), align: 'RIGHT', cols: 12 },
+        ]);
         printer.bold(false);
-        printer.drawLine();
 
-        printer.tableCustom([
-            { text: 'Qté', align: 'RIGHT', cols: 6 },
-            { text: 'CA', align: 'RIGHT', cols: 42 },
-        ]);
-        printer.drawLine();
+        // Hors CA line (employer share = totalAmount, grand total = customer + employer)
+        printer.leftRight(
+            `--${toFrenchAmount(report.totalAmount)} Hors CA =`,
+            toFrenchAmount(report.customerPaidAmount + report.totalAmount)
+        );
 
-        printer.tableCustom([
-            { text: String(report.mealCount), align: 'RIGHT', cols: 6 },
-            { text: toFrenchAmount(report.totalAmount), align: 'RIGHT', cols: 42 },
-        ]);
+        // Per-VAT breakdown
+        for (const vat of report.vatBreakdown) {
+            printer.leftRight(`CA en TVA ${vat.label}`, `${vat.quantity}  ${toFrenchAmount(vat.ca)}`);
+        }
+        printer.println('TOTAUX');
+        for (const vat of report.vatBreakdown) {
+            printer.leftRight(`Total TVA ${vat.label}`, toFrenchAmount(vat.tva));
+        }
+        for (const vat of report.vatBreakdown) {
+            printer.leftRight(`TOTAL HT ${vat.label}`, toFrenchAmount(vat.ht));
+        }
+        const grandHT = report.vatBreakdown.reduce((sum, v) => sum + v.ht, 0);
+        printer.leftRight('TOTAL HT', toFrenchAmount(grandHT));
         printer.newLine();
-        printer.drawLine();
 
-        printer.leftRight(`CA en TVA ${vatPercent}%`, toFrenchAmount(report.totalAmount));
-        printer.leftRight(`Total TVA ${vatPercent}%`, toFrenchAmount(report.totalTVA));
-        printer.leftRight('TOTAL HT', toFrenchAmount(report.totalHT));
-        printer.newLine();
-
+        // Ventilations
         printer.drawLine();
         printer.bold(true);
         printer.println('----VENTILATIONS----');
         printer.bold(false);
-        printer.tableCustom([
-            { text: report.companyId.toString(), align: 'LEFT', cols: 6 },
-            { text: report.companyName, align: 'LEFT', cols: 25 },
-            { text: String(report.mealCount), align: 'RIGHT', cols: 6 },
-            { text: toFrenchAmount(report.totalAmount), align: 'RIGHT', cols: 11 },
-        ]);
+        for (const vent of report.ventilations) {
+            printer.leftRight(vent.category, `${vent.quantity}  ${toFrenchAmount(vent.amount)}`);
+        }
+        printer.newLine();
+
+        // Payment totals
+        printer.drawLine();
+        printer.bold(true);
+        printer.println('TOTAUX REGLEMENTS');
+        printer.bold(false);
+        for (const pay of report.paymentTotals) {
+            printer.leftRight(pay.method, `${pay.count}  ${toFrenchAmount(pay.amount)}`);
+        }
+        const totalRegl = report.paymentTotals.reduce((sum, p) => sum + p.amount, 0);
+        printer.leftRight('Total règlements', toFrenchAmount(totalRegl));
+        printer.newLine();
+
+        // Refunds (Avoirs)
+        if (report.refundCount > 0) {
+            printer.drawLine();
+            printer.println(`Liste des Avoirs <= ${report.refundCount}`);
+            printer.leftRight('HORS CA', `${report.mealCount}  ${toFrenchAmount(report.totalAmount)}`);
+        }
         printer.newLine();
 
         printer.drawLine();

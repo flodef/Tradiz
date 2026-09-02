@@ -70,6 +70,27 @@ export interface Company {
     city?: string;
 }
 
+export interface VatBreakdownEntry {
+    vatRate: number;
+    label: string;
+    quantity: number;
+    ca: number;
+    ht: number;
+    tva: number;
+}
+
+export interface VentilationEntry {
+    category: string;
+    quantity: number;
+    amount: number;
+}
+
+export interface PaymentTotalEntry {
+    method: string;
+    count: number;
+    amount: number;
+}
+
 export interface BillingReport {
     companyId: number;
     companyName: string;
@@ -87,6 +108,12 @@ export interface BillingReport {
     totalHT: number;
     totalTVA: number;
     customers: BillingReportCustomer[];
+    ticketCount: number;
+    customerPaidAmount: number;
+    vatBreakdown: VatBreakdownEntry[];
+    ventilations: VentilationEntry[];
+    paymentTotals: PaymentTotalEntry[];
+    refundCount: number;
 }
 
 export interface BillingReportCustomer {
