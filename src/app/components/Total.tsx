@@ -867,8 +867,8 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
 
     if (!transactionsLoaded && isStateReady && !compact) {
         return (
-            <div className={popupClass} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span className="text-lg font-semibold animate-pulse">Chargement...</span>
+            <div className={popupClass}>
+                <Loading fullscreen={false} />
             </div>
         );
     }

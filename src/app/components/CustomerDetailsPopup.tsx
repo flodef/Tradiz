@@ -2,6 +2,7 @@ import { Customer, Transaction } from '@/app/utils/interfaces';
 import { useData } from '@/app/hooks/useData';
 import { usePopup } from '@/app/hooks/usePopup';
 import { useEffect, useState } from 'react';
+import Loading from '../loading';
 import {
     BACK_KEYWORD,
     PROVISION_KEYWORD,
@@ -216,7 +217,7 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
     return (
         <div className="p-4 text-left space-y-4 text-gray-900 dark:text-gray-100 w-full">
             {isLoading ? (
-                <p className="text-center">Chargement...</p>
+                <Loading fullscreen={false} />
             ) : (
                 <>
                     <div className="grid grid-cols-2 gap-2 w-full">
