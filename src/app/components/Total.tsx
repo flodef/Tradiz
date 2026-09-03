@@ -30,6 +30,7 @@ import {
     PROVISION_KEYWORD,
     REFUND_KEYWORD,
     UPDATING_KEYWORD,
+    USE_DIGICARTE,
     USE_FIDELITY_KEYWORD,
     WAITING_KEYWORD,
 } from '../utils/constants';
@@ -225,6 +226,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         currencies,
         currencyIndex,
         categories,
+        modeFonctionnement,
     } = useConfig();
 
     const [needRefresh, setNeedRefresh] = useState(false);
@@ -805,6 +807,12 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     );
     const isMobile = useIsMobile();
 
+    // Whether the close-app button in the top-right corner is actually rendered.
+    // When it's absent, the top bar should take the full width (no right padding).
+    const showCloseButton =
+        (USE_DIGICARTE && modeFonctionnement !== 'lite') ||
+        (typeof window !== 'undefined' && Boolean(window.electronAPI?.closeApp));
+
     // Payment icons mode: show payment methods as clickable icons in the top bar (desktop only).
     const paymentIconsEnabled = (parameters.display?.paymentIconsMode ?? true) && !isMobile;
 
@@ -931,7 +939,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                     ? 'flex items-center justify-between pl-0'
                                     : 'text-center'
                             )}
-                            style={{ paddingRight: isMobile ? undefined : '3.5rem' }}
+                            style={{ paddingRight: isMobile || !showCloseButton ? undefined : '3.5rem' }}
                         >
                             {canDisplayTotal ? (
                                 canAddProvision && paymentIconsEnabled && !navExpanded ? (

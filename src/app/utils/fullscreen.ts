@@ -42,26 +42,29 @@ export function exitFullscreen(): void {
         document.webkitExitFullscreen ||
         document.mozCancelFullScreen ||
         document.msExitFullscreen;
-    if (exitFullscreen) {
-        exitFullscreen.call(document).catch((error) => console.warn(error));
-    }
+    if (exitFullscreen) exitFullscreen.call(document).catch((error) => console.warn(error));
 }
 
 export function requestFullscreen(): void {
+    // When running as an installed PWA (standalone or fullscreen display mode),
+    // the app already occupies the entire screen. Calling requestFullscreen()
+    // here would trigger Android's immersive-mode toast notification, which
+    // overlays the app and blocks interaction. Skip it in that case.
+    if (
+        window.matchMedia('(display-mode: standalone)').matches ||
+        window.matchMedia('(display-mode: fullscreen)').matches
+    )
+        return;
+
     const requestFullscreen =
         document.documentElement.requestFullscreen ||
         document.documentElement.webkitRequestFullscreen ||
         document.documentElement.mozRequestFullScreen ||
         document.documentElement.msRequestFullscreen;
-    if (requestFullscreen) {
-        requestFullscreen.call(document.documentElement).catch((error) => console.warn(error));
-    }
+    if (requestFullscreen) requestFullscreen.call(document.documentElement).catch((error) => console.warn(error));
 }
 
 export function toggleFullscreen(): void {
-    if (isFullscreen()) {
-        exitFullscreen();
-    } else {
-        requestFullscreen();
-    }
+    if (isFullscreen()) exitFullscreen();
+    else requestFullscreen();
 }
