@@ -400,8 +400,8 @@ async function fetchOriginalTransactionForFidelity(connection: Connection, trans
 
     if (original) {
         // Always restore payment_method and amount from DB — the client sets
-        // method=DELETED_KEYWORD before sending, which would prevent earn/deduct
-        // reversal if we trusted it.
+        // method=DELETED_KEYWORD or CANCELLED_KEYWORD before sending, which would
+        // prevent earn/deduct reversal if we trusted it.
         transaction.payment_method = original.payment_method;
         transaction.amount = Number(original.amount);
         transaction.customer_name = original.customer_name;

@@ -1003,7 +1003,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     }
 
                     // Notify WebSocket server that the order is complete
-                    // Only send notification for actual payments (not for EN ATTENTE or REMBOURSEMENT)
+                    // Only send notification for actual payments (not for EN ATTENTE, REMBOURSEMENT, EFFACEE, or ANNULEE)
                     const isActualPayment =
                         !isWaitingTransaction(transaction) &&
                         !isRefundTransaction(transaction) &&

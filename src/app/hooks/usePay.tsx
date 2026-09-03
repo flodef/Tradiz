@@ -519,15 +519,15 @@ export const usePay = () => {
         (method: string, transaction?: Transaction, isCancelingExisting = false, skipKitchenPrint = false) => {
             const isWaiting = method === WAITING_KEYWORD || method === PROCESSING_KEYWORD;
             const isRefund = method === REFUND_KEYWORD;
-            const isDeleted = method === DELETED_KEYWORD || method === CANCELLED_KEYWORD;
-            const isPaid = !isWaiting && !isRefund && !isDeleted && method !== UPDATING_KEYWORD;
+            const isRemoved = method === DELETED_KEYWORD || method === CANCELLED_KEYWORD;
+            const isPaid = !isWaiting && !isRefund && !isRemoved && method !== UPDATING_KEYWORD;
 
             // Print kitchen ticket for new orders (waiting/paid) or when canceling an existing order
             // Skip if the kitchen already received a ticket (e.g. paying a previously WAITING tx)
             // Skip if no kitchen printer is configured — don't log an error, just silently skip.
             if (
                 !skipKitchenPrint &&
-                (isWaiting || isPaid || (isRefund && isCancelingExisting) || (isDeleted && isCancelingExisting))
+                (isWaiting || isPaid || (isRefund && isCancelingExisting) || (isRemoved && isCancelingExisting))
             ) {
                 const kitchenAddr = getPrinterAddressByRole(PRINTER_ROLE.kitchen);
                 if (!kitchenAddr) return; // No kitchen printer configured — nothing to print

@@ -640,7 +640,7 @@ export async function printKitchenTicket(
         const currentDate = new Date();
         const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
         const isRefund = isRefundTransaction(ticketData.transaction);
-        const isDeleted =
+        const isRemoved =
             isDeletedTransaction(ticketData.transaction) || isCancelledTransaction(ticketData.transaction);
         const serviceType = ticketData.serviceType;
 
@@ -660,7 +660,7 @@ export async function printKitchenTicket(
         printer.bold(true);
         if (isRefund) {
             printer.println('REMBOURSEMENT');
-        } else if (isDeleted) {
+        } else if (isRemoved) {
             printer.println('ANNULATION');
         } else if (serviceType) {
             printer.println(SERVICE_TYPE_LABELS[serviceType].toUpperCase());
