@@ -1003,7 +1003,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     }
 
                     // Notify WebSocket server that the order is complete
-                    // Only send notification for actual payments (not for EN ATTENTE, REMBOURSEMENT, EFFACEE, or ANNULEE)
+                    // Only send notification for actual payments (not for EN ATTENTE, REMBOURSEMENT, EFFACÉE, or ANNULÉE)
                     const isActualPayment =
                         !isWaitingTransaction(transaction) &&
                         !isRefundTransaction(transaction) &&
@@ -1098,12 +1098,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (index >= 0) {
                 const transaction = transactions[index];
                 // Refuse to delete a PROCESSING transaction that does not belong to this device.
-                if (
-                    isProcessingTransaction(transaction) &&
-                    transaction.deviceId &&
-                    transaction.deviceId !== currentDeviceId
-                )
-                    return;
+                if (isProcessingTransaction(transaction) && transaction.deviceId !== currentDeviceId) return;
 
                 if (isProcessingTransaction(transaction)) {
                     // Soft-delete PROCESSING transactions (mark as CANCELLED) instead of

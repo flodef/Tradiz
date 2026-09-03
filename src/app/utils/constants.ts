@@ -41,7 +41,7 @@ export const REFUND_KEYWORD = 'REMBOURSEMENT';
 export const UPDATING_KEYWORD = 'EN MODIF';
 export const PROCESSING_KEYWORD = 'EN COURS';
 export const DELETED_KEYWORD = 'EFFACÉE';
-export const CANCELLED_KEYWORD = 'ANNULEE';
+export const CANCELLED_KEYWORD = 'ANNULÉE';
 export const PROVISION_KEYWORD = 'PROVISION';
 export const DEBIT_KEYWORD = 'DEBIT';
 

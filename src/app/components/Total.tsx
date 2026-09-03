@@ -238,12 +238,15 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     // PROCESSING transactions are editable only by the device that created them.
     // Other devices can view/print but not modify, delete, or refund them.
     // When deviceId is missing (legacy tx), treat as read-only for safety.
-    const isReadOnlyProcessingForUser = useCallback((transaction: Transaction) => {
-        if (!isProcessingTransaction(transaction)) return false;
-        const currentDeviceId = getPublicKey();
-        if (!transaction.deviceId) return true;
-        return transaction.deviceId !== currentDeviceId;
-    }, []);
+    const currentDeviceId = useMemo(() => getPublicKey(), []);
+    const isReadOnlyProcessingForUser = useCallback(
+        (transaction: Transaction) => {
+            if (!isProcessingTransaction(transaction)) return false;
+            if (!transaction.deviceId) return true;
+            return transaction.deviceId !== currentDeviceId;
+        },
+        [currentDeviceId]
+    );
 
     // Helper function to edit transaction, reversing refund transactions first
     const editTransactionWithReversal = useCallback(

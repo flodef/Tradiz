@@ -1,6 +1,25 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import {
+    CANCELLED_KEYWORD,
+    DELETED_KEYWORD,
+    PROCESSING_KEYWORD,
+    REFUND_KEYWORD,
+    UPDATING_KEYWORD,
+    WAITING_KEYWORD,
+} from '@/app/utils/constants';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
+
+// Payment methods that do not represent a completed payment and must be excluded
+// from revenue, basket, product and order-count statistics.
+const NON_PAID_METHODS = [
+    DELETED_KEYWORD,
+    CANCELLED_KEYWORD,
+    REFUND_KEYWORD,
+    UPDATING_KEYWORD,
+    PROCESSING_KEYWORD,
+    WAITING_KEYWORD,
+];
 
 interface DailySalesRow {
     date: string;
@@ -38,27 +57,19 @@ export async function GET(request: Request) {
         const connection = await getPosDb(shopId);
         dbConn = connection;
 
-        // Non-paid payment methods
-        const nonPaidMethods = ['EFFACÉE', 'REMBOURSEMENT', 'EN COURS', 'EN ATTENTE'];
-        const nonPaidCondition = nonPaidMethods
-            .map((_, i) => {
-                if (connection.isPostgreSQL) {
-                    return `t.payment_method != $${i + 1}`;
-                } else {
-                    return 't.payment_method != ?';
-                }
-            })
-            .join(' AND ');
+        const isPg = connection.isPostgreSQL;
+        const nonPaidCondition = NON_PAID_METHODS.map((_, i) =>
+            isPg ? `t.payment_method != $${i + 1}` : 't.payment_method != ?'
+        ).join(' AND ');
 
         let dateFilter = '';
-        // Separate filter for queries that don't include the nonPaidMethods params (e.g. recent orders),
-        // so PostgreSQL placeholders start at $1 instead of after the nonPaidMethods params.
+        // Separate filter for the recent-orders query, which doesn't bind nonPaidMethods params.
         let recentDateFilter = '';
-        const params: string[] = [...nonPaidMethods];
+        const params: string[] = [...NON_PAID_METHODS];
 
         if (startDate && endDate) {
-            if (connection.isPostgreSQL) {
-                dateFilter = `AND DATE(t.created_at) BETWEEN $${nonPaidMethods.length + 1} AND $${nonPaidMethods.length + 2}`;
+            if (isPg) {
+                dateFilter = `AND DATE(t.created_at) BETWEEN $${NON_PAID_METHODS.length + 1} AND $${NON_PAID_METHODS.length + 2}`;
                 recentDateFilter = 'AND DATE(t.created_at) BETWEEN $1 AND $2';
             } else {
                 dateFilter = 'AND DATE(t.created_at) BETWEEN ? AND ?';
@@ -193,7 +204,7 @@ export async function GET(request: Request) {
                 t.created_at,
                 t.payment_method,
                 CASE
-                    WHEN t.payment_method IN ('EFFACÉE', 'REMBOURSEMENT', 'EN COURS', 'EN ATTENTE') THEN 'Non payé'
+                    WHEN t.payment_method IN ('${NON_PAID_METHODS.join("', '")}') THEN 'Non payé'
                     ELSE 'Payé'
                 END as status,
                 t.amount
@@ -209,8 +220,8 @@ export async function GET(request: Request) {
                 o.short_order_number AS short_num_order,
                 t.created_at,
                 t.payment_method,
-                CASE 
-                    WHEN t.payment_method IN ('EFFACÉE', 'REMBOURSEMENT', 'EN COURS', 'EN ATTENTE') THEN 'Non payé'
+                CASE
+                    WHEN t.payment_method IN ('${NON_PAID_METHODS.join("', '")}') THEN 'Non payé'
                     ELSE 'Payé'
                 END as status,
                 t.amount
