@@ -6,6 +6,7 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import { Shop } from '../contexts/ConfigProvider';
 import {
+    isCancelledTransaction,
     isDeletedTransaction,
     isProcessingTransaction,
     isRefundTransaction,
@@ -639,7 +640,8 @@ export async function printKitchenTicket(
         const currentDate = new Date();
         const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
         const isRefund = isRefundTransaction(ticketData.transaction);
-        const isDeleted = isDeletedTransaction(ticketData.transaction);
+        const isDeleted =
+            isDeletedTransaction(ticketData.transaction) || isCancelledTransaction(ticketData.transaction);
         const serviceType = ticketData.serviceType;
 
         // Date and time

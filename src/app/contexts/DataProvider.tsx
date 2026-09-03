@@ -6,6 +6,7 @@ import { DataContext } from '../hooks/useData';
 import { usePopup } from '../hooks/usePopup';
 import { useWindowParam } from '../hooks/useWindowParam';
 import {
+    CANCELLED_KEYWORD,
     DELETED_KEYWORD,
     OTHER_KEYWORD,
     PROCESSING_KEYWORD,
@@ -39,6 +40,7 @@ import { checkDbConfig, getPublicKey } from '../utils/processData';
 import { encodeCashNote } from '../utils/transactionNote';
 import { mergeTransactionArrays } from './dataProvider/syncUtils';
 import {
+    isCancelledTransaction,
     isDeletedTransaction,
     isProcessingTransaction,
     isRefundTransaction,
@@ -526,6 +528,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         takeOut: transaction.takeOut ?? false,
                         employer_share: transaction.employerShare ?? null,
                         fidelity_points: transaction.fidelityPointsUsed ?? null,
+                        device_id: transaction.deviceId ?? null,
                         created_at: toSQLDateTime(transaction.createdDate),
                         updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
                         products: transaction.products.map((product) => ({
@@ -1005,6 +1008,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         !isWaitingTransaction(transaction) &&
                         !isRefundTransaction(transaction) &&
                         !isDeletedTransaction(transaction) &&
+                        !isCancelledTransaction(transaction) &&
                         !isProcessingTransaction(transaction) &&
                         !isUpdatingTransaction(transaction);
 
@@ -1102,11 +1106,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     return;
 
                 if (isProcessingTransaction(transaction)) {
-                    // Soft-delete PROCESSING transactions (mark as DELETED) instead of
+                    // Soft-delete PROCESSING transactions (mark as CANCELLED) instead of
                     // hard-deleting them. This ensures the deletion propagates to other
                     // devices via incremental sync: the updated modifiedDate makes the
-                    // DELETED tx appear in the sync response, and fullSync replaces the
-                    // local PROCESSING tx with the DELETED version (filtered out by UI).
+                    // CANCELLED tx appear in the sync response, and fullSync replaces the
+                    // local PROCESSING tx with the CANCELLED version (filtered out by UI).
                     // hardDelete is only used for clearProcessingTransaction (payment),
                     // where the paid tx replaces the PROCESSING tx with the same createdDate.
                     processingTxCreatedDateRef.current = 0;
@@ -1117,7 +1121,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     // Clear the cart so saveProcessingTransaction doesn't re-create the tx.
                     products.current = [];
                     clearRequestedRef.current = true;
-                    transaction.method = DELETED_KEYWORD;
+                    transaction.method = CANCELLED_KEYWORD;
                     storeTransaction(transaction);
                     saveTransactions(DatabaseAction.delete, transaction);
                 } else {

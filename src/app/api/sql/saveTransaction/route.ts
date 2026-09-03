@@ -1,4 +1,4 @@
-import { DELETED_KEYWORD, PROCESSING_KEYWORD, DEFAULT_USER, DEFAULT_VAT_RATE } from '@/app/utils/constants';
+import { PROCESSING_KEYWORD, DEFAULT_USER, DEFAULT_VAT_RATE } from '@/app/utils/constants';
 import { computeFidelityDelta } from '@/app/utils/fidelity';
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
@@ -295,15 +295,19 @@ async function handleDeleteTransaction(connection: Connection, transaction: Tran
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
 
+    // Save the new payment_method (DELETED_KEYWORD or CANCELLED_KEYWORD) before
+    // fetchOriginalTransactionForFidelity overwrites it with the original DB value.
+    const newPaymentMethod = transaction.payment_method;
+
     // Fetch the original transaction data (for fidelity point reversal) before marking as deleted
     await fetchOriginalTransactionForFidelity(connection, transaction);
 
-    // Update the transaction record to mark it as deleted (lookup by order_id)
+    // Update the transaction record to mark it as deleted/cancelled (lookup by order_id)
     const updateQuery = isPg
         ? `UPDATE ${prefix}transactions SET payment_method = $1, updated_at = $2 WHERE order_id = $3`
         : `UPDATE ${prefix}transactions SET payment_method = ?, updated_at = ? WHERE order_id = ?`;
 
-    await connection.execute(updateQuery, [DELETED_KEYWORD, transaction.updated_at, transaction.order_id]);
+    await connection.execute(updateQuery, [newPaymentMethod, transaction.updated_at, transaction.order_id]);
 }
 
 async function handleHardDeleteTransaction(connection: Connection, transaction: TransactionData) {

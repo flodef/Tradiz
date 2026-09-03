@@ -1,4 +1,5 @@
 import {
+    CANCELLED_KEYWORD,
     DELETED_KEYWORD,
     PROCESSING_KEYWORD,
     REFUND_KEYWORD,
@@ -19,16 +20,20 @@ export const isProcessingTransaction = (transaction?: Transaction) =>
 export const isDeletedTransaction = (transaction?: Transaction) =>
     Boolean(transaction && transaction.method === DELETED_KEYWORD);
 
+export const isCancelledTransaction = (transaction?: Transaction) =>
+    Boolean(transaction && transaction.method === CANCELLED_KEYWORD);
+
 export const isRefundTransaction = (transaction?: Transaction) =>
     Boolean(transaction && transaction.method === REFUND_KEYWORD);
 
 export const isConfirmedTransaction = (transaction?: Transaction) =>
     Boolean(
         transaction &&
-            transaction.method !== undefined &&
-            transaction.method !== null &&
-            !isWaitingTransaction(transaction) &&
-            !isDeletedTransaction(transaction) &&
-            !isProcessingTransaction(transaction) &&
-            !isUpdatingTransaction(transaction)
+        transaction.method !== undefined &&
+        transaction.method !== null &&
+        !isWaitingTransaction(transaction) &&
+        !isDeletedTransaction(transaction) &&
+        !isCancelledTransaction(transaction) &&
+        !isProcessingTransaction(transaction) &&
+        !isUpdatingTransaction(transaction)
     );

@@ -4,6 +4,7 @@ import { utils, writeFile } from 'xlsx';
 import { sendSummaryEmail } from '../actions/email';
 import { Shop } from '../contexts/ConfigProvider';
 import {
+    isCancelledTransaction,
     isDeletedTransaction,
     isProcessingTransaction,
     isRefundTransaction,
@@ -146,6 +147,7 @@ export const useSummary = () => {
             (transaction) =>
                 matchesCurrency(transaction.currency) &&
                 !isDeletedTransaction(transaction) &&
+                !isCancelledTransaction(transaction) &&
                 !isWaitingTransaction(transaction) &&
                 !isProcessingTransaction(transaction)
         );
@@ -676,8 +678,8 @@ export const useSummary = () => {
                                 for (const dayKey of daysInMonth) {
                                     const key = `${shopIdPrefix}_${dayKey}`;
                                     const txs = await idbGetTransactions(key);
-                                    // Only include days with at least one non-deleted transaction
-                                    if (!txs.every(isDeletedTransaction)) {
+                                    // Only include days with at least one non-deleted, non-cancelled transaction
+                                    if (!txs.every((t) => isDeletedTransaction(t) || isCancelledTransaction(t))) {
                                         validDays.push(dayKey);
                                     }
                                 }

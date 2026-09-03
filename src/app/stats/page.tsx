@@ -8,6 +8,7 @@ import { usePopup } from '@/app/hooks/usePopup';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { useWindowParam } from '@/app/hooks/useWindowParam';
 import {
+    CANCELLED_KEYWORD,
     DELETED_KEYWORD,
     PROCESSING_KEYWORD,
     REFUND_KEYWORD,
@@ -142,7 +143,13 @@ export default function StatsPage() {
         date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 
     const computeStatsFromIdb = useCallback(async () => {
-        const nonPaidMethods = new Set([DELETED_KEYWORD, REFUND_KEYWORD, WAITING_KEYWORD, PROCESSING_KEYWORD]);
+        const nonPaidMethods = new Set([
+            DELETED_KEYWORD,
+            CANCELLED_KEYWORD,
+            REFUND_KEYWORD,
+            WAITING_KEYWORD,
+            PROCESSING_KEYWORD,
+        ]);
         const start = startDate ? new Date(startDate).getTime() : 0;
         const end = endDate ? new Date(endDate + 'T23:59:59').getTime() : Infinity;
 

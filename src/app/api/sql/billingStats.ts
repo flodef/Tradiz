@@ -1,8 +1,14 @@
 import { DbConnection } from './db';
-import { DELETED_KEYWORD, UPDATING_KEYWORD, WAITING_KEYWORD, PROCESSING_KEYWORD } from '@/app/utils/constants';
+import {
+    CANCELLED_KEYWORD,
+    DELETED_KEYWORD,
+    UPDATING_KEYWORD,
+    WAITING_KEYWORD,
+    PROCESSING_KEYWORD,
+} from '@/app/utils/constants';
 import { VatBreakdownEntry, VentilationEntry, PaymentTotalEntry } from '@/app/utils/interfaces';
 
-const EXCLUDED = [DELETED_KEYWORD, WAITING_KEYWORD, UPDATING_KEYWORD, PROCESSING_KEYWORD];
+const EXCLUDED = [DELETED_KEYWORD, CANCELLED_KEYWORD, WAITING_KEYWORD, UPDATING_KEYWORD, PROCESSING_KEYWORD];
 
 export interface CompanyTransactionStats {
     ticketCount: number;

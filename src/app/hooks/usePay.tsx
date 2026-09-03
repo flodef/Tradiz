@@ -10,6 +10,7 @@ import { isWaitingTransaction } from '../contexts/dataProvider/transactionHelper
 import {
     ARROW,
     CATEGORY_SEPARATOR,
+    CANCELLED_KEYWORD,
     DEBIT_KEYWORD,
     DELETED_KEYWORD,
     FIDELITY_KEYWORD,
@@ -518,7 +519,7 @@ export const usePay = () => {
         (method: string, transaction?: Transaction, isCancelingExisting = false, skipKitchenPrint = false) => {
             const isWaiting = method === WAITING_KEYWORD || method === PROCESSING_KEYWORD;
             const isRefund = method === REFUND_KEYWORD;
-            const isDeleted = method === DELETED_KEYWORD;
+            const isDeleted = method === DELETED_KEYWORD || method === CANCELLED_KEYWORD;
             const isPaid = !isWaiting && !isRefund && !isDeleted && method !== UPDATING_KEYWORD;
 
             // Print kitchen ticket for new orders (waiting/paid) or when canceling an existing order

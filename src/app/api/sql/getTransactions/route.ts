@@ -1,5 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
-import { isDeletedTransaction } from '@/app/contexts/dataProvider/transactionHelpers';
+import { isCancelledTransaction, isDeletedTransaction } from '@/app/contexts/dataProvider/transactionHelpers';
 import { DEFAULT_USER, DEFAULT_VAT_RATE } from '@/app/utils/constants';
 import { Transaction } from '@/app/utils/interfaces';
 import { parseCashNote } from '@/app/utils/transactionNote';
@@ -173,8 +173,13 @@ export async function GET(request: Request) {
         // Build transactions
         const transactions: Transaction[] = [];
         for (const row of transactionRows) {
-            // Skip deleted transactions unless explicitly included (for sync)
-            if (!includeDeleted && isDeletedTransaction({ method: row.method } as Transaction)) continue;
+            // Skip deleted and cancelled transactions unless explicitly included (for sync)
+            if (
+                !includeDeleted &&
+                (isDeletedTransaction({ method: row.method } as Transaction) ||
+                    isCancelledTransaction({ method: row.method } as Transaction))
+            )
+                continue;
 
             const products = (itemsByTx.get(row.id) ?? []).map((p) => ({
                 label: p.label || '',
@@ -207,7 +212,7 @@ export async function GET(request: Request) {
                 ...(parsedChange !== undefined ? { change: parsedChange } : {}),
                 ...(row.take_out ? { takeOut: true } : { takeOut: false }),
                 ...(row.employer_share != null ? { employerShare: Number(row.employer_share) } : {}),
-                ...(row.deviceid ?? row.deviceId ? { deviceId: String(row.deviceid ?? row.deviceId) } : {}),
+                ...((row.deviceid ?? row.deviceId) ? { deviceId: String(row.deviceid ?? row.deviceId) } : {}),
             });
         }
 

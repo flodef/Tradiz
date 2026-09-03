@@ -1,4 +1,11 @@
-import { DELETED_KEYWORD, PROCESSING_KEYWORD, REFUND_KEYWORD, UPDATING_KEYWORD, WAITING_KEYWORD } from './constants';
+import {
+    CANCELLED_KEYWORD,
+    DELETED_KEYWORD,
+    PROCESSING_KEYWORD,
+    REFUND_KEYWORD,
+    UPDATING_KEYWORD,
+    WAITING_KEYWORD,
+} from './constants';
 
 // Payment methods that never earn fidelity points. Points that were *spent* on such a
 // transaction are still deducted — only the earning side is suppressed.
@@ -7,6 +14,7 @@ export const NON_EARNING_METHODS = [
     PROCESSING_KEYWORD,
     UPDATING_KEYWORD,
     DELETED_KEYWORD,
+    CANCELLED_KEYWORD,
     'METTRE ' + WAITING_KEYWORD,
 ];
 
