@@ -130,6 +130,7 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
     catalogMode: false,
     useTakeOut: true,
     paymentIconsMode: true,
+    displayOthers: false,
 };
 
 export const DEFAULT_PRODUCTS_SETTINGS: ProductsSettings = {
@@ -157,6 +158,7 @@ export function parseDisplaySettings(json: string | undefined | null): DisplaySe
                 catalogMode: parsed.catalogMode ?? false,
                 useTakeOut: parsed.useTakeOut ?? true,
                 paymentIconsMode: parsed.paymentIconsMode ?? true,
+                displayOthers: parsed.displayOthers ?? false,
             };
         }
     } catch {

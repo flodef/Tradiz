@@ -236,16 +236,14 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     const label = useIsMobile() ? totalLabel : payLabel;
 
     // PROCESSING transactions are editable only by the device that created them.
-    // Other devices/users can view/print but not modify, delete, or refund them.
-    const isReadOnlyProcessingForUser = useCallback(
-        (transaction: Transaction) => {
-            if (!isProcessingTransaction(transaction)) return false;
-            const currentDeviceId = getPublicKey();
-            if (transaction.deviceId) return transaction.deviceId !== currentDeviceId;
-            return transaction.validator !== parameters.user?.name;
-        },
-        [parameters.user?.name]
-    );
+    // Other devices can view/print but not modify, delete, or refund them.
+    // When deviceId is missing (legacy tx), treat as read-only for safety.
+    const isReadOnlyProcessingForUser = useCallback((transaction: Transaction) => {
+        if (!isProcessingTransaction(transaction)) return false;
+        const currentDeviceId = getPublicKey();
+        if (!transaction.deviceId) return true;
+        return transaction.deviceId !== currentDeviceId;
+    }, []);
 
     // Helper function to edit transaction, reversing refund transactions first
     const editTransactionWithReversal = useCallback(
@@ -370,8 +368,9 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                           ]
                         : []),
                     ...deleteAndRefundOptions,
+                    { label: '', action: () => {} },
                     {
-                        label: 'Annuler',
+                        label: BACK_KEYWORD,
                         action: (index: number) => fallback(index),
                     },
                 ],
@@ -694,10 +693,16 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         openPopup(
             displayTransactionsTitle(),
             sortedTransactions.map(displayTransaction),
-            (i) => showBoughtProducts(getTransactionIndex(i), showTransactions),
+            (i) => {
+                const tx = sortedTransactions.at(i);
+                if (tx && isReadOnlyProcessingForUser(tx)) return;
+                showBoughtProducts(getTransactionIndex(i), showTransactions);
+            },
             true,
             (index) => {
-                const transactionMenu = getTransactionMenu(sortedTransactions.at(index), () => showTransactions());
+                const tx = sortedTransactions.at(index);
+                if (tx && isReadOnlyProcessingForUser(tx)) return;
+                const transactionMenu = getTransactionMenu(tx, () => showTransactions());
                 if (!transactionMenu) return;
 
                 openPopup(
@@ -721,6 +726,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         getTransactionIndex,
         sortedTransactions,
         getTransactionMenu,
+        isReadOnlyProcessingForUser,
     ]);
 
     const canDisplayTotal = useMemo(() => {
@@ -1089,30 +1095,44 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                   transaction: displayTransaction(transaction),
                                   isWaitingTransaction: isWaitingTransaction(transaction),
                                   isUpdatingTransaction: isUpdatingTransaction(transaction),
+                                  isReadOnlyProcessing: isReadOnlyProcessingForUser(transaction),
                               }))
-                              .map(({ transaction, isWaitingTransaction, isUpdatingTransaction }, index) =>
-                                  transaction ? (
-                                      <Item
-                                          className={twMerge(
-                                              'pt-1 pb-1 pl-2',
-                                              isWaitingTransaction || isUpdatingTransaction ? 'animate-pulse' : '',
-                                              isUpdatingTransaction ? 'cursor-not-allowed' : clickClassName
-                                          )}
-                                          key={index}
-                                          label={transaction}
-                                          onClick={() =>
-                                              showBoughtProducts(getTransactionIndex(index), () => closePopup())
-                                          }
-                                          onContextMenu={() =>
-                                              modifyTransaction(getTransactionIndex(index), () => closePopup())
-                                          }
-                                      />
-                                  ) : (
-                                      <div
-                                          key={index}
-                                          className="border-b-2 border-secondary-active-light dark:border-secondary-active-dark"
-                                      />
-                                  )
+                              .map(
+                                  (
+                                      {
+                                          transaction,
+                                          isWaitingTransaction,
+                                          isUpdatingTransaction,
+                                          isReadOnlyProcessing,
+                                      },
+                                      index
+                                  ) =>
+                                      transaction ? (
+                                          <Item
+                                              className={twMerge(
+                                                  'pt-1 pb-1 pl-2',
+                                                  isWaitingTransaction || isUpdatingTransaction ? 'animate-pulse' : '',
+                                                  isUpdatingTransaction || isReadOnlyProcessing
+                                                      ? 'cursor-not-allowed'
+                                                      : clickClassName
+                                              )}
+                                              key={index}
+                                              label={transaction}
+                                              onClick={() => {
+                                                  if (isReadOnlyProcessing) return;
+                                                  showBoughtProducts(getTransactionIndex(index), () => closePopup());
+                                              }}
+                                              onContextMenu={() => {
+                                                  if (isReadOnlyProcessing) return;
+                                                  modifyTransaction(getTransactionIndex(index), () => closePopup());
+                                              }}
+                                          />
+                                      ) : (
+                                          <div
+                                              key={index}
+                                              className="border-b-2 border-secondary-active-light dark:border-secondary-active-dark"
+                                          />
+                                      )
                               )}
                 </div>
                 {!canDisplayTotal && !compact && (
