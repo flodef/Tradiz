@@ -96,7 +96,7 @@ function writeToComPort(comPort: string, buffer: Buffer, baudRate?: number): Pro
             console.log(`[PRINTER] Opening ${path} for writing, buffer size: ${buffer.length} bytes`);
             let fd: number;
             try {
-                fd = fs.openSync(path, 'r+');
+                fd = fs.openSync(/*turbopackIgnore: true*/ path, 'r+');
             } catch (err) {
                 const code = (err as NodeJS.ErrnoException).code;
                 if (code === 'ENOENT') {
