@@ -13,7 +13,7 @@ for (const dir of ['./dist', './electron/standalone-build']) {
 }
 
 const nextConfig = {
-    output: 'standalone',
+    output: process.env.VERCEL ? undefined : 'standalone',
     allowedDevOrigins: ['http://localhost:3001', 'http://127.0.0.1:3001'],
     turbopack: {
         root: process.cwd(),
