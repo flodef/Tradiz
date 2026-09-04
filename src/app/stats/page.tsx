@@ -18,7 +18,9 @@ import {
 import '@/app/utils/extensions';
 import type { BillingReport, Company, Transaction } from '@/app/utils/interfaces';
 import { idbGetAllTransactionSets } from '@/app/utils/transactionStore';
-import { printBillingDetail, printBillingSummary } from '@/app/utils/posPrinter';
+import { printBillingDetail, printBillingSummary, printTicketX } from '@/app/utils/posPrinter';
+import { buildSummaryData } from '@/app/hooks/useSummary';
+import type { SummaryData } from '@/app/hooks/useSummary';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Bar,
@@ -71,7 +73,7 @@ interface StatisticsData {
 export default function StatsPage() {
     const { isCashier } = useUserRole();
     const { isOnline } = useWindowParam();
-    const { parameters, currencies, currencyIndex, resolvePrinterAddresses } = useConfig();
+    const { parameters, currencies, currencyIndex, resolvePrinterAddresses, inventory } = useConfig();
     const { shopId, isResolved: isShopIdResolved } = useShopId();
     const { openFullscreenPopup, closePopup } = usePopup();
     const currency = currencies[currencyIndex];
@@ -92,6 +94,7 @@ export default function StatsPage() {
     const [printLoading, setPrintLoading] = useState(false);
     const [facturxLoading, setFacturxLoading] = useState(false);
     const [pennylaneLoading, setPennylaneLoading] = useState(false);
+    const [ticketXLoading, setTicketXLoading] = useState(false);
     const invoiceNumberRef = useRef('');
 
     type DatePreset = 'week' | 'month' | 'quarter' | 'semester' | 'year' | 'ytd';
@@ -375,6 +378,80 @@ export default function StatsPage() {
 
     const handlePrintDetail = useCallback(() => runBillingPrint(printBillingDetail), [runBillingPrint]);
 
+    const handlePrintTicketX = useCallback(async () => {
+        if (!currency || !shop || !startDate || !endDate) return;
+
+        const showError = (message: string) => openFullscreenPopup(message, ['OK'], () => closePopup());
+
+        const addresses = resolvePrinterAddresses();
+        if (addresses.length === 0) {
+            showError('Aucune imprimante configurée. Ajoutez une imprimante dans la configuration.');
+            return;
+        }
+
+        setTicketXLoading(true);
+        try {
+            const nonPaidMethods = new Set([WAITING_KEYWORD, PROCESSING_KEYWORD]);
+            const cancellationMethods = new Set([DELETED_KEYWORD, CANCELLED_KEYWORD]);
+            const start = new Date(startDate).getTime();
+            const end = new Date(endDate + 'T23:59:59').getTime();
+
+            const sets = await idbGetAllTransactionSets(shopId);
+            const filtered: Transaction[] = [];
+            const cancellations: Transaction[] = [];
+            const refunds: Transaction[] = [];
+            for (const set of sets) {
+                for (const tx of set.transactions) {
+                    if (tx.createdDate < start || tx.createdDate > end) continue;
+                    if (nonPaidMethods.has(tx.method)) continue;
+                    if (cancellationMethods.has(tx.method)) {
+                        cancellations.push(tx);
+                        continue;
+                    }
+                    if (tx.method === REFUND_KEYWORD) {
+                        refunds.push(tx);
+                    }
+                    filtered.push(tx);
+                }
+            }
+
+            if (!filtered.length && !cancellations.length && !refunds.length) {
+                showError('Aucune transaction sur cette période.');
+                return;
+            }
+
+            const toCurrencyFn = (amount: number) =>
+                Number(amount.toFixed(currency.decimals)).toCurrency(currency.decimals, currency.symbol);
+
+            const summaryData: SummaryData = buildSummaryData(
+                filtered,
+                inventory,
+                currency,
+                shop,
+                toCurrencyFn,
+                cancellations,
+                refunds
+            );
+
+            const response = await printTicketX(addresses, summaryData);
+            if (!response.success) showError(response.error || "Impossible d'imprimer");
+        } catch {
+            showError("Impossible d'imprimer le Ticket X");
+        } finally {
+            setTicketXLoading(false);
+        }
+    }, [
+        currency,
+        shop,
+        startDate,
+        endDate,
+        shopId,
+        inventory,
+        resolvePrinterAddresses,
+        openFullscreenPopup,
+        closePopup,
+    ]);
+
     // Reserve a sequential invoice number from the server (stored in the parameters table).
     // The first call for a given company+period increments the counter; subsequent calls
     // reuse the cached value so Factur-X and PennyLane share the same number.
@@ -546,6 +623,15 @@ export default function StatsPage() {
                     </AdminButton>
                     <AdminButton onClick={() => applyDatePreset('ytd')} className="text-sm flex-1 min-w-20">
                         {new Date().getFullYear()}
+                    </AdminButton>
+                </div>
+                <div className="flex justify-end mt-4">
+                    <AdminButton
+                        onClick={handlePrintTicketX}
+                        isLoading={ticketXLoading}
+                        disabled={!startDate || !endDate}
+                    >
+                        Imprimer Ticket X
                     </AdminButton>
                 </div>
             </div>

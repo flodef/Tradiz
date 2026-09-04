@@ -12,8 +12,8 @@ import {
 } from '../contexts/dataProvider/transactionHelpers';
 import { ARROW, BACK_KEYWORD, DEBIT_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
 import { formatFrenchDate, getFormattedDate } from '../utils/date';
-import { Currency, DataElement, SyncAction, Transaction } from '../utils/interfaces';
-import { printSummary } from '../utils/posPrinter';
+import { Currency, DataElement, InventoryItem, SyncAction, Transaction } from '../utils/interfaces';
+import { printSummary, printTicketX } from '../utils/posPrinter';
 import { resolveCashierPrinter } from '../utils/processData';
 import { getStorageUsage, idbGetAllKeys, idbGetTransactions } from '../utils/transactionStore';
 import { useConfig } from './useConfig';
@@ -41,6 +41,9 @@ export type SummaryData = {
     provisionBreakdown: ProvisionBreakdownEntry[];
     debitTotal: number;
     employerShareTotal: number;
+    transactions?: Transaction[];
+    cancellations?: Transaction[];
+    refunds?: Transaction[];
 };
 
 enum HistoricalPeriod {
@@ -49,7 +52,7 @@ enum HistoricalPeriod {
     year,
 }
 
-interface SummaryAggregates {
+export interface SummaryAggregates {
     totalAmount: number;
     transactionCount: number;
     productCount: number;
@@ -57,7 +60,7 @@ interface SummaryAggregates {
     lastTransactionDate: number;
 }
 
-function buildSummaryAggregates(transactions: Transaction[]): SummaryAggregates {
+export function buildSummaryAggregates(transactions: Transaction[]): SummaryAggregates {
     let totalAmount = 0;
     let transactionCount = 0;
     let productCount = 0;
@@ -78,6 +81,191 @@ function buildSummaryAggregates(transactions: Transaction[]): SummaryAggregates 
         productCount: Math.round(productCount),
         firstTransactionDate,
         lastTransactionDate,
+    };
+}
+
+/**
+ * Standalone helper that builds a complete `SummaryData` object from a list of
+ * transactions.  This is used by the stats page to print a Ticket X without
+ * needing the full `useSummary` hook (which depends on `useData` / `usePopup`).
+ *
+ * `toCurrencyFn` should convert a number to a formatted currency string.
+ */
+export function buildSummaryData(
+    transactions: Transaction[],
+    inventory: InventoryItem[],
+    currency: Currency,
+    shop: Shop,
+    toCurrencyFn: (amount: number) => string,
+    cancellations?: Transaction[],
+    refunds?: Transaction[]
+): SummaryData {
+    const agg = buildSummaryAggregates(transactions);
+
+    // --- getTransactionsDetails (inlined) ---
+    const categories: DataElement[] = [];
+    const payments: DataElement[] = [];
+    const provisionMap = new Map<string, number>();
+    let debitTotal = 0;
+    let employerShareTotal = 0;
+
+    for (const transaction of transactions) {
+        const isRefund = isRefundTransaction(transaction);
+        const payment = payments.find((p) => p.category === transaction.method);
+        if (payment) {
+            payment.quantity += isRefund ? -1 : 1;
+            payment.amount += transaction.amount;
+        } else {
+            payments.unshift({
+                category: transaction.method,
+                quantity: isRefund ? -1 : 1,
+                amount: transaction.amount,
+            });
+        }
+
+        if (transaction.method?.toUpperCase() === DEBIT_KEYWORD) {
+            debitTotal += transaction.amount;
+        }
+
+        if (transaction.employerShare && transaction.employerShare !== 0) {
+            employerShareTotal += transaction.employerShare;
+        }
+
+        if (transaction.products.length === 0 && transaction.customerName) {
+            const key = transaction.method + '\t' + transaction.customerName;
+            const existing = provisionMap.get(key);
+            if (existing !== undefined) provisionMap.set(key, existing + transaction.amount);
+            else provisionMap.set(key, transaction.amount);
+        }
+
+        if (transaction.products.length) {
+            for (const product of transaction.products) {
+                const cat = categories.find((c) => c.category === product.category);
+                if (cat) {
+                    cat.quantity += product.quantity;
+                    cat.amount += product.total ?? 0;
+                } else {
+                    categories.unshift({
+                        category: product.category,
+                        quantity: product.quantity,
+                        amount: product.total ?? 0,
+                    });
+                }
+            }
+        }
+    }
+
+    const provisionBreakdown: ProvisionBreakdownEntry[] = [];
+    for (const [key, amount] of provisionMap) {
+        const [method, customerName] = key.split('\t');
+        provisionBreakdown.push({ method, customerName, amount });
+    }
+    provisionBreakdown.sort((a, b) => a.method.localeCompare(b.method) || a.customerName.localeCompare(b.customerName));
+
+    // --- getTaxesByCategory (inlined) ---
+    const taxes = inventory
+        .map(({ rate }) => rate)
+        .filter((rate, index, array) => array.indexOf(rate) === index)
+        .map((rate, index) => {
+            const taxCategories = inventory
+                .filter((tax) => tax.rate === rate)
+                .map(({ category }) => category)
+                .filter((category, index, array) => array.indexOf(category) === index);
+            return { index, rate, categories: taxCategories };
+        });
+
+    // --- getTaxAmountByCategory (inlined) ---
+    const emptyCategory =
+        categories
+            .filter(({ category }) => taxes.find((tax) => tax.categories.includes(category))?.index === undefined)
+            .reduce((total, { amount }) => total + amount, 0) || 0;
+
+    const taxAmount = taxes
+        .map(({ index, categories: taxCategories, rate }) => {
+            const total = taxCategories
+                .map((category) => categories.find((c) => c.category === category)?.amount || 0)
+                .reduce((total, amount) => total + amount, 0);
+            if (!total) return undefined;
+            const ht = total / (1 + rate / 100);
+            const tva = total - ht;
+            return { index, rate, total, ht, tva };
+        })
+        .concat(emptyCategory ? { index: NaN, rate: 0, total: emptyCategory, ht: emptyCategory, tva: 0 } : undefined)
+        .filter((line): line is NonNullable<typeof line> => Boolean(line));
+
+    const totalTaxes = { total: 0, ht: 0, tva: 0 };
+    for (const t of taxAmount) {
+        totalTaxes.total += t.total;
+        totalTaxes.ht += t.ht;
+        totalTaxes.tva += t.tva;
+    }
+
+    // --- summary lines (inlined from getTransactionsData) ---
+    const summary = categories
+        .map(
+            ({ category, quantity, amount }) =>
+                '[T' +
+                (taxes.find((tax) => tax.categories.includes(category))?.index ?? '') +
+                '] ' +
+                category +
+                ' x ' +
+                quantity +
+                ' ⟹ ' +
+                toCurrencyFn(amount)
+        )
+        .concat([''])
+        .concat(['TAUX\t HT \t TVA \t TTC '])
+        .concat(
+            taxAmount
+                .map(
+                    (t) =>
+                        'T' +
+                        (isNaN(t.index) ? '' : t.index) +
+                        ' ' +
+                        t.rate +
+                        '%' +
+                        '\t' +
+                        toCurrencyFn(t.ht) +
+                        '\t' +
+                        toCurrencyFn(t.tva) +
+                        '\t' +
+                        toCurrencyFn(t.total)
+                )
+                .concat([
+                    'TOTAL' +
+                        '\t' +
+                        toCurrencyFn(totalTaxes.ht) +
+                        '\t' +
+                        toCurrencyFn(totalTaxes.tva) +
+                        '\t' +
+                        toCurrencyFn(totalTaxes.total),
+                ])
+        )
+        .concat([''])
+        .concat(
+            payments.map(({ category, quantity, amount }) => category + ' x ' + quantity + ' ⟹ ' + toCurrencyFn(amount))
+        );
+
+    const period = transactions.length
+        ? new Date(agg.firstTransactionDate).toLocaleDateString('fr-FR') +
+          ' au ' +
+          new Date(agg.lastTransactionDate).toLocaleDateString('fr-FR')
+        : '';
+
+    return {
+        shop,
+        period,
+        amount: '',
+        ...agg,
+        currency,
+        summary,
+        payments,
+        provisionBreakdown,
+        debitTotal,
+        employerShareTotal,
+        transactions,
+        cancellations,
+        refunds,
     };
 }
 
@@ -1224,6 +1412,60 @@ export const useSummary = () => {
         currencyIndex,
     ]);
 
+    const printTicketXSummary = useCallback(async () => {
+        const filteredTransactions = getFilteredTransactions();
+        if (!filteredTransactions.length) return { error: 'Aucune transaction' };
+
+        const resolved = await resolveCashierPrinter(getPrinterAddressByRole);
+        if ('error' in resolved) return { error: resolved.error };
+        const { addresses: printerAddresses, baud: comBaud } = resolved;
+        if (!printerAddresses.length) return { error: 'Imprimante non trouvée' };
+
+        const { summary, payments, provisionBreakdown, debitTotal, employerShareTotal } =
+            getTransactionsData(filteredTransactions);
+
+        const period = getPeriodDescription(filteredTransactions);
+        const agg = buildSummaryAggregates(filteredTransactions);
+
+        // Extract cancellations and refunds from the raw transaction list
+        const allTransactions = tempTransactions.current.length
+            ? tempTransactions.current
+            : transactions.length
+              ? transactions
+              : [];
+        const cancellations = allTransactions.filter((tx) => isDeletedTransaction(tx) || isCancelledTransaction(tx));
+        const refunds = filteredTransactions.filter((tx) => isRefundTransaction(tx));
+
+        return await printTicketX(
+            printerAddresses,
+            {
+                shop: parameters.shop,
+                period,
+                amount: '',
+                ...agg,
+                currency: currencies[currencyIndex],
+                summary,
+                payments,
+                provisionBreakdown,
+                debitTotal,
+                employerShareTotal,
+                transactions: filteredTransactions,
+                cancellations,
+                refunds,
+            },
+            comBaud
+        );
+    }, [
+        getFilteredTransactions,
+        getPeriodDescription,
+        getTransactionsData,
+        parameters,
+        getPrinterAddressByRole,
+        currencies,
+        currencyIndex,
+        transactions,
+    ]);
+
     const showTransactionsSummaryMenu = useCallback(() => {
         const hasTransactions = transactions.length || tempTransactions.current.length;
         const historicalTransactions = getHistoricalTransactions();
@@ -1241,11 +1483,13 @@ export const useSummary = () => {
 
             // Ticket Z should only be printed on the cashier printer, not kitchen/bar.
             const ticketZPrinterNames = hasCashierPrinter() ? [PRINT_KEYWORD] : [];
+            const ticketXPrinterNames = hasCashierPrinter() ? ['Ticket X'] : [];
 
             openPopup(
                 'Ticket Z ' + (hasTransactions ? formattedDate : ''),
                 (hasTransactions ? ['Email', 'Feuille de calcul'] : [])
                     .concat(hasTransactions ? ticketZPrinterNames : [])
+                    .concat(hasTransactions ? ticketXPrinterNames : [])
                     .concat(isDbConnected && hasTransactions && isDailyPeriod ? ['Resynchroniser jour'] : [])
                     .concat(isDbConnected ? ['Menu Synchronisation'] : [])
                     .concat(
@@ -1259,6 +1503,13 @@ export const useSummary = () => {
                         case PRINT_KEYWORD:
                             openPopup('Imprimer', ['Impression en cours...']);
                             printTransactionsSummary().then((response) => {
+                                if (!response.success) openPopup('Erreur', [response.error || "Impossible d'imprimer"]);
+                                else closePopup();
+                            });
+                            break;
+                        case 'Ticket X':
+                            openPopup('Ticket X', ['Impression en cours...']);
+                            printTicketXSummary().then((response) => {
                                 if (!response.success) openPopup('Erreur', [response.error || "Impossible d'imprimer"]);
                                 else closePopup();
                             });
@@ -1329,6 +1580,7 @@ export const useSummary = () => {
         closePopup,
         showTransactionsSummary,
         printTransactionsSummary,
+        printTicketXSummary,
         processEmail,
         downloadData,
         transactions,

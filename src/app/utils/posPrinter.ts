@@ -929,6 +929,286 @@ export async function printSummary(
     }
 }
 
+/**
+ * Server action to print a Ticket X (flash report) — a snapshot of the day's
+ * sales without closing the day.  Includes the same payment/VAT/category
+ * breakdown as the Z ticket plus a per-payment-method detail section and a
+ * full product list.
+ */
+export async function printTicketX(
+    printerAddresses: string[],
+    summaryData: SummaryData,
+    comBaud?: number
+): Promise<PrintResponse> {
+    try {
+        const { printer, error } = await initPrinter(printerAddresses, comBaud);
+        if (!printer || error) return { error };
+
+        const currentDate = new Date();
+        const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
+
+        const {
+            totalAmount,
+            transactionCount,
+            productCount,
+            firstTransactionDate: firstDate,
+            lastTransactionDate: lastDate,
+            payments,
+            provisionBreakdown,
+            debitTotal,
+            employerShareTotal,
+            transactions,
+            cancellations,
+            refunds,
+            currency,
+        } = summaryData;
+        const averageTicket = transactionCount > 0 ? totalAmount / transactionCount : 0;
+
+        // ── Internal header (shop name large + SIRET, centered) ──
+        printInternalHeader(printer, summaryData.shop);
+
+        // Flash title (centered)
+        const flashDate = firstDate ? formatFrenchDate(new Date(firstDate)).frenchDateStr : frenchDateStr;
+        printer.alignCenter();
+        printer.bold(true);
+        printer.println('FLASH du ' + flashDate);
+        printer.bold(false);
+        printer.newLine();
+
+        // Format the transaction dates
+        const firstTransactionDate = new Date(firstDate);
+        const lastTransactionDate = new Date(lastDate);
+        const { frenchDateStr: firstDateStr, frenchTimeStr: firstTimeStr } = formatFrenchDate(firstTransactionDate);
+        const { frenchDateStr: lastDateStr, frenchTimeStr: lastTimeStr } = formatFrenchDate(lastTransactionDate);
+
+        // Print the header information
+        printer.alignLeft();
+        printer.leftRight(`Date d'impression :`, `${frenchDateStr} ${frenchTimeStr}`);
+        printer.leftRight(`Ouverture :`, `${firstDateStr} ${firstTimeStr}`);
+        printer.leftRight(`Clôture :`, `${lastDateStr} ${lastTimeStr}`);
+        printer.newLine();
+
+        // Commands and clients
+        printer.leftRight(`Produits : ${productCount}`, `Ventes : ${transactionCount}`);
+        printer.println(`Ticket moyen : ${toCurrency(averageTicket, currency)}`);
+        printer.newLine();
+
+        // Separator line
+        printer.drawLine();
+        printer.newLine();
+
+        // ── Payment summary (Nbr Règlements / Totaux) ──
+        printer.bold(true);
+        printer.leftRight('Nbr Règlements', 'Totaux');
+        printer.bold(false);
+        for (const payment of payments) {
+            printer.leftRight(`${payment.quantity}  ${payment.category}`, toCurrency(payment.amount, currency));
+        }
+        if (employerShareTotal > 0) {
+            printer.leftRight(
+                `${toCurrency(employerShareTotal, currency)} Hors CA`,
+                toCurrency(totalAmount + employerShareTotal, currency)
+            );
+        }
+        printer.newLine();
+        printer.leftRight('TOTAL NET EN CAISSE', toCurrency(totalAmount, currency));
+        printer.newLine();
+
+        // ── Crédits Clients Accordés (DEBIT payments) + Règl. Clients ──
+        if (debitTotal > 0) {
+            printer.leftRight('Crédits Clients Accordés', toCurrency(debitTotal, currency));
+        }
+        printer.leftRight('Règl. Clients (total)', toCurrency(totalAmount, currency));
+        printer.newLine();
+
+        // ── Répartition Total Caisse (per-customer provisions) ──
+        if (provisionBreakdown.length) {
+            printer.bold(true);
+            printer.println('Répartition Total Caisse');
+            printer.bold(false);
+            let provisionSubtotal = 0;
+            for (const entry of provisionBreakdown) {
+                printer.leftRight(`${entry.method} ${entry.customerName}`, toCurrency(entry.amount, currency));
+                provisionSubtotal += entry.amount;
+            }
+            printer.leftRight('Solde Mouvements Caisse', toCurrency(provisionSubtotal, currency));
+            printer.newLine();
+        }
+
+        // ── Categories + VAT table (from summary lines) ──
+        printer.drawLine();
+        printer.newLine();
+
+        for (const line of summaryData.summary) {
+            if (line === '') {
+                printer.newLine();
+                printer.drawLine();
+                printer.newLine();
+            } else if (line.includes('⟹')) {
+                printer.leftRight(line.split('⟹')[0].trim(), toCurrency(line.split('⟹')[1], currency));
+            } else if (line.includes('\t')) {
+                const cells = line.split('\t');
+                printer.table(
+                    cells.map((s, idx) => {
+                        const trimmed = s.trim();
+                        if (idx === 0) return trimmed;
+                        return toCurrency(trimmed, currency);
+                    })
+                );
+            } else printer.println(line);
+        }
+        printer.newLine();
+
+        // ── Détail des Règlements ──
+        printer.drawLine();
+        printer.newLine();
+        printer.bold(true);
+        printer.println('Détail des Règlements');
+        printer.bold(false);
+
+        if (transactions && transactions.length) {
+            const methodGroups = new Map<string, Transaction[]>();
+            for (const tx of transactions) {
+                const group = methodGroups.get(tx.method) || [];
+                group.push(tx);
+                methodGroups.set(tx.method, group);
+            }
+
+            for (const [method, txs] of methodGroups) {
+                const methodTotal = txs.reduce((sum, tx) => sum + tx.amount, 0);
+                printer.println(`${method} (${txs.length})`);
+                const provisions = txs.filter((tx) => tx.products.length === 0 && tx.customerName);
+                for (const prov of provisions) {
+                    printer.leftRight(`  ${prov.customerName}`, toCurrency(prov.amount, currency));
+                }
+                printer.leftRight(`--- TOTAL ${method}`, toCurrency(methodTotal, currency));
+                printer.newLine();
+            }
+        }
+        printer.leftRight('TOTAL Règlements', toCurrency(totalAmount, currency));
+        printer.newLine();
+
+        // ── Liste des Produits Vendus ──
+        printer.drawLine();
+        printer.newLine();
+        printer.bold(true);
+        printer.println('Liste des Produits Vendus');
+        printer.bold(false);
+        printer.newLine();
+
+        if (transactions && transactions.length) {
+            const productMap = new Map<string, { quantity: number; amount: number }>();
+            for (const tx of transactions) {
+                for (const product of tx.products) {
+                    const key = product.label || '';
+                    const existing = productMap.get(key);
+                    if (existing) {
+                        existing.quantity += product.quantity;
+                        existing.amount += product.total ?? 0;
+                    } else {
+                        productMap.set(key, {
+                            quantity: product.quantity,
+                            amount: product.total ?? 0,
+                        });
+                    }
+                }
+            }
+
+            const sortedProducts = Array.from(productMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+            let totalQty = 0;
+            let totalProductsAmount = 0;
+            for (const [label, { quantity, amount }] of sortedProducts) {
+                const maxLabelLen = 24;
+                const truncatedLabel = label.length > maxLabelLen ? label.substring(0, maxLabelLen) : label;
+                printer.leftRight(`${truncatedLabel} x${quantity}`, toCurrency(amount, currency));
+                totalQty += quantity;
+                totalProductsAmount += amount;
+            }
+
+            printer.drawLine();
+            printer.bold(true);
+            printer.leftRight(`TOTAL x${totalQty}`, toCurrency(totalProductsAmount, currency));
+            printer.bold(false);
+        }
+
+        // ── LISTE ANNULATIONS (deleted / cancelled transactions) ──
+        if (cancellations && cancellations.length) {
+            printer.newLine();
+            printer.drawLine();
+            printer.newLine();
+            printer.bold(true);
+            printer.println('LISTE ANNULATIONS');
+            printer.bold(false);
+
+            let cancelQty = 0;
+            let cancelAmount = 0;
+            for (const tx of cancellations) {
+                const qty = tx.products.reduce((sum, p) => sum + p.quantity, 0) || 1;
+                const maxLabelLen = 24;
+                const label = tx.products.length
+                    ? tx.products.map((p) => p.label).join(' + ')
+                    : tx.customerName || tx.method;
+                const truncatedLabel = label.length > maxLabelLen ? label.substring(0, maxLabelLen) : label;
+                printer.leftRight(`-${truncatedLabel} x${qty}`, toCurrency(tx.amount, currency));
+                cancelQty -= qty;
+                cancelAmount += tx.amount;
+            }
+            printer.bold(true);
+            printer.leftRight(`Total Annulation x${cancelQty}`, toCurrency(cancelAmount, currency));
+            printer.bold(false);
+        }
+
+        // ── Liste des Avoirs (refunds) ──
+        if (refunds && refunds.length) {
+            printer.newLine();
+            printer.drawLine();
+            printer.newLine();
+            printer.bold(true);
+            printer.println('Liste des Avoirs');
+            printer.bold(false);
+
+            let refundQty = 0;
+            let refundAmount = 0;
+            for (const tx of refunds) {
+                const qty = tx.products.reduce((sum, p) => sum + p.quantity, 0) || 1;
+                const maxLabelLen = 24;
+                const label = tx.products.length
+                    ? tx.products.map((p) => p.label).join(' + ')
+                    : tx.customerName || tx.method;
+                const truncatedLabel = label.length > maxLabelLen ? label.substring(0, maxLabelLen) : label;
+                const employerLabel = tx.employerShare ? ' --HORS CA' : '';
+                printer.leftRight(`${truncatedLabel} x${qty}${employerLabel}`, toCurrency(tx.amount, currency));
+                refundQty += qty;
+                refundAmount += tx.amount;
+            }
+            printer.bold(true);
+            printer.leftRight(`Total Avoirs x${refundQty}`, toCurrency(refundAmount, currency));
+            printer.bold(false);
+        }
+
+        // Separator line
+        printer.newLine();
+        printer.drawLine();
+        printer.newLine();
+
+        // Total TTC
+        printer.setTextDoubleHeight();
+        printer.bold(true);
+        printer.leftRight('TOTAL TTC', toCurrency(totalAmount, currency));
+        printer.bold(false);
+        printer.setTextNormal();
+        printer.cut();
+
+        // Execute print
+        await executePrint(printer);
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to print Ticket X:', error);
+        return { error: "Erreur lors de l'impression du ticket X" };
+    }
+}
+
 function toFrenchAmount(amount: number): string {
     const [int, dec] = amount.toFixed(2).split('.');
     const intWithSpaces = int.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -962,9 +1242,8 @@ function printBillingHeader(printer: ThermalPrinter, title: string, report: Bill
     printer.newLine();
 
     printer.alignLeft();
-    printer.println(
-        `${report.companyName} - Compte n°${report.companyId} du ${startLabel} au ${endLabel} à ${timeLabel}`
-    );
+    printer.println(`${report.companyName} - Compte n°${report.companyId}`);
+    printer.println(`du ${startLabel} au ${endLabel} à ${timeLabel}`);
     printer.println(`Imprimé le ${frenchDateStr} à ${timeLabel}`);
     printer.newLine();
 }
@@ -1088,12 +1367,7 @@ export async function printBillingDetail(
         const { printer, error } = await initPrinter(printerAddresses);
         if (!printer || error) return { error };
 
-        printBillingHeader(
-            printer,
-            `Ventes Facturées par Client - Famille PART EMPLOYEUR - ${report.companyName} - Compte n° ${report.companyId}`,
-            report,
-            shop
-        );
+        printBillingHeader(printer, 'Ventes Facturées par Client', report, shop);
 
         if (report.customers && report.customers.length > 0) {
             printer.tableCustom([
