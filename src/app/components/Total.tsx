@@ -6,11 +6,10 @@ import { useUserRole } from '@/app/hooks/useUserRole';
 import { FC, MouseEventHandler, useCallback, useMemo, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 import {
-    isCancelledTransaction,
     isConfirmedTransaction,
-    isDeletedTransaction,
     isProcessingTransaction,
     isRefundTransaction,
+    isRemovedTransaction,
     isUpdatingTransaction,
     isWaitingTransaction,
 } from '../contexts/dataProvider/transactionHelpers';
@@ -230,10 +229,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     } = useConfig();
 
     const [needRefresh, setNeedRefresh] = useState(false);
-    const visibleTransactions = useMemo(
-        () => transactions.filter((tx) => !isDeletedTransaction(tx) && !isCancelledTransaction(tx)),
-        [transactions]
-    );
+    const visibleTransactions = useMemo(() => transactions.filter((tx) => !isRemovedTransaction(tx)), [transactions]);
 
     const label = useIsMobile() ? totalLabel : payLabel;
 

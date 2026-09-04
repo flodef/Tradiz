@@ -1,5 +1,9 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
-import { isCancelledTransaction, isDeletedTransaction } from '@/app/contexts/dataProvider/transactionHelpers';
+import {
+    isCancelledTransaction,
+    isDeletedTransaction,
+    isHardDeletedTransaction,
+} from '@/app/contexts/dataProvider/transactionHelpers';
 import { DEFAULT_USER, DEFAULT_VAT_RATE } from '@/app/utils/constants';
 import { Transaction } from '@/app/utils/interfaces';
 import { parseCashNote } from '@/app/utils/transactionNote';
@@ -177,7 +181,8 @@ export async function GET(request: Request) {
             if (
                 !includeDeleted &&
                 (isDeletedTransaction({ method: row.method } as Transaction) ||
-                    isCancelledTransaction({ method: row.method } as Transaction))
+                    isCancelledTransaction({ method: row.method } as Transaction) ||
+                    isHardDeletedTransaction({ method: row.method } as Transaction))
             )
                 continue;
 

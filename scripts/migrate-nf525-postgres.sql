@@ -3,14 +3,11 @@
 -- and the previous_hash column to the transactions table.
 
 -- ============================================================
--- 1. Add previous_hash column to transactions table
+-- 1. Add previous_hash and hash columns to transactions table
 -- ============================================================
 
--- PostgreSQL:
--- ALTER TABLE dc_pos.transactions ADD COLUMN IF NOT EXISTS previous_hash VARCHAR(64);
-
--- MariaDB:
--- ALTER TABLE `transactions` ADD COLUMN `previous_hash` varchar(64) DEFAULT NULL;
+ALTER TABLE dc_pos.transactions ADD COLUMN IF NOT EXISTS previous_hash VARCHAR(64);
+ALTER TABLE dc_pos.transactions ADD COLUMN IF NOT EXISTS hash VARCHAR(64);
 
 -- ============================================================
 -- 2. Create NF525 compliance tables

@@ -4,10 +4,9 @@ import { utils, writeFile } from 'xlsx';
 import { sendSummaryEmail } from '../actions/email';
 import { Shop } from '../contexts/ConfigProvider';
 import {
-    isCancelledTransaction,
-    isDeletedTransaction,
     isProcessingTransaction,
     isRefundTransaction,
+    isRemovedTransaction,
     isWaitingTransaction,
 } from '../contexts/dataProvider/transactionHelpers';
 import { ARROW, BACK_KEYWORD, DEBIT_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
@@ -324,7 +323,7 @@ export const useSummary = () => {
     }, [transactionsFilename]);
 
     const getFilteredTransactions = useCallback(() => {
-        const t = tempTransactions.current.length ? tempTransactions.current : transactions.length ? transactions : [];
+        const t = tempTransactions.current.length ? tempTransactions.current : transactions;
         const currency = currencies[currencyIndex];
         // Match the current currency tolerantly: legacy/migrated transactions store the
         // currency as "Label (Symbol)" (e.g. "Euro (€)") while new ones store just the label.
@@ -335,8 +334,7 @@ export const useSummary = () => {
         return t.filter(
             (transaction) =>
                 matchesCurrency(transaction.currency) &&
-                !isDeletedTransaction(transaction) &&
-                !isCancelledTransaction(transaction) &&
+                !isRemovedTransaction(transaction) &&
                 !isWaitingTransaction(transaction) &&
                 !isProcessingTransaction(transaction)
         );
@@ -868,7 +866,7 @@ export const useSummary = () => {
                                     const key = `${shopIdPrefix}_${dayKey}`;
                                     const txs = await idbGetTransactions(key);
                                     // Only include days with at least one non-deleted, non-cancelled transaction
-                                    if (!txs.every((t) => isDeletedTransaction(t) || isCancelledTransaction(t))) {
+                                    if (!txs.every((t) => isRemovedTransaction(t))) {
                                         validDays.push(dayKey);
                                     }
                                 }
@@ -1428,13 +1426,15 @@ export const useSummary = () => {
         const period = getPeriodDescription(filteredTransactions);
         const agg = buildSummaryAggregates(filteredTransactions);
 
-        // Extract cancellations and refunds from the raw transaction list
-        const allTransactions = tempTransactions.current.length
-            ? tempTransactions.current
-            : transactions.length
-              ? transactions
-              : [];
-        const cancellations = allTransactions.filter((tx) => isDeletedTransaction(tx) || isCancelledTransaction(tx));
+        // Extract cancellations from the same currency-matched list as filteredTransactions
+        // but including removed (deleted/cancelled/hard-deleted) transactions
+        const baseList = tempTransactions.current.length ? tempTransactions.current : transactions;
+        const currency = currencies[currencyIndex];
+        const matchesCurrency = (txCurrency: string) =>
+            txCurrency === currency.label ||
+            txCurrency === currency.symbol ||
+            txCurrency === `${currency.label} (${currency.symbol})`;
+        const cancellations = baseList.filter((tx) => matchesCurrency(tx.currency) && isRemovedTransaction(tx));
         const refunds = filteredTransactions.filter((tx) => isRefundTransaction(tx));
 
         return await printTicketX(

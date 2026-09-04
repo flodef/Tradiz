@@ -4,8 +4,9 @@
 
 USE `DC_POS`;
 
--- 1. Add previous_hash column to transactions table
+-- 1. Add previous_hash and hash columns to transactions table
 ALTER TABLE `transactions` ADD COLUMN IF NOT EXISTS `previous_hash` varchar(64) DEFAULT NULL;
+ALTER TABLE `transactions` ADD COLUMN IF NOT EXISTS `hash` varchar(64) DEFAULT NULL;
 
 -- 2. Create NF525 compliance tables
 

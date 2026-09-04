@@ -27,6 +27,9 @@ export const isCancelledTransaction = (transaction?: Transaction) =>
 export const isHardDeletedTransaction = (transaction?: Transaction) =>
     Boolean(transaction && transaction.method === HARD_DELETED_KEYWORD);
 
+export const isRemovedTransaction = (transaction?: Transaction) =>
+    isDeletedTransaction(transaction) || isCancelledTransaction(transaction) || isHardDeletedTransaction(transaction);
+
 export const isRefundTransaction = (transaction?: Transaction) =>
     Boolean(transaction && transaction.method === REFUND_KEYWORD);
 
@@ -36,9 +39,7 @@ export const isConfirmedTransaction = (transaction?: Transaction) =>
         transaction.method !== undefined &&
         transaction.method !== null &&
         !isWaitingTransaction(transaction) &&
-        !isDeletedTransaction(transaction) &&
-        !isCancelledTransaction(transaction) &&
-        !isHardDeletedTransaction(transaction) &&
+        !isRemovedTransaction(transaction) &&
         !isProcessingTransaction(transaction) &&
         !isUpdatingTransaction(transaction)
     );

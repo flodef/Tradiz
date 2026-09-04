@@ -6,10 +6,9 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import { Shop } from '../contexts/ConfigProvider';
 import {
-    isCancelledTransaction,
-    isDeletedTransaction,
     isProcessingTransaction,
     isRefundTransaction,
+    isRemovedTransaction,
     isWaitingTransaction,
 } from '../contexts/dataProvider/transactionHelpers';
 import { ReceiptData } from '../hooks/usePay';
@@ -640,8 +639,7 @@ export async function printKitchenTicket(
         const currentDate = new Date();
         const { frenchDateStr, frenchTimeStr } = formatFrenchDate(currentDate);
         const isRefund = isRefundTransaction(ticketData.transaction);
-        const isRemoved =
-            isDeletedTransaction(ticketData.transaction) || isCancelledTransaction(ticketData.transaction);
+        const isRemoved = isRemovedTransaction(ticketData.transaction);
         const serviceType = ticketData.serviceType;
 
         // Date and time
@@ -1151,7 +1149,7 @@ export async function printTicketX(
                     : tx.customerName || tx.method;
                 const truncatedLabel = label.length > maxLabelLen ? label.substring(0, maxLabelLen) : label;
                 printer.leftRight(`-${truncatedLabel} x${qty}`, toCurrency(tx.amount, currency));
-                cancelQty -= qty;
+                cancelQty += qty;
                 cancelAmount += tx.amount;
             }
             printer.bold(true);

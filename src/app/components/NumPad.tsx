@@ -13,7 +13,7 @@ import {
 } from '@tabler/icons-react';
 import { FC, MouseEventHandler, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
-import { isCancelledTransaction, isDeletedTransaction } from '../contexts/dataProvider/transactionHelpers';
+import { isRemovedTransaction } from '../contexts/dataProvider/transactionHelpers';
 import { useConfig } from '../hooks/useConfig';
 import { useData } from '../hooks/useData';
 import { usePay } from '../hooks/usePay';
@@ -1023,7 +1023,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
             : 'invisible');
     const f3 =
         f +
-        (transactions.filter((tx) => !isDeletedTransaction(tx) && !isCancelledTransaction(tx)).length ||
+        (transactions.filter((tx) => !isRemovedTransaction(tx)).length ||
         getHistoricalTransactions().length ||
         isDbConnected
             ? color
