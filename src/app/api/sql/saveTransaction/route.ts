@@ -468,8 +468,8 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
         // PostgreSQL: UPDATE ... RETURNING id atomically updates and returns the id.
         // If the row was deleted by a concurrent hardDelete, 0 rows are returned.
         // Fetch the existing previous_hash to preserve the hash chain.
-        const selectQuery = `SELECT id, previous_hash FROM ${prefix}transactions WHERE order_id = $1 FOR UPDATE`;
-        const [selectRows] = await connection.execute(selectQuery, [transaction.order_id]);
+        const selectQuery = `SELECT id, previous_hash FROM ${prefix}transactions WHERE order_id = $1 AND payment_method != $2 FOR UPDATE`;
+        const [selectRows] = await connection.execute(selectQuery, [transaction.order_id, HARD_DELETED_KEYWORD]);
         const existingRows = selectRows as (IdRow & { previous_hash: string | null })[];
 
         if (existingRows.length === 0) {
@@ -509,8 +509,8 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
         await insertTransactionItems(connection, transactionId, transaction.products);
     } else {
         // MariaDB/MySQL: no RETURNING clause, use SELECT ... FOR UPDATE to lock the row
-        const lockQuery = `SELECT id, previous_hash FROM ${prefix}transactions WHERE order_id = ? FOR UPDATE`;
-        const [existing] = await connection.execute(lockQuery, [transaction.order_id]);
+        const lockQuery = `SELECT id, previous_hash FROM ${prefix}transactions WHERE order_id = ? AND payment_method != ? FOR UPDATE`;
+        const [existing] = await connection.execute(lockQuery, [transaction.order_id, HARD_DELETED_KEYWORD]);
         const existingRows = existing as (IdRow & { previous_hash: string | null })[];
 
         if (existingRows.length === 0) {

@@ -6,6 +6,7 @@ import { adminTextStyle } from '@/app/utils/constants';
 import { frenchPhoneRegex } from '@/app/utils/regex';
 import { Mercurial, User } from '@/app/utils/interfaces';
 import AdminInput from '../AdminInput';
+import AdminButton from '../AdminButton';
 import AdminSelect from '../AdminSelect';
 import SectionCard from '../SectionCard';
 import Switch from '../Switch';
@@ -13,6 +14,7 @@ import SiretInput from '../SiretInput';
 import ValidatedInput from '../ValidatedInput';
 import ZipCityRow from '../ZipCityRow';
 import { useEffect, useState } from 'react';
+import { IconCheck, IconX, IconShieldCheck } from '@tabler/icons-react';
 
 interface ParametersConfigProps {
     config: Parameters;
@@ -60,22 +62,33 @@ export default function ParametersConfig({
     onToggle,
     icon,
 }: ParametersConfigProps) {
-    const [appVersion, setAppVersion] = useState(process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0');
+    const [appVersion, setAppVersion] = useState(process.env.NEXT_PUBLIC_APP_VERSION);
+    const [integrityStatus, setIntegrityStatus] = useState<'idle' | 'checking' | 'ok' | 'fail'>('idle');
 
     useEffect(() => {
         // Fetch the current version from package.json at runtime
         fetch('/api/version')
             .then((res) => res.json())
             .then((data) => {
-                if (data.version) {
-                    setAppVersion(data.version);
-                }
+                if (data.version) setAppVersion(data.version);
             })
             .catch(() => {
                 // Fallback to env var if API fails
-                setAppVersion(process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0');
+                setAppVersion(process.env.NEXT_PUBLIC_APP_VERSION);
             });
     }, []);
+
+    const checkIntegrity = () => {
+        setIntegrityStatus('checking');
+        fetch('/api/sql/verifyIntegrity')
+            .then((res) => res.json())
+            .then((data) => {
+                setIntegrityStatus(data.integrity_ok ? 'ok' : 'fail');
+            })
+            .catch(() => {
+                setIntegrityStatus('fail');
+            });
+    };
 
     const maxDaysInMonth = (month: number): number => {
         const days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -284,13 +297,41 @@ export default function ParametersConfig({
                         ]}
                         isReadOnly={isReadOnly}
                     />
-                    <ValidatedInput
-                        label="Version"
-                        value={appVersion}
-                        onChange={() => {}}
-                        isReadOnly={true}
-                        className="w-32"
-                    />
+                    {appVersion && (
+                        <ValidatedInput
+                            label="Version"
+                            value={appVersion}
+                            onChange={() => {}}
+                            isReadOnly={true}
+                            className="w-32"
+                        />
+                    )}
+                    <div className="flex flex-col gap-1">
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Intégrité NF525</label>
+                        <AdminButton
+                            variant="secondary"
+                            onClick={checkIntegrity}
+                            disabled={integrityStatus === 'checking'}
+                            isLoading={integrityStatus === 'checking'}
+                        >
+                            {integrityStatus === 'ok' ? (
+                                <>
+                                    <IconCheck size={18} />
+                                    Valide
+                                </>
+                            ) : integrityStatus === 'fail' ? (
+                                <>
+                                    <IconX size={18} />
+                                    Erreur
+                                </>
+                            ) : (
+                                <>
+                                    <IconShieldCheck size={18} />
+                                    Vérifier
+                                </>
+                            )}
+                        </AdminButton>
+                    </div>
                 </div>
             </div>
 

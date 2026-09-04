@@ -19,13 +19,15 @@ async function aggregateMonthlyFromDaily(connection: DbConnection, year: number,
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
     const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
-    const monthEnd = `${year}-${String(month).padStart(2, '0')}-31`;
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
+    const monthEndExclusive = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
 
     const query = isPg
-        ? `SELECT COUNT(*)::int AS daily_closure_count, COALESCE(SUM(ticket_count), 0)::int AS ticket_count, COALESCE(SUM(total_amount), 0)::numeric AS total_amount, COALESCE(SUM(total_ht), 0)::numeric AS total_ht, COALESCE(SUM(total_tva), 0)::numeric AS total_tva FROM ${prefix}daily_closures WHERE closure_date >= $1 AND closure_date <= $2`
-        : `SELECT COUNT(*) AS daily_closure_count, COALESCE(SUM(ticket_count), 0) AS ticket_count, COALESCE(SUM(total_amount), 0) AS total_amount, COALESCE(SUM(total_ht), 0) AS total_ht, COALESCE(SUM(total_tva), 0) AS total_tva FROM ${prefix}daily_closures WHERE closure_date >= ? AND closure_date <= ?`;
+        ? `SELECT COUNT(*)::int AS daily_closure_count, COALESCE(SUM(ticket_count), 0)::int AS ticket_count, COALESCE(SUM(total_amount), 0)::numeric AS total_amount, COALESCE(SUM(total_ht), 0)::numeric AS total_ht, COALESCE(SUM(total_tva), 0)::numeric AS total_tva FROM ${prefix}daily_closures WHERE closure_date >= $1 AND closure_date < $2`
+        : `SELECT COUNT(*) AS daily_closure_count, COALESCE(SUM(ticket_count), 0) AS ticket_count, COALESCE(SUM(total_amount), 0) AS total_amount, COALESCE(SUM(total_ht), 0) AS total_ht, COALESCE(SUM(total_tva), 0) AS total_tva FROM ${prefix}daily_closures WHERE closure_date >= ? AND closure_date < ?`;
 
-    const [rows] = await connection.execute(query, [monthStart, monthEnd]);
+    const [rows] = await connection.execute(query, [monthStart, monthEndExclusive]);
     const r = (rows as Record<string, number | string>[])[0];
     return {
         daily_closure_count: Number(r.daily_closure_count) || 0,

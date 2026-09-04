@@ -2,6 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from '../db';
 import { insertAuditEvent } from '../auditHelpers';
+import { getSoftwareVersion, getSoftwareName } from '@/app/utils/version';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,8 +35,8 @@ interface ArchiveExport {
     export_date: string;
     period_start: string;
     period_end: string;
-    software: string;
-    version: string;
+    software: string | null;
+    version: string | null;
     transactions: ArchiveTransaction[];
     daily_closures: unknown[];
     monthly_closures: unknown[];
@@ -43,9 +44,6 @@ interface ArchiveExport {
     perpetual_totals: unknown;
     audit_events: unknown[];
 }
-
-const SOFTWARE_NAME = 'Tradiz POS';
-const SOFTWARE_VERSION = '1.0.0';
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
@@ -130,8 +128,8 @@ export async function GET(request: Request) {
             export_date: new Date().toISOString(),
             period_start: startDate,
             period_end: endDate,
-            software: SOFTWARE_NAME,
-            version: SOFTWARE_VERSION,
+            software: getSoftwareName(),
+            version: getSoftwareVersion(),
             transactions,
             daily_closures: dailyRows,
             monthly_closures: monthlyRows,
@@ -140,7 +138,8 @@ export async function GET(request: Request) {
             audit_events: auditRows,
         };
 
-        // Trace the export in audit events
+        // Trace the export in audit events (transactional for integrity)
+        await connection.beginTransaction();
         await insertAuditEvent(connection, {
             event_type: 'archive_export',
             entity_type: 'archive',
@@ -148,6 +147,7 @@ export async function GET(request: Request) {
             user_name: requestedBy,
             detail: `transactions=${transactions.length} daily_closures=${(dailyRows as unknown[]).length}`,
         });
+        await connection.commit();
 
         const filename = `archive_${startDate}_${endDate}.json`;
         return new NextResponse(JSON.stringify(archive, null, 2), {
@@ -158,6 +158,7 @@ export async function GET(request: Request) {
             },
         });
     } catch (error) {
+        await connection?.rollback();
         console.error('Error generating archive export:', error);
         return NextResponse.json({ error: 'An error occurred while generating archive export' }, { status: 500 });
     } finally {

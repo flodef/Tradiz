@@ -1,13 +1,10 @@
 import { NextResponse } from 'next/server';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { getSoftwareVersion } from '@/app/utils/version';
 
 export async function GET() {
-    try {
-        const packageJsonPath = join(process.cwd(), 'package.json');
-        const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
-        return NextResponse.json({ version: packageJson.version });
-    } catch {
+    const version = getSoftwareVersion();
+    if (!version) {
         return NextResponse.json({ error: 'Failed to read version' }, { status: 500 });
     }
+    return NextResponse.json({ version });
 }

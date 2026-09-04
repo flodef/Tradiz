@@ -27,11 +27,7 @@ interface IntegrityIssue {
     computed_hash: string;
 }
 
-function recomputeHash(
-    transactionId: number | string,
-    tx: TransactionRow,
-    previousHash: string | null
-): string {
+function recomputeHash(transactionId: number | string, tx: TransactionRow, previousHash: string | null): string {
     const data = [
         previousHash || '',
         transactionId || 'new',
@@ -56,9 +52,7 @@ export async function GET(request: Request) {
         const prefix = isPg ? 'dc_pos.' : '';
 
         // Fetch all transactions ordered by id (chain order)
-        const query = isPg
-            ? `SELECT id, order_id, user_name, payment_method, amount, currency, created_at, change, device_id, hash, previous_hash FROM ${prefix}transactions ORDER BY id ASC`
-            : `SELECT id, order_id, user_name, payment_method, amount, currency, created_at, change, device_id, hash, previous_hash FROM ${prefix}transactions ORDER BY id ASC`;
+        const query = `SELECT id, order_id, user_name, payment_method, amount, currency, created_at, change, device_id, hash, previous_hash FROM ${prefix}transactions ORDER BY id ASC`;
         const [rows] = await connection.execute(query);
         const transactions = rows as TransactionRow[];
 
@@ -96,13 +90,16 @@ export async function GET(request: Request) {
             expectedPreviousHash = tx.hash;
         }
 
-        return NextResponse.json({
-            total_transactions: transactions.length,
-            verified: verifiedCount,
-            issues_found: issues.length,
-            issues: issues.length > 0 ? issues : undefined,
-            integrity_ok: issues.length === 0,
-        }, { status: 200 });
+        return NextResponse.json(
+            {
+                total_transactions: transactions.length,
+                verified: verifiedCount,
+                issues_found: issues.length,
+                issues: issues.length > 0 ? issues : undefined,
+                integrity_ok: issues.length === 0,
+            },
+            { status: 200 }
+        );
     } catch (error) {
         console.error('Error verifying integrity:', error);
         return NextResponse.json({ error: 'An error occurred while verifying integrity' }, { status: 500 });

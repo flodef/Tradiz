@@ -1,45 +1,9 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from '../db';
-import { createHash } from 'crypto';
+import { insertAuditEvent, type AuditEventInput } from '../auditHelpers';
 
 export const dynamic = 'force-dynamic';
-
-interface AuditEventInput {
-    event_type: string;
-    entity_type?: string;
-    entity_id?: string | null;
-    user_name: string;
-    device_id?: string | null;
-    detail?: string | null;
-}
-
-interface AuditEventRow {
-    id: number;
-    event_hash: string | null;
-}
-
-async function getLatestEventHash(connection: DbConnection): Promise<string | null> {
-    const isPg = connection.isPostgreSQL;
-    const prefix = isPg ? 'dc_pos.' : '';
-    const query = `SELECT event_hash FROM ${prefix}audit_events ORDER BY id DESC LIMIT 1`;
-    const [rows] = await connection.execute(query);
-    const result = (rows as { event_hash: string | null }[])[0];
-    return result?.event_hash ?? null;
-}
-
-function generateEventHash(event: AuditEventInput, previousHash: string | null): string {
-    const data = [
-        previousHash || '',
-        event.event_type,
-        event.entity_type || 'transaction',
-        event.entity_id || '',
-        event.user_name,
-        event.device_id || '',
-        event.detail || '',
-    ].join('|');
-    return createHash('sha256').update(data).digest('hex');
-}
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
@@ -53,43 +17,20 @@ export async function POST(request: Request) {
         }
 
         connection = await getPosDb(shopId);
-        const insertedIds: number[] = [];
+        await connection.beginTransaction();
 
+        let insertedCount = 0;
         for (const event of events) {
             if (!event.event_type || !event.user_name) continue;
-
-            const previousHash = await getLatestEventHash(connection);
-            const eventHash = generateEventHash(event, previousHash);
-            const isPg = connection.isPostgreSQL;
-            const prefix = isPg ? 'dc_pos.' : '';
-
-            const query = isPg
-                ? `INSERT INTO ${prefix}audit_events (event_type, entity_type, entity_id, user_name, device_id, detail, event_hash, previous_event_hash) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`
-                : `INSERT INTO ${prefix}audit_events (event_type, entity_type, entity_id, user_name, device_id, detail, event_hash, previous_event_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-
-            const params = [
-                event.event_type,
-                event.entity_type || 'transaction',
-                event.entity_id ?? null,
-                event.user_name,
-                event.device_id ?? null,
-                event.detail ?? null,
-                eventHash,
-                previousHash,
-            ];
-
-            if (isPg) {
-                const [rows] = await connection.execute(query, params);
-                insertedIds.push((rows as AuditEventRow[])[0].id);
-            } else {
-                await connection.execute(query, params);
-                const [rows] = await connection.execute('SELECT LAST_INSERT_ID() as id');
-                insertedIds.push((rows as AuditEventRow[])[0].id);
-            }
+            await insertAuditEvent(connection, event);
+            insertedCount++;
         }
 
-        return NextResponse.json({ success: true, count: insertedIds.length, ids: insertedIds }, { status: 200 });
+        await connection.commit();
+
+        return NextResponse.json({ success: true, count: insertedCount }, { status: 200 });
     } catch (error) {
+        await connection?.rollback();
         console.error('Error saving audit events:', error);
         return NextResponse.json({ error: 'An error occurred while saving audit events' }, { status: 500 });
     } finally {
