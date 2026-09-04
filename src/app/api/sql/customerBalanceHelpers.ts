@@ -1,4 +1,10 @@
-import { CANCELLED_KEYWORD, DEBIT_KEYWORD, DELETED_KEYWORD, PROCESSING_KEYWORD } from '@/app/utils/constants';
+import {
+    CANCELLED_KEYWORD,
+    DEBIT_KEYWORD,
+    DELETED_KEYWORD,
+    HARD_DELETED_KEYWORD,
+    PROCESSING_KEYWORD,
+} from '@/app/utils/constants';
 import { Connection } from './db';
 
 export interface BalanceAffectingEntry {
@@ -46,7 +52,7 @@ export async function getBalanceAffectingEntries(
             (EXTRACT(EPOCH FROM t.created_at) * 1000)::bigint AS created_ms,
             EXISTS (SELECT 1 FROM ${prefix}transaction_items ti WHERE ti.transaction_id = t.id) AS has_items
         FROM ${prefix}transactions t
-        WHERE t.customer_name = $1 AND t.payment_method NOT IN ($2, $3, $4)
+        WHERE t.customer_name = $1 AND t.payment_method NOT IN ($2, $3, $4, $5)
         ORDER BY t.created_at ASC, t.id ASC
     `
         : `
@@ -57,7 +63,7 @@ export async function getBalanceAffectingEntries(
             (UNIX_TIMESTAMP(t.created_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 AS created_ms,
             EXISTS (SELECT 1 FROM transaction_items ti WHERE ti.transaction_id = t.id) AS has_items
         FROM transactions t
-        WHERE t.customer_name = ? AND t.payment_method NOT IN (?, ?, ?)
+        WHERE t.customer_name = ? AND t.payment_method NOT IN (?, ?, ?, ?)
         ORDER BY t.created_at ASC, t.id ASC
     `;
 
@@ -65,6 +71,7 @@ export async function getBalanceAffectingEntries(
         customerName,
         DELETED_KEYWORD,
         CANCELLED_KEYWORD,
+        HARD_DELETED_KEYWORD,
         PROCESSING_KEYWORD,
     ]);
 

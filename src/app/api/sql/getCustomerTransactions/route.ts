@@ -1,4 +1,10 @@
-import { CANCELLED_KEYWORD, DELETED_KEYWORD, DEFAULT_USER, PROCESSING_KEYWORD } from '@/app/utils/constants';
+import {
+    CANCELLED_KEYWORD,
+    DELETED_KEYWORD,
+    DEFAULT_USER,
+    HARD_DELETED_KEYWORD,
+    PROCESSING_KEYWORD,
+} from '@/app/utils/constants';
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
@@ -66,7 +72,7 @@ export async function GET(request: Request) {
                     COALESCE(SUM((ti.amount * ti.quantity) - ti.total), 0) AS discount
                 FROM dc_pos.transactions t
                 LEFT JOIN dc_pos.transaction_items ti ON ti.transaction_id = t.id
-                WHERE t.customer_name = $1 AND t.payment_method NOT IN ($2, $3, $4)
+                WHERE t.customer_name = $1 AND t.payment_method NOT IN ($2, $3, $4, $5)
                 GROUP BY t.id, t.amount
                 HAVING COUNT(ti.id) > 0
             ) sub
@@ -83,7 +89,7 @@ export async function GET(request: Request) {
                     COALESCE(SUM((ti.amount * ti.quantity) - ti.total), 0) AS discount
                 FROM transactions t
                 LEFT JOIN transaction_items ti ON ti.transaction_id = t.id
-                WHERE t.customer_name = ? AND t.payment_method NOT IN (?, ?, ?)
+                WHERE t.customer_name = ? AND t.payment_method NOT IN (?, ?, ?, ?)
                 GROUP BY t.id, t.amount
                 HAVING COUNT(ti.id) > 0
             ) sub
@@ -107,7 +113,7 @@ export async function GET(request: Request) {
                 (EXTRACT(EPOCH FROM t.updated_at) * 1000)::bigint as modifieddate
             FROM dc_pos.transactions t
             LEFT JOIN dc.orders o ON o.id::text = t.order_id
-            WHERE t.customer_name = $1 AND t.payment_method NOT IN ($3, $4, $5)
+            WHERE t.customer_name = $1 AND t.payment_method NOT IN ($3, $4, $5, $6)
             ORDER BY t.created_at DESC
             LIMIT 10
         `
@@ -127,17 +133,30 @@ export async function GET(request: Request) {
                 (UNIX_TIMESTAMP(t.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate
             FROM transactions t
             LEFT JOIN \`DC\`.orders o ON o.id = t.order_id
-            WHERE t.customer_name = ? AND t.payment_method NOT IN (?, ?, ?)
+            WHERE t.customer_name = ? AND t.payment_method NOT IN (?, ?, ?, ?)
             ORDER BY t.created_at DESC
             LIMIT 10
         `;
 
         // Same placeholder order in both dialects for the totals query.
-        const totalsParams = [customerName, DELETED_KEYWORD, CANCELLED_KEYWORD, PROCESSING_KEYWORD];
+        const totalsParams = [
+            customerName,
+            DELETED_KEYWORD,
+            CANCELLED_KEYWORD,
+            HARD_DELETED_KEYWORD,
+            PROCESSING_KEYWORD,
+        ];
         const [[totals]] = await connection.execute(totalsQuery, totalsParams);
         const txParams = isPg
-            ? [customerName, DEFAULT_USER, DELETED_KEYWORD, CANCELLED_KEYWORD, PROCESSING_KEYWORD]
-            : [DEFAULT_USER, customerName, DELETED_KEYWORD, CANCELLED_KEYWORD, PROCESSING_KEYWORD];
+            ? [customerName, DEFAULT_USER, DELETED_KEYWORD, CANCELLED_KEYWORD, HARD_DELETED_KEYWORD, PROCESSING_KEYWORD]
+            : [
+                  DEFAULT_USER,
+                  customerName,
+                  DELETED_KEYWORD,
+                  CANCELLED_KEYWORD,
+                  HARD_DELETED_KEYWORD,
+                  PROCESSING_KEYWORD,
+              ];
         const [transactionRows] = await connection.execute(transactionsQuery, txParams);
         const rows = transactionRows as TransactionRow[];
 

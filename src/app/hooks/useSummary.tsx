@@ -280,6 +280,7 @@ export const useSummary = () => {
         processTransactions,
         getAvailableDaysFromSQL,
         syncSpecificDayFromSQL,
+        setCashClosed,
     } = useData();
     const { openPopup, closePopup, updatePopup } = usePopup();
 
@@ -1491,6 +1492,7 @@ export const useSummary = () => {
                     .concat(hasTransactions ? ticketZPrinterNames : [])
                     .concat(hasTransactions ? ticketXPrinterNames : [])
                     .concat(isDbConnected && hasTransactions && isDailyPeriod ? ['Resynchroniser jour'] : [])
+                    .concat(isDbConnected && hasTransactions && isDailyPeriod ? ['Clôturer la caisse'] : [])
                     .concat(isDbConnected ? ['Menu Synchronisation'] : [])
                     .concat(
                         historicalTransactions.length
@@ -1546,6 +1548,40 @@ export const useSummary = () => {
                             })();
                             break;
                         }
+                        case 'Clôturer la caisse': {
+                            const closureDate = getFormattedDate(transactionsDate.date, 3);
+                            openPopup('Clôture journalière', ['Clôture en cours...'], () => {}, true);
+                            (async () => {
+                                try {
+                                    const res = await fetch('/api/sql/dailyClosure', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            date: closureDate,
+                                            closed_by: parameters.user?.name || 'inconnu',
+                                        }),
+                                    });
+                                    const data = await res.json();
+                                    if (data.error) {
+                                        openPopup('Clôture', [data.error]);
+                                    } else {
+                                        const c = data.closure;
+                                        setCashClosed(true);
+                                        openPopup('Clôture journalière', [
+                                            `Date: ${closureDate}`,
+                                            `Tickets: ${c.ticket_count}`,
+                                            `Total: ${c.total_amount}€`,
+                                            `Annulations: ${c.cancellation_count}`,
+                                            `Remboursements: ${c.refund_count}`,
+                                            'Caisse clôturée — mode lecture seule',
+                                        ]);
+                                    }
+                                } catch {
+                                    openPopup('Erreur', ['Impossible de clôturer la caisse']);
+                                }
+                            })();
+                            break;
+                        }
                         case 'Historique par jour':
                         case 'Historique par mois':
                         case 'Historique par année fiscale':
@@ -1595,6 +1631,7 @@ export const useSummary = () => {
         parameters,
         syncSpecificDayFromSQL,
         refreshHistoricalKeys,
+        setCashClosed,
     ]);
 
     return {

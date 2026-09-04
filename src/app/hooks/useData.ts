@@ -76,6 +76,8 @@ export interface DataContextState {
     wasWaitingBeforeEditRef: RefObject<boolean>;
     originalProductsSnapshotRef: RefObject<Product[]>;
     transactionsLoaded: boolean;
+    isCashClosed: boolean;
+    setCashClosed: (closed: boolean) => void;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);

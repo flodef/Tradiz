@@ -1,8 +1,9 @@
-import { PROCESSING_KEYWORD, DEFAULT_USER, DEFAULT_VAT_RATE } from '@/app/utils/constants';
+import { PROCESSING_KEYWORD, DEFAULT_USER, DEFAULT_VAT_RATE, HARD_DELETED_KEYWORD } from '@/app/utils/constants';
 import { computeFidelityDelta } from '@/app/utils/fidelity';
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { Connection, getPosDb } from '../db';
+import { insertAuditEvent } from '../auditHelpers';
 import { createHash } from 'crypto';
 
 interface TransactionProduct {
@@ -79,18 +80,53 @@ export async function POST(request: Request) {
                 switch (action) {
                     case 'add':
                         await handleAddTransaction(connection, transaction);
+                        await insertAuditEvent(connection, {
+                            event_type: 'transaction_add',
+                            entity_id: transaction.order_id,
+                            user_name: transaction.user_name || DEFAULT_USER,
+                            device_id: transaction.device_id ?? null,
+                            detail: `amount=${transaction.amount} method=${transaction.payment_method}`,
+                        });
                         break;
                     case 'update':
                         await handleUpdateTransaction(connection, transaction);
+                        await insertAuditEvent(connection, {
+                            event_type: 'transaction_update',
+                            entity_id: transaction.order_id,
+                            user_name: transaction.user_name || DEFAULT_USER,
+                            device_id: transaction.device_id ?? null,
+                            detail: `marked as ${PROCESSING_KEYWORD}`,
+                        });
                         break;
                     case 'delete':
                         await handleDeleteTransaction(connection, transaction);
+                        await insertAuditEvent(connection, {
+                            event_type: 'transaction_delete',
+                            entity_id: transaction.order_id,
+                            user_name: transaction.user_name || DEFAULT_USER,
+                            device_id: transaction.device_id ?? null,
+                            detail: `method=${transaction.payment_method}`,
+                        });
                         break;
                     case 'hardDelete':
                         await handleHardDeleteTransaction(connection, transaction);
+                        await insertAuditEvent(connection, {
+                            event_type: 'transaction_hard_delete',
+                            entity_id: transaction.order_id,
+                            user_name: transaction.user_name || DEFAULT_USER,
+                            device_id: transaction.device_id ?? null,
+                            detail: `permanent deletion of order_id=${transaction.order_id}`,
+                        });
                         break;
                     case 'sync':
                         await handleSyncTransaction(connection, transaction);
+                        await insertAuditEvent(connection, {
+                            event_type: 'transaction_sync',
+                            entity_id: transaction.order_id,
+                            user_name: transaction.user_name || DEFAULT_USER,
+                            device_id: transaction.device_id ?? null,
+                            detail: `amount=${transaction.amount} method=${transaction.payment_method}`,
+                        });
                         break;
                     default:
                         throw new Error(`Unknown action: ${action}`);
@@ -148,8 +184,13 @@ export async function POST(request: Request) {
     );
 }
 
-export function generateTransactionHash(transaction: TransactionData, transactionId?: string | number): string {
+export function generateTransactionHash(
+    transaction: TransactionData,
+    transactionId?: string | number,
+    previousHash?: string
+): string {
     const data = [
+        previousHash || '',
         transactionId || 'new',
         transaction.order_id,
         transaction.user_name,
@@ -161,7 +202,7 @@ export function generateTransactionHash(transaction: TransactionData, transactio
         transaction.device_id || '',
     ].join('|');
 
-    return createHash('sha256').update(data).digest('hex').slice(0, 16);
+    return createHash('sha256').update(data).digest('hex');
 }
 
 async function handleAddTransaction(connection: Connection, transaction: TransactionData) {
@@ -187,23 +228,36 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
     await insertTransactionWithItems(connection, transaction);
 }
 
+// Fetch the most recent transaction hash for chaining (NF525 requirement).
+async function getLatestHash(connection: Connection): Promise<string | null> {
+    const isPg = connection.isPostgreSQL;
+    const prefix = isPg ? 'dc_pos.' : '';
+    const query = isPg
+        ? `SELECT hash FROM ${prefix}transactions ORDER BY id DESC LIMIT 1`
+        : `SELECT hash FROM ${prefix}transactions ORDER BY id DESC LIMIT 1`;
+    const [rows] = await connection.execute(query);
+    const result = (rows as { hash: string | null }[])[0];
+    return result?.hash ?? null;
+}
+
 // Insert a new transaction row and its items. Returns the transaction id.
 async function insertTransactionWithItems(connection: Connection, transaction: TransactionData) {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
 
     const userName = transaction.user_name || DEFAULT_USER;
-    const hash = generateTransactionHash(transaction);
+    const previousHash = await getLatestHash(connection);
+    const hash = generateTransactionHash(transaction, undefined, previousHash ?? undefined);
 
     const insertTransactionQuery = isPg
         ? `
-        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, fidelity_points, device_id, hash, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, fidelity_points, device_id, hash, previous_hash, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING id
     `
         : `
-        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, fidelity_points, device_id, hash, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, fidelity_points, device_id, hash, previous_hash, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const params = [
@@ -219,6 +273,7 @@ async function insertTransactionWithItems(connection: Connection, transaction: T
         transaction.fidelity_points ?? null,
         transaction.device_id ?? null,
         hash,
+        previousHash,
         transaction.created_at,
         transaction.updated_at,
     ];
@@ -314,29 +369,16 @@ async function handleHardDeleteTransaction(connection: Connection, transaction: 
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
 
-    // Fetch the original transaction data (for fidelity point reversal) before hard-deleting
+    // Fetch the original transaction data (for fidelity point reversal) before marking as hard-deleted
     await fetchOriginalTransactionForFidelity(connection, transaction);
 
-    // Completely delete the transaction and its items from the database
-    const findQuery = isPg
-        ? `SELECT id FROM ${prefix}transactions WHERE order_id = $1`
-        : `SELECT id FROM ${prefix}transactions WHERE order_id = ?`;
-    const [rows] = await connection.execute(findQuery, [transaction.order_id]);
-    const idRows = rows as IdRow[];
+    // NF525: Instead of physically deleting, mark the transaction as HARD_DELETED.
+    // This preserves the audit trail and hash chain integrity.
+    const updateQuery = isPg
+        ? `UPDATE ${prefix}transactions SET payment_method = $1, updated_at = $2 WHERE order_id = $3`
+        : `UPDATE ${prefix}transactions SET payment_method = ?, updated_at = ? WHERE order_id = ?`;
 
-    if (idRows.length > 0) {
-        const txId = idRows[0].id;
-
-        const deleteItemsQuery = isPg
-            ? `DELETE FROM ${prefix}transaction_items WHERE transaction_id = $1`
-            : `DELETE FROM ${prefix}transaction_items WHERE transaction_id = ?`;
-        await connection.execute(deleteItemsQuery, [txId]);
-
-        const deleteTxQuery = isPg
-            ? `DELETE FROM ${prefix}transactions WHERE id = $1`
-            : `DELETE FROM ${prefix}transactions WHERE id = ?`;
-        await connection.execute(deleteTxQuery, [txId]);
-    }
+    await connection.execute(updateQuery, [HARD_DELETED_KEYWORD, transaction.updated_at, transaction.order_id]);
 }
 
 // Snapshot of fidelity-relevant fields from a transaction row, used to
@@ -425,14 +467,27 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
     if (isPg) {
         // PostgreSQL: UPDATE ... RETURNING id atomically updates and returns the id.
         // If the row was deleted by a concurrent hardDelete, 0 rows are returned.
-        const updateReturningQuery = `
+        // Fetch the existing previous_hash to preserve the hash chain.
+        const selectQuery = `SELECT id, previous_hash FROM ${prefix}transactions WHERE order_id = $1 FOR UPDATE`;
+        const [selectRows] = await connection.execute(selectQuery, [transaction.order_id]);
+        const existingRows = selectRows as (IdRow & { previous_hash: string | null })[];
+
+        if (existingRows.length === 0) {
+            // Transaction was deleted — insert fresh
+            await insertTransactionWithItems(connection, transaction);
+            return;
+        }
+
+        const transactionId = existingRows[0].id;
+        const existingPreviousHash = existingRows[0].previous_hash;
+        const hash = generateTransactionHash(transaction, transactionId, existingPreviousHash ?? undefined);
+
+        const updateQuery = `
             UPDATE ${prefix}transactions
             SET customer_name = $1, user_name = $2, payment_method = $3, amount = $4, currency = $5, change = $6, take_out = $7, employer_share = $8, fidelity_points = $9, device_id = $10, hash = $11, updated_at = $12
-            WHERE order_id = $13
-            RETURNING id
+            WHERE id = $13
         `;
-        const hash = generateTransactionHash(transaction);
-        const [rows] = await connection.execute(updateReturningQuery, [
+        await connection.execute(updateQuery, [
             transaction.customer_name ?? null,
             userName,
             transaction.payment_method,
@@ -445,17 +500,8 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
             transaction.device_id ?? null,
             hash,
             transaction.updated_at,
-            transaction.order_id,
+            transactionId,
         ]);
-        const returnedRows = rows as IdRow[];
-
-        if (returnedRows.length === 0) {
-            // Transaction was deleted between our SELECT and UPDATE — insert fresh
-            await insertTransactionWithItems(connection, transaction);
-            return;
-        }
-
-        const transactionId = returnedRows[0].id;
 
         // Delete old items and re-insert
         const deleteQuery = `DELETE FROM ${prefix}transaction_items WHERE transaction_id = $1`;
@@ -463,9 +509,9 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
         await insertTransactionItems(connection, transactionId, transaction.products);
     } else {
         // MariaDB/MySQL: no RETURNING clause, use SELECT ... FOR UPDATE to lock the row
-        const lockQuery = `SELECT id FROM ${prefix}transactions WHERE order_id = ? FOR UPDATE`;
+        const lockQuery = `SELECT id, previous_hash FROM ${prefix}transactions WHERE order_id = ? FOR UPDATE`;
         const [existing] = await connection.execute(lockQuery, [transaction.order_id]);
-        const existingRows = existing as IdRow[];
+        const existingRows = existing as (IdRow & { previous_hash: string | null })[];
 
         if (existingRows.length === 0) {
             // Transaction was deleted — insert fresh
@@ -474,7 +520,8 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
         }
 
         const transactionId = existingRows[0].id;
-        const hash = generateTransactionHash(transaction, transactionId);
+        const existingPreviousHash = existingRows[0].previous_hash;
+        const hash = generateTransactionHash(transaction, transactionId, existingPreviousHash ?? undefined);
 
         const updateQuery = `
             UPDATE ${prefix}transactions

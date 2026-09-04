@@ -124,4 +124,48 @@ describe('generateTransactionHash', () => {
         };
         expect(generateTransactionHash(tx1)).not.toBe(generateTransactionHash(tx2));
     });
+
+    it('generates a full 64-character SHA-256 hash', () => {
+        const tx = {
+            order_id: '12345',
+            user_name: 'TestUser',
+            payment_method: 'CB',
+            amount: 10.5,
+            currency: 'EUR',
+            created_at: '2026-05-16 12:00:00',
+            updated_at: '2026-05-16 12:00:00',
+        };
+        const hash = generateTransactionHash(tx);
+        expect(hash).toHaveLength(64);
+    });
+
+    it('includes previousHash in hash computation (hash chaining)', () => {
+        const tx = {
+            order_id: '12345',
+            user_name: 'TestUser',
+            payment_method: 'CB',
+            amount: 10.5,
+            currency: 'EUR',
+            created_at: '2026-05-16 12:00:00',
+            updated_at: '2026-05-16 12:00:00',
+        };
+        const hashWithoutPrev = generateTransactionHash(tx);
+        const hashWithPrev = generateTransactionHash(tx, undefined, 'abc123previoushash');
+        expect(hashWithoutPrev).not.toBe(hashWithPrev);
+    });
+
+    it('produces different hashes when chained with different previous hashes', () => {
+        const tx = {
+            order_id: '12345',
+            user_name: 'TestUser',
+            payment_method: 'CB',
+            amount: 10.5,
+            currency: 'EUR',
+            created_at: '2026-05-16 12:00:00',
+            updated_at: '2026-05-16 12:00:00',
+        };
+        const hash1 = generateTransactionHash(tx, undefined, 'prevHash1');
+        const hash2 = generateTransactionHash(tx, undefined, 'prevHash2');
+        expect(hash1).not.toBe(hash2);
+    });
 });

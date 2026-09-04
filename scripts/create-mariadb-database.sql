@@ -272,6 +272,7 @@ CREATE TABLE IF NOT EXISTS `transactions` (
   `fidelity_points` DECIMAL(10,2) DEFAULT NULL,
   `device_id` VARCHAR(255) DEFAULT NULL,
   `hash` varchar(64) DEFAULT NULL,
+  `previous_hash` varchar(64) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
@@ -466,6 +467,98 @@ CREATE TABLE IF NOT EXISTS `web_tokens` (
   `value` text NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=428 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- NF525 Compliance Tables (DC_POS schema)
+-- ============================================================
+
+USE `DC_POS`;
+
+-- Audit Events — tracks every sensitive operation for the NF525 audit trail
+CREATE TABLE IF NOT EXISTS `audit_events` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `event_type` varchar(50) NOT NULL,
+  `entity_type` varchar(50) NOT NULL DEFAULT 'transaction',
+  `entity_id` varchar(255) DEFAULT NULL,
+  `user_name` varchar(255) NOT NULL,
+  `device_id` varchar(255) DEFAULT NULL,
+  `detail` text,
+  `event_hash` varchar(64) DEFAULT NULL,
+  `previous_event_hash` varchar(64) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_audit_events_type` (`event_type`),
+  KEY `idx_audit_events_entity` (`entity_id`),
+  KEY `idx_audit_events_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Daily Closures (Ticket Z) — stores cumulative totals for each day
+CREATE TABLE IF NOT EXISTS `daily_closures` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `closure_date` date NOT NULL,
+  `ticket_count` int(11) NOT NULL DEFAULT 0,
+  `total_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `total_ht` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `total_tva` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `cancellation_count` int(11) NOT NULL DEFAULT 0,
+  `cancellation_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `refund_count` int(11) NOT NULL DEFAULT 0,
+  `refund_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `closure_hash` varchar(64) DEFAULT NULL,
+  `previous_closure_hash` varchar(64) DEFAULT NULL,
+  `closed_by` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `closure_date` (`closure_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Monthly Closures — stores cumulative totals for each month
+CREATE TABLE IF NOT EXISTS `monthly_closures` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `closure_month` date NOT NULL,
+  `daily_closure_count` int(11) NOT NULL DEFAULT 0,
+  `ticket_count` int(11) NOT NULL DEFAULT 0,
+  `total_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `total_ht` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `total_tva` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `closure_hash` varchar(64) DEFAULT NULL,
+  `previous_closure_hash` varchar(64) DEFAULT NULL,
+  `closed_by` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `closure_month` (`closure_month`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Annual Closures — stores cumulative totals for each year
+CREATE TABLE IF NOT EXISTS `annual_closures` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `closure_year` int(11) NOT NULL,
+  `monthly_closure_count` int(11) NOT NULL DEFAULT 0,
+  `ticket_count` int(11) NOT NULL DEFAULT 0,
+  `total_amount` decimal(14,2) NOT NULL DEFAULT 0.00,
+  `total_ht` decimal(14,2) NOT NULL DEFAULT 0.00,
+  `total_tva` decimal(14,2) NOT NULL DEFAULT 0.00,
+  `closure_hash` varchar(64) DEFAULT NULL,
+  `previous_closure_hash` varchar(64) DEFAULT NULL,
+  `closed_by` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `closure_year` (`closure_year`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Perpetual Totals — non-resettable cumulative totals since the beginning
+CREATE TABLE IF NOT EXISTS `perpetual_totals` (
+  `id` int(1) NOT NULL DEFAULT 1,
+  `total_ticket_count` bigint(20) NOT NULL DEFAULT 0,
+  `total_amount` decimal(16,2) NOT NULL DEFAULT 0.00,
+  `total_ht` decimal(16,2) NOT NULL DEFAULT 0.00,
+  `total_tva` decimal(16,2) NOT NULL DEFAULT 0.00,
+  `total_cancellation_count` bigint(20) NOT NULL DEFAULT 0,
+  `total_refund_count` bigint(20) NOT NULL DEFAULT 0,
+  `last_closure_hash` varchar(64) DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;

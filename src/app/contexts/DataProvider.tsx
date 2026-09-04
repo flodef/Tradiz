@@ -16,6 +16,7 @@ import {
     USE_DIGICARTE,
 } from '../utils/constants';
 import { getFormattedDate, getTransactionFileName, toSQLDateTime } from '../utils/date';
+import { useLocalStorage } from '../utils/localStorage';
 import {
     Company,
     Customer,
@@ -119,6 +120,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const transactionId = useRef(0);
     const areTransactionLoaded = useRef(false);
     const [transactionsLoaded, setTransactionsLoaded] = useState(false);
+    const [isCashClosed, setIsCashClosed] = useLocalStorage('cashClosedDate', '');
+    const isCashClosedToday = isCashClosed === new Date().toISOString().slice(0, 10);
+    const setCashClosed = useCallback(
+        (closed: boolean) => {
+            setIsCashClosed(closed ? new Date().toISOString().slice(0, 10) : '');
+        },
+        [setIsCashClosed]
+    );
     // Set to true by clearTotal to prevent the product-restore effect from re-adding
     // stale items from PROCESSING transactions when transactions load asynchronously.
     const clearRequestedRef = useRef(false);
@@ -343,7 +352,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         setTransactionsLoaded(false);
         setTransactionsFilename('');
         nextResetTime.current = getResetTimes().next;
-    }, [getResetTimes]);
+        // Reset cash closure state on day reset
+        setCashClosed(false);
+    }, [getResetTimes, setCashClosed]);
 
     // Check if reset should happen and perform it
     const checkAndPerformDayReset = useCallback(() => {
@@ -908,6 +919,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const saveTransactions = useCallback(
         async (action: DatabaseAction, transaction: Transaction) => {
+            if (isCashClosedToday) return;
             transaction.modifiedDate = transaction.modifiedDate ? new Date().getTime() : transaction.createdDate;
             transaction.amount = transaction.amount.clean(
                 currencies.find(({ label }) => label === transaction.currency)?.decimals
@@ -1079,11 +1091,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             setShortNumOrder,
             storeTransaction,
             isKitchenViewEnabled,
+            isCashClosedToday,
         ]
     );
 
     const deleteTransaction = useCallback(
         (index?: number) => {
+            if (isCashClosedToday) return;
             if (!transactions.length) return;
             const currentDeviceId = getPublicKey();
 
@@ -1126,7 +1140,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }
             }
         },
-        [transactions, saveTransactions, storeTransaction]
+        [transactions, saveTransactions, storeTransaction, isCashClosedToday]
     );
 
     // clearTotal calls deleteTransaction to remove the PROCESSING tx after payment.
@@ -1219,6 +1233,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, [updateTotal, parameters.mercurial]);
 
     const clearTotal = useCallback(() => {
+        if (isCashClosedToday) return;
         products.current = [];
         clearRequestedRef.current = true;
         // Cancel any pending debounced save so it doesn't re-save a stale
@@ -1232,7 +1247,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         clearAmount();
         setShortNumOrder('');
         setOrderId('');
-    }, [clearAmount, clearProcessingTransaction]);
+    }, [clearAmount, clearProcessingTransaction, isCashClosedToday]);
 
     // Recalculate the total when the customer, companies, or categories change
     // so the employer share is re-evaluated against the current cart.
@@ -1294,6 +1309,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const addProduct = useCallback(
         (item?: Product) => {
+            if (isCashClosedToday) return;
             const product = item ?? selectedProduct;
             if (!product) return;
 
@@ -1320,11 +1336,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             setQuantity(product.amount ? -1 : 0);
             saveProcessingTransactionRef.current();
         },
-        [products, selectedProduct, computeQuantity]
+        [products, selectedProduct, computeQuantity, isCashClosedToday]
     );
 
     const deleteProduct = useCallback(
         (index: number) => {
+            if (isCashClosedToday) return;
             if (!products.current.length || !products.current.at(index)) return;
 
             const wasSelected = products.current.at(index) === selectedProduct;
@@ -1363,11 +1380,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             setAmount,
             setQuantity,
             updateTotal,
+            isCashClosedToday,
         ]
     );
 
     const removeProduct = useCallback(
         (item?: Product) => {
+            if (isCashClosedToday) return;
             const product = item ?? {
                 category: selectedProduct?.category,
                 label: selectedProduct?.label,
@@ -1387,7 +1406,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 saveProcessingTransactionRef.current();
             }
         },
-        [selectedProduct, products, computeQuantity, deleteProduct]
+        [selectedProduct, products, computeQuantity, deleteProduct, isCashClosedToday]
     );
 
     const displayProduct = useCallback(
@@ -1546,6 +1565,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const editTransaction = useCallback(
         (index: number, override?: Transaction) => {
+            if (isCashClosedToday) return;
             const transaction = override ?? transactions.at(index);
             if (!transaction?.amount) return;
 
@@ -1569,11 +1589,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             saveTransactions(DatabaseAction.update, transaction);
         },
-        [transactions, saveTransactions, addProduct, setCurrency]
+        [transactions, saveTransactions, addProduct, setCurrency, isCashClosedToday]
     );
 
     const updateTransaction = useCallback(
         (item: string | Transaction) => {
+            if (isCashClosedToday) return;
             if (!item || (typeof item === 'string' && !products.current.length)) return;
 
             const currentTime = floorToSeconds(new Date().getTime()); // floor to seconds to match SQL TIMESTAMP precision
@@ -1631,6 +1652,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             shortNumOrder,
             transactions,
             getEmployerShare,
+            isCashClosedToday,
         ]
     );
 
@@ -1659,6 +1681,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // Returns the created refund tx so the caller can print it.
     const refundTransaction = useCallback(
         (index: number): Transaction | undefined => {
+            if (isCashClosedToday) return undefined;
             const transaction = transactions.at(index);
             if (!transaction?.amount) return;
 
@@ -1675,7 +1698,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             saveTransactions(DatabaseAction.add, refundTx);
             return refundTx;
         },
-        [transactions, reverseTransaction, storeTransaction, saveTransactions]
+        [transactions, reverseTransaction, storeTransaction, saveTransactions, isCashClosedToday]
     );
 
     const displayTransaction = useCallback(
@@ -1753,6 +1776,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 wasWaitingBeforeEditRef,
                 originalProductsSnapshotRef,
                 transactionsLoaded,
+                isCashClosed: isCashClosedToday,
+                setCashClosed,
             }}
         >
             {children}

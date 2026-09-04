@@ -4,6 +4,7 @@ import {
     IconBackspace,
     IconCalculator,
     IconCoin,
+    IconLock,
     IconSearch,
     IconShoppingCart,
     IconStar,
@@ -669,6 +670,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
         currentCustomer,
         toCurrency,
         products,
+        isCashClosed,
     } = useData();
     const { openPopup, closePopup, isPopupOpen, openFullscreenPopup } = usePopup();
     const { pay, canAddProduct, canAddProvision, addProvision } = usePay();
@@ -1176,68 +1178,93 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                             )}
                         </div>
                     )}
-                    <div className="flex justify-around text-4xl text-center font-bold pt-0 max-w-lg w-full self-center">
-                        <Amount
-                            className={
-                                'min-w-36.25 text-right leading-normal ' +
-                                ((selectedProduct && !amount) || (quantity === 0 && amount) ? 'animate-blink' : '')
-                            }
-                            value={selectedProduct?.total ?? amount}
-                            showZero
-                            onClick={showCurrencies}
-                        />
-                        <ImageButton
-                            icon={IconBackspace}
-                            className={f1}
-                            onClick={onClear}
-                            onContextMenu={onClearTotal}
-                        />
-                        {displayOnly ? (
-                            hasSearchEnabled ? (
+                    {isCashClosed ? (
+                        <div className="flex justify-around text-4xl text-center font-bold pt-0 max-w-lg w-full self-center">
+                            {hasSearchEnabled && (
                                 <ImageButton
                                     icon={IconSearch}
                                     className={f + color}
                                     onClick={openSearchPopup}
                                     onContextMenu={openSearchPopup}
                                 />
-                            ) : hasAmount || total || canAddProvision ? (
+                            )}
+                            <ImageButton
+                                icon={IconCalculator}
+                                className={f + color}
+                                onClick={openCalculator}
+                                onContextMenu={openCalculator}
+                            />
+                            <FunctionButton
+                                className={f3}
+                                input="z"
+                                onInput={() => showTransactionsSummary(showTransactionsSummaryMenu)}
+                                onContextMenu={showTransactionsSummaryMenu}
+                            />
+                        </div>
+                    ) : (
+                        <div className="flex justify-around text-4xl text-center font-bold pt-0 max-w-lg w-full self-center">
+                            <Amount
+                                className={
+                                    'min-w-36.25 text-right leading-normal ' +
+                                    ((selectedProduct && !amount) || (quantity === 0 && amount) ? 'animate-blink' : '')
+                                }
+                                value={selectedProduct?.total ?? amount}
+                                showZero
+                                onClick={showCurrencies}
+                            />
+                            <ImageButton
+                                icon={IconBackspace}
+                                className={f1}
+                                onClick={onClear}
+                                onContextMenu={onClearTotal}
+                            />
+                            {displayOnly ? (
+                                hasSearchEnabled ? (
+                                    <ImageButton
+                                        icon={IconSearch}
+                                        className={f + color}
+                                        onClick={openSearchPopup}
+                                        onContextMenu={openSearchPopup}
+                                    />
+                                ) : hasAmount || total || canAddProvision ? (
+                                    <ImageButton
+                                        {...actionButtonProps}
+                                        className={f + (total || canAddProvision ? color : 'invisible')}
+                                    />
+                                ) : (
+                                    <div className={f2}></div>
+                                )
+                            ) : hasAmount || hasCartDiscounts ? (
+                                <FunctionButton
+                                    className={f2}
+                                    input="&times;"
+                                    onInput={multiply}
+                                    onContextMenu={discount ?? mercuriale}
+                                />
+                            ) : hasSearchEnabled ? (
                                 <ImageButton
-                                    {...actionButtonProps}
-                                    className={f + (total || canAddProvision ? color : 'invisible')}
+                                    icon={IconSearch}
+                                    className={f + color}
+                                    onClick={openSearchPopup}
+                                    onContextMenu={openSearchPopup}
                                 />
                             ) : (
                                 <div className={f2}></div>
-                            )
-                        ) : hasAmount || hasCartDiscounts ? (
-                            <FunctionButton
-                                className={f2}
-                                input="&times;"
-                                onInput={multiply}
-                                onContextMenu={discount ?? mercuriale}
-                            />
-                        ) : hasSearchEnabled ? (
+                            )}
                             <ImageButton
-                                icon={IconSearch}
+                                icon={IconCalculator}
                                 className={f + color}
-                                onClick={openSearchPopup}
-                                onContextMenu={openSearchPopup}
+                                onClick={openCalculator}
+                                onContextMenu={openCalculator}
                             />
-                        ) : (
-                            <div className={f2}></div>
-                        )}
-                        <ImageButton
-                            icon={IconCalculator}
-                            className={f + color}
-                            onClick={openCalculator}
-                            onContextMenu={openCalculator}
-                        />
-                        <FunctionButton
-                            className={f3}
-                            input="z"
-                            onInput={() => showTransactionsSummary(showTransactionsSummaryMenu)}
-                            onContextMenu={showTransactionsSummaryMenu}
-                        />
-                    </div>
+                            <FunctionButton
+                                className={f3}
+                                input="z"
+                                onInput={() => showTransactionsSummary(showTransactionsSummaryMenu)}
+                                onContextMenu={showTransactionsSummaryMenu}
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {!displayOnly && (
@@ -1247,22 +1274,32 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                             (shouldUseOverflow ? (isPopupOpen ? ' top-14 absolute ' : ' top-0 absolute ') : ' static ')
                         }
                     >
-                        {NumPadList.map((row, index) => (
-                            <div className="flex justify-evenly" key={index}>
-                                {row.map((input) => (
-                                    <NumPadButton input={input} onInput={onInput} key={input} />
-                                ))}
+                        {isCashClosed ? (
+                            <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
+                                <IconLock size={48} className="text-muted" />
+                                <p className="text-lg font-semibold">Caisse clôturée</p>
+                                <p className="text-sm text-muted">Mode lecture seule — aucune opération possible</p>
                             </div>
-                        ))}
-                        <div className="flex justify-evenly">
-                            <NumPadButton input={0} onInput={onInput} />
-                            <NumPadButton input={!quantity ? '00' : '½'} onInput={onInput} />
-                            {canAddProduct ? (
-                                <ImageButton {...cartButtonProps} className={sx} />
-                            ) : (
-                                <ImageButton {...actionButtonProps} className={sx} />
-                            )}
-                        </div>
+                        ) : (
+                            <>
+                                {NumPadList.map((row, index) => (
+                                    <div className="flex justify-evenly" key={index}>
+                                        {row.map((input) => (
+                                            <NumPadButton input={input} onInput={onInput} key={input} />
+                                        ))}
+                                    </div>
+                                ))}
+                                <div className="flex justify-evenly">
+                                    <NumPadButton input={0} onInput={onInput} />
+                                    <NumPadButton input={!quantity ? '00' : '½'} onInput={onInput} />
+                                    {canAddProduct ? (
+                                        <ImageButton {...cartButtonProps} className={sx} />
+                                    ) : (
+                                        <ImageButton {...actionButtonProps} className={sx} />
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
             </div>

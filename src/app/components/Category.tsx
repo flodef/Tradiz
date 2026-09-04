@@ -127,8 +127,16 @@ const CategoryButton: FC<CategoryInputButton> = ({ input, onInput, length, sizeC
 
 export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false }) => {
     const { inventory, state, setState, currencyIndex, parameters, categories: configCategories } = useConfig();
-    const { addProduct, amount, setSelectedProduct, clearAmount, selectedProduct, toCurrency, currentCustomer } =
-        useData();
+    const {
+        addProduct,
+        amount,
+        setSelectedProduct,
+        clearAmount,
+        selectedProduct,
+        toCurrency,
+        currentCustomer,
+        isCashClosed,
+    } = useData();
     const { openPopup, updatePopup, openFullscreenPopup, closePopup } = usePopup();
     const { isLocalhost, isDemo } = useWindowParam();
 
@@ -912,6 +920,8 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
             </div>
         );
     }
+
+    if (isCashClosed) return null;
 
     return (
         <div className={popupClass}>
