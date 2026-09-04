@@ -307,26 +307,29 @@ export default function ParametersConfig({
                         />
                     )}
                     <div className="flex flex-col gap-1">
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Intégrité NF525</label>
+                        <label className={adminTextStyle}>Intégrité NF525</label>
                         <AdminButton
-                            variant="secondary"
+                            variant={
+                                integrityStatus === 'ok' ? 'add' : integrityStatus === 'fail' ? 'danger' : 'primary'
+                            }
                             onClick={checkIntegrity}
                             disabled={integrityStatus === 'checking'}
                             isLoading={integrityStatus === 'checking'}
+                            className="h-8"
                         >
                             {integrityStatus === 'ok' ? (
                                 <>
-                                    <IconCheck size={18} />
+                                    <IconCheck size={20} stroke={2} />
                                     Valide
                                 </>
                             ) : integrityStatus === 'fail' ? (
                                 <>
-                                    <IconX size={18} />
+                                    <IconX size={20} stroke={2} />
                                     Erreur
                                 </>
                             ) : (
                                 <>
-                                    <IconShieldCheck size={18} />
+                                    <IconShieldCheck size={18} stroke={2} />
                                     Vérifier
                                 </>
                             )}
