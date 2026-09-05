@@ -1,416 +1,201 @@
 /**
- * Populate NF525 closure tables (daily_closures, monthly_closures,
- * annual_closures, perpetual_totals) from existing transaction data.
- *
- * This script is meant to be run once after:
- *   1. migrate-nf525-postgres.sql (creates the tables)
- *   2. generate-transaction-hashes.ts (populates transaction hashes)
- *
- * It computes daily totals from the transactions table, generates chained
- * hashes for each daily closure, then aggregates monthly and annual closures
- * from the daily closures, and finally populates the perpetual totals.
- *
- * The `audit_events` table is NOT populated by this script — only closure data.
- *
- * Usage:
- *   bun run scripts/populate-nf525-tables.ts            # apply changes
- *   bun run scripts/populate-nf525-tables.ts --dry-run  # preview only
+ * Populate NF525 closure tables from existing transaction data.
+ * Usage: bun run scripts/populate-nf525-tables.ts [--dry-run]
  */
-
 import 'dotenv/config';
 import { Pool } from 'pg';
 import { createHash } from 'crypto';
+import * as readline from 'readline';
 
-const colors = {
-    red: '\x1b[31m',
-    green: '\x1b[32m',
-    yellow: '\x1b[33m',
-    blue: '\x1b[34m',
-    reset: '\x1b[0m',
-};
-
-function log(message: string, color: keyof typeof colors = 'reset') {
-    console.log(`${colors[color]}${message}${colors.reset}`);
+const C = { red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', blue: '\x1b[34m', reset: '\x1b[0m' };
+function log(m: string, c: keyof typeof C = 'reset') { console.log(`${C[c]}${m}${C.reset}`); }
+function prompt(q: string): Promise<boolean> {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    return new Promise((r) => rl.question(q, (a) => { rl.close(); r(a.trim().toLowerCase() === 'y'); }));
 }
 
-// Must match the EXCLUDED_METHODS list in dailyClosure/route.ts
-const EXCLUDED_METHODS = [
-    'EFFACÉE',
-    'ANNULÉE',
-    'SUPPRIMÉE',
-    'EN_ATTENTE',
-    'EN_COURS',
-    'MODIFICATION',
-];
+const EXCLUDED = ['EFFACÉE', 'ANNULÉE', 'SUPPRIMÉE', 'EN_ATTENTE', 'EN_COURS', 'MODIFICATION'];
+const CANCEL = ['EFFACÉE', 'ANNULÉE', 'SUPPRIMÉE'];
+const REFUND = 'AVOIR';
 
-const CANCEL_METHODS = ['EFFACÉE', 'ANNULÉE', 'SUPPRIMÉE'];
-const REFUND_METHOD = 'AVOIR';
+interface Daily { ticket_count: number; total_amount: number; total_ht: number; total_tva: number; cancellation_count: number; cancellation_amount: number; refund_count: number; refund_amount: number; }
+interface Period { ticket_count: number; total_amount: number; total_ht: number; total_tva: number; daily_closure_count?: number; monthly_closure_count?: number; }
 
-interface DailyTotals {
-    ticket_count: number;
-    total_amount: number;
-    total_ht: number;
-    total_tva: number;
-    cancellation_count: number;
-    cancellation_amount: number;
-    refund_count: number;
-    refund_amount: number;
+function dailyHash(date: string, t: Daily, prev: string | null): string {
+    return createHash('sha256').update([prev || '', date, t.ticket_count, t.total_amount, t.total_ht, t.total_tva, t.cancellation_count, t.cancellation_amount, t.refund_count, t.refund_amount].join('|')).digest('hex');
+}
+function periodHash(p: string, t: Period, prev: string | null): string {
+    return createHash('sha256').update([prev || '', p, t.ticket_count, t.total_amount, t.total_ht, t.total_tva, t.daily_closure_count ?? t.monthly_closure_count ?? 0].join('|')).digest('hex');
 }
 
-interface PeriodTotals {
-    ticket_count: number;
-    total_amount: number;
-    total_ht: number;
-    total_tva: number;
-    daily_closure_count?: number;
-    monthly_closure_count?: number;
-}
-
-function generateDailyClosureHash(date: string, totals: DailyTotals, previousHash: string | null): string {
-    const data = [
-        previousHash || '',
-        date,
-        totals.ticket_count,
-        totals.total_amount,
-        totals.total_ht,
-        totals.total_tva,
-        totals.cancellation_count,
-        totals.cancellation_amount,
-        totals.refund_count,
-        totals.refund_amount,
-    ].join('|');
-    return createHash('sha256').update(data).digest('hex');
-}
-
-function generatePeriodClosureHash(period: string, totals: PeriodTotals, previousHash: string | null): string {
-    const data = [
-        previousHash || '',
-        period,
-        totals.ticket_count,
-        totals.total_amount,
-        totals.total_ht,
-        totals.total_tva,
-        totals.daily_closure_count ?? totals.monthly_closure_count ?? 0,
-    ].join('|');
-    return createHash('sha256').update(data).digest('hex');
-}
-
-async function populateNf525Tables() {
-    const isDryRun = process.argv.includes('--dry-run');
-
-    if (!process.env.PG_HOST || !process.env.PG_USER || !process.env.PG_PASSWORD) {
-        log('❌ ERROR: Database connection parameters not found in environment', 'red');
-        log('Please add PG_HOST, PG_USER, and PG_PASSWORD to your .env.local file', 'yellow');
-        process.exit(1);
-    }
-
-    const config = {
-        host: process.env.PG_HOST,
-        user: process.env.PG_USER,
-        password: process.env.PG_PASSWORD,
-        database: process.env.NEXT_PUBLIC_SHOP_ID || process.env.PG_DATABASE || 'neondb',
-        ssl: { rejectUnauthorized: false },
-    };
-
-    log('🔌 Connecting to PostgreSQL...', 'blue');
-    const pool = new Pool(config);
-
+async function main() {
+    const isDry = process.argv.includes('--dry-run');
+    if (!process.env.PG_HOST || !process.env.PG_USER || !process.env.PG_PASSWORD) { log('❌ Missing DB env', 'red'); process.exit(1); }
+    const pool = new Pool({ host: process.env.PG_HOST, user: process.env.PG_USER, password: process.env.PG_PASSWORD, database: process.env.NEXT_PUBLIC_SHOP_ID || process.env.PG_DATABASE || 'neondb', ssl: { rejectUnauthorized: false } });
+    log('🔌 Connecting...', 'blue');
     try {
-        const client = await pool.connect();
-        log('✅ Connected to PostgreSQL', 'green');
+        const db = await pool.connect();
+        log('✅ Connected', 'green');
+        await db.query('SET search_path TO dc_pos, dc, dc_sys, public');
+        if (isDry) log('\n🧪 DRY RUN\n', 'yellow');
 
-        await client.query('SET search_path TO dc_pos, dc, dc_sys, public');
-
-        if (isDryRun) log('\n🧪 DRY RUN — no changes will be written\n', 'yellow');
-
-        // ── Check for existing closures ──
-        const { rows: existingDaily } = await client.query('SELECT COUNT(*)::int AS count FROM daily_closures');
-        const { rows: existingMonthly } = await client.query('SELECT COUNT(*)::int AS count FROM monthly_closures');
-        const { rows: existingAnnual } = await client.query('SELECT COUNT(*)::int AS count FROM annual_closures');
-
-        if ((existingDaily[0]?.count ?? 0) > 0 || (existingMonthly[0]?.count ?? 0) > 0 || (existingAnnual[0]?.count ?? 0) > 0) {
-            log('⚠️  Closure tables already contain data:', 'yellow');
-            log(`  daily_closures: ${existingDaily[0]?.count ?? 0} rows`, 'yellow');
-            log(`  monthly_closures: ${existingMonthly[0]?.count ?? 0} rows`, 'yellow');
-            log(`  annual_closures: ${existingAnnual[0]?.count ?? 0} rows`, 'yellow');
-            log('Aborting to prevent duplicates. Clear the tables first if you want to re-run.', 'red');
-            client.release();
-            await pool.end();
-            process.exit(1);
+        // Check existing
+        const [{ rows: eD }, { rows: eM }, { rows: eA }] = await Promise.all([
+            db.query('SELECT COUNT(*)::int AS c FROM daily_closures'),
+            db.query('SELECT COUNT(*)::int AS c FROM monthly_closures'),
+            db.query('SELECT COUNT(*)::int AS c FROM annual_closures'),
+        ]);
+        if ((eD[0]?.c ?? 0) > 0 || (eM[0]?.c ?? 0) > 0 || (eA[0]?.c ?? 0) > 0) {
+            log('⚠️  Tables already contain data:', 'yellow');
+            log(`  daily: ${eD[0]?.c ?? 0}, monthly: ${eM[0]?.c ?? 0}, annual: ${eA[0]?.c ?? 0}`, 'yellow');
+            if (isDry) { log('Aborting (dry run).', 'red'); db.release(); await pool.end(); process.exit(1); }
+            if (!await prompt('\nClear and re-populate? [y/N] ')) { log('Aborting.', 'red'); db.release(); await pool.end(); process.exit(0); }
+            log('🗑️  Clearing...', 'blue');
+            await db.query('TRUNCATE daily_closures, monthly_closures, annual_closures, perpetual_totals RESTART IDENTITY CASCADE');
         }
 
-        // ── 1. Get all distinct transaction dates ──
-        const { rows: dateRows } = await client.query(
-            'SELECT DISTINCT DATE(created_at) AS tx_date FROM transactions ORDER BY tx_date ASC'
+        // 1. Single query for all daily totals
+        log('\n📅 Fetching daily totals...', 'blue');
+        const exL = EXCLUDED.map((m) => `'${m.replace(/'/g, "''")}'`).join(', ');
+        const caL = CANCEL.map((m) => `'${m.replace(/'/g, "''")}'`).join(', ');
+        const { rows: dr } = await db.query(
+            `WITH paid AS (SELECT DATE(created_at) d, COUNT(*)::int tc, COALESCE(SUM(amount),0)::numeric ta FROM transactions WHERE payment_method NOT IN (${exL}) GROUP BY 1),
+            canc AS (SELECT DATE(created_at) d, COUNT(*)::int cc, COALESCE(SUM(ABS(amount)),0)::numeric ca FROM transactions WHERE payment_method IN (${caL}) GROUP BY 1),
+            refs AS (SELECT DATE(created_at) d, COUNT(*)::int rc, COALESCE(SUM(ABS(amount)),0)::numeric ra FROM transactions WHERE payment_method='${REFUND}' GROUP BY 1),
+            htva AS (SELECT DATE(t.created_at) d, COALESCE(SUM(ti.total),0)::numeric ht, COALESCE(SUM(ti.total*ti.vat_rate/100),0)::numeric tva FROM transaction_items ti JOIN transactions t ON t.id=ti.transaction_id WHERE t.payment_method NOT IN (${exL}) GROUP BY 1)
+            SELECT COALESCE(paid.d,canc.d,refs.d,htva.d) AS dt, COALESCE(paid.tc,0) tc, COALESCE(paid.ta,0) ta, COALESCE(htva.ht,0) ht, COALESCE(htva.tva,0) tva, COALESCE(canc.cc,0) cc, COALESCE(canc.ca,0) ca, COALESCE(refs.rc,0) rc, COALESCE(refs.ra,0) ra
+            FROM paid FULL OUTER JOIN canc ON paid.d=canc.d FULL OUTER JOIN refs ON COALESCE(paid.d,canc.d)=refs.d FULL OUTER JOIN htva ON COALESCE(paid.d,canc.d,refs.d)=htva.d ORDER BY 1`
         );
-        const dates = dateRows.map((r) => r.tx_date as string);
+        log(`📊 Found ${dr.length} distinct date(s)`, 'blue');
+        if (!dr.length) { log('Nothing to populate.', 'yellow'); db.release(); await pool.end(); return; }
 
-        log(`📊 Found ${dates.length} distinct transaction date(s)`, 'blue');
-
-        if (dates.length === 0) {
-            log('No transactions found. Nothing to populate.', 'yellow');
-            client.release();
-            await pool.end();
-            return;
+        // 2. Compute daily hashes in JS
+        let prevD: string | null = null;
+        const byDate = new Map<string, Daily & { hash: string }>();
+        const dailyIns: { d: string; t: Daily; h: string; p: string | null }[] = [];
+        for (let i = 0; i < dr.length; i++) {
+            const r = dr[i];
+            const date = r.dt instanceof Date ? r.dt.toISOString().substring(0, 10) : String(r.dt);
+            const t: Daily = {
+                ticket_count: Number(r.tc) || 0, total_amount: Number(r.ta) || 0,
+                total_ht: Number(r.ht) || 0, total_tva: Number(r.tva) || 0,
+                cancellation_count: Number(r.cc) || 0, cancellation_amount: Number(r.ca) || 0,
+                refund_count: Number(r.rc) || 0, refund_amount: Number(r.ra) || 0,
+            };
+            const h = dailyHash(date, t, prevD);
+            byDate.set(date, { ...t, hash: h });
+            dailyIns.push({ d: date, t, h, p: prevD });
+            prevD = h;
+            if (isDry) log(`  [dry] ${date}: tk=${t.ticket_count} total=${t.total_amount} h=${h.slice(0, 16)}...`, 'yellow');
+            else if ((i + 1) % 100 === 0 || i === dr.length - 1) log(`  Computed ${i + 1}/${dr.length}...`, 'blue');
         }
 
-        // ── 2. Compute and insert daily closures ──
-        log('\n📅 Processing daily closures...', 'blue');
-
-        const excludedPlaceholders = EXCLUDED_METHODS.map((_, i) => `$${i + 2}`).join(', ');
-        const cancelPlaceholders = CANCEL_METHODS.map((_, i) => `$${i + 2}`).join(', ');
-
-        let previousDailyHash: string | null = null;
-        const dailyClosuresByDate: Map<string, DailyTotals & { hash: string }> = new Map();
-
-        for (const date of dates) {
-            // Paid transactions
-            const { rows: paidRows } = await client.query(
-                `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(amount), 0)::numeric AS total ` +
-                `FROM transactions WHERE DATE(created_at) = $1 AND payment_method NOT IN (${excludedPlaceholders})`,
-                [date, ...EXCLUDED_METHODS]
-            );
-            const paid = paidRows[0];
-
-            // Cancellations
-            const { rows: cancelRows } = await client.query(
-                `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(ABS(amount)), 0)::numeric AS total ` +
-                `FROM transactions WHERE DATE(created_at) = $1 AND payment_method IN (${cancelPlaceholders})`,
-                [date, ...CANCEL_METHODS]
-            );
-            const cancel = cancelRows[0];
-
-            // Refunds
-            const { rows: refundRows } = await client.query(
-                `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(ABS(amount)), 0)::numeric AS total ` +
-                `FROM transactions WHERE DATE(created_at) = $1 AND payment_method = $2`,
-                [date, REFUND_METHOD]
-            );
-            const refund = refundRows[0];
-
-            // HT and TVA from transaction_items
-            const { rows: vatRows } = await client.query(
-                `SELECT COALESCE(SUM(ti.total * ti.vat_rate / 100), 0)::numeric AS tva, ` +
-                `COALESCE(SUM(ti.total), 0)::numeric AS ht ` +
-                `FROM transaction_items ti JOIN transactions t ON t.id = ti.transaction_id ` +
-                `WHERE DATE(t.created_at) = $1 AND t.payment_method NOT IN (${excludedPlaceholders})`,
-                [date, ...EXCLUDED_METHODS]
-            );
-            const vat = vatRows[0];
-
-            const totals: DailyTotals = {
-                ticket_count: Number(paid.cnt) || 0,
-                total_amount: Number(paid.total) || 0,
-                total_ht: Number(vat.ht) || 0,
-                total_tva: Number(vat.tva) || 0,
-                cancellation_count: Number(cancel.cnt) || 0,
-                cancellation_amount: Number(cancel.total) || 0,
-                refund_count: Number(refund.cnt) || 0,
-                refund_amount: Number(refund.total) || 0,
-            };
-
-            const closureHash = generateDailyClosureHash(date, totals, previousDailyHash);
-            dailyClosuresByDate.set(date, { ...totals, hash: closureHash });
-
-            if (!isDryRun) {
-                await client.query(
-                    `INSERT INTO daily_closures ` +
-                    `(closure_date, ticket_count, total_amount, total_ht, total_tva, ` +
-                    `cancellation_count, cancellation_amount, refund_count, refund_amount, ` +
-                    `closure_hash, previous_closure_hash, closed_by) ` +
-                    `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-                    [
-                        date,
-                        totals.ticket_count,
-                        totals.total_amount,
-                        totals.total_ht,
-                        totals.total_tva,
-                        totals.cancellation_count,
-                        totals.cancellation_amount,
-                        totals.refund_count,
-                        totals.refund_amount,
-                        closureHash,
-                        previousDailyHash,
-                        'migration-script',
-                    ]
+        // Batch insert daily
+        if (!isDry) {
+            const B = 100;
+            for (let i = 0; i < dailyIns.length; i += B) {
+                const b = dailyIns.slice(i, i + B);
+                await db.query(
+                    `INSERT INTO daily_closures (closure_date, ticket_count, total_amount, total_ht, total_tva, cancellation_count, cancellation_amount, refund_count, refund_amount, closure_hash, previous_closure_hash, closed_by)
+                    SELECT v.d, v.tc, v.ta, v.ht, v.tva, v.cc, v.ca, v.rc, v.ra, v.h, v.ph, v.cb
+                    FROM unnest($1::date[], $2::int[], $3::numeric[], $4::numeric[], $5::numeric[], $6::int[], $7::numeric[], $8::int[], $9::numeric[], $10::text[], $11::text[], $12::text[]) AS v(d, tc, ta, ht, tva, cc, ca, rc, ra, h, ph, cb)`,
+                    [b.map(x => x.d), b.map(x => x.t.ticket_count), b.map(x => x.t.total_amount), b.map(x => x.t.total_ht), b.map(x => x.t.total_tva), b.map(x => x.t.cancellation_count), b.map(x => x.t.cancellation_amount), b.map(x => x.t.refund_count), b.map(x => x.t.refund_amount), b.map(x => x.h), b.map(x => x.p), b.map(() => 'migration-script')]
                 );
             }
-
-            previousDailyHash = closureHash;
-
-            if (isDryRun) {
-                log(`  [dry-run] ${date}: tickets=${totals.ticket_count} total=${totals.total_amount} hash=${closureHash.slice(0, 16)}...`, 'yellow');
-            }
         }
+        log(`  ${isDry ? '🧪 Would insert' : '✅ Inserted'} ${dr.length} daily closure(s)`, 'green');
 
-        log(`  ${isDryRun ? '🧪 Would insert' : '✅ Inserted'} ${dates.length} daily closure(s)`, 'green');
-
-        // ── 3. Aggregate and insert monthly closures ──
+        // 3. Monthly closures
         log('\n📆 Processing monthly closures...', 'blue');
-
-        // Group daily closures by month
-        const monthlyMap: Map<string, DailyTotals[]> = new Map();
-        for (const [date, totals] of dailyClosuresByDate) {
-            const monthKey = date.substring(0, 7); // YYYY-MM
-            if (!monthlyMap.has(monthKey)) monthlyMap.set(monthKey, []);
-            monthlyMap.get(monthKey)!.push(totals);
+        const mMap = new Map<string, Daily[]>();
+        for (const [date, t] of byDate) {
+            const mk = date.substring(0, 7);
+            if (!mMap.has(mk)) mMap.set(mk, []);
+            mMap.get(mk)!.push(t);
         }
-
-        const sortedMonths = [...monthlyMap.keys()].sort();
-        let previousMonthlyHash: string | null = null;
-        let monthlyCount = 0;
-
-        for (const monthKey of sortedMonths) {
-            const monthTotalsList = monthlyMap.get(monthKey)!;
-            const monthDate = `${monthKey}-01`;
-
-            const totals: PeriodTotals = {
-                daily_closure_count: monthTotalsList.length,
-                ticket_count: monthTotalsList.reduce((s, t) => s + t.ticket_count, 0),
-                total_amount: monthTotalsList.reduce((s, t) => s + t.total_amount, 0),
-                total_ht: monthTotalsList.reduce((s, t) => s + t.total_ht, 0),
-                total_tva: monthTotalsList.reduce((s, t) => s + t.total_tva, 0),
-            };
-
-            const closureHash = generatePeriodClosureHash(monthDate, totals, previousMonthlyHash);
-
-            if (!isDryRun) {
-                await client.query(
-                    `INSERT INTO monthly_closures ` +
-                    `(closure_month, daily_closure_count, ticket_count, total_amount, total_ht, total_tva, ` +
-                    `closure_hash, previous_closure_hash, closed_by) ` +
-                    `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                    [
-                        monthDate,
-                        totals.daily_closure_count,
-                        totals.ticket_count,
-                        totals.total_amount,
-                        totals.total_ht,
-                        totals.total_tva,
-                        closureHash,
-                        previousMonthlyHash,
-                        'migration-script',
-                    ]
-                );
-            }
-
-            if (isDryRun) {
-                log(`  [dry-run] ${monthKey}: dailies=${totals.daily_closure_count} tickets=${totals.ticket_count} total=${totals.total_amount} hash=${closureHash.slice(0, 16)}...`, 'yellow');
-            }
-
-            previousMonthlyHash = closureHash;
-            monthlyCount++;
+        const sortedM = [...mMap.keys()].sort();
+        let prevM: string | null = null;
+        let mc = 0;
+        const mIns: { md: string; dc: number; tc: number; ta: number; ht: number; tva: number; h: string; p: string | null }[] = [];
+        for (const mk of sortedM) {
+            const ml = mMap.get(mk)!;
+            const pt: Period = { daily_closure_count: ml.length, ticket_count: ml.reduce((s, t) => s + t.ticket_count, 0), total_amount: ml.reduce((s, t) => s + t.total_amount, 0), total_ht: ml.reduce((s, t) => s + t.total_ht, 0), total_tva: ml.reduce((s, t) => s + t.total_tva, 0) };
+            const h = periodHash(`${mk}-01`, pt, prevM);
+            if (!isDry) mIns.push({ md: `${mk}-01`, dc: pt.daily_closure_count!, tc: pt.ticket_count, ta: pt.total_amount, ht: pt.total_ht, tva: pt.total_tva, h, p: prevM });
+            if (isDry) log(`  [dry] ${mk}: dailies=${pt.daily_closure_count} tk=${pt.ticket_count} total=${pt.total_amount} h=${h.slice(0, 16)}...`, 'yellow');
+            prevM = h; mc++;
         }
+        if (!isDry && mIns.length) {
+            await db.query(
+                `INSERT INTO monthly_closures (closure_month, daily_closure_count, ticket_count, total_amount, total_ht, total_tva, closure_hash, previous_closure_hash, closed_by)
+                SELECT v.m, v.dc, v.tc, v.ta, v.ht, v.tva, v.h, v.ph, v.cb
+                FROM unnest($1::date[], $2::int[], $3::int[], $4::numeric[], $5::numeric[], $6::numeric[], $7::text[], $8::text[], $9::text[]) AS v(m, dc, tc, ta, ht, tva, h, ph, cb)`,
+                [mIns.map(x => x.md), mIns.map(x => x.dc), mIns.map(x => x.tc), mIns.map(x => x.ta), mIns.map(x => x.ht), mIns.map(x => x.tva), mIns.map(x => x.h), mIns.map(x => x.p), mIns.map(() => 'migration-script')]
+            );
+        }
+        log(`  ${isDry ? '🧪 Would insert' : '✅ Inserted'} ${mc} monthly closure(s)`, 'green');
 
-        log(`  ${isDryRun ? '🧪 Would insert' : '✅ Inserted'} ${monthlyCount} monthly closure(s)`, 'green');
-
-        // ── 4. Aggregate and insert annual closures ──
+        // 4. Annual closures
         log('\n📊 Processing annual closures...', 'blue');
-
-        // Group monthly closures by year
-        const annualMap: Map<number, PeriodTotals[]> = new Map();
-        for (const monthKey of sortedMonths) {
-            const year = parseInt(monthKey.substring(0, 4), 10);
-            const monthTotalsList = monthlyMap.get(monthKey)!;
-            if (!annualMap.has(year)) annualMap.set(year, []);
-            annualMap.get(year)!.push({
-                ticket_count: monthTotalsList.reduce((s, t) => s + t.ticket_count, 0),
-                total_amount: monthTotalsList.reduce((s, t) => s + t.total_amount, 0),
-                total_ht: monthTotalsList.reduce((s, t) => s + t.total_ht, 0),
-                total_tva: monthTotalsList.reduce((s, t) => s + t.total_tva, 0),
-                daily_closure_count: monthTotalsList.length,
-            });
+        const aMap = new Map<number, Period[]>();
+        for (const mk of sortedM) {
+            const y = parseInt(mk.substring(0, 4), 10);
+            const ml = mMap.get(mk)!;
+            if (!aMap.has(y)) aMap.set(y, []);
+            aMap.get(y)!.push({ ticket_count: ml.reduce((s, t) => s + t.ticket_count, 0), total_amount: ml.reduce((s, t) => s + t.total_amount, 0), total_ht: ml.reduce((s, t) => s + t.total_ht, 0), total_tva: ml.reduce((s, t) => s + t.total_tva, 0), daily_closure_count: ml.length });
         }
-
-        const sortedYears = [...annualMap.keys()].sort((a, b) => a - b);
-        let previousAnnualHash: string | null = null;
-        let annualCount = 0;
-
-        for (const year of sortedYears) {
-            const yearTotalsList = annualMap.get(year)!;
-            const totals: PeriodTotals = {
-                monthly_closure_count: yearTotalsList.length,
-                ticket_count: yearTotalsList.reduce((s, t) => s + t.ticket_count, 0),
-                total_amount: yearTotalsList.reduce((s, t) => s + t.total_amount, 0),
-                total_ht: yearTotalsList.reduce((s, t) => s + t.total_ht, 0),
-                total_tva: yearTotalsList.reduce((s, t) => s + t.total_tva, 0),
-            };
-
-            const closureHash = generatePeriodClosureHash(String(year), totals, previousAnnualHash);
-
-            if (!isDryRun) {
-                await client.query(
-                    `INSERT INTO annual_closures ` +
-                    `(closure_year, monthly_closure_count, ticket_count, total_amount, total_ht, total_tva, ` +
-                    `closure_hash, previous_closure_hash, closed_by) ` +
-                    `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                    [
-                        year,
-                        totals.monthly_closure_count,
-                        totals.ticket_count,
-                        totals.total_amount,
-                        totals.total_ht,
-                        totals.total_tva,
-                        closureHash,
-                        previousAnnualHash,
-                        'migration-script',
-                    ]
-                );
-            }
-
-            if (isDryRun) {
-                log(`  [dry-run] ${year}: monthlies=${totals.monthly_closure_count} tickets=${totals.ticket_count} total=${totals.total_amount} hash=${closureHash.slice(0, 16)}...`, 'yellow');
-            }
-
-            previousAnnualHash = closureHash;
-            annualCount++;
+        const sortedY = [...aMap.keys()].sort((a, b) => a - b);
+        let prevA: string | null = null;
+        let ac = 0;
+        const aIns: { y: number; mc: number; tc: number; ta: number; ht: number; tva: number; h: string; p: string | null }[] = [];
+        for (const y of sortedY) {
+            const yl = aMap.get(y)!;
+            const pt: Period = { monthly_closure_count: yl.length, ticket_count: yl.reduce((s, t) => s + t.ticket_count, 0), total_amount: yl.reduce((s, t) => s + t.total_amount, 0), total_ht: yl.reduce((s, t) => s + t.total_ht, 0), total_tva: yl.reduce((s, t) => s + t.total_tva, 0) };
+            const h = periodHash(String(y), pt, prevA);
+            if (!isDry) aIns.push({ y, mc: pt.monthly_closure_count!, tc: pt.ticket_count, ta: pt.total_amount, ht: pt.total_ht, tva: pt.total_tva, h, p: prevA });
+            if (isDry) log(`  [dry] ${y}: monthlies=${pt.monthly_closure_count} tk=${pt.ticket_count} total=${pt.total_amount} h=${h.slice(0, 16)}...`, 'yellow');
+            prevA = h; ac++;
         }
+        if (!isDry && aIns.length) {
+            await db.query(
+                `INSERT INTO annual_closures (closure_year, monthly_closure_count, ticket_count, total_amount, total_ht, total_tva, closure_hash, previous_closure_hash, closed_by)
+                SELECT v.y, v.mc, v.tc, v.ta, v.ht, v.tva, v.h, v.ph, v.cb
+                FROM unnest($1::int[], $2::int[], $3::int[], $4::numeric[], $5::numeric[], $6::numeric[], $7::text[], $8::text[], $9::text[]) AS v(y, mc, tc, ta, ht, tva, h, ph, cb)`,
+                [aIns.map(x => x.y), aIns.map(x => x.mc), aIns.map(x => x.tc), aIns.map(x => x.ta), aIns.map(x => x.ht), aIns.map(x => x.tva), aIns.map(x => x.h), aIns.map(x => x.p), aIns.map(() => 'migration-script')]
+            );
+        }
+        log(`  ${isDry ? '🧪 Would insert' : '✅ Inserted'} ${ac} annual closure(s)`, 'green');
 
-        log(`  ${isDryRun ? '🧪 Would insert' : '✅ Inserted'} ${annualCount} annual closure(s)`, 'green');
-
-        // ── 5. Populate perpetual totals ──
+        // 5. Perpetual totals
         log('\n♾️  Processing perpetual totals...', 'blue');
-
-        const allDailyTotals = [...dailyClosuresByDate.values()];
-        const perpetual = {
-            total_ticket_count: allDailyTotals.reduce((s, t) => s + t.ticket_count, 0),
-            total_amount: allDailyTotals.reduce((s, t) => s + t.total_amount, 0),
-            total_ht: allDailyTotals.reduce((s, t) => s + t.total_ht, 0),
-            total_tva: allDailyTotals.reduce((s, t) => s + t.total_tva, 0),
-            total_cancellation_count: allDailyTotals.reduce((s, t) => s + t.cancellation_count, 0),
-            total_refund_count: allDailyTotals.reduce((s, t) => s + t.refund_count, 0),
-            last_closure_hash: previousDailyHash,
+        const all = [...byDate.values()];
+        const perp = {
+            tc: all.reduce((s, t) => s + t.ticket_count, 0),
+            ta: all.reduce((s, t) => s + t.total_amount, 0),
+            ht: all.reduce((s, t) => s + t.total_ht, 0),
+            tva: all.reduce((s, t) => s + t.total_tva, 0),
+            cc: all.reduce((s, t) => s + t.cancellation_count, 0),
+            rc: all.reduce((s, t) => s + t.refund_count, 0),
+            lh: prevD,
         };
-
-        if (isDryRun) {
-            log(`  [dry-run] tickets=${perpetual.total_ticket_count} total=${perpetual.total_amount} last_hash=${perpetual.last_closure_hash?.slice(0, 16) ?? 'null'}...`, 'yellow');
+        if (isDry) {
+            log(`  [dry] tk=${perp.tc} total=${perp.ta} last_hash=${perp.lh?.slice(0, 16) ?? 'null'}...`, 'yellow');
         } else {
-            await client.query(
-                `INSERT INTO perpetual_totals ` +
-                `(id, total_ticket_count, total_amount, total_ht, total_tva, ` +
-                `total_cancellation_count, total_refund_count, last_closure_hash, updated_at) ` +
-                `VALUES (1, $1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
-                [
-                    perpetual.total_ticket_count,
-                    perpetual.total_amount,
-                    perpetual.total_ht,
-                    perpetual.total_tva,
-                    perpetual.total_cancellation_count,
-                    perpetual.total_refund_count,
-                    perpetual.last_closure_hash,
-                ]
+            await db.query(
+                `INSERT INTO perpetual_totals (id, total_ticket_count, total_amount, total_ht, total_tva, total_cancellation_count, total_refund_count, last_closure_hash, updated_at) VALUES (1, $1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
+                [perp.tc, perp.ta, perp.ht, perp.tva, perp.cc, perp.rc, perp.lh]
             );
             log('  ✅ Inserted perpetual totals', 'green');
         }
 
-        // ── Summary ──
-        log(`\n${isDryRun ? '🧪 Summary (dry run)' : '✨ Summary'}`, 'green');
-        log(`  Daily closures:   ${dates.length}`, 'blue');
-        log(`  Monthly closures: ${monthlyCount}`, 'blue');
-        log(`  Annual closures:  ${annualCount}`, 'blue');
+        // Summary
+        log(`\n${isDry ? '🧪 Summary (dry run)' : '✨ Summary'}`, 'green');
+        log(`  Daily closures:   ${dr.length}`, 'blue');
+        log(`  Monthly closures: ${mc}`, 'blue');
+        log(`  Annual closures:  ${ac}`, 'blue');
         log(`  Perpetual totals: 1 row`, 'blue');
 
-        client.release();
+        db.release();
         await pool.end();
         log('\n✨ Done!', 'green');
     } catch (error) {
@@ -421,4 +206,4 @@ async function populateNf525Tables() {
     }
 }
 
-populateNf525Tables();
+main();

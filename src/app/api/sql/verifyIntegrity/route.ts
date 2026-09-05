@@ -1,6 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from '../db';
+import { getPosPgDb } from '../pg-db';
 import { createHash } from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -10,9 +11,9 @@ interface TransactionRow {
     order_id: string;
     user_name: string;
     payment_method: string;
-    amount: number;
+    amount: number | string;
     currency: string;
-    created_at: string;
+    created_at: string | Date;
     change: string | null;
     device_id: string | null;
     hash: string | null;
@@ -28,15 +29,16 @@ interface IntegrityIssue {
 }
 
 function recomputeHash(transactionId: number | string, tx: TransactionRow, previousHash: string | null): string {
+    const createdAt = tx.created_at instanceof Date ? tx.created_at.toISOString() : String(tx.created_at);
     const data = [
         previousHash || '',
         transactionId || 'new',
         tx.order_id,
         tx.user_name,
         tx.payment_method,
-        tx.amount,
+        String(tx.amount),
         tx.currency,
-        tx.created_at,
+        createdAt,
         tx.change || '',
         tx.device_id || '',
     ].join('|');
@@ -46,15 +48,28 @@ function recomputeHash(transactionId: number | string, tx: TransactionRow, previ
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
     let connection: DbConnection | undefined;
+    let pgClient: Awaited<ReturnType<typeof getPosPgDb>> | undefined;
     try {
-        connection = await getPosDb(shopId);
-        const isPg = connection.isPostgreSQL;
-        const prefix = isPg ? 'dc_pos.' : '';
+        // Use a raw pg PoolClient directly to bypass the 15s query timeout
+        // in the DbConnection wrapper — verifying 40k+ rows can exceed that.
+        const isPg = !!process.env.PG_HOST;
+        let transactions: TransactionRow[];
 
-        // Fetch all transactions ordered by id (chain order)
-        const query = `SELECT id, order_id, user_name, payment_method, amount, currency, created_at, change, device_id, hash, previous_hash FROM ${prefix}transactions ORDER BY id ASC`;
-        const [rows] = await connection.execute(query);
-        const transactions = rows as TransactionRow[];
+        if (isPg) {
+            pgClient = await getPosPgDb(shopId);
+            await pgClient.query('SET search_path TO dc_pos, dc, dc_sys, public');
+            const result = await pgClient.query(
+                'SELECT id, order_id, user_name, payment_method, amount, currency, created_at, change, device_id, hash, previous_hash ' +
+                    'FROM transactions ORDER BY id ASC'
+            );
+            transactions = result.rows as TransactionRow[];
+        } else {
+            connection = await getPosDb(shopId);
+            const [rows] = await connection.execute(
+                'SELECT id, order_id, user_name, payment_method, amount, currency, created_at, change, device_id, hash, previous_hash FROM transactions ORDER BY id ASC'
+            );
+            transactions = rows as TransactionRow[];
+        }
 
         const issues: IntegrityIssue[] = [];
         let expectedPreviousHash: string | null = null;
@@ -104,6 +119,7 @@ export async function GET(request: Request) {
         console.error('Error verifying integrity:', error);
         return NextResponse.json({ error: 'An error occurred while verifying integrity' }, { status: 500 });
     } finally {
+        if (pgClient) pgClient.release();
         await connection?.end();
     }
 }

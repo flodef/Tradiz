@@ -195,9 +195,9 @@ export function generateTransactionHash(
         transaction.order_id,
         transaction.user_name,
         transaction.payment_method,
-        transaction.amount,
+        String(transaction.amount),
         transaction.currency,
-        transaction.created_at,
+        String(transaction.created_at),
         transaction.change || '',
         transaction.device_id || '',
     ].join('|');

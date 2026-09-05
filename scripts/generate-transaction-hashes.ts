@@ -40,23 +40,20 @@ interface TransactionRow {
     currency: string;
     change: number | string | null;
     device_id: string | null;
-    created_at: string;
+    created_at: string | Date;
 }
 
-function generateTransactionHash(
-    tx: TransactionRow,
-    transactionId: number,
-    previousHash: string | null
-): string {
+function generateTransactionHash(tx: TransactionRow, transactionId: number, previousHash: string | null): string {
+    const createdAt = tx.created_at instanceof Date ? tx.created_at.toISOString() : String(tx.created_at);
     const data = [
         previousHash || '',
         transactionId,
         tx.order_id,
         tx.user_name,
         tx.payment_method,
-        tx.amount,
+        String(tx.amount),
         tx.currency,
-        tx.created_at,
+        createdAt,
         tx.change || '',
         tx.device_id || '',
     ].join('|');
@@ -95,7 +92,7 @@ async function generateTransactionHashes() {
         // Fetch all transactions ordered by id (chain order)
         const { rows } = await client.query(
             'SELECT id, order_id, user_name, payment_method, amount, currency, change, device_id, created_at ' +
-            'FROM transactions ORDER BY id ASC'
+                'FROM transactions ORDER BY id ASC'
         );
         const transactions = rows as TransactionRow[];
 
@@ -117,37 +114,61 @@ async function generateTransactionHashes() {
             log(`⚠️  ${existingCount} transaction(s) already have a hash. They will be recalculated.`, 'yellow');
         }
 
+        // Compute all hashes in JS (fast), then batch the DB updates.
+        const hashes: { id: number; hash: string; previousHash: string | null }[] = [];
         let previousHash: string | null = null;
-        let processed = 0;
 
         for (const tx of transactions) {
             const hash = generateTransactionHash(tx, tx.id, previousHash);
+            hashes.push({ id: tx.id, hash, previousHash });
+            previousHash = hash;
+        }
 
-            if (isDryRun) {
-                if (processed < 5 || processed === transactions.length - 1) {
-                    log(`  [dry-run] tx id=${tx.id} hash=${hash.slice(0, 16)}... prev=${previousHash?.slice(0, 16) ?? 'null'}...`, 'yellow');
-                } else if (processed === 5) {
-                    log(`  ... (suppressing remaining dry-run output)`, 'yellow');
-                }
-            } else {
-                await client.query(
-                    'UPDATE transactions SET hash = $1, previous_hash = $2 WHERE id = $3',
-                    [hash, previousHash, tx.id]
+        if (isDryRun) {
+            for (let i = 0; i < Math.min(5, hashes.length); i++) {
+                const h = hashes[i];
+                log(
+                    `  [dry-run] tx id=${h.id} hash=${h.hash.slice(0, 16)}... prev=${h.previousHash?.slice(0, 16) ?? 'null'}...`,
+                    'yellow'
                 );
             }
+            if (hashes.length > 5) {
+                const last = hashes[hashes.length - 1];
+                log(`  ... (suppressing middle)`, 'yellow');
+                log(
+                    `  [dry-run] tx id=${last.id} hash=${last.hash.slice(0, 16)}... prev=${last.previousHash?.slice(0, 16) ?? 'null'}...`,
+                    'yellow'
+                );
+            }
+        } else {
+            // Batch UPDATE using unnest() — 500 rows per round-trip
+            const BATCH_SIZE = 500;
+            for (let i = 0; i < hashes.length; i += BATCH_SIZE) {
+                const batch = hashes.slice(i, i + BATCH_SIZE);
+                const ids = batch.map((h) => h.id);
+                const hashValues = batch.map((h) => h.hash);
+                const prevValues = batch.map((h) => h.previousHash);
 
-            previousHash = hash;
-            processed++;
+                await client.query(
+                    `UPDATE transactions AS t SET
+                        hash = v.hash,
+                        previous_hash = v.prev_hash
+                    FROM unnest(
+                        $1::int[],
+                        $2::text[],
+                        $3::text[]
+                    ) AS v(id, hash, prev_hash)
+                    WHERE t.id = v.id`,
+                    [ids, hashValues, prevValues]
+                );
 
-            if (processed % 100 === 0) {
-                log(`  Processed ${processed}/${transactions.length}...`, 'blue');
+                if ((i + BATCH_SIZE) % 5000 === 0 || i + BATCH_SIZE >= hashes.length) {
+                    log(`  Processed ${Math.min(i + BATCH_SIZE, hashes.length)}/${hashes.length}...`, 'blue');
+                }
             }
         }
 
-        log(
-            `\n${isDryRun ? '🧪 Would hash' : '✨ Hashed'} ${processed} transaction(s).`,
-            'green'
-        );
+        log(`\n${isDryRun ? '🧪 Would hash' : '✨ Hashed'} ${hashes.length} transaction(s).`, 'green');
 
         if (!isDryRun) {
             // Verify chain integrity
@@ -159,7 +180,10 @@ async function generateTransactionHashes() {
             for (const row of verifyRows) {
                 if (row.previous_hash !== prev) {
                     broken++;
-                    log(`  ⚠️  Chain break at id=${row.id}: expected prev=${prev?.slice(0, 16) ?? 'null'}..., got=${row.previous_hash?.slice(0, 16) ?? 'null'}...`, 'red');
+                    log(
+                        `  ⚠️  Chain break at id=${row.id}: expected prev=${prev?.slice(0, 16) ?? 'null'}..., got=${row.previous_hash?.slice(0, 16) ?? 'null'}...`,
+                        'red'
+                    );
                 }
                 prev = row.hash;
             }
