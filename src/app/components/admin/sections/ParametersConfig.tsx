@@ -15,6 +15,7 @@ import ValidatedInput from '../ValidatedInput';
 import ZipCityRow from '../ZipCityRow';
 import { useEffect, useState } from 'react';
 import { IconCheck, IconX, IconShieldCheck, IconArchive, IconCertificate } from '@tabler/icons-react';
+import { usePopup } from '@/app/hooks/usePopup';
 
 interface ParametersConfigProps {
     config: Parameters;
@@ -62,8 +63,14 @@ export default function ParametersConfig({
     onToggle,
     icon,
 }: ParametersConfigProps) {
+    const { openPopup } = usePopup();
     const [appVersion, setAppVersion] = useState(process.env.NEXT_PUBLIC_APP_VERSION);
     const [integrityStatus, setIntegrityStatus] = useState<'idle' | 'checking' | 'ok' | 'fail'>('idle');
+    const [integrityResult, setIntegrityResult] = useState<{
+        total_transactions: number;
+        verified: number;
+        issues_found: number;
+    } | null>(null);
     const [archiveStatus, setArchiveStatus] = useState<'idle' | 'downloading' | 'done' | 'fail'>('idle');
     const [certStatus, setCertStatus] = useState<'idle' | 'downloading' | 'done' | 'fail'>('idle');
 
@@ -131,10 +138,30 @@ export default function ParametersConfig({
 
     const checkIntegrity = () => {
         setIntegrityStatus('checking');
+        setIntegrityResult(null);
         fetch('/api/sql/verifyIntegrity')
             .then((res) => res.json())
             .then((data) => {
                 setIntegrityStatus(data.integrity_ok ? 'ok' : 'fail');
+                setIntegrityResult({
+                    total_transactions: data.total_transactions ?? 0,
+                    verified: data.verified ?? 0,
+                    issues_found: data.issues_found ?? 0,
+                });
+                if (!data.integrity_ok && data.issues && data.issues.length > 0) {
+                    const issueLines = data.issues
+                        .slice(0, 10)
+                        .map((i: { transaction_id: number; issue: string }) => `#${i.transaction_id}: ${i.issue}`);
+                    const more = data.issues.length > 10 ? `\n... et ${data.issues.length - 10} autre(s)` : '';
+                    openPopup("Échec de l'intégrité NF525", [
+                        `${data.total_transactions} transactions vérifiées`,
+                        `${data.verified} validées`,
+                        `${data.issues_found} erreur(s) détectée(s)`,
+                        '',
+                        ...issueLines,
+                        more,
+                    ]);
+                }
             })
             .catch(() => {
                 setIntegrityStatus('fail');
@@ -357,8 +384,17 @@ export default function ParametersConfig({
                             className="w-32"
                         />
                     )}
+                </div>
+            </div>
+
+            {/* Subsection: NF525 */}
+            <div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
+                    NF525 — Conformité fiscale
+                </h3>
+                <div className="flex flex-wrap gap-4 items-end">
                     <div className="flex flex-col gap-1">
-                        <label className={adminTextStyle}>Intégrité NF525</label>
+                        <label className={adminTextStyle}>Intégrité</label>
                         <AdminButton
                             variant={
                                 integrityStatus === 'ok' ? 'add' : integrityStatus === 'fail' ? 'danger' : 'primary'
@@ -414,7 +450,7 @@ export default function ParametersConfig({
                         </AdminButton>
                     </div>
                     <div className="flex flex-col gap-1">
-                        <label className={adminTextStyle}>Certificat NF525</label>
+                        <label className={adminTextStyle}>Certificat</label>
                         <AdminButton
                             variant={certStatus === 'done' ? 'add' : certStatus === 'fail' ? 'danger' : 'primary'}
                             onClick={downloadCertificate}
@@ -440,6 +476,16 @@ export default function ParametersConfig({
                             )}
                         </AdminButton>
                     </div>
+                    {integrityResult && (
+                        <div className="flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400">
+                            <span>
+                                {integrityResult.verified}/{integrityResult.total_transactions} transactions vérifiées
+                            </span>
+                            {integrityResult.issues_found > 0 && (
+                                <span className="text-red-500">{integrityResult.issues_found} erreur(s)</span>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 

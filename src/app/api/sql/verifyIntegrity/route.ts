@@ -13,7 +13,7 @@ interface TransactionRow {
     payment_method: string;
     amount: number | string;
     currency: string;
-    created_at: string | Date;
+    created_at: string;
     change: string | null;
     device_id: string | null;
     hash: string | null;
@@ -29,16 +29,15 @@ interface IntegrityIssue {
 }
 
 function recomputeHash(transactionId: number | string, tx: TransactionRow, previousHash: string | null): string {
-    const createdAt = tx.created_at instanceof Date ? tx.created_at.toISOString() : String(tx.created_at);
     const data = [
         previousHash || '',
         transactionId || 'new',
         tx.order_id,
         tx.user_name,
         tx.payment_method,
-        String(tx.amount),
+        String(Number(tx.amount)),
         tx.currency,
-        createdAt,
+        String(tx.created_at),
         tx.change || '',
         tx.device_id || '',
     ].join('|');
@@ -59,14 +58,17 @@ export async function GET(request: Request) {
             pgClient = await getPosPgDb(shopId);
             await pgClient.query('SET search_path TO dc_pos, dc, dc_sys, public');
             const result = await pgClient.query(
-                'SELECT id, order_id, user_name, payment_method, amount, currency, created_at, change, device_id, hash, previous_hash ' +
-                    'FROM transactions ORDER BY id ASC'
+                'SELECT id, order_id, user_name, payment_method, amount, currency, ' +
+                    "to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at, " +
+                    'change, device_id, hash, previous_hash FROM transactions ORDER BY id ASC'
             );
             transactions = result.rows as TransactionRow[];
         } else {
             connection = await getPosDb(shopId);
             const [rows] = await connection.execute(
-                'SELECT id, order_id, user_name, payment_method, amount, currency, created_at, change, device_id, hash, previous_hash FROM transactions ORDER BY id ASC'
+                'SELECT id, order_id, user_name, payment_method, amount, currency, ' +
+                    "DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at, " +
+                    'change, device_id, hash, previous_hash FROM transactions ORDER BY id ASC'
             );
             transactions = rows as TransactionRow[];
         }

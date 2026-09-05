@@ -40,20 +40,19 @@ interface TransactionRow {
     currency: string;
     change: number | string | null;
     device_id: string | null;
-    created_at: string | Date;
+    created_at: string;
 }
 
 function generateTransactionHash(tx: TransactionRow, transactionId: number, previousHash: string | null): string {
-    const createdAt = tx.created_at instanceof Date ? tx.created_at.toISOString() : String(tx.created_at);
     const data = [
         previousHash || '',
         transactionId,
         tx.order_id,
         tx.user_name,
         tx.payment_method,
-        String(tx.amount),
+        String(Number(tx.amount)),
         tx.currency,
-        createdAt,
+        String(tx.created_at),
         tx.change || '',
         tx.device_id || '',
     ].join('|');
@@ -91,7 +90,8 @@ async function generateTransactionHashes() {
 
         // Fetch all transactions ordered by id (chain order)
         const { rows } = await client.query(
-            'SELECT id, order_id, user_name, payment_method, amount, currency, change, device_id, created_at ' +
+            'SELECT id, order_id, user_name, payment_method, amount, currency, change, device_id, ' +
+                "to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at " +
                 'FROM transactions ORDER BY id ASC'
         );
         const transactions = rows as TransactionRow[];
