@@ -247,7 +247,7 @@ export default function ParametersConfig({
                         onChange={(value) => handleShopChange('phone', String(value))}
                         placeholder="06 12 34 56 78"
                         isReadOnly={isReadOnly}
-                        className="flex-1 w-28"
+                        className="flex-1 min-w-28 max-w-28"
                         validation={(value) => {
                             const v = String(value).trim();
                             return v === '' || frenchPhoneRegex.test(v);
@@ -265,7 +265,7 @@ export default function ParametersConfig({
                         onChange={(value) => handleShopChange('vatNumber', String(value))}
                         placeholder="FR12345678901"
                         isReadOnly={isReadOnly}
-                        className="flex-1 w-30"
+                        className="flex-1 min-w-30 max-w-30"
                     />
                     <div className="w-full flex flex-wrap gap-4 items-end">
                         <ValidatedInput
