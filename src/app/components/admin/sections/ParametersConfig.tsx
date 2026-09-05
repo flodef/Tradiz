@@ -247,7 +247,7 @@ export default function ParametersConfig({
                         onChange={(value) => handleShopChange('phone', String(value))}
                         placeholder="06 12 34 56 78"
                         isReadOnly={isReadOnly}
-                        className="flex-1 min-w-28 max-w-28"
+                        className="flex-1 w-28"
                         validation={(value) => {
                             const v = String(value).trim();
                             return v === '' || frenchPhoneRegex.test(v);
@@ -265,7 +265,7 @@ export default function ParametersConfig({
                         onChange={(value) => handleShopChange('vatNumber', String(value))}
                         placeholder="FR12345678901"
                         isReadOnly={isReadOnly}
-                        className="flex-1 min-w-40 max-w-xs"
+                        className="flex-1 w-30"
                     />
                     <div className="w-full flex flex-wrap gap-4 items-end">
                         <ValidatedInput
@@ -339,7 +339,7 @@ export default function ParametersConfig({
                             !isReadOnly && handleChange('fidelityRate', Math.max(0, Math.min(100, Number(value) || 0)))
                         }
                         isReadOnly={isReadOnly}
-                        className="w-30"
+                        className="w-32"
                     />
                     <ValidatedInput
                         label="Message de remerciement"
@@ -389,7 +389,7 @@ export default function ParametersConfig({
                             onClick={checkIntegrity}
                             disabled={integrityStatus === 'checking'}
                             isLoading={integrityStatus === 'checking'}
-                            className="h-8"
+                            className="h-8 mt-0"
                         >
                             {integrityStatus === 'ok' ? (
                                 <>
@@ -416,7 +416,7 @@ export default function ParametersConfig({
                             onClick={downloadFiscalArchive}
                             disabled={archiveStatus === 'downloading'}
                             isLoading={archiveStatus === 'downloading'}
-                            className="h-8"
+                            className="h-8 mt-0"
                         >
                             {archiveStatus === 'done' ? (
                                 <>
@@ -443,7 +443,7 @@ export default function ParametersConfig({
                             onClick={downloadCertificate}
                             disabled={certStatus === 'downloading'}
                             isLoading={certStatus === 'downloading'}
-                            className="h-8"
+                            className="h-8 mt-0"
                         >
                             {certStatus === 'done' ? (
                                 <>
