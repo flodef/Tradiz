@@ -58,6 +58,7 @@ export type ReceiptData = {
     serviceType?: ServiceType;
     showDetails?: boolean;
     mealCount?: number;
+    deviceId?: number;
     customer?: { firstName: string; lastName: string; reference?: string; company?: string } | null;
     company?: {
         name: string;
@@ -111,6 +112,7 @@ export const usePay = () => {
         hasCashierPrinter,
         inventory,
         setCustomers,
+        deviceId,
     } = useConfig();
 
     // Ref to hold autoPrint so commitTransaction can call it without ordering issues.
@@ -425,6 +427,7 @@ export const usePay = () => {
                     serviceType: orderData?.service_type,
                     showDetails: showDetails !== false,
                     mealCount,
+                    deviceId,
                     customer: currentCustomer
                         ? {
                               firstName: currentCustomer.firstName,
@@ -453,6 +456,7 @@ export const usePay = () => {
             orderData,
             companies,
             currentCustomer,
+            deviceId,
         ]
     );
 

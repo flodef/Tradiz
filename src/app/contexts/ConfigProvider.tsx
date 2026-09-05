@@ -158,6 +158,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     const [colors, setColors] = useState<Color[]>([]);
     const [printers, setPrinters] = useState<Printer[]>([]);
     const [devicePrinterCom, setDevicePrinterCom] = useState<string | undefined>(undefined);
+    const [deviceId, setDeviceId] = useState<number | undefined>(undefined);
     const [customers, setCustomersState] = useState<Customer[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [categories, setCategories] = useState<CategoryData[]>([]);
@@ -376,6 +377,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                 .then((r) => (r.ok ? r.json() : null))
                 .then((hw) => {
                     if (hw?.printerCom) setDevicePrinterCom(hw.printerCom);
+                    if (hw?.deviceId) setDeviceId(hw.deviceId);
                 })
                 .catch(() => {});
         });
@@ -492,6 +494,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                 getPrinterNamesByRole,
                 hasCashierPrinter,
                 setDevicePrinterCom,
+                deviceId,
                 customers,
                 setCustomers,
                 users,

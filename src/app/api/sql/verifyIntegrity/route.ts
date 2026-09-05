@@ -1,7 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from '../db';
-import { getPosPgDb } from '../pg-db';
+import { getPosPgDb, isPgConfigured } from '../pg-db';
 import { createHash } from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
     try {
         // Use a raw pg PoolClient directly to bypass the 15s query timeout
         // in the DbConnection wrapper — verifying 40k+ rows can exceed that.
-        const isPg = !!process.env.PG_HOST;
+        const isPg = isPgConfigured(shopId);
         let transactions: TransactionRow[];
 
         if (isPg) {

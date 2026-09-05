@@ -257,14 +257,14 @@ function printReceiptHeader(printer: ThermalPrinter, shop: Shop) {
     printer.newLine();
 }
 
-function printReceiptFooter(printer: ThermalPrinter, shop: Shop, validator?: string) {
+function printReceiptFooter(printer: ThermalPrinter, shop: Shop, validator?: string, deviceId?: number) {
     printer.alignCenter();
     if (shop.serial) printer.println('SIRET ' + shop.serial + ' - NAF 5610C');
     if (shop.vatNumber) printer.println('TVA Intracom ' + shop.vatNumber);
     printer.println('SARL - RCS');
     printer.println(`Tradiz v${APP_VERSION} - Certif. ${NF525_CERTIFICATE_NUMBER}`);
     if (validator) printer.println('Service : ' + validator);
-    printer.println('Caisse 1');
+    printer.println(`Caisse ${deviceId ?? 1}`);
     printer.newLine();
     printer.println('Merci de votre visite');
 }
@@ -610,7 +610,7 @@ export async function printReceipt(
         printer.newLine();
 
         // Print legal footer
-        printReceiptFooter(printer, receiptData.shop, receiptData.transaction.validator);
+        printReceiptFooter(printer, receiptData.shop, receiptData.transaction.validator, receiptData.deviceId);
 
         printer.cut();
 

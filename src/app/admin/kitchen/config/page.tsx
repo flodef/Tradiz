@@ -800,7 +800,7 @@ export default function SettingsPage() {
             const response = await fetch('/api/sql/updateParameters', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ parameters: paramUpdates }),
+                body: JSON.stringify({ parameters: paramUpdates, changedBy: data.user?.name || 'admin' }),
             });
 
             if (!response.ok) throw new Error('Failed to save parameters');

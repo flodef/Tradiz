@@ -2,6 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection, withTransaction } from '../db';
 import { PARAMETER_KEY_LIST } from '@/app/constants/parameterKeys';
+import { insertAuditEvent } from '../auditHelpers';
 
 interface ParameterUpdate {
     key: string;
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
     let connection: DbConnection | undefined;
     try {
-        const { parameters } = await request.json();
+        const { parameters, changedBy } = await request.json();
 
         if (!parameters || !Array.isArray(parameters)) {
             return NextResponse.json({ error: 'Invalid parameters format' }, { status: 400 });
@@ -22,6 +23,7 @@ export async function POST(request: Request) {
         const conn = connection;
 
         await withTransaction(conn, async () => {
+            const updatedKeys: string[] = [];
             // Update each parameter, but only if it's a known parameter key
             for (const param of parameters as ParameterUpdate[]) {
                 // Only update known parameter keys
@@ -49,6 +51,17 @@ export async function POST(request: Request) {
                     `;
                     await conn.execute(query, [param.key, param.value]);
                 }
+                updatedKeys.push(param.key);
+            }
+
+            if (updatedKeys.length > 0) {
+                await insertAuditEvent(conn, {
+                    event_type: 'parameter_change',
+                    entity_type: 'parameters',
+                    entity_id: updatedKeys.join(','),
+                    user_name: changedBy || 'admin',
+                    detail: `Updated ${updatedKeys.length} parameter(s): ${updatedKeys.join(', ')}`,
+                });
             }
         });
 

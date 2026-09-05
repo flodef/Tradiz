@@ -14,7 +14,7 @@ import SiretInput from '../SiretInput';
 import ValidatedInput from '../ValidatedInput';
 import ZipCityRow from '../ZipCityRow';
 import { useEffect, useState } from 'react';
-import { IconCheck, IconX, IconShieldCheck } from '@tabler/icons-react';
+import { IconCheck, IconX, IconShieldCheck, IconArchive, IconCertificate } from '@tabler/icons-react';
 
 interface ParametersConfigProps {
     config: Parameters;
@@ -64,6 +64,8 @@ export default function ParametersConfig({
 }: ParametersConfigProps) {
     const [appVersion, setAppVersion] = useState(process.env.NEXT_PUBLIC_APP_VERSION);
     const [integrityStatus, setIntegrityStatus] = useState<'idle' | 'checking' | 'ok' | 'fail'>('idle');
+    const [archiveStatus, setArchiveStatus] = useState<'idle' | 'downloading' | 'done' | 'fail'>('idle');
+    const [certStatus, setCertStatus] = useState<'idle' | 'downloading' | 'done' | 'fail'>('idle');
 
     useEffect(() => {
         // Fetch the current version from package.json at runtime
@@ -77,6 +79,55 @@ export default function ParametersConfig({
                 setAppVersion(process.env.NEXT_PUBLIC_APP_VERSION);
             });
     }, []);
+
+    const downloadFiscalArchive = () => {
+        setArchiveStatus('downloading');
+        const now = new Date();
+        const start = new Date(now.getFullYear() - 10, 0, 1).toISOString().substring(0, 10);
+        const end = now.toISOString().substring(0, 10);
+        fetch(`/api/sql/fiscalArchive?start_date=${start}&end_date=${end}&requested_by=admin`)
+            .then((res) => {
+                if (!res.ok) throw new Error('Export failed');
+                return res.blob();
+            })
+            .then((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `archive_${start}_${end}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                setArchiveStatus('done');
+                setTimeout(() => setArchiveStatus('idle'), 3000);
+            })
+            .catch(() => {
+                setArchiveStatus('fail');
+                setTimeout(() => setArchiveStatus('idle'), 3000);
+            });
+    };
+
+    const downloadCertificate = () => {
+        setCertStatus('downloading');
+        fetch('/api/sql/nf525Certificate')
+            .then((res) => {
+                if (!res.ok) throw new Error('Certificate failed');
+                return res.blob();
+            })
+            .then((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `nf525_certificate_${new Date().toISOString().substring(0, 10)}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                setCertStatus('done');
+                setTimeout(() => setCertStatus('idle'), 3000);
+            })
+            .catch(() => {
+                setCertStatus('fail');
+                setTimeout(() => setCertStatus('idle'), 3000);
+            });
+    };
 
     const checkIntegrity = () => {
         setIntegrityStatus('checking');
@@ -331,6 +382,60 @@ export default function ParametersConfig({
                                 <>
                                     <IconShieldCheck size={18} stroke={2} />
                                     Vérifier
+                                </>
+                            )}
+                        </AdminButton>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <label className={adminTextStyle}>Archive fiscale</label>
+                        <AdminButton
+                            variant={archiveStatus === 'done' ? 'add' : archiveStatus === 'fail' ? 'danger' : 'primary'}
+                            onClick={downloadFiscalArchive}
+                            disabled={archiveStatus === 'downloading'}
+                            isLoading={archiveStatus === 'downloading'}
+                            className="h-8"
+                        >
+                            {archiveStatus === 'done' ? (
+                                <>
+                                    <IconCheck size={20} stroke={2} />
+                                    Exporté
+                                </>
+                            ) : archiveStatus === 'fail' ? (
+                                <>
+                                    <IconX size={20} stroke={2} />
+                                    Erreur
+                                </>
+                            ) : (
+                                <>
+                                    <IconArchive size={18} stroke={2} />
+                                    Exporter
+                                </>
+                            )}
+                        </AdminButton>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <label className={adminTextStyle}>Certificat NF525</label>
+                        <AdminButton
+                            variant={certStatus === 'done' ? 'add' : certStatus === 'fail' ? 'danger' : 'primary'}
+                            onClick={downloadCertificate}
+                            disabled={certStatus === 'downloading'}
+                            isLoading={certStatus === 'downloading'}
+                            className="h-8"
+                        >
+                            {certStatus === 'done' ? (
+                                <>
+                                    <IconCheck size={20} stroke={2} />
+                                    Téléchargé
+                                </>
+                            ) : certStatus === 'fail' ? (
+                                <>
+                                    <IconX size={20} stroke={2} />
+                                    Erreur
+                                </>
+                            ) : (
+                                <>
+                                    <IconCertificate size={18} stroke={2} />
+                                    Télécharger
                                 </>
                             )}
                         </AdminButton>
