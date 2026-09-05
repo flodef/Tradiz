@@ -66,11 +66,6 @@ export default function ParametersConfig({
     const { openPopup } = usePopup();
     const [appVersion, setAppVersion] = useState(process.env.NEXT_PUBLIC_APP_VERSION);
     const [integrityStatus, setIntegrityStatus] = useState<'idle' | 'checking' | 'ok' | 'fail'>('idle');
-    const [integrityResult, setIntegrityResult] = useState<{
-        total_transactions: number;
-        verified: number;
-        issues_found: number;
-    } | null>(null);
     const [archiveStatus, setArchiveStatus] = useState<'idle' | 'downloading' | 'done' | 'fail'>('idle');
     const [certStatus, setCertStatus] = useState<'idle' | 'downloading' | 'done' | 'fail'>('idle');
 
@@ -105,7 +100,6 @@ export default function ParametersConfig({
                 a.click();
                 URL.revokeObjectURL(url);
                 setArchiveStatus('done');
-                setTimeout(() => setArchiveStatus('idle'), 3000);
             })
             .catch(() => {
                 setArchiveStatus('fail');
@@ -124,11 +118,10 @@ export default function ParametersConfig({
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `nf525_certificate_${new Date().toISOString().substring(0, 10)}.json`;
+                a.download = `certificat_nf525_${new Date().toISOString().substring(0, 10)}.json`;
                 a.click();
                 URL.revokeObjectURL(url);
                 setCertStatus('done');
-                setTimeout(() => setCertStatus('idle'), 3000);
             })
             .catch(() => {
                 setCertStatus('fail');
@@ -138,16 +131,10 @@ export default function ParametersConfig({
 
     const checkIntegrity = () => {
         setIntegrityStatus('checking');
-        setIntegrityResult(null);
         fetch('/api/sql/verifyIntegrity')
             .then((res) => res.json())
             .then((data) => {
                 setIntegrityStatus(data.integrity_ok ? 'ok' : 'fail');
-                setIntegrityResult({
-                    total_transactions: data.total_transactions ?? 0,
-                    verified: data.verified ?? 0,
-                    issues_found: data.issues_found ?? 0,
-                });
                 if (!data.integrity_ok && data.issues && data.issues.length > 0) {
                     const issueLines = data.issues
                         .slice(0, 10)
@@ -476,16 +463,6 @@ export default function ParametersConfig({
                             )}
                         </AdminButton>
                     </div>
-                    {integrityResult && (
-                        <div className="flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400">
-                            <span>
-                                {integrityResult.verified}/{integrityResult.total_transactions} transactions vérifiées
-                            </span>
-                            {integrityResult.issues_found > 0 && (
-                                <span className="text-red-500">{integrityResult.issues_found} erreur(s)</span>
-                            )}
-                        </div>
-                    )}
                 </div>
             </div>
 
