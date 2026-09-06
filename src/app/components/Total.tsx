@@ -898,7 +898,8 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
     }
 
     const showTopBar =
-        (canDisplayTotal && (total || canAddProvision)) || (!canDisplayTotal && visibleTransactions.length);
+        (canDisplayTotal && (total || canAddProvision || !visibleTransactions.length)) ||
+        (!canDisplayTotal && visibleTransactions.length);
 
     if (!showTopBar && !compact) {
         return <div className={popupClass} />;
@@ -1041,6 +1042,20 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                                             <Amount value={total} showZero />
                                         </span>
                                     )
+                                ) : !visibleTransactions.length ? (
+                                    <span
+                                        className={twMerge(
+                                            `inline-flex items-center h-full w-full justify-center pl-0 pr-0 ${isMobile ? 'gap-1' : 'gap-2'}`,
+                                            clickClassName
+                                        )}
+                                    >
+                                        {!navExpanded && (
+                                            <IconReceipt className="inline-block" size={isMobile ? 28 : 36} />
+                                        )}
+                                        {!navExpanded && 'Ticket : '}
+                                        {visibleTransactions.length}
+                                        <span className="text-xl mt-auto pb-1.5">{`vente${(visibleTransactions.length ?? 0) > 1 ? 's' : ''}`}</span>
+                                    </span>
                                 ) : (
                                     <span>&nbsp;</span>
                                 )
