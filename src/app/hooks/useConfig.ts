@@ -33,6 +33,7 @@ export interface ConfigContextState {
     inventory: InventoryItem[];
     discounts: Discount[];
     colors: Color[];
+    setColors: (colors: Color[]) => void;
     printers: Printer[];
     getPrintersNames: () => string[];
     resolvePrinterAddresses: (name?: string) => string[];

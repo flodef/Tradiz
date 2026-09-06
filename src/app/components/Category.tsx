@@ -14,7 +14,7 @@ import { Catalog, CatalogFormula, EmptyDiscount, InventoryItem, Role, State } fr
 import { useIsMobile, useIsMobileDevice, useLongPressContextMenu } from '../utils/mobile';
 import { getPublicKey } from '../utils/processData';
 import { colorToHex } from '../utils/colors';
-import { GRID_COLS, GRID_ROWS, MAX_PRODUCTS, decodeGridSlot } from '../utils/sortOrder';
+import { GRID_COLS, GRID_ROWS, decodeGridSlot } from '../utils/sortOrder';
 import '../utils/extensions'; // Registers String.prototype.toFirstUpperCase
 import { useAddPopupClass } from './Popup';
 
@@ -726,29 +726,90 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
             : 'inset-x-0 border-t-[3px] absolute bottom-0 md:w-1/2 border-active-light dark:border-active-dark overflow-hidden'
     );
 
+    // Compute the maximum number of grid rows used across all categories.
+    // The grid height is set to this max so every category uses the same
+    // height, avoiding empty rows when categories have fewer products.
+    const maxGridRows = useMemo(() => {
+        if (!catalogMode || !displayInventory.length) return GRID_ROWS;
+        let maxRows = 1;
+        for (const item of displayInventory) {
+            const prods = item.products;
+            const slots: number[] = new Array(GRID_ROWS * GRID_COLS).fill(-1);
+            let fb = 0;
+            for (let pi = 0; pi < prods.length; pi++) {
+                const slotIndex = decodeGridSlot(prods[pi].sortOrder ?? 0);
+                if (slotIndex != null && slots[slotIndex] === -1) {
+                    slots[slotIndex] = pi;
+                    continue;
+                }
+                while (fb < slots.length && slots[fb] !== -1) fb++;
+                if (fb < slots.length) slots[fb] = pi;
+            }
+            // Account for the "Autres" button if enabled: it takes one slot
+            // in the last occupied row (rightmost empty), or the next slot
+            // if the last row is full.
+            if (showOthers) {
+                let lastOccupied = -1;
+                for (let i = slots.length - 1; i >= 0; i--) {
+                    if (slots[i] !== -1) {
+                        lastOccupied = i;
+                        break;
+                    }
+                }
+                const lastRowStart = lastOccupied >= 0 ? Math.floor(lastOccupied / GRID_COLS) * GRID_COLS : 0;
+                const lastRowEnd = lastRowStart + GRID_COLS - 1;
+                let placed = false;
+                for (let i = lastRowEnd; i >= lastRowStart; i--) {
+                    if (slots[i] === -1) {
+                        slots[i] = -2; // mark as occupied by "Autres"
+                        placed = true;
+                        break;
+                    }
+                }
+                if (!placed && lastOccupied >= 0 && lastOccupied + 1 < slots.length) {
+                    slots[lastOccupied + 1] = -2;
+                }
+            }
+            // Find last occupied slot (including "Autres" marker)
+            let lastSlot = -1;
+            for (let i = slots.length - 1; i >= 0; i--) {
+                if (slots[i] !== -1) {
+                    lastSlot = i;
+                    break;
+                }
+            }
+            if (lastSlot >= 0) {
+                const rowsNeeded = Math.floor(lastSlot / GRID_COLS) + 1;
+                if (rowsNeeded > maxRows) maxRows = rowsNeeded;
+            }
+        }
+        return Math.min(maxRows, GRID_ROWS);
+    }, [catalogMode, displayInventory, showOthers]);
+
     if (state !== State.loaded && state !== State.preloaded) {
         return null;
     }
 
-    // ── Catalog mode: horizontal categories + 6×6 product grid ──
+    // ── Catalog mode: horizontal categories + product grid ──
     if (catalogMode) {
         const selectedItem = displayInventory[selectedCategoryIndex] ?? displayInventory[0];
         const products = selectedItem?.products ?? [];
+        const gridSlotCount = maxGridRows * GRID_COLS;
 
-        // Build a 6×6 grid positioned by sortOrder encoding.
+        // Build the grid positioned by sortOrder encoding.
         // We decode the position part and try to place by row/col; if that
         // fails (list mode or out-of-range), fall back to sequential slots.
-        const gridSlots: ((typeof products)[number] | null)[] = new Array(MAX_PRODUCTS).fill(null);
+        const gridSlots: ((typeof products)[number] | null)[] = new Array(gridSlotCount).fill(null);
         let fallbackIndex = 0;
         for (const product of products) {
             const slotIndex = decodeGridSlot(product.sortOrder ?? 0);
-            if (slotIndex != null && !gridSlots[slotIndex]) {
+            if (slotIndex != null && slotIndex < gridSlotCount && !gridSlots[slotIndex]) {
                 gridSlots[slotIndex] = product;
                 continue;
             }
             // Fallback: place in next available slot
-            while (fallbackIndex < MAX_PRODUCTS && gridSlots[fallbackIndex]) fallbackIndex++;
-            if (fallbackIndex < MAX_PRODUCTS) {
+            while (fallbackIndex < gridSlotCount && gridSlots[fallbackIndex]) fallbackIndex++;
+            if (fallbackIndex < gridSlotCount) {
                 gridSlots[fallbackIndex] = product;
                 fallbackIndex++;
             }
@@ -761,7 +822,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
         if (showOthers && selectedItem) {
             // Find the last occupied slot
             let lastOccupied = -1;
-            for (let i = MAX_PRODUCTS - 1; i >= 0; i--) {
+            for (let i = gridSlotCount - 1; i >= 0; i--) {
                 if (gridSlots[i]) {
                     lastOccupied = i;
                     break;
@@ -769,7 +830,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
             }
             // Target: last slot of the row containing the last product (or last row)
             const lastRowStart =
-                lastOccupied >= 0 ? Math.floor(lastOccupied / GRID_COLS) * GRID_COLS : (GRID_ROWS - 1) * GRID_COLS;
+                lastOccupied >= 0 ? Math.floor(lastOccupied / GRID_COLS) * GRID_COLS : (maxGridRows - 1) * GRID_COLS;
             const lastRowEnd = lastRowStart + GRID_COLS - 1;
 
             // Find an empty slot in the last used row, preferring the rightmost
@@ -781,7 +842,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
             }
             // If no empty slot in that row, use the last row of the grid
             if (othersSlotIndex === -1) {
-                for (let i = MAX_PRODUCTS - 1; i >= MAX_PRODUCTS - GRID_COLS; i--) {
+                for (let i = gridSlotCount - 1; i >= gridSlotCount - GRID_COLS; i--) {
                     if (!gridSlots[i]) {
                         othersSlotIndex = i;
                         break;
@@ -846,8 +907,11 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
                     )}
                 </div>
 
-                {/* 6×6 product grid — positioned by sortOrder, show price + color */}
-                <div className="grid grid-cols-6 grid-rows-6 gap-1 p-1 w-full">
+                {/* Product grid — positioned by sortOrder, height adapts to max rows across categories */}
+                <div
+                    className="grid grid-cols-6 gap-1 p-1 w-full"
+                    style={{ gridTemplateRows: `repeat(${maxGridRows}, 1fr)` }}
+                >
                     {gridSlots.map((product, index) => {
                         // Render the "Autres" button at the computed slot
                         if (othersSlotIndex === index) {

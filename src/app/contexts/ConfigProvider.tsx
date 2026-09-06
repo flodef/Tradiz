@@ -489,6 +489,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                 inventory,
                 discounts,
                 colors,
+                setColors,
                 printers,
                 getPrintersNames,
                 resolvePrinterAddresses,

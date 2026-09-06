@@ -32,7 +32,13 @@ import {
     User,
 } from '@/app/utils/interfaces';
 import { useIsMobile } from '@/app/utils/mobile';
-import { clearLoadDataCache, defaultParameters, getPublicKey, parseDisplaySettings } from '@/app/utils/processData';
+import {
+    clearLoadDataCache,
+    COLORS_PER_THEME,
+    defaultParameters,
+    getPublicKey,
+    parseDisplaySettings,
+} from '@/app/utils/processData';
 import {
     IconBuilding,
     IconCreditCard,
@@ -57,6 +63,7 @@ export default function SettingsPage() {
         currencies,
         paymentMethods: configPayments,
         colors: configColors,
+        setColors: setConfigColors,
         inventory,
         isStateReady,
         printers: configPrinters,
@@ -602,6 +609,17 @@ export default function SettingsPage() {
         fetchParameters();
     }, [dbConfigChecked, fetchParameters]);
 
+    // Instantly apply the selected theme's colors to the ConfigProvider so the
+    // admin page previews the theme without needing to save first.
+    useEffect(() => {
+        if (!colorsConfig.length) return;
+        const start = selectedThemeIndex * COLORS_PER_THEME;
+        const themeColors = colorsConfig.slice(start, start + COLORS_PER_THEME);
+        if (themeColors.length === COLORS_PER_THEME) {
+            setConfigColors(themeColors);
+        }
+    }, [colorsConfig, selectedThemeIndex, setConfigColors]);
+
     // Track changes by comparing current state with original loaded data
     useEffect(() => {
         const settingsChanged = JSON.stringify(settings) !== JSON.stringify(originalSettings);
@@ -904,8 +922,11 @@ export default function SettingsPage() {
             setOriginalCustomThemeNames(customThemeNames);
             setHasColorsChanges(false);
 
-            // Update ConfigProvider to sync with main app
-            setConfig(buildConfig({ colors: data }));
+            // Update ConfigProvider to sync with main app — pass only the selected
+            // theme's 7 colors so the POS app applies the correct theme.
+            const start = selectedThemeIndex * COLORS_PER_THEME;
+            const selectedThemeColors = data.slice(start, start + COLORS_PER_THEME);
+            setConfig(buildConfig({ colors: selectedThemeColors }));
             clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
