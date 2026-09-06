@@ -1427,7 +1427,7 @@ export const useSummary = () => {
         const agg = buildSummaryAggregates(filteredTransactions);
 
         // Extract cancellations from the same currency-matched list as filteredTransactions
-        // but including removed (deleted/cancelled/hard-deleted) transactions
+        // but including removed (deleted/cancelled/expunged) transactions
         const baseList = tempTransactions.current.length ? tempTransactions.current : transactions;
         const currency = currencies[currencyIndex];
         const matchesCurrency = (txCurrency: string) =>

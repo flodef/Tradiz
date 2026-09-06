@@ -2,7 +2,7 @@ import {
     CANCELLED_KEYWORD,
     DELETED_KEYWORD,
     DEFAULT_USER,
-    HARD_DELETED_KEYWORD,
+    EXPUNGED_KEYWORD,
     PROCESSING_KEYWORD,
 } from '@/app/utils/constants';
 import { getShopIdFromRequest } from '@/app/constants/shop';
@@ -139,24 +139,11 @@ export async function GET(request: Request) {
         `;
 
         // Same placeholder order in both dialects for the totals query.
-        const totalsParams = [
-            customerName,
-            DELETED_KEYWORD,
-            CANCELLED_KEYWORD,
-            HARD_DELETED_KEYWORD,
-            PROCESSING_KEYWORD,
-        ];
+        const totalsParams = [customerName, DELETED_KEYWORD, CANCELLED_KEYWORD, EXPUNGED_KEYWORD, PROCESSING_KEYWORD];
         const [[totals]] = await connection.execute(totalsQuery, totalsParams);
         const txParams = isPg
-            ? [customerName, DEFAULT_USER, DELETED_KEYWORD, CANCELLED_KEYWORD, HARD_DELETED_KEYWORD, PROCESSING_KEYWORD]
-            : [
-                  DEFAULT_USER,
-                  customerName,
-                  DELETED_KEYWORD,
-                  CANCELLED_KEYWORD,
-                  HARD_DELETED_KEYWORD,
-                  PROCESSING_KEYWORD,
-              ];
+            ? [customerName, DEFAULT_USER, DELETED_KEYWORD, CANCELLED_KEYWORD, EXPUNGED_KEYWORD, PROCESSING_KEYWORD]
+            : [DEFAULT_USER, customerName, DELETED_KEYWORD, CANCELLED_KEYWORD, EXPUNGED_KEYWORD, PROCESSING_KEYWORD];
         const [transactionRows] = await connection.execute(transactionsQuery, txParams);
         const rows = transactionRows as TransactionRow[];
 

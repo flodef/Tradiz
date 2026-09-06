@@ -10,7 +10,7 @@ import { useWindowParam } from '@/app/hooks/useWindowParam';
 import {
     CANCELLED_KEYWORD,
     DELETED_KEYWORD,
-    HARD_DELETED_KEYWORD,
+    EXPUNGED_KEYWORD,
     PROCESSING_KEYWORD,
     REFUND_KEYWORD,
     USE_DIGICARTE,
@@ -150,7 +150,7 @@ export default function StatsPage() {
         const nonPaidMethods = new Set([
             DELETED_KEYWORD,
             CANCELLED_KEYWORD,
-            HARD_DELETED_KEYWORD,
+            EXPUNGED_KEYWORD,
             REFUND_KEYWORD,
             WAITING_KEYWORD,
             PROCESSING_KEYWORD,

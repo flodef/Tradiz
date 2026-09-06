@@ -150,7 +150,7 @@ export async function GET(request: Request) {
         const hmacKey = process.env.FISCAL_ARCHIVE_HMAC_KEY;
         if (hmacKey) {
             // Sign everything except the signature field itself
-            const { signature: _sig, ...archiveWithoutSignature } = archive;
+            const { signature: _sig, ...archiveWithoutSignature } = archive; // eslint-disable-line @typescript-eslint/no-unused-vars
             const canonicalJson = JSON.stringify(archiveWithoutSignature);
             archive.signature = createHmac('sha256', hmacKey).update(canonicalJson).digest('hex');
         }

@@ -1,4 +1,4 @@
-import { PROCESSING_KEYWORD, DEFAULT_USER, DEFAULT_VAT_RATE, HARD_DELETED_KEYWORD } from '@/app/utils/constants';
+import { PROCESSING_KEYWORD, DEFAULT_USER, DEFAULT_VAT_RATE, EXPUNGED_KEYWORD } from '@/app/utils/constants';
 import { computeFidelityDelta } from '@/app/utils/fidelity';
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
@@ -70,10 +70,10 @@ export async function POST(request: Request) {
             try {
                 // Fetch the OLD transaction's fidelity-relevant fields BEFORE the handler
                 // overwrites or removes the row. For add/sync this lets us reverse the
-                // previously applied delta so re-syncing is idempotent; for delete/hardDelete
+                // previously applied delta so re-syncing is idempotent; for delete/expunge
                 // it tells us whether the row had items (item-less provisions never earn).
                 let oldFidelityData: OldFidelityData | null = null;
-                if (action === 'add' || action === 'sync' || action === 'delete' || action === 'hardDelete') {
+                if (action === 'add' || action === 'sync' || action === 'delete' || action === 'expunge') {
                     oldFidelityData = await fetchOldFidelityData(connection, transaction.order_id);
                 }
 
@@ -108,10 +108,10 @@ export async function POST(request: Request) {
                             detail: `method=${transaction.payment_method}`,
                         });
                         break;
-                    case 'hardDelete':
-                        await handleHardDeleteTransaction(connection, transaction);
+                    case 'expunge':
+                        await handleExpungeTransaction(connection, transaction);
                         await insertAuditEvent(connection, {
-                            event_type: 'transaction_hard_delete',
+                            event_type: 'transaction_expunge',
                             entity_id: transaction.order_id,
                             user_name: transaction.user_name || DEFAULT_USER,
                             device_id: transaction.device_id ?? null,
@@ -136,11 +136,11 @@ export async function POST(request: Request) {
                 // - 'add'/'sync': reverse any previously applied delta, then apply the new delta.
                 //   This makes fidelity crediting idempotent: re-syncing the same transaction
                 //   produces a net-zero delta (old reversed + new applied = 0 if unchanged).
-                // - 'delete'/'hardDelete': reverse the original delta (restore points)
+                // - 'delete'/'expunge': reverse the original delta (restore points)
                 // - 'update': just marks as PROCESSING, no point change
                 if (action === 'add' || action === 'sync') {
                     await updateCustomerFidelityPointsIdempotent(connection, transaction, oldFidelityData);
-                } else if (action === 'delete' || action === 'hardDelete') {
+                } else if (action === 'delete' || action === 'expunge') {
                     await updateCustomerFidelityPoints(
                         connection,
                         transaction,
@@ -583,11 +583,11 @@ async function handleDeleteTransaction(connection: Connection, transaction: Tran
     await rechainFrom(connection, transactionId);
 }
 
-async function handleHardDeleteTransaction(connection: Connection, transaction: TransactionData) {
+async function handleExpungeTransaction(connection: Connection, transaction: TransactionData) {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
 
-    // Fetch the original transaction data (for fidelity point reversal) before marking as hard-deleted
+    // Fetch the original transaction data (for fidelity point reversal) before marking as expunged
     await fetchOriginalTransactionForFidelity(connection, transaction);
 
     // Fetch hash-relevant fields to recompute the hash after the payment_method change
@@ -608,14 +608,14 @@ async function handleHardDeleteTransaction(connection: Connection, transaction: 
         })[]
     )[0];
 
-    if (!existing) return; // Transaction doesn't exist — nothing to hard-delete
+    if (!existing) return; // Transaction doesn't exist — nothing to expunge
 
     const transactionId = existing.id;
     const newHash = computeTransactionHash(
         {
             order_id: existing.order_id,
             user_name: existing.user_name,
-            payment_method: HARD_DELETED_KEYWORD,
+            payment_method: EXPUNGED_KEYWORD,
             amount: existing.amount,
             currency: existing.currency,
             created_at: existing.created_at,
@@ -626,13 +626,13 @@ async function handleHardDeleteTransaction(connection: Connection, transaction: 
         existing.previous_hash
     );
 
-    // NF525: Instead of physically deleting, mark the transaction as HARD_DELETED.
+    // NF525: Instead of physically deleting, mark the transaction as EXPUNGED.
     // This preserves the audit trail and hash chain integrity.
     const updateQuery = isPg
         ? `UPDATE ${prefix}transactions SET payment_method = $1, hash = $2, updated_at = $3 WHERE id = $4`
         : `UPDATE ${prefix}transactions SET payment_method = ?, hash = ?, updated_at = ? WHERE id = ?`;
 
-    await connection.execute(updateQuery, [HARD_DELETED_KEYWORD, newHash, transaction.updated_at, transactionId]);
+    await connection.execute(updateQuery, [EXPUNGED_KEYWORD, newHash, transaction.updated_at, transactionId]);
 
     // Rechain all subsequent transactions since this transaction's hash changed
     await rechainFrom(connection, transactionId);
@@ -716,17 +716,17 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
     const prefix = isPg ? 'dc_pos.' : '';
 
     // Use UPDATE ... RETURNING to atomically check-and-update.
-    // This prevents a race condition where the transaction is hard-deleted by
+    // This prevents a race condition where the transaction is expunged by
     // a concurrent request between the SELECT and the item INSERT, which would
     // cause a foreign key violation.
     const userName = transaction.user_name || DEFAULT_USER;
 
     if (isPg) {
         // PostgreSQL: UPDATE ... RETURNING id atomically updates and returns the id.
-        // If the row was deleted by a concurrent hardDelete, 0 rows are returned.
+        // If the row was deleted by a concurrent expunge, 0 rows are returned.
         // Fetch the existing previous_hash to preserve the hash chain.
         const selectQuery = `SELECT id, previous_hash FROM ${prefix}transactions WHERE order_id = $1 AND payment_method != $2 FOR UPDATE`;
-        const [selectRows] = await connection.execute(selectQuery, [transaction.order_id, HARD_DELETED_KEYWORD]);
+        const [selectRows] = await connection.execute(selectQuery, [transaction.order_id, EXPUNGED_KEYWORD]);
         const existingRows = selectRows as (IdRow & { previous_hash: string | null })[];
 
         if (existingRows.length === 0) {
@@ -774,7 +774,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
     } else {
         // MariaDB/MySQL: no RETURNING clause, use SELECT ... FOR UPDATE to lock the row
         const lockQuery = `SELECT id, previous_hash FROM ${prefix}transactions WHERE order_id = ? AND payment_method != ? FOR UPDATE`;
-        const [existing] = await connection.execute(lockQuery, [transaction.order_id, HARD_DELETED_KEYWORD]);
+        const [existing] = await connection.execute(lockQuery, [transaction.order_id, EXPUNGED_KEYWORD]);
         const existingRows = existing as (IdRow & { previous_hash: string | null })[];
 
         if (existingRows.length === 0) {
@@ -947,7 +947,7 @@ async function updateCustomerFidelityPointsIdempotent(
 
 /**
  * Update the customer's fidelity_points balance based on the transaction.
- * Used for delete/hardDelete (isReversal=true) to reverse the original delta.
+ * Used for delete/expunge (isReversal=true) to reverse the original delta.
  */
 async function updateCustomerFidelityPoints(
     connection: Connection,

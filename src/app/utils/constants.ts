@@ -42,7 +42,7 @@ export const UPDATING_KEYWORD = 'EN MODIF';
 export const PROCESSING_KEYWORD = 'EN COURS';
 export const DELETED_KEYWORD = 'EFFACÉE';
 export const CANCELLED_KEYWORD = 'ANNULÉE';
-export const HARD_DELETED_KEYWORD = 'SUPPRIMÉE';
+export const EXPUNGED_KEYWORD = 'SUPPRIMÉE';
 export const PROVISION_KEYWORD = 'PROVISION';
 export const DEBIT_KEYWORD = 'DEBIT';
 
@@ -66,7 +66,7 @@ export const INTERNAL_PAYMENT_METHODS = [
     PROCESSING_KEYWORD,
     DELETED_KEYWORD,
     CANCELLED_KEYWORD,
-    HARD_DELETED_KEYWORD,
+    EXPUNGED_KEYWORD,
 ];
 
 // Cashier actions offered alongside payment methods that are not a payment taken from the

@@ -1,7 +1,7 @@
 import {
     CANCELLED_KEYWORD,
     DELETED_KEYWORD,
-    HARD_DELETED_KEYWORD,
+    EXPUNGED_KEYWORD,
     PROCESSING_KEYWORD,
     REFUND_KEYWORD,
     UPDATING_KEYWORD,
@@ -24,11 +24,11 @@ export const isDeletedTransaction = (transaction?: Transaction) =>
 export const isCancelledTransaction = (transaction?: Transaction) =>
     Boolean(transaction && transaction.method === CANCELLED_KEYWORD);
 
-export const isHardDeletedTransaction = (transaction?: Transaction) =>
-    Boolean(transaction && transaction.method === HARD_DELETED_KEYWORD);
+export const isExpungedTransaction = (transaction?: Transaction) =>
+    Boolean(transaction && transaction.method === EXPUNGED_KEYWORD);
 
 export const isRemovedTransaction = (transaction?: Transaction) =>
-    isDeletedTransaction(transaction) || isCancelledTransaction(transaction) || isHardDeletedTransaction(transaction);
+    isDeletedTransaction(transaction) || isCancelledTransaction(transaction) || isExpungedTransaction(transaction);
 
 export const isRefundTransaction = (transaction?: Transaction) =>
     Boolean(transaction && transaction.method === REFUND_KEYWORD);

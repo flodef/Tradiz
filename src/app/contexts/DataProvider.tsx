@@ -66,7 +66,7 @@ enum DatabaseAction {
     add = 'add',
     update = 'update',
     delete = 'delete',
-    hardDelete = 'hardDelete',
+    expunge = 'expunge',
     sync = 'sync',
 }
 
@@ -489,7 +489,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     }
 
                     // Remove PROCESSING transactions owned by OTHER devices that are no longer in
-                    // the cloud. This propagates hard-deletes across devices: when POS2 deletes its
+                    // the cloud. This propagates expunges across devices: when POS2 deletes its
                     // PROCESSING tx, it disappears from the server and must not linger on POS1.
                     //
                     // Guards:
@@ -936,7 +936,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 } else {
                     transactionsToSave.unshift(transaction);
                 }
-            } else if (action === DatabaseAction.hardDelete) {
+            } else if (action === DatabaseAction.expunge) {
                 // Completely remove from the array — no DELETED record should remain
                 const existingIndex = transactionsToSave.findIndex((tx) => tx.createdDate === transaction.createdDate);
                 if (existingIndex >= 0) {
@@ -1116,11 +1116,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
                 if (isProcessingTransaction(transaction)) {
                     // Soft-delete PROCESSING transactions (mark as CANCELLED) instead of
-                    // hard-deleting them. This ensures the deletion propagates to other
+                    // expunging them. This ensures the deletion propagates to other
                     // devices via incremental sync: the updated modifiedDate makes the
                     // CANCELLED tx appear in the sync response, and fullSync replaces the
                     // local PROCESSING tx with the CANCELLED version (filtered out by UI).
-                    // hardDelete is only used for clearProcessingTransaction (payment),
+                    // expunge is only used for clearProcessingTransaction (payment),
                     // where the paid tx replaces the PROCESSING tx with the same createdDate.
                     processingTxCreatedDateRef.current = 0;
                     if (autoSaveProcessingRef.current) {
@@ -1146,31 +1146,31 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // clearTotal calls deleteTransaction to remove the PROCESSING tx after payment.
     // But there's a race: updateTransaction calls storeTransaction (queues state update)
     // then clearTotal → deleteTransaction. deleteTransaction's `transactions` closure
-    // is stale — it still sees the old PROCESSING tx, so it hard-deletes the tx that was
+    // is stale — it still sees the old PROCESSING tx, so it expunges the tx that was
     // just paid. This uses a functional state update to check the CURRENT state instead.
     // The side effect (saveTransactions) is deferred to a useEffect so the updater stays pure.
-    const pendingHardDeleteRef = useRef<Transaction | null>(null);
+    const pendingExpungeRef = useRef<Transaction | null>(null);
     const clearProcessingTransaction = useCallback(() => {
         const currentDeviceId = getPublicKey();
         setTransactions((prev) => {
             const idx = prev.findIndex((t) => isProcessingTransaction(t) && t.deviceId === currentDeviceId);
             if (idx < 0) return prev;
-            // Only hard-delete if it's STILL a PROCESSING tx in the current state.
+            // Only expunge if it's STILL a PROCESSING tx in the current state.
             // If it was already updated to a paid tx by storeTransaction, skip.
-            pendingHardDeleteRef.current = prev[idx];
+            pendingExpungeRef.current = prev[idx];
             return prev.filter((_, i) => i !== idx);
         });
     }, []);
-    // Flush the deferred hard-delete. Depends on `transactions` (not just
+    // Flush the deferred expunge. Depends on `transactions` (not just
     // saveTransactions) because clearProcessingTransaction always changes
     // `transactions` when it sets the ref — relying on saveTransactions'
     // identity alone would silently drop the delete if it ever stopped
     // depending on `transactions`, leaking PROCESSING rows in the DB.
     useEffect(() => {
-        if (pendingHardDeleteRef.current) {
-            const tx = pendingHardDeleteRef.current;
-            pendingHardDeleteRef.current = null;
-            saveTransactions(DatabaseAction.hardDelete, tx);
+        if (pendingExpungeRef.current) {
+            const tx = pendingExpungeRef.current;
+            pendingExpungeRef.current = null;
+            saveTransactions(DatabaseAction.expunge, tx);
         }
     }, [transactions, saveTransactions]);
 
@@ -1350,7 +1350,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!products.current.length) {
                 clearRequestedRef.current = true;
                 // Cancel any pending debounced save so it doesn't re-save a stale
-                // PROCESSING transaction after we've just hard-deleted it.
+                // PROCESSING transaction after we've just expunged it.
                 if (autoSaveProcessingRef.current) {
                     clearTimeout(autoSaveProcessingRef.current);
                     autoSaveProcessingRef.current = null;
