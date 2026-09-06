@@ -72,13 +72,12 @@ export const MultiPaymentPopup: FC<MultiPaymentPopupProps> = ({ total, paymentMe
     }, [rawValue, decimals]);
 
     // For cash: the input is the cash received; leg amount = min(cashReceived, remaining)
-    // For non-cash: the input is the leg amount directly
+    // For non-cash: the input is the leg amount directly (capped at remaining)
     const isCash = selectedMethod === CASH_KEYWORD;
     const legAmount = useMemo(() => {
         if (!selectedMethod) return 0;
-        if (isCash) return Math.min(inputAmount, remaining).clean(decimals);
         return Math.min(inputAmount, remaining).clean(decimals);
-    }, [inputAmount, remaining, isCash, selectedMethod, decimals]);
+    }, [inputAmount, remaining, selectedMethod, decimals]);
 
     const changeDue = useMemo(() => {
         if (!isCash) return 0;

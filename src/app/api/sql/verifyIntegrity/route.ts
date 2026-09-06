@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from '../db';
 import { getPosPgDb, isPgConfigured } from '../pg-db';
 import { computeTransactionHash, type TransactionItemHashInput } from '@/app/utils/transactionHash';
+import { parsePaymentLegs } from '@/app/utils/transactionNote';
 import { createHash } from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +18,7 @@ interface TransactionRow {
     created_at: string;
     change: string | null;
     device_id: string | null;
+    payments: string | null;
     hash: string | null;
     previous_hash: string | null;
 }
@@ -72,7 +74,11 @@ function recomputeHash(
     previousHash: string | null,
     items?: TransactionItemHashInput[]
 ): string {
-    return computeTransactionHash({ ...tx, items }, transactionId, previousHash);
+    return computeTransactionHash(
+        { ...tx, items, payments: parsePaymentLegs(tx.payments) },
+        transactionId,
+        previousHash
+    );
 }
 
 function recomputeDailyClosureHash(row: ClosureRow, previousHash: string | null): string {
@@ -151,10 +157,10 @@ export async function GET(request: Request) {
             isPg
                 ? 'SELECT id, order_id, user_name, payment_method, amount, currency, ' +
                       "to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at, " +
-                      'change, device_id, hash, previous_hash FROM transactions ORDER BY id ASC'
+                      'change, device_id, payments, hash, previous_hash FROM transactions ORDER BY id ASC'
                 : 'SELECT id, order_id, user_name, payment_method, amount, currency, ' +
                       "DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at, " +
-                      'change, device_id, hash, previous_hash FROM transactions ORDER BY id ASC'
+                      'change, device_id, payments, hash, previous_hash FROM transactions ORDER BY id ASC'
         );
 
         // Fetch all transaction items for hash verification

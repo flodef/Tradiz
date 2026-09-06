@@ -26,6 +26,49 @@ export type ProvisionBreakdownEntry = {
     amount: number;
 };
 
+/**
+ * Aggregate payment methods from a list of transactions into DataElement[].
+ * Handles both single-payment and multi-payment (MULTI_KEYWORD) transactions.
+ * Shared by getTransactionsDetails (hook) and buildSummaryData (standalone).
+ */
+function aggregatePayments(transactions: Transaction[]): DataElement[] {
+    const payments: DataElement[] = [];
+    for (const transaction of transactions) {
+        const isRefund = isRefundTransaction(transaction);
+        const legs = getPaymentBreakdown(transaction);
+        const isMulti = transaction.method === MULTI_KEYWORD && legs.length > 1;
+
+        if (isMulti) {
+            for (const leg of legs) {
+                const payment = payments.find((p) => p.category === leg.method);
+                if (payment) {
+                    payment.quantity += isRefund ? -1 : 1;
+                    payment.amount += leg.amount;
+                } else {
+                    payments.unshift({
+                        category: leg.method,
+                        quantity: isRefund ? -1 : 1,
+                        amount: leg.amount,
+                    });
+                }
+            }
+        } else {
+            const payment = payments.find((p) => p.category === transaction.method);
+            if (payment) {
+                payment.quantity += isRefund ? -1 : 1;
+                payment.amount += transaction.amount;
+            } else {
+                payments.unshift({
+                    category: transaction.method,
+                    quantity: isRefund ? -1 : 1,
+                    amount: transaction.amount,
+                });
+            }
+        }
+    }
+    return payments;
+}
+
 export type SummaryData = {
     shop: Shop;
     period: string;
@@ -104,44 +147,13 @@ export function buildSummaryData(
 
     // --- getTransactionsDetails (inlined) ---
     const categories: DataElement[] = [];
-    const payments: DataElement[] = [];
     const provisionMap = new Map<string, number>();
     let debitTotal = 0;
     let employerShareTotal = 0;
 
+    const payments = aggregatePayments(transactions);
+
     for (const transaction of transactions) {
-        const isRefund = isRefundTransaction(transaction);
-        const legs = getPaymentBreakdown(transaction);
-        const isMulti = transaction.method === MULTI_KEYWORD && legs.length > 1;
-
-        if (isMulti) {
-            for (const leg of legs) {
-                const payment = payments.find((p) => p.category === leg.method);
-                if (payment) {
-                    payment.quantity += isRefund ? -1 : 1;
-                    payment.amount += leg.amount;
-                } else {
-                    payments.unshift({
-                        category: leg.method,
-                        quantity: isRefund ? -1 : 1,
-                        amount: leg.amount,
-                    });
-                }
-            }
-        } else {
-            const payment = payments.find((p) => p.category === transaction.method);
-            if (payment) {
-                payment.quantity += isRefund ? -1 : 1;
-                payment.amount += transaction.amount;
-            } else {
-                payments.unshift({
-                    category: transaction.method,
-                    quantity: isRefund ? -1 : 1,
-                    amount: transaction.amount,
-                });
-            }
-        }
-
         if (transaction.method?.toUpperCase() === DEBIT_KEYWORD) {
             debitTotal += transaction.amount;
         }
@@ -444,45 +456,13 @@ export const useSummary = () => {
 
     const getTransactionsDetails = useCallback((transactions: Transaction[]) => {
         const categories: DataElement[] = [];
-        const payments: DataElement[] = [];
         const provisionMap = new Map<string, number>();
         let debitTotal = 0;
         let employerShareTotal = 0;
 
+        const payments = aggregatePayments(transactions);
+
         transactions.forEach((transaction) => {
-            const isRefund = isRefundTransaction(transaction);
-            const legs = getPaymentBreakdown(transaction);
-            const isMulti = transaction.method === MULTI_KEYWORD && legs.length > 1;
-
-            if (isMulti) {
-                for (const leg of legs) {
-                    const payment = payments.find((payment) => payment.category === leg.method);
-                    if (payment) {
-                        payment.quantity += isRefund ? -1 : 1;
-                        payment.amount += leg.amount;
-                    } else {
-                        payments.unshift({
-                            category: leg.method,
-                            quantity: isRefund ? -1 : 1,
-                            amount: leg.amount,
-                        });
-                    }
-                }
-            } else {
-                // Include provision transactions in payments (they have no products but still have a payment method)
-                const payment = payments.find((payment) => payment.category === transaction.method);
-                if (payment) {
-                    payment.quantity += isRefund ? -1 : 1;
-                    payment.amount += transaction.amount;
-                } else {
-                    payments.unshift({
-                        category: transaction.method,
-                        quantity: isRefund ? -1 : 1,
-                        amount: transaction.amount,
-                    });
-                }
-            }
-
             // Track DEBIT payments (Crédits Clients Accordés)
             if (transaction.method?.toUpperCase() === DEBIT_KEYWORD) {
                 debitTotal += transaction.amount;

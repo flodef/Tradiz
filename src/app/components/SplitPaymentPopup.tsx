@@ -78,6 +78,7 @@ export const SplitPaymentPopup: FC<SplitPaymentPopupProps> = ({
 
     // Item-pick state
     const [selectedProductIndices, setSelectedProductIndices] = useState<Set<number>>(new Set());
+    const [paidProductIndices, setPaidProductIndices] = useState<Set<number>>(new Set());
     const [personLabel, setPersonLabel] = useState('Personne 1');
 
     const regExp = useMemo(() => new RegExp('^\\d*([.]\\d{0,' + decimals + '})?$'), [decimals]);
@@ -226,10 +227,12 @@ export const SplitPaymentPopup: FC<SplitPaymentPopupProps> = ({
             ...(isCash ? { cashReceived: selectedItemTotal, changeGiven: 0 } : {}),
         };
         setLegs((prev) => [...prev, leg]);
+        setPaidProductIndices((prev) => new Set([...prev, ...selectedProductIndices]));
         setSelectedMethod(null);
         setSelectedProductIndices(new Set());
+        setRawValue('');
         setPersonLabel(`Personne ${legs.length + 2}`);
-    }, [selectedMethod, selectedItemTotal, isCash, personLabel, legs.length]);
+    }, [selectedMethod, selectedItemTotal, isCash, personLabel, legs.length, selectedProductIndices]);
 
     const numpadRows: NumpadKey[][] = [
         ['7', '8', '9'],
@@ -377,7 +380,7 @@ export const SplitPaymentPopup: FC<SplitPaymentPopupProps> = ({
                     <div className="space-y-1 mb-3 max-h-48 overflow-y-auto">
                         {products.map((product, idx) => {
                             const isSelected = selectedProductIndices.has(idx);
-                            const alreadyPaid = legs.some((l) => l.label === personLabel && l.amount === product.total);
+                            const alreadyPaid = paidProductIndices.has(idx);
                             return (
                                 <button
                                     key={idx}
@@ -503,25 +506,30 @@ export const SplitPaymentPopup: FC<SplitPaymentPopupProps> = ({
                         )}
                     </div>
 
-                    <div className="w-full grid grid-cols-3 gap-2 mb-3">
-                        {numpadRows.map((row) =>
-                            row.map((key) => (
-                                <KeypadButton
-                                    key={key}
-                                    label={key === '00' ? '00' : key === '.' ? (decimals === 0 ? '' : '.') : key}
-                                    onClick={() => handleInput(key)}
-                                    className={decimals === 0 && key === '.' ? 'invisible pointer-events-none' : ''}
-                                />
-                            ))
-                        )}
-                        <KeypadButton
-                            label="C"
-                            onClick={() => handleInput('clear')}
-                            className="text-orange-600 dark:text-orange-400"
-                        />
-                        <KeypadButton label={<IconBackspace size={24} />} onClick={() => handleInput('backspace')} />
-                        <KeypadButton label="Exact" onClick={() => handleInput('exact')} />
-                    </div>
+                    {mode !== 'item-pick' && (
+                        <div className="w-full grid grid-cols-3 gap-2 mb-3">
+                            {numpadRows.map((row) =>
+                                row.map((key) => (
+                                    <KeypadButton
+                                        key={key}
+                                        label={key === '00' ? '00' : key === '.' ? (decimals === 0 ? '' : '.') : key}
+                                        onClick={() => handleInput(key)}
+                                        className={decimals === 0 && key === '.' ? 'invisible pointer-events-none' : ''}
+                                    />
+                                ))
+                            )}
+                            <KeypadButton
+                                label="C"
+                                onClick={() => handleInput('clear')}
+                                className="text-orange-600 dark:text-orange-400"
+                            />
+                            <KeypadButton
+                                label={<IconBackspace size={24} />}
+                                onClick={() => handleInput('backspace')}
+                            />
+                            <KeypadButton label="Exact" onClick={() => handleInput('exact')} />
+                        </div>
+                    )}
 
                     {mode === 'item-pick' ? (
                         <button

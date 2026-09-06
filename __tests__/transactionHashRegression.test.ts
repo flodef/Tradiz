@@ -76,4 +76,38 @@ describe('computeTransactionHash — regression tests', () => {
         );
         expect(hash).toBe('bf9008adfdcc3723eb1972b75b7e57ea0ed2ddcbe258ea65b4b3f523b7a61cc3');
     });
+
+    it('generateTransactionHash includes payments in hash (regression: was missing payments)', () => {
+        const txWithoutPayments = {
+            ...baseTx,
+            payment_method: 'MULTIPLE',
+            updated_at: '2026-05-16 12:00:00',
+        };
+        const txWithPayments = {
+            ...baseTx,
+            payment_method: 'MULTIPLE',
+            updated_at: '2026-05-16 12:00:00',
+            payments: [
+                { method: 'Espèces', amount: 5 },
+                { method: 'Carte Bancaire', amount: 5.5 },
+            ],
+        };
+        expect(generateTransactionHash(txWithPayments, 1)).not.toBe(generateTransactionHash(txWithoutPayments, 1));
+    });
+
+    it('generateTransactionHash with payments matches computeTransactionHash with payments', () => {
+        const payments = [
+            { method: 'Espèces', amount: 5 },
+            { method: 'Carte Bancaire', amount: 5.5 },
+        ];
+        const tx = {
+            ...baseTx,
+            payment_method: 'MULTIPLE',
+            updated_at: '2026-05-16 12:00:00',
+            payments,
+        };
+        expect(generateTransactionHash(tx, 42, 'prev')).toBe(
+            computeTransactionHash({ ...baseTx, payment_method: 'MULTIPLE', payments }, 42, 'prev')
+        );
+    });
 });

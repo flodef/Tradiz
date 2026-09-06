@@ -192,7 +192,11 @@ export function generateTransactionHash(
     transactionId?: string | number,
     previousHash?: string
 ): string {
-    return computeTransactionHash({ ...transaction, items: transaction.products }, transactionId, previousHash);
+    return computeTransactionHash(
+        { ...transaction, items: transaction.products, payments: transaction.payments },
+        transactionId,
+        previousHash
+    );
 }
 
 async function handleAddTransaction(connection: Connection, transaction: TransactionData) {
@@ -478,51 +482,28 @@ async function handleUpdateTransaction(connection: Connection, transaction: Tran
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
 
-    // Fetch the existing transaction to get id, previous_hash, and all hash-relevant
-    // fields that aren't being updated. We need these to recompute the hash.
+    // Lock the row and get the id for rechaining. The hash is recomputed by rechainFrom
+    // which includes items and payments — no need to compute it here.
     const selectQuery = isPg
-        ? `SELECT id, previous_hash, order_id, amount, currency, change, to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at FROM ${prefix}transactions WHERE order_id = $1 FOR UPDATE`
-        : `SELECT id, previous_hash, order_id, amount, currency, change, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at FROM ${prefix}transactions WHERE order_id = ? FOR UPDATE`;
+        ? `SELECT id FROM ${prefix}transactions WHERE order_id = $1 FOR UPDATE`
+        : `SELECT id FROM ${prefix}transactions WHERE order_id = ? FOR UPDATE`;
     const [rows] = await connection.execute(selectQuery, [transaction.order_id]);
-    const existing = (
-        rows as (IdRow & {
-            previous_hash: string | null;
-            order_id: string;
-            amount: number | string;
-            currency: string;
-            change: string | null;
-            created_at: string;
-        })[]
-    )[0];
+    const existing = (rows as IdRow[])[0];
 
     if (!existing) return; // Transaction doesn't exist — nothing to update
 
     const transactionId = existing.id;
-    const newHash = computeTransactionHash(
-        {
-            order_id: existing.order_id,
-            user_name: transaction.user_name || DEFAULT_USER,
-            payment_method: PROCESSING_KEYWORD,
-            amount: existing.amount,
-            currency: existing.currency,
-            created_at: existing.created_at,
-            change: existing.change,
-            device_id: transaction.device_id ?? null,
-        },
-        transactionId,
-        existing.previous_hash
-    );
 
-    // Update the transaction record to mark it as processing
+    // Update the transaction record to mark it as processing.
+    // rechainFrom will recompute the hash with the full data (items + payments).
     const updateQuery = isPg
-        ? `UPDATE ${prefix}transactions SET payment_method = $1, user_name = $2, device_id = $3, hash = $4, updated_at = $5 WHERE id = $6`
-        : `UPDATE ${prefix}transactions SET payment_method = ?, user_name = ?, device_id = ?, hash = ?, updated_at = ? WHERE id = ?`;
+        ? `UPDATE ${prefix}transactions SET payment_method = $1, user_name = $2, device_id = $3, updated_at = $4 WHERE id = $5`
+        : `UPDATE ${prefix}transactions SET payment_method = ?, user_name = ?, device_id = ?, updated_at = ? WHERE id = ?`;
 
     await connection.execute(updateQuery, [
         PROCESSING_KEYWORD,
         transaction.user_name || DEFAULT_USER,
         transaction.device_id ?? null,
-        newHash,
         transaction.updated_at,
         transactionId,
     ]);
@@ -542,48 +523,25 @@ async function handleDeleteTransaction(connection: Connection, transaction: Tran
     // Fetch the original transaction data (for fidelity point reversal) before marking as deleted
     await fetchOriginalTransactionForFidelity(connection, transaction);
 
-    // Fetch hash-relevant fields to recompute the hash after the payment_method change
+    // Lock the row and get the id for rechaining. The hash is recomputed by rechainFrom
+    // which includes items and payments — no need to compute it here.
     const selectQuery = isPg
-        ? `SELECT id, previous_hash, order_id, user_name, amount, currency, change, device_id, to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at FROM ${prefix}transactions WHERE order_id = $1 FOR UPDATE`
-        : `SELECT id, previous_hash, order_id, user_name, amount, currency, change, device_id, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at FROM ${prefix}transactions WHERE order_id = ? FOR UPDATE`;
+        ? `SELECT id FROM ${prefix}transactions WHERE order_id = $1 FOR UPDATE`
+        : `SELECT id FROM ${prefix}transactions WHERE order_id = ? FOR UPDATE`;
     const [rows] = await connection.execute(selectQuery, [transaction.order_id]);
-    const existing = (
-        rows as (IdRow & {
-            previous_hash: string | null;
-            order_id: string;
-            user_name: string;
-            amount: number | string;
-            currency: string;
-            change: string | null;
-            device_id: string | null;
-            created_at: string;
-        })[]
-    )[0];
+    const existing = (rows as IdRow[])[0];
 
     if (!existing) return; // Transaction doesn't exist — nothing to delete
 
     const transactionId = existing.id;
-    const newHash = computeTransactionHash(
-        {
-            order_id: existing.order_id,
-            user_name: existing.user_name,
-            payment_method: newPaymentMethod,
-            amount: existing.amount,
-            currency: existing.currency,
-            created_at: existing.created_at,
-            change: existing.change,
-            device_id: existing.device_id,
-        },
-        transactionId,
-        existing.previous_hash
-    );
 
-    // Update the transaction record to mark it as deleted/cancelled and recompute hash
+    // Update the transaction record to mark it as deleted/cancelled.
+    // rechainFrom will recompute the hash with the full data (items + payments).
     const updateQuery = isPg
-        ? `UPDATE ${prefix}transactions SET payment_method = $1, hash = $2, updated_at = $3 WHERE id = $4`
-        : `UPDATE ${prefix}transactions SET payment_method = ?, hash = ?, updated_at = ? WHERE id = ?`;
+        ? `UPDATE ${prefix}transactions SET payment_method = $1, updated_at = $2 WHERE id = $3`
+        : `UPDATE ${prefix}transactions SET payment_method = ?, updated_at = ? WHERE id = ?`;
 
-    await connection.execute(updateQuery, [newPaymentMethod, newHash, transaction.updated_at, transactionId]);
+    await connection.execute(updateQuery, [newPaymentMethod, transaction.updated_at, transactionId]);
 
     // Rechain all subsequent transactions since this transaction's hash changed
     await rechainFrom(connection, transactionId);
@@ -596,49 +554,26 @@ async function handleExpungeTransaction(connection: Connection, transaction: Tra
     // Fetch the original transaction data (for fidelity point reversal) before marking as expunged
     await fetchOriginalTransactionForFidelity(connection, transaction);
 
-    // Fetch hash-relevant fields to recompute the hash after the payment_method change
+    // Lock the row and get the id for rechaining. The hash is recomputed by rechainFrom
+    // which includes items and payments — no need to compute it here.
     const selectQuery = isPg
-        ? `SELECT id, previous_hash, order_id, user_name, amount, currency, change, device_id, to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at FROM ${prefix}transactions WHERE order_id = $1 FOR UPDATE`
-        : `SELECT id, previous_hash, order_id, user_name, amount, currency, change, device_id, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at FROM ${prefix}transactions WHERE order_id = ? FOR UPDATE`;
+        ? `SELECT id FROM ${prefix}transactions WHERE order_id = $1 FOR UPDATE`
+        : `SELECT id FROM ${prefix}transactions WHERE order_id = ? FOR UPDATE`;
     const [rows] = await connection.execute(selectQuery, [transaction.order_id]);
-    const existing = (
-        rows as (IdRow & {
-            previous_hash: string | null;
-            order_id: string;
-            user_name: string;
-            amount: number | string;
-            currency: string;
-            change: string | null;
-            device_id: string | null;
-            created_at: string;
-        })[]
-    )[0];
+    const existing = (rows as IdRow[])[0];
 
     if (!existing) return; // Transaction doesn't exist — nothing to expunge
 
     const transactionId = existing.id;
-    const newHash = computeTransactionHash(
-        {
-            order_id: existing.order_id,
-            user_name: existing.user_name,
-            payment_method: EXPUNGED_KEYWORD,
-            amount: existing.amount,
-            currency: existing.currency,
-            created_at: existing.created_at,
-            change: existing.change,
-            device_id: existing.device_id,
-        },
-        transactionId,
-        existing.previous_hash
-    );
 
     // NF525: Instead of physically deleting, mark the transaction as EXPUNGED.
     // This preserves the audit trail and hash chain integrity.
+    // rechainFrom will recompute the hash with the full data (items + payments).
     const updateQuery = isPg
-        ? `UPDATE ${prefix}transactions SET payment_method = $1, hash = $2, updated_at = $3 WHERE id = $4`
-        : `UPDATE ${prefix}transactions SET payment_method = ?, hash = ?, updated_at = ? WHERE id = ?`;
+        ? `UPDATE ${prefix}transactions SET payment_method = $1, updated_at = $2 WHERE id = $3`
+        : `UPDATE ${prefix}transactions SET payment_method = ?, updated_at = ? WHERE id = ?`;
 
-    await connection.execute(updateQuery, [EXPUNGED_KEYWORD, newHash, transaction.updated_at, transactionId]);
+    await connection.execute(updateQuery, [EXPUNGED_KEYWORD, transaction.updated_at, transactionId]);
 
     // Rechain all subsequent transactions since this transaction's hash changed
     await rechainFrom(connection, transactionId);
