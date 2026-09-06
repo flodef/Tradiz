@@ -662,7 +662,10 @@ function startServer() {
     var serverOutput = [];
 
     var spawn = require('child_process').spawn;
-    var serverEnv = Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: '1' });
+    var serverEnv = Object.assign({}, process.env, {
+        ELECTRON_RUN_AS_NODE: '1',
+        USERDATA_PATH: app.getPath('userData'),
+    });
     serverProcess = spawn(process.execPath, [serverPath], {
         cwd: standaloneDir,
         env: serverEnv,

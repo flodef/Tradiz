@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from '../db';
 import { insertAuditEvent } from '../auditHelpers';
 import { getSoftwareVersion, getSoftwareName } from '@/app/utils/version';
+import { createHmac } from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +44,8 @@ interface ArchiveExport {
     annual_closures: unknown[];
     perpetual_totals: unknown;
     audit_events: unknown[];
+    signature: string | null;
+    signature_algorithm: string;
 }
 
 export async function GET(request: Request) {
@@ -136,7 +139,21 @@ export async function GET(request: Request) {
             annual_closures: annualRows,
             perpetual_totals: perpetualTotals,
             audit_events: auditRows,
+            signature: null,
+            signature_algorithm: 'HMAC-SHA256',
         };
+
+        // Seal the archive with an HMAC-SHA256 signature over the canonical JSON.
+        // The key is read from FISCAL_ARCHIVE_HMAC_KEY env var. If unset, the
+        // signature is null — the archive is still valid but cannot be verified
+        // by a third party.
+        const hmacKey = process.env.FISCAL_ARCHIVE_HMAC_KEY;
+        if (hmacKey) {
+            // Sign everything except the signature field itself
+            const { signature: _sig, ...archiveWithoutSignature } = archive;
+            const canonicalJson = JSON.stringify(archiveWithoutSignature);
+            archive.signature = createHmac('sha256', hmacKey).update(canonicalJson).digest('hex');
+        }
 
         // Trace the export in audit events (transactional for integrity)
         await connection.beginTransaction();

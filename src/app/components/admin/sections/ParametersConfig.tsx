@@ -16,6 +16,7 @@ import ZipCityRow from '../ZipCityRow';
 import { useEffect, useState } from 'react';
 import { IconCheck, IconX, IconShieldCheck, IconArchive, IconCertificate } from '@tabler/icons-react';
 import { usePopup } from '@/app/hooks/usePopup';
+import { AttestationViewer } from '@/app/components/AttestationViewer';
 
 interface ParametersConfigProps {
     config: Parameters;
@@ -63,11 +64,11 @@ export default function ParametersConfig({
     onToggle,
     icon,
 }: ParametersConfigProps) {
-    const { openPopup } = usePopup();
+    const { openPopup, openFullscreenPopup } = usePopup();
     const [appVersion, setAppVersion] = useState(process.env.NEXT_PUBLIC_APP_VERSION);
     const [integrityStatus, setIntegrityStatus] = useState<'idle' | 'checking' | 'ok' | 'fail'>('idle');
     const [archiveStatus, setArchiveStatus] = useState<'idle' | 'downloading' | 'done' | 'fail'>('idle');
-    const [certStatus, setCertStatus] = useState<'idle' | 'downloading' | 'done' | 'fail'>('idle');
+    const [attestationStatus, setAttestationStatus] = useState<'checking' | 'signed' | 'unsigned' | 'fail'>('checking');
 
     useEffect(() => {
         // Fetch the current version from package.json at runtime
@@ -107,26 +108,33 @@ export default function ParametersConfig({
             });
     };
 
-    const downloadCertificate = () => {
-        setCertStatus('downloading');
-        fetch('/api/sql/nf525Certificate')
-            .then((res) => {
-                if (!res.ok) throw new Error('Certificate failed');
-                return res.blob();
-            })
-            .then((blob) => {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `certificat_nf525_${new Date().toISOString().substring(0, 10)}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-                setCertStatus('done');
+    useEffect(() => {
+        fetch('/api/sql/attestation')
+            .then((res) => res.json())
+            .then((data) => {
+                setAttestationStatus(data.signed ? 'signed' : 'unsigned');
             })
             .catch(() => {
-                setCertStatus('fail');
-                setTimeout(() => setCertStatus('idle'), 3000);
+                setAttestationStatus('unsigned');
             });
+    }, []);
+
+    const handleAttestationClick = () => {
+        const isSigned = attestationStatus === 'signed';
+        openFullscreenPopup(
+            isSigned ? 'Attestation signée' : 'Attestation à signer',
+            [
+                <AttestationViewer
+                    key="attestationViewer"
+                    signed={isSigned}
+                    onStatusChange={(newSigned) => {
+                        setAttestationStatus(newSigned ? 'signed' : 'unsigned');
+                    }}
+                />,
+            ],
+            undefined,
+            true
+        );
     };
 
     const checkIntegrity = () => {
@@ -135,19 +143,62 @@ export default function ParametersConfig({
             .then((res) => res.json())
             .then((data) => {
                 setIntegrityStatus(data.integrity_ok ? 'ok' : 'fail');
-                if (!data.integrity_ok && data.issues && data.issues.length > 0) {
-                    const issueLines = data.issues
-                        .slice(0, 10)
-                        .map((i: { transaction_id: number; issue: string }) => `#${i.transaction_id}: ${i.issue}`);
-                    const more = data.issues.length > 10 ? `\n... et ${data.issues.length - 10} autre(s)` : '';
-                    openPopup("Échec de l'intégrité NF525", [
-                        `${data.total_transactions} transactions vérifiées`,
-                        `${data.verified} validées`,
-                        `${data.issues_found} erreur(s) détectée(s)`,
-                        '',
-                        ...issueLines,
-                        more,
-                    ]);
+                const chains = data.chains as
+                    | Record<
+                          string,
+                          {
+                              total: number;
+                              verified: number;
+                              issues_found: number;
+                              integrity_ok: boolean;
+                              issues?: { id: number; issue: string }[];
+                          }
+                      >
+                    | undefined;
+
+                if (data.integrity_ok) {
+                    // All chains valid — show a summary
+                    if (chains) {
+                        const lines = Object.entries(chains).map(([name, r]) => {
+                            const label = name.replace(/_/g, ' ');
+                            return `${label}: ${r.verified}/${r.total} ✓`;
+                        });
+                        openPopup('Intégrité NF525 — Valide', lines);
+                    }
+                } else {
+                    // Show per-chain status with issues
+                    const lines: string[] = [];
+                    if (chains) {
+                        for (const [name, r] of Object.entries(chains)) {
+                            const label = name.replace(/_/g, ' ');
+                            const status = r.integrity_ok ? '✓' : `✗ (${r.issues_found} erreur(s))`;
+                            lines.push(`${label}: ${r.verified}/${r.total} ${status}`);
+                            if (r.issues && r.issues.length > 0) {
+                                for (const issue of r.issues.slice(0, 5)) {
+                                    lines.push(`  #${issue.id}: ${issue.issue}`);
+                                }
+                                if (r.issues.length > 5) {
+                                    lines.push(`  ... et ${r.issues.length - 5} autre(s)`);
+                                }
+                            }
+                        }
+                    } else {
+                        // Fallback for old API format
+                        lines.push(`${data.total_transactions} transactions vérifiées`);
+                        lines.push(`${data.verified} validées`);
+                        lines.push(`${data.issues_found} erreur(s) détectée(s)`);
+                        if (data.issues && data.issues.length > 0) {
+                            lines.push('');
+                            const issueLines = data.issues
+                                .slice(0, 10)
+                                .map(
+                                    (i: { transaction_id: number; issue: string }) => `#${i.transaction_id}: ${i.issue}`
+                                );
+                            const more = data.issues.length > 10 ? `\n... et ${data.issues.length - 10} autre(s)` : '';
+                            lines.push(...issueLines, more);
+                        }
+                    }
+                    openPopup("Échec de l'intégrité NF525", lines);
                 }
             })
             .catch(() => {
@@ -266,6 +317,22 @@ export default function ParametersConfig({
                         placeholder="FR12345678901"
                         isReadOnly={isReadOnly}
                         className="flex-1 min-w-30 max-w-30"
+                    />
+                    <ValidatedInput
+                        label="NAF"
+                        value={String(config.shop.naf || '')}
+                        onChange={(value) => handleShopChange('naf', String(value))}
+                        placeholder="5610C"
+                        isReadOnly={isReadOnly}
+                        className="flex-1 min-w-20 max-w-24"
+                    />
+                    <ValidatedInput
+                        label="Forme juridique"
+                        value={String(config.shop.legalForm || '')}
+                        onChange={(value) => handleShopChange('legalForm', String(value))}
+                        placeholder="SARL - RCS"
+                        isReadOnly={isReadOnly}
+                        className="flex-1 min-w-32 max-w-xs"
                     />
                     <div className="w-full flex flex-wrap gap-4 items-end">
                         <ValidatedInput
@@ -437,28 +504,27 @@ export default function ParametersConfig({
                         </AdminButton>
                     </div>
                     <div className="flex flex-col gap-1">
-                        <label className={adminTextStyle}>Certificat</label>
+                        <label className={adminTextStyle}>Attestation</label>
                         <AdminButton
-                            variant={certStatus === 'done' ? 'add' : certStatus === 'fail' ? 'danger' : 'primary'}
-                            onClick={downloadCertificate}
-                            disabled={certStatus === 'downloading'}
-                            isLoading={certStatus === 'downloading'}
+                            variant={attestationStatus === 'signed' ? 'add' : 'danger'}
+                            onClick={handleAttestationClick}
+                            disabled={attestationStatus === 'checking'}
+                            isLoading={attestationStatus === 'checking'}
                             className="h-8 mt-0"
                         >
-                            {certStatus === 'done' ? (
+                            {attestationStatus === 'signed' ? (
                                 <>
                                     <IconCheck size={20} stroke={2} />
-                                    Téléchargé
+                                    Valide
                                 </>
-                            ) : certStatus === 'fail' ? (
+                            ) : attestationStatus === 'fail' ? (
                                 <>
                                     <IconX size={20} stroke={2} />
                                     Erreur
                                 </>
                             ) : (
                                 <>
-                                    <IconCertificate size={18} stroke={2} />
-                                    Télécharger
+                                    <IconCertificate size={18} stroke={2} />À signer
                                 </>
                             )}
                         </AdminButton>

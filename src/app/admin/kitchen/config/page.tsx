@@ -783,6 +783,8 @@ export default function SettingsPage() {
                 { key: 'email', value: data.shop.email },
                 { key: 'phone', value: data.shop.phone ?? '' },
                 { key: 'vatNumber', value: data.shop.vatNumber ?? '' },
+                { key: 'naf', value: data.shop.naf ?? '' },
+                { key: 'legalForm', value: data.shop.legalForm ?? '' },
                 { key: 'thanksMessage', value: data.thanksMessage },
                 { key: 'mercurial', value: data.mercurial },
                 { key: 'closingHour', value: String(data.closingHour) },

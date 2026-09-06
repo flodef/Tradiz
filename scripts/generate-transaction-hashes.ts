@@ -6,18 +6,26 @@
  * columns for transactions that were created before NF525 compliance was
  * implemented.
  *
+ * ⚠️  GUARD: If any transaction already has a non-null hash, the script refuses
+ * to run unless --force-rechain is passed. This prevents the laundering pattern
+ * where tampered data is rehashed into a valid chain. When --force-rechain is
+ * used, a typed confirmation is required and a `chain_rebuild` audit event is
+ * logged capturing the pre-existing head hash, row count, and operator.
+ *
  * The hash chain is ordered by transaction `id` (insertion order), which
  * matches the logic in saveTransaction/route.ts where getLatestHash fetches
  * the most recent row by `ORDER BY id DESC`.
  *
  * Usage:
- *   bun run scripts/generate-transaction-hashes.ts            # apply changes
+ *   bun run scripts/generate-transaction-hashes.ts            # apply changes (bootstrap only)
  *   bun run scripts/generate-transaction-hashes.ts --dry-run  # preview only
+ *   bun run scripts/generate-transaction-hashes.ts --force-rechain  # rechain with confirmation + audit
  */
 
 import 'dotenv/config';
 import { Pool } from 'pg';
-import { computeTransactionHash } from '../src/app/utils/transactionHash';
+import * as readline from 'readline';
+import { computeTransactionHash, type TransactionItemHashInput } from '../src/app/utils/transactionHash';
 
 const colors = {
     red: '\x1b[31m',
@@ -29,6 +37,16 @@ const colors = {
 
 function log(message: string, color: keyof typeof colors = 'reset') {
     console.log(`${colors[color]}${message}${colors.reset}`);
+}
+
+function prompt(question: string): Promise<string> {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    return new Promise((resolve) =>
+        rl.question(question, (answer) => {
+            rl.close();
+            resolve(answer.trim());
+        })
+    );
 }
 
 interface TransactionRow {
@@ -43,12 +61,28 @@ interface TransactionRow {
     created_at: string;
 }
 
-function generateTransactionHash(tx: TransactionRow, transactionId: number, previousHash: string | null): string {
-    return computeTransactionHash(tx, transactionId, previousHash);
+interface TransactionItemRow {
+    transaction_id: number;
+    label: string;
+    quantity: number | string;
+    amount: number | string;
+    total: number | string;
+    vat_rate: number | string | null;
+    discount_amount: number | string | null;
+}
+
+function generateTransactionHash(
+    tx: TransactionRow,
+    transactionId: number,
+    previousHash: string | null,
+    items?: TransactionItemHashInput[]
+): string {
+    return computeTransactionHash({ ...tx, items }, transactionId, previousHash);
 }
 
 async function generateTransactionHashes() {
     const isDryRun = process.argv.includes('--dry-run');
+    const isForceRechain = process.argv.includes('--force-rechain');
 
     if (!process.env.PG_HOST || !process.env.PG_USER || !process.env.PG_PASSWORD) {
         log('❌ ERROR: Database connection parameters not found in environment', 'red');
@@ -83,6 +117,30 @@ async function generateTransactionHashes() {
         );
         const transactions = rows as TransactionRow[];
 
+        // Fetch all transaction items for hash computation
+        const itemsByTransaction = new Map<number, TransactionItemHashInput[]>();
+        if (transactions.length > 0) {
+            const txIds = transactions.map((t) => t.id);
+            const { rows: itemRows } = await client.query(
+                'SELECT transaction_id, label, quantity, amount, total, vat_rate, discount_amount ' +
+                    'FROM transaction_items WHERE transaction_id = ANY($1::int[]) ORDER BY transaction_id, id',
+                [txIds]
+            );
+            for (const row of itemRows as TransactionItemRow[]) {
+                const list = itemsByTransaction.get(row.transaction_id) || [];
+                list.push({
+                    label: row.label,
+                    quantity: Number(row.quantity),
+                    amount: row.amount,
+                    total: row.total,
+                    vat_rate: row.vat_rate ?? undefined,
+                    discount_amount: row.discount_amount ?? undefined,
+                });
+                itemsByTransaction.set(row.transaction_id, list);
+            }
+            log(`📊 Fetched ${itemRows.length} line item(s) for ${itemsByTransaction.size} transaction(s)`, 'blue');
+        }
+
         log(`📊 Found ${transactions.length} transaction(s) to process`, 'blue');
 
         if (transactions.length === 0) {
@@ -98,7 +156,56 @@ async function generateTransactionHashes() {
         );
         const existingCount = existingHashRows[0]?.count ?? 0;
         if (existingCount > 0) {
-            log(`⚠️  ${existingCount} transaction(s) already have a hash. They will be recalculated.`, 'yellow');
+            if (!isForceRechain) {
+                log(`❌ ${existingCount} transaction(s) already have a hash.`, 'red');
+                log('   Recalculating hashes overwrites the existing chain and can mask tampering.', 'red');
+                log('   This is the laundering pattern: modify data → re-run → chain validates.', 'red');
+                log('', 'reset');
+                log('   If this is a genuine bootstrap migration on data that has never been', 'yellow');
+                log('   in production, use --force-rechain. A typed confirmation will be required', 'yellow');
+                log('   and a chain_rebuild audit event will be logged.', 'yellow');
+                client.release();
+                await pool.end();
+                process.exit(1);
+            }
+
+            // Capture pre-existing chain state for audit
+            const { rows: headRow } = await client.query('SELECT hash FROM transactions ORDER BY id DESC LIMIT 1');
+            const previousHeadHash = headRow[0]?.hash ?? null;
+
+            log(`⚠️  ${existingCount} transaction(s) already have a hash.`, 'yellow');
+            log(`   Previous head hash: ${previousHeadHash?.slice(0, 16) ?? 'null'}...`, 'yellow');
+            log('   This will be logged as a chain_rebuild audit event.', 'yellow');
+            log('', 'reset');
+
+            if (isDryRun) {
+                log('🧪 DRY RUN: would prompt for confirmation and rechain.', 'yellow');
+            } else {
+                const confirmation = await prompt(
+                    'Type "RECHAIN" to confirm you want to overwrite all existing hashes: '
+                );
+                if (confirmation !== 'RECHAIN') {
+                    log('Aborted — confirmation did not match "RECHAIN".', 'red');
+                    client.release();
+                    await pool.end();
+                    process.exit(0);
+                }
+
+                // Log the chain_rebuild audit event
+                const operator = process.env.USER || process.env.USERNAME || 'unknown';
+                const auditDetail = JSON.stringify({
+                    previous_head_hash: previousHeadHash,
+                    row_count: existingCount,
+                    operator,
+                    reason: 'force-rechain via generate-transaction-hashes.ts',
+                });
+                await client.query(
+                    `INSERT INTO audit_events (event_type, entity_type, entity_id, user_name, detail)
+                     VALUES ('chain_rebuild', 'transactions', 'all', $1, $2)`,
+                    [operator, auditDetail]
+                );
+                log('📝 Logged chain_rebuild audit event.', 'blue');
+            }
         }
 
         // Compute all hashes in JS (fast), then batch the DB updates.
@@ -106,7 +213,8 @@ async function generateTransactionHashes() {
         let previousHash: string | null = null;
 
         for (const tx of transactions) {
-            const hash = generateTransactionHash(tx, tx.id, previousHash);
+            const items = itemsByTransaction.get(tx.id);
+            const hash = generateTransactionHash(tx, tx.id, previousHash, items);
             hashes.push({ id: tx.id, hash, previousHash });
             previousHash = hash;
         }

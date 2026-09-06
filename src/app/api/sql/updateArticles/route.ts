@@ -4,6 +4,7 @@ import { getMainDb } from '../db';
 import { generateProductReference } from '@/app/utils/productReference';
 import { DEFAULT_VAT_RATE } from '@/app/utils/constants';
 import { GRID_COLS, encodeGridPosition, encodeSortOrder } from '@/app/utils/sortOrder';
+import { insertAuditEvent } from '../auditHelpers';
 
 interface Product {
     name: string;
@@ -235,6 +236,14 @@ export async function POST(request: Request) {
             await connection.rollback();
             throw e;
         }
+
+        await insertAuditEvent(connection, {
+            event_type: 'article_change',
+            entity_type: 'articles',
+            entity_id: category ?? 'articles',
+            user_name: 'admin',
+            detail: `Updated ${products.length} article(s) in category "${category}"`,
+        });
 
         return NextResponse.json({ success: true }, { status: 200 });
     } catch (error) {

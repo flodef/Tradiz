@@ -19,7 +19,7 @@ async function getLatestEventHash(connection: DbConnection): Promise<string | nu
     return result?.event_hash ?? null;
 }
 
-function generateEventHash(event: AuditEventInput, previousHash: string | null): string {
+function generateEventHash(event: AuditEventInput, previousHash: string | null, createdAt: string): string {
     const data = [
         previousHash || '',
         event.event_type,
@@ -28,6 +28,7 @@ function generateEventHash(event: AuditEventInput, previousHash: string | null):
         event.user_name,
         event.device_id || '',
         event.detail || '',
+        createdAt,
     ].join('|');
     return createHash('sha256').update(data).digest('hex');
 }
@@ -37,11 +38,20 @@ export async function insertAuditEvent(connection: DbConnection, event: AuditEve
     const prefix = isPg ? 'dc_pos.' : '';
 
     const previousHash = await getLatestEventHash(connection);
-    const eventHash = generateEventHash(event, previousHash);
+
+    // Generate the timestamp now so the hash matches the stored value exactly.
+    // Format: 'YYYY-MM-DD HH:MI:SS' — same format used by verifyIntegrity when
+    // reading back with to_char / DATE_FORMAT.
+    const now = new Date();
+    const createdAt = isPg
+        ? now.toISOString().substring(0, 19).replace('T', ' ')
+        : now.toISOString().substring(0, 19).replace('T', ' ');
+
+    const eventHash = generateEventHash(event, previousHash, createdAt);
 
     const query = isPg
-        ? `INSERT INTO ${prefix}audit_events (event_type, entity_type, entity_id, user_name, device_id, detail, event_hash, previous_event_hash) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
-        : `INSERT INTO ${prefix}audit_events (event_type, entity_type, entity_id, user_name, device_id, detail, event_hash, previous_event_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+        ? `INSERT INTO ${prefix}audit_events (event_type, entity_type, entity_id, user_name, device_id, detail, event_hash, previous_event_hash, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+        : `INSERT INTO ${prefix}audit_events (event_type, entity_type, entity_id, user_name, device_id, detail, event_hash, previous_event_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
     await connection.execute(query, [
         event.event_type,
@@ -52,5 +62,6 @@ export async function insertAuditEvent(connection: DbConnection, event: AuditEve
         event.detail ?? null,
         eventHash,
         previousHash,
+        createdAt,
     ]);
 }

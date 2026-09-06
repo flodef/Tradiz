@@ -2,6 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { executeInsert, getPosDb, withTransaction } from '../db';
 import { generateProductReference } from '@/app/utils/productReference';
+import { insertAuditEvent } from '../auditHelpers';
 
 interface User {
     id?: number;
@@ -113,6 +114,14 @@ export async function POST(request: Request) {
                 role: row.role,
                 reference: row.reference,
             }));
+        });
+
+        await insertAuditEvent(connection, {
+            event_type: 'user_change',
+            entity_type: 'users',
+            entity_id: 'users',
+            user_name: 'admin',
+            detail: `Updated ${users.length} user(s)`,
         });
 
         return NextResponse.json({ success: true, users: savedUsers }, { status: 200 });

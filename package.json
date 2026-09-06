@@ -1,6 +1,6 @@
 {
   "name": "tradiz",
-  "version": "1.492.0",
+  "version": "1.494.0",
   "description": "Tradiz cash register and management application",
   "author": "Tradiz <contact@tradiz.fr>",
   "private": true,
@@ -51,6 +51,7 @@
     "next": "latest",
     "node-thermal-printer": "latest",
     "nodemailer": "latest",
+    "pdf-lib": "^1.17.1",
     "pg": "latest",
     "postcss": "latest",
     "react": "latest",

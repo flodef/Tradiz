@@ -1,6 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
+import { insertAuditEvent } from '../auditHelpers';
 
 interface PaymentMethod {
     type: string;
@@ -74,6 +75,14 @@ export async function POST(request: Request) {
             await connection.rollback();
             throw error;
         }
+
+        await insertAuditEvent(connection, {
+            event_type: 'payment_method_change',
+            entity_type: 'payment_methods',
+            entity_id: 'payment_methods',
+            user_name: 'admin',
+            detail: `Updated ${paymentMethods.length} payment method(s)`,
+        });
 
         await connection.end();
 

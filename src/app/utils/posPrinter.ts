@@ -13,7 +13,7 @@ import {
 } from '../contexts/dataProvider/transactionHelpers';
 import { ReceiptData } from '../hooks/usePay';
 import { SummaryData } from '../hooks/useSummary';
-import { DEFAULT_VAT_RATE, IS_DEV, NF525_CERTIFICATE_NUMBER } from './constants';
+import { DEFAULT_VAT_RATE, IS_DEV } from './constants';
 import { formatFrenchDate, generateReceiptNumber } from './date';
 import './extensions'; // Registers Number.prototype.toCurrency used by toCurrency() below
 import { BillingReport, Currency, SERVICE_TYPE_LABELS, ServiceType, Transaction } from './interfaces';
@@ -259,10 +259,13 @@ function printReceiptHeader(printer: ThermalPrinter, shop: Shop) {
 
 function printReceiptFooter(printer: ThermalPrinter, shop: Shop, validator?: string, deviceId?: number) {
     printer.alignCenter();
-    if (shop.serial) printer.println('SIRET ' + shop.serial + ' - NAF 5610C');
+    if (shop.serial) {
+        const nafPart = shop.naf ? ' - NAF ' + shop.naf : '';
+        printer.println('SIRET ' + shop.serial + nafPart);
+    }
     if (shop.vatNumber) printer.println('TVA Intracom ' + shop.vatNumber);
-    printer.println('SARL - RCS');
-    printer.println(`Tradiz v${APP_VERSION} - Certif. ${NF525_CERTIFICATE_NUMBER}`);
+    if (shop.legalForm) printer.println(shop.legalForm);
+    printer.println(`Tradiz v${APP_VERSION}`);
     if (validator) printer.println('Service : ' + validator);
     printer.println(`Caisse ${deviceId ?? 1}`);
     printer.newLine();

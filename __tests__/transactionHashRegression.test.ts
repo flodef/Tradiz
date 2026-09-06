@@ -16,17 +16,17 @@ describe('computeTransactionHash — regression tests', () => {
 
     it('produces a deterministic hash for a fixed input (pins the format)', () => {
         const hash = computeTransactionHash(baseTx);
-        expect(hash).toBe('4aa2d99f7bc7764f28305f5f84b4c57968992710e92c8e1727b309f646b387db');
+        expect(hash).toBe('85351acd6e622cb4168dde0deeb0a8dabd785d8fbe9961221d73d072db207e6c');
     });
 
     it('produces a deterministic hash with transactionId', () => {
         const hash = computeTransactionHash(baseTx, 42);
-        expect(hash).toBe('a09b3caf560e7b83888ceb79fc87c8674a84cf6f1a0af91402e50ecd72bab470');
+        expect(hash).toBe('980e4e0f8539c17b5f5aa01615025c042b0d4b909f28fd19e62568e11dc7ae0b');
     });
 
     it('produces a deterministic hash with transactionId and previousHash', () => {
         const hash = computeTransactionHash(baseTx, 42, 'abc123previoushash');
-        expect(hash).toBe('35e47ee3a9f44ab2dc622b1630ab06577b428d33664a67e1b73a988cf1ab7714');
+        expect(hash).toBe('13dc73cebcd1c29bc8c09a79965b4b74e75523bf5e4650a471fddbd92b1b4bfd');
     });
 
     it('normalizes amount via Number() — "12.50" and 12.5 produce the same hash', () => {

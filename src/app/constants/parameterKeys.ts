@@ -13,6 +13,8 @@ export const PARAMETER_KEYS = {
     SHOP_EMAIL: 'email',
     SHOP_PHONE: 'phone',
     SHOP_VAT_NUMBER: 'vatNumber',
+    SHOP_NAF: 'naf',
+    SHOP_LEGAL_FORM: 'legalForm',
     THANKS_MESSAGE: 'thanksMessage',
     MERCURIAL: 'mercurial',
     CLOSING_HOUR: 'closingHour',

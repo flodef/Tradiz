@@ -1,6 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
+import { insertAuditEvent } from '../auditHelpers';
 
 interface DiscountUpdate {
     amount: number;
@@ -36,6 +37,14 @@ export async function POST(request: Request) {
                 await connection.execute(insertQuery, [value, unity]);
             }
         }
+
+        await insertAuditEvent(connection, {
+            event_type: 'discount_change',
+            entity_type: 'discounts',
+            entity_id: 'discounts',
+            user_name: 'admin',
+            detail: `Updated ${discounts.length} discount(s)`,
+        });
 
         await connection.end();
 

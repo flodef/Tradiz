@@ -1,6 +1,11 @@
 /**
  * Populate NF525 closure tables from existing transaction data.
- * Usage: bun run scripts/populate-nf525-tables.ts [--dry-run]
+ *
+ * ⚠️  GUARD: If closure tables already contain data, the script refuses to run
+ * unless --force-rechain is passed. A typed confirmation is required and a
+ * chain_rebuild audit event is logged capturing the previous state.
+ *
+ * Usage: bun run scripts/populate-nf525-tables.ts [--dry-run] [--force-rechain]
  */
 import 'dotenv/config';
 import { Pool } from 'pg';
@@ -80,6 +85,7 @@ function periodHash(p: string, t: Period, prev: string | null): string {
 
 async function main() {
     const isDry = process.argv.includes('--dry-run');
+    const isForceRechain = process.argv.includes('--force-rechain');
     if (!process.env.PG_HOST || !process.env.PG_USER || !process.env.PG_PASSWORD) {
         log('❌ Missing DB env', 'red');
         process.exit(1);
@@ -107,22 +113,52 @@ async function main() {
         if ((eD[0]?.c ?? 0) > 0 || (eM[0]?.c ?? 0) > 0 || (eA[0]?.c ?? 0) > 0) {
             log('⚠️  Tables already contain data:', 'yellow');
             log(`  daily: ${eD[0]?.c ?? 0}, monthly: ${eM[0]?.c ?? 0}, annual: ${eA[0]?.c ?? 0}`, 'yellow');
-            if (isDry) {
-                log('Aborting (dry run).', 'red');
+            if (!isForceRechain) {
+                log('❌ Refusing to overwrite existing closure data.', 'red');
+                log('   Repopulating closures overwrites the existing chain and can mask tampering.', 'red');
+                log('   Use --force-rechain. A typed confirmation will be required', 'yellow');
+                log('   and a chain_rebuild audit event will be logged.', 'yellow');
                 db.release();
                 await pool.end();
                 process.exit(1);
             }
-            if (!(await prompt('\nClear and re-populate? [y/N] '))) {
-                log('Aborting.', 'red');
-                db.release();
-                await pool.end();
-                process.exit(0);
+            if (isDry) {
+                log('🧪 DRY RUN: would prompt for confirmation and clear + repopulate.', 'yellow');
+            } else {
+                const confirmation = await prompt(
+                    'Type "RECHAIN" to confirm you want to clear and repopulate all closure tables: '
+                );
+                if (confirmation !== 'RECHAIN') {
+                    log('Aborted — confirmation did not match "RECHAIN".', 'red');
+                    db.release();
+                    await pool.end();
+                    process.exit(0);
+                }
+
+                // Log the chain_rebuild audit event
+                const operator = process.env.USER || process.env.USERNAME || 'unknown';
+                const auditDetail = JSON.stringify({
+                    previous_counts: {
+                        daily: eD[0]?.c ?? 0,
+                        monthly: eM[0]?.c ?? 0,
+                        annual: eA[0]?.c ?? 0,
+                    },
+                    operator,
+                    reason: 'force-rechain via populate-nf525-tables.ts',
+                });
+                await db.query(
+                    `INSERT INTO audit_events (event_type, entity_type, entity_id, user_name, detail)
+                     VALUES ('chain_rebuild', 'closures', 'all', $1, $2)`,
+                    [operator, auditDetail]
+                );
+                log('📝 Logged chain_rebuild audit event.', 'blue');
             }
-            log('🗑️  Clearing...', 'blue');
-            await db.query(
-                'TRUNCATE daily_closures, monthly_closures, annual_closures, perpetual_totals RESTART IDENTITY CASCADE'
-            );
+            if (!isDry) {
+                log('🗑️  Clearing...', 'blue');
+                await db.query(
+                    'TRUNCATE daily_closures, monthly_closures, annual_closures, perpetual_totals RESTART IDENTITY CASCADE'
+                );
+            }
         }
 
         // 1. Single query for all daily totals

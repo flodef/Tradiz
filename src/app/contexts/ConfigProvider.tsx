@@ -51,6 +51,8 @@ export interface Shop {
     id: string;
     phone: string;
     vatNumber?: string;
+    naf?: string;
+    legalForm?: string;
     country?: string;
 }
 

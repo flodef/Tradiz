@@ -46,7 +46,16 @@ export const HARD_DELETED_KEYWORD = 'SUPPRIMÉE';
 export const PROVISION_KEYWORD = 'PROVISION';
 export const DEBIT_KEYWORD = 'DEBIT';
 
-export const NF525_CERTIFICATE_NUMBER = 'NF525-Tradiz-2026-001';
+// Publisher identity for the NF525 self-attestation (BOI-LETTRE-000242, volet 1).
+// The deployer must customize these before building if they are the publisher.
+export const PUBLISHER = {
+    raisonSociale: 'Tradiz',
+    representantNom: '',
+    representantPrenom: '',
+    contact: 'contact@tradiz.fr',
+    licence: 'MIT',
+    ville: '',
+} as const;
 
 // Internal payment methods that should not be displayed in admin UI
 export const INTERNAL_PAYMENT_METHODS = [

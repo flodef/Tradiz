@@ -18,6 +18,8 @@ describe('PARAMETER_KEYS coverage', () => {
             'email',
             'phone',
             'vatNumber',
+            'naf',
+            'legalForm',
             'thanksMessage',
             'mercurial',
             'closingHour',

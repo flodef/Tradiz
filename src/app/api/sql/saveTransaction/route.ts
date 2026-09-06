@@ -4,7 +4,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { Connection, getPosDb } from '../db';
 import { insertAuditEvent } from '../auditHelpers';
-import { computeTransactionHash } from '@/app/utils/transactionHash';
+import { computeTransactionHash, type TransactionItemHashInput } from '@/app/utils/transactionHash';
 
 interface TransactionProduct {
     label: string;
@@ -189,7 +189,7 @@ export function generateTransactionHash(
     transactionId?: string | number,
     previousHash?: string
 ): string {
-    return computeTransactionHash(transaction, transactionId, previousHash);
+    return computeTransactionHash({ ...transaction, items: transaction.products }, transactionId, previousHash);
 }
 
 async function handleAddTransaction(connection: Connection, transaction: TransactionData) {
@@ -314,23 +314,215 @@ async function insertTransactionItems(
     }
 }
 
+/**
+ * Rechain all transactions from a given transaction id onward.
+ *
+ * When a transaction's hash-relevant fields change (payment_method, user_name,
+ * amount, etc.), its hash changes. Every subsequent transaction's previous_hash
+ * must be updated to point to the new hash, and their own hashes must be
+ * recomputed because they depend on the previous hash.
+ *
+ * This function:
+ * 1. Fetches the modified transaction and all subsequent transactions (by id)
+ * 2. Fetches their line items
+ * 3. Recomputes all hashes from the modified transaction onward
+ * 4. Batch-updates the hashes and previous_hashes
+ *
+ * In normal POS usage, the modified transaction is usually near the end of the
+ * chain, so only a few rows need updating. In the worst case (modification of
+ * an early transaction), the entire chain is rechained.
+ */
+async function rechainFrom(connection: Connection, fromTransactionId: number | string): Promise<void> {
+    const isPg = connection.isPostgreSQL;
+    const prefix = isPg ? 'dc_pos.' : '';
+
+    // Fetch the modified transaction and all subsequent transactions
+    const txQuery = isPg
+        ? `SELECT id, order_id, user_name, payment_method, amount, currency, change, device_id, to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at, previous_hash FROM ${prefix}transactions WHERE id >= $1 ORDER BY id ASC FOR UPDATE`
+        : `SELECT id, order_id, user_name, payment_method, amount, currency, change, device_id, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at, previous_hash FROM ${prefix}transactions WHERE id >= ? ORDER BY id ASC FOR UPDATE`;
+    const [txRows] = await connection.execute(txQuery, [fromTransactionId]);
+    const txs = txRows as (IdRow & {
+        order_id: string;
+        user_name: string;
+        payment_method: string;
+        amount: number | string;
+        currency: string;
+        change: string | null;
+        device_id: string | null;
+        created_at: string;
+        previous_hash: string | null;
+    })[];
+
+    if (txs.length === 0) return;
+
+    // Fetch items for all these transactions
+    const txIds = txs.map((t) => t.id);
+    const itemsByTx = new Map<number | string, TransactionItemHashInput[]>();
+
+    if (isPg) {
+        const itemQuery = `SELECT transaction_id, label, quantity, amount, total, vat_rate, discount_amount FROM ${prefix}transaction_items WHERE transaction_id = ANY($1::int[]) ORDER BY transaction_id, id`;
+        const [itemRows] = await connection.execute(itemQuery, [txIds]);
+        for (const row of itemRows as {
+            transaction_id: number;
+            label: string;
+            quantity: number | string;
+            amount: number | string;
+            total: number | string;
+            vat_rate: number | string | null;
+            discount_amount: number | string | null;
+        }[]) {
+            const list = itemsByTx.get(row.transaction_id) || [];
+            list.push({
+                label: row.label,
+                quantity: Number(row.quantity),
+                amount: row.amount,
+                total: row.total,
+                vat_rate: row.vat_rate ?? undefined,
+                discount_amount: row.discount_amount ?? undefined,
+            });
+            itemsByTx.set(row.transaction_id, list);
+        }
+    } else {
+        // MariaDB: use IN clause
+        const placeholders = txIds.map(() => '?').join(', ');
+        const itemQuery = `SELECT transaction_id, label, quantity, amount, total, vat_rate, discount_amount FROM ${prefix}transaction_items WHERE transaction_id IN (${placeholders}) ORDER BY transaction_id, id`;
+        const [itemRows] = await connection.execute(itemQuery, txIds);
+        for (const row of itemRows as {
+            transaction_id: number;
+            label: string;
+            quantity: number | string;
+            amount: number | string;
+            total: number | string;
+            vat_rate: number | string | null;
+            discount_amount: number | string | null;
+        }[]) {
+            const list = itemsByTx.get(row.transaction_id) || [];
+            list.push({
+                label: row.label,
+                quantity: Number(row.quantity),
+                amount: row.amount,
+                total: row.total,
+                vat_rate: row.vat_rate ?? undefined,
+                discount_amount: row.discount_amount ?? undefined,
+            });
+            itemsByTx.set(row.transaction_id, list);
+        }
+    }
+
+    // Recompute hashes starting from the first (modified) transaction
+    // The first transaction's previous_hash is already correct (it was set
+    // by the handler that called us). We just need to recompute its hash
+    // and cascade to all subsequent transactions.
+    let prevHash: string | null = txs[0].previous_hash;
+    const updates: { id: number | string; hash: string; previousHash: string | null }[] = [];
+
+    for (const tx of txs) {
+        const items = itemsByTx.get(tx.id);
+        const hash = computeTransactionHash(
+            {
+                order_id: tx.order_id,
+                user_name: tx.user_name,
+                payment_method: tx.payment_method,
+                amount: tx.amount,
+                currency: tx.currency,
+                created_at: tx.created_at,
+                change: tx.change,
+                device_id: tx.device_id,
+                items,
+            },
+            tx.id,
+            prevHash
+        );
+        updates.push({ id: tx.id, hash, previousHash: prevHash });
+        prevHash = hash;
+    }
+
+    // Batch update (skip the first transaction if its hash hasn't changed —
+    // the handler already set it. But it's simpler and safer to just update all).
+    const BATCH_SIZE = 500;
+    for (let i = 0; i < updates.length; i += BATCH_SIZE) {
+        const batch = updates.slice(i, i + BATCH_SIZE);
+        const ids = batch.map((u) => u.id);
+        const hashes = batch.map((u) => u.hash);
+        const prevHashes = batch.map((u) => u.previousHash);
+
+        if (isPg) {
+            await connection.execute(
+                `UPDATE ${prefix}transactions AS t SET
+                    hash = v.hash,
+                    previous_hash = v.prev_hash
+                FROM unnest($1::int[], $2::text[], $3::text[]) AS v(id, hash, prev_hash)
+                WHERE t.id = v.id`,
+                [ids, hashes, prevHashes]
+            );
+        } else {
+            // MariaDB: update one by one (no unnest support)
+            for (const u of batch) {
+                await connection.execute(`UPDATE ${prefix}transactions SET hash = ?, previous_hash = ? WHERE id = ?`, [
+                    u.hash,
+                    u.previousHash,
+                    u.id,
+                ]);
+            }
+        }
+    }
+}
+
 async function handleUpdateTransaction(connection: Connection, transaction: TransactionData) {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
 
-    // Update the transaction record to mark it as processing (lookup by order_id —
-    // millisecond precision, unique per transaction)
+    // Fetch the existing transaction to get id, previous_hash, and all hash-relevant
+    // fields that aren't being updated. We need these to recompute the hash.
+    const selectQuery = isPg
+        ? `SELECT id, previous_hash, order_id, amount, currency, change, to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at FROM ${prefix}transactions WHERE order_id = $1 FOR UPDATE`
+        : `SELECT id, previous_hash, order_id, amount, currency, change, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at FROM ${prefix}transactions WHERE order_id = ? FOR UPDATE`;
+    const [rows] = await connection.execute(selectQuery, [transaction.order_id]);
+    const existing = (
+        rows as (IdRow & {
+            previous_hash: string | null;
+            order_id: string;
+            amount: number | string;
+            currency: string;
+            change: string | null;
+            created_at: string;
+        })[]
+    )[0];
+
+    if (!existing) return; // Transaction doesn't exist — nothing to update
+
+    const transactionId = existing.id;
+    const newHash = computeTransactionHash(
+        {
+            order_id: existing.order_id,
+            user_name: transaction.user_name || DEFAULT_USER,
+            payment_method: PROCESSING_KEYWORD,
+            amount: existing.amount,
+            currency: existing.currency,
+            created_at: existing.created_at,
+            change: existing.change,
+            device_id: transaction.device_id ?? null,
+        },
+        transactionId,
+        existing.previous_hash
+    );
+
+    // Update the transaction record to mark it as processing
     const updateQuery = isPg
-        ? `UPDATE ${prefix}transactions SET payment_method = $1, user_name = $2, device_id = $3, updated_at = $4 WHERE order_id = $5`
-        : `UPDATE ${prefix}transactions SET payment_method = ?, user_name = ?, device_id = ?, updated_at = ? WHERE order_id = ?`;
+        ? `UPDATE ${prefix}transactions SET payment_method = $1, user_name = $2, device_id = $3, hash = $4, updated_at = $5 WHERE id = $6`
+        : `UPDATE ${prefix}transactions SET payment_method = ?, user_name = ?, device_id = ?, hash = ?, updated_at = ? WHERE id = ?`;
 
     await connection.execute(updateQuery, [
         PROCESSING_KEYWORD,
         transaction.user_name || DEFAULT_USER,
         transaction.device_id ?? null,
+        newHash,
         transaction.updated_at,
-        transaction.order_id,
+        transactionId,
     ]);
+
+    // Rechain all subsequent transactions since this transaction's hash changed
+    await rechainFrom(connection, transactionId);
 }
 
 async function handleDeleteTransaction(connection: Connection, transaction: TransactionData) {
@@ -344,12 +536,51 @@ async function handleDeleteTransaction(connection: Connection, transaction: Tran
     // Fetch the original transaction data (for fidelity point reversal) before marking as deleted
     await fetchOriginalTransactionForFidelity(connection, transaction);
 
-    // Update the transaction record to mark it as deleted/cancelled (lookup by order_id)
-    const updateQuery = isPg
-        ? `UPDATE ${prefix}transactions SET payment_method = $1, updated_at = $2 WHERE order_id = $3`
-        : `UPDATE ${prefix}transactions SET payment_method = ?, updated_at = ? WHERE order_id = ?`;
+    // Fetch hash-relevant fields to recompute the hash after the payment_method change
+    const selectQuery = isPg
+        ? `SELECT id, previous_hash, order_id, user_name, amount, currency, change, device_id, to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at FROM ${prefix}transactions WHERE order_id = $1 FOR UPDATE`
+        : `SELECT id, previous_hash, order_id, user_name, amount, currency, change, device_id, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at FROM ${prefix}transactions WHERE order_id = ? FOR UPDATE`;
+    const [rows] = await connection.execute(selectQuery, [transaction.order_id]);
+    const existing = (
+        rows as (IdRow & {
+            previous_hash: string | null;
+            order_id: string;
+            user_name: string;
+            amount: number | string;
+            currency: string;
+            change: string | null;
+            device_id: string | null;
+            created_at: string;
+        })[]
+    )[0];
 
-    await connection.execute(updateQuery, [newPaymentMethod, transaction.updated_at, transaction.order_id]);
+    if (!existing) return; // Transaction doesn't exist — nothing to delete
+
+    const transactionId = existing.id;
+    const newHash = computeTransactionHash(
+        {
+            order_id: existing.order_id,
+            user_name: existing.user_name,
+            payment_method: newPaymentMethod,
+            amount: existing.amount,
+            currency: existing.currency,
+            created_at: existing.created_at,
+            change: existing.change,
+            device_id: existing.device_id,
+        },
+        transactionId,
+        existing.previous_hash
+    );
+
+    // Update the transaction record to mark it as deleted/cancelled and recompute hash
+    const updateQuery = isPg
+        ? `UPDATE ${prefix}transactions SET payment_method = $1, hash = $2, updated_at = $3 WHERE id = $4`
+        : `UPDATE ${prefix}transactions SET payment_method = ?, hash = ?, updated_at = ? WHERE id = ?`;
+
+    await connection.execute(updateQuery, [newPaymentMethod, newHash, transaction.updated_at, transactionId]);
+
+    // Rechain all subsequent transactions since this transaction's hash changed
+    await rechainFrom(connection, transactionId);
 }
 
 async function handleHardDeleteTransaction(connection: Connection, transaction: TransactionData) {
@@ -359,13 +590,52 @@ async function handleHardDeleteTransaction(connection: Connection, transaction: 
     // Fetch the original transaction data (for fidelity point reversal) before marking as hard-deleted
     await fetchOriginalTransactionForFidelity(connection, transaction);
 
+    // Fetch hash-relevant fields to recompute the hash after the payment_method change
+    const selectQuery = isPg
+        ? `SELECT id, previous_hash, order_id, user_name, amount, currency, change, device_id, to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at FROM ${prefix}transactions WHERE order_id = $1 FOR UPDATE`
+        : `SELECT id, previous_hash, order_id, user_name, amount, currency, change, device_id, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at FROM ${prefix}transactions WHERE order_id = ? FOR UPDATE`;
+    const [rows] = await connection.execute(selectQuery, [transaction.order_id]);
+    const existing = (
+        rows as (IdRow & {
+            previous_hash: string | null;
+            order_id: string;
+            user_name: string;
+            amount: number | string;
+            currency: string;
+            change: string | null;
+            device_id: string | null;
+            created_at: string;
+        })[]
+    )[0];
+
+    if (!existing) return; // Transaction doesn't exist — nothing to hard-delete
+
+    const transactionId = existing.id;
+    const newHash = computeTransactionHash(
+        {
+            order_id: existing.order_id,
+            user_name: existing.user_name,
+            payment_method: HARD_DELETED_KEYWORD,
+            amount: existing.amount,
+            currency: existing.currency,
+            created_at: existing.created_at,
+            change: existing.change,
+            device_id: existing.device_id,
+        },
+        transactionId,
+        existing.previous_hash
+    );
+
     // NF525: Instead of physically deleting, mark the transaction as HARD_DELETED.
     // This preserves the audit trail and hash chain integrity.
     const updateQuery = isPg
-        ? `UPDATE ${prefix}transactions SET payment_method = $1, updated_at = $2 WHERE order_id = $3`
-        : `UPDATE ${prefix}transactions SET payment_method = ?, updated_at = ? WHERE order_id = ?`;
+        ? `UPDATE ${prefix}transactions SET payment_method = $1, hash = $2, updated_at = $3 WHERE id = $4`
+        : `UPDATE ${prefix}transactions SET payment_method = ?, hash = ?, updated_at = ? WHERE id = ?`;
 
-    await connection.execute(updateQuery, [HARD_DELETED_KEYWORD, transaction.updated_at, transaction.order_id]);
+    await connection.execute(updateQuery, [HARD_DELETED_KEYWORD, newHash, transaction.updated_at, transactionId]);
+
+    // Rechain all subsequent transactions since this transaction's hash changed
+    await rechainFrom(connection, transactionId);
 }
 
 // Snapshot of fidelity-relevant fields from a transaction row, used to
@@ -490,10 +760,17 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
             transactionId,
         ]);
 
+        // Capture prior items and log an audit event before replacing them,
+        // so there is a traceable record of what was there before the sync.
+        await captureItemRevisionAudit(connection, transactionId, transaction);
+
         // Delete old items and re-insert
         const deleteQuery = `DELETE FROM ${prefix}transaction_items WHERE transaction_id = $1`;
         await connection.execute(deleteQuery, [transactionId]);
         await insertTransactionItems(connection, transactionId, transaction.products);
+
+        // Rechain all subsequent transactions since this transaction's hash changed
+        await rechainFrom(connection, transactionId);
     } else {
         // MariaDB/MySQL: no RETURNING clause, use SELECT ... FOR UPDATE to lock the row
         const lockQuery = `SELECT id, previous_hash FROM ${prefix}transactions WHERE order_id = ? AND payment_method != ? FOR UPDATE`;
@@ -531,11 +808,66 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
             transactionId,
         ]);
 
+        // Capture prior items and log an audit event before replacing them,
+        // so there is a traceable record of what was there before the sync.
+        await captureItemRevisionAudit(connection, transactionId, transaction);
+
         // Delete old items and re-insert
         const deleteQuery = `DELETE FROM ${prefix}transaction_items WHERE transaction_id = ?`;
         await connection.execute(deleteQuery, [transactionId]);
         await insertTransactionItems(connection, transactionId, transaction.products);
+
+        // Rechain all subsequent transactions since this transaction's hash changed
+        await rechainFrom(connection, transactionId);
     }
+}
+
+/**
+ * Before item replacement during sync, fetch the existing items and log an
+ * audit event capturing the prior item set. This ensures that even though the
+ * old rows are physically deleted, a traceable record of what they contained
+ * survives in the audit chain.
+ *
+ * The audit event is only logged if there were existing items.
+ */
+async function captureItemRevisionAudit(
+    connection: Connection,
+    transactionId: number | string,
+    transaction: TransactionData
+): Promise<void> {
+    const isPg = connection.isPostgreSQL;
+    const prefix = isPg ? 'dc_pos.' : '';
+
+    const fetchQuery = isPg
+        ? `SELECT label, quantity, amount, total, vat_rate, discount_amount FROM ${prefix}transaction_items WHERE transaction_id = $1 ORDER BY id`
+        : `SELECT label, quantity, amount, total, vat_rate, discount_amount FROM ${prefix}transaction_items WHERE transaction_id = ? ORDER BY id`;
+
+    const [rows] = await connection.execute(fetchQuery, [transactionId]);
+    const existingItems = rows as {
+        label: string;
+        quantity: number | string;
+        amount: number | string;
+        total: number | string;
+        vat_rate: number | string | null;
+        discount_amount: number | string | null;
+    }[];
+
+    if (existingItems.length === 0) return;
+
+    // Log the prior item set as an audit event so the history is traceable
+    await insertAuditEvent(connection, {
+        event_type: 'transaction_items_replaced',
+        entity_type: 'transaction',
+        entity_id: String(transactionId),
+        user_name: transaction.user_name || DEFAULT_USER,
+        device_id: transaction.device_id ?? null,
+        detail: JSON.stringify({
+            transaction_id: transactionId,
+            order_id: transaction.order_id,
+            prior_items: existingItems,
+            new_item_count: transaction.products?.length ?? 0,
+        }),
+    });
 }
 
 export { computeFidelityDelta };
