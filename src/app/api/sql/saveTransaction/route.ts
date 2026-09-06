@@ -4,7 +4,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { Connection, getPosDb } from '../db';
 import { insertAuditEvent } from '../auditHelpers';
-import { createHash } from 'crypto';
+import { computeTransactionHash } from '@/app/utils/transactionHash';
 
 interface TransactionProduct {
     label: string;
@@ -189,20 +189,7 @@ export function generateTransactionHash(
     transactionId?: string | number,
     previousHash?: string
 ): string {
-    const data = [
-        previousHash || '',
-        transactionId || 'new',
-        transaction.order_id,
-        transaction.user_name,
-        transaction.payment_method,
-        String(Number(transaction.amount)),
-        transaction.currency,
-        String(transaction.created_at),
-        transaction.change || '',
-        transaction.device_id || '',
-    ].join('|');
-
-    return createHash('sha256').update(data).digest('hex');
+    return computeTransactionHash(transaction, transactionId, previousHash);
 }
 
 async function handleAddTransaction(connection: Connection, transaction: TransactionData) {

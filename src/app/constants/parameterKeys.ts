@@ -11,6 +11,7 @@ export const PARAMETER_KEYS = {
     SHOP_SERIAL: 'serial',
     SHOP_ID: 'id',
     SHOP_EMAIL: 'email',
+    SHOP_PHONE: 'phone',
     SHOP_VAT_NUMBER: 'vatNumber',
     THANKS_MESSAGE: 'thanksMessage',
     MERCURIAL: 'mercurial',

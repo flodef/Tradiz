@@ -2,7 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from '../db';
 import { getPosPgDb, isPgConfigured } from '../pg-db';
-import { createHash } from 'crypto';
+import { computeTransactionHash } from '@/app/utils/transactionHash';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,19 +29,7 @@ interface IntegrityIssue {
 }
 
 function recomputeHash(transactionId: number | string, tx: TransactionRow, previousHash: string | null): string {
-    const data = [
-        previousHash || '',
-        transactionId || 'new',
-        tx.order_id,
-        tx.user_name,
-        tx.payment_method,
-        String(Number(tx.amount)),
-        tx.currency,
-        String(tx.created_at),
-        tx.change || '',
-        tx.device_id || '',
-    ].join('|');
-    return createHash('sha256').update(data).digest('hex');
+    return computeTransactionHash(tx, transactionId, previousHash);
 }
 
 export async function GET(request: Request) {
@@ -83,7 +71,7 @@ export async function GET(request: Request) {
                 issues.push({
                     transaction_id: tx.id,
                     order_id: tx.order_id,
-                    issue: `Chain break: stored previous_hash="${tx.previous_hash}" but expected="${expectedPreviousHash}"`,
+                    issue: `Chain break: stored previous_hash="${tx.previous_hash?.slice(0, 16) ?? 'null'}..." but expected="${expectedPreviousHash?.slice(0, 16) ?? 'null'}..."`,
                     stored_hash: tx.hash,
                     computed_hash: '',
                 });

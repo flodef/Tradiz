@@ -17,7 +17,7 @@
 
 import 'dotenv/config';
 import { Pool } from 'pg';
-import { createHash } from 'crypto';
+import { computeTransactionHash } from '../src/app/utils/transactionHash';
 
 const colors = {
     red: '\x1b[31m',
@@ -38,26 +38,13 @@ interface TransactionRow {
     payment_method: string;
     amount: number | string;
     currency: string;
-    change: number | string | null;
+    change: string | null;
     device_id: string | null;
     created_at: string;
 }
 
 function generateTransactionHash(tx: TransactionRow, transactionId: number, previousHash: string | null): string {
-    const data = [
-        previousHash || '',
-        transactionId,
-        tx.order_id,
-        tx.user_name,
-        tx.payment_method,
-        String(Number(tx.amount)),
-        tx.currency,
-        String(tx.created_at),
-        tx.change || '',
-        tx.device_id || '',
-    ].join('|');
-
-    return createHash('sha256').update(data).digest('hex');
+    return computeTransactionHash(tx, transactionId, previousHash);
 }
 
 async function generateTransactionHashes() {

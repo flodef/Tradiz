@@ -58,7 +58,7 @@ export async function POST(request: Request) {
                 await insertAuditEvent(conn, {
                     event_type: 'parameter_change',
                     entity_type: 'parameters',
-                    entity_id: updatedKeys.join(','),
+                    entity_id: 'parameters',
                     user_name: changedBy || 'admin',
                     detail: `Updated ${updatedKeys.length} parameter(s): ${updatedKeys.join(', ')}`,
                 });

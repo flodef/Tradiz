@@ -1,12 +1,16 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+let cachedPkg: Record<string, unknown> | null | undefined;
+
 function readPackageJson(): Record<string, unknown> | null {
+    if (cachedPkg !== undefined) return cachedPkg;
     try {
-        return JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf-8'));
+        cachedPkg = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf-8'));
     } catch {
-        return null;
+        cachedPkg = null;
     }
+    return cachedPkg!;
 }
 
 export function getSoftwareVersion(): string | null {
