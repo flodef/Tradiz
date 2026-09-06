@@ -13,6 +13,7 @@ import {
     ARROW,
     CATEGORY_SEPARATOR,
     CANCELLED_KEYWORD,
+    CASH_KEYWORD,
     DEBIT_KEYWORD,
     DELETED_KEYWORD,
     FIDELITY_KEYWORD,
@@ -304,7 +305,7 @@ export const usePay = () => {
     const commitMultiPayment = useCallback(
         (legs: PaymentLeg[]) => {
             const now = floorToSeconds(new Date().getTime());
-            const cashLeg = legs.find((l) => l.method === 'Espèces');
+            const cashLeg = legs.find((l) => l.method === CASH_KEYWORD);
             const transaction: Transaction = {
                 validator: parameters.user.name,
                 method: MULTI_KEYWORD,

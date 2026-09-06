@@ -43,9 +43,7 @@ export async function insertAuditEvent(connection: DbConnection, event: AuditEve
     // Format: 'YYYY-MM-DD HH:MI:SS' — same format used by verifyIntegrity when
     // reading back with to_char / DATE_FORMAT.
     const now = new Date();
-    const createdAt = isPg
-        ? now.toISOString().substring(0, 19).replace('T', ' ')
-        : now.toISOString().substring(0, 19).replace('T', ' ');
+    const createdAt = now.toISOString().substring(0, 19).replace('T', ' ');
 
     const eventHash = generateEventHash(event, previousHash, createdAt);
 
