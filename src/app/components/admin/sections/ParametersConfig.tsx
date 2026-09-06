@@ -549,6 +549,34 @@ export default function ParametersConfig({
                 </div>
             </div>
 
+            {/* Subsection: Terminal de paiement (TPE) */}
+            <div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
+                    Terminal de paiement (TPE)
+                </h3>
+                <div className="flex flex-wrap gap-4 items-end">
+                    <AdminInput
+                        label="Adresse IP du TPE"
+                        value={config.tpeIp || ''}
+                        onChange={(e) => !isReadOnly && handleChange('tpeIp', e.target.value)}
+                        placeholder="ex: 192.168.1.50"
+                        isReadOnly={isReadOnly}
+                        className="flex-1 min-w-40 max-w-xs"
+                    />
+                    <AdminInput
+                        label="Port TCP"
+                        type="number"
+                        value={config.tpePort?.toString() || ''}
+                        onChange={(e) =>
+                            !isReadOnly && handleChange('tpePort', e.target.value ? Number(e.target.value) : undefined)
+                        }
+                        placeholder="8888"
+                        isReadOnly={isReadOnly}
+                        className="w-24"
+                    />
+                </div>
+            </div>
+
             {/* Subsection: Produits */}
             <div>
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">

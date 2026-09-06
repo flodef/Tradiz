@@ -1228,6 +1228,50 @@ export const usePay = () => {
                         closePopup();
                     }
                     break;
+                case 'Carte Bancaire': {
+                    const tpeIp = parameters.tpeIp;
+                    const tpePort = parameters.tpePort ?? 8888;
+                    if (!tpeIp) {
+                        // No TPE configured — fall back to manual validation
+                        commitTransaction(option);
+                        closePopup();
+                        break;
+                    }
+                    const cardTotal = getCustomerTotal().clean(currencies[currencyIndex].decimals);
+                    openPopup('Paiement carte sur TPE', ['Transaction en cours sur le terminal...'], () => {}, true);
+                    (async () => {
+                        try {
+                            const response = await fetch('/api/tpe-payment', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    amount: cardTotal,
+                                    tpeIp,
+                                    tpePort,
+                                }),
+                            });
+                            const result = await response.json();
+                            if (result.success) {
+                                commitTransaction(option);
+                                closePopup();
+                            } else {
+                                const detail = result.errorDetail || 'Erreur inconnue';
+                                openPopup('Erreur TPE', [`Paiement refusé: ${detail}`, 'Annuler'], (index) => {
+                                    if (index < 0 || index === 1) fallback();
+                                });
+                            }
+                        } catch {
+                            openPopup(
+                                'Erreur TPE',
+                                ['Impossible de joindre le terminal de paiement', 'Annuler'],
+                                (index) => {
+                                    if (index < 0 || index === 1) fallback();
+                                }
+                            );
+                        }
+                    })();
+                    break;
+                }
                 default:
                     // Pour les modes de paiement normaux, enregistrer comme payé
                     commitTransaction(option);
@@ -1251,6 +1295,8 @@ export const usePay = () => {
             parameters.user.name,
             parameters.display?.showChange,
             parameters.display?.useTakeOut,
+            parameters.tpeIp,
+            parameters.tpePort,
             reverseTransaction,
             currentCustomer,
             openFullscreenPopup,

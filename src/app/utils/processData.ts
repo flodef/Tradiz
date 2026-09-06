@@ -274,6 +274,15 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             const value = getParamValue('pennylaneToken', 20);
             return value || undefined;
         })(),
+        tpeIp: (() => {
+            const value = getParamValue('tpeIp', 21);
+            return value || undefined;
+        })(),
+        tpePort: (() => {
+            const value = getParamValue('tpePort', 22);
+            const port = Number(value);
+            return value && port >= 1 && port <= 65535 ? port : undefined;
+        })(),
     };
 }
 

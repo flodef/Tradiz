@@ -97,6 +97,8 @@ export interface Parameters {
     useVirtualKeyboard?: boolean;
     fidelityRate?: number; // Percentage of each transaction amount earned as fidelity points (0 = disabled)
     pennylaneToken?: string; // PennyLane API access token for e-invoicing
+    tpeIp?: string; // IP address of the payment terminal (TPE) for Caisse-AP over IP
+    tpePort?: number; // TCP port of the payment terminal (default 8888)
     products?: ProductsSettings;
     search?: SearchSettings;
     display?: DisplaySettings;

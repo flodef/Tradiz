@@ -393,6 +393,12 @@ export default function SettingsPage() {
                     return Math.max(0, Math.min(100, Number(value) || 0));
                 })(),
                 pennylaneToken: getParam('pennylaneToken', 'pennylaneToken') || undefined,
+                tpeIp: getParam('tpeIp', 'tpeIp') || undefined,
+                tpePort: (() => {
+                    const value = getParam('tpePort', 'tpePort');
+                    const port = Number(value);
+                    return value && port >= 1 && port <= 65535 ? port : undefined;
+                })(),
             };
 
             setSettings(loadedSettings);
@@ -815,6 +821,8 @@ export default function SettingsPage() {
                 { key: 'useVirtualKeyboard', value: String(data.useVirtualKeyboard ?? false) },
                 { key: 'fidelityRate', value: String(data.fidelityRate ?? 0) },
                 { key: 'pennylaneToken', value: data.pennylaneToken ?? '' },
+                { key: 'tpeIp', value: data.tpeIp ?? '' },
+                { key: 'tpePort', value: data.tpePort ? String(data.tpePort) : '' },
             ];
 
             const response = await fetch('/api/sql/updateParameters', {
