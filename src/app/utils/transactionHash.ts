@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { PaymentLeg } from './interfaces';
 
 export interface TransactionItemHashInput {
     label: string;
@@ -19,6 +20,7 @@ export interface TransactionHashInput {
     change?: string | null;
     device_id?: string | null;
     items?: TransactionItemHashInput[];
+    payments?: PaymentLeg[];
 }
 
 /**
@@ -73,5 +75,11 @@ export function computeTransactionHash(
         canonicalItemsDigest(tx.items),
     ].join('|');
 
-    return createHash('sha256').update(data).digest('hex');
+    // Conditional: only append payments segment when legs exist.
+    // Legacy rows (no payments) keep their exact digest.
+    const payload = tx.payments?.length
+        ? `${data}|${tx.payments.map((l) => `${l.method}:${l.amount}`).join(',')}`
+        : data;
+
+    return createHash('sha256').update(payload).digest('hex');
 }

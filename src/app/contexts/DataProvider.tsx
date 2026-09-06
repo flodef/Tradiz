@@ -38,7 +38,7 @@ import {
     idbSetTransactions,
 } from '../utils/transactionStore';
 import { checkDbConfig, getPublicKey } from '../utils/processData';
-import { encodeCashNote } from '../utils/transactionNote';
+import { encodeCashNote, encodePaymentLegs } from '../utils/transactionNote';
 import { mergeTransactionArrays } from './dataProvider/syncUtils';
 import {
     isCancelledTransaction,
@@ -540,6 +540,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         employer_share: transaction.employerShare ?? null,
                         fidelity_points: transaction.fidelityPointsUsed ?? null,
                         device_id: transaction.deviceId ?? null,
+                        payments: encodePaymentLegs(transaction.payments ?? []) ?? null,
                         created_at: toSQLDateTime(transaction.createdDate),
                         updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
                         products: transaction.products.map((product) => ({
@@ -984,6 +985,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             employer_share: transaction.employerShare ?? null,
                             fidelity_points: transaction.fidelityPointsUsed ?? null,
                             device_id: transaction.deviceId ?? null,
+                            payments: encodePaymentLegs(transaction.payments ?? []) ?? null,
                             created_at: toSQLDateTime(transaction.createdDate),
                             updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
                             products: transaction.products.map((product) => ({

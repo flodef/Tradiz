@@ -13,10 +13,11 @@ import {
 } from '../contexts/dataProvider/transactionHelpers';
 import { ReceiptData } from '../hooks/usePay';
 import { SummaryData } from '../hooks/useSummary';
-import { DEFAULT_VAT_RATE, IS_DEV } from './constants';
+import { DEFAULT_VAT_RATE, IS_DEV, MULTI_KEYWORD } from './constants';
 import { formatFrenchDate, generateReceiptNumber } from './date';
 import './extensions'; // Registers Number.prototype.toCurrency used by toCurrency() below
 import { BillingReport, Currency, SERVICE_TYPE_LABELS, ServiceType, Transaction } from './interfaces';
+import { getPaymentBreakdown } from './paymentBreakdown';
 import { createMockPrinter } from './mockPrinter';
 
 type PrintResponse = {
@@ -592,20 +593,40 @@ export async function printReceipt(
             printer.alignCenter();
             printer.println('Justificatif non valable pour encaissement');
         } else {
-            // Facturation: solde créditeur + payment method
+            // Facturation: solde créditeur + payment method(s)
             printer.println('A la date de facturation');
             printer.leftRight('Solde Créditeur', toCurrency(netAmount, currency));
             printer.newLine();
 
-            // Print payment method if available
-            printer.alignCenter();
-            printer.println(paymentMethod ? `Mode de paiement: ${paymentMethod}` : 'À RÉGLER');
+            const legs = getPaymentBreakdown(receiptData.transaction);
+            const isMulti = paymentMethod === MULTI_KEYWORD && legs.length > 1;
 
-            // Print cash details and change for cash payments
-            if (receiptData.transaction.cashAmount !== undefined) {
-                printer.leftRight('MONTANT REÇU', toCurrency(receiptData.transaction.cashAmount, currency));
-                if (receiptData.transaction.change !== undefined && receiptData.transaction.change > 0) {
-                    printer.leftRight('MONNAIE À RENDRE', toCurrency(receiptData.transaction.change, currency));
+            if (isMulti) {
+                // Multi-payment: print each leg as a separate line
+                printer.alignCenter();
+                printer.println('Paiement multiple');
+                printer.alignLeft();
+                for (const leg of legs) {
+                    const label = leg.label ? `${leg.method} (${leg.label})` : leg.method;
+                    printer.leftRight(label, toCurrency(leg.amount, currency));
+                    if (leg.cashReceived !== undefined && leg.cashReceived > leg.amount) {
+                        printer.leftRight('  Montant reçu', toCurrency(leg.cashReceived, currency));
+                        if (leg.changeGiven !== undefined && leg.changeGiven > 0) {
+                            printer.leftRight('  Monnaie à rendre', toCurrency(leg.changeGiven, currency));
+                        }
+                    }
+                }
+            } else {
+                // Single payment method
+                printer.alignCenter();
+                printer.println(paymentMethod ? `Mode de paiement: ${paymentMethod}` : 'À RÉGLER');
+
+                // Print cash details and change for cash payments
+                if (receiptData.transaction.cashAmount !== undefined) {
+                    printer.leftRight('MONTANT REÇU', toCurrency(receiptData.transaction.cashAmount, currency));
+                    if (receiptData.transaction.change !== undefined && receiptData.transaction.change > 0) {
+                        printer.leftRight('MONNAIE À RENDRE', toCurrency(receiptData.transaction.change, currency));
+                    }
                 }
             }
         }

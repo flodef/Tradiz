@@ -5,6 +5,8 @@ import { NextResponse } from 'next/server';
 import { Connection, getPosDb } from '../db';
 import { insertAuditEvent } from '../auditHelpers';
 import { computeTransactionHash, type TransactionItemHashInput } from '@/app/utils/transactionHash';
+import { encodePaymentLegs, parsePaymentLegs } from '@/app/utils/transactionNote';
+import { PaymentLeg } from '@/app/utils/interfaces';
 
 interface TransactionProduct {
     label: string;
@@ -32,6 +34,7 @@ interface TransactionData {
     created_at: string;
     updated_at: string;
     products?: TransactionProduct[];
+    payments?: PaymentLeg[];
 }
 
 interface IdRow {
@@ -238,13 +241,13 @@ async function insertTransactionWithItems(connection: Connection, transaction: T
 
     const insertTransactionQuery = isPg
         ? `
-        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, fidelity_points, device_id, hash, previous_hash, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, fidelity_points, device_id, payments, hash, previous_hash, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
         RETURNING id
     `
         : `
-        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, fidelity_points, device_id, hash, previous_hash, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO ${prefix}transactions (order_id, customer_name, user_name, payment_method, amount, currency, change, take_out, employer_share, fidelity_points, device_id, payments, hash, previous_hash, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const params = [
@@ -259,6 +262,7 @@ async function insertTransactionWithItems(connection: Connection, transaction: T
         transaction.employer_share ?? null,
         transaction.fidelity_points ?? null,
         transaction.device_id ?? null,
+        encodePaymentLegs(transaction.payments ?? []) ?? null,
         hash,
         previousHash,
         transaction.created_at,
@@ -338,8 +342,8 @@ async function rechainFrom(connection: Connection, fromTransactionId: number | s
 
     // Fetch the modified transaction and all subsequent transactions
     const txQuery = isPg
-        ? `SELECT id, order_id, user_name, payment_method, amount, currency, change, device_id, to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at, previous_hash FROM ${prefix}transactions WHERE id >= $1 ORDER BY id ASC FOR UPDATE`
-        : `SELECT id, order_id, user_name, payment_method, amount, currency, change, device_id, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at, previous_hash FROM ${prefix}transactions WHERE id >= ? ORDER BY id ASC FOR UPDATE`;
+        ? `SELECT id, order_id, user_name, payment_method, amount, currency, change, device_id, payments, to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at, previous_hash FROM ${prefix}transactions WHERE id >= $1 ORDER BY id ASC FOR UPDATE`
+        : `SELECT id, order_id, user_name, payment_method, amount, currency, change, device_id, payments, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at, previous_hash FROM ${prefix}transactions WHERE id >= ? ORDER BY id ASC FOR UPDATE`;
     const [txRows] = await connection.execute(txQuery, [fromTransactionId]);
     const txs = txRows as (IdRow & {
         order_id: string;
@@ -349,6 +353,7 @@ async function rechainFrom(connection: Connection, fromTransactionId: number | s
         currency: string;
         change: string | null;
         device_id: string | null;
+        payments: string | null;
         created_at: string;
         previous_hash: string | null;
     })[];
@@ -429,6 +434,7 @@ async function rechainFrom(connection: Connection, fromTransactionId: number | s
                 change: tx.change,
                 device_id: tx.device_id,
                 items,
+                payments: parsePaymentLegs(tx.payments),
             },
             tx.id,
             prevHash
@@ -741,8 +747,8 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
 
         const updateQuery = `
             UPDATE ${prefix}transactions
-            SET customer_name = $1, user_name = $2, payment_method = $3, amount = $4, currency = $5, change = $6, take_out = $7, employer_share = $8, fidelity_points = $9, device_id = $10, hash = $11, updated_at = $12
-            WHERE id = $13
+            SET customer_name = $1, user_name = $2, payment_method = $3, amount = $4, currency = $5, change = $6, take_out = $7, employer_share = $8, fidelity_points = $9, device_id = $10, payments = $11, hash = $12, updated_at = $13
+            WHERE id = $14
         `;
         await connection.execute(updateQuery, [
             transaction.customer_name ?? null,
@@ -755,6 +761,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
             transaction.employer_share ?? null,
             transaction.fidelity_points ?? null,
             transaction.device_id ?? null,
+            encodePaymentLegs(transaction.payments ?? []) ?? null,
             hash,
             transaction.updated_at,
             transactionId,
@@ -789,7 +796,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
 
         const updateQuery = `
             UPDATE ${prefix}transactions
-            SET customer_name = ?, user_name = ?, payment_method = ?, amount = ?, currency = ?, change = ?, take_out = ?, employer_share = ?, fidelity_points = ?, device_id = ?, hash = ?, updated_at = ?
+            SET customer_name = ?, user_name = ?, payment_method = ?, amount = ?, currency = ?, change = ?, take_out = ?, employer_share = ?, fidelity_points = ?, device_id = ?, payments = ?, hash = ?, updated_at = ?
             WHERE id = ?
         `;
         await connection.execute(updateQuery, [
@@ -803,6 +810,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
             transaction.employer_share ?? null,
             transaction.fidelity_points ?? null,
             transaction.device_id ?? null,
+            encodePaymentLegs(transaction.payments ?? []) ?? null,
             hash,
             transaction.updated_at,
             transactionId,

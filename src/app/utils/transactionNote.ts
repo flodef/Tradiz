@@ -1,3 +1,5 @@
+import { PaymentLeg } from './interfaces';
+
 export interface CashNote {
     cashAmount?: number;
     change?: number;
@@ -28,4 +30,27 @@ export function parseCashNote(note?: string | null): CashNote {
         // Not a cash-note JSON payload (e.g. a plain-text legacy note) — ignore.
     }
     return {};
+}
+
+// Multi-payment legs are persisted as a JSON array in the `payments` TEXT
+// column. This follows the same pattern as encodeCashNote/parseCashNote.
+export function encodePaymentLegs(legs: PaymentLeg[]): string | null {
+    if (!legs || legs.length === 0) return null;
+    return JSON.stringify(legs);
+}
+
+export function parsePaymentLegs(json?: string | null): PaymentLeg[] | undefined {
+    if (!json) return undefined;
+    try {
+        const parsed = JSON.parse(json);
+        if (
+            Array.isArray(parsed) &&
+            parsed.every((l) => l && typeof l.method === 'string' && typeof l.amount === 'number')
+        ) {
+            return parsed as PaymentLeg[];
+        }
+    } catch {
+        // Not a payment-legs JSON payload — ignore.
+    }
+    return undefined;
 }

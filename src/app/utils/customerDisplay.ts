@@ -147,6 +147,20 @@ export function buildPaymentDisplay(paymentType: string, total: number, currency
     };
 }
 
+// Multi-payment display: shows "Paiement multiple" on line1, remaining balance on line2.
+export function buildMultiPaymentDisplay(
+    paidAmount: number,
+    total: number,
+    currency: Currency
+): CustomerDisplayPayload {
+    const remaining = Math.max(0, total - paidAmount);
+    const remainingStr = formatAmount(remaining, currency);
+    return {
+        line1: stripAccents(padLine('Paiement multiple')),
+        line2: stripAccents(formatLine('RESTE A PAYER', remainingStr)),
+    };
+}
+
 // The change owed must stay on the screen until the next transaction starts, otherwise it is
 // wiped as soon as the cashier acknowledges the change popup.
 let changeDisplayHeld = false;

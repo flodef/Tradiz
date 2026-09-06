@@ -6,7 +6,7 @@ import {
 } from '@/app/contexts/dataProvider/transactionHelpers';
 import { DEFAULT_USER, DEFAULT_VAT_RATE } from '@/app/utils/constants';
 import { Transaction } from '@/app/utils/interfaces';
-import { parseCashNote } from '@/app/utils/transactionNote';
+import { parseCashNote, parsePaymentLegs } from '@/app/utils/transactionNote';
 import { toSQLDateTime } from '@/app/utils/date';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
@@ -22,6 +22,7 @@ interface TransactionRow {
     amount: number;
     currency: string;
     change: string;
+    payments: string | null;
     take_out: boolean;
     employer_share?: number | null;
     deviceid?: string | null;
@@ -120,6 +121,7 @@ export async function GET(request: Request) {
                 t.amount,
                 t.currency,
                 t.change,
+                t.payments,
                 t.take_out,
                 t.employer_share,
                 t.device_id as deviceid,
@@ -140,13 +142,14 @@ export async function GET(request: Request) {
                 t.amount,
                 t.currency,
                 t.change,
+                t.payments,
                 t.take_out,
                 t.employer_share,
                 t.device_id as deviceId,
                 (UNIX_TIMESTAMP(t.created_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as createdDate,
                 (UNIX_TIMESTAMP(t.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate
             FROM transactions t
-            LEFT JOIN \`DC\`.orders o ON o.id = t.order_id
+            LEFT JOIN DC.orders o ON o.id = t.order_id
             WHERE ${whereClause}
             ORDER BY t.created_at DESC${paginationClause}
         `;
@@ -218,6 +221,10 @@ export async function GET(request: Request) {
                 ...(row.take_out ? { takeOut: true } : { takeOut: false }),
                 ...(row.employer_share != null ? { employerShare: Number(row.employer_share) } : {}),
                 ...((row.deviceid ?? row.deviceId) ? { deviceId: String(row.deviceid ?? row.deviceId) } : {}),
+                ...(() => {
+                    const legs = parsePaymentLegs(row.payments);
+                    return legs ? { payments: legs } : {};
+                })(),
             });
         }
 

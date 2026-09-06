@@ -45,6 +45,8 @@ export const CANCELLED_KEYWORD = 'ANNULÉE';
 export const EXPUNGED_KEYWORD = 'SUPPRIMÉE';
 export const PROVISION_KEYWORD = 'PROVISION';
 export const DEBIT_KEYWORD = 'DEBIT';
+export const MULTI_KEYWORD = 'MULTIPLE';
+export const CASH_KEYWORD = 'Espèces';
 
 // Publisher identity for the NF525 self-attestation (BOI-LETTRE-000242, volet 1).
 // The deployer must customize these before building if they are the publisher.
@@ -67,6 +69,7 @@ export const INTERNAL_PAYMENT_METHODS = [
     DELETED_KEYWORD,
     CANCELLED_KEYWORD,
     EXPUNGED_KEYWORD,
+    MULTI_KEYWORD,
 ];
 
 // Cashier actions offered alongside payment methods that are not a payment taken from the

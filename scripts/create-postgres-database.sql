@@ -361,6 +361,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.transactions (
     employer_share NUMERIC(10,2) DEFAULT NULL,
     fidelity_points NUMERIC(10,2) DEFAULT NULL,
     device_id VARCHAR(255) DEFAULT NULL,
+    payments TEXT DEFAULT NULL,
     hash VARCHAR(64) UNIQUE,
     previous_hash VARCHAR(64),
     created_at TIMESTAMP NOT NULL,

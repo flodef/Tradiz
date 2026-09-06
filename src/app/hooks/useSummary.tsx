@@ -9,9 +9,10 @@ import {
     isRemovedTransaction,
     isWaitingTransaction,
 } from '../contexts/dataProvider/transactionHelpers';
-import { ARROW, BACK_KEYWORD, DEBIT_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
+import { ARROW, BACK_KEYWORD, DEBIT_KEYWORD, MULTI_KEYWORD, PRINT_KEYWORD, SEPARATOR } from '../utils/constants';
 import { formatFrenchDate, getFormattedDate } from '../utils/date';
 import { Currency, DataElement, InventoryItem, SyncAction, Transaction } from '../utils/interfaces';
+import { getPaymentBreakdown } from '../utils/paymentBreakdown';
 import { printSummary, printTicketX } from '../utils/posPrinter';
 import { resolveCashierPrinter } from '../utils/processData';
 import { getStorageUsage, idbGetAllKeys, idbGetTransactions } from '../utils/transactionStore';
@@ -110,16 +111,35 @@ export function buildSummaryData(
 
     for (const transaction of transactions) {
         const isRefund = isRefundTransaction(transaction);
-        const payment = payments.find((p) => p.category === transaction.method);
-        if (payment) {
-            payment.quantity += isRefund ? -1 : 1;
-            payment.amount += transaction.amount;
+        const legs = getPaymentBreakdown(transaction);
+        const isMulti = transaction.method === MULTI_KEYWORD && legs.length > 1;
+
+        if (isMulti) {
+            for (const leg of legs) {
+                const payment = payments.find((p) => p.category === leg.method);
+                if (payment) {
+                    payment.quantity += isRefund ? -1 : 1;
+                    payment.amount += leg.amount;
+                } else {
+                    payments.unshift({
+                        category: leg.method,
+                        quantity: isRefund ? -1 : 1,
+                        amount: leg.amount,
+                    });
+                }
+            }
         } else {
-            payments.unshift({
-                category: transaction.method,
-                quantity: isRefund ? -1 : 1,
-                amount: transaction.amount,
-            });
+            const payment = payments.find((p) => p.category === transaction.method);
+            if (payment) {
+                payment.quantity += isRefund ? -1 : 1;
+                payment.amount += transaction.amount;
+            } else {
+                payments.unshift({
+                    category: transaction.method,
+                    quantity: isRefund ? -1 : 1,
+                    amount: transaction.amount,
+                });
+            }
         }
 
         if (transaction.method?.toUpperCase() === DEBIT_KEYWORD) {
@@ -431,17 +451,36 @@ export const useSummary = () => {
 
         transactions.forEach((transaction) => {
             const isRefund = isRefundTransaction(transaction);
-            // Include provision transactions in payments (they have no products but still have a payment method)
-            const payment = payments.find((payment) => payment.category === transaction.method);
-            if (payment) {
-                payment.quantity += isRefund ? -1 : 1;
-                payment.amount += transaction.amount;
+            const legs = getPaymentBreakdown(transaction);
+            const isMulti = transaction.method === MULTI_KEYWORD && legs.length > 1;
+
+            if (isMulti) {
+                for (const leg of legs) {
+                    const payment = payments.find((payment) => payment.category === leg.method);
+                    if (payment) {
+                        payment.quantity += isRefund ? -1 : 1;
+                        payment.amount += leg.amount;
+                    } else {
+                        payments.unshift({
+                            category: leg.method,
+                            quantity: isRefund ? -1 : 1,
+                            amount: leg.amount,
+                        });
+                    }
+                }
             } else {
-                payments.unshift({
-                    category: transaction.method,
-                    quantity: isRefund ? -1 : 1,
-                    amount: transaction.amount,
-                });
+                // Include provision transactions in payments (they have no products but still have a payment method)
+                const payment = payments.find((payment) => payment.category === transaction.method);
+                if (payment) {
+                    payment.quantity += isRefund ? -1 : 1;
+                    payment.amount += transaction.amount;
+                } else {
+                    payments.unshift({
+                        category: transaction.method,
+                        quantity: isRefund ? -1 : 1,
+                        amount: transaction.amount,
+                    });
+                }
             }
 
             // Track DEBIT payments (Crédits Clients Accordés)

@@ -218,6 +218,14 @@ export type Product = DataElement & {
     employerShare?: number;
 };
 
+export type PaymentLeg = {
+    method: string;
+    amount: number;
+    cashReceived?: number;
+    changeGiven?: number;
+    label?: string;
+};
+
 export type Transaction = {
     validator: string;
     method: string;
@@ -236,6 +244,7 @@ export type Transaction = {
     employerShare?: number;
     fidelityPointsUsed?: number;
     deviceId?: string;
+    payments?: PaymentLeg[];
 };
 
 export type TransactionSet = {
