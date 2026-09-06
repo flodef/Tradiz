@@ -15,6 +15,7 @@ interface ArchiveTransaction {
     payment_method: string;
     amount: number;
     currency: string;
+    payments: string | null;
     hash: string | null;
     previous_hash: string | null;
     created_at: string;
@@ -67,8 +68,8 @@ export async function GET(request: Request) {
 
         // Fetch transactions in date range
         const txQuery = isPg
-            ? `SELECT id, order_id, customer_name, user_name, payment_method, amount, currency, hash, previous_hash, created_at, updated_at FROM ${prefix}transactions WHERE created_at >= $1 AND created_at <= $2 ORDER BY id ASC`
-            : `SELECT id, order_id, customer_name, user_name, payment_method, amount, currency, hash, previous_hash, created_at, updated_at FROM ${prefix}transactions WHERE created_at >= ? AND created_at <= ? ORDER BY id ASC`;
+            ? `SELECT id, order_id, customer_name, user_name, payment_method, amount, currency, payments, hash, previous_hash, created_at, updated_at FROM ${prefix}transactions WHERE created_at >= $1 AND created_at <= $2 ORDER BY id ASC`
+            : `SELECT id, order_id, customer_name, user_name, payment_method, amount, currency, payments, hash, previous_hash, created_at, updated_at FROM ${prefix}transactions WHERE created_at >= ? AND created_at <= ? ORDER BY id ASC`;
         const [txRows] = await connection.execute(txQuery, [startDate, endDate]);
         const transactions = txRows as ArchiveTransaction[];
 

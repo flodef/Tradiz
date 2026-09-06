@@ -39,4 +39,41 @@ describe('computeTransactionHash — regression tests', () => {
         const tx = { ...baseTx, updated_at: '2026-05-16 12:00:00', note: '' };
         expect(generateTransactionHash(tx, 42, 'prev')).toBe(computeTransactionHash(tx, 42, 'prev'));
     });
+
+    it('hash is unchanged when payments is absent or empty (legacy compat)', () => {
+        const hashNoPayments = computeTransactionHash(baseTx, 1);
+        const hashEmptyPayments = computeTransactionHash({ ...baseTx, payments: [] }, 1);
+        expect(hashEmptyPayments).toBe(hashNoPayments);
+    });
+
+    it('hash changes when payments legs are present', () => {
+        const hashNoPayments = computeTransactionHash(baseTx, 1);
+        const hashWithPayments = computeTransactionHash(
+            {
+                ...baseTx,
+                payment_method: 'MULTIPLE',
+                payments: [
+                    { method: 'Espèces', amount: 5 },
+                    { method: 'Carte Bancaire', amount: 5.5 },
+                ],
+            },
+            1
+        );
+        expect(hashWithPayments).not.toBe(hashNoPayments);
+    });
+
+    it('hash with payments is deterministic (pins the format)', () => {
+        const hash = computeTransactionHash(
+            {
+                ...baseTx,
+                payment_method: 'MULTIPLE',
+                payments: [
+                    { method: 'Espèces', amount: 5 },
+                    { method: 'Carte Bancaire', amount: 5.5 },
+                ],
+            },
+            1
+        );
+        expect(hash).toBe('bf9008adfdcc3723eb1972b75b7e57ea0ed2ddcbe258ea65b4b3f523b7a61cc3');
+    });
 });
