@@ -9,7 +9,7 @@
  */
 import 'dotenv/config';
 import { Pool } from 'pg';
-import { computeTransactionHash } from '../src/app/utils/transactionHash';
+import { computeTransactionHash, type TransactionItemHashInput } from '../src/app/utils/transactionHash';
 
 const colors = {
     red: '\x1b[31m',
@@ -46,8 +46,23 @@ interface IntegrityIssue {
     computed_hash: string;
 }
 
-function recomputeHash(transactionId: number | string, tx: TransactionRow, previousHash: string | null): string {
-    return computeTransactionHash(tx, transactionId, previousHash);
+interface TransactionItemRow {
+    transaction_id: number;
+    label: string;
+    quantity: number | string;
+    amount: number | string;
+    total: number | string;
+    vat_rate: number | null;
+    discount_amount: number | string | null;
+}
+
+function recomputeHash(
+    transactionId: number | string,
+    tx: TransactionRow,
+    previousHash: string | null,
+    items?: TransactionItemHashInput[]
+): string {
+    return computeTransactionHash({ ...tx, items }, transactionId, previousHash);
 }
 
 async function main() {
@@ -88,6 +103,29 @@ async function main() {
             return;
         }
 
+        // Fetch all transaction items for hash computation (must match
+        // the rechain script's item loading exactly).
+        const itemsByTransaction = new Map<number, TransactionItemHashInput[]>();
+        const txIds = transactions.map((t) => t.id);
+        const { rows: itemRows } = await client.query(
+            'SELECT transaction_id, label, quantity, amount, total, vat_rate, discount_amount ' +
+                'FROM transaction_items WHERE transaction_id = ANY($1::int[]) ORDER BY transaction_id, id',
+            [txIds]
+        );
+        for (const row of itemRows as TransactionItemRow[]) {
+            const list = itemsByTransaction.get(row.transaction_id) || [];
+            list.push({
+                label: row.label,
+                quantity: Number(row.quantity),
+                amount: row.amount,
+                total: row.total,
+                vat_rate: row.vat_rate ?? undefined,
+                discount_amount: row.discount_amount ?? undefined,
+            });
+            itemsByTransaction.set(row.transaction_id, list);
+        }
+        log(`📊 Fetched ${itemRows.length} line item(s) for ${itemsByTransaction.size} transaction(s)`, 'blue');
+
         const issues: IntegrityIssue[] = [];
         let expectedPreviousHash: string | null = null;
         let verifiedCount = 0;
@@ -110,7 +148,8 @@ async function main() {
             }
 
             // Recompute hash and compare
-            const computedHash = recomputeHash(tx.id, tx, tx.previous_hash);
+            const items = itemsByTransaction.get(tx.id);
+            const computedHash = recomputeHash(tx.id, tx, tx.previous_hash, items);
             if (tx.hash !== computedHash) {
                 hashMismatches++;
                 issues.push({
@@ -163,6 +202,19 @@ async function main() {
                 log(`  device_id:     "${tx.device_id ?? 'null'}"`, 'dim');
                 log(`  stored hash:   ${tx.hash}`, 'dim');
                 log(`  computed hash: ${firstMismatch.computed_hash}`, 'dim');
+                const items = itemsByTransaction.get(tx.id);
+                if (items && items.length > 0) {
+                    log(`  items:         ${items.length} line item(s)`, 'dim');
+                    for (const item of items.slice(0, 3)) {
+                        log(
+                            `    - ${item.label} qty=${item.quantity} amt=${item.amount} vat=${item.vat_rate ?? 'null'}`,
+                            'dim'
+                        );
+                    }
+                    if (items.length > 3) log(`    ... and ${items.length - 3} more`, 'dim');
+                } else {
+                    log(`  items:         (none)`, 'dim');
+                }
                 const hashInput = [
                     tx.previous_hash || '',
                     tx.id,
