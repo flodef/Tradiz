@@ -11,6 +11,8 @@ interface AttestationViewerProps {
     signed: boolean;
     /** Called after a successful upload to refresh the parent's status. */
     onStatusChange?: (signed: boolean) => void;
+    /** The name of the current operator, used for audit events. */
+    userName?: string;
 }
 
 /**
@@ -22,7 +24,7 @@ interface AttestationViewerProps {
  * Provides print, upload (when unsigned), and delete (when signed) buttons
  * in the popup header, following the same pattern as DirectoryListReport.
  */
-export const AttestationViewer: FC<AttestationViewerProps> = ({ signed, onStatusChange }) => {
+export const AttestationViewer: FC<AttestationViewerProps> = ({ signed, onStatusChange, userName }) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isReady, setIsReady] = useState(false);
@@ -53,6 +55,7 @@ export const AttestationViewer: FC<AttestationViewerProps> = ({ signed, onStatus
             try {
                 const formData = new FormData();
                 formData.append('file', file);
+                if (userName) formData.append('changedBy', userName);
                 const res = await fetch('/api/sql/attestation', { method: 'POST', body: formData });
                 if (!res.ok) throw new Error('Upload failed');
                 onStatusChange?.(true);
@@ -63,19 +66,22 @@ export const AttestationViewer: FC<AttestationViewerProps> = ({ signed, onStatus
                 setIsUploading(false);
             }
         },
-        [onStatusChange, closePopup]
+        [onStatusChange, closePopup, userName]
     );
 
     const handleDelete = useCallback(async () => {
         try {
-            const res = await fetch('/api/sql/attestation', { method: 'DELETE' });
+            const deleteUrl = userName
+                ? `/api/sql/attestation?changedBy=${encodeURIComponent(userName)}`
+                : '/api/sql/attestation';
+            const res = await fetch(deleteUrl, { method: 'DELETE' });
             if (!res.ok) throw new Error('Delete failed');
             onStatusChange?.(false);
             closePopup();
         } catch {
             setUploadError('Échec de la suppression');
         }
-    }, [onStatusChange, closePopup]);
+    }, [onStatusChange, closePopup, userName]);
 
     useEffect(() => {
         if (!setPopupHeaderExtra) return;
@@ -159,9 +165,7 @@ export const AttestationViewer: FC<AttestationViewerProps> = ({ signed, onStatus
 
     return (
         <div className="flex flex-col items-stretch w-full max-w-6xl mx-auto p-4">
-            {uploadError && (
-                <div className="mb-3 p-2 bg-red-100 text-red-700 rounded text-sm">{uploadError}</div>
-            )}
+            {uploadError && <div className="mb-3 p-2 bg-red-100 text-red-700 rounded text-sm">{uploadError}</div>}
             <div className="bg-white rounded-lg p-4 shadow-md">
                 <iframe
                     ref={iframeRef}
@@ -174,8 +178,8 @@ export const AttestationViewer: FC<AttestationViewerProps> = ({ signed, onStatus
             </div>
             {!signed && (
                 <p className="mt-3 text-sm text-gray-600 dark:text-gray-400 text-center">
-                    Ce document est généré sans signatures. Imprimez-le, signez-le, puis importez la
-                    version signée pour valider l’attestation.
+                    Ce document est généré sans signatures. Imprimez-le, signez-le, puis importez la version signée pour
+                    valider l’attestation.
                 </p>
             )}
         </div>

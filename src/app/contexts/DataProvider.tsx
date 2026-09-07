@@ -39,6 +39,7 @@ import {
 } from '../utils/transactionStore';
 import { checkDbConfig, getPublicKey } from '../utils/processData';
 import { encodeCashNote, encodePaymentLegs } from '../utils/transactionNote';
+import { computeSoldQuantities, computeCartQuantities, deriveEffectiveStock, stockKey } from '../utils/stock';
 import { mergeTransactionArrays } from './dataProvider/syncUtils';
 import {
     isCancelledTransaction,
@@ -129,35 +130,41 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [setIsCashClosed]
     );
 
-    // ── Current stock tracking (daily reset) ──
-    // Stores runtime stock per product key "category|label", persisted in localStorage
-    // with a date key so it naturally resets each day.
-    const stockDateKey = `currentStock_${new Date().toISOString().slice(0, 10)}`;
-    const [currentStock, setCurrentStock] = useLocalStorage<Record<string, number>>(stockDateKey, {});
+    // ── Stock tracking (derived from transactions + live cart) ──
+    // Effective stock is derived from: configured stock minus sold quantities
+    // (from today's committed transactions) minus the current cart. This
+    // replaces the old localStorage-based decrement model which double-decremented
+    // on page refresh, transaction edit, and counter-order restore, and never
+    // restored stock on deletion.
+    //
+    // A cartVersion counter is bumped on every cart mutation so the memo
+    // recomputes immediately rather than waiting for the debounced save.
+    const [cartVersion, setCartVersion] = useState(0);
+    const bumpCartVersion = useCallback(() => setCartVersion((v) => v + 1), []);
 
-    const stockKey = useCallback((category: string, label: string) => `${category}|${label}`, []);
+    const soldQuantities = useMemo(
+        // getPublicKey() accesses localStorage, which is unavailable during SSR.
+        // On the server, pass undefined so all transactions are counted as sold
+        // (no device exclusion). On the client, the real device ID is used.
+        () => computeSoldQuantities(transactions, typeof window !== 'undefined' ? getPublicKey() : undefined),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [transactions, cartVersion]
+    );
+
+    const cartQuantities = useMemo(() => {
+        // cartVersion is read here to trigger recompute on every cart mutation.
+        // products.current is a ref, so without this dependency the memo would
+        // return stale quantities.
+        void cartVersion;
+        return computeCartQuantities(products.current);
+    }, [cartVersion]);
 
     const getEffectiveStock = useCallback(
         (category: string, label: string, configStock: number | null): number | null => {
-            if (configStock === null) return null; // unlimited
             const key = stockKey(category, label);
-            if (currentStock[key] !== undefined) return currentStock[key];
-            return configStock; // not yet tracked → use configured stock
+            return deriveEffectiveStock(configStock, soldQuantities.get(key) ?? 0, cartQuantities.get(key) ?? 0);
         },
-        [currentStock, stockKey]
-    );
-
-    const decrementStock = useCallback(
-        (category: string, label: string, configStock: number | null) => {
-            if (configStock === null || configStock <= 0) return; // unlimited or manually unavailable
-            const key = stockKey(category, label);
-            setCurrentStock((prev: Record<string, number>) => {
-                const current = prev[key] !== undefined ? prev[key] : configStock;
-                if (current <= 0) return prev; // already exhausted
-                return { ...prev, [key]: current - 1 };
-            });
-        },
-        [stockKey, setCurrentStock]
+        [soldQuantities, cartQuantities]
     );
     // Set to true by clearTotal to prevent the product-restore effect from re-adding
     // stale items from PROCESSING transactions when transactions load asynchronously.
@@ -168,6 +175,16 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // Snapshot of the original products when editing a WAITING tx, used to compute the delta
     // (added/removed products) for the kitchen ticket when the tx is put back in WAITING or paid.
     const originalProductsSnapshotRef = useRef<Product[]>([]);
+    // One-time cleanup: remove leftover `currentStock_*` localStorage keys from
+    // the old decrement-based stock model. Runs once on mount.
+    useEffect(() => {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('currentStock_')) keysToRemove.push(key);
+        }
+        for (const key of keysToRemove) localStorage.removeItem(key);
+    }, []);
     // Set to true by editTransaction to suppress auto-save during addProduct calls
     // (editTransaction already saves the PROCESSING tx via saveTransactions).
     const suppressAutoSaveRef = useRef(false);
@@ -385,9 +402,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         nextResetTime.current = getResetTimes().next;
         // Reset cash closure state on day reset
         setCashClosed(false);
-        // Reset current stock for the new day
-        setCurrentStock({});
-    }, [getResetTimes, setCashClosed, setCurrentStock]);
+        // Stock is derived from transactions, which are filtered to the new
+        // business day on reload. No explicit stock reset is needed.
+    }, [getResetTimes, setCashClosed]);
 
     // Check if reset should happen and perform it
     const checkAndPerformDayReset = useCallback(() => {
@@ -1282,7 +1299,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         clearAmount();
         setShortNumOrder('');
         setOrderId('');
-    }, [clearAmount, clearProcessingTransaction, isCashClosedToday]);
+        bumpCartVersion();
+    }, [clearAmount, clearProcessingTransaction, isCashClosedToday, bumpCartVersion]);
 
     // Recalculate the total when the customer, companies, or categories change
     // so the employer share is re-evaluated against the current cart.
@@ -1352,11 +1370,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             if (!product.label && !product.category) return;
 
-            // Decrement current stock for numerically stocked products
-            if (product.stock != null && product.stock > 0) {
-                decrementStock(product.category, product.label, product.stock);
-            }
-
             const p = products.current.find(
                 ({ label, category, amount, options }) =>
                     label === product.label &&
@@ -1374,9 +1387,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             setSelectedProduct(p ?? product);
             setAmount(product.amount);
             setQuantity(product.amount ? -1 : 0);
+            bumpCartVersion();
             saveProcessingTransactionRef.current();
         },
-        [products, selectedProduct, computeQuantity, isCashClosedToday, decrementStock]
+        [products, selectedProduct, computeQuantity, isCashClosedToday, bumpCartVersion]
     );
 
     const deleteProduct = useCallback(
@@ -1409,6 +1423,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 clearAmount();
             }
             // Persist the updated product list (or trigger cleanup if empty)
+            bumpCartVersion();
             saveProcessingTransactionRef.current();
         },
         [
@@ -1421,6 +1436,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             setQuantity,
             updateTotal,
             isCashClosedToday,
+            bumpCartVersion,
         ]
     );
 
@@ -1818,9 +1834,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 transactionsLoaded,
                 isCashClosed: isCashClosedToday,
                 setCashClosed,
-                currentStock,
                 getEffectiveStock,
-                decrementStock,
             }}
         >
             {children}

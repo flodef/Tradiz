@@ -19,6 +19,38 @@ interface TransactionProduct {
     vat_rate?: number;
 }
 
+/**
+ * Normalize a product to the exact form that will be persisted to the
+ * `transaction_items` table. This is the single source of truth for what
+ * the hash must cover: both the INSERT parameters and the hash input are
+ * derived from this helper, so the two can never drift.
+ *
+ * - `vat_rate` defaults to DEFAULT_VAT_RATE (20) when absent, matching the
+ *   INSERT below. Previously the hash normalized missing VAT to 0 while the
+ *   INSERT stored 20, making every defaulted-VAT transaction unverifiable.
+ * - `discount_amount` defaults to 0, matching the INSERT.
+ */
+function toPersistedItem(product: TransactionProduct): TransactionItemHashInput {
+    return {
+        label: product.label,
+        quantity: product.quantity,
+        amount: product.amount,
+        total: product.total,
+        vat_rate: product.vat_rate ?? DEFAULT_VAT_RATE,
+        discount_amount: product.discount_amount ?? 0,
+    };
+}
+
+/**
+ * Map all products to their persisted form for hashing. The persisted form
+ * is what verifyIntegrity will re-read from the database, so the hash must
+ * be computed over the same values.
+ */
+function toPersistedItems(products?: TransactionProduct[]): TransactionItemHashInput[] | undefined {
+    if (!products || products.length === 0) return undefined;
+    return products.map(toPersistedItem);
+}
+
 interface TransactionData {
     order_id: string;
     customer_name?: string | null;
@@ -192,8 +224,11 @@ export function generateTransactionHash(
     transactionId?: string | number,
     previousHash?: string
 ): string {
+    // Hash over the PERSISTED form of the items (vat_rate, discount_amount
+    // normalized to their DB defaults), not the raw client payload. This
+    // matches what verifyIntegrity re-reads from the database.
     return computeTransactionHash(
-        { ...transaction, items: transaction.products, payments: transaction.payments },
+        { ...transaction, items: toPersistedItems(transaction.products), payments: transaction.payments },
         transactionId,
         previousHash
     );

@@ -8,11 +8,37 @@ import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
-const ATTESTATION_FILENAME = 'attestation_nf525.pdf';
+const ATTESTATION_FILENAME_PREFIX = 'attestation_nf525';
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
+const PDF_MAGIC = Buffer.from('%PDF-', 'utf8');
 
-function getAttestationPath(): string {
-    const userDataPath = process.env.USERDATA_PATH || process.cwd();
-    return path.join(userDataPath, ATTESTATION_FILENAME);
+/**
+ * Sanitize a shopId for use in a filename. Only allow [a-z0-9_-]; everything
+ * else is replaced with '_'. This prevents path traversal via the shopId
+ * (which comes from the request host).
+ */
+export function sanitizeShopId(shopId: string): string {
+    const sanitized = shopId.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+    return sanitized || 'default';
+}
+
+/**
+ * Resolve a writable base directory for attestation storage.
+ *
+ * - Electron: uses USERDATA_PATH (set by electron/main.js), falling back to cwd.
+ * - Vercel: uses /tmp (the only writable directory on Vercel serverless).
+ * - Other: uses process.cwd() as a last resort.
+ */
+function getAttestationDir(): string {
+    if (process.env.USERDATA_PATH) return process.env.USERDATA_PATH;
+    if (process.env.VERCEL) return '/tmp';
+    return process.cwd();
+}
+
+function getAttestationPath(shopId: string): string {
+    const dir = getAttestationDir();
+    const safeShopId = sanitizeShopId(shopId);
+    return path.join(dir, `${ATTESTATION_FILENAME_PREFIX}_${safeShopId}.pdf`);
 }
 
 async function fetchShopData(connection: DbConnection): Promise<AttestationShopData> {
@@ -48,20 +74,32 @@ export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
     const url = new URL(request.url);
     const action = url.searchParams.get('action');
-    const attestationPath = getAttestationPath();
+    const attestationPath = getAttestationPath(shopId);
 
     if (action === 'view') {
-        if (!fs.existsSync(attestationPath)) {
-            return NextResponse.json({ error: 'No signed attestation found' }, { status: 404 });
+        try {
+            if (!fs.existsSync(attestationPath)) {
+                return NextResponse.json({ error: 'No signed attestation found' }, { status: 404 });
+            }
+            const fileBuffer = fs.readFileSync(attestationPath);
+            return new NextResponse(fileBuffer, {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/pdf',
+                    'Content-Disposition': `inline; filename="attestation_nf525.pdf"`,
+                },
+            });
+        } catch (error) {
+            const code = (error as NodeJS.ErrnoException).code;
+            if (code === 'EROFS' || code === 'EACCES') {
+                return NextResponse.json(
+                    { error: 'Attestation storage is not available in this environment' },
+                    { status: 503 }
+                );
+            }
+            console.error('Error reading attestation:', error);
+            return NextResponse.json({ error: 'Failed to read attestation' }, { status: 500 });
         }
-        const fileBuffer = fs.readFileSync(attestationPath);
-        return new NextResponse(fileBuffer, {
-            status: 200,
-            headers: {
-                'Content-Type': 'application/pdf',
-                'Content-Disposition': 'inline; filename="attestation_nf525.pdf"',
-            },
-        });
     }
 
     if (action === 'generate') {
@@ -86,23 +124,34 @@ export async function GET(request: Request) {
     }
 
     // Default: return status
-    const exists = fs.existsSync(attestationPath);
-    let generatedAt: string | null = null;
-    if (exists) {
-        try {
-            const stat = fs.statSync(attestationPath);
-            generatedAt = stat.mtime.toISOString();
-        } catch {
-            generatedAt = null;
+    try {
+        const exists = fs.existsSync(attestationPath);
+        let generatedAt: string | null = null;
+        if (exists) {
+            try {
+                const stat = fs.statSync(attestationPath);
+                generatedAt = stat.mtime.toISOString();
+            } catch {
+                generatedAt = null;
+            }
         }
+        return NextResponse.json({ signed: exists, generatedAt });
+    } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === 'EROFS' || code === 'EACCES') {
+            return NextResponse.json({ signed: false, generatedAt: null });
+        }
+        console.error('Error checking attestation status:', error);
+        return NextResponse.json({ error: 'Failed to check attestation status' }, { status: 500 });
     }
-    return NextResponse.json({ signed: exists, generatedAt });
 }
 
 /**
  * POST — accepts a signed PDF upload and saves it.
  *
- * Expects multipart/form-data with a "file" field containing the PDF.
+ * Expects multipart/form-data with:
+ * - "file": the PDF file
+ * - "changedBy" (optional): the name of the operator performing the upload
  */
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
@@ -113,22 +162,47 @@ export async function POST(request: Request) {
         if (!file || !(file instanceof File)) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
         }
-        if (file.type !== 'application/pdf') {
-            return NextResponse.json({ error: 'File must be a PDF' }, { status: 400 });
+
+        // Size validation
+        if (file.size > MAX_UPLOAD_BYTES) {
+            return NextResponse.json(
+                { error: `File too large (max ${MAX_UPLOAD_BYTES / 1024 / 1024} MB)` },
+                { status: 413 }
+            );
         }
 
         const fileBuffer = Buffer.from(await file.arrayBuffer());
-        const attestationPath = getAttestationPath();
-        fs.writeFileSync(attestationPath, fileBuffer);
 
-        // Log audit event
+        // Magic-bytes validation: verify the file starts with %PDF-
+        // Don't trust the client-supplied MIME type alone.
+        if (fileBuffer.length < 5 || !fileBuffer.subarray(0, 5).equals(PDF_MAGIC)) {
+            return NextResponse.json({ error: 'File is not a valid PDF' }, { status: 400 });
+        }
+
+        const operatorName = (formData.get('changedBy') as string) || 'admin';
+        const attestationPath = getAttestationPath(shopId);
+
+        try {
+            fs.writeFileSync(attestationPath, fileBuffer);
+        } catch (error) {
+            const code = (error as NodeJS.ErrnoException).code;
+            if (code === 'EROFS' || code === 'EACCES') {
+                return NextResponse.json(
+                    { error: 'Attestation storage is not writable in this environment' },
+                    { status: 503 }
+                );
+            }
+            throw error;
+        }
+
+        // Log audit event with the actual operator name
         connection = await getPosDb(shopId);
         await insertAuditEvent(connection, {
             event_type: 'attestation_signed',
             entity_type: 'attestation',
             entity_id: 'nf525',
-            user_name: 'admin',
-            detail: `Signed attestation PDF uploaded (${fileBuffer.length} bytes)`,
+            user_name: operatorName,
+            detail: `Signed attestation PDF uploaded (${fileBuffer.length} bytes) for shop ${shopId || 'default'}`,
         });
 
         return NextResponse.json({ success: true });
@@ -142,24 +216,40 @@ export async function POST(request: Request) {
 
 /**
  * DELETE — removes the signed attestation PDF (for re-signing after a version change).
+ *
+ * Accepts an optional `changedBy` query parameter for the operator name.
  */
 export async function DELETE(request: Request) {
     const shopId = getShopIdFromRequest(request);
     let connection: DbConnection | undefined;
     try {
-        const attestationPath = getAttestationPath();
-        if (fs.existsSync(attestationPath)) {
-            fs.unlinkSync(attestationPath);
+        const url = new URL(request.url);
+        const operatorName = url.searchParams.get('changedBy') || 'admin';
+        const attestationPath = getAttestationPath(shopId);
+
+        try {
+            if (fs.existsSync(attestationPath)) {
+                fs.unlinkSync(attestationPath);
+            }
+        } catch (error) {
+            const code = (error as NodeJS.ErrnoException).code;
+            if (code === 'EROFS' || code === 'EACCES') {
+                return NextResponse.json(
+                    { error: 'Attestation storage is not writable in this environment' },
+                    { status: 503 }
+                );
+            }
+            throw error;
         }
 
-        // Log audit event
+        // Log audit event with the actual operator name
         connection = await getPosDb(shopId);
         await insertAuditEvent(connection, {
             event_type: 'attestation_removed',
             entity_type: 'attestation',
             entity_id: 'nf525',
-            user_name: 'admin',
-            detail: 'Signed attestation PDF removed',
+            user_name: operatorName,
+            detail: `Signed attestation PDF removed for shop ${shopId || 'default'}`,
         });
 
         return NextResponse.json({ success: true });

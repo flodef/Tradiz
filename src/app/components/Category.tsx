@@ -271,7 +271,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
         const product = item.products.find((p) => p.label === label);
         if (product) {
             const effStock = getEffectiveStock(item.category, label, product.stock);
-            if (effStock === 0) return; // Sold out
+            if (effStock != null && effStock <= 0) return; // Sold out
         }
         const price = product?.prices[currencyIndex];
         const isNewPrice = amount && amount !== selectedProduct?.amount;
@@ -453,7 +453,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
         const sorted = [...item.products].sort((a, b) => a.label.localeCompare(b.label));
         const entries: string[] = sorted.map((p) => {
             const effStock = getEffectiveStock(item.category, p.label, p.stock);
-            const soldOut = effStock === 0;
+            const soldOut = effStock != null && effStock <= 0;
             const suffix = soldOut ? ' — Épuisé' : '';
             return p.options && useOptions && !isSingleElementFormula(p.options)
                 ? `${p.label}${ARROW}${suffix}`
@@ -474,7 +474,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
             }
             const product = sorted[index];
             const effStock = getEffectiveStock(item.category, product.label, product.stock);
-            if (effStock === 0) return; // Sold out — do nothing
+            if (effStock != null && effStock <= 0) return; // Sold out — do nothing
             if (product.options && useOptions && !isSingleElementFormula(product.options)) {
                 productListScrollRef.current = getPopupScroll();
                 openOptionsSubPopup(item, product);

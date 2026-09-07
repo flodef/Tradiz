@@ -38,9 +38,47 @@ export function encodeCaisseApMessage(msg: CaisseApMessage): string {
             if (tag.length !== 2) throw new Error(`Invalid tag length: ${tag} (must be 2 chars)`);
             if (value.length < 1 || value.length > 999)
                 throw new Error(`Invalid value length for tag ${tag}: ${value.length} (must be 1-999)`);
+            // The spec defines the length field as a byte count. The protocol
+            // is ASCII-only, so for valid values byte length === char length.
+            // Guard against non-ASCII values that would make the two diverge
+            // and corrupt the TLV frame.
+            for (let j = 0; j < value.length; j++) {
+                if (value.charCodeAt(j) > 127) {
+                    throw new Error(`Non-ASCII value for tag ${tag}: Caisse-AP requires ASCII`);
+                }
+            }
             return `${tag}${String(value.length).padStart(3, '0')}${value}`;
         })
         .join('');
+}
+
+/**
+ * Check whether a received ASCII string contains a complete TLV message.
+ *
+ * The Caisse-AP protocol is self-delimiting: each field carries a 3-digit
+ * byte length. This function walks the TLV stream and returns true if the
+ * entire string is consumed by valid TLV fields (no partial field at the
+ * end). This allows the socket handler to close immediately when the
+ * response is complete, rather than waiting for an idle timer.
+ */
+export function isCompleteTlvMessage(data: string): boolean {
+    if (!data) return false;
+    let i = 0;
+    while (i < data.length) {
+        // Need at least 2 chars for the tag
+        if (i + 2 > data.length) return false;
+        i += 2;
+        // Need at least 3 chars for the length
+        if (i + 3 > data.length) return false;
+        const size = parseInt(data.substring(i, i + 3), 10);
+        i += 3;
+        if (isNaN(size) || size < 0) return false;
+        // Need exactly `size` chars for the value
+        if (i + size > data.length) return false;
+        i += size;
+    }
+    // Complete if we consumed the entire string with no remainder
+    return i === data.length;
 }
 
 /** Decode an ASCII TLV wire string into a Caisse-AP message dict. */

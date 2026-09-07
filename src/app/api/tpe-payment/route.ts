@@ -5,6 +5,7 @@ import {
     decodeCaisseApMessage,
     buildPaymentRequest,
     parsePaymentResponse,
+    isCompleteTlvMessage,
 } from '@/app/utils/caisseAp';
 
 export const dynamic = 'force-dynamic';
@@ -31,8 +32,11 @@ export async function POST(request: Request) {
     if (!tpeIp || !tpePort) {
         return NextResponse.json({ error: 'TPE IP and port are required' }, { status: 400 });
     }
-    if (typeof amount !== 'number' || isNaN(amount)) {
-        return NextResponse.json({ error: 'Amount must be a number' }, { status: 400 });
+    // Reject non-finite, zero, or negative amounts. Previously only NaN was
+    // rejected, allowing Infinity to pass validation and be sent to the terminal
+    // as the literal string "Infinity".
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
+        return NextResponse.json({ error: 'Amount must be a positive finite number' }, { status: 400 });
     }
 
     const msg = buildPaymentRequest({
@@ -65,8 +69,13 @@ export async function POST(request: Request) {
 function sendToTpe(ip: string, port: number, message: string): Promise<string> {
     return new Promise((resolve, reject) => {
         const socket = new net.Socket();
-        const TIMEOUT_MS = 180_000; // 3 minutes, matching the Python client default
-        const IDLE_AFTER_DATA_MS = 500; // grace period after first data before closing
+        // Derive the socket timeout from maxDuration (minus a 5s margin) so the
+        // socket always times out before the platform kills the request. The
+        // previous 180s timeout was unreachable on Vercel (maxDuration=60),
+        // causing the platform to kill the request while the TPE was still
+        // processing — the POS reported failure for a payment that succeeded.
+        const TIMEOUT_MS = Math.min((maxDuration - 5) * 1000, 175_000);
+        const IDLE_AFTER_DATA_MS = 500; // grace period after data before closing
 
         let responseData = '';
         let receivedData = false;
@@ -81,9 +90,17 @@ function sendToTpe(ip: string, port: number, message: string): Promise<string> {
         socket.on('data', (data: Buffer) => {
             responseData += data.toString('ascii');
             receivedData = true;
-            // The Caisse-AP protocol has no delimiter. After the first data
-            // chunk arrives, set a short idle timer. If no more data arrives
-            // within the grace period, we assume the response is complete.
+            // The Caisse-AP protocol is self-delimiting (TLV: each field
+            // carries its own 3-digit length). Check if the response is
+            // complete by walking the TLV stream. If it is, close immediately
+            // rather than waiting for the idle timer.
+            if (isCompleteTlvMessage(responseData)) {
+                if (idleTimer) clearTimeout(idleTimer);
+                socket.end();
+                return;
+            }
+            // Fallback: if TLV completeness can't be determined (e.g. partial
+            // field), use the idle timer as before.
             if (idleTimer) clearTimeout(idleTimer);
             idleTimer = setTimeout(() => {
                 socket.end();

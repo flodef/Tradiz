@@ -4,6 +4,7 @@ import {
     decodeCaisseApMessage,
     buildPaymentRequest,
     parsePaymentResponse,
+    isCompleteTlvMessage,
 } from '@/app/utils/caisseAp';
 
 describe('encodeCaisseApMessage', () => {
@@ -138,5 +139,68 @@ describe('parsePaymentResponse', () => {
         const result = parsePaymentResponse(response);
         expect(result.success).toBe(false);
         expect(result.errorCode).toBe('11');
+    });
+});
+
+describe('encodeCaisseApMessage — ASCII guard', () => {
+    it('accepts standard ASCII values', () => {
+        expect(() => encodeCaisseApMessage({ CZ: '0300', CA: '01' })).not.toThrow();
+    });
+
+    it('rejects non-ASCII values (would corrupt the TLV byte-length field)', () => {
+        expect(() => encodeCaisseApMessage({ CZ: '0300', AA: 'café' })).toThrow('Non-ASCII');
+    });
+
+    it('rejects emoji values', () => {
+        expect(() => encodeCaisseApMessage({ CZ: '0300', AA: '☕' })).toThrow('Non-ASCII');
+    });
+});
+
+describe('isCompleteTlvMessage', () => {
+    it('returns true for a complete single-field message', () => {
+        expect(isCompleteTlvMessage('CZ0040300')).toBe(true);
+    });
+
+    it('returns true for a complete multi-field message', () => {
+        expect(isCompleteTlvMessage('CZ0040300CA00201CE003978')).toBe(true);
+    });
+
+    it('returns false for a partial tag (1 char remaining)', () => {
+        expect(isCompleteTlvMessage('CZ0040300C')).toBe(false);
+    });
+
+    it('returns false for a partial length (2 chars remaining)', () => {
+        expect(isCompleteTlvMessage('CZ0040300CA00')).toBe(false);
+    });
+
+    it('returns false for a partial value', () => {
+        // CA declares 5 bytes but only 2 are present
+        expect(isCompleteTlvMessage('CZ0040300CA00501')).toBe(false);
+    });
+
+    it('returns false for empty string', () => {
+        expect(isCompleteTlvMessage('')).toBe(false);
+    });
+
+    it('returns false for non-numeric length', () => {
+        expect(isCompleteTlvMessage('CZ00X0300')).toBe(false);
+    });
+
+    it('returns true for a message with a zero-length value', () => {
+        // A zero-length value is valid TLV (empty string value)
+        expect(isCompleteTlvMessage('CA000')).toBe(true);
+    });
+
+    it('handles a large complete message correctly', () => {
+        const longValue = 'A'.repeat(120);
+        const encoded = encodeCaisseApMessage({ CZ: '0300', AA: longValue });
+        expect(isCompleteTlvMessage(encoded)).toBe(true);
+    });
+
+    it('returns false for a truncated large message', () => {
+        const longValue = 'A'.repeat(120);
+        const encoded = encodeCaisseApMessage({ CZ: '0300', AA: longValue });
+        // Remove last char to simulate truncation
+        expect(isCompleteTlvMessage(encoded.slice(0, -1))).toBe(false);
     });
 });

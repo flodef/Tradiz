@@ -226,6 +226,7 @@ export default function ParametersConfig({
                 <AttestationViewer
                     key="attestationViewer"
                     signed={isSigned}
+                    userName={config.user?.name}
                     onStatusChange={(newSigned) => {
                         setAttestationStatus(newSigned ? 'signed' : 'unsigned');
                     }}
