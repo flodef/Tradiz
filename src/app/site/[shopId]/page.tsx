@@ -42,6 +42,8 @@ export default function SitePage() {
     const [contactSending, setContactSending] = useState(false);
     const [contactSent, setContactSent] = useState(false);
     const [contactError, setContactError] = useState(false);
+    const [contactCooldown, setContactCooldown] = useState(0);
+    const [honeypot, setHoneypot] = useState('');
     const [mapModalOpen, setMapModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchFocused, setSearchFocused] = useState(false);
@@ -72,6 +74,13 @@ export default function SitePage() {
             /* ignore */
         }
     }, []);
+
+    // Cooldown timer for contact form anti-spam
+    useEffect(() => {
+        if (contactCooldown <= 0) return;
+        const timer = setTimeout(() => setContactCooldown((c) => c - 1), 1000);
+        return () => clearTimeout(timer);
+    }, [contactCooldown]);
 
     const saveRecentSearch = useCallback((query: string) => {
         const q = query.trim();
@@ -154,6 +163,10 @@ export default function SitePage() {
         async (e: React.FormEvent) => {
             e.preventDefault();
             if (!shopEmail) return;
+            // Honeypot: bots fill hidden fields, humans don't
+            if (honeypot) return;
+            // Cooldown: prevent spamming
+            if (contactCooldown > 0) return;
             setContactSending(true);
             setContactError(false);
             try {
@@ -167,6 +180,8 @@ export default function SitePage() {
                 if (success) {
                     setContactSent(true);
                     setContactForm({ name: '', email: '', subject: '', message: '' });
+                    // Start 60s cooldown
+                    setContactCooldown(60);
                 } else {
                     setContactError(true);
                 }
@@ -176,7 +191,7 @@ export default function SitePage() {
                 setContactSending(false);
             }
         },
-        [shopEmail, contactForm]
+        [shopEmail, contactForm, honeypot, contactCooldown]
     );
 
     if (loading) {
@@ -912,6 +927,17 @@ export default function SitePage() {
                             </div>
                         ) : (
                             <form onSubmit={handleContactSubmit} className="flex flex-col gap-4">
+                                {/* Honeypot: hidden field to catch bots */}
+                                <input
+                                    type="text"
+                                    name="company"
+                                    tabIndex={-1}
+                                    autoComplete="off"
+                                    value={honeypot}
+                                    onChange={(e) => setHoneypot(e.target.value)}
+                                    className="absolute opacity-0 pointer-events-none -z-10"
+                                    aria-hidden="true"
+                                />
                                 {contactError && (
                                     <div className="flex items-center gap-2 px-4 py-3 bg-red-50 text-red-700 site-dark:bg-red-950/50 site-dark:text-red-400 rounded-lg text-sm">
                                         <IconAlertCircle size={18} />
@@ -964,7 +990,7 @@ export default function SitePage() {
                                 </div>
 
                                 {/* Direct contact links */}
-                                <div className="flex flex-wrap gap-3 pt-2 border-t border-site-border">
+                                <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-site-border">
                                     {shop.phone && (
                                         <a
                                             href={`tel:${shop.phone}`}
@@ -977,7 +1003,7 @@ export default function SitePage() {
                                     {shop.email && (
                                         <a
                                             href={`mailto:${shop.email}`}
-                                            className="flex items-center gap-1.5 text-sm text-site-text-secondary hover:text-orange-600 transition-colors cursor-pointer"
+                                            className="flex items-center gap-1.5 text-sm text-site-text-secondary hover:text-orange-600 transition-colors cursor-pointer ml-auto"
                                         >
                                             <IconMail size={16} />
                                             {shop.email}
@@ -987,13 +1013,18 @@ export default function SitePage() {
 
                                 <button
                                     type="submit"
-                                    disabled={contactSending}
+                                    disabled={contactSending || contactCooldown > 0}
                                     className="flex items-center justify-center gap-2 px-6 py-2.5 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                 >
                                     {contactSending ? (
                                         <>
                                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                             Envoi en cours…
+                                        </>
+                                    ) : contactCooldown > 0 ? (
+                                        <>
+                                            <IconSend size={18} />
+                                            Réessayer dans {contactCooldown}s
                                         </>
                                     ) : (
                                         <>
