@@ -543,7 +543,7 @@ export default function SitePage() {
                             {reservationEnabled && (
                                 <button
                                     onClick={() => setMyListOpen(true)}
-                                    className="px-4 py-2 text-base font-medium text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1.5 cursor-pointer font-semibold"
+                                    className="px-4 py-2 text-base font-semibold text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1.5 cursor-pointer"
                                 >
                                     <IconShoppingBag size={18} />
                                     Ma liste
