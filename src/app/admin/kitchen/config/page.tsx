@@ -3,6 +3,7 @@
 import AdminButton from '@/app/components/admin/AdminButton';
 import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
 import ColorsConfig from '@/app/components/admin/sections/ColorsConfig';
+import CommerceConfig from '@/app/components/admin/sections/CommerceConfig';
 import CompaniesConfig from '@/app/components/admin/sections/CompaniesConfig';
 import CustomersConfig from '@/app/components/admin/sections/CustomersConfig';
 import DevicesConfig from '@/app/components/admin/sections/DevicesConfig';
@@ -32,6 +33,7 @@ import {
     User,
 } from '@/app/utils/interfaces';
 import { useIsMobile } from '@/app/utils/mobile';
+import { vatNumberRegex } from '@/app/utils/regex';
 import {
     clearLoadDataCache,
     COLORS_PER_THEME,
@@ -41,6 +43,7 @@ import {
 } from '@/app/utils/processData';
 import {
     IconBuilding,
+    IconBuildingStore,
     IconCreditCard,
     IconDeviceTablet,
     IconDiscount,
@@ -804,7 +807,12 @@ export default function SettingsPage() {
     };
 
     const handleParametersSave = async (data: Parameters) => {
-        if (!isSiretValid || !data.shop.phone?.trim() || !data.shop.vatNumber?.trim()) {
+        if (
+            !isSiretValid ||
+            !data.shop.phone?.trim() ||
+            !data.shop.vatNumber?.trim() ||
+            !vatNumberRegex.test(data.shop.vatNumber.trim())
+        ) {
             openFullscreenPopup("Veuillez corriger les erreurs avant d'enregistrer.", ['OK']);
             return;
         }
@@ -1155,6 +1163,21 @@ export default function SettingsPage() {
                 </div>
             )}
 
+            <CommerceConfig
+                config={settings}
+                onChange={setSettings}
+                onSave={handleParametersSave}
+                onCancel={handleCancel}
+                hasChanges={hasSettingsChanges}
+                isReadOnly={isReadOnly}
+                isSiretValid={isSiretValid}
+                onSiretValidation={setIsSiretValid}
+                isLoading={isSavingParameters}
+                isOpen={openSection === 'commerce'}
+                onToggle={() => setOpenSection((prev) => (prev === 'commerce' ? null : 'commerce'))}
+                icon={<IconBuildingStore size={24} />}
+            />
+
             <ParametersConfig
                 config={settings}
                 users={usersConfig}
@@ -1163,8 +1186,6 @@ export default function SettingsPage() {
                 onCancel={handleCancel}
                 hasChanges={hasSettingsChanges}
                 isReadOnly={isReadOnly}
-                isSiretValid={isSiretValid}
-                onSiretValidation={setIsSiretValid}
                 isLoading={isSavingParameters}
                 isOpen={openSection === 'parameters'}
                 onToggle={() => setOpenSection((prev) => (prev === 'parameters' ? null : 'parameters'))}
