@@ -33,7 +33,7 @@ import {
     User,
 } from '@/app/utils/interfaces';
 import { useIsMobile } from '@/app/utils/mobile';
-import { vatNumberRegex } from '@/app/utils/regex';
+import { vatNumberRegex, nafCodeRegex } from '@/app/utils/regex';
 import {
     clearLoadDataCache,
     COLORS_PER_THEME,
@@ -319,6 +319,10 @@ export default function SettingsPage() {
                     email: getParam('email', 'Email de contact'),
                     phone: getParam('phone', 'Téléphone'),
                     vatNumber: getParam('vatNumber', 'N° TVA'),
+                    naf: getParam('naf', 'NAF'),
+                    legalForm: getParam('legalForm', 'Forme juridique'),
+                    logo: getParam('logo', 'Logo'),
+                    image: getParam('shopImage', 'Image du magasin'),
                     country: 'FR',
                 },
                 thanksMessage: getParam('thanksMessage', 'Message de remerciement') || 'Merci de votre visite !',
@@ -811,7 +815,10 @@ export default function SettingsPage() {
             !isSiretValid ||
             !data.shop.phone?.trim() ||
             !data.shop.vatNumber?.trim() ||
-            !vatNumberRegex.test(data.shop.vatNumber.trim())
+            !vatNumberRegex.test(data.shop.vatNumber.trim()) ||
+            !data.shop.naf?.trim() ||
+            !nafCodeRegex.test(data.shop.naf.trim()) ||
+            !data.shop.legalForm?.trim()
         ) {
             openFullscreenPopup("Veuillez corriger les erreurs avant d'enregistrer.", ['OK']);
             return;

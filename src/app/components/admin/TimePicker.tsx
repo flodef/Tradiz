@@ -72,10 +72,12 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
                 type="button"
                 disabled={disabled}
                 onClick={() => setOpen((o) => !o)}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:border-blue-400 dark:hover:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-20 justify-center"
+                className="flex items-center gap-1.5 px-2.5 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:border-blue-400 dark:hover:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-20 justify-center cursor-pointer"
             >
                 <IconClock size={14} className="text-gray-400" />
-                <span className="tabular-nums font-medium">{selectedHour}:{selectedMinute}</span>
+                <span className="tabular-nums font-medium">
+                    {selectedHour}:{selectedMinute}
+                </span>
             </button>
 
             {open && (
@@ -97,7 +99,7 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
                                         type="button"
                                         data-value={h}
                                         onClick={() => handleHourSelect(h)}
-                                        className={`block w-full text-center py-1 text-sm tabular-nums transition-colors ${
+                                        className={`block w-full text-center py-1 text-sm tabular-nums transition-colors cursor-pointer ${
                                             h === selectedHour
                                                 ? 'bg-blue-500 text-white font-semibold'
                                                 : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30'
@@ -128,7 +130,7 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
                                         type="button"
                                         data-value={m}
                                         onClick={() => handleMinuteSelect(m)}
-                                        className={`block w-full text-center py-1 text-sm tabular-nums transition-colors ${
+                                        className={`block w-full text-center py-1 text-sm tabular-nums transition-colors cursor-pointer ${
                                             m === selectedMinute
                                                 ? 'bg-blue-500 text-white font-semibold'
                                                 : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30'

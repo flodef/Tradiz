@@ -2,7 +2,7 @@
 
 import { Parameters, OpeningHours, TimeSlot } from '@/app/contexts/ConfigProvider';
 import { adminTextStyle } from '@/app/utils/constants';
-import { frenchPhoneRegex, vatNumberRegex } from '@/app/utils/regex';
+import { frenchPhoneRegex, vatNumberRegex, nafCodeRegex } from '@/app/utils/regex';
 import { Mercurial } from '@/app/utils/interfaces';
 import AdminInput from '../AdminInput';
 import AdminButton from '../AdminButton';
@@ -305,7 +305,9 @@ export default function CommerceConfig({
 
     const isPhoneValid = config.shop.phone?.trim() !== '' && frenchPhoneRegex.test(config.shop.phone?.trim() ?? '');
     const isVatValid = config.shop.vatNumber?.trim() !== '' && vatNumberRegex.test(config.shop.vatNumber?.trim() ?? '');
-    const isFormValid = isSiretValid && isPhoneValid && isVatValid;
+    const isNafValid = config.shop.naf?.trim() !== '' && nafCodeRegex.test(config.shop.naf?.trim() ?? '');
+    const isLegalFormValid = config.shop.legalForm?.trim() !== '';
+    const isFormValid = isSiretValid && isPhoneValid && isVatValid && isNafValid && isLegalFormValid;
 
     const handleShopChange = (field: string, value: string) => {
         onChange({
@@ -416,18 +418,40 @@ export default function CommerceConfig({
                     <ValidatedInput
                         label="NAF"
                         value={String(config.shop.naf || '')}
-                        onChange={(value) => handleShopChange('naf', String(value))}
+                        onChange={(value) => handleShopChange('naf', String(value).toUpperCase())}
                         placeholder="5610C"
                         isReadOnly={isReadOnly}
                         className="flex-1 min-w-20 max-w-24"
+                        validation={(value) => {
+                            const v = String(value).trim();
+                            return v !== '' && nafCodeRegex.test(v);
+                        }}
                     />
-                    <ValidatedInput
+                    <AdminSelect
                         label="Forme juridique"
                         value={String(config.shop.legalForm || '')}
-                        onChange={(value) => handleShopChange('legalForm', String(value))}
-                        placeholder="SARL - RCS"
+                        onChange={(e) => !isReadOnly && handleShopChange('legalForm', e.target.value)}
                         isReadOnly={isReadOnly}
+                        error={!isLegalFormValid}
                         className="flex-1 min-w-32 max-w-xs"
+                        options={[
+                            { label: '— Choisir —', value: '' },
+                            { label: 'Entrepreneur individuel (EI)', value: 'EI' },
+                            { label: 'Micro-entreprise', value: 'Micro-entreprise' },
+                            { label: 'EIRL', value: 'EIRL' },
+                            { label: 'EURL', value: 'EURL' },
+                            { label: 'SARL', value: 'SARL' },
+                            { label: 'SAS', value: 'SAS' },
+                            { label: 'SASU', value: 'SASU' },
+                            { label: 'SA', value: 'SA' },
+                            { label: 'SNC', value: 'SNC' },
+                            { label: 'SCS', value: 'SCS' },
+                            { label: 'SCA', value: 'SCA' },
+                            { label: 'SCI', value: 'SCI' },
+                            { label: 'SCP', value: 'SCP' },
+                            { label: 'SCOP', value: 'SCOP' },
+                            { label: 'Association (loi 1901)', value: 'Association' },
+                        ]}
                     />
                     <div className="w-full flex flex-wrap gap-4 items-end">
                         <ValidatedInput
@@ -740,7 +764,7 @@ export default function CommerceConfig({
                                                             slots.filter((_, i) => i !== slotIdx)
                                                         )
                                                     }
-                                                    className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400"
+                                                    className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 cursor-pointer"
                                                     title="Supprimer ce créneau"
                                                 >
                                                     <IconTrash size={16} stroke={2} />
@@ -757,7 +781,7 @@ export default function CommerceConfig({
                                                 { open: '09:00', close: '18:00' },
                                             ])
                                         }
-                                        className="flex items-center gap-1 px-2 py-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                                        className="flex items-center gap-1 px-2 py-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer"
                                         title="Ajouter un créneau"
                                     >
                                         <IconPlus size={16} stroke={2} />
