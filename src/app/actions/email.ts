@@ -281,10 +281,10 @@ export async function sendContactEmail(
         html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px;">
           <p><strong>Nouveau message depuis le site web</strong></p>
-          <p><strong>De :</strong> ${fromName} &lt;${fromEmail}&gt;</p>
-          <p><strong>Sujet :</strong> ${subject}</p>
+          <p><strong>De :</strong> ${escapeHtml(fromName)} &lt;${escapeHtml(fromEmail)}&gt;</p>
+          <p><strong>Sujet :</strong> ${escapeHtml(subject)}</p>
           <hr style="border: 1px solid #eee; margin: 16px 0;" />
-          <p style="white-space: pre-wrap;">${message}</p>
+          <p style="white-space: pre-wrap;">${escapeHtml(message)}</p>
           <hr style="border: 1px solid #eee; margin: 16px 0;" />
           <p style="color: #999; font-size: 12px;">Ce message a été envoyé depuis le formulaire de contact du site web.</p>
         </div>
@@ -313,11 +313,12 @@ export async function sendReservationEmail(
     const itemListHtml = items
         .map(
             (item) =>
-                `<tr><td style="padding: 8px; border: 1px solid #ccc;">${escapeHtml(item.label)}</td><td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${item.quantity}</td><td style="padding: 8px; border: 1px solid #ccc; text-align: right;">${(item.price * item.quantity).toFixed(2)} ${currencySymbol}</td></tr>`
+                `<tr><td style="padding: 8px; border: 1px solid #ccc;">${escapeHtml(item.label)}</td><td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${item.quantity}</td><td style="padding: 8px; border: 1px solid #ccc; text-align: right;">${(item.price * item.quantity).toFixed(2)} ${escapeHtml(currencySymbol)}</td></tr>`
         )
         .join('');
 
     const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const safeShopName = escapeHtml(shopName);
 
     return await sendEmail({
         to: shopEmail,
@@ -338,11 +339,11 @@ export async function sendReservationEmail(
             ${itemListHtml}
             <tr style="background-color: #f0f0f0;">
               <td colspan="2" style="padding: 8px; border: 1px solid #ccc; text-align: right;"><strong>Total</strong></td>
-              <td style="padding: 8px; border: 1px solid #ccc; text-align: right;"><strong>${total.toFixed(2)} ${currencySymbol}</strong></td>
+              <td style="padding: 8px; border: 1px solid #ccc; text-align: right;"><strong>${total.toFixed(2)} ${escapeHtml(currencySymbol)}</strong></td>
             </tr>
           </table>
           <hr style="border: 1px solid #eee; margin: 16px 0;" />
-          <p style="color: #999; font-size: 12px;">Cette demande a été envoyée depuis le site web.</p>
+          <p style="color: #999; font-size: 12px;">Cette demande a été envoyée depuis le site web depuis ${safeShopName}.</p>
         </div>
       `,
     });

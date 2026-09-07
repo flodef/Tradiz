@@ -14,216 +14,20 @@ import {
     IconSend,
     IconAlertCircle,
     IconSearch,
-    IconSun,
-    IconMoon,
-    IconDeviceDesktop,
-    IconDeviceTablet,
-    IconDeviceMobile,
     IconShoppingBag,
 } from '@tabler/icons-react';
 import { sendContactEmail } from '@/app/actions/email';
 import MyList from './MyList';
-
-/* ───────────────────────────── Theme ───────────────────────────── */
-type ThemeMode = 'light' | 'dark' | 'system';
-
-function useTheme() {
-    const [mode, setMode] = useState<ThemeMode>('system');
-    const [resolved, setResolved] = useState<'light' | 'dark'>('light');
-    const [ready, setReady] = useState(false);
-
-    useEffect(() => {
-        const stored = localStorage.getItem('site-theme') as ThemeMode | null;
-        setMode(stored || 'system');
-        setReady(true);
-    }, []);
-
-    useEffect(() => {
-        if (mode === 'system') {
-            const mq = window.matchMedia('(prefers-color-scheme: dark)');
-            const apply = () => setResolved(mq.matches ? 'dark' : 'light');
-            apply();
-            mq.addEventListener('change', apply);
-            return () => mq.removeEventListener('change', apply);
-        } else {
-            setResolved(mode);
-        }
-    }, [mode]);
-
-    useEffect(() => {
-        if (!ready) return;
-        const root = document.documentElement;
-        if (resolved === 'dark') root.classList.add('site-dark');
-        else root.classList.remove('site-dark');
-        if (mode === 'system') localStorage.removeItem('site-theme');
-        else localStorage.setItem('site-theme', mode);
-    }, [resolved, mode, ready]);
-
-    useEffect(() => {
-        return () => {
-            document.documentElement.classList.remove('site-dark');
-        };
-    }, []);
-
-    const set = (m: ThemeMode) => setMode(m);
-    return { mode, resolved, set };
-}
-
-/* ───────────────────────────── Theme Toggle ───────────────────────────── */
-function ThemeToggle({ mode, set }: { mode: ThemeMode; set: (m: ThemeMode) => void }) {
-    const options: { value: ThemeMode; icon: typeof IconSun; label: string }[] = [
-        { value: 'light', icon: IconSun, label: 'Clair' },
-        { value: 'dark', icon: IconMoon, label: 'Sombre' },
-    ];
-    return (
-        <div className="inline-flex items-center gap-0.5 rounded-full p-0.5 bg-site-surface-hover border border-site-border shrink-0">
-            <button
-                type="button"
-                onClick={() => set('system')}
-                title="Système"
-                aria-label="Système"
-                aria-checked={mode === 'system'}
-                role="radio"
-                className={`rounded-full flex items-center justify-center transition-all p-1.5 cursor-pointer ${mode === 'system' ? 'bg-orange-500 text-white shadow-sm' : 'text-site-text-muted hover:text-site-text'}`}
-            >
-                <IconDeviceDesktop size={16} className="hidden lg:block" />
-                <IconDeviceTablet size={16} className="hidden md:block lg:hidden" />
-                <IconDeviceMobile size={16} className="block md:hidden" />
-            </button>
-            {options.map((opt) => (
-                <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => set(opt.value)}
-                    title={opt.label}
-                    aria-label={opt.label}
-                    aria-checked={mode === opt.value}
-                    role="radio"
-                    className={`rounded-full flex items-center justify-center transition-all p-1.5 cursor-pointer ${mode === opt.value ? 'bg-orange-500 text-white shadow-sm' : 'text-site-text-muted hover:text-site-text'}`}
-                >
-                    <opt.icon size={16} />
-                </button>
-            ))}
-        </div>
-    );
-}
-
-interface ShopInfo {
-    name: string;
-    address: string;
-    zipCode: string;
-    city: string;
-    phone: string;
-    email: string;
-    logo: string;
-    image: string;
-}
-
-interface CurrencyInfo {
-    label: string;
-    symbol: string;
-    maxValue: number;
-    decimals: number;
-    rate: number;
-    fee: number;
-}
-
-interface ArticleInfo {
-    label: string;
-    price: number;
-    category: string;
-    stock: number | null;
-    photo: string;
-    description: string;
-}
-
-interface TimeSlot {
-    open: string;
-    close: string;
-}
-
-type OpeningHours = Record<number, TimeSlot[]>;
-
-interface CatalogData {
-    shop: ShopInfo;
-    currencies: CurrencyInfo[];
-    articles: ArticleInfo[];
-    openingHours?: OpeningHours;
-    reservationPhone?: boolean;
-    reservationEmail?: boolean;
-}
-
-const DAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-
-function jsDayToAdminIndex(jsDay: number): number {
-    return jsDay === 0 ? 6 : jsDay - 1;
-}
-
-function timeToMinutes(time: string): number {
-    const [h, m] = time.split(':').map(Number);
-    return h * 60 + m;
-}
-
-function formatTimeDisplay(time: string): string {
-    return time;
-}
-
-function getOpenStatus(openingHours: OpeningHours | undefined) {
-    const now = new Date();
-    const jsDay = now.getDay();
-    const adminDay = jsDayToAdminIndex(jsDay);
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-    if (!openingHours)
-        return {
-            isOpen: false,
-            status: 'unknown' as const,
-            nextChange: null,
-            nextDay: 0,
-            nextType: null as 'open' | 'close' | null,
-        };
-
-    const todaySlots = openingHours[adminDay] ?? [];
-    for (const slot of todaySlots) {
-        const openMin = timeToMinutes(slot.open);
-        const closeMin = timeToMinutes(slot.close);
-        if (currentMinutes >= openMin && currentMinutes < closeMin) {
-            const minutesUntilClose = closeMin - currentMinutes;
-            return {
-                isOpen: true,
-                status: 'open' as const,
-                nextChange: slot.close,
-                nextDay: 0,
-                nextType: 'close' as const,
-                minutesUntilChange: minutesUntilClose,
-            };
-        }
-    }
-
-    for (let i = 0; i < 7; i++) {
-        const checkDay = (adminDay + i) % 7;
-        const slots = openingHours[checkDay] ?? [];
-        for (const slot of slots) {
-            const openMin = timeToMinutes(slot.open);
-            if (i === 0 && openMin <= currentMinutes) continue;
-            return {
-                isOpen: false,
-                status: 'closed' as const,
-                nextChange: slot.open,
-                nextDay: i,
-                nextType: 'open' as const,
-            };
-        }
-    }
-
-    return {
-        isOpen: false,
-        status: 'closed' as const,
-        nextChange: null,
-        nextDay: 0,
-        nextType: null as 'open' | 'close' | null,
-    };
-}
+import { useTheme, ThemeToggle } from '../theme';
+import {
+    type ArticleInfo,
+    type CatalogData,
+    DAY_NAMES,
+    jsDayToAdminIndex,
+    formatTimeDisplay,
+    getOpenStatus,
+    stockColor,
+} from '../types';
 
 export default function SitePage() {
     const [data, setData] = useState<CatalogData | null>(null);
@@ -962,13 +766,7 @@ export default function SitePage() {
                                                         {item.stock !== null && item.stock > 0 && (
                                                             <div className="mt-3 flex items-center gap-2">
                                                                 <span
-                                                                    className={`inline-flex items-center gap-1 text-xs font-medium ${
-                                                                        item.stock <= 3
-                                                                            ? 'text-red-600'
-                                                                            : item.stock <= 7
-                                                                              ? 'text-orange-600'
-                                                                              : 'text-green-600'
-                                                                    }`}
+                                                                    className={`inline-flex items-center gap-1 text-xs font-medium ${stockColor(item.stock)}`}
                                                                 >
                                                                     {item.stock} restant{item.stock > 1 ? 's' : ''}
                                                                 </span>

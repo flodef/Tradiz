@@ -2,101 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import {
-    IconToolsKitchen2,
-    IconSun,
-    IconMoon,
-    IconDeviceDesktop,
-    IconDeviceTablet,
-    IconDeviceMobile,
-    IconArrowRight,
-    IconMapPin,
-    IconAlertCircle,
-} from '@tabler/icons-react';
-
-/* ───────────────────────────── Theme ───────────────────────────── */
-type ThemeMode = 'light' | 'dark' | 'system';
-
-function useTheme() {
-    const [mode, setMode] = useState<ThemeMode>('system');
-    const [resolved, setResolved] = useState<'light' | 'dark'>('light');
-    const [ready, setReady] = useState(false);
-
-    useEffect(() => {
-        const stored = localStorage.getItem('site-theme') as ThemeMode | null;
-        setMode(stored || 'system');
-        setReady(true);
-    }, []);
-
-    useEffect(() => {
-        if (mode === 'system') {
-            const mq = window.matchMedia('(prefers-color-scheme: dark)');
-            const apply = () => setResolved(mq.matches ? 'dark' : 'light');
-            apply();
-            mq.addEventListener('change', apply);
-            return () => mq.removeEventListener('change', apply);
-        } else {
-            setResolved(mode);
-        }
-    }, [mode]);
-
-    useEffect(() => {
-        if (!ready) return;
-        const root = document.documentElement;
-        if (resolved === 'dark') root.classList.add('site-dark');
-        else root.classList.remove('site-dark');
-        if (mode === 'system') localStorage.removeItem('site-theme');
-        else localStorage.setItem('site-theme', mode);
-    }, [resolved, mode, ready]);
-
-    useEffect(() => {
-        return () => {
-            document.documentElement.classList.remove('site-dark');
-        };
-    }, []);
-
-    const set = (m: ThemeMode) => setMode(m);
-    return { mode, resolved, set };
-}
-
-/* ───────────────────────────── Theme Toggle ───────────────────────────── */
-function ThemeToggle({ mode, set }: { mode: ThemeMode; set: (m: ThemeMode) => void }) {
-    const options: { value: ThemeMode; icon: typeof IconSun; label: string }[] = [
-        { value: 'light', icon: IconSun, label: 'Clair' },
-        { value: 'dark', icon: IconMoon, label: 'Sombre' },
-    ];
-    return (
-        <div className="inline-flex items-center gap-0.5 rounded-full p-0.5 bg-site-surface-hover border border-site-border shrink-0">
-            <button
-                type="button"
-                onClick={() => set('system')}
-                title="Système"
-                aria-label="Système"
-                aria-checked={mode === 'system'}
-                role="radio"
-                className={`rounded-full flex items-center justify-center transition-all p-1.5 cursor-pointer ${mode === 'system' ? 'bg-orange-500 text-white shadow-sm' : 'text-site-text-muted hover:text-site-text'}`}
-            >
-                <IconDeviceDesktop size={16} className="hidden lg:block" />
-                <IconDeviceTablet size={16} className="hidden md:block lg:hidden" />
-                <IconDeviceMobile size={16} className="block md:hidden" />
-            </button>
-            {options.map((opt) => (
-                <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => set(opt.value)}
-                    title={opt.label}
-                    aria-label={opt.label}
-                    aria-checked={mode === opt.value}
-                    role="radio"
-                    className={`rounded-full flex items-center justify-center transition-all p-1.5 cursor-pointer ${mode === opt.value ? 'bg-orange-500 text-white shadow-sm' : 'text-site-text-muted hover:text-site-text'}`}
-                >
-                    <opt.icon size={16} />
-                </button>
-            ))}
-        </div>
-    );
-}
+import { IconToolsKitchen2, IconArrowRight, IconMapPin, IconAlertCircle } from '@tabler/icons-react';
+import { useTheme, ThemeToggle } from './theme';
 
 /* ───────────────────────────── Types ───────────────────────────── */
 interface ShopSummary {
@@ -131,33 +38,15 @@ export default function SiteLandingPage() {
         return (
             <div className="min-h-screen flex items-center justify-center bg-site-bg text-site-text">
                 <div className="flex flex-col items-center gap-6">
-                    <div className="relative flex items-center justify-center">
+                    <div className="relative flex items-center justify-center h-16">
                         <div
-                            className="absolute w-20 h-20 rounded-full bg-orange-200/40 animate-ping"
-                            style={{ animationDuration: '1.2s' }}
-                        />
-                        <div
-                            className="absolute w-16 h-16 rounded-full bg-orange-300/30 animate-bounce"
-                            style={{ animationDuration: '1.2s' }}
+                            className="absolute w-14 h-14 rounded-full bg-orange-200/50 animate-bounce"
+                            style={{ animationDuration: '1s' }}
                         />
                         <IconToolsKitchen2
-                            size={40}
+                            size={32}
                             className="text-orange-500 animate-bounce relative z-10"
-                            style={{ animationDuration: '1.2s' }}
-                        />
-                    </div>
-                    <div className="flex gap-1.5">
-                        <span
-                            className="w-2.5 h-2.5 rounded-full bg-orange-400 animate-bounce"
-                            style={{ animationDelay: '0ms', animationDuration: '0.8s' }}
-                        />
-                        <span
-                            className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-bounce"
-                            style={{ animationDelay: '150ms', animationDuration: '0.8s' }}
-                        />
-                        <span
-                            className="w-2.5 h-2.5 rounded-full bg-orange-400 animate-bounce"
-                            style={{ animationDelay: '300ms', animationDuration: '0.8s' }}
+                            style={{ animationDuration: '1s' }}
                         />
                     </div>
                     <p className="text-site-text-secondary text-lg font-medium">Chargement des magasins…</p>

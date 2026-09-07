@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
     IconX,
     IconPlus,
@@ -15,26 +15,7 @@ import {
 } from '@tabler/icons-react';
 import { useLocalStorage } from '@/app/utils/localStorage';
 import { sendReservationEmail } from '@/app/actions/email';
-
-export interface ArticleInfo {
-    label: string;
-    price: number;
-    category: string;
-    stock: number | null;
-    photo: string;
-    description: string;
-}
-
-export interface ShopInfo {
-    name: string;
-    address: string;
-    zipCode: string;
-    city: string;
-    phone: string;
-    email: string;
-    logo: string;
-    image: string;
-}
+import { type ArticleInfo, type ShopInfo, stockColor } from '../types';
 
 interface MyListEntry {
     label: string;
@@ -44,7 +25,7 @@ interface MyListEntry {
 }
 
 interface MyListStorage {
-    date: string; // YYYY-MM-DD
+    date: string; // YYYY-MM-DD (local time)
     items: MyListEntry[];
 }
 
@@ -60,14 +41,15 @@ interface MyListProps {
 }
 
 function todayStr(): string {
-    return new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
 }
 
-function stockColor(stock: number): string {
-    if (stock <= 3) return 'text-red-600';
-    if (stock <= 7) return 'text-orange-600';
-    return 'text-green-600';
-}
+const MAX_QUANTITY_NULL_STOCK = 999;
+const FRENCH_PHONE_REGEX = /^(?:\+33|0)\s*[1-9](?:[\s.-]*\d{2}){4}$/;
 
 export default function MyList({
     open,
@@ -88,7 +70,7 @@ export default function MyList({
     const [sending, setSending] = useState(false);
     const [sendError, setSendError] = useState(false);
 
-    // Reset list each new day
+    // Reset list each new day (using local date)
     useEffect(() => {
         if (stored.date !== todayStr()) {
             setStored({ date: todayStr(), items: [] });
@@ -102,6 +84,16 @@ export default function MyList({
             setSendError(false);
         }
     }, [open]);
+
+    // Close on Escape
+    useEffect(() => {
+        if (!open) return;
+        const handleKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && reservationStep === 'list') onClose();
+        };
+        window.addEventListener('keydown', handleKey);
+        return () => window.removeEventListener('keydown', handleKey);
+    }, [open, reservationStep, onClose]);
 
     // Build a lookup of current article stock by label
     const stockByLabel = useMemo(() => {
@@ -118,20 +110,24 @@ export default function MyList({
     }, [articles]);
 
     const items = stored.items;
-    const setItems = (newItems: MyListEntry[]) => setStored({ ...stored, items: newItems });
+    const setItems = useCallback(
+        (newItems: MyListEntry[]) => setStored({ ...stored, items: newItems }),
+        [stored, setStored]
+    );
 
     const getItemQty = (label: string): number => items.find((i) => i.label === label)?.quantity ?? 0;
 
     const addToList = (article: ArticleInfo) => {
         const currentQty = getItemQty(article.label);
-        const maxQty = article.stock ?? 999;
+        const maxQty = article.stock ?? MAX_QUANTITY_NULL_STOCK;
         if (currentQty >= maxQty) return;
         if (currentQty === 0) {
-            setItems([...items, { label: article.label, category: article.category, price: article.price, quantity: 1 }]);
+            setItems([
+                ...items,
+                { label: article.label, category: article.category, price: article.price, quantity: 1 },
+            ]);
         } else {
-            setItems(
-                items.map((i) => (i.label === article.label ? { ...i, quantity: i.quantity + 1 } : i))
-            );
+            setItems(items.map((i) => (i.label === article.label ? { ...i, quantity: i.quantity + 1 } : i)));
         }
     };
 
@@ -145,7 +141,6 @@ export default function MyList({
     };
 
     const removeItem = (label: string) => setItems(items.filter((i) => i.label !== label));
-
     const clearList = () => setItems([]);
 
     const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
@@ -158,6 +153,7 @@ export default function MyList({
         const stock = stockByLabel.get(i.label);
         return stock !== null && stock !== undefined && stock <= 0;
     });
+    const hasStockConflict = unavailableItems.length > 0;
 
     // Group available articles by category
     const categories = useMemo(() => {
@@ -174,12 +170,16 @@ export default function MyList({
     }, [availableArticles]);
 
     const handlePhoneReservation = () => {
-        // Just close — the user calls the phone number shown
-        window.location.href = `tel:${shop.phone.replace(/\s/g, '')}`;
+        // Open tel: link without navigating away from the page
+        const link = document.createElement('a');
+        link.href = `tel:${shop.phone.replace(/\s/g, '')}`;
+        link.click();
     };
 
+    const isPhoneValid = FRENCH_PHONE_REGEX.test(contactInfo.phone.trim());
+
     const handleEmailReservation = async () => {
-        if (!contactInfo.name.trim() || !contactInfo.phone.trim()) return;
+        if (!contactInfo.name.trim() || !isPhoneValid) return;
         setSending(true);
         setSendError(false);
         try {
@@ -205,9 +205,53 @@ export default function MyList({
 
     if (!open) return null;
 
+    // Shared "add products" category list
+    const AddProductsSection = () => (
+        <div className="w-full flex flex-col gap-4 max-h-60 overflow-y-auto">
+            {categories.map((cat) => (
+                <div key={cat.name}>
+                    <p className="text-xs font-semibold text-site-text-muted uppercase mb-2">{cat.name}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {cat.items.map((article) => {
+                            const qty = getItemQty(article.label);
+                            const maxed = article.stock !== null && qty >= (article.stock ?? 0);
+                            return (
+                                <button
+                                    key={article.label}
+                                    onClick={() => addToList(article)}
+                                    disabled={maxed}
+                                    className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-site-border bg-site-surface hover:bg-site-surface-hover transition-colors text-left cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    <span className="text-sm text-site-text truncate">{article.label}</span>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        {article.stock !== null && article.stock > 0 && (
+                                            <span className={`text-xs ${stockColor(article.stock)}`}>
+                                                {article.stock}
+                                            </span>
+                                        )}
+                                        {qty > 0 && <span className="text-xs font-bold text-orange-600">{qty}</span>}
+                                        <IconPlus size={14} className="text-orange-500" />
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+
     return (
-        <div className="fixed inset-0 z-50 bg-site-overlay flex items-center justify-center p-4">
-            <div className="bg-site-surface rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <div
+            className="fixed inset-0 z-50 bg-site-overlay flex items-center justify-center p-4"
+            onClick={() => {
+                if (reservationStep === 'list') onClose();
+            }}
+        >
+            <div
+                className="bg-site-surface rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+                onClick={(e) => e.stopPropagation()}
+            >
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 md:p-6 border-b border-site-border shrink-0">
                     <div className="flex items-center gap-2.5">
@@ -216,7 +260,9 @@ export default function MyList({
                         </div>
                         <div>
                             <h2 className="text-lg font-bold text-site-text">Ma liste</h2>
-                            <p className="text-xs text-site-text-muted">{totalItems} article{totalItems > 1 ? 's' : ''}</p>
+                            <p className="text-xs text-site-text-muted">
+                                {totalItems} article{totalItems > 1 ? 's' : ''}
+                            </p>
                         </div>
                     </div>
                     <button
@@ -236,7 +282,8 @@ export default function MyList({
                             </div>
                             <h3 className="text-xl font-bold text-site-text mb-2">Demande envoyée !</h3>
                             <p className="text-site-text-secondary max-w-sm">
-                                Votre demande de réservation a été envoyée à {shop.name}. Nous vous contacterons rapidement pour confirmer.
+                                Votre demande de réservation a été envoyée à {shop.name}. Nous vous contacterons
+                                rapidement pour confirmer.
                             </p>
                             <button
                                 onClick={() => {
@@ -259,13 +306,17 @@ export default function MyList({
                             </div>
                             {/* Summary */}
                             <div className="bg-site-surface-hover rounded-lg p-3 border border-site-border">
-                                <p className="text-xs font-semibold text-site-text-muted uppercase mb-2">Récapitulatif</p>
+                                <p className="text-xs font-semibold text-site-text-muted uppercase mb-2">
+                                    Récapitulatif
+                                </p>
                                 {items.map((item) => (
                                     <div key={item.label} className="flex justify-between text-sm py-0.5">
                                         <span className="text-site-text">
                                             {item.quantity}× {item.label}
                                         </span>
-                                        <span className="text-site-text-secondary">{formatPrice(item.price * item.quantity)}</span>
+                                        <span className="text-site-text-secondary">
+                                            {formatPrice(item.price * item.quantity)}
+                                        </span>
                                     </div>
                                 ))}
                                 <div className="flex justify-between text-sm font-bold pt-2 mt-2 border-t border-site-border">
@@ -284,14 +335,25 @@ export default function MyList({
                                 />
                             </div>
                             <div>
-                                <label className="text-sm font-medium text-site-text mb-1 block">N° de téléphone *</label>
+                                <label className="text-sm font-medium text-site-text mb-1 block">
+                                    N° de téléphone *
+                                </label>
                                 <input
                                     type="tel"
                                     value={contactInfo.phone}
                                     onChange={(e) => setContactInfo({ ...contactInfo, phone: e.target.value })}
                                     placeholder="06 12 34 56 78"
-                                    className="w-full px-3 py-2 text-sm rounded-lg bg-site-input-bg border border-site-input-border text-site-text placeholder:text-site-text-muted focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                                    className={`w-full px-3 py-2 text-sm rounded-lg bg-site-input-bg border text-site-text placeholder:text-site-text-muted focus:ring-2 focus:ring-orange-500 outline-none ${
+                                        contactInfo.phone && !isPhoneValid
+                                            ? 'border-red-500 focus:border-red-500'
+                                            : 'border-site-input-border focus:border-orange-500'
+                                    }`}
                                 />
+                                {contactInfo.phone && !isPhoneValid && (
+                                    <p className="text-xs text-red-500 mt-1">
+                                        Format attendu : 06 12 34 56 78 ou +33 6 12 34 56 78
+                                    </p>
+                                )}
                             </div>
                             {sendError && (
                                 <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
@@ -308,7 +370,7 @@ export default function MyList({
                                 </button>
                                 <button
                                     onClick={handleEmailReservation}
-                                    disabled={!contactInfo.name.trim() || !contactInfo.phone.trim() || sending}
+                                    disabled={!contactInfo.name.trim() || !isPhoneValid || sending}
                                     className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <IconSend size={18} />
@@ -319,18 +381,20 @@ export default function MyList({
                     ) : items.length > 0 ? (
                         /* List view with current items */
                         <div className="flex flex-col gap-4">
-                            {unavailableItems.length > 0 && (
+                            {hasStockConflict && (
                                 <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
                                     <IconAlertCircle size={18} className="shrink-0 mt-0.5" />
                                     <span>
-                                        {unavailableItems.length} article{unavailableItems.length > 1 ? 's' : ''} ne sont plus disponibles :{' '}
-                                        {unavailableItems.map((i) => i.label).join(', ')}
+                                        {unavailableItems.length} article{unavailableItems.length > 1 ? 's' : ''} ne
+                                        sont plus disponibles : {unavailableItems.map((i) => i.label).join(', ')}.
+                                        Retirez-le{unavailableItems.length > 1 ? 's' : ''} pour continuer.
                                     </span>
                                 </div>
                             )}
                             {items.map((item) => {
                                 const currentStock = stockByLabel.get(item.label);
-                                const isUnavailable = currentStock !== null && currentStock !== undefined && currentStock <= 0;
+                                const isUnavailable =
+                                    currentStock !== null && currentStock !== undefined && currentStock <= 0;
                                 return (
                                     <div
                                         key={item.label}
@@ -341,15 +405,19 @@ export default function MyList({
                                         }`}
                                     >
                                         <div className="flex-1 min-w-0">
-                                            <p className={`font-medium text-site-text ${isUnavailable ? 'line-through' : ''}`}>
+                                            <p
+                                                className={`font-medium text-site-text ${isUnavailable ? 'line-through' : ''}`}
+                                            >
                                                 {item.label}
                                             </p>
                                             <p className="text-xs text-site-text-muted">{item.category}</p>
-                                            {currentStock !== null && currentStock !== undefined && currentStock > 0 && (
-                                                <p className={`text-xs font-medium ${stockColor(currentStock)}`}>
-                                                    {currentStock} restant{currentStock > 1 ? 's' : ''}
-                                                </p>
-                                            )}
+                                            {currentStock !== null &&
+                                                currentStock !== undefined &&
+                                                currentStock > 0 && (
+                                                    <p className={`text-xs font-medium ${stockColor(currentStock)}`}>
+                                                        {currentStock} restant{currentStock > 1 ? 's' : ''}
+                                                    </p>
+                                                )}
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <button
@@ -359,20 +427,27 @@ export default function MyList({
                                             >
                                                 <IconMinus size={14} />
                                             </button>
-                                            <span className="w-8 text-center font-semibold text-site-text">{item.quantity}</span>
+                                            <span className="w-8 text-center font-semibold text-site-text">
+                                                {item.quantity}
+                                            </span>
                                             <button
                                                 onClick={() => {
                                                     const article = articles.find((a) => a.label === item.label);
                                                     if (article) addToList(article);
                                                 }}
-                                                disabled={isUnavailable || (currentStock !== null && item.quantity >= (currentStock ?? 0))}
+                                                disabled={
+                                                    isUnavailable ||
+                                                    (currentStock !== null && item.quantity >= (currentStock ?? 0))
+                                                }
                                                 className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                             >
                                                 <IconPlus size={14} />
                                             </button>
                                         </div>
                                         <div className="text-right shrink-0">
-                                            <p className="font-bold text-site-text text-sm">{formatPrice(item.price * item.quantity)}</p>
+                                            <p className="font-bold text-site-text text-sm">
+                                                {formatPrice(item.price * item.quantity)}
+                                            </p>
                                         </div>
                                         <button
                                             onClick={() => removeItem(item.label)}
@@ -387,40 +462,7 @@ export default function MyList({
                             {/* Add more products section */}
                             <div className="pt-4 border-t border-site-border">
                                 <h3 className="text-sm font-semibold text-site-text mb-3">Ajouter des produits</h3>
-                                <div className="flex flex-col gap-4 max-h-60 overflow-y-auto">
-                                    {categories.map((cat) => (
-                                        <div key={cat.name}>
-                                            <p className="text-xs font-semibold text-site-text-muted uppercase mb-2">{cat.name}</p>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                {cat.items.map((article) => {
-                                                    const qty = getItemQty(article.label);
-                                                    const maxed = article.stock !== null && qty >= (article.stock ?? 0);
-                                                    return (
-                                                        <button
-                                                            key={article.label}
-                                                            onClick={() => addToList(article)}
-                                                            disabled={maxed}
-                                                            className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-site-border bg-site-surface hover:bg-site-surface-hover transition-colors text-left cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                                                        >
-                                                            <span className="text-sm text-site-text truncate">{article.label}</span>
-                                                            <div className="flex items-center gap-2 shrink-0">
-                                                                {article.stock !== null && article.stock > 0 && (
-                                                                    <span className={`text-xs ${stockColor(article.stock)}`}>
-                                                                        {article.stock}
-                                                                    </span>
-                                                                )}
-                                                                {qty > 0 && (
-                                                                    <span className="text-xs font-bold text-orange-600">{qty}</span>
-                                                                )}
-                                                                <IconPlus size={14} className="text-orange-500" />
-                                                            </div>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                <AddProductsSection />
                             </div>
                         </div>
                     ) : (
@@ -433,32 +475,7 @@ export default function MyList({
                             <p className="text-sm text-site-text-secondary mb-6 text-center max-w-sm">
                                 Ajoutez des produits disponibles aujourd&apos;hui pour préparer votre réservation.
                             </p>
-                            <div className="w-full flex flex-col gap-4 max-h-60 overflow-y-auto">
-                                {categories.map((cat) => (
-                                    <div key={cat.name}>
-                                        <p className="text-xs font-semibold text-site-text-muted uppercase mb-2">{cat.name}</p>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                            {cat.items.map((article) => (
-                                                <button
-                                                    key={article.label}
-                                                    onClick={() => addToList(article)}
-                                                    className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-site-border bg-site-surface hover:bg-site-surface-hover transition-colors text-left cursor-pointer"
-                                                >
-                                                    <span className="text-sm text-site-text truncate">{article.label}</span>
-                                                    <div className="flex items-center gap-2 shrink-0">
-                                                        {article.stock !== null && article.stock > 0 && (
-                                                            <span className={`text-xs ${stockColor(article.stock)}`}>
-                                                                {article.stock}
-                                                            </span>
-                                                        )}
-                                                        <IconPlus size={14} className="text-orange-500" />
-                                                    </div>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                            <AddProductsSection />
                         </div>
                     )}
                 </div>
@@ -480,7 +497,8 @@ export default function MyList({
                             {reservationPhone && (
                                 <button
                                     onClick={handlePhoneReservation}
-                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors cursor-pointer"
+                                    disabled={hasStockConflict}
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <IconPhone size={18} />
                                     Réserver par téléphone
@@ -489,13 +507,24 @@ export default function MyList({
                             {reservationEmail && (
                                 <button
                                     onClick={() => setReservationStep('contact')}
-                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors cursor-pointer"
+                                    disabled={hasStockConflict}
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title={
+                                        hasStockConflict
+                                            ? 'Retirez les articles indisponibles pour réserver'
+                                            : undefined
+                                    }
                                 >
                                     <IconMail size={18} />
                                     Réserver par email
                                 </button>
                             )}
                         </div>
+                        {hasStockConflict && (
+                            <p className="text-xs text-red-500 mt-2 text-center">
+                                Retirez les articles indisponibles pour pouvoir réserver.
+                            </p>
+                        )}
                     </div>
                 )}
             </div>
