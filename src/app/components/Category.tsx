@@ -815,49 +815,26 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
             }
         }
 
-        // If displayOthers is enabled, place an "Autres" button in the last row.
-        // Find the last empty slot in the grid; if the last row is full, shift the
-        // last product one slot to the left to make room.
+        // If displayOthers is enabled, place an "Autres" button in the
+        // bottom-right slot of the grid (last slot of the maxGridRows-th row).
         let othersSlotIndex = -1;
         if (showOthers && selectedItem) {
-            // Find the last occupied slot
-            let lastOccupied = -1;
-            for (let i = gridSlotCount - 1; i >= 0; i--) {
-                if (gridSlots[i]) {
-                    lastOccupied = i;
-                    break;
-                }
-            }
-            // Target: last slot of the row containing the last product (or last row)
-            const lastRowStart =
-                lastOccupied >= 0 ? Math.floor(lastOccupied / GRID_COLS) * GRID_COLS : (maxGridRows - 1) * GRID_COLS;
-            const lastRowEnd = lastRowStart + GRID_COLS - 1;
-
-            // Find an empty slot in the last used row, preferring the rightmost
-            for (let i = lastRowEnd; i >= lastRowStart; i--) {
-                if (!gridSlots[i]) {
-                    othersSlotIndex = i;
-                    break;
-                }
-            }
-            // If no empty slot in that row, use the last row of the grid
-            if (othersSlotIndex === -1) {
-                for (let i = gridSlotCount - 1; i >= gridSlotCount - GRID_COLS; i--) {
+            const targetSlot = maxGridRows * GRID_COLS - 1;
+            if (gridSlots[targetSlot]) {
+                // Slot is occupied — shift the product left to make room
+                let emptyLeft = -1;
+                for (let i = targetSlot - 1; i >= 0; i--) {
                     if (!gridSlots[i]) {
-                        othersSlotIndex = i;
+                        emptyLeft = i;
                         break;
                     }
                 }
-                // If still no room, push the last product left and take the last slot
-                if (othersSlotIndex === -1 && lastOccupied >= 0) {
-                    // Shift last product one slot left if possible
-                    if (lastOccupied > 0 && !gridSlots[lastOccupied - 1]) {
-                        gridSlots[lastOccupied - 1] = gridSlots[lastOccupied];
-                        gridSlots[lastOccupied] = null;
-                    }
-                    othersSlotIndex = lastOccupied;
+                if (emptyLeft >= 0) {
+                    gridSlots[emptyLeft] = gridSlots[targetSlot];
+                    gridSlots[targetSlot] = null;
                 }
             }
+            othersSlotIndex = targetSlot;
         }
 
         return (

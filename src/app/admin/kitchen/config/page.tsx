@@ -71,10 +71,11 @@ export default function SettingsPage() {
         users: configUsers,
     } = useConfig();
     const { openFullscreenPopup } = usePopup();
-    const { isAdmin: isConfigAdmin } = useUserRole();
+    const { isAdmin: isConfigAdmin, isRoleResolved } = useUserRole();
     const { isOnline } = useWindowParam();
     const [settings, setSettings] = useState<Parameters>(defaultParameters);
     const [isAdmin, setIsAdmin] = useState(isConfigAdmin);
+    const [localRoleResolved, setLocalRoleResolved] = useState(false);
     const [discounts, setDiscounts] = useState<Discount[]>([]);
     const isDiscountsValid = useMemo(() => discounts.every((d) => d.amount > 0), [discounts]);
     const [currenciesConfig, setCurrenciesConfig] = useState<Currency[]>([]);
@@ -199,6 +200,7 @@ export default function SettingsPage() {
         const publicKey = getPublicKey();
         if (!publicKey) {
             console.warn('No public key found, cannot verify admin access');
+            setLocalRoleResolved(true);
             return;
         }
 
@@ -216,11 +218,13 @@ export default function SettingsPage() {
             .then((r) => r.json())
             .then(({ user }) => {
                 setIsAdmin(user?.role?.toLowerCase() === 'admin');
+                setLocalRoleResolved(true);
             })
             .catch((error) => {
                 console.error('Failed to resolve user for admin check:', error);
                 // If resolve fails, fall back to ConfigProvider's isAdmin
                 setIsAdmin(isConfigAdmin);
+                setLocalRoleResolved(true);
             });
     }, [isConfigAdmin]);
 
@@ -332,7 +336,7 @@ export default function SettingsPage() {
                     return { month: 1, day: 1 };
                 })(),
                 lastModified: getParam('lastModified', 'Dernière modification') || Date.now().toString(),
-                user: parameters?.user || { name: '', role: 0 },
+                user: parameters?.user,
                 products: (() => {
                     try {
                         const value = getParam('productsSettings', 'Paramètres produits');
@@ -408,7 +412,7 @@ export default function SettingsPage() {
             // Sync ConfigProvider parameters so the VirtualKeyboardProvider in
             // AdminConfigWrapper picks up useVirtualKeyboard from the DB.
             // Merge rather than replace to preserve any runtime-only fields.
-            setParameters({ ...parameters, ...loadedSettings });
+            setParameters((prev) => ({ ...prev, ...loadedSettings, user: prev.user }));
 
             // Load discounts from DB
             try {
@@ -1102,16 +1106,25 @@ export default function SettingsPage() {
 
     // Check admin access
     if (!isAdmin) {
+        // Wait for either the local fetch or ConfigProvider to resolve the role
+        if (localRoleResolved || isRoleResolved) {
+            return (
+                <AdminPageLayout title="Configuration" hasChanges={false}>
+                    <div className="p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-lg">
+                        <p className="text-red-800 dark:text-red-200">
+                            <strong>{!isOnline ? 'Hors ligne' : 'Accès refusé'} :</strong>{' '}
+                            {!isOnline
+                                ? 'Vérifiez votre connexion internet puis rechargez la page.'
+                                : 'Cette page est réservée aux administrateurs.'}
+                        </p>
+                    </div>
+                </AdminPageLayout>
+            );
+        }
+        // Role not resolved yet — keep showing loading
         return (
             <AdminPageLayout title="Configuration" hasChanges={false}>
-                <div className="p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-lg">
-                    <p className="text-red-800 dark:text-red-200">
-                        <strong>{!isOnline ? 'Hors ligne' : 'Accès refusé'} :</strong>{' '}
-                        {!isOnline
-                            ? 'Vérifiez votre connexion internet puis rechargez la page.'
-                            : 'Cette page est réservée aux administrateurs.'}
-                    </p>
-                </div>
+                <Loading fullscreen />
             </AdminPageLayout>
         );
     }

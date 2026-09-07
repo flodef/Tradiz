@@ -18,14 +18,14 @@ export type OperationMode = 'restaurant' | 'fastfood' | 'lite';
 export interface ConfigContextState {
     state: State;
     setState: (value: State) => void;
-    setConfig: (value: Config | undefined) => void;
+    setConfig: (value: Config | undefined | ((prev: Config | undefined) => Config | undefined)) => void;
     isStateReady: boolean;
     modeFonctionnement: OperationMode;
     isFastFood: boolean;
     isKitchenViewEnabled: boolean;
     isGrafanaAccessEnabled: boolean;
     parameters: Parameters;
-    setParameters: (value: Parameters) => void;
+    setParameters: (value: Parameters | ((prev: Parameters) => Parameters)) => void;
     currencyIndex: number;
     setCurrency: (label: string) => void;
     currencies: Currency[];

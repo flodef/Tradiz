@@ -27,7 +27,8 @@ import ColorSwatchPicker from '../ColorSwatchPicker';
 import AvailabilityToggle from '../AvailabilityToggle';
 import DeleteButton from '../DeleteButton';
 
-import { MAX_PRODUCTS } from '@/app/utils/sortOrder';
+import { GRID_COLS, GRID_ROWS, MAX_PRODUCTS } from '@/app/utils/sortOrder';
+import { OTHER_KEYWORD } from '@/app/utils/constants';
 
 interface CatalogEditorProps {
     products: AdminProduct[];
@@ -45,6 +46,7 @@ interface CatalogEditorProps {
     onToggle?: () => void;
     icon?: React.ReactNode;
     productsSettings?: ProductsSettings;
+    displayOthers?: boolean;
 }
 
 interface GridProduct extends AdminProduct {
@@ -169,6 +171,7 @@ export default function CatalogEditor({
     onToggle,
     icon,
     productsSettings,
+    displayOthers = false,
 }: CatalogEditorProps) {
     const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
     const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -264,6 +267,71 @@ export default function CatalogEditor({
         }
         return slots;
     }, [gridProducts]);
+
+    // Compute the maximum number of grid rows across all categories.
+    // When displayOthers is enabled, the "Autres" tile occupies one slot
+    // in the last row of every category, so it counts toward the row total.
+    const maxGridRows = useMemo(() => {
+        let maxRows = 1;
+        for (const cat of categoryLabels) {
+            const catProducts = productsByCategory[cat] ?? [];
+            const slots: number[] = new Array(MAX_PRODUCTS).fill(-1);
+            for (let i = 0; i < catProducts.length; i++) {
+                const gp = catProducts[i].gridPosition;
+                if (gp != null && gp >= 0 && gp < MAX_PRODUCTS && slots[gp] === -1) {
+                    slots[gp] = i;
+                    continue;
+                }
+                // fallback: first empty
+                let fb = 0;
+                while (fb < MAX_PRODUCTS && slots[fb] !== -1) fb++;
+                if (fb < MAX_PRODUCTS) slots[fb] = i;
+            }
+            // Find last occupied slot
+            let lastOccupied = -1;
+            for (let i = slots.length - 1; i >= 0; i--) {
+                if (slots[i] !== -1) {
+                    lastOccupied = i;
+                    break;
+                }
+            }
+            if (displayOthers && lastOccupied >= 0) {
+                // "Autres" goes in the last slot of the last occupied row
+                const lastRowStart = Math.floor(lastOccupied / GRID_COLS) * GRID_COLS;
+                const lastRowEnd = lastRowStart + GRID_COLS - 1;
+                let placed = false;
+                for (let i = lastRowEnd; i >= lastRowStart; i--) {
+                    if (slots[i] === -1) {
+                        slots[i] = -2;
+                        placed = true;
+                        break;
+                    }
+                }
+                if (!placed && lastOccupied + 1 < MAX_PRODUCTS) {
+                    slots[lastOccupied + 1] = -2;
+                }
+            }
+            // Find last occupied slot (including "Autres" marker)
+            let lastSlot = -1;
+            for (let i = slots.length - 1; i >= 0; i--) {
+                if (slots[i] !== -1) {
+                    lastSlot = i;
+                    break;
+                }
+            }
+            if (lastSlot >= 0) {
+                const rowsNeeded = Math.floor(lastSlot / GRID_COLS) + 1;
+                if (rowsNeeded > maxRows) maxRows = rowsNeeded;
+            }
+        }
+        return Math.min(maxRows, GRID_ROWS);
+    }, [categoryLabels, productsByCategory, displayOthers]);
+
+    // The "Autres" tile slot for the current category: last slot of the maxGridRows-th row
+    const othersSlotIndex = useMemo(() => {
+        if (!displayOthers) return -1;
+        return maxGridRows * GRID_COLS - 1;
+    }, [displayOthers, maxGridRows]);
 
     // The product currently being dragged (for DragOverlay rendering)
     const activeProduct = activeProductId ? (gridSlots.find((s) => s?._gridId === activeProductId) ?? null) : null;
@@ -368,6 +436,9 @@ export default function CatalogEditor({
 
             if (toSlot === -1 || toSlot === fromSlot) return;
 
+            // Prevent dropping into the "Autres" tile slot
+            if (displayOthers && toSlot === othersSlotIndex) return;
+
             const dragged = gridSlots[fromSlot];
             if (!dragged) return;
 
@@ -415,7 +486,7 @@ export default function CatalogEditor({
 
             onChange(result);
         },
-        [gridSlots, products, currentCategory, onChange, isCtrlPressed]
+        [gridSlots, products, currentCategory, onChange, isCtrlPressed, displayOthers, othersSlotIndex]
     );
 
     const handleProductUpdate = useCallback(
@@ -438,6 +509,7 @@ export default function CatalogEditor({
                 .map((p) => p.gridPosition)
                 .filter((gp): gp is number => gp != null && gp >= 0 && gp < MAX_PRODUCTS)
         );
+        if (displayOthers && othersSlotIndex >= 0) usedSlots.add(othersSlotIndex);
         let firstEmpty = 0;
         while (firstEmpty < MAX_PRODUCTS && usedSlots.has(firstEmpty)) firstEmpty++;
 
@@ -453,7 +525,7 @@ export default function CatalogEditor({
         // The new product will be at index currentProducts.length in gridProducts,
         // so its _gridId will be `grid-${currentProducts.length}`.
         setSelectedProductId(`grid-${currentProducts.length}`);
-    }, [currentCategory, currentProducts, products, onChange]);
+    }, [currentCategory, currentProducts, products, onChange, displayOthers, othersSlotIndex]);
 
     const handleDeleteProduct = useCallback(() => {
         if (!selectedProduct) return;
@@ -473,6 +545,7 @@ export default function CatalogEditor({
                 .map((p) => p.gridPosition)
                 .filter((gp): gp is number => gp != null && gp >= 0 && gp < MAX_PRODUCTS)
         );
+        if (displayOthers && othersSlotIndex >= 0) usedSlots.add(othersSlotIndex);
         let firstEmpty = 0;
         while (firstEmpty < MAX_PRODUCTS && usedSlots.has(firstEmpty)) firstEmpty++;
 
@@ -486,7 +559,7 @@ export default function CatalogEditor({
         // Select the duplicate — it will be at index currentProducts.length
         setSelectedProductId(`grid-${currentProducts.length}`);
         setFocusCounter((c) => c + 1);
-    }, [selectedProduct, currentProducts, products, onChange]);
+    }, [selectedProduct, currentProducts, products, onChange, displayOthers, othersSlotIndex]);
 
     const currencySymbol = currencies[0]?.symbol ?? '€';
     const isValid = products.every((p) => p.name?.trim());
@@ -563,8 +636,33 @@ export default function CatalogEditor({
                             onDragEnd={handleDragEnd}
                         >
                             <SortableContext items={sortableItems} strategy={rectSortingStrategy}>
-                                <div className="grid grid-cols-6 auto-rows-20 gap-1 p-1 touch-none">
+                                <div
+                                    className="grid grid-cols-6 auto-rows-20 gap-1 p-1 touch-none"
+                                    style={
+                                        displayOthers ? { gridTemplateRows: `repeat(${maxGridRows}, 5rem)` } : undefined
+                                    }
+                                >
                                     {gridSlots.map((product, index) => {
+                                        // Render the read-only "Autres" tile at the bottom-right
+                                        if (displayOthers && index === othersSlotIndex) {
+                                            return (
+                                                <div
+                                                    key="autres-tile"
+                                                    className={twMerge(
+                                                        'relative h-20 flex flex-col items-center justify-center text-center font-semibold text-base border-[3px] rounded-2xl select-none',
+                                                        'border-secondary-light dark:border-secondary-dark shadow-xl opacity-60'
+                                                    )}
+                                                >
+                                                    <div className="flex items-center justify-center leading-tight text-center">
+                                                        {OTHER_KEYWORD}
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        // Skip slots beyond the visible grid when displayOthers is on
+                                        if (displayOthers && index >= maxGridRows * GRID_COLS) {
+                                            return null;
+                                        }
                                         if (!product) {
                                             return <DroppableEmptyTile key={`empty-${index}`} slotIndex={index} />;
                                         }
