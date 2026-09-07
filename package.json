@@ -1,6 +1,6 @@
 {
   "name": "tradiz",
-  "version": "1.510.0",
+  "version": "1.511.0",
   "description": "Tradiz cash register and management application",
   "author": "Tradiz <contact@tradiz.fr>",
   "private": true,
@@ -45,7 +45,7 @@
     "bignumber.js": "9.1.2",
     "caniuse-lite": "latest",
     "dotenv": "latest",
-    "electron-updater": "latest",
+    "electron-updater": "^6.4.1",
     "eslint-plugin-jsx-a11y": "latest",
     "mysql2": "latest",
     "next": "latest",
