@@ -5,6 +5,10 @@ export function useUserRole() {
     const { parameters } = useConfig();
     const userRole = parameters?.user?.role || Role.service;
 
+    // The role is considered resolved once a user name is present.
+    // defaultParameters has user.name = '' until resolveUserFromKey completes.
+    const isRoleResolved = !!parameters?.user?.name;
+
     const isAdmin = userRole === Role.admin;
     const isCashier = userRole === Role.cashier || userRole === Role.admin;
     const isService = userRole === Role.service || userRole === Role.admin;
@@ -16,5 +20,6 @@ export function useUserRole() {
         isCashier,
         isService,
         isKitchen,
+        isRoleResolved,
     };
 }

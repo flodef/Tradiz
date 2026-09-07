@@ -1,6 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getMainDb, DbConnection } from '../db';
+import { insertAuditEvent } from '../auditHelpers';
 
 interface CategoryInput {
     id?: number;
@@ -152,6 +153,14 @@ export async function POST(request: Request) {
             await connection.rollback();
             throw e;
         }
+
+        await insertAuditEvent(connection, {
+            event_type: 'category_change',
+            entity_type: 'categories',
+            entity_id: 'categories',
+            user_name: 'admin',
+            detail: `Updated ${categories.length} categor(y/ies)`,
+        });
 
         return NextResponse.json({ success: true }, { status: 200 });
     } catch (error) {

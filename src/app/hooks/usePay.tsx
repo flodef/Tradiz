@@ -3,6 +3,8 @@ import { QRCode } from '../components/QRCode';
 import CustomerSearchPopup from '../components/CustomerSearchPopup';
 import { CashPaymentPopup } from '../components/CashPaymentPopup';
 import { ChangeDisplayPopup } from '../components/ChangeDisplayPopup';
+import { MultiPaymentPopup } from '../components/MultiPaymentPopup';
+import { SplitPaymentPopup, type SplitMode } from '../components/SplitPaymentPopup';
 import { Shop } from '../contexts/ConfigProvider';
 import { floorToSeconds } from '../contexts/DataProvider';
 import { computeFidelityDelta } from '../utils/fidelity';
@@ -11,10 +13,12 @@ import {
     ARROW,
     CATEGORY_SEPARATOR,
     CANCELLED_KEYWORD,
+    CASH_KEYWORD,
     DEBIT_KEYWORD,
     DELETED_KEYWORD,
     FIDELITY_KEYWORD,
     IS_LOCAL,
+    MULTI_KEYWORD,
     NON_PAYMENT_KEYWORDS,
     PRINT_KEYWORD,
     PRINT_NO_DETAIL,
@@ -33,6 +37,7 @@ import {
     Customer,
     EmptyDiscount,
     InventoryItem,
+    PaymentLeg,
     Product,
     SERVICE_TYPE_LABELS,
     ServiceType,
@@ -40,7 +45,12 @@ import {
 } from '../utils/interfaces';
 import { CLOSE, postCustomerDisplay, postMessageToParent, REFRESH } from '../utils/message';
 import { printBalanceStatement, printKitchenTicket, printReceipt } from '../utils/posPrinter';
-import { buildCustomerDisplay, buildPaymentDisplay, holdChangeDisplay } from '../utils/customerDisplay';
+import {
+    buildCustomerDisplay,
+    buildMultiPaymentDisplay,
+    buildPaymentDisplay,
+    holdChangeDisplay,
+} from '../utils/customerDisplay';
 import { getPublicKey, resolveCashierPrinter } from '../utils/processData';
 import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
@@ -289,6 +299,158 @@ export const usePay = () => {
         ]
     );
 
+    // Commit a transaction with multiple payment legs.
+    // Sets method to MULTI_KEYWORD and attaches the payments array.
+    const triggerCashDrawerRef = useRef<() => void>(() => {});
+    const commitMultiPayment = useCallback(
+        (legs: PaymentLeg[]) => {
+            const now = floorToSeconds(new Date().getTime());
+            const cashLeg = legs.find((l) => l.method === CASH_KEYWORD);
+            const transaction: Transaction = {
+                validator: parameters.user.name,
+                method: MULTI_KEYWORD,
+                amount: getCustomerTotal(),
+                createdDate: now,
+                modifiedDate: now,
+                currency: currencies[currencyIndex].label,
+                products: [...products.current],
+                payments: legs,
+                takeOut: counterServiceType === 'takeout',
+                ...(employerShare > 0 ? { employerShare } : {}),
+                ...(cashLeg?.cashReceived != null ? { cashAmount: cashLeg.cashReceived } : {}),
+                ...(cashLeg?.changeGiven != null ? { change: cashLeg.changeGiven } : {}),
+            };
+            commitTransaction(transaction);
+            if (cashLeg) {
+                triggerCashDrawerRef.current();
+                if (cashLeg.changeGiven && cashLeg.changeGiven > 0) {
+                    holdChangeDisplay();
+                    postCustomerDisplay(
+                        buildCustomerDisplay(
+                            transaction.amount,
+                            cashLeg.cashReceived ?? transaction.amount,
+                            cashLeg.changeGiven,
+                            currencies[currencyIndex]
+                        )
+                    );
+                }
+            }
+            closePopup();
+        },
+        [
+            parameters.user.name,
+            getCustomerTotal,
+            currencies,
+            currencyIndex,
+            products,
+            counterServiceType,
+            employerShare,
+            commitTransaction,
+            closePopup,
+        ]
+    );
+
+    // Open the MultiPaymentPopup fullscreen
+    const openMultiPaymentPopup = useCallback(() => {
+        const cashTotal = getCustomerTotal().clean(currencies[currencyIndex].decimals);
+        const paymentMethodsLabels = paymentMethods
+            .filter((item) => item.currency === currencies[currencyIndex].label && item.availability !== false)
+            .map((item) => item.type);
+
+        postCustomerDisplay(buildMultiPaymentDisplay(0, cashTotal, currencies[currencyIndex]));
+
+        openFullscreenPopup(
+            'Paiement multiple',
+            [
+                <MultiPaymentPopup
+                    key="multiPayment"
+                    total={cashTotal}
+                    paymentMethods={paymentMethodsLabels}
+                    onCancel={() => closePopup()}
+                    onConfirm={(legs) => commitMultiPayment(legs)}
+                />,
+            ],
+            (index) => {
+                if (index < 0) closePopup();
+            },
+            true
+        );
+    }, [
+        paymentMethods,
+        currencies,
+        currencyIndex,
+        getCustomerTotal,
+        openFullscreenPopup,
+        closePopup,
+        commitMultiPayment,
+    ]);
+
+    // Open the split payment popup with a given mode
+    const openSplitPaymentPopup = useCallback(
+        (mode: SplitMode) => {
+            const cashTotal = getCustomerTotal().clean(currencies[currencyIndex].decimals);
+            const paymentMethodsLabels = paymentMethods
+                .filter((item) => item.currency === currencies[currencyIndex].label && item.availability !== false)
+                .map((item) => item.type);
+
+            postCustomerDisplay(buildMultiPaymentDisplay(0, cashTotal, currencies[currencyIndex]));
+
+            openFullscreenPopup(
+                'Paiement partagé',
+                [
+                    <SplitPaymentPopup
+                        key="splitPayment"
+                        total={cashTotal}
+                        products={products.current}
+                        paymentMethods={paymentMethodsLabels}
+                        mode={mode}
+                        onCancel={() => closePopup()}
+                        onConfirm={(legs) => commitMultiPayment(legs)}
+                    />,
+                ],
+                (index) => {
+                    if (index < 0) closePopup();
+                },
+                true
+            );
+        },
+        [
+            paymentMethods,
+            currencies,
+            currencyIndex,
+            getCustomerTotal,
+            openFullscreenPopup,
+            closePopup,
+            commitMultiPayment,
+            products,
+        ]
+    );
+
+    // Open a sub-popup to choose the split mode
+    const openSplitModeSelector = useCallback(() => {
+        openPopup(
+            'Mode de partage',
+            ['Partage égal', 'Tour à tour', 'Chacun ses articles'],
+            (index, option) => {
+                if (index < 0) return;
+                closePopup(() => {
+                    switch (option) {
+                        case 'Partage égal':
+                            openSplitPaymentPopup('even');
+                            break;
+                        case 'Tour à tour':
+                            openSplitPaymentPopup('round-robin');
+                            break;
+                        case 'Chacun ses articles':
+                            openSplitPaymentPopup('item-pick');
+                            break;
+                    }
+                });
+            },
+            true
+        );
+    }, [openPopup, closePopup, openSplitPaymentPopup]);
+
     // Opens the cash drawer connected to the cashier printer's DK port (RJ11).
     // Priority: device's cashDrawerCom > device's printerCom > cashier printer from PrintersConfig.
     const triggerCashDrawer = useCallback(() => {
@@ -341,6 +503,9 @@ export const usePay = () => {
         };
         fetchAndOpen();
     }, [getPrinterAddressByRole]);
+
+    // Keep the ref in sync so commitMultiPayment can call it without a circular dependency
+    triggerCashDrawerRef.current = triggerCashDrawer;
 
     // Ref local pour éviter de redemander le type de service lors de l'appel récursif à pay()
     const serviceTypeSelectedRef = useRef(false);
@@ -1064,6 +1229,50 @@ export const usePay = () => {
                         closePopup();
                     }
                     break;
+                case 'Carte Bancaire': {
+                    const tpeIp = parameters.tpeIp;
+                    const tpePort = parameters.tpePort ?? 8888;
+                    if (!tpeIp) {
+                        // No TPE configured — fall back to manual validation
+                        commitTransaction(option);
+                        closePopup();
+                        break;
+                    }
+                    const cardTotal = getCustomerTotal().clean(currencies[currencyIndex].decimals);
+                    openPopup('Paiement carte sur TPE', ['Transaction en cours sur le terminal...'], () => {}, true);
+                    (async () => {
+                        try {
+                            const response = await fetch('/api/tpe-payment', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    amount: cardTotal,
+                                    tpeIp,
+                                    tpePort,
+                                }),
+                            });
+                            const result = await response.json();
+                            if (result.success) {
+                                commitTransaction(option);
+                                closePopup();
+                            } else {
+                                const detail = result.errorDetail || 'Erreur inconnue';
+                                openPopup('Erreur TPE', [`Paiement refusé: ${detail}`, 'Annuler'], (index) => {
+                                    if (index < 0 || index === 1) fallback();
+                                });
+                            }
+                        } catch {
+                            openPopup(
+                                'Erreur TPE',
+                                ['Impossible de joindre le terminal de paiement', 'Annuler'],
+                                (index) => {
+                                    if (index < 0 || index === 1) fallback();
+                                }
+                            );
+                        }
+                    })();
+                    break;
+                }
                 default:
                     // Pour les modes de paiement normaux, enregistrer comme payé
                     commitTransaction(option);
@@ -1087,6 +1296,8 @@ export const usePay = () => {
             parameters.user.name,
             parameters.display?.showChange,
             parameters.display?.useTakeOut,
+            parameters.tpeIp,
+            parameters.tpePort,
             reverseTransaction,
             currentCustomer,
             openFullscreenPopup,
@@ -1420,6 +1631,12 @@ export const usePay = () => {
                     allOptions.push('PAIEMENT PARTIEL');
                 }
 
+                // Multi-payment and split options (only when there are at least 2 payment methods)
+                if (paymentMethodsLabels.length >= 2) {
+                    allOptions.push(MULTI_KEYWORD);
+                    allOptions.push('PARTAGER');
+                }
+
                 // Add waiting and refund options based on display settings (default to true if not set)
                 if (parameters.display?.showWaiting !== false) allOptions.push('METTRE ' + WAITING_KEYWORD);
 
@@ -1489,6 +1706,20 @@ export const usePay = () => {
                                 return;
                             }
 
+                            // Handle MULTI_KEYWORD — open MultiPaymentPopup
+                            if (option === MULTI_KEYWORD) {
+                                closePopup();
+                                openMultiPaymentPopup();
+                                return;
+                            }
+
+                            // Handle PARTAGER — open split mode selector
+                            if (option === 'PARTAGER') {
+                                closePopup();
+                                openSplitModeSelector();
+                                return;
+                            }
+
                             selectPayment(option, pay);
                         },
                         true
@@ -1522,6 +1753,8 @@ export const usePay = () => {
         setCounterServiceType,
         parameters.fidelityRate,
         applyFidelity,
+        openMultiPaymentPopup,
+        openSplitModeSelector,
     ]);
 
     // Pay directly with a specific method, bypassing the payment method popup.

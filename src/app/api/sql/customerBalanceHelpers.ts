@@ -2,7 +2,7 @@ import {
     CANCELLED_KEYWORD,
     DEBIT_KEYWORD,
     DELETED_KEYWORD,
-    HARD_DELETED_KEYWORD,
+    EXPUNGED_KEYWORD,
     PROCESSING_KEYWORD,
 } from '@/app/utils/constants';
 import { Connection } from './db';
@@ -71,7 +71,7 @@ export async function getBalanceAffectingEntries(
         customerName,
         DELETED_KEYWORD,
         CANCELLED_KEYWORD,
-        HARD_DELETED_KEYWORD,
+        EXPUNGED_KEYWORD,
         PROCESSING_KEYWORD,
     ]);
 

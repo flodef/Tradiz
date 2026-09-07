@@ -2,6 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
 import { Currency } from '@/app/utils/interfaces';
+import { insertAuditEvent } from '../auditHelpers';
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
@@ -65,6 +66,14 @@ export async function POST(request: Request) {
                 currency.fee,
             ]);
         }
+
+        await insertAuditEvent(connection, {
+            event_type: 'currency_change',
+            entity_type: 'currencies',
+            entity_id: 'currencies',
+            user_name: 'admin',
+            detail: `Updated ${currencies.length} currency/currencies`,
+        });
 
         await connection.end();
 

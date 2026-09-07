@@ -42,11 +42,22 @@ export const UPDATING_KEYWORD = 'EN MODIF';
 export const PROCESSING_KEYWORD = 'EN COURS';
 export const DELETED_KEYWORD = 'EFFACÉE';
 export const CANCELLED_KEYWORD = 'ANNULÉE';
-export const HARD_DELETED_KEYWORD = 'SUPPRIMÉE';
+export const EXPUNGED_KEYWORD = 'SUPPRIMÉE';
 export const PROVISION_KEYWORD = 'PROVISION';
 export const DEBIT_KEYWORD = 'DEBIT';
+export const MULTI_KEYWORD = 'MULTIPLE';
+export const CASH_KEYWORD = 'Espèces';
 
-export const NF525_CERTIFICATE_NUMBER = 'NF525-Tradiz-2026-001';
+// Publisher identity for the NF525 self-attestation (BOI-LETTRE-000242, volet 1).
+// The deployer must customize these before building if they are the publisher.
+export const PUBLISHER = {
+    raisonSociale: 'Tradiz',
+    representantNom: '',
+    representantPrenom: '',
+    contact: 'contact@tradiz.fr',
+    licence: 'MIT',
+    ville: '',
+} as const;
 
 // Internal payment methods that should not be displayed in admin UI
 export const INTERNAL_PAYMENT_METHODS = [
@@ -57,7 +68,8 @@ export const INTERNAL_PAYMENT_METHODS = [
     PROCESSING_KEYWORD,
     DELETED_KEYWORD,
     CANCELLED_KEYWORD,
-    HARD_DELETED_KEYWORD,
+    EXPUNGED_KEYWORD,
+    MULTI_KEYWORD,
 ];
 
 // Cashier actions offered alongside payment methods that are not a payment taken from the

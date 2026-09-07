@@ -73,6 +73,18 @@ export function useLongPressContextMenu(onContextMenu: () => void) {
             timerRef.current = setTimeout(() => {
                 onContextMenu();
                 suppressClickRef.current = true;
+                // The synthesized click after touchend may land on a different
+                // element (e.g. a popup close button that appeared under the
+                // finger). Suppress it at the document level so it can't
+                // accidentally interact with the newly-opened UI.
+                const suppressDoc = (ev: MouseEvent) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    document.removeEventListener('click', suppressDoc, true);
+                };
+                document.addEventListener('click', suppressDoc, true);
+                // Clean up after a short window in case no click is synthesized.
+                setTimeout(() => document.removeEventListener('click', suppressDoc, true), 500);
             }, LONG_PRESS_MS);
         },
         [onContextMenu]

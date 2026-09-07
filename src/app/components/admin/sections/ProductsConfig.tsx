@@ -223,6 +223,7 @@ function ProductEditPopup({
                             onChange={(value) => update({ stock: value === '' ? null : Number(value) })}
                             placeholder="∞"
                             isReadOnly={isReadOnly}
+                            min={0}
                         />
                     </div>
                 )}
@@ -1100,6 +1101,7 @@ export default function ProductsConfig({
                                                                     <ValidatedInput
                                                                         type="number"
                                                                         value={p.stock === null ? '' : String(p.stock)}
+                                                                        min={0}
                                                                         onChange={(value) => {
                                                                             handleProductChange(i, {
                                                                                 ...p,

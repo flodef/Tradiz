@@ -271,6 +271,7 @@ CREATE TABLE IF NOT EXISTS `transactions` (
   `employer_share` DECIMAL(10,2) DEFAULT NULL,
   `fidelity_points` DECIMAL(10,2) DEFAULT NULL,
   `device_id` VARCHAR(255) DEFAULT NULL,
+  `payments` text DEFAULT NULL,
   `hash` varchar(64) DEFAULT NULL,
   `previous_hash` varchar(64) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),

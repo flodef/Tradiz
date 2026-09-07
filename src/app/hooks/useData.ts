@@ -78,6 +78,7 @@ export interface DataContextState {
     transactionsLoaded: boolean;
     isCashClosed: boolean;
     setCashClosed: (closed: boolean) => void;
+    getEffectiveStock: (category: string, label: string, configStock: number | null) => number | null;
 }
 
 export const DataContext = createContext<DataContextState>({} as DataContextState);

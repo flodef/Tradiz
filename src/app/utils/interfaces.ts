@@ -169,6 +169,8 @@ export interface InventoryItem {
         color?: string;
         sortOrder?: number;
         employerShare?: number | null;
+        photo?: string | null;
+        description?: string | null;
     }[];
 }
 
@@ -216,6 +218,15 @@ export type Product = DataElement & {
     options?: string;
     vatRate?: number;
     employerShare?: number;
+    stock?: number | null;
+};
+
+export type PaymentLeg = {
+    method: string;
+    amount: number;
+    cashReceived?: number;
+    changeGiven?: number;
+    label?: string;
 };
 
 export type Transaction = {
@@ -236,6 +247,7 @@ export type Transaction = {
     employerShare?: number;
     fidelityPointsUsed?: number;
     deviceId?: string;
+    payments?: PaymentLeg[];
 };
 
 export type TransactionSet = {

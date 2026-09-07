@@ -13,6 +13,10 @@ export const PARAMETER_KEYS = {
     SHOP_EMAIL: 'email',
     SHOP_PHONE: 'phone',
     SHOP_VAT_NUMBER: 'vatNumber',
+    SHOP_NAF: 'naf',
+    SHOP_LEGAL_FORM: 'legalForm',
+    SHOP_LOGO: 'logo',
+    SHOP_IMAGE: 'shopImage',
     THANKS_MESSAGE: 'thanksMessage',
     MERCURIAL: 'mercurial',
     CLOSING_HOUR: 'closingHour',
@@ -25,6 +29,11 @@ export const PARAMETER_KEYS = {
     USE_VIRTUAL_KEYBOARD: 'useVirtualKeyboard',
     FIDELITY_RATE: 'fidelityRate',
     PENNYLANE_TOKEN: 'pennylaneToken',
+    TPE_IP: 'tpeIp',
+    TPE_PORT: 'tpePort',
+    OPENING_HOURS: 'openingHours',
+    RESERVATION_PHONE: 'reservationPhone',
+    RESERVATION_EMAIL: 'reservationEmail',
 } as const;
 
 export const PARAMETER_KEY_LIST = Object.values(PARAMETER_KEYS);

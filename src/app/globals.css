@@ -50,6 +50,20 @@ html[data-theme-ready='0'] body {
     --color-error: #ef4444;
     --z-100: 100;
 
+    --color-site-bg: var(--site-bg);
+    --color-site-surface: var(--site-surface);
+    --color-site-surface-hover: var(--site-surface-hover);
+    --color-site-text: var(--site-text);
+    --color-site-text-secondary: var(--site-text-secondary);
+    --color-site-text-muted: var(--site-text-muted);
+    --color-site-border: var(--site-border);
+    --color-site-nav-bg: var(--site-nav-bg);
+    --color-site-footer-bg: var(--site-footer-bg);
+    --color-site-footer-text: var(--site-footer-text);
+    --color-site-input-bg: var(--site-input-bg);
+    --color-site-input-border: var(--site-input-border);
+    --color-site-overlay: var(--site-overlay);
+
     --background-image-gradient-radial: radial-gradient(var(--tw-gradient-stops));
     --background-image-gradient-conic: conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops));
 
@@ -296,4 +310,39 @@ html[data-theme-ready='0'] body {
     ::file-selector-button {
         border-color: var(--color-gray-200, currentcolor);
     }
+}
+
+/* ── Public site theme variables ── */
+:root {
+    --site-bg: #f9fafb;
+    --site-surface: #ffffff;
+    --site-surface-hover: #f9fafb;
+    --site-text: #111827;
+    --site-text-secondary: #4b5563;
+    --site-text-muted: #9ca3af;
+    --site-border: #f3f4f6;
+    --site-nav-bg: rgba(255, 255, 255, 0.9);
+    --site-footer-bg: #111827;
+    --site-footer-text: #d1d5db;
+    --site-input-bg: #ffffff;
+    --site-input-border: #d1d5db;
+    --site-shadow: rgba(0, 0, 0, 0.05);
+    --site-overlay: rgba(0, 0, 0, 0.5);
+}
+
+.site-dark {
+    --site-bg: #0a0a0f;
+    --site-surface: #1e1e2e;
+    --site-surface-hover: #2a2a3e;
+    --site-text: #e2e8f0;
+    --site-text-secondary: #94a3b8;
+    --site-text-muted: #64748b;
+    --site-border: rgba(255, 255, 255, 0.08);
+    --site-nav-bg: rgba(10, 10, 15, 0.85);
+    --site-footer-bg: #000000;
+    --site-footer-text: #94a3b8;
+    --site-input-bg: rgba(255, 255, 255, 0.05);
+    --site-input-border: rgba(255, 255, 255, 0.1);
+    --site-shadow: rgba(0, 0, 0, 0.3);
+    --site-overlay: rgba(0, 0, 0, 0.7);
 }

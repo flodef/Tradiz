@@ -32,7 +32,13 @@ import {
     User,
 } from '@/app/utils/interfaces';
 import { useIsMobile } from '@/app/utils/mobile';
-import { clearLoadDataCache, defaultParameters, getPublicKey, parseDisplaySettings } from '@/app/utils/processData';
+import {
+    clearLoadDataCache,
+    COLORS_PER_THEME,
+    defaultParameters,
+    getPublicKey,
+    parseDisplaySettings,
+} from '@/app/utils/processData';
 import {
     IconBuilding,
     IconCreditCard,
@@ -57,6 +63,7 @@ export default function SettingsPage() {
         currencies,
         paymentMethods: configPayments,
         colors: configColors,
+        setColors: setConfigColors,
         inventory,
         isStateReady,
         printers: configPrinters,
@@ -64,10 +71,11 @@ export default function SettingsPage() {
         users: configUsers,
     } = useConfig();
     const { openFullscreenPopup } = usePopup();
-    const { isAdmin: isConfigAdmin } = useUserRole();
+    const { isAdmin: isConfigAdmin, isRoleResolved } = useUserRole();
     const { isOnline } = useWindowParam();
     const [settings, setSettings] = useState<Parameters>(defaultParameters);
     const [isAdmin, setIsAdmin] = useState(isConfigAdmin);
+    const [localRoleResolved, setLocalRoleResolved] = useState(false);
     const [discounts, setDiscounts] = useState<Discount[]>([]);
     const isDiscountsValid = useMemo(() => discounts.every((d) => d.amount > 0), [discounts]);
     const [currenciesConfig, setCurrenciesConfig] = useState<Currency[]>([]);
@@ -192,6 +200,7 @@ export default function SettingsPage() {
         const publicKey = getPublicKey();
         if (!publicKey) {
             console.warn('No public key found, cannot verify admin access');
+            setLocalRoleResolved(true);
             return;
         }
 
@@ -209,11 +218,13 @@ export default function SettingsPage() {
             .then((r) => r.json())
             .then(({ user }) => {
                 setIsAdmin(user?.role?.toLowerCase() === 'admin');
+                setLocalRoleResolved(true);
             })
             .catch((error) => {
                 console.error('Failed to resolve user for admin check:', error);
                 // If resolve fails, fall back to ConfigProvider's isAdmin
                 setIsAdmin(isConfigAdmin);
+                setLocalRoleResolved(true);
             });
     }, [isConfigAdmin]);
 
@@ -325,7 +336,7 @@ export default function SettingsPage() {
                     return { month: 1, day: 1 };
                 })(),
                 lastModified: getParam('lastModified', 'Dernière modification') || Date.now().toString(),
-                user: parameters?.user || { name: '', role: 0 },
+                user: parameters?.user,
                 products: (() => {
                     try {
                         const value = getParam('productsSettings', 'Paramètres produits');
@@ -386,6 +397,22 @@ export default function SettingsPage() {
                     return Math.max(0, Math.min(100, Number(value) || 0));
                 })(),
                 pennylaneToken: getParam('pennylaneToken', 'pennylaneToken') || undefined,
+                tpeIp: getParam('tpeIp', 'tpeIp') || undefined,
+                tpePort: (() => {
+                    const value = getParam('tpePort', 'tpePort');
+                    const port = Number(value);
+                    return value && port >= 1 && port <= 65535 ? port : undefined;
+                })(),
+                reservationPhone: (() => {
+                    const value = getParam('reservationPhone', 'reservationPhone');
+                    if (value === '') return undefined;
+                    return value === 'true';
+                })(),
+                reservationEmail: (() => {
+                    const value = getParam('reservationEmail', 'reservationEmail');
+                    if (value === '') return undefined;
+                    return value === 'true';
+                })(),
             };
 
             setSettings(loadedSettings);
@@ -395,7 +422,7 @@ export default function SettingsPage() {
             // Sync ConfigProvider parameters so the VirtualKeyboardProvider in
             // AdminConfigWrapper picks up useVirtualKeyboard from the DB.
             // Merge rather than replace to preserve any runtime-only fields.
-            setParameters({ ...parameters, ...loadedSettings });
+            setParameters((prev) => ({ ...prev, ...loadedSettings, user: prev.user }));
 
             // Load discounts from DB
             try {
@@ -602,6 +629,17 @@ export default function SettingsPage() {
         fetchParameters();
     }, [dbConfigChecked, fetchParameters]);
 
+    // Instantly apply the selected theme's colors to the ConfigProvider so the
+    // admin page previews the theme without needing to save first.
+    useEffect(() => {
+        if (!colorsConfig.length) return;
+        const start = selectedThemeIndex * COLORS_PER_THEME;
+        const themeColors = colorsConfig.slice(start, start + COLORS_PER_THEME);
+        if (themeColors.length === COLORS_PER_THEME) {
+            setConfigColors(themeColors);
+        }
+    }, [colorsConfig, selectedThemeIndex, setConfigColors]);
+
     // Track changes by comparing current state with original loaded data
     useEffect(() => {
         const settingsChanged = JSON.stringify(settings) !== JSON.stringify(originalSettings);
@@ -766,7 +804,7 @@ export default function SettingsPage() {
     };
 
     const handleParametersSave = async (data: Parameters) => {
-        if (!isSiretValid) {
+        if (!isSiretValid || !data.shop.phone?.trim() || !data.shop.vatNumber?.trim()) {
             openFullscreenPopup("Veuillez corriger les erreurs avant d'enregistrer.", ['OK']);
             return;
         }
@@ -783,6 +821,10 @@ export default function SettingsPage() {
                 { key: 'email', value: data.shop.email },
                 { key: 'phone', value: data.shop.phone ?? '' },
                 { key: 'vatNumber', value: data.shop.vatNumber ?? '' },
+                { key: 'naf', value: data.shop.naf ?? '' },
+                { key: 'legalForm', value: data.shop.legalForm ?? '' },
+                { key: 'logo', value: data.shop.logo ?? '' },
+                { key: 'shopImage', value: data.shop.image ?? '' },
                 { key: 'thanksMessage', value: data.thanksMessage },
                 { key: 'mercurial', value: data.mercurial },
                 { key: 'closingHour', value: String(data.closingHour) },
@@ -795,6 +837,11 @@ export default function SettingsPage() {
                 { key: 'useVirtualKeyboard', value: String(data.useVirtualKeyboard ?? false) },
                 { key: 'fidelityRate', value: String(data.fidelityRate ?? 0) },
                 { key: 'pennylaneToken', value: data.pennylaneToken ?? '' },
+                { key: 'tpeIp', value: data.tpeIp ?? '' },
+                { key: 'tpePort', value: data.tpePort ? String(data.tpePort) : '' },
+                { key: 'openingHours', value: data.openingHours ? JSON.stringify(data.openingHours) : '' },
+                { key: 'reservationPhone', value: String(data.reservationPhone ?? false) },
+                { key: 'reservationEmail', value: String(data.reservationEmail ?? false) },
             ];
 
             const response = await fetch('/api/sql/updateParameters', {
@@ -902,8 +949,11 @@ export default function SettingsPage() {
             setOriginalCustomThemeNames(customThemeNames);
             setHasColorsChanges(false);
 
-            // Update ConfigProvider to sync with main app
-            setConfig(buildConfig({ colors: data }));
+            // Update ConfigProvider to sync with main app — pass only the selected
+            // theme's 7 colors so the POS app applies the correct theme.
+            const start = selectedThemeIndex * COLORS_PER_THEME;
+            const selectedThemeColors = data.slice(start, start + COLORS_PER_THEME);
+            setConfig(buildConfig({ colors: selectedThemeColors }));
             clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
@@ -1071,16 +1121,25 @@ export default function SettingsPage() {
 
     // Check admin access
     if (!isAdmin) {
+        // Wait for either the local fetch or ConfigProvider to resolve the role
+        if (localRoleResolved || isRoleResolved) {
+            return (
+                <AdminPageLayout title="Configuration" hasChanges={false}>
+                    <div className="p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-lg">
+                        <p className="text-red-800 dark:text-red-200">
+                            <strong>{!isOnline ? 'Hors ligne' : 'Accès refusé'} :</strong>{' '}
+                            {!isOnline
+                                ? 'Vérifiez votre connexion internet puis rechargez la page.'
+                                : 'Cette page est réservée aux administrateurs.'}
+                        </p>
+                    </div>
+                </AdminPageLayout>
+            );
+        }
+        // Role not resolved yet — keep showing loading
         return (
             <AdminPageLayout title="Configuration" hasChanges={false}>
-                <div className="p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-lg">
-                    <p className="text-red-800 dark:text-red-200">
-                        <strong>{!isOnline ? 'Hors ligne' : 'Accès refusé'} :</strong>{' '}
-                        {!isOnline
-                            ? 'Vérifiez votre connexion internet puis rechargez la page.'
-                            : 'Cette page est réservée aux administrateurs.'}
-                    </p>
-                </div>
+                <Loading fullscreen />
             </AdminPageLayout>
         );
     }

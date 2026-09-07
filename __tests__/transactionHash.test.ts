@@ -1,4 +1,5 @@
 import { generateTransactionHash } from '@/app/api/sql/saveTransaction/route';
+import { computeTransactionHash } from '@/app/utils/transactionHash';
 import { describe, it, expect } from 'vitest';
 
 describe('generateTransactionHash', () => {
@@ -167,5 +168,103 @@ describe('generateTransactionHash', () => {
         const hash1 = generateTransactionHash(tx, undefined, 'prevHash1');
         const hash2 = generateTransactionHash(tx, undefined, 'prevHash2');
         expect(hash1).not.toBe(hash2);
+    });
+
+    it('includes line items in the hash — different items produce different hashes', () => {
+        const baseTx = {
+            order_id: '12345',
+            user_name: 'TestUser',
+            payment_method: 'CB',
+            amount: 10.5,
+            currency: 'EUR',
+            created_at: '2026-05-16 12:00:00',
+        };
+        const itemsA = [{ label: 'Café', quantity: 2, amount: 2.5, total: 5.0, vat_rate: 20 }];
+        const itemsB = [{ label: 'Thé', quantity: 2, amount: 2.5, total: 5.0, vat_rate: 20 }];
+        expect(computeTransactionHash({ ...baseTx, items: itemsA }, 1)).not.toBe(
+            computeTransactionHash({ ...baseTx, items: itemsB }, 1)
+        );
+    });
+
+    it('detects quantity changes in line items', () => {
+        const baseTx = {
+            order_id: '12345',
+            user_name: 'TestUser',
+            payment_method: 'CB',
+            amount: 10.5,
+            currency: 'EUR',
+            created_at: '2026-05-16 12:00:00',
+        };
+        const itemsA = [{ label: 'Café', quantity: 2, amount: 2.5, total: 5.0, vat_rate: 20 }];
+        const itemsB = [{ label: 'Café', quantity: 3, amount: 2.5, total: 7.5, vat_rate: 20 }];
+        expect(computeTransactionHash({ ...baseTx, items: itemsA }, 1)).not.toBe(
+            computeTransactionHash({ ...baseTx, items: itemsB }, 1)
+        );
+    });
+
+    it('detects price changes in line items', () => {
+        const baseTx = {
+            order_id: '12345',
+            user_name: 'TestUser',
+            payment_method: 'CB',
+            amount: 10.5,
+            currency: 'EUR',
+            created_at: '2026-05-16 12:00:00',
+        };
+        const itemsA = [{ label: 'Café', quantity: 2, amount: 2.5, total: 5.0, vat_rate: 20 }];
+        const itemsB = [{ label: 'Café', quantity: 2, amount: 3.0, total: 6.0, vat_rate: 20 }];
+        expect(computeTransactionHash({ ...baseTx, items: itemsA }, 1)).not.toBe(
+            computeTransactionHash({ ...baseTx, items: itemsB }, 1)
+        );
+    });
+
+    it('detects VAT rate changes in line items', () => {
+        const baseTx = {
+            order_id: '12345',
+            user_name: 'TestUser',
+            payment_method: 'CB',
+            amount: 10.5,
+            currency: 'EUR',
+            created_at: '2026-05-16 12:00:00',
+        };
+        const itemsA = [{ label: 'Café', quantity: 2, amount: 2.5, total: 5.0, vat_rate: 20 }];
+        const itemsB = [{ label: 'Café', quantity: 2, amount: 2.5, total: 5.0, vat_rate: 10 }];
+        expect(computeTransactionHash({ ...baseTx, items: itemsA }, 1)).not.toBe(
+            computeTransactionHash({ ...baseTx, items: itemsB }, 1)
+        );
+    });
+
+    it('produces same hash regardless of item insertion order (canonical sorting)', () => {
+        const baseTx = {
+            order_id: '12345',
+            user_name: 'TestUser',
+            payment_method: 'CB',
+            amount: 10.5,
+            currency: 'EUR',
+            created_at: '2026-05-16 12:00:00',
+        };
+        const itemsOrder1 = [
+            { label: 'Café', quantity: 2, amount: 2.5, total: 5.0, vat_rate: 20 },
+            { label: 'Thé', quantity: 1, amount: 3.0, total: 3.0, vat_rate: 10 },
+        ];
+        const itemsOrder2 = [
+            { label: 'Thé', quantity: 1, amount: 3.0, total: 3.0, vat_rate: 10 },
+            { label: 'Café', quantity: 2, amount: 2.5, total: 5.0, vat_rate: 20 },
+        ];
+        expect(computeTransactionHash({ ...baseTx, items: itemsOrder1 }, 1)).toBe(
+            computeTransactionHash({ ...baseTx, items: itemsOrder2 }, 1)
+        );
+    });
+
+    it('transaction without items produces same hash as transaction with empty items array', () => {
+        const baseTx = {
+            order_id: '12345',
+            user_name: 'TestUser',
+            payment_method: 'CB',
+            amount: 10.5,
+            currency: 'EUR',
+            created_at: '2026-05-16 12:00:00',
+        };
+        expect(computeTransactionHash(baseTx, 1)).toBe(computeTransactionHash({ ...baseTx, items: [] }, 1));
     });
 });

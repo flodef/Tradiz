@@ -137,7 +137,7 @@ describe('item-less transactions (provisions) never earn nor lose points', () =>
     });
 
     it('deleting a provision does not debit points that were never earned', () => {
-        // Regression: the delete/hardDelete reversal path used to default hasProducts to
+        // Regression: the delete/expunge reversal path used to default hasProducts to
         // true, so reversing an item-less provision subtracted 10 phantom points.
         const forward = computeFidelityDelta('Espèces', 100, 0, FIDELITY_RATE, false);
         const reversal = -computeFidelityDelta('Espèces', 100, 0, FIDELITY_RATE, false);

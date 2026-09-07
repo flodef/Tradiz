@@ -38,7 +38,8 @@ import {
     idbSetTransactions,
 } from '../utils/transactionStore';
 import { checkDbConfig, getPublicKey } from '../utils/processData';
-import { encodeCashNote } from '../utils/transactionNote';
+import { encodeCashNote, encodePaymentLegs } from '../utils/transactionNote';
+import { computeSoldQuantities, computeCartQuantities, deriveEffectiveStock, stockKey } from '../utils/stock';
 import { mergeTransactionArrays } from './dataProvider/syncUtils';
 import {
     isCancelledTransaction,
@@ -66,7 +67,7 @@ enum DatabaseAction {
     add = 'add',
     update = 'update',
     delete = 'delete',
-    hardDelete = 'hardDelete',
+    expunge = 'expunge',
     sync = 'sync',
 }
 
@@ -128,6 +129,43 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         },
         [setIsCashClosed]
     );
+
+    // ── Stock tracking (derived from transactions + live cart) ──
+    // Effective stock is derived from: configured stock minus sold quantities
+    // (from today's committed transactions) minus the current cart. This
+    // replaces the old localStorage-based decrement model which double-decremented
+    // on page refresh, transaction edit, and counter-order restore, and never
+    // restored stock on deletion.
+    //
+    // A cartVersion counter is bumped on every cart mutation so the memo
+    // recomputes immediately rather than waiting for the debounced save.
+    const [cartVersion, setCartVersion] = useState(0);
+    const bumpCartVersion = useCallback(() => setCartVersion((v) => v + 1), []);
+
+    const soldQuantities = useMemo(
+        // getPublicKey() accesses localStorage, which is unavailable during SSR.
+        // On the server, pass undefined so all transactions are counted as sold
+        // (no device exclusion). On the client, the real device ID is used.
+        () => computeSoldQuantities(transactions, typeof window !== 'undefined' ? getPublicKey() : undefined),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [transactions, cartVersion]
+    );
+
+    const cartQuantities = useMemo(() => {
+        // cartVersion is read here to trigger recompute on every cart mutation.
+        // products.current is a ref, so without this dependency the memo would
+        // return stale quantities.
+        void cartVersion;
+        return computeCartQuantities(products.current);
+    }, [cartVersion]);
+
+    const getEffectiveStock = useCallback(
+        (category: string, label: string, configStock: number | null): number | null => {
+            const key = stockKey(category, label);
+            return deriveEffectiveStock(configStock, soldQuantities.get(key) ?? 0, cartQuantities.get(key) ?? 0);
+        },
+        [soldQuantities, cartQuantities]
+    );
     // Set to true by clearTotal to prevent the product-restore effect from re-adding
     // stale items from PROCESSING transactions when transactions load asynchronously.
     const clearRequestedRef = useRef(false);
@@ -137,6 +175,16 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // Snapshot of the original products when editing a WAITING tx, used to compute the delta
     // (added/removed products) for the kitchen ticket when the tx is put back in WAITING or paid.
     const originalProductsSnapshotRef = useRef<Product[]>([]);
+    // One-time cleanup: remove leftover `currentStock_*` localStorage keys from
+    // the old decrement-based stock model. Runs once on mount.
+    useEffect(() => {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('currentStock_')) keysToRemove.push(key);
+        }
+        for (const key of keysToRemove) localStorage.removeItem(key);
+    }, []);
     // Set to true by editTransaction to suppress auto-save during addProduct calls
     // (editTransaction already saves the PROCESSING tx via saveTransactions).
     const suppressAutoSaveRef = useRef(false);
@@ -354,6 +402,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         nextResetTime.current = getResetTimes().next;
         // Reset cash closure state on day reset
         setCashClosed(false);
+        // Stock is derived from transactions, which are filtered to the new
+        // business day on reload. No explicit stock reset is needed.
     }, [getResetTimes, setCashClosed]);
 
     // Check if reset should happen and perform it
@@ -489,7 +539,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     }
 
                     // Remove PROCESSING transactions owned by OTHER devices that are no longer in
-                    // the cloud. This propagates hard-deletes across devices: when POS2 deletes its
+                    // the cloud. This propagates expunges across devices: when POS2 deletes its
                     // PROCESSING tx, it disappears from the server and must not linger on POS1.
                     //
                     // Guards:
@@ -540,6 +590,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         employer_share: transaction.employerShare ?? null,
                         fidelity_points: transaction.fidelityPointsUsed ?? null,
                         device_id: transaction.deviceId ?? null,
+                        payments: encodePaymentLegs(transaction.payments ?? []) ?? null,
                         created_at: toSQLDateTime(transaction.createdDate),
                         updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
                         products: transaction.products.map((product) => ({
@@ -936,7 +987,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 } else {
                     transactionsToSave.unshift(transaction);
                 }
-            } else if (action === DatabaseAction.hardDelete) {
+            } else if (action === DatabaseAction.expunge) {
                 // Completely remove from the array — no DELETED record should remain
                 const existingIndex = transactionsToSave.findIndex((tx) => tx.createdDate === transaction.createdDate);
                 if (existingIndex >= 0) {
@@ -984,6 +1035,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             employer_share: transaction.employerShare ?? null,
                             fidelity_points: transaction.fidelityPointsUsed ?? null,
                             device_id: transaction.deviceId ?? null,
+                            payments: encodePaymentLegs(transaction.payments ?? []) ?? null,
                             created_at: toSQLDateTime(transaction.createdDate),
                             updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
                             products: transaction.products.map((product) => ({
@@ -1116,11 +1168,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
                 if (isProcessingTransaction(transaction)) {
                     // Soft-delete PROCESSING transactions (mark as CANCELLED) instead of
-                    // hard-deleting them. This ensures the deletion propagates to other
+                    // expunging them. This ensures the deletion propagates to other
                     // devices via incremental sync: the updated modifiedDate makes the
                     // CANCELLED tx appear in the sync response, and fullSync replaces the
                     // local PROCESSING tx with the CANCELLED version (filtered out by UI).
-                    // hardDelete is only used for clearProcessingTransaction (payment),
+                    // expunge is only used for clearProcessingTransaction (payment),
                     // where the paid tx replaces the PROCESSING tx with the same createdDate.
                     processingTxCreatedDateRef.current = 0;
                     if (autoSaveProcessingRef.current) {
@@ -1146,31 +1198,31 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // clearTotal calls deleteTransaction to remove the PROCESSING tx after payment.
     // But there's a race: updateTransaction calls storeTransaction (queues state update)
     // then clearTotal → deleteTransaction. deleteTransaction's `transactions` closure
-    // is stale — it still sees the old PROCESSING tx, so it hard-deletes the tx that was
+    // is stale — it still sees the old PROCESSING tx, so it expunges the tx that was
     // just paid. This uses a functional state update to check the CURRENT state instead.
     // The side effect (saveTransactions) is deferred to a useEffect so the updater stays pure.
-    const pendingHardDeleteRef = useRef<Transaction | null>(null);
+    const pendingExpungeRef = useRef<Transaction | null>(null);
     const clearProcessingTransaction = useCallback(() => {
         const currentDeviceId = getPublicKey();
         setTransactions((prev) => {
             const idx = prev.findIndex((t) => isProcessingTransaction(t) && t.deviceId === currentDeviceId);
             if (idx < 0) return prev;
-            // Only hard-delete if it's STILL a PROCESSING tx in the current state.
+            // Only expunge if it's STILL a PROCESSING tx in the current state.
             // If it was already updated to a paid tx by storeTransaction, skip.
-            pendingHardDeleteRef.current = prev[idx];
+            pendingExpungeRef.current = prev[idx];
             return prev.filter((_, i) => i !== idx);
         });
     }, []);
-    // Flush the deferred hard-delete. Depends on `transactions` (not just
+    // Flush the deferred expunge. Depends on `transactions` (not just
     // saveTransactions) because clearProcessingTransaction always changes
     // `transactions` when it sets the ref — relying on saveTransactions'
     // identity alone would silently drop the delete if it ever stopped
     // depending on `transactions`, leaking PROCESSING rows in the DB.
     useEffect(() => {
-        if (pendingHardDeleteRef.current) {
-            const tx = pendingHardDeleteRef.current;
-            pendingHardDeleteRef.current = null;
-            saveTransactions(DatabaseAction.hardDelete, tx);
+        if (pendingExpungeRef.current) {
+            const tx = pendingExpungeRef.current;
+            pendingExpungeRef.current = null;
+            saveTransactions(DatabaseAction.expunge, tx);
         }
     }, [transactions, saveTransactions]);
 
@@ -1247,7 +1299,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         clearAmount();
         setShortNumOrder('');
         setOrderId('');
-    }, [clearAmount, clearProcessingTransaction, isCashClosedToday]);
+        bumpCartVersion();
+    }, [clearAmount, clearProcessingTransaction, isCashClosedToday, bumpCartVersion]);
 
     // Recalculate the total when the customer, companies, or categories change
     // so the employer share is re-evaluated against the current cart.
@@ -1334,9 +1387,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             setSelectedProduct(p ?? product);
             setAmount(product.amount);
             setQuantity(product.amount ? -1 : 0);
+            bumpCartVersion();
             saveProcessingTransactionRef.current();
         },
-        [products, selectedProduct, computeQuantity, isCashClosedToday]
+        [products, selectedProduct, computeQuantity, isCashClosedToday, bumpCartVersion]
     );
 
     const deleteProduct = useCallback(
@@ -1350,7 +1404,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (!products.current.length) {
                 clearRequestedRef.current = true;
                 // Cancel any pending debounced save so it doesn't re-save a stale
-                // PROCESSING transaction after we've just hard-deleted it.
+                // PROCESSING transaction after we've just expunged it.
                 if (autoSaveProcessingRef.current) {
                     clearTimeout(autoSaveProcessingRef.current);
                     autoSaveProcessingRef.current = null;
@@ -1369,6 +1423,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 clearAmount();
             }
             // Persist the updated product list (or trigger cleanup if empty)
+            bumpCartVersion();
             saveProcessingTransactionRef.current();
         },
         [
@@ -1381,6 +1436,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             setQuantity,
             updateTotal,
             isCashClosedToday,
+            bumpCartVersion,
         ]
     );
 
@@ -1778,6 +1834,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 transactionsLoaded,
                 isCashClosed: isCashClosedToday,
                 setCashClosed,
+                getEffectiveStock,
             }}
         >
             {children}

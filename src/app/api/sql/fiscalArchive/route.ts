@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from '../db';
 import { insertAuditEvent } from '../auditHelpers';
 import { getSoftwareVersion, getSoftwareName } from '@/app/utils/version';
+import { createHmac } from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,7 @@ interface ArchiveTransaction {
     payment_method: string;
     amount: number;
     currency: string;
+    payments: string | null;
     hash: string | null;
     previous_hash: string | null;
     created_at: string;
@@ -43,6 +45,8 @@ interface ArchiveExport {
     annual_closures: unknown[];
     perpetual_totals: unknown;
     audit_events: unknown[];
+    signature: string | null;
+    signature_algorithm: string;
 }
 
 export async function GET(request: Request) {
@@ -64,8 +68,8 @@ export async function GET(request: Request) {
 
         // Fetch transactions in date range
         const txQuery = isPg
-            ? `SELECT id, order_id, customer_name, user_name, payment_method, amount, currency, hash, previous_hash, created_at, updated_at FROM ${prefix}transactions WHERE created_at >= $1 AND created_at <= $2 ORDER BY id ASC`
-            : `SELECT id, order_id, customer_name, user_name, payment_method, amount, currency, hash, previous_hash, created_at, updated_at FROM ${prefix}transactions WHERE created_at >= ? AND created_at <= ? ORDER BY id ASC`;
+            ? `SELECT id, order_id, customer_name, user_name, payment_method, amount, currency, payments, hash, previous_hash, created_at, updated_at FROM ${prefix}transactions WHERE created_at >= $1 AND created_at <= $2 ORDER BY id ASC`
+            : `SELECT id, order_id, customer_name, user_name, payment_method, amount, currency, payments, hash, previous_hash, created_at, updated_at FROM ${prefix}transactions WHERE created_at >= ? AND created_at <= ? ORDER BY id ASC`;
         const [txRows] = await connection.execute(txQuery, [startDate, endDate]);
         const transactions = txRows as ArchiveTransaction[];
 
@@ -136,7 +140,21 @@ export async function GET(request: Request) {
             annual_closures: annualRows,
             perpetual_totals: perpetualTotals,
             audit_events: auditRows,
+            signature: null,
+            signature_algorithm: 'HMAC-SHA256',
         };
+
+        // Seal the archive with an HMAC-SHA256 signature over the canonical JSON.
+        // The key is read from FISCAL_ARCHIVE_HMAC_KEY env var. If unset, the
+        // signature is null — the archive is still valid but cannot be verified
+        // by a third party.
+        const hmacKey = process.env.FISCAL_ARCHIVE_HMAC_KEY;
+        if (hmacKey) {
+            // Sign everything except the signature field itself
+            const { signature: _sig, ...archiveWithoutSignature } = archive; // eslint-disable-line @typescript-eslint/no-unused-vars
+            const canonicalJson = JSON.stringify(archiveWithoutSignature);
+            archive.signature = createHmac('sha256', hmacKey).update(canonicalJson).digest('hex');
+        }
 
         // Trace the export in audit events (transactional for integrity)
         await connection.beginTransaction();

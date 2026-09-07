@@ -2,7 +2,7 @@ import { DbConnection } from './db';
 import {
     CANCELLED_KEYWORD,
     DELETED_KEYWORD,
-    HARD_DELETED_KEYWORD,
+    EXPUNGED_KEYWORD,
     UPDATING_KEYWORD,
     WAITING_KEYWORD,
     PROCESSING_KEYWORD,
@@ -12,7 +12,7 @@ import { VatBreakdownEntry, VentilationEntry, PaymentTotalEntry } from '@/app/ut
 const EXCLUDED = [
     DELETED_KEYWORD,
     CANCELLED_KEYWORD,
-    HARD_DELETED_KEYWORD,
+    EXPUNGED_KEYWORD,
     WAITING_KEYWORD,
     UPDATING_KEYWORD,
     PROCESSING_KEYWORD,

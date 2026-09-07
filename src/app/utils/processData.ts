@@ -188,7 +188,11 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             email: getParamValue('email', 6) || devEmail,
             phone: getParamValue('phone', 18) || '',
             vatNumber: getParamValue('vatNumber', 19) || '',
+            naf: getParamValue('naf', 20) || '',
+            legalForm: getParamValue('legalForm', 21) || '',
             country: 'FR',
+            logo: getParamValue('logo', 23) || '',
+            image: getParamValue('shopImage', 24) || '',
         },
         thanksMessage: getParamValue('thanksMessage', 7) || 'Merci de votre visite !',
         mercurial: (getParamValue('mercurial', 8) || Mercurial.none) as Mercurial,
@@ -272,6 +276,39 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             const value = getParamValue('pennylaneToken', 20);
             return value || undefined;
         })(),
+        tpeIp: (() => {
+            const value = getParamValue('tpeIp', 21);
+            return value || undefined;
+        })(),
+        tpePort: (() => {
+            const value = getParamValue('tpePort', 22);
+            const port = Number(value);
+            return value && port >= 1 && port <= 65535 ? port : undefined;
+        })(),
+        openingHours: (() => {
+            try {
+                const value = getParamValue('openingHours', 25);
+                if (value) {
+                    const parsed = JSON.parse(value);
+                    if (parsed && typeof parsed === 'object') {
+                        return parsed as Record<number, { open: string; close: string }[]>;
+                    }
+                }
+            } catch {
+                // Invalid JSON
+            }
+            return undefined;
+        })(),
+        reservationPhone: (() => {
+            const value = getParamValue('reservationPhone', 26);
+            if (value === '') return undefined;
+            return value === 'true';
+        })(),
+        reservationEmail: (() => {
+            const value = getParamValue('reservationEmail', 27);
+            if (value === '') return undefined;
+            return value === 'true';
+        })(),
     };
 }
 
@@ -288,6 +325,8 @@ interface ProductData {
         color?: string;
         sortOrder?: number;
         employerShare?: number | null;
+        photo?: string | null;
+        description?: string | null;
     }[];
     currencies: string[];
 }
@@ -373,6 +412,8 @@ export const defaultParameters: Parameters = {
         serial: '',
         phone: '',
         vatNumber: '',
+        naf: '',
+        legalForm: '',
         country: 'FR',
     },
     thanksMessage: '',
@@ -611,6 +652,8 @@ async function _loadDataImpl(): Promise<Config | undefined> {
                 color: item.color ?? '',
                 sortOrder: item.sortOrder ?? 0,
                 employerShare: item.employerShare ?? null,
+                photo: item.photo ?? null,
+                description: item.description ?? null,
             });
         } else {
             inventory.push({
@@ -628,6 +671,8 @@ async function _loadDataImpl(): Promise<Config | undefined> {
                         color: item.color ?? '',
                         sortOrder: item.sortOrder ?? 0,
                         employerShare: item.employerShare ?? null,
+                        photo: item.photo ?? null,
+                        description: item.description ?? null,
                     },
                 ],
             });

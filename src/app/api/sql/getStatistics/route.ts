@@ -2,7 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import {
     CANCELLED_KEYWORD,
     DELETED_KEYWORD,
-    HARD_DELETED_KEYWORD,
+    EXPUNGED_KEYWORD,
     PROCESSING_KEYWORD,
     REFUND_KEYWORD,
     UPDATING_KEYWORD,
@@ -16,7 +16,7 @@ import { getPosDb, DbConnection } from '../db';
 const NON_PAID_METHODS = [
     DELETED_KEYWORD,
     CANCELLED_KEYWORD,
-    HARD_DELETED_KEYWORD,
+    EXPUNGED_KEYWORD,
     REFUND_KEYWORD,
     UPDATING_KEYWORD,
     PROCESSING_KEYWORD,

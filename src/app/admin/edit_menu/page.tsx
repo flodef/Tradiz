@@ -129,6 +129,8 @@ function buildInventoryFromAdminProducts(products: AdminProduct[]): InventoryIte
             color: p.color ?? '',
             sortOrder,
             employerShare: p.employerShare ?? null,
+            photo: p.photo ?? null,
+            description: p.description ?? null,
         });
     }
 
@@ -206,7 +208,7 @@ export default function EditMenuPage() {
         users,
         isStateReady,
     } = useConfig();
-    const { isCashier } = useUserRole();
+    const { isCashier, isRoleResolved } = useUserRole();
     const { isOnline } = useWindowParam();
     const { openFullscreenPopup } = usePopup();
     const searchParams = useSearchParams();
@@ -987,16 +989,25 @@ export default function EditMenuPage() {
 
     // Check access - admin and cashier only
     if (!isCashier) {
+        // If the role hasn't been resolved yet, show loading instead of access denied
+        if (isRoleResolved) {
+            return (
+                <AdminPageLayout title="Édition des produits" hasChanges={false}>
+                    <div className="p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-lg">
+                        <p className="text-red-800 dark:text-red-200">
+                            <strong>{!isOnline ? 'Hors ligne' : 'Accès refusé'} :</strong>{' '}
+                            {!isOnline
+                                ? 'Vérifiez votre connexion internet puis rechargez la page.'
+                                : 'Cette page est réservée aux administrateurs et caissiers.'}
+                        </p>
+                    </div>
+                </AdminPageLayout>
+            );
+        }
+        // Role not resolved yet — keep showing loading
         return (
             <AdminPageLayout title="Édition des produits" hasChanges={false}>
-                <div className="p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-lg">
-                    <p className="text-red-800 dark:text-red-200">
-                        <strong>{!isOnline ? 'Hors ligne' : 'Accès refusé'} :</strong>{' '}
-                        {!isOnline
-                            ? 'Vérifiez votre connexion internet puis rechargez la page.'
-                            : 'Cette page est réservée aux administrateurs et caissiers.'}
-                    </p>
-                </div>
+                <Loading fullscreen />
             </AdminPageLayout>
         );
     }
@@ -1106,6 +1117,7 @@ export default function EditMenuPage() {
                             onToggle={() => setOpenSection((prev) => (prev === 'catalog' ? null : 'catalog'))}
                             icon={<IconLayoutGrid size={24} />}
                             productsSettings={productsSettings}
+                            displayOthers={parameters?.display?.displayOthers === true}
                         />
                     ) : (
                         <ProductsConfig

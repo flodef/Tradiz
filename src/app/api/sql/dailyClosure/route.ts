@@ -5,7 +5,7 @@ import { createHash } from 'crypto';
 import {
     DELETED_KEYWORD,
     CANCELLED_KEYWORD,
-    HARD_DELETED_KEYWORD,
+    EXPUNGED_KEYWORD,
     REFUND_KEYWORD,
     UPDATING_KEYWORD,
     PROCESSING_KEYWORD,
@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
 const EXCLUDED_METHODS = [
     DELETED_KEYWORD,
     CANCELLED_KEYWORD,
-    HARD_DELETED_KEYWORD,
+    EXPUNGED_KEYWORD,
     UPDATING_KEYWORD,
     PROCESSING_KEYWORD,
     WAITING_KEYWORD,
@@ -50,7 +50,7 @@ async function computeDailyTotals(connection: DbConnection, date: string): Promi
     const paidResult = (paidRows as { cnt: number; total: number | string }[])[0];
 
     // Cancellations and deletions
-    const cancelMethods = [DELETED_KEYWORD, CANCELLED_KEYWORD, HARD_DELETED_KEYWORD];
+    const cancelMethods = [DELETED_KEYWORD, CANCELLED_KEYWORD, EXPUNGED_KEYWORD];
     const cancelPlaceholders = cancelMethods.map((_, i) => (isPg ? `$${i + 2}` : '?')).join(', ');
     const cancelQuery = isPg
         ? `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(ABS(amount)), 0)::numeric AS total FROM ${prefix}transactions WHERE DATE(created_at) = $1 AND payment_method IN (${cancelPlaceholders})`
