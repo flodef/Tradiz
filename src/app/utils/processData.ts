@@ -299,6 +299,16 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             }
             return undefined;
         })(),
+        reservationPhone: (() => {
+            const value = getParamValue('reservationPhone', 26);
+            if (value === '') return undefined;
+            return value === 'true';
+        })(),
+        reservationEmail: (() => {
+            const value = getParamValue('reservationEmail', 27);
+            if (value === '') return undefined;
+            return value === 'true';
+        })(),
     };
 }
 

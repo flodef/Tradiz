@@ -403,6 +403,16 @@ export default function SettingsPage() {
                     const port = Number(value);
                     return value && port >= 1 && port <= 65535 ? port : undefined;
                 })(),
+                reservationPhone: (() => {
+                    const value = getParam('reservationPhone', 'reservationPhone');
+                    if (value === '') return undefined;
+                    return value === 'true';
+                })(),
+                reservationEmail: (() => {
+                    const value = getParam('reservationEmail', 'reservationEmail');
+                    if (value === '') return undefined;
+                    return value === 'true';
+                })(),
             };
 
             setSettings(loadedSettings);
@@ -794,7 +804,7 @@ export default function SettingsPage() {
     };
 
     const handleParametersSave = async (data: Parameters) => {
-        if (!isSiretValid) {
+        if (!isSiretValid || !data.shop.phone?.trim() || !data.shop.vatNumber?.trim()) {
             openFullscreenPopup("Veuillez corriger les erreurs avant d'enregistrer.", ['OK']);
             return;
         }
@@ -830,6 +840,8 @@ export default function SettingsPage() {
                 { key: 'tpeIp', value: data.tpeIp ?? '' },
                 { key: 'tpePort', value: data.tpePort ? String(data.tpePort) : '' },
                 { key: 'openingHours', value: data.openingHours ? JSON.stringify(data.openingHours) : '' },
+                { key: 'reservationPhone', value: String(data.reservationPhone ?? false) },
+                { key: 'reservationEmail', value: String(data.reservationEmail ?? false) },
             ];
 
             const response = await fetch('/api/sql/updateParameters', {

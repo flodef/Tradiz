@@ -110,6 +110,9 @@ export async function GET(request: Request) {
             image: getParam('shopImage'),
         };
 
+        const reservationPhone = getParam('reservationPhone') === 'true';
+        const reservationEmail = getParam('reservationEmail') === 'true';
+
         // Parse opening hours from parameters
         let openingHours: Record<number, { open: string; close: string }[]> | undefined;
         try {
@@ -134,7 +137,10 @@ export async function GET(request: Request) {
             description: String(row.description || ''),
         }));
 
-        return NextResponse.json({ shop, currencies, articles, openingHours }, { status: 200 });
+        return NextResponse.json(
+            { shop, currencies, articles, openingHours, reservationPhone, reservationEmail },
+            { status: 200 }
+        );
     } catch (error) {
         console.error('public/catalog error:', error);
         return NextResponse.json({ error: 'An error occurred' }, { status: 500 });

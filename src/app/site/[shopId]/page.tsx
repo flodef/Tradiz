@@ -19,8 +19,10 @@ import {
     IconDeviceDesktop,
     IconDeviceTablet,
     IconDeviceMobile,
+    IconShoppingBag,
 } from '@tabler/icons-react';
 import { sendContactEmail } from '@/app/actions/email';
+import MyList from './MyList';
 
 /* ───────────────────────────── Theme ───────────────────────────── */
 type ThemeMode = 'light' | 'dark' | 'system';
@@ -147,6 +149,8 @@ interface CatalogData {
     currencies: CurrencyInfo[];
     articles: ArticleInfo[];
     openingHours?: OpeningHours;
+    reservationPhone?: boolean;
+    reservationEmail?: boolean;
 }
 
 const DAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
@@ -239,6 +243,7 @@ export default function SitePage() {
     const [searchFocused, setSearchFocused] = useState(false);
     const [recentSearches, setRecentSearches] = useState<string[]>([]);
     const [highlightedProduct, setHighlightedProduct] = useState<string | null>(null);
+    const [myListOpen, setMyListOpen] = useState(false);
     const { mode: themeMode, set: setTheme } = useTheme();
     const params = useParams<{ shopId: string }>();
     const shopId = params.shopId;
@@ -401,6 +406,7 @@ export default function SitePage() {
 
     const { shop, currencies, articles } = data;
     const currency = currencies[0] ?? { symbol: '€', decimals: 2, label: 'Euro', maxValue: 999.99, rate: 1, fee: 0 };
+    const reservationEnabled = data.reservationPhone || data.reservationEmail;
 
     const formatPrice = (price: number) => {
         const formatted = price.toFixed(currency.decimals);
@@ -534,6 +540,15 @@ export default function SitePage() {
                             >
                                 Nous contacter
                             </button>
+                            {reservationEnabled && (
+                                <button
+                                    onClick={() => setMyListOpen(true)}
+                                    className="px-4 py-2 text-base font-medium text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1.5 cursor-pointer font-semibold"
+                                >
+                                    <IconShoppingBag size={18} />
+                                    Ma liste
+                                </button>
+                            )}
                             {hasOpeningHours && (
                                 <a
                                     href="#horaires"
@@ -763,6 +778,18 @@ export default function SitePage() {
                     {/* Mobile menu */}
                     {mobileMenuOpen && (
                         <div className="md:hidden border-t border-site-border py-3 flex flex-col gap-1">
+                            {reservationEnabled && (
+                                <button
+                                    onClick={() => {
+                                        setMyListOpen(true);
+                                        setMobileMenuOpen(false);
+                                    }}
+                                    className="px-4 py-2 text-base font-semibold text-orange-600 hover:text-orange-700 text-left cursor-pointer flex items-center gap-2"
+                                >
+                                    <IconShoppingBag size={18} />
+                                    Ma liste
+                                </button>
+                            )}
                             <button
                                 onClick={() => {
                                     setContactModalOpen(true);
@@ -1229,6 +1256,19 @@ export default function SitePage() {
                         </a>
                     </div>
                 </div>
+            )}
+
+            {reservationEnabled && (
+                <MyList
+                    open={myListOpen}
+                    onClose={() => setMyListOpen(false)}
+                    articles={articles}
+                    shop={shop}
+                    currencySymbol={currency.symbol}
+                    currencyDecimals={currency.decimals}
+                    reservationPhone={data.reservationPhone ?? false}
+                    reservationEmail={data.reservationEmail ?? false}
+                />
             )}
         </div>
     );

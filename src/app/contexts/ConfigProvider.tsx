@@ -113,6 +113,8 @@ export interface Parameters {
     products?: ProductsSettings;
     search?: SearchSettings;
     display?: DisplaySettings;
+    reservationPhone?: boolean;
+    reservationEmail?: boolean;
     error?: string;
 }
 

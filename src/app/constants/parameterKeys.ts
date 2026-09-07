@@ -32,6 +32,8 @@ export const PARAMETER_KEYS = {
     TPE_IP: 'tpeIp',
     TPE_PORT: 'tpePort',
     OPENING_HOURS: 'openingHours',
+    RESERVATION_PHONE: 'reservationPhone',
+    RESERVATION_EMAIL: 'reservationEmail',
 } as const;
 
 export const PARAMETER_KEY_LIST = Object.values(PARAMETER_KEYS);

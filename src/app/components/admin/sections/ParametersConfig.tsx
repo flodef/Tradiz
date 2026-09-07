@@ -317,6 +317,10 @@ export default function ParametersConfig({
         });
     };
 
+    const isPhoneValid = config.shop.phone?.trim() !== '' && frenchPhoneRegex.test(config.shop.phone.trim());
+    const isVatValid = config.shop.vatNumber?.trim() !== '';
+    const isFormValid = isSiretValid && isPhoneValid && isVatValid;
+
     const handleShopChange = (field: string, value: string) => {
         onChange({
             ...config,
@@ -370,12 +374,12 @@ export default function ParametersConfig({
             hasChanges={hasChanges}
             onAdd={undefined}
             icon={icon}
-            saveDisabled={!isSiretValid}
+            saveDisabled={!isFormValid}
             isLoading={isLoading}
             isOpen={isOpen}
             isReadOnly={isReadOnly}
             onToggle={onToggle}
-            isValid={isSiretValid}
+            isValid={isFormValid}
             addLabel=""
         >
             {/* Subsection: Commerce */}
@@ -409,7 +413,7 @@ export default function ParametersConfig({
                         className="flex-1 min-w-28 max-w-28"
                         validation={(value) => {
                             const v = String(value).trim();
-                            return v === '' || frenchPhoneRegex.test(v);
+                            return v !== '' && frenchPhoneRegex.test(v);
                         }}
                     />
                     <SiretInput
@@ -425,6 +429,7 @@ export default function ParametersConfig({
                         placeholder="FR12345678901"
                         isReadOnly={isReadOnly}
                         className="flex-1 min-w-30 max-w-30"
+                        validation={(value) => String(value).trim() !== ''}
                     />
                     <ValidatedInput
                         label="NAF"
@@ -956,6 +961,31 @@ export default function ParametersConfig({
                             }
                             isReadOnly={isReadOnly}
                             label="Utilisateurs"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Subsection: Réservation */}
+            <div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
+                    Réservation
+                </h3>
+                <div className="flex flex-wrap gap-6">
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.reservationPhone ?? false}
+                            onChange={(checked) => handleChange('reservationPhone', checked)}
+                            isReadOnly={isReadOnly}
+                            label="Réserver par téléphone"
+                        />
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={config.reservationEmail ?? false}
+                            onChange={(checked) => handleChange('reservationEmail', checked)}
+                            isReadOnly={isReadOnly}
+                            label="Réserver par email"
                         />
                     </div>
                 </div>
