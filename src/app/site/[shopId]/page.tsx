@@ -6,7 +6,6 @@ import {
     IconMapPin,
     IconPhone,
     IconMail,
-    IconCircleX,
     IconCheck,
     IconToolsKitchen2,
     IconMenu2,
@@ -228,6 +227,7 @@ export default function SitePage() {
     const [error, setError] = useState<string | null>(null);
     const [showSoldOut, setShowSoldOut] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
     const [productsDropdownOpen, setProductsDropdownOpen] = useState(false);
     const [contactModalOpen, setContactModalOpen] = useState(false);
     const [contactForm, setContactForm] = useState({ name: '', email: '', subject: '', message: '' });
@@ -374,33 +374,15 @@ export default function SitePage() {
         return (
             <div className="min-h-screen flex items-center justify-center bg-site-bg text-site-text">
                 <div className="flex flex-col items-center gap-6">
-                    <div className="relative flex items-center justify-center">
+                    <div className="relative flex items-center justify-center h-16">
                         <div
-                            className="absolute w-20 h-20 rounded-full bg-orange-200/40 animate-ping"
-                            style={{ animationDuration: '1.2s' }}
-                        />
-                        <div
-                            className="absolute w-16 h-16 rounded-full bg-orange-300/30 animate-bounce"
-                            style={{ animationDuration: '1.2s' }}
+                            className="absolute w-14 h-14 rounded-full bg-orange-200/50 animate-bounce"
+                            style={{ animationDuration: '1s' }}
                         />
                         <IconToolsKitchen2
-                            size={40}
+                            size={32}
                             className="text-orange-500 animate-bounce relative z-10"
-                            style={{ animationDuration: '1.2s' }}
-                        />
-                    </div>
-                    <div className="flex gap-1.5">
-                        <span
-                            className="w-2.5 h-2.5 rounded-full bg-orange-400 animate-bounce"
-                            style={{ animationDelay: '0ms', animationDuration: '0.8s' }}
-                        />
-                        <span
-                            className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-bounce"
-                            style={{ animationDelay: '150ms', animationDuration: '0.8s' }}
-                        />
-                        <span
-                            className="w-2.5 h-2.5 rounded-full bg-orange-400 animate-bounce"
-                            style={{ animationDelay: '300ms', animationDuration: '0.8s' }}
+                            style={{ animationDuration: '1s' }}
                         />
                     </div>
                     <p className="text-site-text-secondary text-lg font-medium">Préparation du menu…</p>
@@ -669,109 +651,118 @@ export default function SitePage() {
                             <ThemeToggle mode={themeMode} set={setTheme} />
                         </div>
 
-                        {/* Mobile: search button + theme toggle + menu button */}
+                        {/* Mobile: search button (left) + theme toggle + hamburger (right) */}
                         <div className="flex md:hidden items-center gap-2 ml-auto">
                             <button
                                 className="p-2 text-site-text hover:text-orange-600 cursor-pointer"
                                 onClick={() => {
-                                    setMobileMenuOpen(true);
-                                    setTimeout(() => {
-                                        const input = document.querySelector<HTMLInputElement>('#mobile-search-input');
-                                        input?.focus();
-                                    }, 100);
+                                    setMobileSearchOpen((prev) => !prev);
+                                    setMobileMenuOpen(false);
+                                    if (!mobileSearchOpen) {
+                                        setTimeout(() => {
+                                            const input =
+                                                document.querySelector<HTMLInputElement>('#mobile-search-input');
+                                            input?.focus();
+                                        }, 100);
+                                    }
                                 }}
                                 aria-label="Rechercher"
                             >
-                                <IconSearch size={22} />
+                                {mobileSearchOpen ? <IconX size={22} /> : <IconSearch size={22} />}
                             </button>
                             <ThemeToggle mode={themeMode} set={setTheme} />
                             <button
                                 className="p-2 text-site-text hover:text-orange-600 cursor-pointer"
-                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                                onClick={() => {
+                                    setMobileMenuOpen(!mobileMenuOpen);
+                                    setMobileSearchOpen(false);
+                                }}
                             >
                                 {mobileMenuOpen ? <IconX size={24} /> : <IconMenu2 size={24} />}
                             </button>
                         </div>
                     </div>
 
+                    {/* Mobile search overlay */}
+                    {mobileSearchOpen && (
+                        <div className="md:hidden border-t border-site-border py-3 px-4">
+                            <div className="relative">
+                                <IconSearch
+                                    size={16}
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-site-text-muted pointer-events-none"
+                                />
+                                <input
+                                    id="mobile-search-input"
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onFocus={() => setSearchFocused(true)}
+                                    onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleSearchSubmit();
+                                    }}
+                                    placeholder="Rechercher…"
+                                    className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-site-input-bg border border-site-input-border text-site-text placeholder:text-site-text-muted focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                                />
+                                {searchFocused &&
+                                    (searchResults.length > 0 || (searchQuery === '' && recentSearches.length > 0)) && (
+                                        <div className="absolute top-full left-0 right-0 mt-1 bg-site-surface rounded-lg shadow-lg border border-site-border py-2 z-30">
+                                            {searchResults.length > 0 && (
+                                                <>
+                                                    <div className="px-3 py-1 text-xs font-semibold text-site-text-muted uppercase">
+                                                        Produits
+                                                    </div>
+                                                    {searchResults.map((article) => (
+                                                        <button
+                                                            key={`${article.category}-${article.label}`}
+                                                            onMouseDown={() => handleSearchSelect(article)}
+                                                            className="block w-full text-left px-4 py-2 text-sm text-site-text hover:bg-site-surface-hover transition-colors cursor-pointer"
+                                                        >
+                                                            <span className="font-medium">{article.label}</span>
+                                                            <span className="text-site-text-muted text-xs ml-2">
+                                                                {article.category}
+                                                            </span>
+                                                        </button>
+                                                    ))}
+                                                </>
+                                            )}
+                                            {searchQuery === '' && recentSearches.length > 0 && (
+                                                <>
+                                                    <div className="flex items-center justify-between px-3 py-1">
+                                                        <span className="text-xs font-semibold text-site-text-muted uppercase">
+                                                            Récentes
+                                                        </span>
+                                                        <button
+                                                            onMouseDown={clearRecentSearches}
+                                                            className="text-xs text-site-text-muted hover:text-site-text cursor-pointer"
+                                                        >
+                                                            Effacer
+                                                        </button>
+                                                    </div>
+                                                    {recentSearches.map((s, i) => (
+                                                        <button
+                                                            key={i}
+                                                            onMouseDown={() => handleSearchSubmit(s)}
+                                                            className="block w-full text-left px-4 py-2 text-sm text-site-text hover:bg-site-surface-hover transition-colors cursor-pointer"
+                                                        >
+                                                            <IconSearch
+                                                                size={12}
+                                                                className="inline mr-2 text-site-text-muted"
+                                                            />
+                                                            {s}
+                                                        </button>
+                                                    ))}
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Mobile menu */}
                     {mobileMenuOpen && (
                         <div className="md:hidden border-t border-site-border py-3 flex flex-col gap-1">
-                            {/* Mobile search */}
-                            <div className="px-4 pb-2">
-                                <div className="relative">
-                                    <IconSearch
-                                        size={16}
-                                        className="absolute left-3 top-1/2 -translate-y-1/2 text-site-text-muted pointer-events-none"
-                                    />
-                                    <input
-                                        id="mobile-search-input"
-                                        type="text"
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        onFocus={() => setSearchFocused(true)}
-                                        onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') handleSearchSubmit();
-                                        }}
-                                        placeholder="Rechercher…"
-                                        className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-site-input-bg border border-site-input-border text-site-text placeholder:text-site-text-muted focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
-                                    />
-                                    {searchFocused &&
-                                        (searchResults.length > 0 ||
-                                            (searchQuery === '' && recentSearches.length > 0)) && (
-                                            <div className="absolute top-full left-4 right-4 mt-1 bg-site-surface rounded-lg shadow-lg border border-site-border py-2 z-30">
-                                                {searchResults.length > 0 && (
-                                                    <>
-                                                        <div className="px-3 py-1 text-xs font-semibold text-site-text-muted uppercase">
-                                                            Produits
-                                                        </div>
-                                                        {searchResults.map((article) => (
-                                                            <button
-                                                                key={`${article.category}-${article.label}`}
-                                                                onMouseDown={() => handleSearchSelect(article)}
-                                                                className="block w-full text-left px-4 py-2 text-sm text-site-text hover:bg-site-surface-hover transition-colors cursor-pointer"
-                                                            >
-                                                                <span className="font-medium">{article.label}</span>
-                                                                <span className="text-site-text-muted text-xs ml-2">
-                                                                    {article.category}
-                                                                </span>
-                                                            </button>
-                                                        ))}
-                                                    </>
-                                                )}
-                                                {searchQuery === '' && recentSearches.length > 0 && (
-                                                    <>
-                                                        <div className="flex items-center justify-between px-3 py-1">
-                                                            <span className="text-xs font-semibold text-site-text-muted uppercase">
-                                                                Récentes
-                                                            </span>
-                                                            <button
-                                                                onMouseDown={clearRecentSearches}
-                                                                className="text-xs text-site-text-muted hover:text-site-text cursor-pointer"
-                                                            >
-                                                                Effacer
-                                                            </button>
-                                                        </div>
-                                                        {recentSearches.map((s, i) => (
-                                                            <button
-                                                                key={i}
-                                                                onMouseDown={() => handleSearchSubmit(s)}
-                                                                className="block w-full text-left px-4 py-2 text-sm text-site-text hover:bg-site-surface-hover transition-colors cursor-pointer"
-                                                            >
-                                                                <IconSearch
-                                                                    size={12}
-                                                                    className="inline mr-2 text-site-text-muted"
-                                                                />
-                                                                {s}
-                                                            </button>
-                                                        ))}
-                                                    </>
-                                                )}
-                                            </div>
-                                        )}
-                                </div>
-                            </div>
                             <button
                                 onClick={() => {
                                     setContactModalOpen(true);
@@ -917,20 +908,7 @@ export default function SitePage() {
                                                                 className={`h-full w-full object-cover transition-all ${soldOut ? 'grayscale' : ''}`}
                                                             />
                                                             {soldOut && (
-                                                                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                                                                    <span className="px-4 py-1.5 bg-red-500 text-white text-sm font-semibold rounded-full flex items-center gap-1.5">
-                                                                        <IconCircleX size={16} />
-                                                                        Épuisé
-                                                                    </span>
-                                                                </div>
-                                                            )}
-                                                            {!soldOut && showSoldOut && (
-                                                                <div className="absolute top-2 right-2">
-                                                                    <span className="px-3 py-1 bg-green-500/90 text-white text-xs font-semibold rounded-full flex items-center gap-1.5 backdrop-blur-sm">
-                                                                        <IconCheck size={14} />
-                                                                        Disponible
-                                                                    </span>
-                                                                </div>
+                                                                <div className="absolute inset-0 bg-black/30" />
                                                             )}
                                                         </div>
                                                     )}
@@ -954,24 +932,21 @@ export default function SitePage() {
                                                                 {item.description}
                                                             </p>
                                                         )}
-                                                        <div className="mt-3 flex items-center gap-2">
-                                                            {soldOut ? (
-                                                                <span className="inline-flex items-center gap-1 text-xs text-red-600 font-medium">
-                                                                    <IconCircleX size={14} />
-                                                                    Épuisé
-                                                                </span>
-                                                            ) : item.stock !== null ? (
-                                                                <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium">
-                                                                    <IconCheck size={14} />
+                                                        {item.stock !== null && item.stock > 0 && (
+                                                            <div className="mt-3 flex items-center gap-2">
+                                                                <span
+                                                                    className={`inline-flex items-center gap-1 text-xs font-medium ${
+                                                                        item.stock <= 3
+                                                                            ? 'text-red-600'
+                                                                            : item.stock <= 7
+                                                                              ? 'text-orange-600'
+                                                                              : 'text-green-600'
+                                                                    }`}
+                                                                >
                                                                     {item.stock} restant{item.stock > 1 ? 's' : ''}
                                                                 </span>
-                                                            ) : (
-                                                                <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium">
-                                                                    <IconCheck size={14} />
-                                                                    Disponible
-                                                                </span>
-                                                            )}
-                                                        </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );
