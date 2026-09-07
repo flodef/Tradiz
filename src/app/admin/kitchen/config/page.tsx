@@ -813,6 +813,8 @@ export default function SettingsPage() {
                 { key: 'vatNumber', value: data.shop.vatNumber ?? '' },
                 { key: 'naf', value: data.shop.naf ?? '' },
                 { key: 'legalForm', value: data.shop.legalForm ?? '' },
+                { key: 'logo', value: data.shop.logo ?? '' },
+                { key: 'shopImage', value: data.shop.image ?? '' },
                 { key: 'thanksMessage', value: data.thanksMessage },
                 { key: 'mercurial', value: data.mercurial },
                 { key: 'closingHour', value: String(data.closingHour) },
@@ -827,6 +829,7 @@ export default function SettingsPage() {
                 { key: 'pennylaneToken', value: data.pennylaneToken ?? '' },
                 { key: 'tpeIp', value: data.tpeIp ?? '' },
                 { key: 'tpePort', value: data.tpePort ? String(data.tpePort) : '' },
+                { key: 'openingHours', value: data.openingHours ? JSON.stringify(data.openingHours) : '' },
             ];
 
             const response = await fetch('/api/sql/updateParameters', {

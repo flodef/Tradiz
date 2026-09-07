@@ -191,6 +191,8 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             naf: getParamValue('naf', 20) || '',
             legalForm: getParamValue('legalForm', 21) || '',
             country: 'FR',
+            logo: getParamValue('logo', 23) || '',
+            image: getParamValue('shopImage', 24) || '',
         },
         thanksMessage: getParamValue('thanksMessage', 7) || 'Merci de votre visite !',
         mercurial: (getParamValue('mercurial', 8) || Mercurial.none) as Mercurial,
@@ -282,6 +284,20 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             const value = getParamValue('tpePort', 22);
             const port = Number(value);
             return value && port >= 1 && port <= 65535 ? port : undefined;
+        })(),
+        openingHours: (() => {
+            try {
+                const value = getParamValue('openingHours', 25);
+                if (value) {
+                    const parsed = JSON.parse(value);
+                    if (parsed && typeof parsed === 'object') {
+                        return parsed as Record<number, { open: string; close: string }[]>;
+                    }
+                }
+            } catch {
+                // Invalid JSON
+            }
+            return undefined;
         })(),
     };
 }

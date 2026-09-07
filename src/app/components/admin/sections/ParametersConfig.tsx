@@ -1,6 +1,13 @@
 'use client';
 
-import { Parameters, ProductsSettings, SearchSettings, DisplaySettings } from '@/app/contexts/ConfigProvider';
+import {
+    Parameters,
+    ProductsSettings,
+    SearchSettings,
+    DisplaySettings,
+    OpeningHours,
+    TimeSlot,
+} from '@/app/contexts/ConfigProvider';
 import { DEFAULT_DISPLAY_SETTINGS, DEFAULT_PRODUCTS_SETTINGS } from '@/app/utils/processData';
 import { adminTextStyle } from '@/app/utils/constants';
 import { frenchPhoneRegex } from '@/app/utils/regex';
@@ -13,8 +20,18 @@ import Switch from '../Switch';
 import SiretInput from '../SiretInput';
 import ValidatedInput from '../ValidatedInput';
 import ZipCityRow from '../ZipCityRow';
-import { useEffect, useState } from 'react';
-import { IconCheck, IconX, IconShieldCheck, IconArchive, IconCertificate } from '@tabler/icons-react';
+import { useEffect, useRef, useState } from 'react';
+import {
+    IconCheck,
+    IconX,
+    IconShieldCheck,
+    IconArchive,
+    IconCertificate,
+    IconUpload,
+    IconTrash,
+    IconPlus,
+    IconClock,
+} from '@tabler/icons-react';
 import { usePopup } from '@/app/hooks/usePopup';
 import { AttestationViewer } from '@/app/components/AttestationViewer';
 
@@ -34,6 +51,86 @@ interface ParametersConfigProps {
     icon?: React.ReactNode;
 }
 
+const MAX_IMAGE_SIZE = 512 * 1024; // 512 KB
+
+function ImageUploadField({
+    label,
+    value,
+    onChange,
+    isReadOnly,
+    previewClassName,
+}: {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    isReadOnly: boolean;
+    previewClassName: string;
+}) {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > MAX_IMAGE_SIZE) {
+            alert('Image trop lourde (max 512 Ko). Veuillez choisir une image plus petite.');
+            e.target.value = '';
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+            onChange(String(reader.result));
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+    };
+
+    return (
+        <div className="flex flex-col gap-2">
+            <label className={adminTextStyle}>{label}</label>
+            <div className="flex items-center gap-3">
+                {value ? (
+                    <img src={value} alt={label} className={previewClassName} />
+                ) : (
+                    <div
+                        className={`${previewClassName} flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-400 text-xs text-center`}
+                    >
+                        Aucune image
+                    </div>
+                )}
+                {!isReadOnly && (
+                    <div className="flex flex-col gap-1">
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                        >
+                            <IconUpload size={16} />
+                            {value ? 'Changer' : 'Téléverser'}
+                        </button>
+                        {value && (
+                            <button
+                                type="button"
+                                onClick={() => onChange('')}
+                                className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
+                            >
+                                <IconTrash size={16} />
+                                Retirer
+                            </button>
+                        )}
+                    </div>
+                )}
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={handleFileChange}
+                    className="hidden"
+                />
+            </div>
+        </div>
+    );
+}
+
 const MONTH_NAMES = [
     'Janvier',
     'Février',
@@ -48,6 +145,8 @@ const MONTH_NAMES = [
     'Novembre',
     'Décembre',
 ];
+
+const DAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
 export default function ParametersConfig({
     config,
@@ -247,6 +346,15 @@ export default function ParametersConfig({
         }
     };
 
+    const handleOpeningHoursChange = (dayIndex: number, slots: TimeSlot[]) => {
+        const current = config.openingHours ?? {};
+        const updated: OpeningHours = { ...current, [dayIndex]: slots };
+        if (slots.length === 0) {
+            delete updated[dayIndex];
+        }
+        handleChange('openingHours', Object.keys(updated).length > 0 ? updated : undefined);
+    };
+
     const handleDisplayChange = (field: keyof DisplaySettings, checked: boolean) => {
         handleChange('display', {
             ...(config.display ?? DEFAULT_DISPLAY_SETTINGS),
@@ -349,6 +457,29 @@ export default function ParametersConfig({
                             onZipChange={(value: string) => handleShopChange('zipCode', value)}
                             onCityChange={(value: string) => handleShopChange('city', value)}
                             isReadOnly={isReadOnly}
+                        />
+                    </div>
+                </div>
+
+                {/* Subsection: Logo & Image */}
+                <div>
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
+                        Logo & Image du magasin
+                    </h3>
+                    <div className="flex flex-wrap gap-6">
+                        <ImageUploadField
+                            label="Logo"
+                            value={config.shop.logo ?? ''}
+                            onChange={(value) => handleShopChange('logo', value)}
+                            isReadOnly={isReadOnly}
+                            previewClassName="w-24 h-24 rounded-full object-contain border-2 border-gray-200 dark:border-gray-600"
+                        />
+                        <ImageUploadField
+                            label="Image du magasin"
+                            value={config.shop.image ?? ''}
+                            onChange={(value) => handleShopChange('image', value)}
+                            isReadOnly={isReadOnly}
+                            previewClassName="w-48 h-28 rounded-lg object-cover border border-gray-200 dark:border-gray-600"
                         />
                     </div>
                 </div>
@@ -574,6 +705,86 @@ export default function ParametersConfig({
                         isReadOnly={isReadOnly}
                         className="w-24"
                     />
+                </div>
+            </div>
+
+            {/* Subsection: Horaires d'ouverture */}
+            <div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide flex items-center gap-2">
+                    <IconClock size={18} stroke={2} />
+                    Horaires d&apos;ouverture
+                </h3>
+                <div className="flex flex-col gap-2">
+                    {DAY_NAMES.map((dayName, dayIndex) => {
+                        const slots = config.openingHours?.[dayIndex] ?? [];
+                        return (
+                            <div key={dayIndex} className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-medium text-gray-600 dark:text-gray-400 w-24 shrink-0">
+                                    {dayName}
+                                </span>
+                                {slots.length === 0 ? (
+                                    <span className="text-sm text-gray-400 italic">Fermé</span>
+                                ) : (
+                                    slots.map((slot, slotIdx) => (
+                                        <div key={slotIdx} className="flex items-center gap-1">
+                                            <input
+                                                type="time"
+                                                value={slot.open}
+                                                disabled={isReadOnly}
+                                                onChange={(e) => {
+                                                    const newSlots = [...slots];
+                                                    newSlots[slotIdx] = { ...slot, open: e.target.value };
+                                                    handleOpeningHoursChange(dayIndex, newSlots);
+                                                }}
+                                                className="px-2 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            />
+                                            <span className="text-gray-400 text-sm">—</span>
+                                            <input
+                                                type="time"
+                                                value={slot.close}
+                                                disabled={isReadOnly}
+                                                onChange={(e) => {
+                                                    const newSlots = [...slots];
+                                                    newSlots[slotIdx] = { ...slot, close: e.target.value };
+                                                    handleOpeningHoursChange(dayIndex, newSlots);
+                                                }}
+                                                className="px-2 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            />
+                                            {!isReadOnly && (
+                                                <button
+                                                    onClick={() =>
+                                                        handleOpeningHoursChange(
+                                                            dayIndex,
+                                                            slots.filter((_, i) => i !== slotIdx)
+                                                        )
+                                                    }
+                                                    className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400"
+                                                    title="Supprimer ce créneau"
+                                                >
+                                                    <IconTrash size={16} stroke={2} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                                {!isReadOnly && (
+                                    <button
+                                        onClick={() =>
+                                            handleOpeningHoursChange(dayIndex, [
+                                                ...slots,
+                                                { open: '09:00', close: '18:00' },
+                                            ])
+                                        }
+                                        className="flex items-center gap-1 px-2 py-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                                        title="Ajouter un créneau"
+                                    >
+                                        <IconPlus size={16} stroke={2} />
+                                        Créneau
+                                    </button>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 

@@ -54,6 +54,8 @@ export interface Shop {
     naf?: string;
     legalForm?: string;
     country?: string;
+    logo?: string;
+    image?: string;
 }
 
 export interface ProductsSettings {
@@ -85,6 +87,14 @@ export interface DisplaySettings {
     displayOthers?: boolean;
 }
 
+export interface TimeSlot {
+    open: string; // "HH:MM"
+    close: string; // "HH:MM"
+}
+
+// Key = day index (0=Sunday, 1=Monday, ..., 6=Saturday), value = time slots (empty = closed)
+export type OpeningHours = Record<number, TimeSlot[]>;
+
 export interface Parameters {
     shop: Shop;
     thanksMessage: string;
@@ -99,6 +109,7 @@ export interface Parameters {
     pennylaneToken?: string; // PennyLane API access token for e-invoicing
     tpeIp?: string; // IP address of the payment terminal (TPE) for Caisse-AP over IP
     tpePort?: number; // TCP port of the payment terminal (default 8888)
+    openingHours?: OpeningHours;
     products?: ProductsSettings;
     search?: SearchSettings;
     display?: DisplaySettings;
