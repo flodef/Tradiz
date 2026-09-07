@@ -68,6 +68,8 @@ const eslintConfig = [
             'coverage/**',
             'electron/standalone-build/**',
             'next-env.d.ts',
+            'e2e/**',
+            'playwright.config.ts',
         ],
     },
 ];
