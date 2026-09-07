@@ -267,3 +267,27 @@ export async function sendMissingParametersRequest(publicKey: string, userEmail?
       `,
     });
 }
+
+export async function sendContactEmail(
+    shopEmail: string,
+    fromName: string,
+    fromEmail: string,
+    subject: string,
+    message: string
+): Promise<boolean> {
+    return await sendEmail({
+        to: shopEmail,
+        subject: `Contact site web - ${subject}`,
+        html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px;">
+          <p><strong>Nouveau message depuis le site web</strong></p>
+          <p><strong>De :</strong> ${fromName} &lt;${fromEmail}&gt;</p>
+          <p><strong>Sujet :</strong> ${subject}</p>
+          <hr style="border: 1px solid #eee; margin: 16px 0;" />
+          <p style="white-space: pre-wrap;">${message}</p>
+          <hr style="border: 1px solid #eee; margin: 16px 0;" />
+          <p style="color: #999; font-size: 12px;">Ce message a été envoyé depuis le formulaire de contact du site web.</p>
+        </div>
+      `,
+    });
+}
