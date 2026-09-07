@@ -128,6 +128,37 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         },
         [setIsCashClosed]
     );
+
+    // ── Current stock tracking (daily reset) ──
+    // Stores runtime stock per product key "category|label", persisted in localStorage
+    // with a date key so it naturally resets each day.
+    const stockDateKey = `currentStock_${new Date().toISOString().slice(0, 10)}`;
+    const [currentStock, setCurrentStock] = useLocalStorage<Record<string, number>>(stockDateKey, {});
+
+    const stockKey = useCallback((category: string, label: string) => `${category}|${label}`, []);
+
+    const getEffectiveStock = useCallback(
+        (category: string, label: string, configStock: number | null): number | null => {
+            if (configStock === null) return null; // unlimited
+            const key = stockKey(category, label);
+            if (currentStock[key] !== undefined) return currentStock[key];
+            return configStock; // not yet tracked → use configured stock
+        },
+        [currentStock, stockKey]
+    );
+
+    const decrementStock = useCallback(
+        (category: string, label: string, configStock: number | null) => {
+            if (configStock === null || configStock <= 0) return; // unlimited or manually unavailable
+            const key = stockKey(category, label);
+            setCurrentStock((prev: Record<string, number>) => {
+                const current = prev[key] !== undefined ? prev[key] : configStock;
+                if (current <= 0) return prev; // already exhausted
+                return { ...prev, [key]: current - 1 };
+            });
+        },
+        [stockKey, setCurrentStock]
+    );
     // Set to true by clearTotal to prevent the product-restore effect from re-adding
     // stale items from PROCESSING transactions when transactions load asynchronously.
     const clearRequestedRef = useRef(false);
@@ -354,7 +385,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         nextResetTime.current = getResetTimes().next;
         // Reset cash closure state on day reset
         setCashClosed(false);
-    }, [getResetTimes, setCashClosed]);
+        // Reset current stock for the new day
+        setCurrentStock({});
+    }, [getResetTimes, setCashClosed, setCurrentStock]);
 
     // Check if reset should happen and perform it
     const checkAndPerformDayReset = useCallback(() => {
@@ -1319,6 +1352,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             if (!product.label && !product.category) return;
 
+            // Decrement current stock for numerically stocked products
+            if (product.stock != null && product.stock > 0) {
+                decrementStock(product.category, product.label, product.stock);
+            }
+
             const p = products.current.find(
                 ({ label, category, amount, options }) =>
                     label === product.label &&
@@ -1338,7 +1376,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             setQuantity(product.amount ? -1 : 0);
             saveProcessingTransactionRef.current();
         },
-        [products, selectedProduct, computeQuantity, isCashClosedToday]
+        [products, selectedProduct, computeQuantity, isCashClosedToday, decrementStock]
     );
 
     const deleteProduct = useCallback(
@@ -1780,6 +1818,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 transactionsLoaded,
                 isCashClosed: isCashClosedToday,
                 setCashClosed,
+                currentStock,
+                getEffectiveStock,
+                decrementStock,
             }}
         >
             {children}

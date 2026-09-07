@@ -216,6 +216,7 @@ export type Product = DataElement & {
     options?: string;
     vatRate?: number;
     employerShare?: number;
+    stock?: number | null;
 };
 
 export type PaymentLeg = {

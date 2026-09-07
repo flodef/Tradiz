@@ -136,6 +136,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
         toCurrency,
         currentCustomer,
         isCashClosed,
+        getEffectiveStock,
     } = useData();
     const { openPopup, updatePopup, openFullscreenPopup, closePopup } = usePopup();
     const { isLocalhost, isDemo } = useWindowParam();
@@ -268,6 +269,10 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
     // ── Unified handler: look up catalog then trigger wizard or direct add ──
     const handleProductSelection = (item: InventoryItem, label: string) => {
         const product = item.products.find((p) => p.label === label);
+        if (product) {
+            const effStock = getEffectiveStock(item.category, label, product.stock);
+            if (effStock === 0) return; // Sold out
+        }
         const price = product?.prices[currencyIndex];
         const isNewPrice = amount && amount !== selectedProduct?.amount;
         const baseAmount = isNewPrice ? amount : price || 0;
@@ -446,9 +451,14 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
     // ── Build the product list popup content for a category ──
     const buildProductListPopup = (item: InventoryItem) => {
         const sorted = [...item.products].sort((a, b) => a.label.localeCompare(b.label));
-        const entries: string[] = sorted.map((p) =>
-            p.options && useOptions && !isSingleElementFormula(p.options) ? `${p.label}${ARROW}` : p.label
-        );
+        const entries: string[] = sorted.map((p) => {
+            const effStock = getEffectiveStock(item.category, p.label, p.stock);
+            const soldOut = effStock === 0;
+            const suffix = soldOut ? ' — Épuisé' : '';
+            return p.options && useOptions && !isSingleElementFormula(p.options)
+                ? `${p.label}${ARROW}${suffix}`
+                : `${p.label}${suffix}`;
+        });
         if (showOthers) entries.push('', OTHER_KEYWORD);
 
         const action = (index: number, option: string) => {
@@ -463,6 +473,8 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
                 return;
             }
             const product = sorted[index];
+            const effStock = getEffectiveStock(item.category, product.label, product.stock);
+            if (effStock === 0) return; // Sold out — do nothing
             if (product.options && useOptions && !isSingleElementFormula(product.options)) {
                 productListScrollRef.current = getPopupScroll();
                 openOptionsSubPopup(item, product);
@@ -919,18 +931,25 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
                         const hasOptions = product.options && useOptions && !isSingleElementFormula(product.options);
                         const bgColor = colorToHex(product.color);
                         const price = product.prices[currencyIndex] ?? product.prices[0] ?? 0;
+                        const effectiveStock = getEffectiveStock(selectedItem.category, product.label, product.stock);
+                        const isSoldOut = effectiveStock === 0;
                         return (
                             <div
                                 key={index}
                                 className={twMerge(
                                     'relative h-20 flex flex-col text-center font-semibold text-base border-[3px] rounded-2xl select-none',
-                                    'border-secondary-light dark:border-secondary-dark shadow-xl cursor-pointer',
-                                    bgColor
-                                        ? 'text-black dark:text-white'
-                                        : 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light hover:bg-active-light dark:hover:bg-active-dark'
+                                    'border-secondary-light dark:border-secondary-dark shadow-xl',
+                                    isSoldOut
+                                        ? 'opacity-60 cursor-not-allowed border-red-500 dark:border-red-500'
+                                        : 'cursor-pointer',
+                                    !isSoldOut &&
+                                        (bgColor
+                                            ? 'text-black dark:text-white'
+                                            : 'active:bg-secondary-active-light dark:active:bg-secondary-active-dark active:text-popup-dark dark:active:text-popup-light hover:bg-active-light dark:hover:bg-active-dark')
                                 )}
                                 style={bgColor ? { backgroundColor: bgColor } : undefined}
                                 onClick={() => {
+                                    if (isSoldOut) return;
                                     if (hasOptions) {
                                         openProductListPopup(selectedItem);
                                     } else {
@@ -939,9 +958,17 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
                                 }}
                                 onContextMenu={(e) => {
                                     e.preventDefault();
+                                    if (isSoldOut) return;
                                     onInput(selectedItem.category, 'contextmenu');
                                 }}
                             >
+                                {isSoldOut && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-red-500/20 rounded-2xl pointer-events-none">
+                                        <span className="text-red-600 dark:text-red-400 font-bold text-sm bg-red-100/80 dark:bg-red-900/80 px-2 py-0.5 rounded">
+                                            Épuisé
+                                        </span>
+                                    </div>
+                                )}
                                 <div
                                     className="h-15 flex items-center justify-center line-clamp-3 leading-tight hyphens-auto text-center"
                                     lang="fr"
