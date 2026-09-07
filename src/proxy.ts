@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const BASE_DOMAIN = 'tradiz.fr';
 const LEGACY_HOST = `pos.${BASE_DOMAIN}`;
+const PUBLIC_SITE_HOST = process.env.PUBLIC_SITE_HOST || `shop.${BASE_DOMAIN}`;
+
+// Reserved top-level paths that must never be treated as a shop ID.
+const RESERVED_PATHS = new Set([
+    'api',
+    'admin',
+    'stats',
+    'site',
+    'mini',
+    'icons',
+    'fonts',
+    '_next',
+    'favicon.ico',
+    'manifest.webmanifest',
+]);
 
 /**
  * Redirects legacy path-based shop URLs to subdomain-based URLs.
@@ -10,26 +25,63 @@ const LEGACY_HOST = `pos.${BASE_DOMAIN}`;
  *
  * Must NOT redirect API routes, Next.js internals, or static assets.
  */
-export function proxy(request: NextRequest) {
+function handleLegacyHost(request: NextRequest): NextResponse | null {
     const { hostname, pathname } = request.nextUrl;
-
-    if (hostname !== LEGACY_HOST) return NextResponse.next();
+    if (hostname !== LEGACY_HOST) return null;
 
     // Match /shopId or /shopId/rest/of/path
-    // Exclude Next.js internals and static assets
     const match = pathname.match(/^\/([^/]+)(\/.*)?$/);
     if (!match) return NextResponse.next();
 
     const [, shopSegment, rest = '/'] = match;
-
-    // Don't redirect internal Next.js paths or API routes
-    const skip = ['_next', 'api', 'favicon.ico', 'manifest.webmanifest'];
-    if (skip.includes(shopSegment)) return NextResponse.next();
+    if (RESERVED_PATHS.has(shopSegment)) return NextResponse.next();
 
     const { protocol } = request.nextUrl;
     const redirectUrl = `${protocol}//${shopSegment}.${BASE_DOMAIN}${rest}`;
-
     return NextResponse.redirect(redirectUrl, { status: 301 });
+}
+
+/**
+ * Rewrites clean URLs on the public storefront host (shop.tradiz.fr) to the
+ * internal /site routes:
+ *   /            → /site          (landing page listing all shops)
+ *   /annette     → /site/annette  (individual shop catalogue)
+ *   /gds         → /site/gds
+ */
+function handlePublicSiteHost(request: NextRequest): NextResponse | null {
+    const { hostname, pathname, search } = request.nextUrl;
+    if (hostname !== PUBLIC_SITE_HOST) return null;
+
+    // Landing page: / → /site
+    if (pathname === '/') {
+        const url = request.nextUrl.clone();
+        url.pathname = '/site';
+        url.search = search;
+        return NextResponse.rewrite(url);
+    }
+
+    // Shop page: /<shopId> → /site/<shopId>
+    const match = pathname.match(/^\/([^/]+)(\/.*)?$/);
+    if (match && !RESERVED_PATHS.has(match[1])) {
+        const shopId = match[1];
+        const rest = match[2] || '';
+        const url = request.nextUrl.clone();
+        url.pathname = `/site/${shopId}${rest}`;
+        url.search = search;
+        return NextResponse.rewrite(url);
+    }
+
+    return NextResponse.next();
+}
+
+export function proxy(request: NextRequest) {
+    const legacy = handleLegacyHost(request);
+    if (legacy) return legacy;
+
+    const publicSite = handlePublicSiteHost(request);
+    if (publicSite) return publicSite;
+
+    return NextResponse.next();
 }
 
 export const config = {
