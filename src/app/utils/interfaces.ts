@@ -169,6 +169,8 @@ export interface InventoryItem {
         color?: string;
         sortOrder?: number;
         employerShare?: number | null;
+        photo?: string | null;
+        description?: string | null;
     }[];
 }
 

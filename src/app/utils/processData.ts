@@ -299,6 +299,8 @@ interface ProductData {
         color?: string;
         sortOrder?: number;
         employerShare?: number | null;
+        photo?: string | null;
+        description?: string | null;
     }[];
     currencies: string[];
 }
@@ -624,6 +626,8 @@ async function _loadDataImpl(): Promise<Config | undefined> {
                 color: item.color ?? '',
                 sortOrder: item.sortOrder ?? 0,
                 employerShare: item.employerShare ?? null,
+                photo: item.photo ?? null,
+                description: item.description ?? null,
             });
         } else {
             inventory.push({
@@ -641,6 +645,8 @@ async function _loadDataImpl(): Promise<Config | undefined> {
                         color: item.color ?? '',
                         sortOrder: item.sortOrder ?? 0,
                         employerShare: item.employerShare ?? null,
+                        photo: item.photo ?? null,
+                        description: item.description ?? null,
                     },
                 ],
             });

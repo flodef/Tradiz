@@ -129,6 +129,8 @@ function buildInventoryFromAdminProducts(products: AdminProduct[]): InventoryIte
             color: p.color ?? '',
             sortOrder,
             employerShare: p.employerShare ?? null,
+            photo: p.photo ?? null,
+            description: p.description ?? null,
         });
     }
 
