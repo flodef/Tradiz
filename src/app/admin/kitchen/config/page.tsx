@@ -137,7 +137,8 @@ export default function SettingsPage() {
     const [dbConfigChecked, setDbConfigChecked] = useState(false);
     const [isSiretValid, setIsSiretValid] = useState(true);
     const [hasChanges, setHasChanges] = useState(false);
-    const [hasSettingsChanges, setHasSettingsChanges] = useState(false);
+    const [hasCommerceChanges, setHasCommerceChanges] = useState(false);
+    const [hasParametersChanges, setHasParametersChanges] = useState(false);
     const [hasDiscountsChanges, setHasDiscountsChanges] = useState(false);
     const [hasCurrenciesChanges, setHasCurrenciesChanges] = useState(false);
     const [hasPaymentsChanges, setHasPaymentsChanges] = useState(false);
@@ -649,7 +650,33 @@ export default function SettingsPage() {
 
     // Track changes by comparing current state with original loaded data
     useEffect(() => {
-        const settingsChanged = JSON.stringify(settings) !== JSON.stringify(originalSettings);
+        // Split settings changes into commerce vs parameters fields
+        const commerceFields = (s: Parameters) => ({
+            shop: s.shop,
+            closingHour: s.closingHour,
+            yearStartDate: s.yearStartDate,
+            fidelityRate: s.fidelityRate,
+            thanksMessage: s.thanksMessage,
+            mercurial: s.mercurial,
+            pennylaneToken: s.pennylaneToken,
+            tpeIp: s.tpeIp,
+            tpePort: s.tpePort,
+            openingHours: s.openingHours,
+        });
+        const parametersFields = (s: Parameters) => ({
+            products: s.products,
+            search: s.search,
+            display: s.display,
+            userSwitch: s.userSwitch,
+            useVirtualKeyboard: s.useVirtualKeyboard,
+            reservationPhone: s.reservationPhone,
+            reservationEmail: s.reservationEmail,
+        });
+        const commerceChanged =
+            JSON.stringify(commerceFields(settings)) !== JSON.stringify(commerceFields(originalSettings));
+        const parametersChanged =
+            JSON.stringify(parametersFields(settings)) !== JSON.stringify(parametersFields(originalSettings));
+        const settingsChanged = commerceChanged || parametersChanged;
         const discountsChanged = JSON.stringify(discounts) !== JSON.stringify(originalDiscounts);
         const currenciesChanged = JSON.stringify(currenciesConfig) !== JSON.stringify(originalCurrencies);
         const paymentsChanged = JSON.stringify(paymentsConfig) !== JSON.stringify(originalPayments);
@@ -663,7 +690,8 @@ export default function SettingsPage() {
         const printersChanged = JSON.stringify(printersConfig) !== JSON.stringify(originalPrinters);
         const customersChanged = JSON.stringify(customersConfig) !== JSON.stringify(originalCustomers);
         const companiesChanged = JSON.stringify(companiesConfig) !== JSON.stringify(originalCompanies);
-        setHasSettingsChanges(settingsChanged);
+        setHasCommerceChanges(commerceChanged);
+        setHasParametersChanges(parametersChanged);
         setHasDiscountsChanges(discountsChanged);
         setHasCurrenciesChanges(currenciesChanged);
         setHasPaymentsChanges(paymentsChanged);
@@ -717,7 +745,7 @@ export default function SettingsPage() {
     const handleSaveAll = async () => {
         // Save all changed sections
         setIsSaving(true);
-        if (hasSettingsChanges) await handleParametersSave(settings);
+        if (hasCommerceChanges || hasParametersChanges) await handleParametersSave(settings);
         if (hasDiscountsChanges && isDiscountsValid) await handleDiscountsSave(discounts);
         if (hasCurrenciesChanges) await handleCurrenciesSave(currenciesConfig);
         if (hasPaymentsChanges) await handlePaymentsSave(paymentsConfig);
@@ -873,7 +901,8 @@ export default function SettingsPage() {
             // Update local state without refetching
             setSettings(dataWithUser);
             setOriginalSettings(dataWithUser);
-            setHasSettingsChanges(false);
+            setHasCommerceChanges(false);
+            setHasParametersChanges(false);
 
             // Update ConfigProvider parameters directly
             setParameters(dataWithUser);
@@ -1175,7 +1204,7 @@ export default function SettingsPage() {
                 onChange={setSettings}
                 onSave={handleParametersSave}
                 onCancel={handleCancel}
-                hasChanges={hasSettingsChanges}
+                hasChanges={hasCommerceChanges}
                 isReadOnly={isReadOnly}
                 isSiretValid={isSiretValid}
                 onSiretValidation={setIsSiretValid}
@@ -1191,7 +1220,7 @@ export default function SettingsPage() {
                 onChange={setSettings}
                 onSave={handleParametersSave}
                 onCancel={handleCancel}
-                hasChanges={hasSettingsChanges}
+                hasChanges={hasParametersChanges}
                 isReadOnly={isReadOnly}
                 isLoading={isSavingParameters}
                 isOpen={openSection === 'parameters'}
@@ -1348,7 +1377,7 @@ export default function SettingsPage() {
                         onClick={handleSaveAll}
                         isLoading={isSaving}
                         disabled={
-                            (hasSettingsChanges && !isSiretValid) ||
+                            (hasCommerceChanges && !isSiretValid) ||
                             (hasUsersChanges && !isUsersValid) ||
                             (hasDevicesChanges && !isDevicesValid) ||
                             (hasCustomersChanges && !isCustomersValid) ||

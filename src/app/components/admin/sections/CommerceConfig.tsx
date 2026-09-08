@@ -7,6 +7,7 @@ import { Mercurial } from '@/app/utils/interfaces';
 import AdminInput from '../AdminInput';
 import AdminButton from '../AdminButton';
 import AdminSelect from '../AdminSelect';
+import DeleteButton from '../DeleteButton';
 import SectionCard from '../SectionCard';
 import SiretInput from '../SiretInput';
 import ValidatedInput from '../ValidatedInput';
@@ -20,7 +21,6 @@ import {
     IconArchive,
     IconCertificate,
     IconUpload,
-    IconTrash,
     IconPlus,
     IconBuildingStore,
 } from '@tabler/icons-react';
@@ -90,23 +90,18 @@ function ImageUploadField({
                 )}
                 {!isReadOnly && (
                     <div className="flex flex-col gap-1">
-                        <button
-                            type="button"
+                        <AdminButton
+                            variant="primary"
                             onClick={() => fileInputRef.current?.click()}
-                            className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                            className="text-sm px-3 py-1.5"
                         >
                             <IconUpload size={16} />
                             {value ? 'Changer' : 'Téléverser'}
-                        </button>
+                        </AdminButton>
                         {value && (
-                            <button
-                                type="button"
-                                onClick={() => onChange('')}
-                                className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
-                            >
-                                <IconTrash size={16} />
+                            <AdminButton variant="danger" onClick={() => onChange('')} className="text-sm px-3 py-1.5">
                                 Retirer
-                            </button>
+                            </AdminButton>
                         )}
                     </div>
                 )}
@@ -138,6 +133,17 @@ const MONTH_NAMES = [
 ];
 
 const DAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+
+const MAX_SLOTS_PER_DAY = 3;
+
+/** Keep only characters valid for a French phone number: digits, +, spaces, dots, hyphens */
+const filterPhone = (v: string) => v.replace(/[^\d+\s.-]/g, '');
+
+/** Keep only FR prefix letters and digits for TVA intracom */
+const filterVatNumber = (v: string) => v.replace(/[^FRfr0-9]/g, '').toUpperCase();
+
+/** Keep only digits and uppercase letters for NAF code, strip dots/spaces */
+const filterNaf = (v: string) => v.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
 
 export default function CommerceConfig({
     config,
@@ -388,7 +394,7 @@ export default function CommerceConfig({
                     <ValidatedInput
                         label="Téléphone"
                         value={String(config.shop.phone || '')}
-                        onChange={(value) => handleShopChange('phone', String(value))}
+                        onChange={(value) => handleShopChange('phone', filterPhone(String(value)))}
                         placeholder="06 12 34 56 78"
                         isReadOnly={isReadOnly}
                         className="flex-1 min-w-28 max-w-28"
@@ -406,7 +412,7 @@ export default function CommerceConfig({
                     <ValidatedInput
                         label="N° TVA intracom"
                         value={String(config.shop.vatNumber || '')}
-                        onChange={(value) => handleShopChange('vatNumber', String(value))}
+                        onChange={(value) => handleShopChange('vatNumber', filterVatNumber(String(value)))}
                         placeholder="FR12345678901"
                         isReadOnly={isReadOnly}
                         className="flex-1 min-w-30 max-w-30"
@@ -418,7 +424,7 @@ export default function CommerceConfig({
                     <ValidatedInput
                         label="NAF"
                         value={String(config.shop.naf || '')}
-                        onChange={(value) => handleShopChange('naf', String(value).toUpperCase())}
+                        onChange={(value) => handleShopChange('naf', filterNaf(String(value)))}
                         placeholder="5610C"
                         isReadOnly={isReadOnly}
                         className="flex-1 min-w-20 max-w-24"
@@ -727,6 +733,7 @@ export default function CommerceConfig({
                 <div className="flex flex-col gap-2">
                     {DAY_NAMES.map((dayName, dayIndex) => {
                         const slots = config.openingHours?.[dayIndex] ?? [];
+                        const canAddSlot = !isReadOnly && slots.length < MAX_SLOTS_PER_DAY;
                         return (
                             <div key={dayIndex} className="flex flex-wrap items-center gap-2">
                                 <span className="text-sm font-medium text-gray-600 dark:text-gray-400 w-24 shrink-0">
@@ -757,36 +764,33 @@ export default function CommerceConfig({
                                                 }}
                                             />
                                             {!isReadOnly && (
-                                                <button
+                                                <DeleteButton
                                                     onClick={() =>
                                                         handleOpeningHoursChange(
                                                             dayIndex,
                                                             slots.filter((_, i) => i !== slotIdx)
                                                         )
                                                     }
-                                                    className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 cursor-pointer"
                                                     title="Supprimer ce créneau"
-                                                >
-                                                    <IconTrash size={16} stroke={2} />
-                                                </button>
+                                                />
                                             )}
                                         </div>
                                     ))
                                 )}
-                                {!isReadOnly && (
-                                    <button
+                                {canAddSlot && (
+                                    <AdminButton
+                                        variant="add"
                                         onClick={() =>
                                             handleOpeningHoursChange(dayIndex, [
                                                 ...slots,
                                                 { open: '09:00', close: '18:00' },
                                             ])
                                         }
-                                        className="flex items-center gap-1 px-2 py-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer"
-                                        title="Ajouter un créneau"
+                                        className="text-sm px-2 py-1 mt-0"
                                     >
                                         <IconPlus size={16} stroke={2} />
                                         Créneau
-                                    </button>
+                                    </AdminButton>
                                 )}
                             </div>
                         );
