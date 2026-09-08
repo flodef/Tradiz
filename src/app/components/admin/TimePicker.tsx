@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { IconClock, IconChevronUp, IconChevronDown } from '@tabler/icons-react';
+import { useIsMobile } from '@/app/utils/mobile';
 
 interface TimePickerProps {
     value: string; // "HH:MM"
@@ -13,11 +14,16 @@ interface TimePickerProps {
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0')); // 00, 05, 10, ... 55
 
+type FocusCol = 'hour' | 'minute';
+
 export default function TimePicker({ value, onChange, disabled, className = '' }: TimePickerProps) {
+    const isMobile = useIsMobile();
     const [open, setOpen] = useState(false);
+    const [focusCol, setFocusCol] = useState<FocusCol>('hour');
     const containerRef = useRef<HTMLDivElement>(null);
     const hourColRef = useRef<HTMLDivElement>(null);
     const minuteColRef = useRef<HTMLDivElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     const [hours, minutes] = value.split(':');
     const selectedHour = hours || '09';
@@ -45,7 +51,6 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
                 el.scrollIntoView({ block: 'center' });
             }
         };
-        // Defer to allow DOM to render
         requestAnimationFrame(() => {
             scrollSelectedIntoView(hourColRef, selectedHour);
             scrollSelectedIntoView(minuteColRef, selectedMinute);
@@ -72,37 +77,118 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
         };
     }, [open]);
 
-    const handleHourSelect = (h: string) => {
-        onChange(`${h}:${selectedMinute}`);
+    const handleHourSelect = useCallback(
+        (h: string) => {
+            onChange(`${h}:${selectedMinute}`);
+        },
+        [onChange, selectedMinute]
+    );
+
+    const handleMinuteSelect = useCallback(
+        (m: string) => {
+            onChange(`${selectedHour}:${m}`);
+        },
+        [onChange, selectedHour]
+    );
+
+    const scrollHourBy = (delta: number) => {
+        const idx = HOURS.indexOf(selectedHour);
+        const next = HOURS[(idx + delta + 24) % 24];
+        handleHourSelect(next);
     };
 
-    const handleMinuteSelect = (m: string) => {
-        onChange(`${selectedHour}:${m}`);
+    const scrollMinuteBy = (delta: number) => {
+        const idx = MINUTES.indexOf(selectedMinute);
+        const next = MINUTES[(idx + delta + 12) % 12];
+        handleMinuteSelect(next);
+    };
+
+    // Keyboard navigation when dropdown is open
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (!open) return;
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (focusCol === 'hour') scrollHourBy(-1);
+            else scrollMinuteBy(-1);
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (focusCol === 'hour') scrollHourBy(1);
+            else scrollMinuteBy(1);
+        } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            setFocusCol('hour');
+        } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            setFocusCol('minute');
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setOpen(false);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            setOpen(false);
+        }
+    };
+
+    const openDropdown = () => {
+        if (disabled) return;
+        setOpen(true);
+        setFocusCol('hour');
     };
 
     return (
-        <div ref={containerRef} className={`relative ${className}`}>
-            <button
-                type="button"
-                disabled={disabled}
-                onClick={() => setOpen((o) => !o)}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:border-blue-400 dark:hover:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-20 justify-center cursor-pointer"
+        <div ref={containerRef} className={`relative ${className}`} onKeyDown={handleKeyDown}>
+            <div
+                className={`flex items-center gap-1 px-2.5 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:border-blue-400 dark:hover:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-20 ${
+                    disabled ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
             >
-                <IconClock size={14} className="text-gray-400" />
-                <span className="tabular-nums font-medium">
-                    {selectedHour}:{selectedMinute}
+                <span
+                    className={`tabular-nums font-medium select-none ${isMobile && !disabled ? 'cursor-pointer' : ''}`}
+                    onClick={() => isMobile && !disabled && openDropdown()}
+                >
+                    {selectedHour}
                 </span>
-            </button>
+                <span className="text-gray-400 select-none">:</span>
+                <span
+                    className={`tabular-nums font-medium select-none ${isMobile && !disabled ? 'cursor-pointer' : ''}`}
+                    onClick={() => isMobile && !disabled && openDropdown()}
+                >
+                    {selectedMinute}
+                </span>
+                <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => !disabled && openDropdown()}
+                    className="ml-auto text-gray-400 hover:text-blue-500 transition-colors cursor-pointer flex items-center"
+                    title="Ouvrir le sélecteur"
+                >
+                    <IconClock size={14} />
+                </button>
+            </div>
 
             {open && (
-                <div className="absolute z-50 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div
+                    ref={dropdownRef}
+                    className="absolute z-50 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+                >
                     <div className="flex">
                         {/* Hours column */}
-                        <div className="relative">
-                            <div className="px-2 py-1 text-xs font-semibold text-gray-400 uppercase text-center border-b border-gray-100 dark:border-gray-700">
-                                Heure
-                            </div>
-                            <div ref={hourColRef} className="overflow-y-auto h-40 w-16 scrollbar-thin py-1">
+                        <div className="relative flex flex-col">
+                            <button
+                                type="button"
+                                onClick={() => scrollHourBy(-1)}
+                                className="flex items-center justify-center py-0.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors cursor-pointer w-16 border-b border-gray-100 dark:border-gray-700"
+                                title="Heure précédente"
+                            >
+                                <IconChevronUp size={14} />
+                            </button>
+                            <div
+                                ref={hourColRef}
+                                className={`overflow-y-auto h-36 w-16 scrollbar-none py-1 ${
+                                    focusCol === 'hour' ? 'ring-2 ring-blue-500 ring-inset' : ''
+                                }`}
+                                onMouseEnter={() => setFocusCol('hour')}
+                            >
                                 {HOURS.map((h) => (
                                     <button
                                         key={h}
@@ -119,17 +205,36 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
                                     </button>
                                 ))}
                             </div>
+                            <button
+                                type="button"
+                                onClick={() => scrollHourBy(1)}
+                                className="flex items-center justify-center py-0.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors cursor-pointer w-16 border-t border-gray-100 dark:border-gray-700"
+                                title="Heure suivante"
+                            >
+                                <IconChevronDown size={14} />
+                            </button>
                         </div>
 
                         {/* Separator */}
                         <div className="w-px bg-gray-200 dark:bg-gray-700" />
 
                         {/* Minutes column */}
-                        <div className="relative">
-                            <div className="px-2 py-1 text-xs font-semibold text-gray-400 uppercase text-center border-b border-gray-100 dark:border-gray-700">
-                                Min
-                            </div>
-                            <div ref={minuteColRef} className="overflow-y-auto h-40 w-16 scrollbar-thin py-1">
+                        <div className="relative flex flex-col">
+                            <button
+                                type="button"
+                                onClick={() => scrollMinuteBy(-1)}
+                                className="flex items-center justify-center py-0.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors cursor-pointer w-16 border-b border-gray-100 dark:border-gray-700"
+                                title="Minute précédente"
+                            >
+                                <IconChevronUp size={14} />
+                            </button>
+                            <div
+                                ref={minuteColRef}
+                                className={`overflow-y-auto h-36 w-16 scrollbar-none py-1 ${
+                                    focusCol === 'minute' ? 'ring-2 ring-blue-500 ring-inset' : ''
+                                }`}
+                                onMouseEnter={() => setFocusCol('minute')}
+                            >
                                 {MINUTES.map((m) => (
                                     <button
                                         key={m}
@@ -146,34 +251,15 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
                                     </button>
                                 ))}
                             </div>
+                            <button
+                                type="button"
+                                onClick={() => scrollMinuteBy(1)}
+                                className="flex items-center justify-center py-0.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors cursor-pointer w-16 border-t border-gray-100 dark:border-gray-700"
+                                title="Minute suivante"
+                            >
+                                <IconChevronDown size={14} />
+                            </button>
                         </div>
-                    </div>
-
-                    {/* Quick adjust buttons */}
-                    <div className="flex border-t border-gray-100 dark:border-gray-700">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const idx = HOURS.indexOf(selectedHour);
-                                const next = HOURS[(idx - 1 + 24) % 24];
-                                handleHourSelect(next);
-                            }}
-                            className="flex-1 flex items-center justify-center py-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
-                        >
-                            <IconChevronUp size={14} />
-                        </button>
-                        <div className="w-px bg-gray-100 dark:bg-gray-700" />
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const idx = HOURS.indexOf(selectedHour);
-                                const next = HOURS[(idx + 1) % 24];
-                                handleHourSelect(next);
-                            }}
-                            className="flex-1 flex items-center justify-center py-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
-                        >
-                            <IconChevronDown size={14} />
-                        </button>
                     </div>
                 </div>
             )}
