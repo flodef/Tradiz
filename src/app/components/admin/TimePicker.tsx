@@ -103,29 +103,38 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
         handleMinuteSelect(next);
     };
 
-    // Keyboard navigation when dropdown is open
+    // Keyboard navigation — works from the input even when dropdown is closed
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (!open) return;
+        if (disabled) return;
         if (e.key === 'ArrowUp') {
             e.preventDefault();
+            if (!open) setOpen(true);
             if (focusCol === 'hour') scrollHourBy(-1);
             else scrollMinuteBy(-1);
         } else if (e.key === 'ArrowDown') {
             e.preventDefault();
+            if (!open) setOpen(true);
             if (focusCol === 'hour') scrollHourBy(1);
             else scrollMinuteBy(1);
         } else if (e.key === 'ArrowLeft') {
             e.preventDefault();
+            if (!open) setOpen(true);
             setFocusCol('hour');
         } else if (e.key === 'ArrowRight') {
             e.preventDefault();
+            if (!open) setOpen(true);
             setFocusCol('minute');
         } else if (e.key === 'Escape') {
             e.preventDefault();
             setOpen(false);
-        } else if (e.key === 'Enter') {
+        } else if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            setOpen(false);
+            if (!open) {
+                setOpen(true);
+                setFocusCol('hour');
+            } else {
+                setOpen(false);
+            }
         }
     };
 
@@ -138,23 +147,15 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
     return (
         <div ref={containerRef} className={`relative ${className}`} onKeyDown={handleKeyDown}>
             <div
-                className={`flex items-center gap-1 px-2.5 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:border-blue-400 dark:hover:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-20 ${
-                    disabled ? 'opacity-50 cursor-not-allowed' : ''
+                tabIndex={disabled ? -1 : 0}
+                className={`flex items-center gap-1 px-2.5 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:border-blue-400 dark:hover:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-20 ${
+                    disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                 }`}
+                onClick={() => !disabled && (isMobile ? openDropdown() : null)}
             >
-                <span
-                    className={`tabular-nums font-medium select-none ${isMobile && !disabled ? 'cursor-pointer' : ''}`}
-                    onClick={() => isMobile && !disabled && openDropdown()}
-                >
-                    {selectedHour}
-                </span>
+                <span className="tabular-nums font-medium select-none">{selectedHour}</span>
                 <span className="text-gray-400 select-none">:</span>
-                <span
-                    className={`tabular-nums font-medium select-none ${isMobile && !disabled ? 'cursor-pointer' : ''}`}
-                    onClick={() => isMobile && !disabled && openDropdown()}
-                >
-                    {selectedMinute}
-                </span>
+                <span className="tabular-nums font-medium select-none">{selectedMinute}</span>
                 <button
                     type="button"
                     disabled={disabled}
