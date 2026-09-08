@@ -56,7 +56,7 @@ export default function SitePage() {
     const { mode: themeMode, set: setTheme } = useTheme();
     const params = useParams<{ shopId: string }>();
     const shopId = params.shopId;
-    const myList = useMyList(data?.shop.name ?? shopId ?? '', data?.articles ?? []);
+    const myList = useMyList(shopId ?? '', data?.articles ?? []);
 
     useEffect(() => {
         if (!shopId) return;
@@ -679,7 +679,7 @@ export default function SitePage() {
                         {categories.map((cat) => {
                             const visibleItems = cat.items
                                 .filter((item) => {
-                                    const soldOut = item.stock !== null && item.stock <= 0;
+                                    const soldOut = item.stock != null && item.stock <= 0;
                                     return showSoldOut || !soldOut;
                                 })
                                 .sort((a, b) => {
@@ -691,18 +691,14 @@ export default function SitePage() {
                                 });
                             if (visibleItems.length === 0) return null;
                             return (
-                                <section
-                                    key={cat.name}
-                                    id={`cat-${cat.name.replace(/\s+/g, '-').toLowerCase()}`}
-                                    className="scroll-mt-24"
-                                >
+                                <section key={cat.name} id={`cat-${cat.name.replace(/\s+/g, '-').toLowerCase()}`}>
                                     <h2 className="text-2xl md:text-3xl font-bold text-site-text mb-6 flex items-center gap-3">
                                         <span className="w-1 h-8 bg-orange-500 rounded-full" />
                                         {cat.name}
                                     </h2>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                                         {visibleItems.map((item) => {
-                                            const soldOut = item.stock !== null && item.stock <= 0;
+                                            const soldOut = item.stock != null && item.stock <= 0;
                                             const productKey = `${cat.name.replace(/\s+/g, '-').toLowerCase()}-${item.label.replace(/\s+/g, '-').toLowerCase()}`;
                                             const isHighlighted = highlightedProduct === productKey;
                                             return (
@@ -746,7 +742,7 @@ export default function SitePage() {
                                                                 {item.description}
                                                             </p>
                                                         )}
-                                                        {item.stock !== null && item.stock > 0 && (
+                                                        {item.stock != null && item.stock > 0 && (
                                                             <div className="mt-3 flex items-center gap-2">
                                                                 <span
                                                                     className={`inline-flex items-center gap-1 text-xs font-medium ${stockColor(item.stock)}`}
@@ -759,8 +755,7 @@ export default function SitePage() {
                                                             !soldOut &&
                                                             (() => {
                                                                 const qty = myList.getItemQty(item.label);
-                                                                const maxed =
-                                                                    item.stock !== null && qty >= (item.stock ?? 0);
+                                                                const maxed = item.stock != null && qty >= item.stock;
                                                                 return (
                                                                     <div className="mt-3 flex items-center justify-end gap-2">
                                                                         {qty > 0 ? (
@@ -1134,7 +1129,6 @@ export default function SitePage() {
                     onRemove={myList.removeFromList}
                     onRemoveItem={myList.removeItem}
                     onClear={myList.clearList}
-                    getItemQty={myList.getItemQty}
                     articles={articles}
                     shop={shop}
                     currencySymbol={currency.symbol}

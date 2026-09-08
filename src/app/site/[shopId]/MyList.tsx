@@ -27,7 +27,6 @@ interface MyListProps {
     onRemove: (label: string) => void;
     onRemoveItem: (label: string) => void;
     onClear: () => void;
-    getItemQty: (label: string) => number;
     articles: ArticleInfo[];
     shop: ShopInfo;
     currencySymbol: string;

@@ -196,31 +196,30 @@ test.describe('Public website — shop catalog page', () => {
         await expect(page.locator('iframe[title="Carte"]')).toBeVisible();
     });
 
-    test('displays opening hours section', async ({ page }) => {
+    test('displays opening hours in modal', async ({ page }) => {
         await page.goto(`/site/${SHOP_ID}`);
         await expect(page.getByRole('heading', { name: 'Test Bistro' })).toBeVisible({ timeout: 10000 });
 
-        // Scroll to opening hours section
-        const horairesSection = page.locator('#horaires');
-        await expect(horairesSection).toBeVisible();
+        // Click the "Horaires d'ouverture" button to open the modal
+        await page.getByRole('button', { name: /Horaires d'ouverture/ }).click();
 
-        // Check that day names are shown
-        await expect(horairesSection.getByText('Lundi')).toBeVisible();
-        await expect(horairesSection.getByText('Dimanche')).toBeVisible();
+        // The modal should be visible with day names
+        const modal = page.locator('.fixed.inset-0.z-50').filter({ hasText: 'Horaires' });
+        await expect(modal).toBeVisible();
+        await expect(modal.getByText('Lundi')).toBeVisible();
+        await expect(modal.getByText('Dimanche')).toBeVisible();
 
         // Sunday should show "Fermé"
-        const sundayRow = horairesSection.locator('div').filter({ hasText: 'Dimanche' });
+        const sundayRow = modal.locator('div').filter({ hasText: 'Dimanche' });
         await expect(sundayRow.getByText('Fermé')).toBeVisible();
     });
 
-    test('shows open/closed status badge in navigation', async ({ page }) => {
+    test('shows open/closed status badge', async ({ page }) => {
         await page.goto(`/site/${SHOP_ID}`);
         await expect(page.getByRole('heading', { name: 'Test Bistro' })).toBeVisible({ timeout: 10000 });
 
-        // The nav should have an open/closed badge (desktop view)
-        // Either "Ouvert" or "Fermé" should be visible in the nav area
-        const nav = page.locator('nav');
-        await expect(nav.getByText(/^(Ouvert|Fermé)$/)).toBeVisible();
+        // The open/closed badge should be visible in the status banner under the nav
+        await expect(page.getByText(/^(Ouvert|Fermé)$/)).toBeVisible();
     });
 
     test('does not render React hooks errors in console', async ({ page }) => {

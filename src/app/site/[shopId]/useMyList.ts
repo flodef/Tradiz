@@ -26,8 +26,8 @@ function todayStr(): string {
     return `${y}-${m}-${d}`;
 }
 
-export function useMyList(shopName: string, articles: ArticleInfo[]) {
-    const [stored, setStored] = useLocalStorage<MyListStorage>(`my-list-${shopName}`, {
+export function useMyList(shopId: string, articles: ArticleInfo[]) {
+    const [stored, setStored] = useLocalStorage<MyListStorage>(`my-list-${shopId}`, {
         date: todayStr(),
         items: [],
     });
@@ -41,11 +41,6 @@ export function useMyList(shopName: string, articles: ArticleInfo[]) {
 
     const items = stored.items;
 
-    const setItems = useCallback(
-        (newItems: MyListEntry[]) => setStored({ ...stored, items: newItems }),
-        [stored, setStored]
-    );
-
     const getItemQty = useCallback(
         (label: string): number => items.find((i) => i.label === label)?.quantity ?? 0,
         [items]
@@ -53,44 +48,55 @@ export function useMyList(shopName: string, articles: ArticleInfo[]) {
 
     const addToList = useCallback(
         (article: ArticleInfo) => {
-            const currentQty = items.find((i) => i.label === article.label)?.quantity ?? 0;
-            const maxQty = article.stock ?? MAX_QUANTITY_NULL_STOCK;
-            if (currentQty >= maxQty) return;
-            if (currentQty === 0) {
-                setItems([
-                    ...items,
-                    { label: article.label, category: article.category, price: article.price, quantity: 1 },
-                ]);
-            } else {
-                setItems(items.map((i) => (i.label === article.label ? { ...i, quantity: i.quantity + 1 } : i)));
-            }
+            setStored((prev) => {
+                const currentQty = prev.items.find((i) => i.label === article.label)?.quantity ?? 0;
+                const maxQty = article.stock ?? MAX_QUANTITY_NULL_STOCK;
+                if (currentQty >= maxQty) return prev;
+                if (currentQty === 0) {
+                    return {
+                        ...prev,
+                        items: [
+                            ...prev.items,
+                            { label: article.label, category: article.category, price: article.price, quantity: 1 },
+                        ],
+                    };
+                }
+                return {
+                    ...prev,
+                    items: prev.items.map((i) => (i.label === article.label ? { ...i, quantity: i.quantity + 1 } : i)),
+                };
+            });
         },
-        [items, setItems]
+        [setStored]
     );
 
     const removeFromList = useCallback(
         (label: string) => {
-            const currentQty = items.find((i) => i.label === label)?.quantity ?? 0;
-            if (currentQty <= 1) {
-                setItems(items.filter((i) => i.label !== label));
-            } else {
-                setItems(items.map((i) => (i.label === label ? { ...i, quantity: i.quantity - 1 } : i)));
-            }
+            setStored((prev) => {
+                const currentQty = prev.items.find((i) => i.label === label)?.quantity ?? 0;
+                if (currentQty <= 1) {
+                    return { ...prev, items: prev.items.filter((i) => i.label !== label) };
+                }
+                return {
+                    ...prev,
+                    items: prev.items.map((i) => (i.label === label ? { ...i, quantity: i.quantity - 1 } : i)),
+                };
+            });
         },
-        [items, setItems]
+        [setStored]
     );
 
     const removeItem = useCallback(
-        (label: string) => setItems(items.filter((i) => i.label !== label)),
-        [items, setItems]
+        (label: string) => setStored((prev) => ({ ...prev, items: prev.items.filter((i) => i.label !== label) })),
+        [setStored]
     );
 
-    const clearList = useCallback(() => setItems([]), [setItems]);
+    const clearList = useCallback(() => setStored((prev) => ({ ...prev, items: [] })), [setStored]);
 
     const total = useMemo(() => items.reduce((sum, i) => sum + i.price * i.quantity, 0), [items]);
     const totalItems = useMemo(() => items.reduce((sum, i) => sum + i.quantity, 0), [items]);
 
-    // Check for items that became unavailable
+    // Check for items that became unavailable (stock <= 0 or product no longer exists)
     const stockByLabel = useMemo(() => {
         const map = new Map<string, number | null>();
         for (const a of articles) {
@@ -103,7 +109,8 @@ export function useMyList(shopName: string, articles: ArticleInfo[]) {
         () =>
             items.filter((i) => {
                 const stock = stockByLabel.get(i.label);
-                return stock !== null && stock !== undefined && stock <= 0;
+                // undefined = product removed, null = unlimited stock, number = actual stock
+                return stock === undefined || (stock !== null && stock <= 0);
             }),
         [items, stockByLabel]
     );

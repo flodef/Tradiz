@@ -23,8 +23,8 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
     const containerRef = useRef<HTMLDivElement>(null);
     const hourColRef = useRef<HTMLDivElement>(null);
     const minuteColRef = useRef<HTMLDivElement>(null);
-    const dropdownRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLDivElement>(null);
+    const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const [hours, minutes] = value.split(':');
     const selectedHour = hours || '09';
@@ -180,11 +180,15 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
                     }
                 }}
                 onFocus={() => {
+                    if (blurTimeoutRef.current) {
+                        clearTimeout(blurTimeoutRef.current);
+                        blurTimeoutRef.current = null;
+                    }
                     if (!disabled && !activeSegment) setActiveSegment('hour');
                 }}
                 onBlur={() => {
                     // Delay to allow clicking inside dropdown
-                    setTimeout(() => {
+                    blurTimeoutRef.current = setTimeout(() => {
                         if (
                             containerRef.current &&
                             document.activeElement &&
@@ -192,6 +196,7 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
                         ) {
                             setActiveSegment(null);
                         }
+                        blurTimeoutRef.current = null;
                     }, 150);
                 }}
                 className={`flex items-center gap-0.5 px-2.5 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:border-blue-400 dark:hover:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors min-w-20 ${
@@ -233,10 +238,7 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
             </div>
 
             {open && (
-                <div
-                    ref={dropdownRef}
-                    className="absolute z-50 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
-                >
+                <div className="absolute z-50 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                     <div className="flex">
                         {/* Hours column */}
                         <div className="relative flex flex-col">
