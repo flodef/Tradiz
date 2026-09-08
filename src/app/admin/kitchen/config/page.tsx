@@ -3,6 +3,7 @@
 import AdminButton from '@/app/components/admin/AdminButton';
 import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
 import ColorsConfig from '@/app/components/admin/sections/ColorsConfig';
+import CommerceConfig from '@/app/components/admin/sections/CommerceConfig';
 import CompaniesConfig from '@/app/components/admin/sections/CompaniesConfig';
 import CustomersConfig from '@/app/components/admin/sections/CustomersConfig';
 import DevicesConfig from '@/app/components/admin/sections/DevicesConfig';
@@ -32,6 +33,7 @@ import {
     User,
 } from '@/app/utils/interfaces';
 import { useIsMobile } from '@/app/utils/mobile';
+import { vatNumberRegex, nafCodeRegex } from '@/app/utils/regex';
 import {
     clearLoadDataCache,
     COLORS_PER_THEME,
@@ -41,6 +43,7 @@ import {
 } from '@/app/utils/processData';
 import {
     IconBuilding,
+    IconBuildingStore,
     IconCreditCard,
     IconDeviceTablet,
     IconDiscount,
@@ -134,7 +137,8 @@ export default function SettingsPage() {
     const [dbConfigChecked, setDbConfigChecked] = useState(false);
     const [isSiretValid, setIsSiretValid] = useState(true);
     const [hasChanges, setHasChanges] = useState(false);
-    const [hasSettingsChanges, setHasSettingsChanges] = useState(false);
+    const [hasCommerceChanges, setHasCommerceChanges] = useState(false);
+    const [hasParametersChanges, setHasParametersChanges] = useState(false);
     const [hasDiscountsChanges, setHasDiscountsChanges] = useState(false);
     const [hasCurrenciesChanges, setHasCurrenciesChanges] = useState(false);
     const [hasPaymentsChanges, setHasPaymentsChanges] = useState(false);
@@ -316,6 +320,10 @@ export default function SettingsPage() {
                     email: getParam('email', 'Email de contact'),
                     phone: getParam('phone', 'Téléphone'),
                     vatNumber: getParam('vatNumber', 'N° TVA'),
+                    naf: getParam('naf', 'NAF'),
+                    legalForm: getParam('legalForm', 'Forme juridique'),
+                    logo: getParam('logo', 'Logo'),
+                    image: getParam('shopImage', 'Image du magasin'),
                     country: 'FR',
                 },
                 thanksMessage: getParam('thanksMessage', 'Message de remerciement') || 'Merci de votre visite !',
@@ -402,6 +410,20 @@ export default function SettingsPage() {
                     const value = getParam('tpePort', 'tpePort');
                     const port = Number(value);
                     return value && port >= 1 && port <= 65535 ? port : undefined;
+                })(),
+                openingHours: (() => {
+                    try {
+                        const value = getParam('openingHours', 'openingHours');
+                        if (value) {
+                            const parsed = JSON.parse(value);
+                            if (parsed && typeof parsed === 'object') {
+                                return parsed as Record<number, { open: string; close: string }[]>;
+                            }
+                        }
+                    } catch {
+                        // Invalid JSON
+                    }
+                    return undefined;
                 })(),
                 reservationPhone: (() => {
                     const value = getParam('reservationPhone', 'reservationPhone');
@@ -642,7 +664,33 @@ export default function SettingsPage() {
 
     // Track changes by comparing current state with original loaded data
     useEffect(() => {
-        const settingsChanged = JSON.stringify(settings) !== JSON.stringify(originalSettings);
+        // Split settings changes into commerce vs parameters fields
+        const commerceFields = (s: Parameters) => ({
+            shop: s.shop,
+            closingHour: s.closingHour,
+            yearStartDate: s.yearStartDate,
+            fidelityRate: s.fidelityRate,
+            thanksMessage: s.thanksMessage,
+            mercurial: s.mercurial,
+            pennylaneToken: s.pennylaneToken,
+            tpeIp: s.tpeIp,
+            tpePort: s.tpePort,
+            openingHours: s.openingHours,
+        });
+        const parametersFields = (s: Parameters) => ({
+            products: s.products,
+            search: s.search,
+            display: s.display,
+            userSwitch: s.userSwitch,
+            useVirtualKeyboard: s.useVirtualKeyboard,
+            reservationPhone: s.reservationPhone,
+            reservationEmail: s.reservationEmail,
+        });
+        const commerceChanged =
+            JSON.stringify(commerceFields(settings)) !== JSON.stringify(commerceFields(originalSettings));
+        const parametersChanged =
+            JSON.stringify(parametersFields(settings)) !== JSON.stringify(parametersFields(originalSettings));
+        const settingsChanged = commerceChanged || parametersChanged;
         const discountsChanged = JSON.stringify(discounts) !== JSON.stringify(originalDiscounts);
         const currenciesChanged = JSON.stringify(currenciesConfig) !== JSON.stringify(originalCurrencies);
         const paymentsChanged = JSON.stringify(paymentsConfig) !== JSON.stringify(originalPayments);
@@ -656,7 +704,8 @@ export default function SettingsPage() {
         const printersChanged = JSON.stringify(printersConfig) !== JSON.stringify(originalPrinters);
         const customersChanged = JSON.stringify(customersConfig) !== JSON.stringify(originalCustomers);
         const companiesChanged = JSON.stringify(companiesConfig) !== JSON.stringify(originalCompanies);
-        setHasSettingsChanges(settingsChanged);
+        setHasCommerceChanges(commerceChanged);
+        setHasParametersChanges(parametersChanged);
         setHasDiscountsChanges(discountsChanged);
         setHasCurrenciesChanges(currenciesChanged);
         setHasPaymentsChanges(paymentsChanged);
@@ -710,7 +759,7 @@ export default function SettingsPage() {
     const handleSaveAll = async () => {
         // Save all changed sections
         setIsSaving(true);
-        if (hasSettingsChanges) await handleParametersSave(settings);
+        if (hasCommerceChanges || hasParametersChanges) await handleParametersSave(settings);
         if (hasDiscountsChanges && isDiscountsValid) await handleDiscountsSave(discounts);
         if (hasCurrenciesChanges) await handleCurrenciesSave(currenciesConfig);
         if (hasPaymentsChanges) await handlePaymentsSave(paymentsConfig);
@@ -804,7 +853,15 @@ export default function SettingsPage() {
     };
 
     const handleParametersSave = async (data: Parameters) => {
-        if (!isSiretValid || !data.shop.phone?.trim() || !data.shop.vatNumber?.trim()) {
+        if (
+            !isSiretValid ||
+            !data.shop.phone?.trim() ||
+            !data.shop.vatNumber?.trim() ||
+            !vatNumberRegex.test(data.shop.vatNumber.trim()) ||
+            !data.shop.naf?.trim() ||
+            !nafCodeRegex.test(data.shop.naf.trim()) ||
+            !data.shop.legalForm?.trim()
+        ) {
             openFullscreenPopup("Veuillez corriger les erreurs avant d'enregistrer.", ['OK']);
             return;
         }
@@ -858,7 +915,8 @@ export default function SettingsPage() {
             // Update local state without refetching
             setSettings(dataWithUser);
             setOriginalSettings(dataWithUser);
-            setHasSettingsChanges(false);
+            setHasCommerceChanges(false);
+            setHasParametersChanges(false);
 
             // Update ConfigProvider parameters directly
             setParameters(dataWithUser);
@@ -1155,16 +1213,29 @@ export default function SettingsPage() {
                 </div>
             )}
 
+            <CommerceConfig
+                config={settings}
+                onChange={setSettings}
+                onSave={handleParametersSave}
+                onCancel={handleCancel}
+                hasChanges={hasCommerceChanges}
+                isReadOnly={isReadOnly}
+                isSiretValid={isSiretValid}
+                onSiretValidation={setIsSiretValid}
+                isLoading={isSavingParameters}
+                isOpen={openSection === 'commerce'}
+                onToggle={() => setOpenSection((prev) => (prev === 'commerce' ? null : 'commerce'))}
+                icon={<IconBuildingStore size={24} />}
+            />
+
             <ParametersConfig
                 config={settings}
                 users={usersConfig}
                 onChange={setSettings}
                 onSave={handleParametersSave}
                 onCancel={handleCancel}
-                hasChanges={hasSettingsChanges}
+                hasChanges={hasParametersChanges}
                 isReadOnly={isReadOnly}
-                isSiretValid={isSiretValid}
-                onSiretValidation={setIsSiretValid}
                 isLoading={isSavingParameters}
                 isOpen={openSection === 'parameters'}
                 onToggle={() => setOpenSection((prev) => (prev === 'parameters' ? null : 'parameters'))}
@@ -1320,7 +1391,7 @@ export default function SettingsPage() {
                         onClick={handleSaveAll}
                         isLoading={isSaving}
                         disabled={
-                            (hasSettingsChanges && !isSiretValid) ||
+                            (hasCommerceChanges && !isSiretValid) ||
                             (hasUsersChanges && !isUsersValid) ||
                             (hasDevicesChanges && !isDevicesValid) ||
                             (hasCustomersChanges && !isCustomersValid) ||

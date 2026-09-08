@@ -42,13 +42,17 @@ export async function fetchCatalog(shopId: string) {
         posConn = await getPosDb(shopId);
 
         // Fetch products with category, stock, photo, description
+        // Only include products that belong to a public category (no company assigned).
+        // Categories tied to a specific company (e.g. Alcatel, Genesis) and uncategorized
+        // products are excluded.
         const queryProducts = mainConn.isPostgreSQL
             ? `
             SELECT p.name as label, p.price as amount,
                    COALESCE(c.name, '') as category, p.stock, p.photo, p.description,
                    p.sort_order
             FROM dc.products p
-            LEFT JOIN dc.categories c ON p.category_id = c.id
+            INNER JOIN dc.categories c ON p.category_id = c.id
+            WHERE c.company_id IS NULL
             ORDER BY c.sort_order ASC, p.sort_order ASC
         `
             : `
@@ -56,7 +60,8 @@ export async function fetchCatalog(shopId: string) {
                    COALESCE(c.name, '') as category, p.stock, p.photo, p.description,
                    p.sort_order
             FROM products p
-            LEFT JOIN categories c ON p.category_id = c.id
+            INNER JOIN categories c ON p.category_id = c.id
+            WHERE c.company_id IS NULL
             ORDER BY c.sort_order ASC, p.sort_order ASC
         `;
         const [productRows] = await mainConn.execute(queryProducts);

@@ -254,6 +254,7 @@ async function mockApiRoutes(page: Page) {
 const test = base.extend<{
     mockedPage: Page;
 }>({
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     mockedPage: async ({ page }, use) => {
         await mockApiRoutes(page);
         await use(page);

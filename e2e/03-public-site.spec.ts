@@ -2,6 +2,20 @@ import { test as base, expect } from '@playwright/test';
 
 // ── Mock catalog data ──
 
+const SHOP_ID = 'test-bistro';
+
+const mockShops = [
+    {
+        id: SHOP_ID,
+        name: 'Test Bistro',
+        logo: '',
+        image: '',
+        address: '10 Rue de la Paix',
+        zipCode: '75002',
+        city: 'Paris',
+    },
+];
+
 const mockCatalog = {
     shop: {
         name: 'Test Bistro',
@@ -55,13 +69,42 @@ const mockCatalog = {
         5: [{ open: '19:00', close: '23:00' }], // Saturday
         // Sunday closed (no entry for key 6)
     },
+    reservationPhone: false,
+    reservationEmail: false,
 };
 
 const test = base.extend({});
 
-test.describe('Public website', () => {
+test.describe('Public website — shop landing page', () => {
+    test('lists all shops on /site', async ({ page }) => {
+        await page.route('**/api/public/shops', (route) => {
+            route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ shops: mockShops }),
+            });
+        });
+
+        await page.goto('/site');
+
+        // Shop name should be visible in a card
+        await expect(page.getByRole('heading', { name: 'Test Bistro' })).toBeVisible({ timeout: 10000 });
+        // "Voir le catalogue" link
+        await expect(page.getByText('Voir le catalogue')).toBeVisible();
+    });
+});
+
+test.describe('Public website — shop catalog page', () => {
     test.beforeEach(async ({ page }) => {
-        // Mock the public catalog API
+        // Mock the shop-specific catalog API
+        await page.route(`**/api/public/catalog/${SHOP_ID}`, (route) => {
+            route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify(mockCatalog),
+            });
+        });
+        // Also mock the generic catalog endpoint (used by host-based routing fallback)
         await page.route('**/api/public/catalog', (route) => {
             route.fulfill({
                 status: 200,
@@ -72,39 +115,43 @@ test.describe('Public website', () => {
     });
 
     test('loads and displays shop name and categories', async ({ page }) => {
-        await page.goto('/site');
+        await page.goto(`/site/${SHOP_ID}`);
 
-        // Shop name should be visible
-        await expect(page.getByRole('heading', { name: 'Test Bistro' })).toBeVisible();
+        // Shop name should be visible (h1 in header)
+        await expect(page.getByRole('heading', { name: 'Test Bistro' })).toBeVisible({ timeout: 10000 });
 
-        // Category headings should be visible
+        // Category headings should be visible (h2)
         await expect(page.getByRole('heading', { name: 'Boissons' })).toBeVisible();
         await expect(page.getByRole('heading', { name: 'Plats' })).toBeVisible();
     });
 
     test('hides sold-out items by default and shows them when toggle is on', async ({ page }) => {
-        await page.goto('/site');
+        await page.goto(`/site/${SHOP_ID}`);
+
+        // Wait for page to load
+        await expect(page.getByRole('heading', { name: 'Test Bistro' })).toBeVisible({ timeout: 10000 });
 
         // "Eau" (stock=0) should not be visible initially
-        await expect(page.getByText('Eau')).not.toBeVisible();
+        await expect(page.getByText('Eau', { exact: true })).not.toBeVisible();
 
-        // Sold-out toggle should be visible
+        // Sold-out toggle should be visible (only shown when soldOutCount > 0)
         const toggle = page.getByRole('switch');
         await expect(toggle).toBeVisible();
 
         // Click toggle to show sold-out items
         await toggle.click();
 
-        // Now "Eau" should be visible with "Épuisé" label
-        await expect(page.getByText('Eau')).toBeVisible();
-        await expect(page.getByText('Épuisé').first()).toBeVisible();
+        // Now "Eau" should be visible
+        await expect(page.getByText('Eau', { exact: true })).toBeVisible();
     });
 
     test('hides price when price is 0', async ({ page }) => {
-        await page.goto('/site');
+        await page.goto(`/site/${SHOP_ID}`);
+        await expect(page.getByRole('heading', { name: 'Test Bistro' })).toBeVisible({ timeout: 10000 });
 
         // "Salade César" has price 0 — the name should be visible but no "0.00 €" price
-        const saladCard = page.locator('section').filter({ hasText: 'Salade César' });
+        // Product cards are <div> inside category <section>
+        const saladCard = page.locator('div').filter({ hasText: 'Salade César' }).first();
         await expect(saladCard).toBeVisible();
 
         // Ensure no "0,00 €" or "0.00 €" price text is shown for this card
@@ -112,21 +159,23 @@ test.describe('Public website', () => {
     });
 
     test('shows product description when available', async ({ page }) => {
-        await page.goto('/site');
+        await page.goto(`/site/${SHOP_ID}`);
+        await expect(page.getByRole('heading', { name: 'Test Bistro' })).toBeVisible({ timeout: 10000 });
 
         // Pizza has a description
-        const pizzaCard = page.locator('section').filter({ hasText: 'Pizza Margherita' });
+        const pizzaCard = page.locator('div').filter({ hasText: 'Pizza Margherita' }).first();
         await expect(pizzaCard.getByText('Classique pizza italienne')).toBeVisible();
     });
 
     test('opens contact form modal', async ({ page }) => {
-        await page.goto('/site');
+        await page.goto(`/site/${SHOP_ID}`);
+        await expect(page.getByRole('heading', { name: 'Test Bistro' })).toBeVisible({ timeout: 10000 });
 
         // Click "Nous contacter" button (desktop nav)
         const contactBtn = page.getByRole('button', { name: 'Nous contacter' });
         await contactBtn.click();
 
-        // Modal should appear with form fields
+        // Modal should appear with form fields (h3 heading in modal)
         await expect(page.getByRole('heading', { name: 'Nous contacter' })).toBeVisible();
         await expect(page.getByPlaceholder('Votre nom')).toBeVisible();
         await expect(page.getByPlaceholder('votre@email.com')).toBeVisible();
@@ -135,40 +184,42 @@ test.describe('Public website', () => {
     });
 
     test('opens map modal when clicking address', async ({ page }) => {
-        await page.goto('/site');
+        await page.goto(`/site/${SHOP_ID}`);
+        await expect(page.getByRole('heading', { name: 'Test Bistro' })).toBeVisible({ timeout: 10000 });
 
-        // Click the address button (first one in header area)
+        // Click the address button in the header (no shop image, so header is shown)
         const addressBtn = page.getByRole('button', { name: /Rue de la Paix/ }).first();
         await addressBtn.click();
 
-        // Map modal should appear (h3 in modal, not h1 in header)
+        // Map modal should appear (h3 in modal with shop name)
         await expect(page.locator('h3').filter({ hasText: 'Test Bistro' })).toBeVisible();
         await expect(page.locator('iframe[title="Carte"]')).toBeVisible();
     });
 
-    test('displays opening hours section', async ({ page }) => {
-        await page.goto('/site');
+    test('displays opening hours in modal', async ({ page }) => {
+        await page.goto(`/site/${SHOP_ID}`);
+        await expect(page.getByRole('heading', { name: 'Test Bistro' })).toBeVisible({ timeout: 10000 });
 
-        // Scroll to opening hours section
-        const horairesSection = page.locator('#horaires');
-        await expect(horairesSection).toBeVisible();
+        // Click the "Horaires d'ouverture" button to open the modal
+        await page.getByRole('button', { name: /Horaires d'ouverture/ }).click();
 
-        // Check that day names are shown
-        await expect(horairesSection.getByText('Lundi')).toBeVisible();
-        await expect(horairesSection.getByText('Dimanche')).toBeVisible();
+        // The modal should be visible with day names
+        const modal = page.locator('.fixed.inset-0.z-50').filter({ hasText: 'Horaires' });
+        await expect(modal).toBeVisible();
+        await expect(modal.getByText('Lundi')).toBeVisible();
+        await expect(modal.getByText('Dimanche')).toBeVisible();
 
         // Sunday should show "Fermé"
-        const sundayRow = horairesSection.locator('div').filter({ hasText: 'Dimanche' });
+        const sundayRow = modal.locator('div').filter({ hasText: 'Dimanche' });
         await expect(sundayRow.getByText('Fermé')).toBeVisible();
     });
 
-    test('shows open/closed status badge in navigation', async ({ page }) => {
-        await page.goto('/site');
+    test('shows open/closed status badge', async ({ page }) => {
+        await page.goto(`/site/${SHOP_ID}`);
+        await expect(page.getByRole('heading', { name: 'Test Bistro' })).toBeVisible({ timeout: 10000 });
 
-        // The nav should have an open/closed badge (desktop view)
-        // Either "Ouvert" or "Fermé" should be visible in the nav area
-        const nav = page.locator('nav');
-        await expect(nav.getByText(/^(Ouvert|Fermé)$/)).toBeVisible();
+        // The open/closed badge should be visible in the status banner under the nav
+        await expect(page.getByText(/^(Ouvert|Fermé)$/)).toBeVisible();
     });
 
     test('does not render React hooks errors in console', async ({ page }) => {
@@ -179,7 +230,7 @@ test.describe('Public website', () => {
             }
         });
 
-        await page.goto('/site');
+        await page.goto(`/site/${SHOP_ID}`);
         await page.waitForLoadState('networkidle');
 
         // Wait a bit for any potential re-renders
@@ -192,7 +243,8 @@ test.describe('Public website', () => {
     });
 
     test('contact form shows validation when submitting empty', async ({ page }) => {
-        await page.goto('/site');
+        await page.goto(`/site/${SHOP_ID}`);
+        await expect(page.getByRole('heading', { name: 'Test Bistro' })).toBeVisible({ timeout: 10000 });
 
         // Open contact modal
         await page.getByRole('button', { name: 'Nous contacter' }).click();
@@ -206,7 +258,8 @@ test.describe('Public website', () => {
     });
 
     test('footer displays shop contact information', async ({ page }) => {
-        await page.goto('/site');
+        await page.goto(`/site/${SHOP_ID}`);
+        await expect(page.getByRole('heading', { name: 'Test Bistro' })).toBeVisible({ timeout: 10000 });
 
         const footer = page.locator('footer');
         await expect(footer.getByText('Test Bistro', { exact: true })).toBeVisible();

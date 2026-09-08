@@ -15,9 +15,12 @@ import {
     IconAlertCircle,
     IconSearch,
     IconShoppingBag,
+    IconPlus,
+    IconMinus,
 } from '@tabler/icons-react';
 import { sendContactEmail } from '@/app/actions/email';
 import MyList from './MyList';
+import { useMyList } from './useMyList';
 import { useTheme, ThemeToggle } from '../theme';
 import {
     type ArticleInfo,
@@ -35,14 +38,16 @@ export default function SitePage() {
     const [error, setError] = useState<string | null>(null);
     const [showSoldOut, setShowSoldOut] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
     const [productsDropdownOpen, setProductsDropdownOpen] = useState(false);
     const [contactModalOpen, setContactModalOpen] = useState(false);
     const [contactForm, setContactForm] = useState({ name: '', email: '', subject: '', message: '' });
     const [contactSending, setContactSending] = useState(false);
     const [contactSent, setContactSent] = useState(false);
     const [contactError, setContactError] = useState(false);
+    const [contactCooldown, setContactCooldown] = useState(0);
+    const [honeypot, setHoneypot] = useState('');
     const [mapModalOpen, setMapModalOpen] = useState(false);
+    const [hoursModalOpen, setHoursModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchFocused, setSearchFocused] = useState(false);
     const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -51,6 +56,7 @@ export default function SitePage() {
     const { mode: themeMode, set: setTheme } = useTheme();
     const params = useParams<{ shopId: string }>();
     const shopId = params.shopId;
+    const myList = useMyList(shopId ?? '', data?.articles ?? []);
 
     useEffect(() => {
         if (!shopId) return;
@@ -72,6 +78,13 @@ export default function SitePage() {
             /* ignore */
         }
     }, []);
+
+    // Cooldown timer for contact form anti-spam
+    useEffect(() => {
+        if (contactCooldown <= 0) return;
+        const timer = setTimeout(() => setContactCooldown((c) => c - 1), 1000);
+        return () => clearTimeout(timer);
+    }, [contactCooldown]);
 
     const saveRecentSearch = useCallback((query: string) => {
         const q = query.trim();
@@ -109,7 +122,10 @@ export default function SitePage() {
     const scrollToCategory = useCallback((category: string) => {
         const el = document.getElementById(`cat-${category.replace(/\s+/g, '-').toLowerCase()}`);
         if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const nav = document.querySelector('nav');
+            const navHeight = nav ? nav.getBoundingClientRect().height : 56;
+            const y = el.getBoundingClientRect().top + window.scrollY - navHeight - 8;
+            window.scrollTo({ top: y, behavior: 'smooth' });
         }
     }, []);
 
@@ -120,7 +136,10 @@ export default function SitePage() {
             saveRecentSearch(article.label);
             const catEl = document.getElementById(`cat-${article.category.replace(/\s+/g, '-').toLowerCase()}`);
             if (catEl) {
-                catEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                const nav = document.querySelector('nav');
+                const navHeight = nav ? nav.getBoundingClientRect().height : 56;
+                const y = catEl.getBoundingClientRect().top + window.scrollY - navHeight - 8;
+                window.scrollTo({ top: y, behavior: 'smooth' });
                 const productKey = `${article.category.replace(/\s+/g, '-').toLowerCase()}-${article.label.replace(/\s+/g, '-').toLowerCase()}`;
                 setHighlightedProduct(productKey);
                 setTimeout(() => setHighlightedProduct(null), 2500);
@@ -154,6 +173,10 @@ export default function SitePage() {
         async (e: React.FormEvent) => {
             e.preventDefault();
             if (!shopEmail) return;
+            // Honeypot: bots fill hidden fields, humans don't
+            if (honeypot) return;
+            // Cooldown: prevent spamming
+            if (contactCooldown > 0) return;
             setContactSending(true);
             setContactError(false);
             try {
@@ -167,6 +190,8 @@ export default function SitePage() {
                 if (success) {
                     setContactSent(true);
                     setContactForm({ name: '', email: '', subject: '', message: '' });
+                    // Start 60s cooldown
+                    setContactCooldown(60);
                 } else {
                     setContactError(true);
                 }
@@ -176,23 +201,19 @@ export default function SitePage() {
                 setContactSending(false);
             }
         },
-        [shopEmail, contactForm]
+        [shopEmail, contactForm, honeypot, contactCooldown]
     );
 
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-site-bg text-site-text">
                 <div className="flex flex-col items-center gap-6">
-                    <div className="relative flex items-center justify-center h-16">
-                        <div
-                            className="absolute w-14 h-14 rounded-full bg-orange-200/50 animate-bounce"
-                            style={{ animationDuration: '1s' }}
-                        />
-                        <IconToolsKitchen2
-                            size={32}
-                            className="text-orange-500 animate-bounce relative z-10"
-                            style={{ animationDuration: '1s' }}
-                        />
+                    <div
+                        className="relative flex items-center justify-center h-16 animate-bounce"
+                        style={{ animationDuration: '1s' }}
+                    >
+                        <div className="absolute w-14 h-14 rounded-full bg-orange-200/50" />
+                        <IconToolsKitchen2 size={32} className="text-orange-500 relative z-10" />
                     </div>
                     <p className="text-site-text-secondary text-lg font-medium">Préparation du menu…</p>
                 </div>
@@ -244,7 +265,7 @@ export default function SitePage() {
                 <div className="relative h-[50vh] min-h-75 w-full overflow-hidden">
                     <img src={shop.image} alt={shop.name} className="absolute inset-0 h-full w-full object-cover" />
                     <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/30 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12">
+                    <div className="absolute bottom-0 left-0 right-0 px-3 py-6 md:p-12">
                         <div className="flex items-center gap-4">
                             {shop.logo && (
                                 <img
@@ -275,7 +296,7 @@ export default function SitePage() {
 
             {/* Header (when no shop image) */}
             {!shop.image && (
-                <header className="bg-linear-to-r from-orange-500 to-amber-600 text-white py-12 px-6">
+                <header className="bg-linear-to-r from-orange-500 to-amber-600 text-white py-12 px-3 md:px-6">
                     <div className="max-w-5xl mx-auto flex items-center gap-4">
                         {shop.logo && (
                             <img
@@ -307,6 +328,20 @@ export default function SitePage() {
                     <div className="flex items-center justify-between h-14">
                         {/* Desktop nav */}
                         <div className="hidden md:flex items-center gap-1">
+                            {reservationEnabled && (
+                                <button
+                                    onClick={() => setMyListOpen(true)}
+                                    className="px-4 py-2 text-base font-semibold text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                                >
+                                    <IconShoppingBag size={18} />
+                                    Ma liste
+                                    {myList.totalItems > 0 && (
+                                        <span className="ml-0.5 bg-orange-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
+                                            {myList.totalItems}
+                                        </span>
+                                    )}
+                                </button>
+                            )}
                             {/* Products dropdown */}
                             <div
                                 className="relative"
@@ -344,22 +379,13 @@ export default function SitePage() {
                             >
                                 Nous contacter
                             </button>
-                            {reservationEnabled && (
-                                <button
-                                    onClick={() => setMyListOpen(true)}
-                                    className="px-4 py-2 text-base font-semibold text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1.5 cursor-pointer"
-                                >
-                                    <IconShoppingBag size={18} />
-                                    Ma liste
-                                </button>
-                            )}
                             {hasOpeningHours && (
-                                <a
-                                    href="#horaires"
+                                <button
+                                    onClick={() => setHoursModalOpen(true)}
                                     className="px-4 py-2 text-base font-medium text-site-text hover:text-orange-600 transition-colors cursor-pointer"
                                 >
                                     Horaires d&apos;ouverture
-                                </a>
+                                </button>
                             )}
                             <button
                                 onClick={() => setMapModalOpen(true)}
@@ -444,74 +470,17 @@ export default function SitePage() {
                                         </div>
                                     )}
                             </div>
-                            {openStatus.status !== 'unknown' && (
-                                <div className="flex items-center gap-2">
-                                    <span
-                                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                                            openStatus.isOpen
-                                                ? 'bg-green-100 text-green-700'
-                                                : 'bg-red-100 text-red-700'
-                                        }`}
-                                    >
-                                        <span
-                                            className={`w-2 h-2 rounded-full ${openStatus.isOpen ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}
-                                        />
-                                        {openStatus.isOpen ? 'Ouvert' : 'Fermé'}
-                                    </span>
-                                    {openStatus.nextChange && (
-                                        <span className="text-xs text-site-text-muted">
-                                            {openStatus.nextType === 'close'
-                                                ? `Ferme à ${formatTimeDisplay(openStatus.nextChange)}`
-                                                : `Ouvre ${openStatus.nextDay === 0 ? "aujourd'hui" : openStatus.nextDay === 1 ? 'demain' : DAY_NAMES[(jsDayToAdminIndex(new Date().getDay()) + openStatus.nextDay) % 7]} à ${formatTimeDisplay(openStatus.nextChange)}`}
-                                        </span>
-                                    )}
-                                </div>
-                            )}
                             <ThemeToggle mode={themeMode} set={setTheme} />
                         </div>
 
-                        {/* Mobile: search button (left) + theme toggle + hamburger (right) */}
-                        <div className="flex md:hidden items-center gap-2 ml-auto">
-                            <button
-                                className="p-2 text-site-text hover:text-orange-600 cursor-pointer"
-                                onClick={() => {
-                                    setMobileSearchOpen((prev) => !prev);
-                                    setMobileMenuOpen(false);
-                                    if (!mobileSearchOpen) {
-                                        setTimeout(() => {
-                                            const input =
-                                                document.querySelector<HTMLInputElement>('#mobile-search-input');
-                                            input?.focus();
-                                        }, 100);
-                                    }
-                                }}
-                                aria-label="Rechercher"
-                            >
-                                {mobileSearchOpen ? <IconX size={22} /> : <IconSearch size={22} />}
-                            </button>
-                            <ThemeToggle mode={themeMode} set={setTheme} />
-                            <button
-                                className="p-2 text-site-text hover:text-orange-600 cursor-pointer"
-                                onClick={() => {
-                                    setMobileMenuOpen(!mobileMenuOpen);
-                                    setMobileSearchOpen(false);
-                                }}
-                            >
-                                {mobileMenuOpen ? <IconX size={24} /> : <IconMenu2 size={24} />}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Mobile search overlay */}
-                    {mobileSearchOpen && (
-                        <div className="md:hidden border-t border-site-border py-3 px-4">
-                            <div className="relative">
+                        {/* Mobile: inline search (left) + theme toggle + hamburger (right) */}
+                        <div className="flex md:hidden items-center gap-2 ml-auto w-full">
+                            <div className="relative flex-1 min-w-0">
                                 <IconSearch
                                     size={16}
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-site-text-muted pointer-events-none"
+                                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-site-text-muted pointer-events-none"
                                 />
                                 <input
-                                    id="mobile-search-input"
                                     type="text"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -521,11 +490,11 @@ export default function SitePage() {
                                         if (e.key === 'Enter') handleSearchSubmit();
                                     }}
                                     placeholder="Rechercher…"
-                                    className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-site-input-bg border border-site-input-border text-site-text placeholder:text-site-text-muted focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                                    className="w-full pl-8 pr-3 py-1.5 text-sm rounded-full bg-site-input-bg border border-site-input-border text-site-text placeholder:text-site-text-muted focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
                                 />
                                 {searchFocused &&
                                     (searchResults.length > 0 || (searchQuery === '' && recentSearches.length > 0)) && (
-                                        <div className="absolute top-full left-0 right-0 mt-1 bg-site-surface rounded-lg shadow-lg border border-site-border py-2 z-30">
+                                        <div className="absolute top-full left-0 right-0 mt-1 bg-site-surface rounded-lg shadow-lg border border-site-border py-2 z-30 max-h-80 overflow-y-auto">
                                             {searchResults.length > 0 && (
                                                 <>
                                                     <div className="px-3 py-1 text-xs font-semibold text-site-text-muted uppercase">
@@ -576,8 +545,15 @@ export default function SitePage() {
                                         </div>
                                     )}
                             </div>
+                            <ThemeToggle mode={themeMode} set={setTheme} />
+                            <button
+                                className="p-2 text-site-text hover:text-orange-600 cursor-pointer shrink-0"
+                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            >
+                                {mobileMenuOpen ? <IconX size={24} /> : <IconMenu2 size={24} />}
+                            </button>
                         </div>
-                    )}
+                    </div>
 
                     {/* Mobile menu */}
                     {mobileMenuOpen && (
@@ -592,6 +568,11 @@ export default function SitePage() {
                                 >
                                     <IconShoppingBag size={18} />
                                     Ma liste
+                                    {myList.totalItems > 0 && (
+                                        <span className="ml-0.5 bg-orange-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
+                                            {myList.totalItems}
+                                        </span>
+                                    )}
                                 </button>
                             )}
                             <button
@@ -604,13 +585,15 @@ export default function SitePage() {
                                 Nous contacter
                             </button>
                             {hasOpeningHours && (
-                                <a
-                                    href="#horaires"
-                                    className="px-4 py-2 text-base font-medium text-site-text hover:text-orange-600 cursor-pointer"
-                                    onClick={() => setMobileMenuOpen(false)}
+                                <button
+                                    onClick={() => {
+                                        setHoursModalOpen(true);
+                                        setMobileMenuOpen(false);
+                                    }}
+                                    className="px-4 py-2 text-base font-medium text-site-text hover:text-orange-600 text-left cursor-pointer"
                                 >
                                     Horaires d&apos;ouverture
-                                </a>
+                                </button>
                             )}
                             <button
                                 onClick={() => {
@@ -641,9 +624,9 @@ export default function SitePage() {
                 </div>
             </nav>
 
-            {/* Open/closed status banner (mobile) */}
+            {/* Open/closed status banner */}
             {openStatus.status !== 'unknown' && (
-                <div className="md:hidden bg-site-surface border-b border-site-border px-4 py-2 flex items-center justify-center gap-2">
+                <div className="bg-site-surface border-b border-site-border px-4 py-2 flex items-center justify-center gap-2">
                     <span
                         className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
                             openStatus.isOpen ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
@@ -658,7 +641,7 @@ export default function SitePage() {
                         <span className="text-xs text-site-text-muted">
                             {openStatus.nextType === 'close'
                                 ? `Ferme à ${formatTimeDisplay(openStatus.nextChange)}`
-                                : `Ouvre à ${formatTimeDisplay(openStatus.nextChange)}`}
+                                : `Ouvre ${openStatus.nextDay === 0 ? "aujourd'hui" : openStatus.nextDay === 1 ? 'demain' : DAY_NAMES[(jsDayToAdminIndex(new Date().getDay()) + openStatus.nextDay) % 7]} à ${formatTimeDisplay(openStatus.nextChange)}`}
                         </span>
                     )}
                 </div>
@@ -696,7 +679,7 @@ export default function SitePage() {
                         {categories.map((cat) => {
                             const visibleItems = cat.items
                                 .filter((item) => {
-                                    const soldOut = item.stock !== null && item.stock <= 0;
+                                    const soldOut = item.stock != null && item.stock <= 0;
                                     return showSoldOut || !soldOut;
                                 })
                                 .sort((a, b) => {
@@ -708,18 +691,14 @@ export default function SitePage() {
                                 });
                             if (visibleItems.length === 0) return null;
                             return (
-                                <section
-                                    key={cat.name}
-                                    id={`cat-${cat.name.replace(/\s+/g, '-').toLowerCase()}`}
-                                    className="scroll-mt-20"
-                                >
+                                <section key={cat.name} id={`cat-${cat.name.replace(/\s+/g, '-').toLowerCase()}`}>
                                     <h2 className="text-2xl md:text-3xl font-bold text-site-text mb-6 flex items-center gap-3">
                                         <span className="w-1 h-8 bg-orange-500 rounded-full" />
                                         {cat.name}
                                     </h2>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                                         {visibleItems.map((item) => {
-                                            const soldOut = item.stock !== null && item.stock <= 0;
+                                            const soldOut = item.stock != null && item.stock <= 0;
                                             const productKey = `${cat.name.replace(/\s+/g, '-').toLowerCase()}-${item.label.replace(/\s+/g, '-').toLowerCase()}`;
                                             const isHighlighted = highlightedProduct === productKey;
                                             return (
@@ -763,7 +742,7 @@ export default function SitePage() {
                                                                 {item.description}
                                                             </p>
                                                         )}
-                                                        {item.stock !== null && item.stock > 0 && (
+                                                        {item.stock != null && item.stock > 0 && (
                                                             <div className="mt-3 flex items-center gap-2">
                                                                 <span
                                                                     className={`inline-flex items-center gap-1 text-xs font-medium ${stockColor(item.stock)}`}
@@ -772,6 +751,51 @@ export default function SitePage() {
                                                                 </span>
                                                             </div>
                                                         )}
+                                                        {reservationEnabled &&
+                                                            !soldOut &&
+                                                            (() => {
+                                                                const qty = myList.getItemQty(item.label);
+                                                                const maxed = item.stock != null && qty >= item.stock;
+                                                                return (
+                                                                    <div className="mt-3 flex items-center justify-end gap-2">
+                                                                        {qty > 0 ? (
+                                                                            <>
+                                                                                <button
+                                                                                    onClick={() =>
+                                                                                        myList.removeFromList(
+                                                                                            item.label
+                                                                                        )
+                                                                                    }
+                                                                                    className="w-8 h-8 rounded-full bg-site-surface border border-site-border flex items-center justify-center text-site-text hover:bg-site-surface-hover transition-colors cursor-pointer"
+                                                                                >
+                                                                                    <IconMinus size={16} />
+                                                                                </button>
+                                                                                <span className="w-8 text-center font-bold text-site-text tabular-nums">
+                                                                                    {qty}
+                                                                                </span>
+                                                                                <button
+                                                                                    onClick={() =>
+                                                                                        myList.addToList(item)
+                                                                                    }
+                                                                                    disabled={maxed}
+                                                                                    className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                                                                >
+                                                                                    <IconPlus size={16} />
+                                                                                </button>
+                                                                            </>
+                                                                        ) : (
+                                                                            <button
+                                                                                onClick={() => myList.addToList(item)}
+                                                                                disabled={maxed}
+                                                                                className="w-9 h-9 rounded-full bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                                                                title="Ajouter à ma liste"
+                                                                            >
+                                                                                <IconShoppingBag size={18} />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                     </div>
                                                 </div>
                                             );
@@ -781,43 +805,6 @@ export default function SitePage() {
                             );
                         })}
                     </div>
-                )}
-
-                {/* Opening hours section */}
-                {hasOpeningHours && (
-                    <section id="horaires" className="mt-16 scroll-mt-20">
-                        <h2 className="text-2xl md:text-3xl font-bold text-site-text mb-6 flex items-center gap-3">
-                            <span className="w-1 h-8 bg-orange-500 rounded-full" />
-                            Horaires d&apos;ouverture
-                        </h2>
-                        <div className="bg-site-surface rounded-2xl shadow-sm border border-site-border p-6">
-                            <div className="flex flex-col gap-3">
-                                {DAY_NAMES.map((dayName, dayIndex) => {
-                                    const slots = openingHours[dayIndex] ?? [];
-                                    return (
-                                        <div
-                                            key={dayIndex}
-                                            className="flex items-center justify-between py-2 border-b border-site-border last:border-0"
-                                        >
-                                            <span className="text-sm font-medium text-site-text">{dayName}</span>
-                                            <div className="flex flex-col items-end gap-1">
-                                                {slots.length === 0 ? (
-                                                    <span className="text-sm text-site-text-muted">Fermé</span>
-                                                ) : (
-                                                    slots.map((slot, i) => (
-                                                        <span key={i} className="text-sm text-site-text-secondary">
-                                                            {formatTimeDisplay(slot.open)} -{' '}
-                                                            {formatTimeDisplay(slot.close)}
-                                                        </span>
-                                                    ))
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </section>
                 )}
             </main>
 
@@ -912,6 +899,17 @@ export default function SitePage() {
                             </div>
                         ) : (
                             <form onSubmit={handleContactSubmit} className="flex flex-col gap-4">
+                                {/* Honeypot: hidden field to catch bots */}
+                                <input
+                                    type="text"
+                                    name="company"
+                                    tabIndex={-1}
+                                    autoComplete="off"
+                                    value={honeypot}
+                                    onChange={(e) => setHoneypot(e.target.value)}
+                                    className="absolute opacity-0 pointer-events-none -z-10"
+                                    aria-hidden="true"
+                                />
                                 {contactError && (
                                     <div className="flex items-center gap-2 px-4 py-3 bg-red-50 text-red-700 site-dark:bg-red-950/50 site-dark:text-red-400 rounded-lg text-sm">
                                         <IconAlertCircle size={18} />
@@ -964,7 +962,7 @@ export default function SitePage() {
                                 </div>
 
                                 {/* Direct contact links */}
-                                <div className="flex flex-wrap gap-3 pt-2 border-t border-site-border">
+                                <div className="flex items-center justify-between gap-3 pt-2 border-t border-site-border">
                                     {shop.phone && (
                                         <a
                                             href={`tel:${shop.phone}`}
@@ -987,13 +985,18 @@ export default function SitePage() {
 
                                 <button
                                     type="submit"
-                                    disabled={contactSending}
+                                    disabled={contactSending || contactCooldown > 0}
                                     className="flex items-center justify-center gap-2 px-6 py-2.5 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                 >
                                     {contactSending ? (
                                         <>
                                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                             Envoi en cours…
+                                        </>
+                                    ) : contactCooldown > 0 ? (
+                                        <>
+                                            <IconSend size={18} />
+                                            Réessayer dans {contactCooldown}s
                                         </>
                                     ) : (
                                         <>
@@ -1056,16 +1059,87 @@ export default function SitePage() {
                 </div>
             )}
 
+            {/* Opening hours modal */}
+            {hoursModalOpen && hasOpeningHours && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-site-overlay p-4"
+                    onClick={() => setHoursModalOpen(false)}
+                >
+                    <div
+                        className="bg-site-surface rounded-2xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xl font-bold text-site-text flex items-center gap-2">
+                                <span className="w-1 h-6 bg-orange-500 rounded-full" />
+                                Horaires d&apos;ouverture
+                            </h3>
+                            <button
+                                onClick={() => setHoursModalOpen(false)}
+                                className="text-site-text-muted hover:text-site-text cursor-pointer"
+                            >
+                                <IconX size={24} />
+                            </button>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            {DAY_NAMES.map((dayName, dayIndex) => {
+                                const slots = openingHours[dayIndex] ?? [];
+                                const isToday = jsDayToAdminIndex(new Date().getDay()) === dayIndex;
+                                return (
+                                    <div
+                                        key={dayIndex}
+                                        className={`flex items-center justify-between py-2.5 px-3 rounded-lg ${
+                                            isToday ? 'bg-orange-50 site-dark:bg-orange-950/30' : ''
+                                        }`}
+                                    >
+                                        <span
+                                            className={`text-sm font-medium ${isToday ? 'text-orange-600' : 'text-site-text'}`}
+                                        >
+                                            {dayName}
+                                            {isToday && <span className="text-xs ml-1">(aujourd&apos;hui)</span>}
+                                        </span>
+                                        <div className="flex flex-col items-end gap-0.5">
+                                            {slots.length === 0 ? (
+                                                <span className="text-sm text-site-text-muted">Fermé</span>
+                                            ) : (
+                                                slots.map((slot, i) => (
+                                                    <span
+                                                        key={i}
+                                                        className="text-sm text-site-text-secondary tabular-nums"
+                                                    >
+                                                        {formatTimeDisplay(slot.open)} - {formatTimeDisplay(slot.close)}
+                                                    </span>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {reservationEnabled && (
                 <MyList
                     open={myListOpen}
                     onClose={() => setMyListOpen(false)}
+                    items={myList.items}
+                    onAdd={myList.addToList}
+                    onRemove={myList.removeFromList}
+                    onRemoveItem={myList.removeItem}
+                    onClear={myList.clearList}
                     articles={articles}
                     shop={shop}
                     currencySymbol={currency.symbol}
                     currencyDecimals={currency.decimals}
                     reservationPhone={data.reservationPhone ?? false}
                     reservationEmail={data.reservationEmail ?? false}
+                    stockByLabel={myList.stockByLabel}
+                    unavailableItems={myList.unavailableItems}
+                    hasStockConflict={myList.hasStockConflict}
+                    total={myList.total}
+                    totalItems={myList.totalItems}
                 />
             )}
         </div>

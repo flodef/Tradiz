@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
     IconX,
     IconPlus,
@@ -13,69 +13,57 @@ import {
     IconAlertCircle,
     IconSend,
 } from '@tabler/icons-react';
-import { useLocalStorage } from '@/app/utils/localStorage';
-import { sendReservationEmail } from '@/app/actions/email';
 import { type ArticleInfo, type ShopInfo, stockColor } from '../types';
+import { sendReservationEmail } from '@/app/actions/email';
+import type { MyListEntry } from './useMyList';
 
-interface MyListEntry {
-    label: string;
-    category: string;
-    price: number;
-    quantity: number;
-}
-
-interface MyListStorage {
-    date: string; // YYYY-MM-DD (local time)
-    items: MyListEntry[];
-}
+const FRENCH_PHONE_REGEX = /^(?:\+33|0)\s*[1-9](?:[\s.-]*\d{2}){4}$/;
 
 interface MyListProps {
     open: boolean;
     onClose: () => void;
+    items: MyListEntry[];
+    onAdd: (article: ArticleInfo) => void;
+    onRemove: (label: string) => void;
+    onRemoveItem: (label: string) => void;
+    onClear: () => void;
     articles: ArticleInfo[];
     shop: ShopInfo;
     currencySymbol: string;
     currencyDecimals: number;
     reservationPhone: boolean;
     reservationEmail: boolean;
+    stockByLabel: Map<string, number | null>;
+    unavailableItems: MyListEntry[];
+    hasStockConflict: boolean;
+    total: number;
+    totalItems: number;
 }
-
-function todayStr(): string {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const d = String(now.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-}
-
-const MAX_QUANTITY_NULL_STOCK = 999;
-const FRENCH_PHONE_REGEX = /^(?:\+33|0)\s*[1-9](?:[\s.-]*\d{2}){4}$/;
 
 export default function MyList({
     open,
     onClose,
+    items,
+    onAdd,
+    onRemove,
+    onRemoveItem,
+    onClear,
     articles,
     shop,
     currencySymbol,
     currencyDecimals,
     reservationPhone,
     reservationEmail,
+    stockByLabel,
+    unavailableItems,
+    hasStockConflict,
+    total,
+    totalItems,
 }: MyListProps) {
-    const [stored, setStored] = useLocalStorage<MyListStorage>(`my-list-${shop.name}`, {
-        date: todayStr(),
-        items: [],
-    });
     const [reservationStep, setReservationStep] = useState<'list' | 'contact' | 'sent'>('list');
     const [contactInfo, setContactInfo] = useState({ name: '', phone: '' });
     const [sending, setSending] = useState(false);
     const [sendError, setSendError] = useState(false);
-
-    // Reset list each new day (using local date)
-    useEffect(() => {
-        if (stored.date !== todayStr()) {
-            setStored({ date: todayStr(), items: [] });
-        }
-    }, [stored.date, setStored]);
 
     // Reset to list view when opening
     useEffect(() => {
@@ -95,82 +83,9 @@ export default function MyList({
         return () => window.removeEventListener('keydown', handleKey);
     }, [open, reservationStep, onClose]);
 
-    // Build a lookup of current article stock by label
-    const stockByLabel = useMemo(() => {
-        const map = new Map<string, number | null>();
-        for (const a of articles) {
-            map.set(a.label, a.stock);
-        }
-        return map;
-    }, [articles]);
-
-    // Available articles (stock > 0 or stock === null)
-    const availableArticles = useMemo(() => {
-        return articles.filter((a) => a.stock === null || a.stock > 0);
-    }, [articles]);
-
-    const items = stored.items;
-    const setItems = useCallback(
-        (newItems: MyListEntry[]) => setStored({ ...stored, items: newItems }),
-        [stored, setStored]
-    );
-
-    const getItemQty = (label: string): number => items.find((i) => i.label === label)?.quantity ?? 0;
-
-    const addToList = (article: ArticleInfo) => {
-        const currentQty = getItemQty(article.label);
-        const maxQty = article.stock ?? MAX_QUANTITY_NULL_STOCK;
-        if (currentQty >= maxQty) return;
-        if (currentQty === 0) {
-            setItems([
-                ...items,
-                { label: article.label, category: article.category, price: article.price, quantity: 1 },
-            ]);
-        } else {
-            setItems(items.map((i) => (i.label === article.label ? { ...i, quantity: i.quantity + 1 } : i)));
-        }
-    };
-
-    const removeFromList = (label: string) => {
-        const currentQty = getItemQty(label);
-        if (currentQty <= 1) {
-            setItems(items.filter((i) => i.label !== label));
-        } else {
-            setItems(items.map((i) => (i.label === label ? { ...i, quantity: i.quantity - 1 } : i)));
-        }
-    };
-
-    const removeItem = (label: string) => setItems(items.filter((i) => i.label !== label));
-    const clearList = () => setItems([]);
-
-    const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-    const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
-
     const formatPrice = (price: number) => `${price.toFixed(currencyDecimals)} ${currencySymbol}`;
 
-    // Check for items that became unavailable
-    const unavailableItems = items.filter((i) => {
-        const stock = stockByLabel.get(i.label);
-        return stock !== null && stock !== undefined && stock <= 0;
-    });
-    const hasStockConflict = unavailableItems.length > 0;
-
-    // Group available articles by category
-    const categories = useMemo(() => {
-        const cats: { name: string; items: ArticleInfo[] }[] = [];
-        const catIndex: Record<string, number> = {};
-        for (const article of availableArticles) {
-            if (catIndex[article.category] === undefined) {
-                catIndex[article.category] = cats.length;
-                cats.push({ name: article.category, items: [] });
-            }
-            cats[catIndex[article.category]].items.push(article);
-        }
-        return cats;
-    }, [availableArticles]);
-
     const handlePhoneReservation = () => {
-        // Open tel: link without navigating away from the page
         const link = document.createElement('a');
         link.href = `tel:${shop.phone.replace(/\s/g, '')}`;
         link.click();
@@ -204,42 +119,6 @@ export default function MyList({
     };
 
     if (!open) return null;
-
-    // Shared "add products" category list
-    const AddProductsSection = () => (
-        <div className="w-full flex flex-col gap-4 max-h-60 overflow-y-auto">
-            {categories.map((cat) => (
-                <div key={cat.name}>
-                    <p className="text-xs font-semibold text-site-text-muted uppercase mb-2">{cat.name}</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {cat.items.map((article) => {
-                            const qty = getItemQty(article.label);
-                            const maxed = article.stock !== null && qty >= (article.stock ?? 0);
-                            return (
-                                <button
-                                    key={article.label}
-                                    onClick={() => addToList(article)}
-                                    disabled={maxed}
-                                    className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-site-border bg-site-surface hover:bg-site-surface-hover transition-colors text-left cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                                >
-                                    <span className="text-sm text-site-text truncate">{article.label}</span>
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        {article.stock !== null && article.stock > 0 && (
-                                            <span className={`text-xs ${stockColor(article.stock)}`}>
-                                                {article.stock}
-                                            </span>
-                                        )}
-                                        {qty > 0 && <span className="text-xs font-bold text-orange-600">{qty}</span>}
-                                        <IconPlus size={14} className="text-orange-500" />
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
 
     return (
         <div
@@ -287,7 +166,7 @@ export default function MyList({
                             </p>
                             <button
                                 onClick={() => {
-                                    clearList();
+                                    onClear();
                                     onClose();
                                 }}
                                 className="mt-6 px-6 py-2.5 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors cursor-pointer"
@@ -421,7 +300,7 @@ export default function MyList({
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <button
-                                                onClick={() => removeFromList(item.label)}
+                                                onClick={() => onRemove(item.label)}
                                                 disabled={isUnavailable}
                                                 className="w-7 h-7 rounded-full bg-site-surface border border-site-border flex items-center justify-center text-site-text hover:bg-site-surface-hover transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                             >
@@ -433,7 +312,7 @@ export default function MyList({
                                             <button
                                                 onClick={() => {
                                                     const article = articles.find((a) => a.label === item.label);
-                                                    if (article) addToList(article);
+                                                    if (article) onAdd(article);
                                                 }}
                                                 disabled={
                                                     isUnavailable ||
@@ -450,20 +329,14 @@ export default function MyList({
                                             </p>
                                         </div>
                                         <button
-                                            onClick={() => removeItem(item.label)}
-                                            className="p-1.5 text-site-text-muted hover:text-red-600 transition-colors cursor-pointer"
+                                            onClick={() => onRemoveItem(item.label)}
+                                            className="p-2 text-site-text-muted hover:text-red-600 transition-colors cursor-pointer"
                                         >
-                                            <IconTrash size={16} />
+                                            <IconTrash size={22} />
                                         </button>
                                     </div>
                                 );
                             })}
-
-                            {/* Add more products section */}
-                            <div className="pt-4 border-t border-site-border">
-                                <h3 className="text-sm font-semibold text-site-text mb-3">Ajouter des produits</h3>
-                                <AddProductsSection />
-                            </div>
                         </div>
                     ) : (
                         /* Empty state */
@@ -472,10 +345,9 @@ export default function MyList({
                                 <IconShoppingBag size={32} className="text-site-text-muted" />
                             </div>
                             <h3 className="text-lg font-bold text-site-text mb-1">Votre liste est vide</h3>
-                            <p className="text-sm text-site-text-secondary mb-6 text-center max-w-sm">
-                                Ajoutez des produits disponibles aujourd&apos;hui pour préparer votre réservation.
+                            <p className="text-sm text-site-text-secondary text-center max-w-sm">
+                                Ajoutez des produits depuis le catalogue pour préparer votre réservation.
                             </p>
-                            <AddProductsSection />
                         </div>
                     )}
                 </div>
@@ -489,7 +361,7 @@ export default function MyList({
                         </div>
                         <div className="flex gap-3">
                             <button
-                                onClick={clearList}
+                                onClick={onClear}
                                 className="px-4 py-2.5 rounded-lg font-medium text-site-text bg-site-surface-hover border border-site-border hover:bg-site-border transition-colors cursor-pointer"
                             >
                                 Vider
