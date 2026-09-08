@@ -52,18 +52,32 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
         });
     }, [open, selectedHour, selectedMinute]);
 
+    // Attach non-passive wheel listeners so preventDefault works (React onWheel is passive)
+    useEffect(() => {
+        if (!open) return;
+        const cols = [hourColRef.current, minuteColRef.current].filter(Boolean) as HTMLDivElement[];
+        const handlers: ((e: WheelEvent) => void)[] = [];
+        for (const col of cols) {
+            const handler = (e: WheelEvent) => {
+                e.preventDefault();
+                col.scrollTop += e.deltaY;
+            };
+            col.addEventListener('wheel', handler, { passive: false });
+            handlers.push(handler);
+        }
+        return () => {
+            for (let i = 0; i < cols.length; i++) {
+                cols[i].removeEventListener('wheel', handlers[i]);
+            }
+        };
+    }, [open]);
+
     const handleHourSelect = (h: string) => {
         onChange(`${h}:${selectedMinute}`);
     };
 
     const handleMinuteSelect = (m: string) => {
         onChange(`${selectedHour}:${m}`);
-    };
-
-    const handleWheel = (e: React.WheelEvent, col: React.RefObject<HTMLDivElement | null>) => {
-        if (!col.current) return;
-        e.preventDefault();
-        col.current.scrollTop += e.deltaY;
     };
 
     return (
@@ -88,11 +102,7 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
                             <div className="px-2 py-1 text-xs font-semibold text-gray-400 uppercase text-center border-b border-gray-100 dark:border-gray-700">
                                 Heure
                             </div>
-                            <div
-                                ref={hourColRef}
-                                onWheel={(e) => handleWheel(e, hourColRef)}
-                                className="overflow-y-auto h-40 w-16 scrollbar-thin py-1"
-                            >
+                            <div ref={hourColRef} className="overflow-y-auto h-40 w-16 scrollbar-thin py-1">
                                 {HOURS.map((h) => (
                                     <button
                                         key={h}
@@ -119,11 +129,7 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
                             <div className="px-2 py-1 text-xs font-semibold text-gray-400 uppercase text-center border-b border-gray-100 dark:border-gray-700">
                                 Min
                             </div>
-                            <div
-                                ref={minuteColRef}
-                                onWheel={(e) => handleWheel(e, minuteColRef)}
-                                className="overflow-y-auto h-40 w-16 scrollbar-thin py-1"
-                            >
+                            <div ref={minuteColRef} className="overflow-y-auto h-40 w-16 scrollbar-thin py-1">
                                 {MINUTES.map((m) => (
                                     <button
                                         key={m}
