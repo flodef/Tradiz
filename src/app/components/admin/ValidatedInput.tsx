@@ -9,6 +9,7 @@ interface ValidatedInputProps {
     onChange: (value: string | number) => void;
     placeholder?: string;
     validation?: (value: string | number) => boolean;
+    filter?: (value: string) => string;
     type?: string;
     isReadOnly?: boolean;
     maxLength?: number;
@@ -29,6 +30,7 @@ export default function ValidatedInput({
     onChange,
     placeholder,
     validation,
+    filter,
     type = 'text',
     maxLength,
     label,
@@ -84,6 +86,11 @@ export default function ValidatedInput({
             newValue = newValue.replace(/[0-9]/g, '');
         }
 
+        // Apply custom filter (e.g. strip invalid chars for phone, VAT, NAF)
+        if (filter) {
+            newValue = filter(newValue);
+        }
+
         if (validation) setIsValid(validation(newValue));
         setDraftValue(newValue);
         onChange(newValue);
@@ -122,6 +129,9 @@ export default function ValidatedInput({
                 }
                 if (isNameField) {
                     newValue = newValue.replace(/[0-9]/g, '');
+                }
+                if (filter) {
+                    newValue = filter(newValue);
                 }
                 if (validation) setIsValid(validation(newValue));
                 setDraftValue(newValue);

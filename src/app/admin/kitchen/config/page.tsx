@@ -411,6 +411,20 @@ export default function SettingsPage() {
                     const port = Number(value);
                     return value && port >= 1 && port <= 65535 ? port : undefined;
                 })(),
+                openingHours: (() => {
+                    try {
+                        const value = getParam('openingHours', 'openingHours');
+                        if (value) {
+                            const parsed = JSON.parse(value);
+                            if (parsed && typeof parsed === 'object') {
+                                return parsed as Record<number, { open: string; close: string }[]>;
+                            }
+                        }
+                    } catch {
+                        // Invalid JSON
+                    }
+                    return undefined;
+                })(),
                 reservationPhone: (() => {
                     const value = getParam('reservationPhone', 'reservationPhone');
                     if (value === '') return undefined;

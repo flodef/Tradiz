@@ -139,11 +139,19 @@ const MAX_SLOTS_PER_DAY = 3;
 /** Keep only characters valid for a French phone number: digits, +, spaces, dots, hyphens */
 const filterPhone = (v: string) => v.replace(/[^\d+\s.-]/g, '');
 
-/** Keep only FR prefix letters and digits for TVA intracom */
-const filterVatNumber = (v: string) => v.replace(/[^FRfr0-9]/g, '').toUpperCase();
+/** Keep only FR prefix letters and digits for TVA intracom, max 13 chars (FR + 11) */
+const filterVatNumber = (v: string) =>
+    v
+        .replace(/[^FRfr0-9]/g, '')
+        .toUpperCase()
+        .substring(0, 13);
 
-/** Keep only digits and uppercase letters for NAF code, strip dots/spaces */
-const filterNaf = (v: string) => v.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+/** Keep only digits and uppercase letters for NAF code, strip dots/spaces, max 5 chars */
+const filterNaf = (v: string) =>
+    v
+        .replace(/[^0-9A-Za-z]/g, '')
+        .toUpperCase()
+        .substring(0, 5);
 
 export default function CommerceConfig({
     config,
@@ -394,10 +402,11 @@ export default function CommerceConfig({
                     <ValidatedInput
                         label="Téléphone"
                         value={String(config.shop.phone || '')}
-                        onChange={(value) => handleShopChange('phone', filterPhone(String(value)))}
+                        onChange={(value) => handleShopChange('phone', String(value))}
                         placeholder="06 12 34 56 78"
                         isReadOnly={isReadOnly}
                         className="flex-1 min-w-28 max-w-28"
+                        filter={filterPhone}
                         validation={(value) => {
                             const v = String(value).trim();
                             return v !== '' && frenchPhoneRegex.test(v);
@@ -412,10 +421,12 @@ export default function CommerceConfig({
                     <ValidatedInput
                         label="N° TVA intracom"
                         value={String(config.shop.vatNumber || '')}
-                        onChange={(value) => handleShopChange('vatNumber', filterVatNumber(String(value)))}
+                        onChange={(value) => handleShopChange('vatNumber', String(value))}
                         placeholder="FR12345678901"
                         isReadOnly={isReadOnly}
                         className="flex-1 min-w-30 max-w-30"
+                        maxLength={13}
+                        filter={filterVatNumber}
                         validation={(value) => {
                             const v = String(value).trim();
                             return v !== '' && vatNumberRegex.test(v);
@@ -424,10 +435,12 @@ export default function CommerceConfig({
                     <ValidatedInput
                         label="NAF"
                         value={String(config.shop.naf || '')}
-                        onChange={(value) => handleShopChange('naf', filterNaf(String(value)))}
+                        onChange={(value) => handleShopChange('naf', String(value))}
                         placeholder="5610C"
                         isReadOnly={isReadOnly}
                         className="flex-1 min-w-20 max-w-24"
+                        maxLength={5}
+                        filter={filterNaf}
                         validation={(value) => {
                             const v = String(value).trim();
                             return v !== '' && nafCodeRegex.test(v);
@@ -779,7 +792,7 @@ export default function CommerceConfig({
                                 )}
                                 {canAddSlot && (
                                     <AdminButton
-                                        variant="add"
+                                        variant="primary"
                                         onClick={() =>
                                             handleOpeningHoursChange(dayIndex, [
                                                 ...slots,
