@@ -197,6 +197,7 @@ export enum SyncAction {
     daysync,
     export,
     import,
+    forcepush,
 }
 
 export enum SyncPeriod {

@@ -7,14 +7,28 @@ description: Merge dev into main, bump version, tag, push, and create a GitHub r
 
 ## Prerequisites
 
--   On `dev` branch with all changes committed and pushed
--   `package.json` version has been bumped; the auto-updater only triggers on higher version numbers, and reinstalling the same version can cause issues
--   `origin/main` is the production branch
--   GitHub Actions workflow `build-windows-installer.yml` triggers on `release: published`
+- On `dev` branch with all changes committed and pushed
+- `package.json` version has been bumped; the auto-updater only triggers on higher version numbers, and reinstalling the same version can cause issues
+- `origin/main` is the production branch
+- GitHub Actions workflow `build-windows-installer.yml` triggers on `release: published`
+- **Database schema is up to date** — run `bun run scripts/verify-schema.ts` before
+  releasing. If it reports differences, generate and apply the migration script BEFORE
+  releasing. Do NOT release if the schema is out of date — the app will crash at runtime
+  (e.g. missing columns cause 500 errors on API calls).
 
 ## One-shot command
 
 Adjust `VERSION` if needed. This merges dev into main, tags, pushes, and creates a GitHub release.
+
+**Step 0 — Verify schema (STOP if differences found):**
+
+```bash
+bun run scripts/verify-schema.ts
+```
+
+If this exits with code 1, DO NOT release. Apply the suggested migration first.
+
+**Step 1 — Release:**
 
 ```bash
 VERSION=$(bun -e 'console.log(require("./package.json").version)') && \

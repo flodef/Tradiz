@@ -634,7 +634,7 @@ export const useSummary = () => {
                     'Synchronisation',
                     ['Synchronisation complète', 'Synchronisation jour', ImportOption]
                         .concat(getHistoricalTransactions().length ? ['Exporter'] : [])
-                        .concat(['Stockage', 'Supprimer données locales'])
+                        .concat(['Forcer la synchronisation', 'Stockage', 'Supprimer données locales'])
                         .concat(['', BACK_KEYWORD]),
                     (_, option) => {
                         // Handle back button
@@ -647,6 +647,7 @@ export const useSummary = () => {
                             'Synchronisation complète': SyncAction.fullsync,
                             'Synchronisation jour': SyncAction.daysync,
                             Exporter: SyncAction.export,
+                            'Forcer la synchronisation': SyncAction.forcepush,
                         }[option];
                         if (action === SyncAction.daysync) {
                             // Show day selection popup
@@ -757,6 +758,23 @@ export const useSummary = () => {
                                     if (confirmOption === 'Confirmer la suppression') {
                                         clearLocalData();
                                         runSync(SyncAction.fullsync);
+                                    } else {
+                                        showSyncMenu();
+                                    }
+                                }
+                            );
+                        } else if (action === SyncAction.forcepush) {
+                            openPopup(
+                                '⚠️ Forcer la synchronisation',
+                                [
+                                    'Envoie TOUTES les transactions locales vers la base de données.',
+                                    'À utiliser après une panne de synchronisation.',
+                                    'Confirmer',
+                                    'Annuler',
+                                ],
+                                (_, confirmOption) => {
+                                    if (confirmOption === 'Confirmer') {
+                                        runSync(SyncAction.forcepush);
                                     } else {
                                         showSyncMenu();
                                     }
