@@ -7,7 +7,7 @@ import DeleteButton from '../DeleteButton';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
 
-export default function ColorsConfig({
+export default function ThemesConfig({
     config,
     onChange,
     onSave,
