@@ -353,3 +353,81 @@ html[data-site-route='1'] body {
     --site-shadow: rgba(0, 0, 0, 0.3);
     --site-overlay: rgba(0, 0, 0, 0.7);
 }
+
+/* ─── 500 error page (inspired by https://codepen.io/altreiter/pen/EedZRQ) ─── */
+.error-500 {
+    text-align: center;
+}
+.error-500 .internal {
+    font-size: 50vmin;
+    color: var(--writing-light-color);
+    text-shadow: 0 1vmin 5vmin rgba(0, 0, 0, 0.3);
+    position: relative;
+    margin-bottom: 10vmin;
+    transition: transform 300ms;
+    cursor: pointer;
+}
+.error-500 .internal:hover {
+    transform: scale(1.2);
+}
+.error-500 .internal:hover:before {
+    animation: flipReverse 300ms;
+}
+.error-500 .internal:hover .zero:before {
+    animation: cross1Reverse 300ms;
+}
+.error-500 .internal:hover .zero:after {
+    animation: cross2Reverse 300ms;
+}
+.error-500 .internal:before {
+    content: '(';
+    position: absolute;
+    transform: rotate(-90deg);
+    right: 25vmin;
+    bottom: -30vmin;
+    display: block;
+    font-size: 115%;
+    animation: flip 1000ms 1.6s ease-in-out forwards;
+    transition: transform 300ms;
+}
+.error-500 .zero {
+    position: relative;
+}
+.error-500 .zero:before,
+.error-500 .zero:after {
+    position: absolute;
+    display: block;
+    content: '';
+    width: 140%;
+    height: 10vmin;
+    left: -20%;
+    top: 45%;
+    box-shadow: 0 1vmin 5vmin rgba(0, 0, 0, 0.3);
+}
+.error-500 .zero:before {
+    background-image: linear-gradient(90deg, var(--secondary-active-light-color), var(--secondary-light-color));
+    transform: rotate(45deg) scaleX(0) scaleY(0.7);
+    animation: cross1 300ms 1s ease-in-out forwards;
+}
+.error-500 .zero:after {
+    background-image: linear-gradient(90deg, var(--secondary-active-light-color), var(--secondary-light-color));
+    transform: rotate(-45deg) scaleX(0) scaleY(0.7);
+    animation: cross2 400ms 1.2s ease-in-out forwards;
+}
+.error-500 .zero:nth-child(2):before {
+    animation: cross1 400ms 1.1s ease-in-out forwards;
+}
+.error-500 .zero:nth-child(2):after {
+    animation: cross2 500ms 1.3s ease-in-out forwards;
+}
+@media (prefers-color-scheme: dark) {
+    .error-500 .internal {
+        color: var(--writing-dark-color);
+        text-shadow: 0 1vmin 5vmin rgba(0, 0, 0, 0.5);
+    }
+    .error-500 .zero:before,
+    .error-500 .zero:after {
+        background-image: linear-gradient(90deg, var(--secondary-active-dark-color), var(--secondary-dark-color));
+        box-shadow: 0 1vmin 5vmin rgba(0, 0, 0, 0.5);
+    }
+}
