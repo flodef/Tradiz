@@ -28,6 +28,7 @@ import {
     DAY_NAMES,
     jsDayToAdminIndex,
     formatTimeDisplay,
+    formatDuration,
     getOpenStatus,
     stockColor,
 } from '../types';
@@ -86,6 +87,25 @@ export default function SitePage() {
         return () => clearTimeout(timer);
     }, [contactCooldown]);
 
+    // Close mobile menu when clicking outside
+    useEffect(() => {
+        if (!mobileMenuOpen) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            const nav = document.querySelector('nav');
+            if (nav && !nav.contains(e.target as Node)) {
+                setMobileMenuOpen(false);
+            }
+        };
+        // Use a small delay so the click that opened the menu doesn't immediately close it
+        const timer = setTimeout(() => {
+            document.addEventListener('mousedown', handleClickOutside);
+        }, 0);
+        return () => {
+            clearTimeout(timer);
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [mobileMenuOpen]);
+
     const saveRecentSearch = useCallback((query: string) => {
         const q = query.trim();
         if (!q) return;
@@ -124,7 +144,9 @@ export default function SitePage() {
         if (el) {
             const nav = document.querySelector('nav');
             const navHeight = nav ? nav.getBoundingClientRect().height : 56;
-            const y = el.getBoundingClientRect().top + window.scrollY - navHeight - 8;
+            const banner = document.querySelector('[data-status-banner]');
+            const bannerHeight = banner ? banner.getBoundingClientRect().height : 0;
+            const y = el.getBoundingClientRect().top + window.scrollY - navHeight - bannerHeight - 8;
             window.scrollTo({ top: y, behavior: 'smooth' });
         }
     }, []);
@@ -138,7 +160,9 @@ export default function SitePage() {
             if (catEl) {
                 const nav = document.querySelector('nav');
                 const navHeight = nav ? nav.getBoundingClientRect().height : 56;
-                const y = catEl.getBoundingClientRect().top + window.scrollY - navHeight - 8;
+                const banner = document.querySelector('[data-status-banner]');
+                const bannerHeight = banner ? banner.getBoundingClientRect().height : 0;
+                const y = catEl.getBoundingClientRect().top + window.scrollY - navHeight - bannerHeight - 8;
                 window.scrollTo({ top: y, behavior: 'smooth' });
                 const productKey = `${article.category.replace(/\s+/g, '-').toLowerCase()}-${article.label.replace(/\s+/g, '-').toLowerCase()}`;
                 setHighlightedProduct(productKey);
@@ -324,23 +348,26 @@ export default function SitePage() {
 
             {/* Navigation menu */}
             <nav className="bg-site-nav-bg/90 backdrop-blur-sm border-b border-site-border sticky top-0 z-20 shadow-sm">
-                <div className="max-w-5xl mx-auto">
+                <div className="max-w-5xl mx-auto px-2">
                     <div className="flex items-center justify-between h-14">
                         {/* Desktop nav */}
                         <div className="hidden md:flex items-center gap-1">
                             {reservationEnabled && (
-                                <button
-                                    onClick={() => setMyListOpen(true)}
-                                    className="px-1 py-2 text-base font-semibold text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1 cursor-pointer"
-                                >
-                                    <IconShoppingBag size={18} />
-                                    Ma liste
-                                    {myList.totalItems > 0 && (
-                                        <span className="ml-0.5 bg-orange-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
-                                            {myList.totalItems}
-                                        </span>
-                                    )}
-                                </button>
+                                <>
+                                    <button
+                                        onClick={() => setMyListOpen(true)}
+                                        className="px-1 py-2 text-base font-semibold text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1 cursor-pointer"
+                                    >
+                                        <IconShoppingBag size={18} />
+                                        Ma liste
+                                        {myList.totalItems > 0 && (
+                                            <span className="ml-0.5 bg-orange-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
+                                                {myList.totalItems}
+                                            </span>
+                                        )}
+                                    </button>
+                                    <span className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0" style={{ width: "2px" }} />
+                                </>
                             )}
                             {/* Products dropdown */}
                             <div
@@ -372,6 +399,7 @@ export default function SitePage() {
                                     </div>
                                 )}
                             </div>
+                            <span className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0" style={{ width: "2px" }} />
 
                             <button
                                 onClick={() => setContactModalOpen(true)}
@@ -379,13 +407,17 @@ export default function SitePage() {
                             >
                                 Nous contacter
                             </button>
+                            <span className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0" style={{ width: "2px" }} />
                             {hasOpeningHours && (
-                                <button
-                                    onClick={() => setHoursModalOpen(true)}
-                                    className="px-1 py-2 text-base font-medium text-site-text hover:text-orange-600 transition-colors cursor-pointer"
-                                >
-                                    Horaires d&apos;ouverture
-                                </button>
+                                <>
+                                    <button
+                                        onClick={() => setHoursModalOpen(true)}
+                                        className="px-1 py-2 text-base font-medium text-site-text hover:text-orange-600 transition-colors cursor-pointer"
+                                    >
+                                        Horaires d&apos;ouverture
+                                    </button>
+                                    <span className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0" style={{ width: "2px" }} />
+                                </>
                             )}
                             <button
                                 onClick={() => setMapModalOpen(true)}
@@ -624,25 +656,71 @@ export default function SitePage() {
                 </div>
             </nav>
 
-            {/* Open/closed status banner */}
+            {/* Open/closed status banner — sticky below nav */}
             {openStatus.status !== 'unknown' && (
-                <div className="bg-site-surface border-b border-site-border px-4 py-2 flex items-center justify-center gap-2">
-                    <span
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                            openStatus.isOpen ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                        }`}
-                    >
-                        <span
-                            className={`w-2 h-2 rounded-full ${openStatus.isOpen ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}
-                        />
-                        {openStatus.isOpen ? 'Ouvert' : 'Fermé'}
-                    </span>
-                    {openStatus.nextChange && (
-                        <span className="text-xs text-site-text-muted">
-                            {openStatus.nextType === 'close'
-                                ? `Ferme à ${formatTimeDisplay(openStatus.nextChange)}`
-                                : `Ouvre ${openStatus.nextDay === 0 ? "aujourd'hui" : openStatus.nextDay === 1 ? 'demain' : DAY_NAMES[(jsDayToAdminIndex(new Date().getDay()) + openStatus.nextDay) % 7]} à ${formatTimeDisplay(openStatus.nextChange)}`}
-                        </span>
+                <div
+                    className="bg-site-surface border-b border-site-border px-4 py-2 flex items-center justify-center gap-2 sticky top-14 z-10"
+                    data-status-banner
+                >
+                    {hasOpeningHours ? (
+                        <button
+                            onClick={() => setHoursModalOpen(true)}
+                            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                        >
+                            <span
+                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                                    openStatus.isOpen ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                }`}
+                            >
+                                <span
+                                    className={`w-2 h-2 rounded-full ${openStatus.isOpen ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}
+                                />
+                                {openStatus.isOpen ? 'Ouvert' : 'Fermé'}
+                            </span>
+                            {openStatus.nextChange && (
+                                <span className="text-xs text-site-text-secondary">
+                                    {openStatus.nextType === 'close'
+                                        ? openStatus.minutesUntilChange != null && openStatus.minutesUntilChange <= 60
+                                            ? `Ferme dans ${formatDuration(openStatus.minutesUntilChange)}`
+                                            : `Ferme à ${formatTimeDisplay(openStatus.nextChange)}`
+                                        : openStatus.nextDay === 0
+                                          ? openStatus.minutesUntilChange != null && openStatus.minutesUntilChange <= 60
+                                              ? `Ouvre dans ${formatDuration(openStatus.minutesUntilChange)}`
+                                              : `Ouvre aujourd'hui à ${formatTimeDisplay(openStatus.nextChange)}`
+                                          : openStatus.nextDay === 1
+                                            ? `Ouvre demain à ${formatTimeDisplay(openStatus.nextChange)}`
+                                            : `Ouvre ${DAY_NAMES[(jsDayToAdminIndex(new Date().getDay()) + openStatus.nextDay) % 7]} à ${formatTimeDisplay(openStatus.nextChange)}`}
+                                </span>
+                            )}
+                        </button>
+                    ) : (
+                        <>
+                            <span
+                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                                    openStatus.isOpen ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                }`}
+                            >
+                                <span
+                                    className={`w-2 h-2 rounded-full ${openStatus.isOpen ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}
+                                />
+                                {openStatus.isOpen ? 'Ouvert' : 'Fermé'}
+                            </span>
+                            {openStatus.nextChange && (
+                                <span className="text-xs text-site-text-secondary">
+                                    {openStatus.nextType === 'close'
+                                        ? openStatus.minutesUntilChange != null && openStatus.minutesUntilChange <= 60
+                                            ? `Ferme dans ${formatDuration(openStatus.minutesUntilChange)}`
+                                            : `Ferme à ${formatTimeDisplay(openStatus.nextChange)}`
+                                        : openStatus.nextDay === 0
+                                          ? openStatus.minutesUntilChange != null && openStatus.minutesUntilChange <= 60
+                                              ? `Ouvre dans ${formatDuration(openStatus.minutesUntilChange)}`
+                                              : `Ouvre aujourd'hui à ${formatTimeDisplay(openStatus.nextChange)}`
+                                          : openStatus.nextDay === 1
+                                            ? `Ouvre demain à ${formatTimeDisplay(openStatus.nextChange)}`
+                                            : `Ouvre ${DAY_NAMES[(jsDayToAdminIndex(new Date().getDay()) + openStatus.nextDay) % 7]} à ${formatTimeDisplay(openStatus.nextChange)}`}
+                                </span>
+                            )}
+                        </>
                     )}
                 </div>
             )}

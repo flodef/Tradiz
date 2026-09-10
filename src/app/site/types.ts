@@ -77,6 +77,7 @@ export function getOpenStatus(openingHours: OpeningHours | undefined) {
             nextChange: null,
             nextDay: 0,
             nextType: null as 'open' | 'close' | null,
+            minutesUntilChange: null as number | null,
         };
 
     const todaySlots = openingHours[adminDay] ?? [];
@@ -102,12 +103,22 @@ export function getOpenStatus(openingHours: OpeningHours | undefined) {
         for (const slot of slots) {
             const openMin = timeToMinutes(slot.open);
             if (i === 0 && openMin <= currentMinutes) continue;
+            // Compute minutes until this slot opens
+            let minutesUntil: number;
+            if (i === 0) {
+                minutesUntil = openMin - currentMinutes;
+            } else {
+                // Sum remaining minutes today + full days in between + opening minutes on target day
+                const endOfToday = 24 * 60;
+                minutesUntil = endOfToday - currentMinutes + (i - 1) * 24 * 60 + openMin;
+            }
             return {
                 isOpen: false,
                 status: 'closed' as const,
                 nextChange: slot.open,
                 nextDay: i,
                 nextType: 'open' as const,
+                minutesUntilChange: minutesUntil,
             };
         }
     }
@@ -118,5 +129,24 @@ export function getOpenStatus(openingHours: OpeningHours | undefined) {
         nextChange: null,
         nextDay: 0,
         nextType: null as 'open' | 'close' | null,
+        minutesUntilChange: null as number | null,
     };
+}
+
+/**
+ * Format a duration in minutes as a human-readable French string.
+ * - < 60 min: "X min"
+ * - < 24h: "Xh Ymin"
+ * - >= 24h: "Xj Yh"
+ */
+export function formatDuration(minutes: number): string {
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours < 24) {
+        return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
+    }
+    const days = Math.floor(hours / 24);
+    const remHours = hours % 24;
+    return remHours > 0 ? `${days}j ${remHours}h` : `${days}j`;
 }
