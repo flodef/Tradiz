@@ -4,6 +4,9 @@ const BASE_DOMAIN = 'tradiz.fr';
 const LEGACY_HOST = `pos.${BASE_DOMAIN}`;
 const PUBLIC_SITE_HOST = process.env.PUBLIC_SITE_HOST || `shop.${BASE_DOMAIN}`;
 
+// Local dev hosts that should also get the clean-URL rewrite (/annette → /site/annette).
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1']);
+
 // Reserved top-level paths that must never be treated as a shop ID.
 const RESERVED_PATHS = new Set([
     'api',
@@ -50,10 +53,12 @@ function handleLegacyHost(request: NextRequest): NextResponse | null {
  */
 function handlePublicSiteHost(request: NextRequest): NextResponse | null {
     const { hostname, pathname, search } = request.nextUrl;
-    if (hostname !== PUBLIC_SITE_HOST) return null;
+    const isLocal = LOCAL_HOSTS.has(hostname);
+    if (hostname !== PUBLIC_SITE_HOST && !isLocal) return null;
 
     // Landing page: / → /site
-    if (pathname === '/') {
+    // On localhost, / is the POS app — don't rewrite it.
+    if (pathname === '/' && !isLocal) {
         const url = request.nextUrl.clone();
         url.pathname = '/site';
         url.search = search;
