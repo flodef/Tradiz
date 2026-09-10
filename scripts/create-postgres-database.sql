@@ -321,7 +321,7 @@ CREATE INDEX IF NOT EXISTS idx_balance_history_created_at ON dc_pos.balance_hist
 CREATE TABLE IF NOT EXISTS dc_pos.parameters (
     id SERIAL PRIMARY KEY,
     param_key VARCHAR(255) NOT NULL UNIQUE,
-    param_value VARCHAR(255),
+    param_value TEXT,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -534,4 +534,16 @@ CREATE TABLE IF NOT EXISTS dc_pos.perpetual_totals (
     total_refund_count BIGINT NOT NULL DEFAULT 0,
     last_closure_hash VARCHAR(64),
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Public storefront reviews (submitted by customers)
+CREATE TABLE IF NOT EXISTS dc.reviews (
+    id SERIAL PRIMARY KEY,
+    shop_id VARCHAR(50) NOT NULL,
+    user_id VARCHAR(64) NOT NULL,
+    user_name VARCHAR(100) NOT NULL,
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    comment TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (shop_id, user_id)
 );

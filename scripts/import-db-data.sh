@@ -1,19 +1,16 @@
 #!/usr/bin/env bash
 # ============================================================
-# import-gds.sh — Interactive GDS data import script
+# import-db-data.sh — Interactive DB data import script
 #
-# Merges and imports:
-#   - Static data from import-gds-data.sql (companies, customers, products, formulas)
-#   - Live DB data exported at runtime (parameters, payment_methods, devices,
-#     printers, users, theme_admin, theme_client)
+# Lets the user choose which SQL import script to run, then
+# imports it with optional dry-run and delete-existing modes.
 #
-# Usage: bash scripts/import-gds.sh
+# Usage: bash scripts/import-db-data.sh
 # ============================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-STATIC_SQL="$SCRIPT_DIR/import-gds-data.sql"
 TEMP_SQL="$(mktemp --suffix=.sql)"
 trap 'rm -f "$TEMP_SQL"' EXIT
 
@@ -63,11 +60,41 @@ prompt_input() {
 }
 
 # ------------------------------------------------------------
+# Find available SQL import scripts
+# ------------------------------------------------------------
+SQL_SCRIPTS=()
+while IFS= read -r line; do
+    SQL_SCRIPTS+=("$line")
+done < <(find "$SCRIPT_DIR" -maxdepth 1 -name 'import-*-data.sql' -o -name 'migrate-*-reviews.sql' | sort)
+
+if [[ ${#SQL_SCRIPTS[@]} -eq 0 ]]; then
+    error "No SQL import scripts found in $SCRIPT_DIR"
+    exit 1
+fi
+
+# ------------------------------------------------------------
 # Interactive prompts
 # ------------------------------------------------------------
 echo -e "${BOLD}╔══════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}║   GDS Data Import — Interactive Wizard   ║${NC}"
+echo -e "${BOLD}║   DB Data Import — Interactive Wizard    ║${NC}"
 echo -e "${BOLD}╚══════════════════════════════════════════╝${NC}"
+echo ""
+
+# 0. Choose SQL script
+echo -e "${BOLD}Available SQL scripts:${NC}"
+for i in "${!SQL_SCRIPTS[@]}"; do
+    echo -e "  ${CYAN}$((i+1)))${NC} $(basename "${SQL_SCRIPTS[$i]}")"
+done
+echo ""
+local_choice=$(prompt_input "Select a script (1-${#SQL_SCRIPTS[@]})" "1")
+local_idx=$((local_choice - 1))
+if [[ $local_idx -lt 0 || $local_idx -ge ${#SQL_SCRIPTS[@]} ]]; then
+    error "Invalid selection."
+    exit 1
+fi
+STATIC_SQL="${SQL_SCRIPTS[$local_idx]}"
+SCRIPT_NAME="$(basename "$STATIC_SQL")"
+info "Selected: $SCRIPT_NAME"
 echo ""
 
 # 1. Dry-run
@@ -149,7 +176,8 @@ info "Building final SQL script..."
 
 {
     echo "-- ============================================================"
-    echo "-- GDS Data Import Script (generated $(date -u '+%Y-%m-%d %H:%M:%S UTC'))"
+    echo "-- DB Data Import Script ($SCRIPT_NAME)"
+    echo "-- Generated $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
     echo "-- Mode: $([ "$DRY_RUN" == "yes" ] && echo 'DRY-RUN (rollback)' || echo 'REAL (commit)')"
     echo "-- Delete existing: $([ "$DELETE_DATA" == "yes" ] && echo 'YES' || echo 'NO')"
     echo "-- ============================================================"
@@ -190,19 +218,19 @@ info "Building final SQL script..."
         echo "DELETE FROM dc.categories;"
         echo "DELETE FROM dc.establishment_config;"
         echo "-- Reset sequences after delete"
-        echo "SELECT setval('dc_pos.users_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.users), 1), true);"
-        echo "SELECT setval('dc_pos.parameters_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.parameters), 1), true);"
-        echo "SELECT setval('dc_pos.payment_methods_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.payment_methods), 1), true);"
-        echo "SELECT setval('dc_pos.printers_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.printers), 1), true);"
-        echo "SELECT setval('dc_pos.devices_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.devices), 1), true);"
-        echo "SELECT setval('dc_pos.customers_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.customers), 1), true);"
-        echo "SELECT setval('dc_pos.companies_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.companies), 1), true);"
-        echo "SELECT setval('dc.products_id_seq', COALESCE((SELECT MAX(id) FROM dc.products), 1), true);"
-        echo "SELECT setval('dc.categories_id_seq', COALESCE((SELECT MAX(id) FROM dc.categories), 1), true);"
-        echo "SELECT setval('dc.formulas_id_seq', COALESCE((SELECT MAX(id) FROM dc.formulas), 1), true);"
-        echo "SELECT setval('dc.formula_elements_id_seq', COALESCE((SELECT MAX(id) FROM dc.formula_elements), 1), true);"
-        echo "SELECT setval('dc.theme_admin_id_seq', COALESCE((SELECT MAX(id) FROM dc.theme_admin), 1), true);"
-        echo "SELECT setval('dc.theme_client_id_seq', COALESCE((SELECT MAX(id) FROM dc.theme_client), 1), true);"
+        echo "SELECT setval('dc_pos.users_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.users), 0), true);"
+        echo "SELECT setval('dc_pos.parameters_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.parameters), 0), true);"
+        echo "SELECT setval('dc_pos.payment_methods_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.payment_methods), 0), true);"
+        echo "SELECT setval('dc_pos.printers_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.printers), 0), true);"
+        echo "SELECT setval('dc_pos.devices_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.devices), 0), true);"
+        echo "SELECT setval('dc_pos.customers_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.customers), 0), true);"
+        echo "SELECT setval('dc_pos.companies_id_seq', COALESCE((SELECT MAX(id) FROM dc_pos.companies), 0), true);"
+        echo "SELECT setval('dc.products_id_seq', COALESCE((SELECT MAX(id) FROM dc.products), 0), true);"
+        echo "SELECT setval('dc.categories_id_seq', COALESCE((SELECT MAX(id) FROM dc.categories), 0), true);"
+        echo "SELECT setval('dc.formulas_id_seq', COALESCE((SELECT MAX(id) FROM dc.formulas), 0), true);"
+        echo "SELECT setval('dc.formula_elements_id_seq', COALESCE((SELECT MAX(id) FROM dc.formula_elements), 0), true);"
+        echo "SELECT setval('dc.theme_admin_id_seq', COALESCE((SELECT MAX(id) FROM dc.theme_admin), 0), true);"
+        echo "SELECT setval('dc.theme_client_id_seq', COALESCE((SELECT MAX(id) FROM dc.theme_client), 0), true);"
         echo ""
     fi
 
@@ -264,7 +292,7 @@ echo ""
 # ------------------------------------------------------------
 info "Executing SQL script..."
 
-LOG_FILE="/tmp/import-gds-output.log"
+LOG_FILE="/tmp/import-db-data-output.log"
 : > "$LOG_FILE"  # truncate
 
 set +e

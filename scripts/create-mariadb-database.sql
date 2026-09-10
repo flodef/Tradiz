@@ -305,7 +305,7 @@ CREATE TABLE IF NOT EXISTS `transaction_items` (
 CREATE TABLE IF NOT EXISTS `parameters` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `param_key` varchar(100) NOT NULL,
-  `param_value` varchar(255) DEFAULT NULL,
+  `param_value` longtext DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `param_key` (`param_key`)
@@ -559,6 +559,19 @@ CREATE TABLE IF NOT EXISTS `perpetual_totals` (
   `last_closure_hash` varchar(64) DEFAULT NULL,
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Public storefront reviews (submitted by customers)
+CREATE TABLE IF NOT EXISTS `reviews` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `shop_id` varchar(50) NOT NULL,
+  `user_id` varchar(64) NOT NULL,
+  `user_name` varchar(100) NOT NULL,
+  `rating` int(1) NOT NULL,
+  `comment` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_shop_user` (`shop_id`, `user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;

@@ -52,6 +52,7 @@ INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (1
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (18, 'phone', '0298487248', '2026-08-27 20:00:00.000000') ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (19, 'fidelityRate', '3', '2026-08-27 20:00:00.000000') ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (20, 'vatNumber', 'FR15819968355', '2026-08-27 20:00:00.000000') ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (param_key, param_value, updated_at) VALUES ('googlePlaceId', 'ChIJC4wZunmwFkgRPepN6JSdTMo', CURRENT_TIMESTAMP) ON CONFLICT (param_key) DO UPDATE SET param_value = EXCLUDED.param_value, updated_at = CURRENT_TIMESTAMP;
 
 -- Payment methods (paiements)
 INSERT INTO dc_pos.payment_methods (id, label, address, currency, available, created_at) VALUES (1, 'Carte Bancaire', '0', 'Euro', true, '2026-07-11 18:17:10.119469') ON CONFLICT (id) DO NOTHING;
@@ -759,3 +760,4 @@ INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_ra
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (121, 'FORMULE QUICHE ET SALADE', 13.5, '2126', (SELECT id FROM dc.categories WHERE name = 'DGAC CADRE'), 10.0, 'light green') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (111, 'FORMULE DGAC PLAT JOUR', 15.2, '2127', (SELECT id FROM dc.categories WHERE name = 'DGAC EMPLOYÉ'), 10.0, 'light pink') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (121, 'FORMULE QUICHE ET SALADE', 13.5, '2128', (SELECT id FROM dc.categories WHERE name = 'DGAC EMPLOYÉ'), 10.0, 'light pink') ON CONFLICT (reference) DO NOTHING;
+COMMIT;
