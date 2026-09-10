@@ -71,7 +71,7 @@ async function fetchShopData(connection: DbConnection): Promise<AttestationShopD
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
     const [paramRows] = await connection.execute(
-        `SELECT param_key, param_value FROM ${prefix}parameters WHERE param_key IN ('name', 'serial', 'vatNumber', 'address', 'zipCode', 'city', 'naf', 'legalForm', 'legalRepresentative', 'signatureData', 'signatureVersion')`
+        `SELECT param_key, param_value FROM ${prefix}parameters WHERE param_key IN ('name', 'serial', 'vatNumber', 'address', 'zipCode', 'city', 'naf', 'legalForm', 'legalRepresentative')`
     );
     const params = new Map<string, string>();
     for (const row of paramRows as { param_key: string; param_value: string }[]) {
@@ -113,19 +113,22 @@ async function fetchSignatureData(
 async function upsertParameter(connection: DbConnection, key: string, value: string): Promise<void> {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
-    // Try update first, then insert if no row was affected
-    const updateQuery = isPg
-        ? `UPDATE ${prefix}parameters SET param_value = $1 WHERE param_key = $2`
-        : `UPDATE ${prefix}parameters SET param_value = ? WHERE param_key = ?`;
-    const insertQuery = isPg
-        ? `INSERT INTO ${prefix}parameters (param_key, param_value) VALUES ($1, $2)`
-        : `INSERT INTO ${prefix}parameters (param_key, param_value) VALUES (?, ?)`;
-    const updateParams = isPg ? [value, key] : [value, key];
-    const insertParams = isPg ? [key, value] : [key, value];
-    const [result] = await connection.execute(updateQuery, updateParams);
-    const affected = Array.isArray(result) ? ((result as { affectedRows?: number }[])[0]?.affectedRows ?? 0) : 0;
-    if (affected === 0) {
-        await connection.execute(insertQuery, insertParams);
+    if (isPg) {
+        // PostgreSQL: use ON CONFLICT for a proper atomic upsert
+        await connection.execute(
+            `INSERT INTO ${prefix}parameters (param_key, param_value) VALUES ($1, $2)
+             ON CONFLICT (param_key) DO UPDATE SET param_value = EXCLUDED.param_value`,
+            [key, value]
+        );
+    } else {
+        // MariaDB: try update first, then insert if no row was affected
+        const updateQuery = `UPDATE ${prefix}parameters SET param_value = ? WHERE param_key = ?`;
+        const insertQuery = `INSERT INTO ${prefix}parameters (param_key, param_value) VALUES (?, ?)`;
+        const [result] = await connection.execute(updateQuery, [value, key]);
+        const affected = (result as { affectedRows?: number } | undefined)?.affectedRows ?? 0;
+        if (affected === 0) {
+            await connection.execute(insertQuery, [key, value]);
+        }
     }
 }
 
@@ -223,7 +226,13 @@ export async function GET(request: Request) {
     } catch (error) {
         const code = (error as NodeJS.ErrnoException).code;
         if (code === 'EROFS' || code === 'EACCES') {
-            return NextResponse.json({ signed: false, generatedAt: null, needsResign: true, majorVersion });
+            return NextResponse.json({
+                signed: false,
+                generatedAt: null,
+                needsResign: true,
+                majorVersion,
+                signatureVersion: null,
+            });
         }
         console.error('Error checking attestation status:', error);
         return NextResponse.json({ error: 'Failed to check attestation status' }, { status: 500 });
@@ -350,6 +359,7 @@ export async function POST(request: Request) {
             user_name: operatorName,
             detail: `Signed attestation PDF uploaded (${fileBuffer.length} bytes) for shop ${shopId || 'default'}`,
         });
+        await upsertParameter(connection, 'signatureVersion', getMajorVersion());
 
         return NextResponse.json({ success: true });
     } catch (error) {
@@ -374,18 +384,9 @@ export async function DELETE(request: Request) {
         const attestationPath = getAttestationPath(shopId);
 
         try {
-            if (fs.existsSync(attestationPath)) {
-                fs.unlinkSync(attestationPath);
-            }
+            fs.unlinkSync(attestationPath);
         } catch (error) {
-            const code = (error as NodeJS.ErrnoException).code;
-            if (code === 'EROFS' || code === 'EACCES') {
-                return NextResponse.json(
-                    { error: 'Attestation storage is not writable in this environment' },
-                    { status: 503 }
-                );
-            }
-            throw error;
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
         }
 
         // Clear signature data from DB

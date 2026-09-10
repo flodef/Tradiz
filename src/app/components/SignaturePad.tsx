@@ -23,6 +23,7 @@ export const SignaturePad: FC<SignaturePadProps> = ({ onChange, width = 400, hei
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const drawingRef = useRef(false);
     const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+    const hasDrawnRef = useRef(false);
     const [hasSignature, setHasSignature] = useState(false);
 
     // Get the canvas context, handling high-DPI displays
@@ -54,53 +55,64 @@ export const SignaturePad: FC<SignaturePadProps> = ({ onChange, width = 400, hei
     }, [getContext, width, height]);
 
     // Get pointer position relative to canvas
-    const getPos = useCallback((e: PointerEvent | TouchEvent | MouseEvent): { x: number; y: number } | null => {
-        const canvas = canvasRef.current;
-        if (!canvas) return null;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = width / rect.width;
-        const scaleY = height / rect.height;
-        if ('touches' in e) {
-            const touch = e.touches[0] || e.changedTouches[0];
-            if (!touch) return null;
+    const getPos = useCallback(
+        (e: PointerEvent | TouchEvent | MouseEvent): { x: number; y: number } | null => {
+            const canvas = canvasRef.current;
+            if (!canvas) return null;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = width / rect.width;
+            const scaleY = height / rect.height;
+            if ('touches' in e) {
+                const touch = e.touches[0] || e.changedTouches[0];
+                if (!touch) return null;
+                return {
+                    x: (touch.clientX - rect.left) * scaleX,
+                    y: (touch.clientY - rect.top) * scaleY,
+                };
+            }
             return {
-                x: (touch.clientX - rect.left) * scaleX,
-                y: (touch.clientY - rect.top) * scaleY,
+                x: ((e as MouseEvent).clientX - rect.left) * scaleX,
+                y: ((e as MouseEvent).clientY - rect.top) * scaleY,
             };
-        }
-        return {
-            x: ((e as MouseEvent).clientX - rect.left) * scaleX,
-            y: ((e as MouseEvent).clientY - rect.top) * scaleY,
-        };
-    }, [width, height]);
+        },
+        [width, height]
+    );
 
-    const startDraw = useCallback((e: React.PointerEvent) => {
-        if (disabled) return;
-        e.preventDefault();
-        drawingRef.current = true;
-        const pos = getPos(e.nativeEvent);
-        if (pos) lastPointRef.current = pos;
-    }, [disabled, getPos]);
+    const startDraw = useCallback(
+        (e: React.PointerEvent) => {
+            if (disabled) return;
+            e.preventDefault();
+            drawingRef.current = true;
+            const pos = getPos(e.nativeEvent);
+            if (pos) lastPointRef.current = pos;
+        },
+        [disabled, getPos]
+    );
 
-    const draw = useCallback((e: React.PointerEvent) => {
-        if (!drawingRef.current || disabled) return;
-        e.preventDefault();
-        const { ctx } = getContext() ?? {};
-        const pos = getPos(e.nativeEvent);
-        if (!ctx || !pos || !lastPointRef.current) return;
-        ctx.beginPath();
-        ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
-        ctx.lineTo(pos.x, pos.y);
-        ctx.stroke();
-        lastPointRef.current = pos;
-        if (!hasSignature) setHasSignature(true);
-    }, [disabled, getContext, getPos, hasSignature]);
+    const draw = useCallback(
+        (e: React.PointerEvent) => {
+            if (!drawingRef.current || disabled) return;
+            e.preventDefault();
+            const { ctx } = getContext() ?? {};
+            const pos = getPos(e.nativeEvent);
+            if (!ctx || !pos || !lastPointRef.current) return;
+            ctx.beginPath();
+            ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            lastPointRef.current = pos;
+            hasDrawnRef.current = true;
+            if (!hasSignature) setHasSignature(true);
+        },
+        [disabled, getContext, getPos, hasSignature]
+    );
 
     const endDraw = useCallback(() => {
         if (!drawingRef.current) return;
         drawingRef.current = false;
         lastPointRef.current = null;
-        // Export PNG
+        // Export PNG only if the user actually drew something
+        if (!hasDrawnRef.current) return;
         const canvas = canvasRef.current;
         if (canvas) {
             onChange(canvas.toDataURL('image/png'));
@@ -112,12 +124,13 @@ export const SignaturePad: FC<SignaturePadProps> = ({ onChange, width = 400, hei
         if (!ctx) return;
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, width, height);
+        hasDrawnRef.current = false;
         setHasSignature(false);
         onChange('');
     }, [getContext, width, height, onChange]);
 
     return (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col items-center gap-2">
             <canvas
                 ref={canvasRef}
                 onPointerDown={startDraw}
@@ -128,7 +141,7 @@ export const SignaturePad: FC<SignaturePadProps> = ({ onChange, width = 400, hei
                 className="border-2 border-gray-300 dark:border-gray-600 rounded-lg cursor-crosshair touch-none"
                 style={{ width: `${width}px`, height: `${height}px` }}
             />
-            <div className="flex gap-2">
+            <div className="flex justify-center">
                 <AdminButton
                     variant="danger"
                     onClick={clear}
@@ -138,13 +151,13 @@ export const SignaturePad: FC<SignaturePadProps> = ({ onChange, width = 400, hei
                     <IconTrash size={16} />
                     Effacer
                 </AdminButton>
-                {hasSignature && (
-                    <span className="flex items-center gap-1 text-sm text-green-600">
-                        <IconCheck size={16} />
-                        Signature capturée
-                    </span>
-                )}
             </div>
+            {hasSignature && (
+                <span className="flex items-center gap-1 text-sm text-green-600">
+                    <IconCheck size={16} />
+                    Signature capturée
+                </span>
+            )}
         </div>
     );
 };

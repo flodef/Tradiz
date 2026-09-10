@@ -1,7 +1,7 @@
 'use client';
 
 import { FC, useCallback, useEffect, useRef, useState } from 'react';
-import { IconPrinter, IconUpload, IconTrash, IconSignature, IconCheck } from '@tabler/icons-react';
+import { IconPrinter, IconUpload, IconTrash, IconSignature } from '@tabler/icons-react';
 import AdminButton from './admin/AdminButton';
 import { usePopup } from '../hooks/usePopup';
 import { useIsMobile } from '../utils/mobile';
@@ -35,7 +35,7 @@ export const AttestationViewer: FC<AttestationViewerProps> = ({ signed, needsRes
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [showSignaturePad, setShowSignaturePad] = useState(false);
     const [signatureData, setSignatureData] = useState('');
-    const { setPopupHeaderExtra, setPopupWide, closePopup } = usePopup();
+    const { setPopupHeaderExtra, setPopupWide, closePopup, openFullscreenPopup } = usePopup();
     const isMobile = useIsMobile();
 
     const showUnsigned = !signed || needsResign;
@@ -101,19 +101,21 @@ export const AttestationViewer: FC<AttestationViewerProps> = ({ signed, needsRes
         [onStatusChange, closePopup, userName]
     );
 
-    const handleDelete = useCallback(async () => {
-        try {
+    const handleDelete = useCallback(() => {
+        openFullscreenPopup("Supprimer l'attestation ?", ['Oui', 'Non'], (i) => {
+            if (i !== 0) return;
             const deleteUrl = userName
                 ? `/api/sql/attestation?changedBy=${encodeURIComponent(userName)}`
                 : '/api/sql/attestation';
-            const res = await fetch(deleteUrl, { method: 'DELETE' });
-            if (!res.ok) throw new Error('Delete failed');
-            onStatusChange?.(false);
-            closePopup();
-        } catch {
-            setUploadError('Échec de la suppression');
-        }
-    }, [onStatusChange, closePopup, userName]);
+            fetch(deleteUrl, { method: 'DELETE' })
+                .then((res) => {
+                    if (!res.ok) throw new Error('Delete failed');
+                    onStatusChange?.(false);
+                    closePopup();
+                })
+                .catch(() => setUploadError('Échec de la suppression'));
+        });
+    }, [openFullscreenPopup, onStatusChange, closePopup, userName]);
 
     useEffect(() => {
         if (!setPopupHeaderExtra) return;
@@ -184,10 +186,12 @@ export const AttestationViewer: FC<AttestationViewerProps> = ({ signed, needsRes
                         className={isMobile ? 'px-3 py-1.5 mt-0' : 'px-3 py-1 mt-0'}
                     >
                         {isMobile ? (
-                            <IconCheck size={24} />
+                            <IconSignature size={24} />
+                        ) : isUploading ? (
+                            <>Validation en cours...</>
                         ) : (
                             <>
-                                <IconCheck size={20} />
+                                <IconSignature size={20} />
                                 Valider la signature
                             </>
                         )}
@@ -244,19 +248,21 @@ export const AttestationViewer: FC<AttestationViewerProps> = ({ signed, needsRes
                         Signez avec votre doigt (tactile) ou votre souris. Cette signature sera intégrée au Volet 2 du
                         document et enregistrée pour réutilisation.
                     </p>
-                    <SignaturePad onChange={setSignatureData} width={isMobile ? 300 : 400} height={180} />
+                    <SignaturePad onChange={setSignatureData} width={isMobile ? 300 : 600} height={240} />
                 </div>
             )}
-            <div className="bg-white rounded-lg p-4 shadow-md">
-                <iframe
-                    ref={iframeRef}
-                    src={pdfUrl}
-                    title="attestation-pdf"
-                    className="w-full border-0"
-                    style={{ height: '70vh' }}
-                    onLoad={() => setIsReady(true)}
-                />
-            </div>
+            {!showSignaturePad && (
+                <div className="bg-white rounded-lg p-4 shadow-md">
+                    <iframe
+                        ref={iframeRef}
+                        src={pdfUrl}
+                        title="attestation-pdf"
+                        className="w-full border-0"
+                        style={{ height: '70vh' }}
+                        onLoad={() => setIsReady(true)}
+                    />
+                </div>
+            )}
             {showUnsigned && !showSignaturePad && (
                 <p className="mt-3 text-sm text-gray-600 dark:text-gray-400 text-center">
                     Ce document est généré avec la signature de l'éditeur (Volet 1). Signez électroniquement le Volet 2

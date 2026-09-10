@@ -73,7 +73,8 @@ export async function buildAttestationPdf(data: AttestationData): Promise<Uint8A
     const pdfDoc = await PDFDocument.create();
     const softwareName = getSoftwareName() || 'Tradiz';
     const softwareVersion = getSoftwareVersion() || 'inconnue';
-    const today = new Date().toLocaleDateString('fr-FR');
+    const now = new Date();
+    const today = now.toLocaleDateString('fr-FR');
 
     pdfDoc.setTitle(`Attestation de conformité - ${softwareName} v${softwareVersion}`);
     pdfDoc.setAuthor(PUBLISHER.raisonSociale);
@@ -151,7 +152,7 @@ export async function buildAttestationPdf(data: AttestationData): Promise<Uint8A
     drawText('(Modèle BOI-LETTRE-000242)', MARGIN, FONT_SIZE - 1);
     spacer(2);
 
-    const ref = `ATT-${softwareName.toUpperCase()}-${softwareVersion}-${new Date().toISOString().substring(0, 10)}`;
+    const ref = `ATT-${softwareName.toUpperCase()}-${softwareVersion}-${now.toISOString().substring(0, 10)}`;
     drawText(`Référence : ${ref}`, MARGIN, FONT_SIZE, true);
     spacer(2);
 
