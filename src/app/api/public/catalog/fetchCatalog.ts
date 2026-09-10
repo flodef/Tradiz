@@ -40,13 +40,20 @@ export async function fetchCatalog(shopId: string) {
     try {
         // Open both connections in parallel — Neon cold starts can take several
         // seconds each, so sequential acquisition doubles the wait time.
-        [mainConn, posConn] = await Promise.all([getMainDb(shopId), getPosDb(shopId)]);
+        // Use allSettled to avoid leaking a connection if the other rejects.
+        const [mainResult, posResult] = await Promise.allSettled([getMainDb(shopId), getPosDb(shopId)]);
+        mainConn = mainResult.status === 'fulfilled' ? mainResult.value : undefined;
+        posConn = posResult.status === 'fulfilled' ? posResult.value : undefined;
+        if (mainResult.status === 'rejected' || posResult.status === 'rejected') {
+            await mainConn?.end();
+            await posConn?.end();
+            throw mainResult.status === 'rejected'
+                ? (mainResult as PromiseRejectedResult).reason
+                : (posResult as PromiseRejectedResult).reason;
+        }
 
-        // Fetch products with category, stock, photo, description
-        // Only include products that belong to a public category (no company assigned).
-        // Categories tied to a specific company (e.g. Alcatel, Genesis) and uncategorized
-        // products are excluded.
-        const queryProducts = mainConn.isPostgreSQL
+        // Fetch products (main DB) and parameters + currencies (POS DB) in parallel
+        const queryProducts = mainConn!.isPostgreSQL
             ? `
             SELECT p.name as label, p.price as amount,
                    COALESCE(c.name, '') as category, p.stock, p.photo, p.description,
@@ -65,15 +72,39 @@ export async function fetchCatalog(shopId: string) {
             WHERE c.company_id IS NULL
             ORDER BY c.sort_order ASC, p.sort_order ASC
         `;
-        const [productRows] = await mainConn.execute(queryProducts);
 
-        // Fetch parameters for shop info
-        const queryParams = posConn.isPostgreSQL
-            ? `SELECT param_key, param_value FROM dc_pos.parameters ORDER BY id`
-            : `SELECT param_key, param_value FROM parameters ORDER BY id`;
-        const [paramRows] = await posConn.execute(queryParams);
+        // Only fetch the parameter keys we actually need
+        const SHOP_PARAM_KEYS = [
+            'name',
+            'address',
+            'zipCode',
+            'city',
+            'phone',
+            'email',
+            'logo',
+            'shopImage',
+            'reservationPhone',
+            'reservationEmail',
+            'openingHours',
+            'googlePlaceId',
+        ];
+        const paramPlaceholders = posConn!.isPostgreSQL
+            ? SHOP_PARAM_KEYS.map((_, i) => `$${i + 1}`).join(', ')
+            : SHOP_PARAM_KEYS.map(() => '?').join(', ');
+        const queryParams = posConn!.isPostgreSQL
+            ? `SELECT param_key, param_value FROM dc_pos.parameters WHERE param_key IN (${paramPlaceholders})`
+            : `SELECT param_key, param_value FROM parameters WHERE param_key IN (${paramPlaceholders})`;
 
-        // Fetch currencies
+        const [productRows, paramRows, curRows] = await Promise.all([
+            mainConn!.execute(queryProducts).then(([rows]) => rows),
+            posConn!.execute(queryParams, SHOP_PARAM_KEYS).then(([rows]) => rows),
+            posConn!
+                .execute('SELECT label, symbol, max_value, decimals, rate, fee FROM currencies')
+                .then(([rows]) => rows)
+                .catch(() => null),
+        ]);
+
+        // Build currencies
         let currencies: {
             label: string;
             symbol: string;
@@ -82,22 +113,17 @@ export async function fetchCatalog(shopId: string) {
             rate: number;
             fee: number;
         }[];
-        try {
-            const [curRows] = await posConn.execute(
-                'SELECT label, symbol, max_value, decimals, rate, fee FROM currencies'
-            );
-            const cRows = curRows as CurrencyRow[];
-            currencies = cRows.length
-                ? cRows.map((r) => ({
-                      label: r.label,
-                      symbol: r.symbol,
-                      maxValue: r.max_value ?? 999.99,
-                      decimals: r.decimals ?? 2,
-                      rate: r.rate ?? 1,
-                      fee: r.fee ?? 0,
-                  }))
-                : defaultCurrencies;
-        } catch {
+        const cRows = curRows as CurrencyRow[] | null;
+        if (cRows && cRows.length) {
+            currencies = cRows.map((r) => ({
+                label: r.label,
+                symbol: r.symbol,
+                maxValue: r.max_value ?? 999.99,
+                decimals: r.decimals ?? 2,
+                rate: r.rate ?? 1,
+                fee: r.fee ?? 0,
+            }));
+        } else {
             currencies = defaultCurrencies;
         }
 
@@ -117,6 +143,7 @@ export async function fetchCatalog(shopId: string) {
             email: getParam('email'),
             logo: getParam('logo'),
             image: getParam('shopImage'),
+            googlePlaceId: getParam('googlePlaceId'),
         };
 
         const reservationPhone = getParam('reservationPhone') === 'true';

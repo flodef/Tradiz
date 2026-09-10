@@ -7,6 +7,7 @@ export interface ShopInfo {
     email: string;
     logo: string;
     image: string;
+    googlePlaceId?: string;
 }
 
 export interface ArticleInfo {
@@ -83,8 +84,12 @@ export function getOpenStatus(openingHours: OpeningHours | undefined) {
     const todaySlots = openingHours[adminDay] ?? [];
     for (const slot of todaySlots) {
         const openMin = timeToMinutes(slot.open);
-        const closeMin = timeToMinutes(slot.close);
-        if (currentMinutes >= openMin && currentMinutes < closeMin) {
+        let closeMin = timeToMinutes(slot.close);
+        // Handle overnight slots (e.g. 20:00–02:00)
+        if (closeMin <= openMin) closeMin += 24 * 60;
+        const adjustedCurrent =
+            currentMinutes < openMin && closeMin > 24 * 60 ? currentMinutes + 24 * 60 : currentMinutes;
+        if (adjustedCurrent >= openMin && adjustedCurrent < closeMin) {
             const minutesUntilClose = closeMin - currentMinutes;
             return {
                 isOpen: true,

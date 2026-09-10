@@ -22,6 +22,7 @@ import { sendContactEmail } from '@/app/actions/email';
 import MyList from './MyList';
 import { useMyList } from './useMyList';
 import { useTheme, ThemeToggle } from '../theme';
+import Reviews from '../Reviews';
 import {
     type ArticleInfo,
     type CatalogData,
@@ -255,7 +256,7 @@ export default function SitePage() {
 
     const { shop, currencies, articles } = data;
     const currency = currencies[0] ?? { symbol: '€', decimals: 2, label: 'Euro', maxValue: 999.99, rate: 1, fee: 0 };
-    const reservationEnabled = data.reservationPhone || data.reservationEmail;
+    const reservationEnabled = Boolean(data.reservationPhone) || Boolean(data.reservationEmail);
 
     const formatPrice = (price: number) => {
         const formatted = price.toFixed(currency.decimals);
@@ -366,7 +367,10 @@ export default function SitePage() {
                                             </span>
                                         )}
                                     </button>
-                                    <span className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0" style={{ width: "2px" }} />
+                                    <span
+                                        className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0"
+                                        style={{ width: '2px' }}
+                                    />
                                 </>
                             )}
                             {/* Products dropdown */}
@@ -399,7 +403,7 @@ export default function SitePage() {
                                     </div>
                                 )}
                             </div>
-                            <span className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0" style={{ width: "2px" }} />
+                            <span className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0" style={{ width: '2px' }} />
 
                             <button
                                 onClick={() => setContactModalOpen(true)}
@@ -407,7 +411,7 @@ export default function SitePage() {
                             >
                                 Nous contacter
                             </button>
-                            <span className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0" style={{ width: "2px" }} />
+                            <span className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0" style={{ width: '2px' }} />
                             {hasOpeningHours && (
                                 <>
                                     <button
@@ -416,7 +420,10 @@ export default function SitePage() {
                                     >
                                         Horaires d&apos;ouverture
                                     </button>
-                                    <span className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0" style={{ width: "2px" }} />
+                                    <span
+                                        className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0"
+                                        style={{ width: '2px' }}
+                                    />
                                 </>
                             )}
                             <button
@@ -885,6 +892,9 @@ export default function SitePage() {
                     </div>
                 )}
             </main>
+
+            {/* Reviews */}
+            <Reviews shopId={shopId} googlePlaceId={data?.shop?.googlePlaceId} />
 
             {/* Footer */}
             <footer className="bg-site-footer-bg text-site-footer-text py-8 px-6">
