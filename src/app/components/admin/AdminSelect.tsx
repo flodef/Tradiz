@@ -88,7 +88,7 @@ export default function AdminSelect({
                         inputClassName || 'w-full'
                     )}
                 >
-                    <span className={selectedOption ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400'}>
+                    <span className={selectedOption ? 'text-writing-light dark:text-writing-dark' : 'text-gray-400'}>
                         {selectedOption ? selectedOption.label : '— Choisir —'}
                     </span>
                     <IconChevronDown
@@ -113,7 +113,7 @@ export default function AdminSelect({
                                     className={`flex items-center justify-between w-full text-left px-3 py-1.5 text-sm transition-colors cursor-pointer ${
                                         isSelected
                                             ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
-                                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                            : 'text-writing-light dark:text-writing-dark hover:bg-gray-100 dark:hover:bg-gray-700'
                                     }`}
                                 >
                                     <span>{opt.label}</span>

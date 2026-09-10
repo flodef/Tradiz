@@ -4,6 +4,7 @@ import TopNav from '@/app/components/admin/TopNav';
 import { CloseButton } from '@/app/components/CloseButton';
 import { OfflineBanner } from '@/app/components/OfflineBanner';
 import { useUnsavedChanges } from '@/app/hooks/useUnsavedChanges';
+import { useUserRole } from '@/app/hooks/useUserRole';
 import { ReactNode, useState } from 'react';
 
 interface AdminPageLayoutProps {
@@ -16,6 +17,7 @@ interface AdminPageLayoutProps {
 
 export default function AdminPageLayout({ title, children, action, hasChanges = false, onSave }: AdminPageLayoutProps) {
     const { confirmUnsavedChanges } = useUnsavedChanges();
+    const { isRoleResolved } = useUserRole();
     const [navCollapsed, setNavCollapsed] = useState(true);
 
     const handleClose = () => {
@@ -30,7 +32,14 @@ export default function AdminPageLayout({ title, children, action, hasChanges = 
                 style={{ position: 'sticky' }}
             >
                 <div className="shrink-0 z-10">
-                    <TopNav inline hasChanges={hasChanges} onSave={onSave} onCollapsedStateChange={setNavCollapsed} />
+                    {isRoleResolved && (
+                        <TopNav
+                            inline
+                            hasChanges={hasChanges}
+                            onSave={onSave}
+                            onCollapsedStateChange={setNavCollapsed}
+                        />
+                    )}
                 </div>
                 <h1
                     className={`absolute inset-x-0 text-center text-3xl font-bold leading-tight wrap-break-word line-clamp-2 px-16 pointer-events-none ${!navCollapsed ? 'md:block hidden' : ''}`}

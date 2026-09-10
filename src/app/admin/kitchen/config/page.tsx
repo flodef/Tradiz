@@ -2,7 +2,7 @@
 
 import AdminButton from '@/app/components/admin/AdminButton';
 import AdminPageLayout from '@/app/components/admin/AdminPageLayout';
-import ColorsConfig from '@/app/components/admin/sections/ColorsConfig';
+import ThemesConfig from '@/app/components/admin/sections/ThemesConfig';
 import CommerceConfig from '@/app/components/admin/sections/CommerceConfig';
 import CompaniesConfig from '@/app/components/admin/sections/CompaniesConfig';
 import CustomersConfig from '@/app/components/admin/sections/CustomersConfig';
@@ -37,7 +37,9 @@ import { vatNumberRegex, nafCodeRegex } from '@/app/utils/regex';
 import {
     clearLoadDataCache,
     COLORS_PER_THEME,
+    defaultColors,
     defaultParameters,
+    defaultThemeNames,
     getPublicKey,
     parseDisplaySettings,
 } from '@/app/utils/processData';
@@ -74,7 +76,7 @@ export default function SettingsPage() {
         users: configUsers,
     } = useConfig();
     const { openFullscreenPopup } = usePopup();
-    const { isAdmin: isConfigAdmin, isRoleResolved } = useUserRole();
+    const { isAdmin: isConfigAdmin } = useUserRole();
     const { isOnline } = useWindowParam();
     const [settings, setSettings] = useState<Parameters>(defaultParameters);
     const [isAdmin, setIsAdmin] = useState(isConfigAdmin);
@@ -257,8 +259,18 @@ export default function SettingsPage() {
             setOriginalPayments(configPayments);
         }
         if (configColors) {
-            setColorsConfig(configColors);
-            setOriginalColors(configColors);
+            // Pad with default themes if the cached/config colors have fewer themes
+            const padded = [...configColors];
+            const defaultThemeCount = Math.ceil(defaultColors.length / COLORS_PER_THEME);
+            const currentThemeCount = Math.ceil(padded.length / COLORS_PER_THEME);
+            if (currentThemeCount < defaultThemeCount) {
+                for (let i = currentThemeCount; i < defaultThemeCount; i++) {
+                    const start = i * COLORS_PER_THEME;
+                    padded.push(...defaultColors.slice(start, start + COLORS_PER_THEME));
+                }
+            }
+            setColorsConfig(padded);
+            setOriginalColors(padded);
         }
         if (configUsers) {
             setUsersConfig(configUsers);
@@ -330,6 +342,7 @@ export default function SettingsPage() {
                     logo: getParam('logo', 'Logo'),
                     image: getParam('shopImage', 'Image du magasin'),
                     country: 'FR',
+                    googlePlaceId: getParam('googlePlaceId', 'Google Place ID'),
                 },
                 thanksMessage: getParam('thanksMessage', 'Message de remerciement') || 'Merci de votre visite !',
                 mercurial: (getParam('mercurial', 'Mercuriale quadratique') || Mercurial.none) as Mercurial,
@@ -504,10 +517,23 @@ export default function SettingsPage() {
                 const colorsData = await colorsResponse.json();
                 if (colorsData.colors && colorsData.colors.length > 0) {
                     const loaded: Color[] = colorsData.colors;
+                    // Pad with default themes if the DB has fewer themes than defaults
+                    const defaultThemeCount = Math.ceil(defaultColors.length / COLORS_PER_THEME);
+                    const dbThemeCount = Math.ceil(loaded.length / COLORS_PER_THEME);
+                    if (dbThemeCount < defaultThemeCount) {
+                        for (let i = dbThemeCount; i < defaultThemeCount; i++) {
+                            const start = i * COLORS_PER_THEME;
+                            loaded.push(...defaultColors.slice(start, start + COLORS_PER_THEME));
+                        }
+                    }
                     setColorsConfig(loaded);
                     setOriginalColors(loaded);
 
                     const names: string[] = Array.isArray(colorsData.themeNames) ? colorsData.themeNames : [];
+                    // Pad theme names with defaults
+                    for (let i = names.length; i < defaultThemeCount; i++) {
+                        names.push(defaultThemeNames[i] || `Thème ${i + 1}`);
+                    }
                     if (names.length > 0) {
                         setThemeName(names[0]);
                         setOriginalThemeName(names[0]);
@@ -529,8 +555,17 @@ export default function SettingsPage() {
                 }
             } catch {
                 if (configColors) {
-                    setColorsConfig(configColors);
-                    setOriginalColors(configColors);
+                    const padded = [...configColors];
+                    const defaultThemeCount = Math.ceil(defaultColors.length / COLORS_PER_THEME);
+                    const currentThemeCount = Math.ceil(padded.length / COLORS_PER_THEME);
+                    if (currentThemeCount < defaultThemeCount) {
+                        for (let i = currentThemeCount; i < defaultThemeCount; i++) {
+                            const start = i * COLORS_PER_THEME;
+                            padded.push(...defaultColors.slice(start, start + COLORS_PER_THEME));
+                        }
+                    }
+                    setColorsConfig(padded);
+                    setOriginalColors(padded);
                 }
             }
 
@@ -1215,8 +1250,10 @@ export default function SettingsPage() {
 
     // Check admin access
     if (!isAdmin) {
-        // Wait for either the local fetch or ConfigProvider to resolve the role
-        if (localRoleResolved || isRoleResolved) {
+        // Wait for the local role fetch to complete — it is the authoritative source
+        // for admin access on this page. ConfigProvider's isRoleResolved may be true
+        // from cached data, but the cached role may be stale or non-admin.
+        if (localRoleResolved) {
             return (
                 <AdminPageLayout title="Configuration" hasChanges={false}>
                     <div className="p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-lg">
@@ -1397,7 +1434,7 @@ export default function SettingsPage() {
                 onValidation={setIsPrintersValid}
             />
 
-            <ColorsConfig
+            <ThemesConfig
                 config={colorsConfig}
                 onChange={setColorsConfig}
                 onSave={handleColorsSave}

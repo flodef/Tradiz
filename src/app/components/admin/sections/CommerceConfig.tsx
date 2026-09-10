@@ -2,7 +2,15 @@
 
 import { Parameters, OpeningHours, TimeSlot } from '@/app/contexts/ConfigProvider';
 import { adminTextStyle } from '@/app/utils/constants';
-import { frenchPhoneRegex, vatNumberRegex, nafCodeRegex } from '@/app/utils/regex';
+import {
+    frenchPhoneRegex,
+    vatNumberRegex,
+    nafCodeRegex,
+    frenchPhonePartialRegex,
+    vatNumberPartialRegex,
+    nafCodePartialRegex,
+    createRegexFilter,
+} from '@/app/utils/regex';
 import { Mercurial } from '@/app/utils/interfaces';
 import AdminInput from '../AdminInput';
 import AdminButton from '../AdminButton';
@@ -23,6 +31,7 @@ import {
     IconUpload,
     IconPlus,
     IconBuildingStore,
+    IconInfoCircle,
 } from '@tabler/icons-react';
 import { usePopup } from '@/app/hooks/usePopup';
 import { AttestationViewer } from '@/app/components/AttestationViewer';
@@ -136,22 +145,14 @@ const DAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 
 
 const MAX_SLOTS_PER_DAY = 3;
 
-/** Keep only characters valid for a French phone number: digits, +, spaces, dots, hyphens */
-const filterPhone = (v: string) => v.replace(/[^\d+\s.-]/g, '');
+/** Filter phone input: only accept characters that keep the value a valid prefix of frenchPhoneRegex */
+const filterPhone = createRegexFilter(frenchPhonePartialRegex);
 
-/** Keep only FR prefix letters and digits for TVA intracom, max 13 chars (FR + 11) */
-const filterVatNumber = (v: string) =>
-    v
-        .replace(/[^FRfr0-9]/g, '')
-        .toUpperCase()
-        .substring(0, 13);
+/** Filter TVA input: uppercase + only accept characters that keep the value a valid prefix of vatNumberRegex */
+const filterVatNumber = createRegexFilter(vatNumberPartialRegex, (v) => v.toUpperCase());
 
-/** Keep only digits, uppercase letters, and dots for NAF code, max 6 chars (1234.A) */
-const filterNaf = (v: string) =>
-    v
-        .replace(/[^0-9A-Za-z.]/g, '')
-        .toUpperCase()
-        .substring(0, 6);
+/** Filter NAF input: uppercase + only accept characters that keep the value a valid prefix of nafCodeRegex */
+const filterNaf = createRegexFilter(nafCodePartialRegex, (v) => v.toUpperCase());
 
 export default function CommerceConfig({
     config,
@@ -487,6 +488,27 @@ export default function CommerceConfig({
                         className="flex-1 min-w-40 max-w-xs"
                         validation={(value) => String(value).trim() !== ''}
                     />
+                    <div className="flex flex-col gap-1 flex-1 min-w-40 max-w-xs">
+                        <div className="flex items-center gap-1">
+                            <label className={adminTextStyle}>Google Place ID</label>
+                            <a
+                                href="https://developers.google.com/maps/documentation/places/web-service/place-id#find-id"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Trouver mon Place ID sur Google Maps"
+                                className="text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+                            >
+                                <IconInfoCircle size={18} />
+                            </a>
+                        </div>
+                        <ValidatedInput
+                            value={String(config.shop.googlePlaceId || '')}
+                            onChange={(value) => handleShopChange('googlePlaceId', String(value))}
+                            placeholder="ChIJ..."
+                            isReadOnly={isReadOnly}
+                            className="w-full"
+                        />
+                    </div>
                     <div className="w-full flex flex-wrap gap-4 items-end">
                         <ValidatedInput
                             label="Adresse"
@@ -697,10 +719,6 @@ export default function CommerceConfig({
                                 <>
                                     <IconX size={20} stroke={2} />
                                     Erreur
-                                </>
-                            ) : needsResign ? (
-                                <>
-                                    <IconCertificate size={18} stroke={2} />À resigner
                                 </>
                             ) : (
                                 <>

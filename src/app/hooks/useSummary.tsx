@@ -634,7 +634,7 @@ export const useSummary = () => {
                     'Synchronisation',
                     ['Synchronisation complète', 'Synchronisation jour', ImportOption]
                         .concat(getHistoricalTransactions().length ? ['Exporter'] : [])
-                        .concat(['Forcer la synchronisation', 'Stockage', 'Supprimer données locales'])
+                        .concat(['Stockage', 'Supprimer données locales'])
                         .concat(['', BACK_KEYWORD]),
                     (_, option) => {
                         // Handle back button

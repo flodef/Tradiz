@@ -57,6 +57,7 @@ export interface Shop {
     country?: string;
     logo?: string;
     image?: string;
+    googlePlaceId?: string;
 }
 
 export interface ProductsSettings {
@@ -404,9 +405,20 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     useEffect(() => {
         if (state !== State.init) return;
 
-        // Skip loading data if on admin config page - it has its own loading logic.
-        // Still resolve the user so the TopNav and admin pages know the role.
-        if (window.location.pathname.includes(ADMIN_CONFIG_URL)) {
+        // Skip loading data on admin pages - they have their own loading logic.
+        // Still resolve the user and load cached config so the TopNav and admin
+        // pages can seed instantly from localStorage before the DB fetch completes.
+        const isAdminPage =
+            window.location.pathname.startsWith('/admin') || window.location.pathname.startsWith('/stats');
+        if (isAdminPage) {
+            // Load cached config first (instant seed from localStorage)
+            if (config) {
+                try {
+                    loadConfig(config);
+                } catch {
+                    // Invalid cached data, ignore — admin page will fetch from DB
+                }
+            }
             initPublicKey().then(() => {
                 resolveUserFromKey(getPublicKey())
                     .then(({ user }) => {

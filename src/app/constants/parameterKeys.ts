@@ -37,6 +37,7 @@ export const PARAMETER_KEYS = {
     RESERVATION_EMAIL: 'reservationEmail',
     SIGNATURE_DATA: 'signatureData',
     SIGNATURE_VERSION: 'signatureVersion',
+    GOOGLE_PLACE_ID: 'googlePlaceId',
 } as const;
 
 export const PARAMETER_KEY_LIST = Object.values(PARAMETER_KEYS);

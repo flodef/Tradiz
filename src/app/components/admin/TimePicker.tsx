@@ -155,7 +155,7 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
         return `tabular-nums font-medium select-none rounded px-0.5 ${
             isActive
                 ? 'bg-blue-500 text-white'
-                : 'text-gray-900 dark:text-gray-100 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                : 'text-writing-light dark:text-writing-dark hover:bg-blue-100 dark:hover:bg-blue-900/30'
         } ${disabled ? '' : 'cursor-pointer'}`;
     };
 
@@ -193,7 +193,7 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
                         blurTimeoutRef.current = null;
                     }, 150);
                 }}
-                className={`flex items-center gap-0.5 px-2.5 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:border-blue-400 dark:hover:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors min-w-20 ${
+                className={`flex items-center gap-0.5 px-2.5 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-writing-light dark:text-writing-dark hover:border-blue-400 dark:hover:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors min-w-20 ${
                     disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-text'
                 }`}
             >
@@ -262,7 +262,7 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
                                         className={`block w-full text-center py-1 text-sm tabular-nums transition-colors cursor-pointer ${
                                             h === selectedHour
                                                 ? 'bg-blue-500 text-white font-semibold'
-                                                : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                                                : 'text-writing-light dark:text-writing-dark hover:bg-blue-50 dark:hover:bg-blue-900/30'
                                         }`}
                                     >
                                         {h}
@@ -311,7 +311,7 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
                                         className={`block w-full text-center py-1 text-sm tabular-nums transition-colors cursor-pointer ${
                                             m === selectedMinute
                                                 ? 'bg-blue-500 text-white font-semibold'
-                                                : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                                                : 'text-writing-light dark:text-writing-dark hover:bg-blue-50 dark:hover:bg-blue-900/30'
                                         }`}
                                     >
                                         {m}

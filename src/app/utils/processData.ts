@@ -194,6 +194,7 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             country: 'FR',
             logo: getParamValue('logo', 23) || '',
             image: getParamValue('shopImage', 24) || '',
+            googlePlaceId: getParamValue('googlePlaceId', 26) || '',
         },
         thanksMessage: getParamValue('thanksMessage', 7) || 'Merci de votre visite !',
         mercurial: (getParamValue('mercurial', 8) || Mercurial.none) as Mercurial,
