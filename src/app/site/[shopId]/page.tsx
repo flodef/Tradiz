@@ -324,14 +324,14 @@ export default function SitePage() {
 
             {/* Navigation menu */}
             <nav className="bg-site-nav-bg/90 backdrop-blur-sm border-b border-site-border sticky top-0 z-20 shadow-sm">
-                <div className="max-w-5xl mx-auto px-4">
+                <div className="max-w-5xl mx-auto">
                     <div className="flex items-center justify-between h-14">
                         {/* Desktop nav */}
                         <div className="hidden md:flex items-center gap-1">
                             {reservationEnabled && (
                                 <button
                                     onClick={() => setMyListOpen(true)}
-                                    className="px-4 py-2 text-base font-semibold text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                                    className="px-1 py-2 text-base font-semibold text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1 cursor-pointer"
                                 >
                                     <IconShoppingBag size={18} />
                                     Ma liste
@@ -348,7 +348,7 @@ export default function SitePage() {
                                 onMouseEnter={() => setProductsDropdownOpen(true)}
                                 onMouseLeave={() => setProductsDropdownOpen(false)}
                             >
-                                <button className="px-4 py-2 text-base font-medium text-site-text hover:text-orange-600 transition-colors flex items-center gap-1 cursor-pointer">
+                                <button className="px-1 py-2 text-base font-medium text-site-text hover:text-orange-600 transition-colors flex items-center gap-1 cursor-pointer">
                                     Nos produits
                                     <IconChevronDown
                                         size={16}
@@ -375,21 +375,21 @@ export default function SitePage() {
 
                             <button
                                 onClick={() => setContactModalOpen(true)}
-                                className="px-4 py-2 text-base font-medium text-site-text hover:text-orange-600 transition-colors cursor-pointer"
+                                className="px-1 py-2 text-base font-medium text-site-text hover:text-orange-600 transition-colors cursor-pointer"
                             >
                                 Nous contacter
                             </button>
                             {hasOpeningHours && (
                                 <button
                                     onClick={() => setHoursModalOpen(true)}
-                                    className="px-4 py-2 text-base font-medium text-site-text hover:text-orange-600 transition-colors cursor-pointer"
+                                    className="px-1 py-2 text-base font-medium text-site-text hover:text-orange-600 transition-colors cursor-pointer"
                                 >
                                     Horaires d&apos;ouverture
                                 </button>
                             )}
                             <button
                                 onClick={() => setMapModalOpen(true)}
-                                className="px-4 py-2 text-base font-medium text-site-text hover:text-orange-600 transition-colors cursor-pointer"
+                                className="px-1 py-2 text-base font-medium text-site-text hover:text-orange-600 transition-colors cursor-pointer"
                             >
                                 Nous trouver
                             </button>

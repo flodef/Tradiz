@@ -330,6 +330,13 @@ html[data-theme-ready='0'] body {
     --site-overlay: rgba(0, 0, 0, 0.5);
 }
 
+/* Neutralize the Tradiz app background on /site routes to prevent theme flash.
+   The inline siteThemeScript sets data-site-route="1" before hydration. */
+html[data-site-route='1'] body {
+    background: var(--site-bg);
+    background-image: none;
+}
+
 .site-dark {
     --site-bg: #0a0a0f;
     --site-surface: #1e1e2e;
