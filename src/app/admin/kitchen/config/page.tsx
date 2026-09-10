@@ -126,6 +126,9 @@ export default function SettingsPage() {
     const dataLoadedRef = useRef(false);
     const seededRef = useRef(false);
     const dbDataLoadedRef = useRef(false);
+    // True once the DB has been queried for fresh data. Prevents saving stale
+    // cached state over the DB before the real values are loaded.
+    const [isDbDataLoaded, setIsDbDataLoaded] = useState(false);
     const [isSavingParameters, setIsSavingParameters] = useState(false);
     const [isSavingDiscounts, setIsSavingDiscounts] = useState(false);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -289,6 +292,7 @@ export default function SettingsPage() {
                 // No DB — cached/config data is the complete source
                 if (!seededRef.current) seedFromCache();
                 setIsLoading(false);
+                setIsDbDataLoaded(true);
                 return;
             }
 
@@ -440,6 +444,7 @@ export default function SettingsPage() {
             setSettings(loadedSettings);
             setOriginalSettings(loadedSettings);
             dbDataLoadedRef.current = true;
+            setIsDbDataLoaded(true);
 
             // Sync ConfigProvider parameters so the VirtualKeyboardProvider in
             // AdminConfigWrapper picks up useVirtualKeyboard from the DB.
@@ -610,6 +615,8 @@ export default function SettingsPage() {
                 setSettings(parameters);
                 setOriginalSettings(parameters);
             }
+            // Allow saving from cache on error so the user is not stuck
+            setIsDbDataLoaded(true);
             openFullscreenPopup(
                 'Erreur de chargement',
                 ["Les données n'ont pas pu être chargées correctement. Veuillez vérifier la connexion internet."],
@@ -758,8 +765,13 @@ export default function SettingsPage() {
 
     const handleSaveAll = async () => {
         // Save all changed sections
+        if (!isDbDataLoaded) {
+            openFullscreenPopup('Les données sont encore en cours de chargement, veuillez patienter…', ['OK']);
+            return;
+        }
         setIsSaving(true);
-        if (hasCommerceChanges || hasParametersChanges) await handleParametersSave(settings);
+        if (hasCommerceChanges) await handleCommerceSave(settings);
+        if (hasParametersChanges) await handleParametersSave(settings);
         if (hasDiscountsChanges && isDiscountsValid) await handleDiscountsSave(discounts);
         if (hasCurrenciesChanges) await handleCurrenciesSave(currenciesConfig);
         if (hasPaymentsChanges) await handlePaymentsSave(paymentsConfig);
@@ -852,19 +864,9 @@ export default function SettingsPage() {
         }
     };
 
-    const handleParametersSave = async (data: Parameters) => {
-        if (
-            !isSiretValid ||
-            !data.shop.phone?.trim() ||
-            !data.shop.vatNumber?.trim() ||
-            !vatNumberRegex.test(data.shop.vatNumber.trim()) ||
-            !data.shop.naf?.trim() ||
-            !nafCodeRegex.test(data.shop.naf.trim()) ||
-            !data.shop.legalForm?.trim()
-        ) {
-            openFullscreenPopup("Veuillez corriger les erreurs avant d'enregistrer.", ['OK']);
-            return;
-        }
+    // Shared save logic — writes all parameters to the DB and syncs state.
+    // Does NOT validate; callers decide what to validate.
+    const saveParametersToDb = async (data: Parameters) => {
         setIsSavingParameters(true);
         setIsSaving(true);
         try {
@@ -934,6 +936,37 @@ export default function SettingsPage() {
             setIsSavingParameters(false);
             setIsSaving(false);
         }
+    };
+
+    // Commerce save: validates shop fields (phone, VAT, NAF, legal form, SIRET).
+    const handleCommerceSave = async (data: Parameters) => {
+        if (!isDbDataLoaded) {
+            openFullscreenPopup('Les données sont encore en cours de chargement, veuillez patienter…', ['OK']);
+            return;
+        }
+        if (
+            !isSiretValid ||
+            !data.shop.phone?.trim() ||
+            !data.shop.vatNumber?.trim() ||
+            !vatNumberRegex.test(data.shop.vatNumber.trim()) ||
+            !data.shop.naf?.trim() ||
+            !nafCodeRegex.test(data.shop.naf.trim()) ||
+            !data.shop.legalForm?.trim()
+        ) {
+            openFullscreenPopup("Veuillez corriger les erreurs avant d'enregistrer.", ['OK']);
+            return;
+        }
+        await saveParametersToDb(data);
+    };
+
+    // Parameters save: does NOT validate shop fields — only parameters-specific
+    // fields are changed in this section, so shop validation should not block it.
+    const handleParametersSave = async (data: Parameters) => {
+        if (!isDbDataLoaded) {
+            openFullscreenPopup('Les données sont encore en cours de chargement, veuillez patienter…', ['OK']);
+            return;
+        }
+        await saveParametersToDb(data);
     };
 
     const handlePaymentsSave = async (data: PaymentMethod[]) => {
@@ -1203,7 +1236,7 @@ export default function SettingsPage() {
     }
 
     return (
-        <AdminPageLayout title="Configuration" hasChanges={hasChanges} onSave={handleSaveAll}>
+        <AdminPageLayout title="Configuration" hasChanges={hasChanges && isDbDataLoaded} onSave={handleSaveAll}>
             {isReadOnly && (
                 <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 dark:border-yellow-600 rounded-lg">
                     <p className="text-sm text-yellow-800 dark:text-yellow-200">
@@ -1216,9 +1249,9 @@ export default function SettingsPage() {
             <CommerceConfig
                 config={settings}
                 onChange={setSettings}
-                onSave={handleParametersSave}
+                onSave={handleCommerceSave}
                 onCancel={handleCancel}
-                hasChanges={hasCommerceChanges}
+                hasChanges={hasCommerceChanges && isDbDataLoaded}
                 isReadOnly={isReadOnly}
                 isSiretValid={isSiretValid}
                 onSiretValidation={setIsSiretValid}
@@ -1234,7 +1267,7 @@ export default function SettingsPage() {
                 onChange={setSettings}
                 onSave={handleParametersSave}
                 onCancel={handleCancel}
-                hasChanges={hasParametersChanges}
+                hasChanges={hasParametersChanges && isDbDataLoaded}
                 isReadOnly={isReadOnly}
                 isLoading={isSavingParameters}
                 isOpen={openSection === 'parameters'}

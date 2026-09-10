@@ -150,12 +150,6 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
         if (!activeSegment) setActiveSegment('hour');
     };
 
-    const openDropdown = () => {
-        if (disabled) return;
-        setOpen(true);
-        if (!activeSegment) setActiveSegment('hour');
-    };
-
     const segmentClass = (seg: Segment) => {
         const isActive = activeSegment === seg;
         return `tabular-nums font-medium select-none rounded px-0.5 ${
@@ -173,9 +167,9 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
                 tabIndex={disabled ? -1 : 0}
                 onClick={() => {
                     if (disabled) return;
-                    if (isMobile) {
-                        openDropdown();
-                    } else if (!activeSegment) {
+                    // On mobile, the dropdown is toggled only by the clock button.
+                    // On desktop, clicking the input selects the hour segment.
+                    if (!isMobile && !activeSegment) {
                         setActiveSegment('hour');
                     }
                 }}

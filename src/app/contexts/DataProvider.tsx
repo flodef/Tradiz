@@ -32,6 +32,7 @@ import {
     serviceTypeToDb,
 } from '../utils/interfaces';
 import {
+    idbGetAllKeys,
     idbGetAllTransactionSets,
     idbGetTransactions,
     idbRemoveTransactions,
@@ -715,10 +716,17 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 // successful server sync. Because we fetch incrementally, sqlTransactions may
                 // not contain unchanged rows, so we use the timestamp instead of presence in the
                 // fetched list to decide what needs uploading.
+                //
+                // IMPORTANT: use lastServerSyncTime.current (the last SUCCESSFUL sync time),
+                // not latestServerNow (the current server time from this response). If sync
+                // has been failing (e.g. schema mismatch), lastServerSyncTime.current retains
+                // the last successful sync time, so all transactions accumulated during the
+                // failure period get pushed. Using latestServerNow here would only push
+                // transactions from the last 5 seconds, losing everything else.
                 onProgress?.(70);
                 const localTransactions = await idbGetTransactions(transactionsFilename);
                 let pushedCount = 0;
-                const lastSyncMs = latestServerNow ? new Date(latestServerNow).getTime() : 0;
+                const lastSyncMs = lastServerSyncTime.current ? new Date(lastServerSyncTime.current).getTime() : 0;
                 const pushSinceMs = lastSyncMs ? lastSyncMs - 5000 : 0;
                 const changedLocal = localTransactions.filter(
                     (tx) => (tx.modifiedDate || tx.createdDate) > pushSinceMs
@@ -904,10 +912,39 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 case SyncAction.import:
                     importTransactions(event);
                     return 0;
+                case SyncAction.forcepush: {
+                    // Push ALL local transactions to the SQL DB, regardless of timestamp.
+                    // This is a recovery action for when sync has been failing (e.g. schema
+                    // mismatch) and local transactions have accumulated in IndexedDB but
+                    // were never pushed to the server.
+                    onProgress?.(5);
+                    const allKeys = await idbGetAllKeys();
+                    let pushed = 0;
+                    let processed = 0;
+                    const totalKeys = allKeys.length;
+                    for (const key of allKeys) {
+                        const txs = await idbGetTransactions(key);
+                        for (const tx of txs) {
+                            await pushTransactionToSQL(tx, 'add');
+                            pushed++;
+                        }
+                        processed++;
+                        onProgress?.(5 + Math.floor((processed / Math.max(totalKeys, 1)) * 90));
+                    }
+                    onProgress?.(100);
+                    return pushed;
+                }
             }
             return 0;
         },
-        [syncTransactions, exportTransactions, importTransactions, transactionsFilename, resolvedShopId]
+        [
+            syncTransactions,
+            exportTransactions,
+            importTransactions,
+            transactionsFilename,
+            resolvedShopId,
+            pushTransactionToSQL,
+        ]
     );
 
     const getAvailableDaysFromSQL = useCallback(async (): Promise<string[]> => {
