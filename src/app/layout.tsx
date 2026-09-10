@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { twMerge } from 'tailwind-merge';
 import './globals.css';
 import { USE_DIGICARTE } from './utils/constants';
-import { conditionalManifestScript, preloadedThemeScript } from './utils/scriptUtils';
+import { conditionalManifestScript, preloadedThemeScript, siteThemeScript } from './utils/scriptUtils';
 import { VersionChecker } from './components/VersionChecker';
 
 export const metadata = {
@@ -19,6 +19,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     return (
         <html lang="fr" data-theme-ready="0" suppressHydrationWarning>
             <head>
+                <script dangerouslySetInnerHTML={{ __html: siteThemeScript() }} />
                 <script dangerouslySetInnerHTML={{ __html: preloadedThemeScript() }} />
                 {conditionalManifestScript(USE_DIGICARTE) && (
                     <script dangerouslySetInnerHTML={{ __html: conditionalManifestScript(USE_DIGICARTE) }} />

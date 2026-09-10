@@ -100,7 +100,7 @@ export default function SiteLandingPage() {
                     {shops.map((shop) => (
                         <Link
                             key={shop.id}
-                            href={`/site/${shop.id}`}
+                            href={`/${shop.id}`}
                             className="group relative flex flex-col rounded-2xl overflow-hidden bg-site-surface border border-site-border shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
                         >
                             {/* Cover image / gradient */}

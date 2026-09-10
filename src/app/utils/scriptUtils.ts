@@ -86,3 +86,39 @@ export function preloadedThemeScript(): string {
     }
 })();`;
 }
+
+/**
+ * Generates an inline script that applies the public site theme before React hydration.
+ * Runs on /site and /site/* routes to prevent the Tradiz app background from flashing.
+ *
+ * - Reads `site-theme` from localStorage ('light' | 'dark' | 'system' | null)
+ * - If 'dark' or system+prefers-dark, adds the `site-dark` class to <html> immediately
+ * - Adds `data-site-route="1"` so the body background can be neutralized via CSS
+ *
+ * @returns The script string
+ */
+export function siteThemeScript(): string {
+    return `(function () {
+    var root = document.documentElement;
+    var path = window.location.pathname || '';
+    if (path.indexOf('/site') !== 0) return;
+
+    root.setAttribute('data-site-route', '1');
+
+    try {
+        var stored = window.localStorage.getItem('site-theme');
+        var isDark = false;
+        if (stored === 'dark') {
+            isDark = true;
+        } else if (stored === 'light') {
+            isDark = false;
+        } else {
+            // system or not set
+            isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        if (isDark) root.classList.add('site-dark');
+    } catch (_) {
+        // Ignore
+    }
+})();`;
+}
