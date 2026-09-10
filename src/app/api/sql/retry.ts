@@ -9,7 +9,7 @@
 // cannot hang a request until the platform kills it.
 
 export const DEFAULT_QUERY_TIMEOUT_MS = 15_000;
-export const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
+export const DEFAULT_CONNECT_TIMEOUT_MS = 15_000;
 export const DEFAULT_MAX_ATTEMPTS = 3;
 export const DEFAULT_BASE_DELAY_MS = 150;
 export const DEFAULT_MAX_DELAY_MS = 2_000;

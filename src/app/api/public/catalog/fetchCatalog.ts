@@ -38,8 +38,9 @@ export async function fetchCatalog(shopId: string) {
     let mainConn: DbConnection | undefined;
     let posConn: DbConnection | undefined;
     try {
-        mainConn = await getMainDb(shopId);
-        posConn = await getPosDb(shopId);
+        // Open both connections in parallel — Neon cold starts can take several
+        // seconds each, so sequential acquisition doubles the wait time.
+        [mainConn, posConn] = await Promise.all([getMainDb(shopId), getPosDb(shopId)]);
 
         // Fetch products with category, stock, photo, description
         // Only include products that belong to a public category (no company assigned).
