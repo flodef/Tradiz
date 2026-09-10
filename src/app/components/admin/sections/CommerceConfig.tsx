@@ -146,12 +146,12 @@ const filterVatNumber = (v: string) =>
         .toUpperCase()
         .substring(0, 13);
 
-/** Keep only digits and uppercase letters for NAF code, strip dots/spaces, max 5 chars */
+/** Keep only digits, uppercase letters, and dots for NAF code, max 6 chars (1234.A) */
 const filterNaf = (v: string) =>
     v
-        .replace(/[^0-9A-Za-z]/g, '')
+        .replace(/[^0-9A-Za-z.]/g, '')
         .toUpperCase()
-        .substring(0, 5);
+        .substring(0, 6);
 
 export default function CommerceConfig({
     config,
@@ -172,6 +172,7 @@ export default function CommerceConfig({
     const [integrityStatus, setIntegrityStatus] = useState<'idle' | 'checking' | 'ok' | 'fail'>('idle');
     const [archiveStatus, setArchiveStatus] = useState<'idle' | 'downloading' | 'done' | 'fail'>('idle');
     const [attestationStatus, setAttestationStatus] = useState<'checking' | 'signed' | 'unsigned' | 'fail'>('checking');
+    const [needsResign, setNeedsResign] = useState(false);
 
     useEffect(() => {
         fetch('/api/version')
@@ -214,6 +215,7 @@ export default function CommerceConfig({
             .then((res) => res.json())
             .then((data) => {
                 setAttestationStatus(data.signed ? 'signed' : 'unsigned');
+                setNeedsResign(Boolean(data.needsResign));
             })
             .catch(() => {
                 setAttestationStatus('unsigned');
@@ -223,14 +225,16 @@ export default function CommerceConfig({
     const handleAttestationClick = () => {
         const isSigned = attestationStatus === 'signed';
         openFullscreenPopup(
-            isSigned ? 'Attestation signée' : 'Attestation à signer',
+            isSigned && !needsResign ? 'Attestation signée' : 'Attestation à signer',
             [
                 <AttestationViewer
                     key="attestationViewer"
                     signed={isSigned}
+                    needsResign={needsResign}
                     userName={config.user?.name}
                     onStatusChange={(newSigned) => {
                         setAttestationStatus(newSigned ? 'signed' : 'unsigned');
+                        if (newSigned) setNeedsResign(false);
                     }}
                 />,
             ],
@@ -321,7 +325,9 @@ export default function CommerceConfig({
     const isVatValid = config.shop.vatNumber?.trim() !== '' && vatNumberRegex.test(config.shop.vatNumber?.trim() ?? '');
     const isNafValid = config.shop.naf?.trim() !== '' && nafCodeRegex.test(config.shop.naf?.trim() ?? '');
     const isLegalFormValid = config.shop.legalForm?.trim() !== '';
-    const isFormValid = isSiretValid && isPhoneValid && isVatValid && isNafValid && isLegalFormValid;
+    const isLegalRepresentativeValid = config.shop.legalRepresentative?.trim() !== '';
+    const isFormValid =
+        isSiretValid && isPhoneValid && isVatValid && isNafValid && isLegalFormValid && isLegalRepresentativeValid;
 
     const handleShopChange = (field: string, value: string) => {
         onChange({
@@ -436,10 +442,10 @@ export default function CommerceConfig({
                         label="NAF"
                         value={String(config.shop.naf || '')}
                         onChange={(value) => handleShopChange('naf', String(value))}
-                        placeholder="5610C"
+                        placeholder="5610.C"
                         isReadOnly={isReadOnly}
                         className="flex-1 min-w-20 max-w-24"
-                        maxLength={5}
+                        maxLength={6}
                         filter={filterNaf}
                         validation={(value) => {
                             const v = String(value).trim();
@@ -471,6 +477,15 @@ export default function CommerceConfig({
                             { label: 'SCOP', value: 'SCOP' },
                             { label: 'Association (loi 1901)', value: 'Association' },
                         ]}
+                    />
+                    <ValidatedInput
+                        label="Représentant légal"
+                        value={String(config.shop.legalRepresentative || '')}
+                        onChange={(value) => handleShopChange('legalRepresentative', String(value))}
+                        placeholder="Nom Prénom"
+                        isReadOnly={isReadOnly}
+                        className="flex-1 min-w-40 max-w-xs"
+                        validation={(value) => String(value).trim() !== ''}
                     />
                     <div className="w-full flex flex-wrap gap-4 items-end">
                         <ValidatedInput
@@ -667,13 +682,13 @@ export default function CommerceConfig({
                     <div className="flex flex-col gap-1">
                         <label className={adminTextStyle}>Attestation</label>
                         <AdminButton
-                            variant={attestationStatus === 'signed' ? 'add' : 'danger'}
+                            variant={attestationStatus === 'signed' && !needsResign ? 'add' : 'danger'}
                             onClick={handleAttestationClick}
                             disabled={attestationStatus === 'checking'}
                             isLoading={attestationStatus === 'checking'}
                             className="h-8 mt-0"
                         >
-                            {attestationStatus === 'signed' ? (
+                            {attestationStatus === 'signed' && !needsResign ? (
                                 <>
                                     <IconCheck size={20} stroke={2} />
                                     Valide
@@ -682,6 +697,10 @@ export default function CommerceConfig({
                                 <>
                                     <IconX size={20} stroke={2} />
                                     Erreur
+                                </>
+                            ) : needsResign ? (
+                                <>
+                                    <IconCertificate size={18} stroke={2} />À resigner
                                 </>
                             ) : (
                                 <>

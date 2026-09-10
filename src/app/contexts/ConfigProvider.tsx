@@ -53,6 +53,7 @@ export interface Shop {
     vatNumber?: string;
     naf?: string;
     legalForm?: string;
+    legalRepresentative?: string;
     country?: string;
     logo?: string;
     image?: string;

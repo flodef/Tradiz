@@ -326,6 +326,7 @@ export default function SettingsPage() {
                     vatNumber: getParam('vatNumber', 'N° TVA'),
                     naf: getParam('naf', 'NAF'),
                     legalForm: getParam('legalForm', 'Forme juridique'),
+                    legalRepresentative: getParam('legalRepresentative', 'Représentant légal'),
                     logo: getParam('logo', 'Logo'),
                     image: getParam('shopImage', 'Image du magasin'),
                     country: 'FR',
@@ -882,6 +883,7 @@ export default function SettingsPage() {
                 { key: 'vatNumber', value: data.shop.vatNumber ?? '' },
                 { key: 'naf', value: data.shop.naf ?? '' },
                 { key: 'legalForm', value: data.shop.legalForm ?? '' },
+                { key: 'legalRepresentative', value: data.shop.legalRepresentative ?? '' },
                 { key: 'logo', value: data.shop.logo ?? '' },
                 { key: 'shopImage', value: data.shop.image ?? '' },
                 { key: 'thanksMessage', value: data.thanksMessage },
@@ -951,7 +953,8 @@ export default function SettingsPage() {
             !vatNumberRegex.test(data.shop.vatNumber.trim()) ||
             !data.shop.naf?.trim() ||
             !nafCodeRegex.test(data.shop.naf.trim()) ||
-            !data.shop.legalForm?.trim()
+            !data.shop.legalForm?.trim() ||
+            !data.shop.legalRepresentative?.trim()
         ) {
             openFullscreenPopup("Veuillez corriger les erreurs avant d'enregistrer.", ['OK']);
             return;

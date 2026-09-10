@@ -15,6 +15,7 @@ export const PARAMETER_KEYS = {
     SHOP_VAT_NUMBER: 'vatNumber',
     SHOP_NAF: 'naf',
     SHOP_LEGAL_FORM: 'legalForm',
+    SHOP_LEGAL_REPRESENTATIVE: 'legalRepresentative',
     SHOP_LOGO: 'logo',
     SHOP_IMAGE: 'shopImage',
     THANKS_MESSAGE: 'thanksMessage',
@@ -34,6 +35,8 @@ export const PARAMETER_KEYS = {
     OPENING_HOURS: 'openingHours',
     RESERVATION_PHONE: 'reservationPhone',
     RESERVATION_EMAIL: 'reservationEmail',
+    SIGNATURE_DATA: 'signatureData',
+    SIGNATURE_VERSION: 'signatureVersion',
 } as const;
 
 export const PARAMETER_KEY_LIST = Object.values(PARAMETER_KEYS);

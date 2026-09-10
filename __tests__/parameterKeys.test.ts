@@ -20,6 +20,7 @@ describe('PARAMETER_KEYS coverage', () => {
             'vatNumber',
             'naf',
             'legalForm',
+            'legalRepresentative',
             'thanksMessage',
             'mercurial',
             'closingHour',

@@ -190,6 +190,7 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
             vatNumber: getParamValue('vatNumber', 19) || '',
             naf: getParamValue('naf', 20) || '',
             legalForm: getParamValue('legalForm', 21) || '',
+            legalRepresentative: getParamValue('legalRepresentative', 25) || '',
             country: 'FR',
             logo: getParamValue('logo', 23) || '',
             image: getParamValue('shopImage', 24) || '',

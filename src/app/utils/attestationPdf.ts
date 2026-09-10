@@ -11,6 +11,7 @@ export interface AttestationShopData {
     vatNumber: string;
     naf: string;
     legalForm: string;
+    legalRepresentative: string;
 }
 
 export interface AttestationData {
@@ -18,6 +19,10 @@ export interface AttestationData {
     softwareReleaseDate?: string;
     majorVersionRoot?: string;
     minorVersionSubdivision?: string;
+    /** Publisher signature image (PNG bytes), embedded in Volet 1. */
+    publisherSignaturePng?: Uint8Array;
+    /** Shop signature image (PNG bytes), embedded in Volet 2. */
+    shopSignaturePng?: Uint8Array;
 }
 
 const PAGE_WIDTH = 595;
@@ -58,11 +63,11 @@ function wrapText(
 }
 
 /**
- * Build the BOI-LETTRE-000242 attestation PDF with two volets:
- * - Volet 1: filled by the éditeur (publisher)
- * - Volet 2: filled by the entreprise utilisatrice (shop)
+ * Build the BOI-LETTRE-000242 attestation PDF with two volets on separate pages:
+ * - Page 1: Volet 1 — filled by the éditeur (publisher), with publisher signature
+ * - Page 2: Volet 2 — filled by the entreprise utilisatrice (shop), with shop signature
  *
- * In unsigned mode, all fields are filled from code/DB data but signature lines are blank.
+ * Signature images (PNG) are embedded if provided.
  */
 export async function buildAttestationPdf(data: AttestationData): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.create();
@@ -79,6 +84,27 @@ export async function buildAttestationPdf(data: AttestationData): Promise<Uint8A
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
+    // Embed publisher signature if available
+    let publisherSignatureImg: Awaited<ReturnType<typeof pdfDoc.embedPng>> | undefined;
+    if (data.publisherSignaturePng) {
+        try {
+            publisherSignatureImg = await pdfDoc.embedPng(data.publisherSignaturePng);
+        } catch {
+            // Ignore invalid PNG
+        }
+    }
+
+    // Embed shop signature if available
+    let shopSignatureImg: Awaited<ReturnType<typeof pdfDoc.embedPng>> | undefined;
+    if (data.shopSignaturePng) {
+        try {
+            shopSignatureImg = await pdfDoc.embedPng(data.shopSignaturePng);
+        } catch {
+            // Ignore invalid PNG
+        }
+    }
+
+    // ── Page 1: Volet 1 — Éditeur ──
     let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     let y = PAGE_HEIGHT - MARGIN;
 
@@ -120,40 +146,33 @@ export async function buildAttestationPdf(data: AttestationData): Promise<Uint8A
     // ── Title ──
     drawText("ATTESTATION INDIVIDUELLE DE L'ÉDITEUR", MARGIN, TITLE_SIZE, true);
     y -= LINE_HEIGHT;
-    drawText('Conformité aux conditions prévues au 3° bis du I de l’article 286 du CGI', MARGIN, FONT_SIZE - 1);
+    drawText('Conformité aux conditions prévues au 3° bis du I de l\u2019article 286 du CGI', MARGIN, FONT_SIZE - 1);
     y -= LINE_HEIGHT;
     drawText('(Modèle BOI-LETTRE-000242)', MARGIN, FONT_SIZE - 1);
     spacer(2);
 
-    const ref = `ATT-${softwareName.toUpperCase()}-${softwareVersion}-${new Date()
-        .toISOString()
-        .substring(0, 10)}`;
+    const ref = `ATT-${softwareName.toUpperCase()}-${softwareVersion}-${new Date().toISOString().substring(0, 10)}`;
     drawText(`Référence : ${ref}`, MARGIN, FONT_SIZE, true);
     spacer(2);
 
     drawSeparator();
 
     // ── Volet 1 — Éditeur ──
-    drawText('VOLET 1 — À REMPLIR PAR L’ÉDITEUR', MARGIN, SECTION_SIZE, true);
+    drawText('VOLET 1 — À REMPLIR PAR L\u2019ÉDITEUR', MARGIN, SECTION_SIZE, true);
     spacer(1);
 
-    const publisherName = `${PUBLISHER.representantPrenom} ${PUBLISHER.representantNom}`.trim() || '[Nom Prénom du représentant légal]';
-    drawWrapped(
-        `Je soussigné, ${publisherName}, représentant légal de la société ${PUBLISHER.raisonSociale},`,
-        MARGIN
-    );
+    const publisherName =
+        `${PUBLISHER.representantPrenom} ${PUBLISHER.representantNom}`.trim() || '[Nom Prénom du représentant légal]';
+    drawWrapped(`Je soussigné, ${publisherName}, représentant légal de la société ${PUBLISHER.raisonSociale},`, MARGIN);
     drawWrapped(
         `éditeur du logiciel / système de caisse ${softwareName}, version n° ${softwareVersion}${
             data.softwareReleaseDate ? `, mis sur le marché à compter du ${data.softwareReleaseDate}` : ''
         },`,
         MARGIN
     );
+    drawWrapped(`sous le numéro de licence ${PUBLISHER.licence},`, MARGIN);
     drawWrapped(
-        `sous le numéro de licence ${PUBLISHER.licence},`,
-        MARGIN
-    );
-    drawWrapped(
-        'atteste que ce logiciel / système, ou les fonctionnalités de caisse de ce logiciel / système, satisfait aux conditions d’inaltérabilité, de sécurisation, de conservation et d’archivage des données en vue du contrôle de l’administration fiscale, prévues au 3° bis du I de l’article 286 du code général des impôts.',
+        'atteste que ce logiciel / système, ou les fonctionnalités de caisse de ce logiciel / système, satisfait aux conditions d\u2019inaltérabilité, de sécurisation, de conservation et d\u2019archivage des données en vue du contrôle de l\u2019administration fiscale, prévues au 3° bis du I de l\u2019article 286 du code général des impôts.',
         MARGIN
     );
     spacer(1);
@@ -162,7 +181,7 @@ export async function buildAttestationPdf(data: AttestationData): Promise<Uint8A
     drawWrapped('Détail des conditions satisfaites :', MARGIN, FONT_SIZE, true);
     spacer(0.5);
     drawWrapped(
-        '• Inaltérabilité : hachage chaîné SHA-256 des transactions et des événements d’audit ; les modifications de données fiscales sont tracées par des événements d’audit chaînés.',
+        '• Inaltérabilité : hachage chaîné SHA-256 des transactions et des événements d\u2019audit ; les modifications de données fiscales sont tracées par des événements d\u2019audit chaînés.',
         MARGIN,
         FONT_SIZE,
         false,
@@ -176,14 +195,14 @@ export async function buildAttestationPdf(data: AttestationData): Promise<Uint8A
         10
     );
     drawWrapped(
-        '• Conservation : les transactions, clôtures journalières/mensuelles/annuelles et événements d’audit sont conservés ; un export d’archive fiscale est disponible.',
+        '• Conservation : les transactions, clôtures journalières/mensuelles/annuelles et événements d\u2019audit sont conservés ; un export d\u2019archive fiscale est disponible.',
         MARGIN,
         FONT_SIZE,
         false,
         10
     );
     drawWrapped(
-        '• Archivage : les données sont conservées dans la base de données de l’exploitant selon la durée prévue par la réglementation ; un export d’archive est disponible pour le contrôle de l’administration.',
+        '• Archivage : les données sont conservées dans la base de données de l\u2019exploitant selon la durée prévue par la réglementation ; un export d\u2019archive est disponible pour le contrôle de l\u2019administration.',
         MARGIN,
         FONT_SIZE,
         false,
@@ -194,7 +213,7 @@ export async function buildAttestationPdf(data: AttestationData): Promise<Uint8A
     // Optional version root statement
     if (data.majorVersionRoot) {
         drawWrapped(
-            `J’atteste que la dernière version majeure de ce logiciel ou système est identifiée avec la racine suivante : ${data.majorVersionRoot} et que les versions mineures développées ultérieurement à cette version majeure sont ou seront identifiées par les subdivisions suivantes de cette racine : ${data.minorVersionSubdivision || '[subdivisions]'}. Je m’engage à ce que ces subdivisions ne soient utilisées par ${PUBLISHER.raisonSociale} que pour l’identification des versions mineures ultérieures, à l’exclusion de toute version majeure.`,
+            `J\u2019atteste que la dernière version majeure de ce logiciel ou système est identifiée avec la racine suivante : ${data.majorVersionRoot} et que les versions mineures développées ultérieurement à cette version majeure sont ou seront identifiées par les subdivisions suivantes de cette racine : ${data.minorVersionSubdivision || '[subdivisions]'}. Je m\u2019engage à ce que ces subdivisions ne soient utilisées par ${PUBLISHER.raisonSociale} que pour l\u2019identification des versions mineures ultérieures, à l\u2019exclusion de toute version majeure.`,
             MARGIN
         );
         spacer(1);
@@ -204,7 +223,7 @@ export async function buildAttestationPdf(data: AttestationData): Promise<Uint8A
     drawWrapped('Limites connues à la date de génération :', MARGIN, FONT_SIZE, true);
     spacer(0.5);
     drawWrapped(
-        '• La vérification de l’intégrité des clôtures et des événements d’audit est en cours d’implémentation ; seul le chaînage des transactions est actuellement vérifié par l’outil de contrôle.',
+        '• La vérification de l\u2019intégrité des clôtures et des événements d\u2019audit est en cours d\u2019implémentation ; seul le chaînage des transactions est actuellement vérifié par l\u2019outil de contrôle.',
         MARGIN,
         FONT_SIZE,
         false,
@@ -218,7 +237,7 @@ export async function buildAttestationPdf(data: AttestationData): Promise<Uint8A
         10
     );
     drawWrapped(
-        '• Cette attestation est une auto-attestation de l’éditeur. Elle ne constitue pas une certification NF525 délivrée par un organisme accrédité (ex. LNE).',
+        '• Cette attestation est une auto-attestation de l\u2019éditeur. Elle ne constitue pas une certification NF525 délivrée par un organisme accrédité (ex. LNE).',
         MARGIN,
         FONT_SIZE,
         false,
@@ -228,32 +247,47 @@ export async function buildAttestationPdf(data: AttestationData): Promise<Uint8A
 
     drawWrapped(`Fait à ${PUBLISHER.ville || '[Ville]'}, le ${today}`, MARGIN);
     spacer(2);
-    drawWrapped('Signature du représentant légal de l’éditeur', MARGIN);
-    spacer(3);
-
-    drawSeparator();
-
-    // ── Volet 2 — Utilisateur ──
-    drawText('VOLET 2 — À REMPLIR PAR L’ENTREPRISE UTILISATRICE', MARGIN, SECTION_SIZE, true);
+    drawWrapped('Signature du représentant légal de l\u2019éditeur', MARGIN);
     spacer(1);
 
-    const shopLine1 = data.shop.name || '[Raison sociale de l’entreprise utilisatrice]';
-    drawWrapped(
-        `Je soussigné, [Nom Prénom], représentant légal de la société ${shopLine1},`,
-        MARGIN
-    );
+    // Embed publisher signature image if available
+    if (publisherSignatureImg) {
+        const imgWidth = 200;
+        const imgHeight = (publisherSignatureImg.height / publisherSignatureImg.width) * imgWidth;
+        page.drawImage(publisherSignatureImg, {
+            x: MARGIN,
+            y: Math.max(MARGIN, y - imgHeight),
+            width: imgWidth,
+            height: imgHeight,
+        });
+        y -= imgHeight + LINE_HEIGHT;
+    } else {
+        spacer(3);
+    }
+
+    // ── Page 2: Volet 2 — Utilisateur ──
+    // Force a new page for Volet 2
+    page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    y = PAGE_HEIGHT - MARGIN;
+
+    drawText('VOLET 2 — À REMPLIR PAR L\u2019ENTREPRISE UTILISATRICE', MARGIN, SECTION_SIZE, true);
+    spacer(1);
+
+    const shopLine1 = data.shop.name || '[Raison sociale de l\u2019entreprise utilisatrice]';
+    const shopRep = data.shop.legalRepresentative || '[Nom Prénom]';
+    drawWrapped(`Je soussigné, ${shopRep}, représentant légal de la société ${shopLine1},`, MARGIN);
     drawWrapped(
         `certifie avoir acquis ou téléchargé le ${today}, auprès de ${PUBLISHER.raisonSociale}, le logiciel / système de caisse mentionné au volet 1 de cette attestation.`,
         MARGIN
     );
     drawWrapped(
-        'J’atteste utiliser ce logiciel / système de caisse pour enregistrer les règlements de mes clients particuliers, conformément à la réglementation fiscale en vigueur.',
+        'J\u2019atteste utiliser ce logiciel / système de caisse pour enregistrer les règlements de mes clients particuliers, conformément à la réglementation fiscale en vigueur.',
         MARGIN
     );
     spacer(1);
 
     // Shop identity
-    drawWrapped('Identité de l’entreprise utilisatrice :', MARGIN, FONT_SIZE, true);
+    drawWrapped('Identité de l\u2019entreprise utilisatrice :', MARGIN, FONT_SIZE, true);
     spacer(0.5);
     if (data.shop.name) {
         drawWrapped(`Nom : ${data.shop.name}`, MARGIN, FONT_SIZE, false, 10);
@@ -276,11 +310,27 @@ export async function buildAttestationPdf(data: AttestationData): Promise<Uint8A
     if (data.shop.legalForm) {
         drawWrapped(`Forme juridique : ${data.shop.legalForm}`, MARGIN, FONT_SIZE, false, 10);
     }
+    if (data.shop.legalRepresentative) {
+        drawWrapped(`Représentant légal : ${data.shop.legalRepresentative}`, MARGIN, FONT_SIZE, false, 10);
+    }
     spacer(2);
 
     drawWrapped(`Fait à ${data.shop.city || '[Ville]'}, le ${today}`, MARGIN);
     spacer(2);
-    drawWrapped('Signature du représentant légal de l’entreprise utilisatrice', MARGIN);
+    drawWrapped('Signature du représentant légal de l\u2019entreprise utilisatrice', MARGIN);
+    spacer(1);
+
+    // Embed shop signature image if available
+    if (shopSignatureImg) {
+        const imgWidth = 200;
+        const imgHeight = (shopSignatureImg.height / shopSignatureImg.width) * imgWidth;
+        page.drawImage(shopSignatureImg, {
+            x: MARGIN,
+            y: Math.max(MARGIN, y - imgHeight),
+            width: imgWidth,
+            height: imgHeight,
+        });
+    }
 
     return pdfDoc.save();
 }

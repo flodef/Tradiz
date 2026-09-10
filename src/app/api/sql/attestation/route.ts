@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from '../db';
 import { insertAuditEvent } from '../auditHelpers';
 import { buildAttestationPdf, type AttestationShopData } from '@/app/utils/attestationPdf';
+import { getSoftwareVersion } from '@/app/utils/version';
 import fs from 'fs';
 import path from 'path';
 
@@ -11,6 +12,7 @@ export const dynamic = 'force-dynamic';
 const ATTESTATION_FILENAME_PREFIX = 'attestation_nf525';
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
 const PDF_MAGIC = Buffer.from('%PDF-', 'utf8');
+const PUBLISHER_SIGNATURE_PATH = path.join(process.cwd(), 'public', 'signature-editeur.png');
 
 /**
  * Sanitize a shopId for use in a filename. Only allow [a-z0-9_-]; everything
@@ -41,11 +43,35 @@ function getAttestationPath(shopId: string): string {
     return path.join(dir, `${ATTESTATION_FILENAME_PREFIX}_${safeShopId}.pdf`);
 }
 
+/** Extract the major version (first digit) from a version string like "1.527.0". */
+function getMajorVersion(): string {
+    const version = getSoftwareVersion() || '0';
+    return version.split('.')[0] || '0';
+}
+
+/** Load the publisher signature PNG from public/signature-editeur.png if it exists. */
+function loadPublisherSignature(): Uint8Array | undefined {
+    try {
+        if (fs.existsSync(PUBLISHER_SIGNATURE_PATH)) {
+            return new Uint8Array(fs.readFileSync(PUBLISHER_SIGNATURE_PATH));
+        }
+    } catch {
+        // Ignore
+    }
+    return undefined;
+}
+
+/** Convert a PNG data URL to Uint8Array. */
+function dataUrlToBytes(dataUrl: string): Uint8Array {
+    const base64 = dataUrl.split(',')[1] || '';
+    return new Uint8Array(Buffer.from(base64, 'base64'));
+}
+
 async function fetchShopData(connection: DbConnection): Promise<AttestationShopData> {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
     const [paramRows] = await connection.execute(
-        `SELECT param_key, param_value FROM ${prefix}parameters WHERE param_key IN ('name', 'serial', 'vatNumber', 'address', 'zipCode', 'city', 'naf', 'legalForm')`
+        `SELECT param_key, param_value FROM ${prefix}parameters WHERE param_key IN ('name', 'serial', 'vatNumber', 'address', 'zipCode', 'city', 'naf', 'legalForm', 'legalRepresentative', 'signatureData', 'signatureVersion')`
     );
     const params = new Map<string, string>();
     for (const row of paramRows as { param_key: string; param_value: string }[]) {
@@ -60,21 +86,62 @@ async function fetchShopData(connection: DbConnection): Promise<AttestationShopD
         vatNumber: params.get('vatNumber') || '',
         naf: params.get('naf') || '',
         legalForm: params.get('legalForm') || '',
+        legalRepresentative: params.get('legalRepresentative') || '',
     };
+}
+
+/** Fetch the stored signature data and version from the DB. */
+async function fetchSignatureData(
+    connection: DbConnection
+): Promise<{ signatureData: string | null; signatureVersion: string | null }> {
+    const isPg = connection.isPostgreSQL;
+    const prefix = isPg ? 'dc_pos.' : '';
+    const [rows] = await connection.execute(
+        `SELECT param_key, param_value FROM ${prefix}parameters WHERE param_key IN ('signatureData', 'signatureVersion')`
+    );
+    const params = new Map<string, string>();
+    for (const row of rows as { param_key: string; param_value: string }[]) {
+        params.set(row.param_key, row.param_value);
+    }
+    return {
+        signatureData: params.get('signatureData') || null,
+        signatureVersion: params.get('signatureVersion') || null,
+    };
+}
+
+/** Upsert a parameter key/value into the DB. */
+async function upsertParameter(connection: DbConnection, key: string, value: string): Promise<void> {
+    const isPg = connection.isPostgreSQL;
+    const prefix = isPg ? 'dc_pos.' : '';
+    // Try update first, then insert if no row was affected
+    const updateQuery = isPg
+        ? `UPDATE ${prefix}parameters SET param_value = $1 WHERE param_key = $2`
+        : `UPDATE ${prefix}parameters SET param_value = ? WHERE param_key = ?`;
+    const insertQuery = isPg
+        ? `INSERT INTO ${prefix}parameters (param_key, param_value) VALUES ($1, $2)`
+        : `INSERT INTO ${prefix}parameters (param_key, param_value) VALUES (?, ?)`;
+    const updateParams = isPg ? [value, key] : [value, key];
+    const insertParams = isPg ? [key, value] : [key, value];
+    const [result] = await connection.execute(updateQuery, updateParams);
+    const affected = Array.isArray(result) ? ((result as { affectedRows?: number }[])[0]?.affectedRows ?? 0) : 0;
+    if (affected === 0) {
+        await connection.execute(insertQuery, insertParams);
+    }
 }
 
 /**
  * GET — returns attestation status, or the PDF file (signed or generated).
  *
- * - No query param: returns { signed: boolean, generatedAt: string|null }
+ * - No query param: returns { signed, needsResign, majorVersion, signatureVersion }
  * - ?action=view: returns the signed PDF (inline) if it exists, or 404
- * - ?action=generate: generates and returns the unsigned PDF (inline)
+ * - ?action=generate: generates and returns the PDF with publisher signature (inline)
  */
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
     const url = new URL(request.url);
     const action = url.searchParams.get('action');
     const attestationPath = getAttestationPath(shopId);
+    const majorVersion = getMajorVersion();
 
     if (action === 'view') {
         try {
@@ -107,7 +174,8 @@ export async function GET(request: Request) {
         try {
             connection = await getPosDb(shopId);
             const shop = await fetchShopData(connection);
-            const pdfBytes = await buildAttestationPdf({ shop });
+            const publisherSignaturePng = loadPublisherSignature();
+            const pdfBytes = await buildAttestationPdf({ shop, publisherSignaturePng });
             return new NextResponse(Buffer.from(pdfBytes), {
                 status: 200,
                 headers: {
@@ -124,6 +192,7 @@ export async function GET(request: Request) {
     }
 
     // Default: return status
+    let connection: DbConnection | undefined;
     try {
         const exists = fs.existsSync(attestationPath);
         let generatedAt: string | null = null;
@@ -135,27 +204,108 @@ export async function GET(request: Request) {
                 generatedAt = null;
             }
         }
-        return NextResponse.json({ signed: exists, generatedAt });
+
+        // Check if re-signature is needed (major version changed)
+        let needsResign = !exists;
+        let signatureVersion: string | null = null;
+        try {
+            connection = await getPosDb(shopId);
+            const sigData = await fetchSignatureData(connection);
+            signatureVersion = sigData.signatureVersion;
+            if (exists && signatureVersion && signatureVersion !== majorVersion) {
+                needsResign = true;
+            }
+        } catch {
+            // Ignore DB errors — assume no resign needed
+        }
+
+        return NextResponse.json({ signed: exists, generatedAt, needsResign, majorVersion, signatureVersion });
     } catch (error) {
         const code = (error as NodeJS.ErrnoException).code;
         if (code === 'EROFS' || code === 'EACCES') {
-            return NextResponse.json({ signed: false, generatedAt: null });
+            return NextResponse.json({ signed: false, generatedAt: null, needsResign: true, majorVersion });
         }
         console.error('Error checking attestation status:', error);
         return NextResponse.json({ error: 'Failed to check attestation status' }, { status: 500 });
+    } finally {
+        await connection?.end();
     }
 }
 
 /**
- * POST — accepts a signed PDF upload and saves it.
+ * POST — accepts either an electronic signature (JSON) or a signed PDF upload (form-data).
  *
- * Expects multipart/form-data with:
- * - "file": the PDF file
- * - "changedBy" (optional): the name of the operator performing the upload
+ * JSON mode: { signatureData: string (PNG data URL), changedBy?: string }
+ *   Generates a signed PDF with both publisher and shop signatures, saves it,
+ *   and stores the signature data + version in the parameters table.
+ *
+ * Form-data mode: file upload (backward compatible with the old flow).
  */
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
     let connection: DbConnection | undefined;
+    const contentType = request.headers.get('content-type') || '';
+
+    // ── JSON mode: electronic signature ──
+    if (contentType.includes('application/json')) {
+        try {
+            const body = await request.json();
+            const { signatureData, changedBy } = body as { signatureData?: string; changedBy?: string };
+
+            if (!signatureData || !signatureData.startsWith('data:image/png')) {
+                return NextResponse.json({ error: 'Invalid signature data' }, { status: 400 });
+            }
+
+            const operatorName = changedBy || 'admin';
+            const majorVersion = getMajorVersion();
+            const shopSignaturePng = dataUrlToBytes(signatureData);
+            const publisherSignaturePng = loadPublisherSignature();
+
+            connection = await getPosDb(shopId);
+            const shop = await fetchShopData(connection);
+
+            // Generate the signed PDF with both signatures
+            const pdfBytes = await buildAttestationPdf({ shop, publisherSignaturePng, shopSignaturePng });
+            const pdfBuffer = Buffer.from(pdfBytes);
+
+            // Save the signed PDF
+            const attestationPath = getAttestationPath(shopId);
+            try {
+                fs.writeFileSync(attestationPath, pdfBuffer);
+            } catch (error) {
+                const code = (error as NodeJS.ErrnoException).code;
+                if (code === 'EROFS' || code === 'EACCES') {
+                    return NextResponse.json(
+                        { error: 'Attestation storage is not writable in this environment' },
+                        { status: 503 }
+                    );
+                }
+                throw error;
+            }
+
+            // Save signature data + version to DB
+            await upsertParameter(connection, 'signatureData', signatureData);
+            await upsertParameter(connection, 'signatureVersion', majorVersion);
+
+            // Log audit event
+            await insertAuditEvent(connection, {
+                event_type: 'attestation_signed',
+                entity_type: 'attestation',
+                entity_id: 'nf525',
+                user_name: operatorName,
+                detail: `Electronic signature applied (version ${majorVersion}) for shop ${shopId || 'default'}`,
+            });
+
+            return NextResponse.json({ success: true });
+        } catch (error) {
+            console.error('Error signing attestation electronically:', error);
+            return NextResponse.json({ error: 'Failed to sign attestation' }, { status: 500 });
+        } finally {
+            await connection?.end();
+        }
+    }
+
+    // ── Form-data mode: file upload (backward compatible) ──
     try {
         const formData = await request.formData();
         const file = formData.get('file');
@@ -163,7 +313,6 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
         }
 
-        // Size validation
         if (file.size > MAX_UPLOAD_BYTES) {
             return NextResponse.json(
                 { error: `File too large (max ${MAX_UPLOAD_BYTES / 1024 / 1024} MB)` },
@@ -173,8 +322,6 @@ export async function POST(request: Request) {
 
         const fileBuffer = Buffer.from(await file.arrayBuffer());
 
-        // Magic-bytes validation: verify the file starts with %PDF-
-        // Don't trust the client-supplied MIME type alone.
         if (fileBuffer.length < 5 || !fileBuffer.subarray(0, 5).equals(PDF_MAGIC)) {
             return NextResponse.json({ error: 'File is not a valid PDF' }, { status: 400 });
         }
@@ -195,7 +342,6 @@ export async function POST(request: Request) {
             throw error;
         }
 
-        // Log audit event with the actual operator name
         connection = await getPosDb(shopId);
         await insertAuditEvent(connection, {
             event_type: 'attestation_signed',
@@ -215,7 +361,7 @@ export async function POST(request: Request) {
 }
 
 /**
- * DELETE — removes the signed attestation PDF (for re-signing after a version change).
+ * DELETE — removes the signed attestation PDF and clears signature data.
  *
  * Accepts an optional `changedBy` query parameter for the operator name.
  */
@@ -242,15 +388,25 @@ export async function DELETE(request: Request) {
             throw error;
         }
 
-        // Log audit event with the actual operator name
-        connection = await getPosDb(shopId);
-        await insertAuditEvent(connection, {
-            event_type: 'attestation_removed',
-            entity_type: 'attestation',
-            entity_id: 'nf525',
-            user_name: operatorName,
-            detail: `Signed attestation PDF removed for shop ${shopId || 'default'}`,
-        });
+        // Clear signature data from DB
+        try {
+            connection = await getPosDb(shopId);
+            await upsertParameter(connection, 'signatureData', '');
+            await upsertParameter(connection, 'signatureVersion', '');
+        } catch {
+            // Ignore DB errors
+        }
+
+        // Log audit event
+        if (connection) {
+            await insertAuditEvent(connection, {
+                event_type: 'attestation_removed',
+                entity_type: 'attestation',
+                entity_id: 'nf525',
+                user_name: operatorName,
+                detail: `Signed attestation PDF removed for shop ${shopId || 'default'}`,
+            });
+        }
 
         return NextResponse.json({ success: true });
     } catch (error) {

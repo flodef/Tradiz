@@ -52,11 +52,11 @@ export const CASH_KEYWORD = 'Espèces';
 // The deployer must customize these before building if they are the publisher.
 export const PUBLISHER = {
     raisonSociale: 'Tradiz',
-    representantNom: '',
-    representantPrenom: '',
+    representantNom: 'Stillnet',
+    representantPrenom: 'Flojito',
     contact: 'contact@tradiz.fr',
     licence: 'MIT',
-    ville: '',
+    ville: 'SAINT-NIC',
 } as const;
 
 // Internal payment methods that should not be displayed in admin UI
