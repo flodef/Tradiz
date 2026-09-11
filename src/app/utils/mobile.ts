@@ -41,6 +41,23 @@ const LONG_PRESS_MS = 500;
 const MOVE_TOLERANCE_PX = 10;
 
 /**
+ * Installs a one-shot document-level capture-phase click listener that
+ * swallows the next synthesized click. This prevents the click that
+ * browsers fire after touchend (which can land on a popup element that
+ * appeared under the finger) from accidentally interacting with it.
+ */
+export function suppressNextClick() {
+    const suppressDoc = (ev: MouseEvent) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        document.removeEventListener('click', suppressDoc, true);
+    };
+    document.addEventListener('click', suppressDoc, true);
+    // Clean up after a short window in case no click is synthesized.
+    setTimeout(() => document.removeEventListener('click', suppressDoc, true), 500);
+}
+
+/**
  * Returns touch event handlers that simulate a long-press → context-menu action
  * for touchscreen devices where the browser doesn't synthesise it (e.g. Windows
  * touchscreen desktops). Spread the returned handlers alongside `onContextMenu`.
@@ -77,14 +94,7 @@ export function useLongPressContextMenu(onContextMenu: () => void) {
                 // element (e.g. a popup close button that appeared under the
                 // finger). Suppress it at the document level so it can't
                 // accidentally interact with the newly-opened UI.
-                const suppressDoc = (ev: MouseEvent) => {
-                    ev.preventDefault();
-                    ev.stopPropagation();
-                    document.removeEventListener('click', suppressDoc, true);
-                };
-                document.addEventListener('click', suppressDoc, true);
-                // Clean up after a short window in case no click is synthesized.
-                setTimeout(() => document.removeEventListener('click', suppressDoc, true), 500);
+                suppressNextClick();
             }, LONG_PRESS_MS);
         },
         [onContextMenu]

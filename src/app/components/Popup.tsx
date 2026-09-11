@@ -3,7 +3,7 @@
 import { FC, useCallback, useEffect, useState, useRef } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { usePopup } from '../hooks/usePopup';
-import { useIsMobile, useIsMobileDevice } from '../utils/mobile';
+import { useIsMobile, useIsMobileDevice, isTouchDevice, suppressNextClick } from '../utils/mobile';
 import { CloseButton } from './CloseButton';
 import { getPopupStyles, getDesktopContainerStyles, getOptionHoverStyles, PopupVariant } from '../utils/popupStyles';
 
@@ -120,6 +120,18 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
             optionRefs.current[selectedIndex]?.scrollIntoView({ block: 'nearest' });
         }
     }, [selectedIndex]);
+
+    // On touch devices, the browser fires a native `contextmenu` event after a
+    // long-press, then synthesizes a `click` when the finger lifts. That click
+    // can land on a popup element (e.g. the close button) that appeared under
+    // the finger, instantly closing the popup. Suppress the synthesized click
+    // globally so this can't happen for ANY contextmenu-triggered popup.
+    useEffect(() => {
+        if (!isTouchDevice()) return;
+        const onContextMenu = () => suppressNextClick();
+        document.addEventListener('contextmenu', onContextMenu, true);
+        return () => document.removeEventListener('contextmenu', onContextMenu, true);
+    }, []);
 
     if (!isPopupOpen) return null;
 
