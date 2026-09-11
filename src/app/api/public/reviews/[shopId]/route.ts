@@ -90,14 +90,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ sho
     if (!userId || userId.length > 64) {
         return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
     }
-    if (!userName || userName.length > 100) {
-        return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+    if (userName.length < 3 || userName.length > 30) {
+        return NextResponse.json({ error: 'Le nom doit contenir entre 3 et 30 caractères' }, { status: 400 });
     }
-    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
-        return NextResponse.json({ error: 'Rating must be between 1 and 5' }, { status: 400 });
+    // Accept half-star ratings (0.5 increments)
+    if (!Number.isFinite(rating) || rating < 0.5 || rating > 5 || Math.round(rating * 2) !== rating * 2) {
+        return NextResponse.json({ error: 'La note doit être entre 0.5 et 5 (par demi-étoiles)' }, { status: 400 });
     }
-    if (comment.length > 2000) {
-        return NextResponse.json({ error: 'Comment is too long (max 2000 characters)' }, { status: 400 });
+    if (comment.length < 10 || comment.length > 1000) {
+        return NextResponse.json(
+            { error: 'Le commentaire doit contenir entre 10 et 1000 caractères' },
+            { status: 400 }
+        );
     }
 
     let connection: DbConnection | undefined;

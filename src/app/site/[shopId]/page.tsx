@@ -50,6 +50,7 @@ export default function SitePage() {
     const [honeypot, setHoneypot] = useState('');
     const [mapModalOpen, setMapModalOpen] = useState(false);
     const [hoursModalOpen, setHoursModalOpen] = useState(false);
+    const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchFocused, setSearchFocused] = useState(false);
     const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -432,6 +433,13 @@ export default function SitePage() {
                             >
                                 Nous trouver
                             </button>
+                            <span className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0" style={{ width: '2px' }} />
+                            <button
+                                onClick={() => setReviewsModalOpen(true)}
+                                className="px-1 py-2 text-base font-medium text-site-text hover:text-orange-600 transition-colors cursor-pointer"
+                            >
+                                Avis
+                            </button>
                         </div>
 
                         {/* Right side: search + open/closed badge + theme toggle */}
@@ -642,6 +650,15 @@ export default function SitePage() {
                                 className="px-4 py-2 text-base font-medium text-site-text hover:text-orange-600 text-left cursor-pointer"
                             >
                                 Nous trouver
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setReviewsModalOpen(true);
+                                    setMobileMenuOpen(false);
+                                }}
+                                className="px-4 py-2 text-base font-medium text-site-text hover:text-orange-600 text-left cursor-pointer"
+                            >
+                                Avis
                             </button>
                             <div className="px-4 py-2 text-xs font-semibold text-site-text-muted uppercase">
                                 Catégories
@@ -893,8 +910,13 @@ export default function SitePage() {
                 )}
             </main>
 
-            {/* Reviews */}
-            <Reviews shopId={shopId} googlePlaceId={data?.shop?.googlePlaceId} />
+            {/* Reviews modal */}
+            <Reviews
+                shopId={shopId}
+                googlePlaceId={data?.shop?.googlePlaceId}
+                open={reviewsModalOpen}
+                onClose={() => setReviewsModalOpen(false)}
+            />
 
             {/* Footer */}
             <footer className="bg-site-footer-bg text-site-footer-text py-8 px-6">

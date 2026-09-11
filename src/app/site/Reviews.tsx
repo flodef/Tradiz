@@ -1,16 +1,24 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
     IconStarFilled,
     IconStar,
+    IconStarHalfFilled,
     IconSend,
     IconExternalLink,
     IconBrandGoogle,
-    IconUser,
     IconAlertCircle,
+    IconX,
 } from '@tabler/icons-react';
 import { useReviewIdentity } from './useReviewIdentity';
+
+/* ───────────────────────────── Constants ───────────────────────────── */
+
+const NAME_MIN = 3;
+const NAME_MAX = 30;
+const COMMENT_MIN = 10;
+const COMMENT_MAX = 1000;
 
 /* ───────────────────────────── Types ───────────────────────────── */
 
@@ -38,26 +46,52 @@ function StarRating({
 }) {
     const [hover, setHover] = useState(0);
 
+    // Determine which icon to show for a given star position (1..5)
+    // given the current display value (hover or actual).
+    const displayValue = hover || value;
+
+    const handleClick = (star: number, half: boolean) => {
+        if (readOnly) return;
+        onChange?.(star - (half ? 0.5 : 0));
+    };
+
     return (
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5" role="radiogroup" aria-label="Note">
             {[1, 2, 3, 4, 5].map((star) => {
-                const filled = star <= (hover || value);
+                const filled = star <= Math.floor(displayValue);
+                const halfFilled = !filled && star - 0.5 <= displayValue;
                 return (
-                    <button
-                        key={star}
-                        type="button"
-                        disabled={readOnly}
-                        onClick={() => !readOnly && onChange?.(star)}
-                        onMouseEnter={() => !readOnly && setHover(star)}
-                        onMouseLeave={() => !readOnly && setHover(0)}
-                        className={`transition-transform ${readOnly ? 'cursor-default' : 'cursor-pointer hover:scale-110'}`}
-                    >
+                    <div key={star} className="relative inline-flex">
+                        {/* Left half (0.5) */}
+                        {!readOnly && (
+                            <button
+                                type="button"
+                                aria-label={`${star - 0.5} étoile${star - 0.5 > 1 ? 's' : ''}`}
+                                className="absolute left-0 top-0 h-full w-1/2 cursor-pointer z-10"
+                                onClick={() => handleClick(star, true)}
+                                onMouseEnter={() => setHover(star - 0.5)}
+                                onMouseLeave={() => setHover(0)}
+                            />
+                        )}
+                        {/* Right half (full) */}
+                        {!readOnly && (
+                            <button
+                                type="button"
+                                aria-label={`${star} étoile${star > 1 ? 's' : ''}`}
+                                className="absolute right-0 top-0 h-full w-1/2 cursor-pointer z-10"
+                                onClick={() => handleClick(star, false)}
+                                onMouseEnter={() => setHover(star)}
+                                onMouseLeave={() => setHover(0)}
+                            />
+                        )}
                         {filled ? (
                             <IconStarFilled size={size} className="text-amber-400" />
+                        ) : halfFilled ? (
+                            <IconStarHalfFilled size={size} className="text-amber-400" />
                         ) : (
                             <IconStar size={size} className="text-gray-300 dark:text-gray-600" />
                         )}
-                    </button>
+                    </div>
                 );
             })}
         </div>
@@ -97,6 +131,48 @@ function GoogleReviewsLink({ googlePlaceId }: { googlePlaceId?: string }) {
             Voir les avis sur Google
             <IconExternalLink size={14} />
         </a>
+    );
+}
+
+/* ───────────────────────────── Auto-growing textarea ───────────────────────────── */
+
+function AutoTextarea({
+    value,
+    onChange,
+    placeholder,
+    maxLength,
+    disabled,
+}: {
+    value: string;
+    onChange: (v: string) => void;
+    placeholder?: string;
+    maxLength?: number;
+    disabled?: boolean;
+}) {
+    const ref = useRef<HTMLTextAreaElement>(null);
+
+    const resize = useCallback(() => {
+        const el = ref.current;
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.height = `${el.scrollHeight}px`;
+    }, []);
+
+    useEffect(() => {
+        resize();
+    }, [value, resize]);
+
+    return (
+        <textarea
+            ref={ref}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            maxLength={maxLength}
+            disabled={disabled}
+            rows={1}
+            className="px-3 py-2 rounded-lg border border-site-border bg-site-bg text-site-text focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none transition-colors resize-none overflow-hidden min-h-11"
+        />
     );
 }
 
@@ -143,17 +219,35 @@ function UserReviewsSection({ shopId }: { shopId: string }) {
         }
     }, [isLoaded, identity]);
 
+    const validate = (): string | null => {
+        const name = nameInput.trim();
+        if (name.length < NAME_MIN) {
+            return `Le nom doit contenir au moins ${NAME_MIN} caractères.`;
+        }
+        if (name.length > NAME_MAX) {
+            return `Le nom ne peut pas dépasser ${NAME_MAX} caractères.`;
+        }
+        if (rating < 0.5 || rating > 5) {
+            return 'Veuillez sélectionner une note.';
+        }
+        const c = comment.trim();
+        if (c.length < COMMENT_MIN) {
+            return `Le commentaire doit contenir au moins ${COMMENT_MIN} caractères.`;
+        }
+        if (c.length > COMMENT_MAX) {
+            return `Le commentaire ne peut pas dépasser ${COMMENT_MAX} caractères.`;
+        }
+        return null;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
         setSuccess(false);
 
-        if (!nameInput.trim()) {
-            setError('Veuillez entrer votre nom.');
-            return;
-        }
-        if (rating < 1 || rating > 5) {
-            setError('Veuillez sélectionner une note de 1 à 5 étoiles.');
+        const validationError = validate();
+        if (validationError) {
+            setError(validationError);
             return;
         }
 
@@ -204,12 +298,12 @@ function UserReviewsSection({ shopId }: { shopId: string }) {
     }
 
     return (
-        <div className="bg-site-surface border border-site-border rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
+        <div className="space-y-6">
+            <div className="flex items-center justify-between">
                 <h3 className="font-bold text-lg">Avis des clients</h3>
                 {reviews.length > 0 && (
                     <div className="flex items-center gap-2">
-                        <StarRating value={Math.round(averageRating)} readOnly size={16} />
+                        <StarRating value={Math.round(averageRating * 2) / 2} readOnly size={16} />
                         <span className="text-sm font-semibold">{averageRating.toFixed(1)}</span>
                         <span className="text-sm text-site-text-secondary">({reviews.length} avis)</span>
                     </div>
@@ -217,36 +311,42 @@ function UserReviewsSection({ shopId }: { shopId: string }) {
             </div>
 
             {/* Review form */}
-            <form onSubmit={handleSubmit} className="mb-6 space-y-3">
-                <div className="flex flex-col gap-2">
-                    <label className="text-sm font-medium text-site-text-secondary">Votre nom</label>
-                    <input
-                        type="text"
-                        value={nameInput}
-                        onChange={(e) => setNameInput(e.target.value)}
-                        placeholder="Entrez votre nom"
-                        maxLength={100}
-                        className="px-3 py-2 rounded-lg border border-site-border bg-site-bg text-site-text focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none transition-colors"
-                        disabled={submitting}
-                    />
+            <form onSubmit={handleSubmit} className="space-y-3">
+                {/* Name + rating on same line */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex flex-col gap-1 flex-1">
+                        <label className="text-sm font-medium text-site-text-secondary">Votre nom</label>
+                        <input
+                            type="text"
+                            value={nameInput}
+                            onChange={(e) => setNameInput(e.target.value)}
+                            placeholder="Entrez votre nom"
+                            minLength={NAME_MIN}
+                            maxLength={NAME_MAX}
+                            className="px-3 py-2 rounded-lg border border-site-border bg-site-bg text-site-text focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none transition-colors"
+                            disabled={submitting}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <label className="text-sm font-medium text-site-text-secondary">Votre note</label>
+                        <div className="flex items-center h-11">
+                            <StarRating value={rating} onChange={setRating} size={28} />
+                        </div>
+                    </div>
                 </div>
-                <div className="flex flex-col gap-2">
-                    <label className="text-sm font-medium text-site-text-secondary">Votre note</label>
-                    <StarRating value={rating} onChange={setRating} size={28} />
-                </div>
-                <div className="flex flex-col gap-2">
-                    <label className="text-sm font-medium text-site-text-secondary">
-                        Votre commentaire (optionnel)
-                    </label>
-                    <textarea
+
+                <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-site-text-secondary">Votre commentaire</label>
+                    <AutoTextarea
                         value={comment}
-                        onChange={(e) => setComment(e.target.value)}
+                        onChange={setComment}
                         placeholder="Partagez votre expérience…"
-                        maxLength={2000}
-                        rows={3}
-                        className="px-3 py-2 rounded-lg border border-site-border bg-site-bg text-site-text focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none transition-colors resize-none"
+                        maxLength={COMMENT_MAX}
                         disabled={submitting}
                     />
+                    <span className="text-xs text-site-text-secondary text-right">
+                        {comment.trim().length}/{COMMENT_MAX}
+                    </span>
                 </div>
 
                 {error && (
@@ -263,7 +363,7 @@ function UserReviewsSection({ shopId }: { shopId: string }) {
 
                 <button
                     type="submit"
-                    disabled={submitting || rating === 0 || !nameInput.trim()}
+                    disabled={submitting}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 text-white font-medium hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                     {submitting ? (
@@ -293,9 +393,6 @@ function UserReviewsSection({ shopId }: { shopId: string }) {
                     {reviews.map((review) => (
                         <div key={review.id} className="border-l-2 border-amber-200 dark:border-amber-800 pl-4">
                             <div className="flex items-center gap-2 mb-1">
-                                <div className="w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                                    <IconUser size={16} className="text-amber-600 dark:text-amber-400" />
-                                </div>
                                 <span className="font-medium text-sm">{review.userName}</span>
                                 <StarRating value={review.rating} readOnly size={12} />
                             </div>
@@ -311,16 +408,41 @@ function UserReviewsSection({ shopId }: { shopId: string }) {
     );
 }
 
-/* ───────────────────────────── Main Component ───────────────────────────── */
+/* ───────────────────────────── Main Component (Modal) ───────────────────────────── */
 
-export default function Reviews({ shopId, googlePlaceId }: { shopId: string; googlePlaceId?: string }) {
+export default function Reviews({
+    shopId,
+    googlePlaceId,
+    open,
+    onClose,
+}: {
+    shopId: string;
+    googlePlaceId?: string;
+    open: boolean;
+    onClose: () => void;
+}) {
+    if (!open) return null;
+
     return (
-        <section className="max-w-6xl mx-auto px-4 md:px-6 pb-12">
-            <h2 className="text-2xl md:text-3xl font-bold text-center mb-8">Avis & Notes</h2>
-            <div className="flex flex-col items-center gap-6">
-                <UserReviewsSection shopId={shopId} />
-                <GoogleReviewsLink googlePlaceId={googlePlaceId} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-site-overlay p-4" onClick={onClose}>
+            <div
+                className="bg-site-surface rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-bold text-site-text">Avis & Notes</h3>
+                    <button onClick={onClose} className="text-site-text-muted hover:text-site-text cursor-pointer">
+                        <IconX size={24} />
+                    </button>
+                </div>
+
+                <div className="flex flex-col gap-6">
+                    <UserReviewsSection shopId={shopId} />
+                    <div className="flex justify-center">
+                        <GoogleReviewsLink googlePlaceId={googlePlaceId} />
+                    </div>
+                </div>
             </div>
-        </section>
+        </div>
     );
 }

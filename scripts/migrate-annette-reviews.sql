@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS dc.reviews (
     shop_id VARCHAR(50) NOT NULL,
     user_id VARCHAR(64) NOT NULL,
     user_name VARCHAR(100) NOT NULL,
-    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    rating NUMERIC(2,1) NOT NULL CHECK (rating >= 0.5 AND rating <= 5),
     comment TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (shop_id, user_id)
