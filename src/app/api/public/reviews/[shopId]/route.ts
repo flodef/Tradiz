@@ -146,3 +146,40 @@ export async function POST(request: Request, { params }: { params: Promise<{ sho
         await connection?.end();
     }
 }
+
+/** DELETE /api/public/reviews/[shopId] — delete a user's review */
+export async function DELETE(request: Request, { params }: { params: Promise<{ shopId: string }> }) {
+    const { shopId: rawShopId } = await params;
+    const shopId = rawShopId.toLowerCase();
+
+    if (!SHOP_IDS.includes(shopId as (typeof SHOP_IDS)[number])) {
+        return NextResponse.json({ error: 'Invalid shop' }, { status: 400 });
+    }
+
+    let body: { userId?: string };
+    try {
+        body = await request.json();
+    } catch {
+        return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    }
+
+    const userId = String(body.userId ?? '').trim();
+    if (!userId || userId.length > 64) {
+        return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
+    }
+
+    let connection: DbConnection | undefined;
+    try {
+        connection = await getMainDb(shopId);
+        const deleteQuery = connection.isPostgreSQL
+            ? `DELETE FROM dc.reviews WHERE shop_id = $1 AND user_id = $2`
+            : `DELETE FROM reviews WHERE shop_id = ? AND user_id = ?`;
+        await connection.execute(deleteQuery, [shopId, userId]);
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting review:', error);
+        return NextResponse.json({ error: 'Failed to delete review' }, { status: 500 });
+    } finally {
+        await connection?.end();
+    }
+}

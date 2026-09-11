@@ -194,7 +194,14 @@ export default function SitePage() {
     const openingHours = data?.openingHours;
     const shopEmail = data?.shop?.email ?? '';
 
-    const openStatus = useMemo(() => getOpenStatus(openingHours), [openingHours]);
+    // Refresh open/closed status every minute so "Ouvre dans Xh" stays accurate
+    const [now, setNow] = useState(() => new Date());
+    useEffect(() => {
+        const id = setInterval(() => setNow(new Date()), 60000);
+        return () => clearInterval(id);
+    }, []);
+
+    const openStatus = useMemo(() => getOpenStatus(openingHours, now), [openingHours, now]);
 
     const handleContactSubmit = useCallback(
         async (e: React.FormEvent) => {
@@ -701,11 +708,8 @@ export default function SitePage() {
                     className="bg-site-surface border-b border-site-border px-4 py-2 flex items-center justify-center gap-2 sticky top-14 z-10"
                     data-status-banner
                 >
-                    {hasOpeningHours ? (
-                        <button
-                            onClick={() => setHoursModalOpen(true)}
-                            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-                        >
+                    {(() => {
+                        const statusBadge = (
                             <span
                                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
                                     openStatus.isOpen ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
@@ -716,51 +720,38 @@ export default function SitePage() {
                                 />
                                 {openStatus.isOpen ? 'Ouvert' : 'Fermé'}
                             </span>
-                            {openStatus.nextChange && (
-                                <span className="text-xs text-site-text-secondary">
-                                    {openStatus.nextType === 'close'
-                                        ? openStatus.minutesUntilChange != null && openStatus.minutesUntilChange <= 60
-                                            ? `Ferme dans ${formatDuration(openStatus.minutesUntilChange)}`
-                                            : `Ferme à ${formatTimeDisplay(openStatus.nextChange)}`
-                                        : openStatus.nextDay === 0
-                                          ? openStatus.minutesUntilChange != null && openStatus.minutesUntilChange <= 60
-                                              ? `Ouvre dans ${formatDuration(openStatus.minutesUntilChange)}`
-                                              : `Ouvre aujourd'hui à ${formatTimeDisplay(openStatus.nextChange)}`
-                                          : openStatus.nextDay === 1
-                                            ? `Ouvre demain à ${formatTimeDisplay(openStatus.nextChange)}`
-                                            : `Ouvre ${DAY_NAMES[(jsDayToAdminIndex(new Date().getDay()) + openStatus.nextDay) % 7]} à ${formatTimeDisplay(openStatus.nextChange)}`}
-                                </span>
-                            )}
-                        </button>
-                    ) : (
-                        <>
-                            <span
-                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                                    openStatus.isOpen ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                }`}
+                        );
+                        const statusText = openStatus.nextChange
+                            ? openStatus.nextType === 'close'
+                                ? openStatus.minutesUntilChange != null && openStatus.minutesUntilChange <= 180
+                                    ? `Ferme dans ${formatDuration(openStatus.minutesUntilChange)}`
+                                    : `Ferme à ${formatTimeDisplay(openStatus.nextChange)}`
+                                : openStatus.nextDay === 0
+                                  ? openStatus.minutesUntilChange != null && openStatus.minutesUntilChange <= 180
+                                      ? `Ouvre dans ${formatDuration(openStatus.minutesUntilChange)}`
+                                      : `Ouvre aujourd'hui à ${formatTimeDisplay(openStatus.nextChange)}`
+                                  : openStatus.nextDay === 1
+                                    ? `Ouvre demain à ${formatTimeDisplay(openStatus.nextChange)}`
+                                    : `Ouvre ${DAY_NAMES[(jsDayToAdminIndex(now.getDay()) + openStatus.nextDay) % 7]} à ${formatTimeDisplay(openStatus.nextChange)}`
+                            : null;
+                        const statusInfo = statusText && (
+                            <span className="text-xs text-site-text-secondary">{statusText}</span>
+                        );
+                        return hasOpeningHours ? (
+                            <button
+                                onClick={() => setHoursModalOpen(true)}
+                                className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
                             >
-                                <span
-                                    className={`w-2 h-2 rounded-full ${openStatus.isOpen ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}
-                                />
-                                {openStatus.isOpen ? 'Ouvert' : 'Fermé'}
-                            </span>
-                            {openStatus.nextChange && (
-                                <span className="text-xs text-site-text-secondary">
-                                    {openStatus.nextType === 'close'
-                                        ? openStatus.minutesUntilChange != null && openStatus.minutesUntilChange <= 60
-                                            ? `Ferme dans ${formatDuration(openStatus.minutesUntilChange)}`
-                                            : `Ferme à ${formatTimeDisplay(openStatus.nextChange)}`
-                                        : openStatus.nextDay === 0
-                                          ? openStatus.minutesUntilChange != null && openStatus.minutesUntilChange <= 60
-                                              ? `Ouvre dans ${formatDuration(openStatus.minutesUntilChange)}`
-                                              : `Ouvre aujourd'hui à ${formatTimeDisplay(openStatus.nextChange)}`
-                                          : openStatus.nextDay === 1
-                                            ? `Ouvre demain à ${formatTimeDisplay(openStatus.nextChange)}`
-                                            : `Ouvre ${DAY_NAMES[(jsDayToAdminIndex(new Date().getDay()) + openStatus.nextDay) % 7]} à ${formatTimeDisplay(openStatus.nextChange)}`}
-                                </span>
-                            )}
-                        </>
-                    )}
+                                {statusBadge}
+                                {statusInfo}
+                            </button>
+                        ) : (
+                            <>
+                                {statusBadge}
+                                {statusInfo}
+                            </>
+                        );
+                    })()}
                 </div>
             )}
 

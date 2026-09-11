@@ -65,8 +65,7 @@ export function stockColor(stock: number): string {
     return 'text-green-600';
 }
 
-export function getOpenStatus(openingHours: OpeningHours | undefined) {
-    const now = new Date();
+export function getOpenStatus(openingHours: OpeningHours | undefined, now: Date = new Date()) {
     const jsDay = now.getDay();
     const adminDay = jsDayToAdminIndex(jsDay);
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -81,7 +80,10 @@ export function getOpenStatus(openingHours: OpeningHours | undefined) {
             minutesUntilChange: null as number | null,
         };
 
-    const todaySlots = openingHours[adminDay] ?? [];
+    // Sort today's slots by opening time to handle unsorted data
+    const todaySlots = [...(openingHours[adminDay] ?? [])].sort(
+        (a, b) => timeToMinutes(a.open) - timeToMinutes(b.open)
+    );
     for (const slot of todaySlots) {
         const openMin = timeToMinutes(slot.open);
         let closeMin = timeToMinutes(slot.close);
@@ -90,7 +92,7 @@ export function getOpenStatus(openingHours: OpeningHours | undefined) {
         const adjustedCurrent =
             currentMinutes < openMin && closeMin > 24 * 60 ? currentMinutes + 24 * 60 : currentMinutes;
         if (adjustedCurrent >= openMin && adjustedCurrent < closeMin) {
-            const minutesUntilClose = closeMin - currentMinutes;
+            const minutesUntilClose = closeMin - adjustedCurrent;
             return {
                 isOpen: true,
                 status: 'open' as const,
@@ -104,7 +106,7 @@ export function getOpenStatus(openingHours: OpeningHours | undefined) {
 
     for (let i = 0; i < 7; i++) {
         const checkDay = (adminDay + i) % 7;
-        const slots = openingHours[checkDay] ?? [];
+        const slots = [...(openingHours[checkDay] ?? [])].sort((a, b) => timeToMinutes(a.open) - timeToMinutes(b.open));
         for (const slot of slots) {
             const openMin = timeToMinutes(slot.open);
             if (i === 0 && openMin <= currentMinutes) continue;

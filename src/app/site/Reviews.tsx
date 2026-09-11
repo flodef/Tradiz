@@ -10,6 +10,7 @@ import {
     IconBrandGoogle,
     IconAlertCircle,
     IconX,
+    IconTrash,
 } from '@tabler/icons-react';
 import { useReviewIdentity } from './useReviewIdentity';
 
@@ -21,6 +22,8 @@ const COMMENT_MIN = 10;
 const COMMENT_MAX = 1000;
 // Show only the first N characters of a comment before collapsing
 const COMMENT_PREVIEW = 180;
+// localStorage key prefix for review draft (persists form data across refreshes)
+const DRAFT_KEY_PREFIX = 'tradiz_review_draft_';
 
 /* ───────────────────────────── Types ───────────────────────────── */
 
@@ -38,11 +41,13 @@ interface PublicReview {
 function StarRating({
     value,
     onChange,
+    onBlur,
     size = 20,
     readOnly = false,
 }: {
     value: number;
     onChange?: (rating: number) => void;
+    onBlur?: () => void;
     size?: number;
     readOnly?: boolean;
 }) {
@@ -58,7 +63,13 @@ function StarRating({
     };
 
     return (
-        <div className="flex items-center gap-0.5" role="radiogroup" aria-label="Note">
+        <div
+            className="flex items-center gap-0.5"
+            role="radiogroup"
+            aria-label="Note"
+            onBlur={onBlur}
+            onMouseLeave={() => setHover(0)}
+        >
             {[1, 2, 3, 4, 5].map((star) => {
                 const filled = star <= Math.floor(displayValue);
                 const halfFilled = !filled && star - 0.5 <= displayValue;
@@ -72,7 +83,6 @@ function StarRating({
                                 className="absolute left-0 top-0 h-full w-1/2 cursor-pointer z-10"
                                 onClick={() => handleClick(star, true)}
                                 onMouseEnter={() => setHover(star - 0.5)}
-                                onMouseLeave={() => setHover(0)}
                             />
                         )}
                         {/* Right half (full) */}
@@ -83,7 +93,6 @@ function StarRating({
                                 className="absolute right-0 top-0 h-full w-1/2 cursor-pointer z-10"
                                 onClick={() => handleClick(star, false)}
                                 onMouseEnter={() => setHover(star)}
-                                onMouseLeave={() => setHover(0)}
                             />
                         )}
                         {filled ? (
@@ -105,6 +114,7 @@ function StarRating({
 function formatDate(dateStr: string): string {
     try {
         const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
         return date.toLocaleDateString('fr-FR', {
             day: 'numeric',
             month: 'long',
@@ -141,12 +151,14 @@ function GoogleReviewsLink({ googlePlaceId }: { googlePlaceId?: string }) {
 function AutoTextarea({
     value,
     onChange,
+    onBlur,
     placeholder,
     maxLength,
     disabled,
 }: {
     value: string;
     onChange: (v: string) => void;
+    onBlur?: () => void;
     placeholder?: string;
     maxLength?: number;
     disabled?: boolean;
@@ -169,6 +181,7 @@ function AutoTextarea({
             ref={ref}
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onBlur={onBlur}
             placeholder={placeholder}
             maxLength={maxLength}
             disabled={disabled}
@@ -215,7 +228,6 @@ function UserReviewsSection({
 }) {
     const { identity, isLoaded, saveIdentity, updateName } = useReviewIdentity();
     const [reviews, setReviews] = useState<PublicReview[]>([]);
-    const [averageRating, setAverageRating] = useState(0);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -225,16 +237,47 @@ function UserReviewsSection({
     const [nameInput, setNameInput] = useState('');
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
+    const [deleting, setDeleting] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
+
+    // Shop-scoped draft key (one draft per shop)
+    const draftKey = `${DRAFT_KEY_PREFIX}${shopId}`;
 
     // Check if current user already has a review
     const userExistingReview = identity ? reviews.find((r) => r.userId === identity.userId) : null;
+
+    // Load draft from localStorage on mount (persists form data across refreshes)
+    useEffect(() => {
+        try {
+            const stored = localStorage.getItem(draftKey);
+            if (stored) {
+                const draft = JSON.parse(stored) as { name?: string; rating?: number; comment?: string };
+                if (draft.name) setNameInput(draft.name);
+                if (draft.rating) setRating(draft.rating);
+                if (draft.comment) setComment(draft.comment);
+            }
+        } catch {
+            // Ignore parse errors
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [draftKey]);
+
+    // Save draft to localStorage whenever form state changes (persists across refreshes)
+    useEffect(() => {
+        // Don't save empty drafts
+        if (!nameInput && rating === 0 && !comment) return;
+        try {
+            localStorage.setItem(draftKey, JSON.stringify({ name: nameInput, rating, comment }));
+        } catch {
+            // Ignore storage errors
+        }
+    }, [draftKey, nameInput, rating, comment]);
 
     const loadReviews = useCallback(() => {
         fetch(`/api/public/reviews/${shopId}`)
             .then((res) => res.json())
             .then((data) => {
                 setReviews(data.reviews || []);
-                setAverageRating(data.averageRating || 0);
                 onAverageChange(data.averageRating || 0, data.reviews?.length || 0);
             })
             .catch(() => {
@@ -248,12 +291,32 @@ function UserReviewsSection({
         loadReviews();
     }, [loadReviews]);
 
-    // Pre-fill name from identity
+    // Pre-fill name from identity — only if no draft
     useEffect(() => {
-        if (isLoaded && identity) {
-            setNameInput(identity.userName);
+        if (!isLoaded || !identity) return;
+        try {
+            const stored = localStorage.getItem(draftKey);
+            if (stored) return;
+        } catch {
+            // Ignore
         }
-    }, [isLoaded, identity]);
+        setNameInput(identity.userName);
+    }, [isLoaded, identity, draftKey]);
+
+    // Pre-fill form from existing review (for editing) — only if no draft
+    useEffect(() => {
+        if (!userExistingReview) return;
+        // If a draft exists, it was already loaded on mount and takes priority
+        try {
+            const stored = localStorage.getItem(draftKey);
+            if (stored) return;
+        } catch {
+            // Ignore
+        }
+        setNameInput(userExistingReview.userName);
+        setRating(userExistingReview.rating);
+        setComment(userExistingReview.comment);
+    }, [userExistingReview, draftKey]);
 
     const validate = (): string | null => {
         const name = nameInput.trim();
@@ -316,11 +379,49 @@ function UserReviewsSection({
             setSuccess(true);
             setComment('');
             setRating(0);
+            // Clear draft after successful submit
+            try {
+                localStorage.removeItem(draftKey);
+            } catch {
+                // Ignore
+            }
             loadReviews();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!identity) return;
+        setDeleting(true);
+        setError(null);
+        try {
+            const res = await fetch(`/api/public/reviews/${shopId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: identity.userId }),
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || 'Erreur lors de la suppression.');
+            }
+            setConfirmDelete(false);
+            // Clear draft and reset form after deletion
+            try {
+                localStorage.removeItem(draftKey);
+            } catch {
+                // Ignore
+            }
+            setRating(0);
+            setComment('');
+            setNameInput(identity.userName);
+            loadReviews();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -336,95 +437,164 @@ function UserReviewsSection({
     return (
         <div className="space-y-6">
             {/* Review form */}
-            <form onSubmit={handleSubmit} className="space-y-3">
-                {/* Name + rating on same line */}
-                <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="flex flex-col gap-1 flex-1">
-                        <label className="text-sm font-medium text-site-text-secondary">Votre nom</label>
-                        <input
-                            type="text"
-                            value={nameInput}
-                            onChange={(e) => setNameInput(e.target.value)}
-                            placeholder="Entrez votre nom"
-                            minLength={NAME_MIN}
-                            maxLength={NAME_MAX}
-                            className="px-3 py-2 rounded-lg border border-site-border bg-site-bg text-site-text focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none transition-colors"
-                            disabled={submitting}
-                        />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <label className="text-sm font-medium text-site-text-secondary">Votre note</label>
-                        <div className="flex items-center h-11">
-                            <StarRating value={rating} onChange={setRating} size={28} />
+            <div>
+                <h4 className="font-semibold text-base text-site-text mb-3">
+                    {userExistingReview ? 'Modifier mon avis' : 'Laisser un avis'}
+                </h4>
+                <form onSubmit={handleSubmit} noValidate className="space-y-3">
+                    {/* Name + rating on same line */}
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="flex flex-col gap-1 flex-1">
+                            <label className="text-sm font-medium text-site-text-secondary">Votre nom</label>
+                            <input
+                                type="text"
+                                value={nameInput}
+                                onChange={(e) => setNameInput(e.target.value)}
+                                placeholder="Entrez votre nom"
+                                minLength={NAME_MIN}
+                                maxLength={NAME_MAX}
+                                className="px-3 py-2 rounded-lg border border-site-border bg-site-bg text-site-text focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none transition-colors"
+                                disabled={submitting}
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-sm font-medium text-site-text-secondary">Votre note</label>
+                            <div className="flex items-center h-11">
+                                <StarRating value={rating} onChange={setRating} size={28} />
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div className="flex flex-col gap-1">
-                    <label className="text-sm font-medium text-site-text-secondary">Votre commentaire</label>
-                    <AutoTextarea
-                        value={comment}
-                        onChange={setComment}
-                        placeholder="Partagez votre expérience…"
-                        maxLength={COMMENT_MAX}
-                        disabled={submitting}
-                    />
-                    <span className="text-xs text-site-text-secondary text-right">
-                        {comment.trim().length}/{COMMENT_MAX}
-                    </span>
-                </div>
-
-                {error && (
-                    <div className="flex items-center gap-2 text-sm text-red-500">
-                        <IconAlertCircle size={16} />
-                        <span>{error}</span>
+                    <div className="flex flex-col gap-1">
+                        <label className="text-sm font-medium text-site-text-secondary">Votre commentaire</label>
+                        <AutoTextarea
+                            value={comment}
+                            onChange={setComment}
+                            placeholder="Partagez votre expérience…"
+                            maxLength={COMMENT_MAX}
+                            disabled={submitting}
+                        />
+                        <span className="text-xs text-site-text-secondary text-right">
+                            {comment.trim().length}/{COMMENT_MAX}
+                        </span>
                     </div>
-                )}
-                {success && (
-                    <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                        <span>Merci ! Votre avis a été publié.</span>
-                    </div>
-                )}
 
-                <button
-                    type="submit"
-                    disabled={submitting}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 text-white font-medium hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                    {submitting ? (
-                        <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            Envoi…
-                        </>
-                    ) : (
-                        <>
-                            <IconSend size={16} />
-                            {userExistingReview ? 'Modifier mon avis' : 'Publier mon avis'}
-                        </>
+                    {error && (
+                        <div className="flex items-start gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-lg px-3 py-2">
+                            <IconAlertCircle size={16} className="shrink-0 mt-0.5" />
+                            <span>{error}</span>
+                        </div>
                     )}
-                </button>
-                {userExistingReview && !submitting && (
-                    <p className="text-xs text-site-text-secondary">
-                        Vous avez déjà publié un avis. Un nouvel envoi le remplacera.
-                    </p>
-                )}
-            </form>
+                    {success && (
+                        <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                            <span>Merci ! Votre avis a été publié.</span>
+                        </div>
+                    )}
+
+                    <button
+                        type="submit"
+                        disabled={submitting}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 text-white font-medium hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        {submitting ? (
+                            <>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                Envoi…
+                            </>
+                        ) : (
+                            <>
+                                <IconSend size={16} />
+                                {userExistingReview ? 'Modifier mon avis' : 'Publier mon avis'}
+                            </>
+                        )}
+                    </button>
+                </form>
+            </div>
 
             {/* Reviews list */}
             {reviews.length === 0 ? (
                 <p className="text-site-text-secondary text-sm">Soyez le premier à laisser un avis !</p>
             ) : (
                 <div className="space-y-4">
-                    {reviews.map((review) => (
-                        <div key={review.id} className="border-l-2 border-amber-200 dark:border-amber-800 pl-4">
-                            <div className="flex items-center gap-2 mb-1">
-                                <span className="font-medium text-sm">{review.userName}</span>
-                                <StarRating value={review.rating} readOnly size={12} />
+                    <h4 className="font-semibold text-base text-site-text">Avis des clients</h4>
+                    {reviews.map((review) => {
+                        const isOwn = identity?.userId === review.userId;
+                        return (
+                            <div key={review.id} className="border-l-2 border-amber-200 dark:border-amber-800 pl-4">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-medium text-sm">{review.userName}</span>
+                                    <StarRating value={review.rating} readOnly size={12} />
+                                    {isOwn && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setConfirmDelete(true)}
+                                            disabled={deleting}
+                                            title="Supprimer mon avis"
+                                            className="ml-auto p-1 text-site-text-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                        >
+                                            {deleting ? (
+                                                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                            ) : (
+                                                <IconTrash size={20} />
+                                            )}
+                                        </button>
+                                    )}
+                                </div>
+                                {review.comment && <ReviewComment text={review.comment} />}
+                                <p className="text-xs text-site-text-secondary/60 mt-1">
+                                    {formatDate(review.createdAt)}
+                                </p>
                             </div>
-                            {review.comment && <ReviewComment text={review.comment} />}
-                            <p className="text-xs text-site-text-secondary/60 mt-1">{formatDate(review.createdAt)}</p>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* Delete confirmation popup */}
+            {confirmDelete && (
+                <div
+                    className="fixed inset-0 z-60 flex items-center justify-center bg-site-overlay p-4"
+                    onClick={() => !deleting && setConfirmDelete(false)}
+                >
+                    <div
+                        className="bg-site-surface rounded-2xl shadow-xl max-w-sm w-full p-6"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex flex-col items-center gap-4 text-center">
+                            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center">
+                                <IconTrash size={24} className="text-red-500" />
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-lg text-site-text">Supprimer votre avis ?</h4>
+                                <p className="text-sm text-site-text-secondary mt-1">Cette action est irréversible.</p>
+                            </div>
+                            <div className="flex gap-3 w-full">
+                                <button
+                                    type="button"
+                                    onClick={() => setConfirmDelete(false)}
+                                    disabled={deleting}
+                                    className="flex-1 px-4 py-2 rounded-lg border border-site-border bg-site-bg text-site-text font-medium hover:bg-site-surface-hover disabled:opacity-50 transition-colors cursor-pointer"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleDelete}
+                                    disabled={deleting}
+                                    className="flex-1 px-4 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center justify-center gap-2"
+                                >
+                                    {deleting ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                            Suppression…
+                                        </>
+                                    ) : (
+                                        'Supprimer'
+                                    )}
+                                </button>
+                            </div>
                         </div>
-                    ))}
+                    </div>
                 </div>
             )}
         </div>
@@ -452,6 +622,16 @@ export default function Reviews({
         setCount(c);
     }, []);
 
+    // Close on Escape key
+    useEffect(() => {
+        if (!open) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [open, onClose]);
+
     if (!open) return null;
 
     return (
@@ -462,12 +642,12 @@ export default function Reviews({
             >
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
-                        <h3 className="text-xl font-bold text-site-text">Avis & Notes</h3>
+                        <h3 className="text-xl font-bold text-site-text">Avis</h3>
                         {count > 0 && (
                             <div className="flex items-center gap-2">
                                 <StarRating value={Math.round(average * 2) / 2} readOnly size={16} />
                                 <span className="text-sm font-semibold">{average.toFixed(1)}</span>
-                                <span className="text-sm text-site-text-secondary">({count})</span>
+                                <span className="text-sm text-site-text-secondary">({count} avis)</span>
                             </div>
                         )}
                     </div>

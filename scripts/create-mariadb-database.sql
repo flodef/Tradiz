@@ -567,7 +567,7 @@ CREATE TABLE IF NOT EXISTS `reviews` (
   `shop_id` varchar(50) NOT NULL,
   `user_id` varchar(64) NOT NULL,
   `user_name` varchar(100) NOT NULL,
-  `rating` decimal(2,1) NOT NULL,
+  `rating` decimal(2,1) NOT NULL CHECK (`rating` >= 0.5 AND `rating` <= 5),
   `comment` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
