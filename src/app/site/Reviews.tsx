@@ -259,7 +259,6 @@ function UserReviewsSection({
         } catch {
             // Ignore parse errors
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [draftKey]);
 
     // Save draft to localStorage whenever form state changes (persists across refreshes)

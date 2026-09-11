@@ -44,7 +44,7 @@ git checkout dev
 ## What happens next
 
 1. The `build-windows-installer.yml` workflow fires on the new release
-2. It runs `bun electron:publish:win` which builds the installer and uploads `latest-ia32.yml` + assets to the GitHub release
+2. It runs `bun electron:publish:win` which builds the installer and uploads `latest.yml` + assets to the GitHub release
 3. The auto-updater in existing POS installations polls the GitHub releases feed, sees the new version, and prompts the user to update
 
 ## Verifying
@@ -61,15 +61,15 @@ gh release view "v${VERSION}"
 
 Build installers locally to copy directly to the POS without relying on GitHub Actions.
 
-## Windows (ia32 + x64)
+## Windows (x64)
 
 ```bash
 bun electron:dist:win:ci
 ```
 
-Output: `dist/Tradiz-<version>-win-ia32.exe` and `dist/Tradiz-<version>-win-x64.exe`
+Output: `dist/Tradiz-<version>-win-x64.exe`
 
-Copy the `ia32` installer to the POS (32-bit Oxhoo) and run it.
+Copy the `x64` installer to the POS and run it.
 
 ## Linux (x64)
 
@@ -83,5 +83,5 @@ Output: `dist/Tradiz-<version>-linux-x86_64.AppImage` and `dist/Tradiz-<version>
 
 ```bash
 # Adjust the path to match your POS network share / USB mount
-cp dist/Tradiz-$(bun -e 'console.log(require("./package.json").version)')-win-ia32.exe /media/usb/
+cp dist/Tradiz-$(bun -e 'console.log(require("./package.json").version)')-win-x64.exe /media/usb/
 ```

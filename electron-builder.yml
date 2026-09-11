@@ -60,7 +60,6 @@ win:
         - target: nsis
           arch:
               - x64
-              - ia32
     artifactName: ${productName}-${version}-win-${arch}.${ext}
     icon: public/icons/icons-512.png
 nsis:

@@ -4,9 +4,8 @@
 
 1. Téléchargez l'installateur correspondant à votre matériel depuis [GitHub Actions](https://github.com/flodef/Tradiz/actions/workflows/build-windows-installer.yml) :
     - **`tradiz-windows-installer-x64`** pour Windows 64-bit
-    - **`tradiz-windows-installer-ia32`** pour Windows 32-bit
 2. Décompressez le fichier `.zip` téléchargé.
-3. Exécutez le fichier `Tradiz-<version>-win.exe` (ou `Tradiz-<version>-win-ia32.exe`).
+3. Exécutez le fichier `Tradiz-<version>-win-x64.exe`.
 4. Suivez l'assistant d'installation.
 
 ## 2. Configurer l'environnement (.env.local)
@@ -17,7 +16,7 @@ L'application a besoin d'un fichier `.env.local` pour fonctionner. Ce fichier co
 
 Le fichier `.env.local` doit être placé dans le **dossier de données utilisateur** de Tradiz :
 
--   **Windows** : `C:\Users\<votre-utilisateur>\AppData\Roaming\Tradiz\.env.local`
+- **Windows** : `C:\Users\<votre-utilisateur>\AppData\Roaming\Tradiz\.env.local`
 
 ### Comment le créer
 
@@ -61,9 +60,9 @@ TRADIZ_FULLSCREEN=true
 
 L'application démarre **automatiquement en plein écran** par défaut.
 
--   Pour désactiver le plein écran, ajoutez `TRADIZ_FULLSCREEN=false` dans le fichier `.env.local`.
--   En plein écran, appuyez sur **F11** pour basculer entre plein écran et fenêtré.
--   Appuyez sur **Alt+F4** pour quitter l'application.
+- Pour désactiver le plein écran, ajoutez `TRADIZ_FULLSCREEN=false` dans le fichier `.env.local`.
+- En plein écran, appuyez sur **F11** pour basculer entre plein écran et fenêtré.
+- Appuyez sur **Alt+F4** pour quitter l'application.
 
 ## 4. Configurer les périphériques
 
@@ -98,10 +97,10 @@ Si aucun écran n'est connecté, l'application fonctionne normalement — les me
 
 L'écran affiche :
 
--   **En veille** : le nom du commerce (ou « Fermé » si la caisse est fermée)
--   **En transaction** : le produit en cours et le total
--   **En paiement** : un message spécifique au moyen de paiement et le total
--   **Après paiement** : le rendu monnaie
+- **En veille** : le nom du commerce (ou « Fermé » si la caisse est fermée)
+- **En transaction** : le produit en cours et le total
+- **En paiement** : un message spécifique au moyen de paiement et le total
+- **Après paiement** : le rendu monnaie
 
 ## 5. Lancer au démarrage de Windows
 
