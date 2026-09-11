@@ -41,6 +41,7 @@ export default function SitePage() {
     const [showSoldOut, setShowSoldOut] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [productsDropdownOpen, setProductsDropdownOpen] = useState(false);
+    const [aboutDropdownOpen, setAboutDropdownOpen] = useState(false);
     const [contactModalOpen, setContactModalOpen] = useState(false);
     const [contactForm, setContactForm] = useState({ name: '', email: '', subject: '', message: '' });
     const [contactSending, setContactSending] = useState(false);
@@ -406,40 +407,50 @@ export default function SitePage() {
                             </div>
                             <span className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0" style={{ width: '2px' }} />
 
-                            <button
-                                onClick={() => setContactModalOpen(true)}
-                                className="px-1 py-2 text-base font-medium text-site-text hover:text-orange-600 transition-colors cursor-pointer"
+                            {/* About dropdown */}
+                            <div
+                                className="relative"
+                                onMouseEnter={() => setAboutDropdownOpen(true)}
+                                onMouseLeave={() => setAboutDropdownOpen(false)}
                             >
-                                Nous contacter
-                            </button>
-                            <span className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0" style={{ width: '2px' }} />
-                            {hasOpeningHours && (
-                                <>
-                                    <button
-                                        onClick={() => setHoursModalOpen(true)}
-                                        className="px-1 py-2 text-base font-medium text-site-text hover:text-orange-600 transition-colors cursor-pointer"
-                                    >
-                                        Horaires d&apos;ouverture
-                                    </button>
-                                    <span
-                                        className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0"
-                                        style={{ width: '2px' }}
+                                <button className="px-1 py-2 text-base font-medium text-site-text hover:text-orange-600 transition-colors flex items-center gap-1 cursor-pointer">
+                                    À propos de nous
+                                    <IconChevronDown
+                                        size={16}
+                                        className={`transition-transform ${aboutDropdownOpen ? 'rotate-180' : ''}`}
                                     />
-                                </>
-                            )}
-                            <button
-                                onClick={() => setMapModalOpen(true)}
-                                className="px-1 py-2 text-base font-medium text-site-text hover:text-orange-600 transition-colors cursor-pointer"
-                            >
-                                Nous trouver
-                            </button>
-                            <span className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0" style={{ width: '2px' }} />
-                            <button
-                                onClick={() => setReviewsModalOpen(true)}
-                                className="px-1 py-2 text-base font-medium text-site-text hover:text-orange-600 transition-colors cursor-pointer"
-                            >
-                                Avis
-                            </button>
+                                </button>
+                                {aboutDropdownOpen && (
+                                    <div className="absolute top-full left-0 bg-site-surface rounded-lg shadow-lg border border-site-border py-2 min-w-48">
+                                        <button
+                                            onClick={() => setContactModalOpen(true)}
+                                            className="block w-full text-left px-4 py-2 text-base text-site-text-secondary hover:bg-site-surface-hover hover:text-orange-600 transition-colors cursor-pointer"
+                                        >
+                                            Nous contacter
+                                        </button>
+                                        {hasOpeningHours && (
+                                            <button
+                                                onClick={() => setHoursModalOpen(true)}
+                                                className="block w-full text-left px-4 py-2 text-base text-site-text-secondary hover:bg-site-surface-hover hover:text-orange-600 transition-colors cursor-pointer"
+                                            >
+                                                Horaires d'ouverture
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => setMapModalOpen(true)}
+                                            className="block w-full text-left px-4 py-2 text-base text-site-text-secondary hover:bg-site-surface-hover hover:text-orange-600 transition-colors cursor-pointer"
+                                        >
+                                            Nous trouver
+                                        </button>
+                                        <button
+                                            onClick={() => setReviewsModalOpen(true)}
+                                            className="block w-full text-left px-4 py-2 text-base text-site-text-secondary hover:bg-site-surface-hover hover:text-orange-600 transition-colors cursor-pointer"
+                                        >
+                                            Avis
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Right side: search + open/closed badge + theme toggle */}
@@ -622,12 +633,16 @@ export default function SitePage() {
                                     )}
                                 </button>
                             )}
+                            {/* À propos de nous */}
+                            <div className="px-4 py-2 text-xs font-semibold text-site-text-muted uppercase">
+                                À propos de nous
+                            </div>
                             <button
                                 onClick={() => {
                                     setContactModalOpen(true);
                                     setMobileMenuOpen(false);
                                 }}
-                                className="px-4 py-2 text-base font-medium text-site-text hover:text-orange-600 text-left cursor-pointer"
+                                className="px-6 py-1.5 text-base text-site-text-secondary hover:text-orange-600 text-left cursor-pointer"
                             >
                                 Nous contacter
                             </button>
@@ -637,9 +652,9 @@ export default function SitePage() {
                                         setHoursModalOpen(true);
                                         setMobileMenuOpen(false);
                                     }}
-                                    className="px-4 py-2 text-base font-medium text-site-text hover:text-orange-600 text-left cursor-pointer"
+                                    className="px-6 py-1.5 text-base text-site-text-secondary hover:text-orange-600 text-left cursor-pointer"
                                 >
-                                    Horaires d&apos;ouverture
+                                    Horaires d'ouverture
                                 </button>
                             )}
                             <button
@@ -647,7 +662,7 @@ export default function SitePage() {
                                     setMapModalOpen(true);
                                     setMobileMenuOpen(false);
                                 }}
-                                className="px-4 py-2 text-base font-medium text-site-text hover:text-orange-600 text-left cursor-pointer"
+                                className="px-6 py-1.5 text-base text-site-text-secondary hover:text-orange-600 text-left cursor-pointer"
                             >
                                 Nous trouver
                             </button>
@@ -656,7 +671,7 @@ export default function SitePage() {
                                     setReviewsModalOpen(true);
                                     setMobileMenuOpen(false);
                                 }}
-                                className="px-4 py-2 text-base font-medium text-site-text hover:text-orange-600 text-left cursor-pointer"
+                                className="px-6 py-1.5 text-base text-site-text-secondary hover:text-orange-600 text-left cursor-pointer"
                             >
                                 Avis
                             </button>

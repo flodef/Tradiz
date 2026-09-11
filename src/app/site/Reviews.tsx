@@ -19,6 +19,8 @@ const NAME_MIN = 3;
 const NAME_MAX = 30;
 const COMMENT_MIN = 10;
 const COMMENT_MAX = 1000;
+// Show only the first N characters of a comment before collapsing
+const COMMENT_PREVIEW = 180;
 
 /* ───────────────────────────── Types ───────────────────────────── */
 
@@ -176,9 +178,41 @@ function AutoTextarea({
     );
 }
 
+/* ───────────────────────────── Collapsible comment ───────────────────────────── */
+
+function ReviewComment({ text }: { text: string }) {
+    const [expanded, setExpanded] = useState(false);
+    const isLong = text.length > COMMENT_PREVIEW;
+
+    if (!isLong) {
+        return <p className="text-sm text-site-text-secondary mt-1">{text}</p>;
+    }
+
+    return (
+        <div className="mt-1">
+            <p className="text-sm text-site-text-secondary">
+                {expanded ? text : `${text.slice(0, COMMENT_PREVIEW).trimEnd()}…`}
+            </p>
+            <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400 cursor-pointer mt-1"
+            >
+                {expanded ? 'Voir moins' : 'Voir plus'}
+            </button>
+        </div>
+    );
+}
+
 /* ───────────────────────────── User Reviews Section ───────────────────────────── */
 
-function UserReviewsSection({ shopId }: { shopId: string }) {
+function UserReviewsSection({
+    shopId,
+    onAverageChange,
+}: {
+    shopId: string;
+    onAverageChange: (avg: number, count: number) => void;
+}) {
     const { identity, isLoaded, saveIdentity, updateName } = useReviewIdentity();
     const [reviews, setReviews] = useState<PublicReview[]>([]);
     const [averageRating, setAverageRating] = useState(0);
@@ -201,12 +235,14 @@ function UserReviewsSection({ shopId }: { shopId: string }) {
             .then((data) => {
                 setReviews(data.reviews || []);
                 setAverageRating(data.averageRating || 0);
+                onAverageChange(data.averageRating || 0, data.reviews?.length || 0);
             })
             .catch(() => {
                 setReviews([]);
+                onAverageChange(0, 0);
             })
             .finally(() => setLoading(false));
-    }, [shopId]);
+    }, [shopId, onAverageChange]);
 
     useEffect(() => {
         loadReviews();
@@ -299,17 +335,6 @@ function UserReviewsSection({ shopId }: { shopId: string }) {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h3 className="font-bold text-lg">Avis des clients</h3>
-                {reviews.length > 0 && (
-                    <div className="flex items-center gap-2">
-                        <StarRating value={Math.round(averageRating * 2) / 2} readOnly size={16} />
-                        <span className="text-sm font-semibold">{averageRating.toFixed(1)}</span>
-                        <span className="text-sm text-site-text-secondary">({reviews.length} avis)</span>
-                    </div>
-                )}
-            </div>
-
             {/* Review form */}
             <form onSubmit={handleSubmit} className="space-y-3">
                 {/* Name + rating on same line */}
@@ -396,9 +421,7 @@ function UserReviewsSection({ shopId }: { shopId: string }) {
                                 <span className="font-medium text-sm">{review.userName}</span>
                                 <StarRating value={review.rating} readOnly size={12} />
                             </div>
-                            {review.comment && (
-                                <p className="text-sm text-site-text-secondary mt-1">{review.comment}</p>
-                            )}
+                            {review.comment && <ReviewComment text={review.comment} />}
                             <p className="text-xs text-site-text-secondary/60 mt-1">{formatDate(review.createdAt)}</p>
                         </div>
                     ))}
@@ -421,23 +444,40 @@ export default function Reviews({
     open: boolean;
     onClose: () => void;
 }) {
+    const [average, setAverage] = useState(0);
+    const [count, setCount] = useState(0);
+
+    const handleAverageChange = useCallback((avg: number, c: number) => {
+        setAverage(avg);
+        setCount(c);
+    }, []);
+
     if (!open) return null;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-site-overlay p-4" onClick={onClose}>
             <div
-                className="bg-site-surface rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto"
+                className="bg-site-surface rounded-2xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-bold text-site-text">Avis & Notes</h3>
+                    <div className="flex items-center gap-3">
+                        <h3 className="text-xl font-bold text-site-text">Avis & Notes</h3>
+                        {count > 0 && (
+                            <div className="flex items-center gap-2">
+                                <StarRating value={Math.round(average * 2) / 2} readOnly size={16} />
+                                <span className="text-sm font-semibold">{average.toFixed(1)}</span>
+                                <span className="text-sm text-site-text-secondary">({count})</span>
+                            </div>
+                        )}
+                    </div>
                     <button onClick={onClose} className="text-site-text-muted hover:text-site-text cursor-pointer">
                         <IconX size={24} />
                     </button>
                 </div>
 
                 <div className="flex flex-col gap-6">
-                    <UserReviewsSection shopId={shopId} />
+                    <UserReviewsSection shopId={shopId} onAverageChange={handleAverageChange} />
                     <div className="flex justify-center">
                         <GoogleReviewsLink googlePlaceId={googlePlaceId} />
                     </div>
