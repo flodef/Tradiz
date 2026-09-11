@@ -38,10 +38,21 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
     // Deterministic guard: the Enter keydown that opened the popup must be released (keyup)
     // before Enter can select an option, preventing accidental confirmation.
     const enterArmedRef = useRef(false);
+    // On touch devices, a long-press fires contextmenu (opening the popup), then the
+    // browser synthesizes a click when the finger lifts. That click can land on the
+    // popup's close button or overlay, instantly closing it. We ignore clicks on the
+    // overlay/close button for a brief moment after the popup opens to prevent this.
+    const justOpenedRef = useRef(false);
 
     const close = useCallback(() => {
         closePopup(() => popupAction?.(-1, ''));
     }, [closePopup, popupAction]);
+
+    // Guarded close: ignores clicks that happen right after the popup opens (touch devices)
+    const closeFromClick = useCallback(() => {
+        if (justOpenedRef.current) return;
+        close();
+    }, [close]);
 
     const handleClick = useCallback(
         (index: number, option: string) => {
@@ -65,6 +76,18 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
             optionRefs.current = [];
             // Disarm Enter until the key that opened the popup has been released.
             enterArmedRef.current = false;
+            // On touch devices, ignore clicks on overlay/close button for 400ms after
+            // opening to prevent the synthesized click after a long-press from closing
+            // the popup immediately.
+            if (isTouchDevice()) {
+                justOpenedRef.current = true;
+                const timer = setTimeout(() => {
+                    justOpenedRef.current = false;
+                }, 400);
+                return () => clearTimeout(timer);
+            }
+        } else {
+            justOpenedRef.current = false;
         }
     }, [isPopupOpen]);
 
@@ -142,7 +165,7 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
 
     return (
         <div className="fixed inset-0 z-100 grid">
-            <div onClick={close} className={styles.overlay}></div>
+            <div onClick={closeFromClick} className={styles.overlay}></div>
             <div
                 id="popup" // id is mandatory for the screenshot to work
                 className={twMerge(
@@ -155,7 +178,7 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                         <div className={styles.title}>{popupTitle}</div>
                         <div className="flex items-center">
                             {popupHeaderExtra}
-                            <CloseButton onClose={close} />
+                            <CloseButton onClose={closeFromClick} />
                         </div>
                     </div>
                 </div>
