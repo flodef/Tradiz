@@ -182,14 +182,14 @@ export async function buildAttestationPdf(data: AttestationData): Promise<Uint8A
     drawWrapped('Détail des conditions satisfaites :', MARGIN, FONT_SIZE, true);
     spacer(0.5);
     drawWrapped(
-        '• Inaltérabilité : hachage chaîné SHA-256 des transactions et des événements d\u2019audit ; les modifications de données fiscales sont tracées par des événements d\u2019audit chaînés.',
+        '• Inaltérabilité : hachage chaîné SHA-256 des transactions (incluant le contenu des lignes : articles, quantités, prix, TVA, remises) et des événements d\u2019audit ; les hachages de clôtures sont ancrés à la chaîne des transactions (premier et dernier hachage de la période) ; les modifications de données fiscales sont tracées par des événements d\u2019audit chaînés.',
         MARGIN,
         FONT_SIZE,
         false,
         10
     );
     drawWrapped(
-        '• Sécurisation : les données de caisse sont protégées par hachage ; les opérations sensibles (suppression, modification, clôture) sont journalisées dans audit_events avec horodatage et opérateur.',
+        '• Sécurisation : les données de caisse sont protégées par hachage ; les opérations sensibles (suppression, modification, clôture) sont journalisées dans audit_events avec horodatage et opérateur ; les changements de prix et de taux de TVA des articles sont historisés (product_price_history).',
         MARGIN,
         FONT_SIZE,
         false,
@@ -224,14 +224,21 @@ export async function buildAttestationPdf(data: AttestationData): Promise<Uint8A
     drawWrapped('Limites connues à la date de génération :', MARGIN, FONT_SIZE, true);
     spacer(0.5);
     drawWrapped(
-        '• La vérification de l\u2019intégrité des clôtures et des événements d\u2019audit est en cours d\u2019implémentation ; seul le chaînage des transactions est actuellement vérifié par l\u2019outil de contrôle.',
+        '• L\u2019outil de vérification d\u2019intégrité contrôle l\u2019ensemble des chaînes (transactions, clôtures journalières/mensuelles/annuelles, événements d\u2019audit). Une modification légitime post-clôture d\u2019un jour scellé (ex. annulation tardive) est détectée comme un écart : c\u2019est le comportement attendu du scellement, la trace d\u2019audit explique le changement.',
         MARGIN,
         FONT_SIZE,
         false,
         10
     );
     drawWrapped(
-        '• Les lignes de transactions (articles, quantités, prix, TVA) ne sont pas incluses dans le hachage actuel ; cette inclusion est prévue dans une version ultérieure.',
+        '• Les protections au niveau base de données (rôle applicatif restreint, triggers append-only) sont fournies sous forme de scripts et doivent être appliquées par l\u2019exploitant sur sa base ; sans elles, un administrateur de la base peut modifier directement les tables, ce qui resterait détectable par la vérification d\u2019intégrité.',
+        MARGIN,
+        FONT_SIZE,
+        false,
+        10
+    );
+    drawWrapped(
+        '• Les lignes de transactions sont physiquement supprimées puis réinsérées lors des synchronisations ; un événement d\u2019audit transaction_items_replaced conserve l\u2019état antérieur.',
         MARGIN,
         FONT_SIZE,
         false,
