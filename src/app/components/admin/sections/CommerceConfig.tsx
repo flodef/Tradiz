@@ -178,10 +178,15 @@ export default function CommerceConfig({
     const [attestationStatus, setAttestationStatus] = useState<'checking' | 'signed' | 'unsigned' | 'fail'>('checking');
     const [needsResign, setNeedsResign] = useState(false);
 
-    // Build the public storefront URL for this shop.
-    // In production: https://shop.tradiz.fr/<shopId>
-    // In local/dev: not available (shop.tradiz.fr is a production-only host)
-    const publicSiteUrl = shopId ? `https://shop.tradiz.fr/${shopId}` : '';
+    // Build the public site URL for this shop.
+    // - Demo shop: https://demo.tradiz.fr (POS demo, not a public catalog)
+    // - Public shops (annette, gds): https://shop.tradiz.fr/<shopId> (public catalog)
+    // - Other shops: https://<shopId>.tradiz.fr (subdomain-based POS)
+    const publicSiteUrl = shopId
+        ? shopId === 'demo'
+            ? 'https://demo.tradiz.fr'
+            : `https://shop.tradiz.fr/${shopId}`
+        : '';
 
     useEffect(() => {
         fetch('/api/version')

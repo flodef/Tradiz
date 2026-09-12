@@ -1,13 +1,6 @@
 import { adminHeaderStyle, PAYMENT_TYPES } from '@/app/utils/constants';
 import { Currency, PaymentMethod } from '@/app/utils/interfaces';
-import {
-    closestCenter,
-    DndContext,
-    DragEndEvent,
-    PointerSensor,
-    useSensor,
-    useSensors,
-} from '@dnd-kit/core';
+import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
@@ -227,13 +220,8 @@ export default function PaymentsConfig({
         [notifyParent]
     );
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 10 } })
-    );
-    const currencyOptions = React.useMemo(
-        () => currencies.map(({ symbol }) => ({ value: symbol, label: symbol })),
-        [currencies]
-    );
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 10 } }));
+    const currencyOptions = React.useMemo(() => currencies.map(({ label }) => ({ value: label, label })), [currencies]);
 
     return (
         <SectionCard
