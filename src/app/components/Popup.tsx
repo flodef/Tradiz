@@ -182,7 +182,7 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                         </div>
                     </div>
                 </div>
-                <div>
+                <div role="listbox">
                     {popupOptions.map((option, index) => {
                         const validOption = option?.toString().trim();
                         const validIndex = validIndexByRenderIndex[index];
@@ -191,6 +191,8 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                         }
                         return (
                             <div
+                                role="option"
+                                aria-selected={validIndex === selectedIndex}
                                 ref={(el) => {
                                     optionRefs.current[validIndex] = el;
                                 }}

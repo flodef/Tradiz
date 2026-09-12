@@ -119,9 +119,12 @@ export default function TimePicker({ value, onChange, disabled, className = '' }
         } else if (e.key === 'ArrowLeft') {
             e.preventDefault();
             setActiveSegment('hour');
-        } else if (e.key === 'ArrowRight' || e.key === 'Tab') {
+        } else if (e.key === 'ArrowRight' || (e.key === 'Tab' && !e.shiftKey && activeSegment === 'hour')) {
             e.preventDefault();
             setActiveSegment('minute');
+        } else if (e.key === 'Tab' && e.shiftKey && activeSegment === 'minute') {
+            e.preventDefault();
+            setActiveSegment('hour');
         } else if (e.key === 'Escape') {
             e.preventDefault();
             setOpen(false);

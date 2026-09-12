@@ -197,7 +197,6 @@ export default function CompaniesConfig({
     onChange: (data: Company[]) => void;
     onSave?: (data: Company[]) => void;
     onCancel?: () => void;
-    hasChanges?: boolean;
     isReadOnly?: boolean;
     isLoading?: boolean;
     isOpen?: boolean;

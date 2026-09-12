@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 
 export function useLocalStorage<T>(key: string, defaultState: T): [T, Dispatch<SetStateAction<T>>] {
-    const state = useState<T>(defaultState);
+    const [value, setValue] = useState<T>(defaultState);
     const isFirstRenderRef = useRef(true);
+    // Hold the latest value in a ref so the read effect can compare against it
+    // without depending on `value` (which would re-run it on every change).
+    const valueRef = useRef(value);
+    valueRef.current = value;
 
     // Read from localStorage on mount and when key changes.
     // This runs only on the client (useEffect doesn't run on the server),
@@ -10,12 +14,12 @@ export function useLocalStorage<T>(key: string, defaultState: T): [T, Dispatch<S
     // access localStorage.
     useEffect(() => {
         try {
-            const value = localStorage.getItem(key);
-            if (value) {
-                const parsed = JSON.parse(value) as T;
+            const stored = localStorage.getItem(key);
+            if (stored) {
+                const parsed = JSON.parse(stored) as T;
                 // Only update if different to avoid unnecessary re-renders
-                if (JSON.stringify(parsed) !== JSON.stringify(state[0])) {
-                    state[1](parsed);
+                if (JSON.stringify(parsed) !== JSON.stringify(valueRef.current)) {
+                    setValue(parsed);
                 }
             }
         } catch (error) {
@@ -23,7 +27,6 @@ export function useLocalStorage<T>(key: string, defaultState: T): [T, Dispatch<S
                 console.error(error);
             }
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [key]);
 
     // Write to localStorage on state change (skip first render to avoid
@@ -39,17 +42,17 @@ export function useLocalStorage<T>(key: string, defaultState: T): [T, Dispatch<S
             return;
         }
         try {
-            if (state[0] === undefined) {
+            if (value === undefined) {
                 localStorage.removeItem(key);
             } else {
-                localStorage.setItem(key, JSON.stringify(state[0]));
+                localStorage.setItem(key, JSON.stringify(value));
             }
         } catch (error) {
             if (typeof window !== 'undefined') {
                 console.error(error);
             }
         }
-    }, [state[0], key]);
+    }, [value, key]);
 
-    return state;
+    return [value, setValue];
 }

@@ -133,6 +133,9 @@ export const SignaturePad: FC<SignaturePadProps> = ({ onChange, width = 400, hei
         <div className="flex flex-col items-center gap-2">
             <canvas
                 ref={canvasRef}
+                role="img"
+                aria-label="Zone de signature — dessinez votre signature"
+                tabIndex={disabled ? -1 : 0}
                 onPointerDown={startDraw}
                 onPointerMove={draw}
                 onPointerUp={endDraw}

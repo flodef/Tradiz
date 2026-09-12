@@ -1,7 +1,7 @@
 'use client';
 
 import { adminInputStyle, adminTextStyle } from '@/app/utils/constants';
-import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { twMerge } from 'tailwind-merge';
 import { IconChevronDown, IconCheck } from '@tabler/icons-react';
@@ -28,6 +28,8 @@ export default function AdminSelect({
     ...props
 }: AdminSelectProps) {
     const [open, setOpen] = useState(false);
+    const [activeIndex, setActiveIndex] = useState(-1);
+    const listId = useId();
     const containerRef = useRef<HTMLDivElement>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
@@ -79,31 +81,50 @@ export default function AdminSelect({
         return () => document.removeEventListener('mousedown', handleClick);
     }, [open]);
 
-    // Scroll selected option into view when opening
+    // Initialize the active option to the selected one when opening
     useEffect(() => {
-        if (!open || !listRef.current) return;
-        const el = listRef.current.querySelector('[data-selected="true"]') as HTMLElement | null;
+        if (!open) return;
+        const idx = options.findIndex((opt) => String(opt.value) === selectedValue);
+        setActiveIndex(idx >= 0 ? idx : 0);
+    }, [open, options, selectedValue]);
+
+    // Scroll the active option into view (on open and while navigating)
+    useEffect(() => {
+        if (!open || !listRef.current || activeIndex < 0) return;
+        const el = listRef.current.querySelector(`[data-index="${activeIndex}"]`) as HTMLElement | null;
         if (el) {
             requestAnimationFrame(() => el.scrollIntoView({ block: 'nearest' }));
         }
-    }, [open]);
+    }, [open, activeIndex]);
 
     const handleSelect = (optValue: string) => {
         setOpen(false);
         onChange?.({ target: { value: optValue, name: props.name } } as React.ChangeEvent<HTMLSelectElement>);
     };
 
-    // Keyboard navigation
+    // Keyboard navigation (combobox/listbox pattern — focus stays on the trigger)
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (isReadOnly) return;
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            setOpen((o) => !o);
+            if (open && activeIndex >= 0 && options[activeIndex]) {
+                handleSelect(String(options[activeIndex].value));
+            } else {
+                setOpen((o) => !o);
+            }
         } else if (e.key === 'Escape') {
             setOpen(false);
-        } else if (!open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        } else if (e.key === 'ArrowDown') {
             e.preventDefault();
-            setOpen(true);
+            if (!open) setOpen(true);
+            else setActiveIndex((i) => Math.min(i + 1, options.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (!open) setOpen(true);
+            else setActiveIndex((i) => Math.max(i - 1, 0));
+        } else if (e.key === 'Tab') {
+            // Let focus leave the component naturally — just close the list
+            setOpen(false);
         }
     };
 
@@ -115,6 +136,11 @@ export default function AdminSelect({
                     ref={buttonRef}
                     type="button"
                     disabled={isReadOnly}
+                    role="combobox"
+                    aria-expanded={open}
+                    aria-haspopup="listbox"
+                    aria-controls={open ? `${listId}-list` : undefined}
+                    aria-activedescendant={open && activeIndex >= 0 ? `${listId}-option-${activeIndex}` : undefined}
                     onClick={() => !isReadOnly && setOpen((o) => !o)}
                     onKeyDown={handleKeyDown}
                     className={twMerge(
@@ -136,22 +162,31 @@ export default function AdminSelect({
                     createPortal(
                         <div
                             ref={listRef}
+                            id={`${listId}-list`}
+                            role="listbox"
                             style={dropdownStyle}
                             className="z-9999 max-h-60 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg scrollbar-thin"
                         >
                             {options.map((opt, idx) => {
                                 const isSelected = String(opt.value) === selectedValue;
+                                const isActive = idx === activeIndex;
                                 return (
                                     <button
                                         key={`${opt.value}-${idx}`}
+                                        id={`${listId}-option-${idx}`}
                                         type="button"
+                                        role="option"
+                                        aria-selected={isSelected}
+                                        data-index={idx}
                                         data-selected={isSelected}
+                                        tabIndex={-1}
+                                        onMouseEnter={() => setActiveIndex(idx)}
                                         onClick={() => handleSelect(String(opt.value))}
                                         className={`flex items-center justify-between w-full text-left px-3 py-1.5 text-sm transition-colors cursor-pointer ${
                                             isSelected
                                                 ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
                                                 : 'text-writing-light dark:text-writing-dark hover:bg-gray-100 dark:hover:bg-gray-700'
-                                        }`}
+                                        } ${isActive && !isSelected ? 'bg-gray-100 dark:bg-gray-700' : ''}`}
                                     >
                                         <span>{opt.label}</span>
                                         {isSelected && <IconCheck size={16} className="shrink-0" />}

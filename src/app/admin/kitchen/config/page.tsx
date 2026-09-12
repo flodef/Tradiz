@@ -1413,7 +1413,6 @@ export default function SettingsPage() {
                 onChange={setCompaniesConfig}
                 onSave={handleCompaniesSave}
                 onCancel={handleCancel}
-                hasChanges={hasCompaniesChanges}
                 isReadOnly={isReadOnly}
                 isLoading={isSavingCompanies}
                 isOpen={openSection === 'companies'}

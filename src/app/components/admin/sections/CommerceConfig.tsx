@@ -69,12 +69,13 @@ function ImageUploadField({
     previewClassName: string;
 }) {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { openFullscreenPopup } = usePopup();
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
         if (file.size > MAX_IMAGE_SIZE) {
-            alert('Image trop lourde (max 512 Ko). Veuillez choisir une image plus petite.');
+            openFullscreenPopup('Image trop lourde (max 512 Ko). Veuillez choisir une image plus petite.', ['OK']);
             e.target.value = '';
             return;
         }

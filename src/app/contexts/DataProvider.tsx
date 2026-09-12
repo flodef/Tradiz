@@ -882,13 +882,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     });
                 }
             };
-            reader.onerror = (error) => {
-                alert(error);
+            reader.onerror = () => {
+                openFullscreenPopup('Erreur lors de la lecture du fichier.', ['OK']);
             };
 
             reader.readAsText(file);
         },
-        [setLocalStorageItem]
+        [setLocalStorageItem, openFullscreenPopup]
     );
 
     const processTransactions = useCallback(
