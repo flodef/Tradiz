@@ -9,9 +9,12 @@ export const metadata = {
     title: 'Tradiz',
     description: 'Caisse enregistreuse merveilleuse',
     icons: {
-        icon: '/icons/favicon.ico',
-        shortcut: '/icons/favicon.ico',
-        apple: '/icons/favicon.ico',
+        icon: [
+            { url: '/icons/favicon.png', type: 'image/png' },
+            { url: '/icons/favicon.ico', type: 'image/x-icon' },
+        ],
+        shortcut: '/icons/favicon.png',
+        apple: '/icons/favicon.png',
     },
 };
 
