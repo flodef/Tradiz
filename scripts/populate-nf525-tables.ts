@@ -30,6 +30,18 @@ const EXCLUDED = ['EFFACÉE', 'ANNULÉE', 'SUPPRIMÉE', 'EN ATTENTE', 'EN COURS'
 const CANCEL = ['EFFACÉE', 'ANNULÉE', 'SUPPRIMÉE'];
 const REFUND = 'REMBOURSEMENT';
 
+// pg parses DATE columns into Date objects at local midnight — toISOString()
+// would shift the day back by the UTC offset. Format with local components.
+function dateStr(v: unknown): string {
+    if (v instanceof Date) {
+        const y = v.getFullYear();
+        const m = String(v.getMonth() + 1).padStart(2, '0');
+        const d = String(v.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+    return String(v).slice(0, 10);
+}
+
 interface Daily {
     ticket_count: number;
     total_amount: number;
@@ -49,6 +61,10 @@ interface Period {
     monthly_closure_count?: number;
 }
 
+// Money columns are NUMERIC(14,2) — hash the value as stored (rounded to
+// cents), not the full-precision JS sum, or verification would mismatch.
+const round2 = (v: number) => Math.round(v * 100) / 100;
+
 function dailyHash(date: string, t: Daily, prev: string | null, firstTx: string, lastTx: string): string {
     return createHash('sha256')
         .update(
@@ -56,13 +72,13 @@ function dailyHash(date: string, t: Daily, prev: string | null, firstTx: string,
                 prev || '',
                 date,
                 t.ticket_count,
-                t.total_amount,
-                t.total_ht,
-                t.total_tva,
+                round2(t.total_amount),
+                round2(t.total_ht),
+                round2(t.total_tva),
                 t.cancellation_count,
-                t.cancellation_amount,
+                round2(t.cancellation_amount),
                 t.refund_count,
-                t.refund_amount,
+                round2(t.refund_amount),
                 firstTx,
                 lastTx,
             ].join('|')
@@ -76,9 +92,9 @@ function periodHash(p: string, t: Period, prev: string | null, firstChild: strin
                 prev || '',
                 p,
                 t.ticket_count,
-                t.total_amount,
-                t.total_ht,
-                t.total_tva,
+                round2(t.total_amount),
+                round2(t.total_ht),
+                round2(t.total_tva),
                 t.daily_closure_count ?? t.monthly_closure_count ?? 0,
                 firstChild,
                 lastChild,
@@ -159,11 +175,22 @@ async function main() {
             }
             if (!isDry) {
                 log('🗑️  Clearing...', 'blue');
-                await db.query(
-                    'TRUNCATE daily_closures, monthly_closures, annual_closures, perpetual_totals RESTART IDENTITY CASCADE'
-                );
+                // TRUNCATE + repopulation run inside one transaction: in PG a
+                // TRUNCATE is transactional, so a failure mid-way rolls back
+                // instead of leaving the closure tables empty.
+                await db.query('BEGIN');
+                try {
+                    await db.query(
+                        'TRUNCATE daily_closures, monthly_closures, annual_closures, perpetual_totals RESTART IDENTITY CASCADE'
+                    );
+                } catch (e) {
+                    await db.query('ROLLBACK');
+                    throw e;
+                }
             }
         }
+
+        let txOpen = !isDry && (eD[0]?.c ?? 0) + (eM[0]?.c ?? 0) + (eA[0]?.c ?? 0) > 0;
 
         // 1. Single query for all daily totals
         log('\n📅 Fetching daily totals...', 'blue');
@@ -186,7 +213,7 @@ async function main() {
         );
         const txAnchors = new Map<string, { first: string; last: string }>();
         for (const r of anchorRows) {
-            const d = r.d instanceof Date ? r.d.toISOString().substring(0, 10) : String(r.d);
+            const d = dateStr(r.d);
             const a = txAnchors.get(d);
             if (a) a.last = r.hash ?? '';
             else txAnchors.set(d, { first: r.hash ?? '', last: r.hash ?? '' });
@@ -205,7 +232,7 @@ async function main() {
         const dailyIns: { d: string; t: Daily; h: string; p: string | null }[] = [];
         for (let i = 0; i < dr.length; i++) {
             const r = dr[i];
-            const date = r.dt instanceof Date ? r.dt.toISOString().substring(0, 10) : String(r.dt);
+            const date = dateStr(r.dt);
             const t: Daily = {
                 ticket_count: Number(r.tc) || 0,
                 total_amount: Number(r.ta) || 0,
@@ -431,6 +458,11 @@ async function main() {
             log('  ✅ Inserted perpetual totals', 'green');
         }
 
+        if (txOpen) {
+            await db.query('COMMIT');
+            txOpen = false;
+        }
+
         // Summary
         log(`\n${isDry ? '🧪 Summary (dry run)' : '✨ Summary'}`, 'green');
         log(`  Daily closures:   ${dr.length}`, 'blue');
@@ -444,6 +476,14 @@ async function main() {
     } catch (error) {
         log('\n❌ Script failed:', 'red');
         console.error(error);
+        if (txOpen) {
+            try {
+                await db.query('ROLLBACK');
+                log('↩️  Rolled back — closure tables left untouched.', 'yellow');
+            } catch {
+                // rollback itself failed; nothing more to do
+            }
+        }
         await pool.end();
         process.exit(1);
     }

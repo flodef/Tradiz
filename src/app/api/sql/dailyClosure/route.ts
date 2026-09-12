@@ -117,6 +117,10 @@ async function getDayTransactionAnchors(
     };
 }
 
+// Money columns are NUMERIC(14,2) — hash the value as stored (rounded to
+// cents), not the full-precision aggregate, or verification would mismatch.
+const round2 = (v: number) => Math.round(v * 100) / 100;
+
 function generateClosureHash(
     date: string,
     totals: DailyTotals,
@@ -128,13 +132,13 @@ function generateClosureHash(
         previousHash || '',
         date,
         totals.ticket_count,
-        totals.total_amount,
-        totals.total_ht,
-        totals.total_tva,
+        round2(totals.total_amount),
+        round2(totals.total_ht),
+        round2(totals.total_tva),
         totals.cancellation_count,
-        totals.cancellation_amount,
+        round2(totals.cancellation_amount),
         totals.refund_count,
-        totals.refund_amount,
+        round2(totals.refund_amount),
         firstTxHash,
         lastTxHash,
     ].join('|');

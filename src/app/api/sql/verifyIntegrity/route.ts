@@ -111,6 +111,10 @@ function normalizeDate(value: unknown): string {
     return String(value ?? '').slice(0, 10);
 }
 
+// Money columns are NUMERIC(14,2) — canonicalize to cents so the recomputed
+// hash matches what was stored, regardless of the source precision.
+const round2 = (v: number) => Math.round(v * 100) / 100;
+
 function recomputeDailyClosureHash(
     row: ClosureRow,
     previousHash: string | null,
@@ -121,13 +125,13 @@ function recomputeDailyClosureHash(
         previousHash || '',
         normalizeDate(row.closure_date),
         String(row.ticket_count ?? 0),
-        String(Number(row.total_amount ?? 0)),
-        String(Number(row.total_ht ?? 0)),
-        String(Number(row.total_tva ?? 0)),
+        String(round2(Number(row.total_amount ?? 0))),
+        String(round2(Number(row.total_ht ?? 0))),
+        String(round2(Number(row.total_tva ?? 0))),
         String(row.cancellation_count ?? 0),
-        String(Number(row.cancellation_amount ?? 0)),
+        String(round2(Number(row.cancellation_amount ?? 0))),
         String(row.refund_count ?? 0),
-        String(Number(row.refund_amount ?? 0)),
+        String(round2(Number(row.refund_amount ?? 0))),
         firstTxHash,
         lastTxHash,
     ].join('|');
@@ -145,9 +149,9 @@ function recomputePeriodClosureHash(
         previousHash || '',
         period,
         String(row.ticket_count ?? 0),
-        String(Number(row.total_amount ?? 0)),
-        String(Number(row.total_ht ?? 0)),
-        String(Number(row.total_tva ?? 0)),
+        String(round2(Number(row.total_amount ?? 0))),
+        String(round2(Number(row.total_ht ?? 0))),
+        String(round2(Number(row.total_tva ?? 0))),
         String(row.daily_closure_count ?? row.monthly_closure_count ?? 0),
         firstChildHash,
         lastChildHash,
