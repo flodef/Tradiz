@@ -13,6 +13,7 @@ const RESERVED_PATHS = new Set([
     'admin',
     'stats',
     'site',
+    'landing',
     'mini',
     'icons',
     'fonts',

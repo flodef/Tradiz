@@ -101,7 +101,7 @@ export function siteThemeScript(): string {
     return `(function () {
     var root = document.documentElement;
     var path = window.location.pathname || '';
-    if (path.indexOf('/site') !== 0) return;
+    if (path.indexOf('/site') !== 0 && path.indexOf('/landing') !== 0) return;
 
     root.setAttribute('data-site-route', '1');
 
