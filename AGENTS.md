@@ -45,6 +45,11 @@
 - Committing to dev is OK, but pushing to main / tagging / releasing / building must be confirmed first.
 - Do NOT start a build or release just because a previous turn did one — always wait for an explicit request.
 
+## Committing
+
+- **Do NOT run `bun test`, `bunx vitest run`, or `next build` before committing.** The pre-commit hook already runs tests and the build automatically. Running them manually duplicates the work and wastes time.
+- Just stage your changes and commit — the hook will handle verification.
+
 ## Active Work
 
 - Phase 4 payment flow (cash payment, numpad input, change calculation, customer-facing display, receipt) is tracked in `.devin/skills/payment-flow.md`.
