@@ -99,7 +99,8 @@ async function isIpBlocked(connection: import('../db').DbConnection, ipAddress: 
                AND created_at > ?`;
 
         const [rows] = await connection.execute(query, [ipAddress, oneDayAgo]);
-        const count = (rows as { count: number }[])[0]?.count || 0;
+        // pg returns COUNT(*) as a string — coerce to number for the comparison
+        const count = Number((rows as { count: number | string }[])[0]?.count) || 0;
 
         // Block IP if more than MAX_FAILED_ATTEMPTS failed attempts in the last 24 hours
         return count >= MAX_FAILED_ATTEMPTS;

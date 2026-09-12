@@ -261,7 +261,12 @@ export async function POST(request: Request) {
             const body = await request.json();
             const { signatureData, changedBy } = body as { signatureData?: string; changedBy?: string };
 
-            if (!signatureData || !signatureData.startsWith('data:image/png')) {
+            const MAX_SIGNATURE_LENGTH = 700 * 1024; // ~512 KB of base64 PNG data
+            if (
+                !signatureData ||
+                !signatureData.startsWith('data:image/png;base64,') ||
+                signatureData.length > MAX_SIGNATURE_LENGTH
+            ) {
                 return NextResponse.json({ error: 'Invalid signature data' }, { status: 400 });
             }
 

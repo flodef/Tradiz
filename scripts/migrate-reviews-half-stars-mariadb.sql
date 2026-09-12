@@ -9,4 +9,7 @@
 -- Drop the old CHECK constraint if it exists, then change the column type
 ALTER TABLE `reviews` DROP CHECK IF EXISTS `reviews_rating_check`;
 ALTER TABLE `reviews` MODIFY COLUMN `rating` DECIMAL(2,1) NOT NULL;
+-- Clamp legacy out-of-range values so the new CHECK doesn't abort the migration
+UPDATE `reviews` SET `rating` = 0.5 WHERE `rating` < 0.5;
+UPDATE `reviews` SET `rating` = 5 WHERE `rating` > 5;
 ALTER TABLE `reviews` ADD CONSTRAINT `reviews_rating_check` CHECK (`rating` >= 0.5 AND `rating` <= 5);

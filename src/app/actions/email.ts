@@ -55,7 +55,7 @@ export async function sendUserAccessRequest(email: string, role: string, publicK
           <p>Bonjour,</p>
           <p>Nous avons reçu une demande d'accès utilisateur pour votre application.</p>
           <p>Pour autoriser l'accès, veuillez ajouter la clé suivante :</p>
-          <p>${publicKey}</p> pour le rôle ${role}</p>
+          <p>${escapeHtml(publicKey)} pour le rôle ${escapeHtml(role)}</p>
           <p>Si vous ou un de vos collaborateurs n'avez pas effectué cette demande, vous pouvez ignorer cet email.</p>
           <p>Merci,<br>L'équipe Tradiz</p>
         </div>
@@ -87,7 +87,7 @@ export async function sendSummaryEmail(summaryData: SummaryData): Promise<boolea
             html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px;">
               <p>Bonjour,</p>
-              <p>Ci-joint le Ticket Z du ${summaryData.period} d'un montant de ${summaryData.amount} :</p>
+              <p>Ci-joint le Ticket Z du ${escapeHtml(summaryData.period)} d'un montant de ${escapeHtml(summaryData.amount)} :</p>
               <p>Nombre de ventes : ${transactionCount}</p>
               <p>Nombre de produits : ${productCount}</p>
               <p>Ticket moyen : ${averageTicketFormatted}</p>
@@ -106,7 +106,7 @@ export async function sendSummaryEmail(summaryData: SummaryData): Promise<boolea
                                             (item, index) =>
                                                 `<td colspan="2" style="width: 50%; padding: 5px; text-align: ${
                                                     index === 0 ? 'left' : 'right'
-                                                };">${item.trim()}</td>`
+                                                };">${escapeHtml(item.trim())}</td>`
                                         )
                                         .join('')}
                                 </tr>
@@ -117,14 +117,17 @@ export async function sendSummaryEmail(summaryData: SummaryData): Promise<boolea
                                         .split('\t')
                                         .map(
                                             (item) =>
-                                                `<td style="width: 25%; text-align: center; padding: 5px;">${item.trim() || '&nbsp;'}</td>`
+                                                `<td style="width: 25%; text-align: center; padding: 5px;">${item.trim() ? escapeHtml(item.trim()) : '&nbsp;'}</td>`
                                         )
                                         .join('')}
                                   </tr>`
                                 : `<tr style="width: 100%;">
                               ${line
                                   .split('  ')
-                                  .map((item) => `<td style="width: 25%; text-align: center;">${item.trim()}</td>`)
+                                  .map(
+                                      (item) =>
+                                          `<td style="width: 25%; text-align: center;">${escapeHtml(item.trim())}</td>`
+                                  )
                                   .join('')}
                               </tr>`
                     )
@@ -152,7 +155,7 @@ export async function sendFatalErrorEmail(error: string): Promise<boolean> {
         html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px;">
           <p>L'erreur suivante est survenue :</p>
-          <p>${error}</p>
+          <p>${escapeHtml(error)}</p>
           <p>Merci,<br>L'équipe Tradiz</p>
         </div>
       `,
@@ -258,8 +261,8 @@ export async function sendMissingParametersRequest(publicKey: string, userEmail?
         <div style="font-family: Arial, sans-serif; max-width: 600px;">
           <p>Bonjour,</p>
           <p>Un utilisateur tente d'accéder à l'application mais les paramètres ne sont pas configurés.</p>
-          <p>Clé publique de l'utilisateur : ${publicKey}</p>
-          ${userEmail ? `<p>Email de l'utilisateur : ${userEmail}</p>` : ''}
+          <p>Clé publique de l'utilisateur : ${escapeHtml(publicKey)}</p>
+          ${userEmail ? `<p>Email de l'utilisateur : ${escapeHtml(userEmail)}</p>` : ''}
           <p>Veuillez configurer les paramètres de l'application via la page d'administration.</p>
           <p>Une fois les paramètres configurés, l'utilisateur pourra accéder à l'application.</p>
           <p>Merci,<br>L'équipe Tradiz</p>

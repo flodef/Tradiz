@@ -28,6 +28,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Compute amount server-side based on billing period
+        if (billing !== 'monthly' && billing !== 'annual') {
+            return NextResponse.json({ error: 'Invalid billing period' }, { status: 400 });
+        }
         const isAnnual = billing === 'annual';
         const amount = isAnnual ? plan.annual : plan.monthly;
         if (!amount || amount <= 0) {
@@ -42,7 +45,12 @@ export async function POST(request: NextRequest) {
         }
 
         // Validate email if provided
-        if (customerEmail && (typeof customerEmail !== 'string' || customerEmail.length > 254)) {
+        if (
+            customerEmail &&
+            (typeof customerEmail !== 'string' ||
+                customerEmail.length > 254 ||
+                !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail))
+        ) {
             return NextResponse.json({ error: 'Invalid email' }, { status: 400 });
         }
 

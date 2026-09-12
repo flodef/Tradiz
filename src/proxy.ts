@@ -8,6 +8,12 @@ const LANDING_HOSTS = new Set([BASE_DOMAIN, `www.${BASE_DOMAIN}`]);
 // Local dev hosts that should also get the clean-URL rewrite (/annette → /site/annette).
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1']);
 
+// A path suffix containing '.' or '..' segments could escape the /site/ prefix
+// via URL normalization (e.g. /shop/../../admin → /admin).
+function hasDotSegments(path: string): boolean {
+    return path.split('/').some((segment) => segment === '.' || segment === '..');
+}
+
 // Reserved top-level paths that must never be treated as a shop ID.
 const RESERVED_PATHS = new Set([
     'api',
@@ -44,6 +50,7 @@ function handleLegacyHost(request: NextRequest): NextResponse | null {
 
     // Validate shopSegment to prevent open redirect — only allow alphanumeric + hyphens
     if (!/^[a-z0-9-]+$/i.test(shopSegment)) return NextResponse.next();
+    if (hasDotSegments(rest)) return NextResponse.next();
 
     const { protocol, search } = request.nextUrl;
     const redirectUrl = `${protocol}//${shopSegment}.${BASE_DOMAIN}${rest}${search}`;
@@ -99,6 +106,7 @@ function handlePublicSiteHost(request: NextRequest): NextResponse | null {
         // Validate shopId to prevent path traversal — only allow alphanumeric + hyphens
         if (!/^[a-z0-9-]+$/i.test(shopId)) return NextResponse.next();
         const rest = match[2] || '';
+        if (hasDotSegments(rest)) return NextResponse.next();
         const url = request.nextUrl.clone();
         url.pathname = `/site/${shopId}${rest}`;
         url.search = search;
