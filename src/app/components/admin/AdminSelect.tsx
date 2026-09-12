@@ -100,7 +100,7 @@ export default function AdminSelect({
                 {open && (
                     <div
                         ref={listRef}
-                        className="absolute top-full left-0 right-0 z-50 max-h-60 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg scrollbar-thin"
+                        className="absolute top-full left-0 right-0 z-9999 max-h-60 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg scrollbar-thin"
                     >
                         {options.map((opt, idx) => {
                             const isSelected = String(opt.value) === selectedValue;

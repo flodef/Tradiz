@@ -22,6 +22,7 @@ import ValidatedInput from '../ValidatedInput';
 import ZipCityRow from '../ZipCityRow';
 import TimePicker from '../TimePicker';
 import { useEffect, useRef, useState } from 'react';
+import { useShopId } from '@/app/hooks/useShopId';
 import {
     IconCheck,
     IconX,
@@ -32,6 +33,7 @@ import {
     IconPlus,
     IconBuildingStore,
     IconInfoCircle,
+    IconExternalLink,
 } from '@tabler/icons-react';
 import { usePopup } from '@/app/hooks/usePopup';
 import { AttestationViewer } from '@/app/components/AttestationViewer';
@@ -169,11 +171,17 @@ export default function CommerceConfig({
     icon,
 }: CommerceConfigProps) {
     const { openPopup, openFullscreenPopup } = usePopup();
+    const { shopId } = useShopId();
     const [appVersion, setAppVersion] = useState(process.env.NEXT_PUBLIC_APP_VERSION);
     const [integrityStatus, setIntegrityStatus] = useState<'idle' | 'checking' | 'ok' | 'fail'>('idle');
     const [archiveStatus, setArchiveStatus] = useState<'idle' | 'downloading' | 'done' | 'fail'>('idle');
     const [attestationStatus, setAttestationStatus] = useState<'checking' | 'signed' | 'unsigned' | 'fail'>('checking');
     const [needsResign, setNeedsResign] = useState(false);
+
+    // Build the public storefront URL for this shop.
+    // In production: https://shop.tradiz.fr/<shopId>
+    // In local/dev: not available (shop.tradiz.fr is a production-only host)
+    const publicSiteUrl = shopId ? `https://shop.tradiz.fr/${shopId}` : '';
 
     useEffect(() => {
         fetch('/api/version')
@@ -386,9 +394,22 @@ export default function CommerceConfig({
         >
             {/* Subsection: Commerce */}
             <div>
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
-                    Commerce
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+                        Commerce
+                    </h3>
+                    {publicSiteUrl && (
+                        <a
+                            href={publicSiteUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                            <IconExternalLink size={14} />
+                            Voir le site
+                        </a>
+                    )}
+                </div>
                 <div className="flex flex-wrap gap-4">
                     <ValidatedInput
                         label="Nom du commerce"

@@ -11,6 +11,7 @@ import DiscountsConfig from '@/app/components/admin/sections/DiscountsConfig';
 import ParametersConfig from '@/app/components/admin/sections/ParametersConfig';
 import PaymentsConfig from '@/app/components/admin/sections/PaymentsConfig';
 import PrintersConfig from '@/app/components/admin/sections/PrintersConfig';
+import ReviewsConfig from '@/app/components/admin/sections/ReviewsConfig';
 import UsersConfig from '@/app/components/admin/sections/UsersConfig';
 import { Config, Parameters } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
@@ -52,6 +53,7 @@ import {
     IconPalette,
     IconPrinter,
     IconSettings,
+    IconStar,
     IconUserScan,
     IconUsersGroup,
 } from '@tabler/icons-react';
@@ -1451,6 +1453,13 @@ export default function SettingsPage() {
                 isOpen={openSection === 'colors'}
                 onToggle={() => setOpenSection((prev) => (prev === 'colors' ? null : 'colors'))}
                 icon={<IconPalette size={24} />}
+            />
+
+            <ReviewsConfig
+                isReadOnly={isReadOnly}
+                isOpen={openSection === 'reviews'}
+                onToggle={() => setOpenSection((prev) => (prev === 'reviews' ? null : 'reviews'))}
+                icon={<IconStar size={24} />}
             />
 
             {!isReadOnly && hasChanges && (
