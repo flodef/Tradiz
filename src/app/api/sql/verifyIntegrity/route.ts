@@ -11,6 +11,7 @@ import {
     UPDATING_KEYWORD,
     PROCESSING_KEYWORD,
     WAITING_KEYWORD,
+    USE_DIGICARTE,
 } from '@/app/utils/constants';
 import { createHash } from 'crypto';
 
@@ -178,7 +179,9 @@ export async function GET(request: Request) {
     let connection: DbConnection | undefined;
     let pgClient: Awaited<ReturnType<typeof getPosPgDb>> | undefined;
     try {
-        const isPg = isPgConfigured(shopId);
+        // Must mirror getPosDb: when DigiCarte is enabled the closures live in
+        // MariaDB even though PG is configured.
+        const isPg = !USE_DIGICARTE && isPgConfigured(shopId);
         const prefix = isPg ? 'dc_pos.' : '';
 
         // Helper to run queries on either pgClient or DbConnection
@@ -221,10 +224,23 @@ export async function GET(request: Request) {
                           'FROM transaction_items WHERE transaction_id = ANY($1::int[]) ORDER BY transaction_id, id',
                       [txIds]
                   )
-                : await query<TransactionItemRow>(
-                      'SELECT transaction_id, label, quantity, amount, total, vat_rate, discount_amount ' +
-                          'FROM transaction_items ORDER BY transaction_id, id'
-                  );
+                : await (async () => {
+                      // MariaDB: chunk the IN clause — an unfiltered SELECT of the
+                      // whole items table is unbounded on large databases.
+                      const all: TransactionItemRow[] = [];
+                      const CHUNK = 500;
+                      for (let i = 0; i < txIds.length; i += CHUNK) {
+                          const chunk = txIds.slice(i, i + CHUNK);
+                          const ph = chunk.map(() => '?').join(',');
+                          const rows = await query<TransactionItemRow>(
+                              'SELECT transaction_id, label, quantity, amount, total, vat_rate, discount_amount ' +
+                                  `FROM transaction_items WHERE transaction_id IN (${ph}) ORDER BY transaction_id, id`,
+                              chunk
+                          );
+                          all.push(...rows);
+                      }
+                      return all;
+                  })();
             for (const row of itemRows) {
                 const list = itemsByTransaction.get(row.transaction_id) || [];
                 list.push({
@@ -247,7 +263,7 @@ export async function GET(request: Request) {
             if (tx.previous_hash !== expectedPrevHash) {
                 txIssues.push({
                     id: tx.id,
-                    issue: `Chain break: stored previous_hash="${tx.previous_hash?.slice(0, 16) ?? 'null'}..." but expected="${expectedPrevHash?.slice(0, 16) ?? 'null'}..."`,
+                    issue: `Rupture de chaîne : hash précédent stocké "${tx.previous_hash?.slice(0, 16) ?? 'null'}…" mais attendu "${expectedPrevHash?.slice(0, 16) ?? 'null'}…"`,
                     stored_hash: tx.hash,
                     computed_hash: '',
                 });
@@ -257,7 +273,7 @@ export async function GET(request: Request) {
             if (tx.hash !== computedHash) {
                 txIssues.push({
                     id: tx.id,
-                    issue: `Hash mismatch: stored="${tx.hash}" but computed="${computedHash}"`,
+                    issue: `Hash invalide : stocké "${tx.hash}" mais calculé "${computedHash}"`,
                     stored_hash: tx.hash,
                     computed_hash: computedHash,
                 });
@@ -300,7 +316,7 @@ export async function GET(request: Request) {
             if (row.previous_closure_hash !== expectedDailyPrev) {
                 dailyIssues.push({
                     id: row.id,
-                    issue: `Chain break: stored previous="${row.previous_closure_hash?.slice(0, 16) ?? 'null'}..." but expected="${expectedDailyPrev?.slice(0, 16) ?? 'null'}..."`,
+                    issue: `Rupture de chaîne : hash précédent stocké "${row.previous_closure_hash?.slice(0, 16) ?? 'null'}…" mais attendu "${expectedDailyPrev?.slice(0, 16) ?? 'null'}…"`,
                     stored_hash: row.closure_hash,
                     computed_hash: '',
                 });
@@ -310,7 +326,7 @@ export async function GET(request: Request) {
             if (row.closure_hash !== computed) {
                 dailyIssues.push({
                     id: row.id,
-                    issue: `Hash mismatch: stored="${row.closure_hash}" but computed="${computed}"`,
+                    issue: `Hash invalide : stocké "${row.closure_hash}" mais calculé "${computed}"`,
                     stored_hash: row.closure_hash,
                     computed_hash: computed,
                 });
@@ -357,7 +373,7 @@ export async function GET(request: Request) {
             if (row.previous_closure_hash !== expectedMonthlyPrev) {
                 monthlyIssues.push({
                     id: row.id,
-                    issue: `Chain break: stored previous="${row.previous_closure_hash?.slice(0, 16) ?? 'null'}..." but expected="${expectedMonthlyPrev?.slice(0, 16) ?? 'null'}..."`,
+                    issue: `Rupture de chaîne : hash précédent stocké "${row.previous_closure_hash?.slice(0, 16) ?? 'null'}…" mais attendu "${expectedMonthlyPrev?.slice(0, 16) ?? 'null'}…"`,
                     stored_hash: row.closure_hash,
                     computed_hash: '',
                 });
@@ -370,7 +386,7 @@ export async function GET(request: Request) {
             if (row.closure_hash !== computed) {
                 monthlyIssues.push({
                     id: row.id,
-                    issue: `Hash mismatch: stored="${row.closure_hash}" but computed="${computed}"`,
+                    issue: `Hash invalide : stocké "${row.closure_hash}" mais calculé "${computed}"`,
                     stored_hash: row.closure_hash,
                     computed_hash: computed,
                 });
@@ -416,7 +432,7 @@ export async function GET(request: Request) {
             if (row.previous_closure_hash !== expectedAnnualPrev) {
                 annualIssues.push({
                     id: row.id,
-                    issue: `Chain break: stored previous="${row.previous_closure_hash?.slice(0, 16) ?? 'null'}..." but expected="${expectedAnnualPrev?.slice(0, 16) ?? 'null'}..."`,
+                    issue: `Rupture de chaîne : hash précédent stocké "${row.previous_closure_hash?.slice(0, 16) ?? 'null'}…" mais attendu "${expectedAnnualPrev?.slice(0, 16) ?? 'null'}…"`,
                     stored_hash: row.closure_hash,
                     computed_hash: '',
                 });
@@ -426,7 +442,7 @@ export async function GET(request: Request) {
             if (row.closure_hash !== computed) {
                 annualIssues.push({
                     id: row.id,
-                    issue: `Hash mismatch: stored="${row.closure_hash}" but computed="${computed}"`,
+                    issue: `Hash invalide : stocké "${row.closure_hash}" mais calculé "${computed}"`,
                     stored_hash: row.closure_hash,
                     computed_hash: computed,
                 });
@@ -458,7 +474,7 @@ export async function GET(request: Request) {
             if (row.previous_event_hash !== expectedAuditPrev) {
                 auditIssues.push({
                     id: row.id,
-                    issue: `Chain break: stored previous="${row.previous_event_hash?.slice(0, 16) ?? 'null'}..." but expected="${expectedAuditPrev?.slice(0, 16) ?? 'null'}..."`,
+                    issue: `Rupture de chaîne : hash précédent stocké "${row.previous_event_hash?.slice(0, 16) ?? 'null'}…" mais attendu "${expectedAuditPrev?.slice(0, 16) ?? 'null'}…"`,
                     stored_hash: row.event_hash,
                     computed_hash: '',
                 });
@@ -467,7 +483,7 @@ export async function GET(request: Request) {
             if (row.event_hash !== computed) {
                 auditIssues.push({
                     id: row.id,
-                    issue: `Hash mismatch: stored="${row.event_hash}" but computed="${computed}"`,
+                    issue: `Hash invalide : stocké "${row.event_hash}" mais calculé "${computed}"`,
                     stored_hash: row.event_hash,
                     computed_hash: computed,
                 });

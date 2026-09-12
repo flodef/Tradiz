@@ -276,11 +276,19 @@ export default function CommerceConfig({
                       >
                     | undefined;
 
+                const chainLabels: Record<string, string> = {
+                    transactions: 'Transactions',
+                    daily_closures: 'Clôtures journalières',
+                    monthly_closures: 'Clôtures mensuelles',
+                    annual_closures: 'Clôtures annuelles',
+                    audit_events: "Événements d'audit",
+                };
+                const chainLabel = (name: string) => chainLabels[name] ?? name.replace(/_/g, ' ');
+
                 if (data.integrity_ok) {
                     if (chains) {
                         const lines = Object.entries(chains).map(([name, r]) => {
-                            const label = name.replace(/_/g, ' ');
-                            return `${label}: ${r.verified}/${r.total} ✓`;
+                            return `${chainLabel(name)}: ${r.verified}/${r.total} ✓`;
                         });
                         openPopup('Intégrité NF525 — Valide', lines);
                     }
@@ -288,9 +296,8 @@ export default function CommerceConfig({
                     const lines: string[] = [];
                     if (chains) {
                         for (const [name, r] of Object.entries(chains)) {
-                            const label = name.replace(/_/g, ' ');
                             const status = r.integrity_ok ? '✓' : `✗ (${r.issues_found} erreur(s))`;
-                            lines.push(`${label}: ${r.verified}/${r.total} ${status}`);
+                            lines.push(`${chainLabel(name)}: ${r.verified}/${r.total} ${status}`);
                             if (r.issues && r.issues.length > 0) {
                                 for (const issue of r.issues.slice(0, 5)) {
                                     lines.push(`  #${issue.id}: ${issue.issue}`);
@@ -315,7 +322,7 @@ export default function CommerceConfig({
                             lines.push(...issueLines, more);
                         }
                     }
-                    openPopup("Échec de l'intégrité NF525", lines);
+                    openFullscreenPopup("Échec de l'intégrité NF525", lines);
                 }
             })
             .catch(() => {
