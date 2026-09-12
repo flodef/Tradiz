@@ -398,22 +398,9 @@ export default function CommerceConfig({
         >
             {/* Subsection: Commerce */}
             <div>
-                <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-                        Commerce
-                    </h3>
-                    {publicSiteUrl && (
-                        <a
-                            href={publicSiteUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
-                        >
-                            <IconExternalLink size={14} />
-                            Voir le site
-                        </a>
-                    )}
-                </div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
+                    Commerce
+                </h3>
                 <div className="flex flex-wrap gap-4">
                     <ValidatedInput
                         label="Nom du commerce"
@@ -568,11 +555,24 @@ export default function CommerceConfig({
                 </div>
             </div>
 
-            {/* Subsection: Logo & Image */}
+            {/* Subsection: Site internet */}
             <div className="mt-6">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
-                    Logo & Image du magasin
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+                        Site internet
+                    </h3>
+                    {publicSiteUrl && (
+                        <a
+                            href={publicSiteUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                            <IconExternalLink size={14} />
+                            Voir le site
+                        </a>
+                    )}
+                </div>
                 <div className="flex flex-wrap gap-6">
                     <ImageUploadField
                         label="Logo"

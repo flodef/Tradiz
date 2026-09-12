@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { IconStar, IconTrash, IconStarFilled, IconStarHalfFilled } from '@tabler/icons-react';
+import { IconStar, IconStarFilled, IconStarHalfFilled } from '@tabler/icons-react';
+import DeleteButton from '../DeleteButton';
 import SectionCard from '../SectionCard';
 import { usePopup } from '@/app/hooks/usePopup';
 
@@ -54,7 +55,7 @@ function formatDate(iso: string): string {
 }
 
 export default function ReviewsConfig({ isReadOnly = false, isOpen, onToggle, icon }: ReviewsConfigProps) {
-    const { openPopup } = usePopup();
+    const { openPopup, openFullscreenPopup } = usePopup();
     const [reviews, setReviews] = useState<Review[]>([]);
     const [averageRating, setAverageRating] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -84,7 +85,7 @@ export default function ReviewsConfig({ isReadOnly = false, isOpen, onToggle, ic
     }, []);
 
     const handleDelete = (review: Review) => {
-        openPopup('Supprimer cet avis ?', ['Supprimer', 'Annuler'], (index: number) => {
+        openFullscreenPopup('Supprimer cet avis ?', ['Supprimer', 'Annuler'], (index: number) => {
             if (index !== 0) return;
             setDeletingId(review.id);
             fetch('/api/sql/deleteReview', {
@@ -96,11 +97,11 @@ export default function ReviewsConfig({ isReadOnly = false, isOpen, onToggle, ic
                     if (res.ok) {
                         setReviews((prev) => prev.filter((r) => r.id !== review.id));
                     } else {
-                        openPopup('Erreur', ['Impossible de supprimer cet avis.'], () => {});
+                        openFullscreenPopup('Erreur', ['Impossible de supprimer cet avis.']);
                     }
                 })
                 .catch(() => {
-                    openPopup('Erreur', ['Impossible de supprimer cet avis.'], () => {});
+                    openFullscreenPopup('Erreur', ['Impossible de supprimer cet avis.']);
                 })
                 .finally(() => setDeletingId(null));
         });
@@ -158,15 +159,14 @@ export default function ReviewsConfig({ isReadOnly = false, isOpen, onToggle, ic
                                         </p>
                                     </div>
                                     {!isReadOnly && (
-                                        <button
-                                            type="button"
-                                            onClick={() => handleDelete(review)}
-                                            disabled={deletingId === review.id}
-                                            title="Supprimer cet avis"
-                                            className="shrink-0 p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                                        <div
+                                            className={deletingId === review.id ? 'opacity-50 pointer-events-none' : ''}
                                         >
-                                            <IconTrash size={18} />
-                                        </button>
+                                            <DeleteButton
+                                                onClick={() => handleDelete(review)}
+                                                title="Supprimer cet avis"
+                                            />
+                                        </div>
                                     )}
                                 </div>
                             </div>

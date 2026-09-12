@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { sendContactEmail } from '@/app/actions/email';
+import TradizLogo from '../components/TradizLogo';
 import {
-    IconToolsKitchen2,
     IconSun,
     IconMoon,
     IconDeviceDesktop,
@@ -345,9 +345,7 @@ function Header({ themeMode, setTheme }: { themeMode: ThemeMode; setTheme: (m: T
         >
             <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
                 <a href="#hero" className="flex items-center gap-2.5 group">
-                    <div className="w-9 h-9 rounded-xl bg-linear-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-                        <IconToolsKitchen2 size={20} className="text-white" />
-                    </div>
+                    <TradizLogo size={36} className="group-hover:scale-105 transition-transform" />
                     <span className="text-xl font-bold tracking-tight text-site-text">Tradiz</span>
                 </a>
 
@@ -1462,9 +1460,7 @@ function Footer() {
             <div className="max-w-7xl mx-auto px-4 md:px-6 py-12">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                     <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-linear-to-br from-orange-500 to-amber-600 flex items-center justify-center">
-                            <IconToolsKitchen2 size={20} className="text-white" />
-                        </div>
+                        <TradizLogo size={36} />
                         <span className="text-lg font-bold text-white">Tradiz</span>
                     </div>
 
