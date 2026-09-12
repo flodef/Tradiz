@@ -287,7 +287,11 @@ function LandingThemeToggle({ mode, set }: { mode: ThemeMode; set: (m: ThemeMode
         { value: 'dark', icon: IconMoon, label: 'Sombre' },
     ];
     return (
-        <div className="inline-flex items-center gap-0.5 rounded-full p-0.5 bg-site-surface-hover border border-site-border shrink-0">
+        <div
+            className="inline-flex items-center gap-0.5 rounded-full p-0.5 bg-site-surface-hover border border-site-border shrink-0"
+            role="radiogroup"
+            aria-label="Thème"
+        >
             <button
                 type="button"
                 onClick={() => set('system')}
@@ -375,6 +379,8 @@ function Header({ themeMode, setTheme }: { themeMode: ThemeMode; setTheme: (m: T
                         onClick={() => setMobileOpen((v) => !v)}
                         className="md:hidden p-2 text-site-text rounded-lg hover:bg-site-surface-hover"
                         aria-label="Menu"
+                        aria-expanded={mobileOpen}
+                        aria-controls="mobile-nav"
                     >
                         {mobileOpen ? <IconX size={22} /> : <IconMenu2 size={22} />}
                     </button>
@@ -382,7 +388,10 @@ function Header({ themeMode, setTheme }: { themeMode: ThemeMode; setTheme: (m: T
             </div>
 
             {mobileOpen && (
-                <nav className="md:hidden bg-site-nav-bg backdrop-blur-xl border-b border-site-border px-4 py-3 flex flex-col gap-1">
+                <nav
+                    id="mobile-nav"
+                    className="md:hidden bg-site-nav-bg backdrop-blur-xl border-b border-site-border px-4 py-3 flex flex-col gap-1"
+                >
                     {NAV_LINKS.map((link) => (
                         <a
                             key={link.href}
@@ -668,10 +677,16 @@ function Pricing() {
                 </p>
 
                 {/* Monthly / Annual toggle */}
-                <div className="inline-flex items-center gap-4 rounded-full p-1.5 mt-8 bg-site-surface-hover border border-site-border">
+                <div
+                    className="inline-flex items-center gap-4 rounded-full p-1.5 mt-8 bg-site-surface-hover border border-site-border"
+                    role="radiogroup"
+                    aria-label="Période de facturation"
+                >
                     <button
                         type="button"
                         onClick={() => setAnnual(false)}
+                        role="radio"
+                        aria-checked={!annual}
                         className={`px-6 py-2 rounded-full text-sm font-semibold transition-all cursor-pointer ${
                             !annual
                                 ? 'bg-linear-to-r from-orange-500 to-amber-600 text-white'
@@ -683,6 +698,8 @@ function Pricing() {
                     <button
                         type="button"
                         onClick={() => setAnnual(true)}
+                        role="radio"
+                        aria-checked={annual}
                         className={`px-6 py-2 rounded-full text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
                             annual
                                 ? 'bg-linear-to-r from-orange-500 to-amber-600 text-white'
@@ -802,6 +819,10 @@ function PricingCard({
                                                 setOpenTooltip(openTooltip === feature ? null : feature);
                                             }}
                                             className="cursor-pointer"
+                                            aria-label={`Plus d'informations sur ${feature}`}
+                                            aria-describedby={
+                                                openTooltip === feature ? `tooltip-${feature}` : undefined
+                                            }
                                         >
                                             <IconSparkles
                                                 size={14}
@@ -810,6 +831,8 @@ function PricingCard({
                                         </button>
                                         {openTooltip === feature && (
                                             <span
+                                                id={`tooltip-${feature}`}
+                                                role="tooltip"
                                                 className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg text-xs text-site-text max-w-50 w-max z-50 bg-site-surface border border-site-border shadow-lg"
                                                 onClick={() => setOpenTooltip(null)}
                                             >
@@ -1101,6 +1124,8 @@ function FAQItem({
                 type="button"
                 onClick={onToggle}
                 className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-site-surface-hover transition-colors"
+                aria-expanded={isOpen}
+                aria-controls={`faq-answer-${index}`}
             >
                 <span className="text-base font-semibold text-site-text">{item.q}</span>
                 <IconChevronDown
@@ -1108,7 +1133,11 @@ function FAQItem({
                     className={`text-site-text-muted shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
                 />
             </button>
-            <div className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-150' : 'max-h-0'}`}>
+            <div
+                id={`faq-answer-${index}`}
+                role="region"
+                className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-150' : 'max-h-0'}`}
+            >
                 <p className="p-5 pt-0 text-site-text-secondary leading-relaxed">{item.a}</p>
             </div>
         </div>
@@ -1204,7 +1233,11 @@ function Contact() {
 
             <div className="max-w-2xl mx-auto">
                 {sent ? (
-                    <div className="text-center p-8 rounded-3xl bg-green-500/5 border border-green-500/10">
+                    <div
+                        className="text-center p-8 rounded-3xl bg-green-500/5 border border-green-500/10"
+                        role="status"
+                        aria-live="polite"
+                    >
                         <IconCircleCheck size={48} className="text-green-500 mx-auto mb-4" />
                         <p className="text-lg font-semibold text-site-text mb-2">Message envoyé !</p>
                         <p className="text-site-text-secondary">Nous vous répondrons dans les plus brefs délais.</p>
@@ -1234,8 +1267,14 @@ function Contact() {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-site-text mb-1.5">Nom complet *</label>
+                                <label
+                                    htmlFor="contact-name"
+                                    className="block text-sm font-medium text-site-text mb-1.5"
+                                >
+                                    Nom complet *
+                                </label>
                                 <input
+                                    id="contact-name"
                                     type="text"
                                     required
                                     minLength={2}
@@ -1246,8 +1285,14 @@ function Contact() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-site-text mb-1.5">Entreprise</label>
+                                <label
+                                    htmlFor="contact-company"
+                                    className="block text-sm font-medium text-site-text mb-1.5"
+                                >
+                                    Entreprise
+                                </label>
                                 <input
+                                    id="contact-company"
                                     type="text"
                                     value={form.company}
                                     onChange={(e) => setForm({ ...form, company: e.target.value })}
@@ -1258,8 +1303,14 @@ function Contact() {
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-site-text mb-1.5">Email *</label>
+                                <label
+                                    htmlFor="contact-email"
+                                    className="block text-sm font-medium text-site-text mb-1.5"
+                                >
+                                    Email *
+                                </label>
                                 <input
+                                    id="contact-email"
                                     type="email"
                                     required
                                     value={form.email}
@@ -1269,8 +1320,14 @@ function Contact() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-site-text mb-1.5">Téléphone</label>
+                                <label
+                                    htmlFor="contact-phone"
+                                    className="block text-sm font-medium text-site-text mb-1.5"
+                                >
+                                    Téléphone
+                                </label>
                                 <input
+                                    id="contact-phone"
                                     type="tel"
                                     value={form.phone}
                                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
@@ -1280,11 +1337,19 @@ function Contact() {
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-site-text mb-1.5">Sujet</label>
+                            <label
+                                htmlFor="contact-subject"
+                                className="block text-sm font-medium text-site-text mb-1.5"
+                            >
+                                Sujet
+                            </label>
                             <div className="relative">
                                 <button
                                     type="button"
+                                    id="contact-subject"
                                     onClick={() => setSubjectOpen(!subjectOpen)}
+                                    aria-haspopup="listbox"
+                                    aria-expanded={subjectOpen}
                                     className={
                                         inputClass + ' text-left flex items-center justify-between cursor-pointer'
                                     }
@@ -1302,11 +1367,16 @@ function Contact() {
                                 {subjectOpen && (
                                     <>
                                         <div className="fixed inset-0 z-40" onClick={() => setSubjectOpen(false)} />
-                                        <div className="absolute z-50 mt-1 w-full rounded-xl overflow-hidden bg-site-surface border border-site-border shadow-lg">
+                                        <div
+                                            className="absolute z-50 mt-1 w-full rounded-xl overflow-hidden bg-site-surface border border-site-border shadow-lg"
+                                            role="listbox"
+                                        >
                                             {CONTACT_SUBJECTS.map((s) => (
                                                 <button
                                                     key={s.value}
                                                     type="button"
+                                                    role="option"
+                                                    aria-selected={form.subject === s.value}
                                                     onClick={() => {
                                                         setForm({ ...form, subject: s.value });
                                                         setSubjectOpen(false);
@@ -1326,8 +1396,14 @@ function Contact() {
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-site-text mb-1.5">Votre message *</label>
+                            <label
+                                htmlFor="contact-message"
+                                className="block text-sm font-medium text-site-text mb-1.5"
+                            >
+                                Votre message *
+                            </label>
                             <textarea
+                                id="contact-message"
                                 required
                                 minLength={10}
                                 rows={4}
@@ -1339,7 +1415,7 @@ function Contact() {
                         </div>
 
                         {error && (
-                            <p className="text-sm text-red-500">
+                            <p className="text-sm text-red-500" role="alert">
                                 Une erreur est survenue. Veuillez réessayer ou nous écrire directement.
                             </p>
                         )}

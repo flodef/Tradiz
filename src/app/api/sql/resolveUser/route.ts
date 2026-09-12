@@ -104,8 +104,10 @@ async function isIpBlocked(connection: import('../db').DbConnection, ipAddress: 
         // Block IP if more than MAX_FAILED_ATTEMPTS failed attempts in the last 24 hours
         return count >= MAX_FAILED_ATTEMPTS;
     } catch (error) {
-        console.error('Failed to check IP block status:', error);
-        return false;
+        // Fail closed: if we can't check the block list, assume blocked.
+        // This prevents a DB outage from disabling all IP blocking.
+        console.error('Failed to check IP block status (failing closed):', error);
+        return true;
     }
 }
 
@@ -192,9 +194,12 @@ export async function POST(request: NextRequest) {
         }
 
         // Extract request information
+        // Prefer Vercel's trusted headers (set by the platform, not spoofable by clients)
+        // Fall back to x-forwarded-for / x-real-ip for local dev or other proxies
         const ipAddress =
-            request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+            request.headers.get('x-vercel-forwarded-for')?.split(',')[0].trim() ||
             request.headers.get('x-real-ip') ||
+            request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
             'unknown';
         const userAgent = request.headers.get('user-agent') || 'unknown';
 
@@ -204,9 +209,11 @@ export async function POST(request: NextRequest) {
         // Extract browser data from request if provided
         const screenResolution = browserData?.screenResolution || 'unknown';
         const language = browserData?.language || request.headers.get('accept-language')?.split(',')[0] || 'unknown';
-        const timezone = browserData?.timezone || 'unknown';
-        const country = browserData?.country || null;
-        const city = browserData?.city || null;
+        // Prefer server-side timezone from Vercel (x-vercel-ip-timezone) over client-supplied value
+        // to prevent spoofing. Fall back to client value for local dev where Vercel headers aren't set.
+        const timezone = request.headers.get('x-vercel-ip-timezone') || browserData?.timezone || 'unknown';
+        const country = request.headers.get('x-vercel-ip-country') || browserData?.country || null;
+        const city = request.headers.get('x-vercel-ip-city') || browserData?.city || null;
         const latitude = browserData?.latitude || null;
         const longitude = browserData?.longitude || null;
 
