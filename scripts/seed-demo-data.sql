@@ -12,10 +12,10 @@ BEGIN;
 -- ============================================================
 INSERT INTO dc_pos.users (id, name, role, reference, created_at) VALUES
     (1, 'Démo', 'Admin', NULL, CURRENT_TIMESTAMP),
-    (2, 'Boulanger', 'Cashier', NULL, CURRENT_TIMESTAMP),
+    (2, 'Boulanger', 'Kitchen', NULL, CURRENT_TIMESTAMP),
     (3, 'Pâtissier', 'Cashier', NULL, CURRENT_TIMESTAMP),
-    (4, 'Vendeur', 'Cashier', NULL, CURRENT_TIMESTAMP)
-ON CONFLICT (id) DO NOTHING;
+    (4, 'Vendeur', 'Service', NULL, CURRENT_TIMESTAMP)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, role = EXCLUDED.role;
 
 -- ============================================================
 -- Parameters (shop identity & settings)
@@ -47,7 +47,7 @@ INSERT INTO dc_pos.parameters (param_key, param_value, updated_at) VALUES
     ('fidelityRate', '0', CURRENT_TIMESTAMP),
     ('logo', 'https://images.unsplash.com/photo-1655662844344-ddfa82992c4d?fm=jpg&q=60&w=200&auto=format&fit=crop', CURRENT_TIMESTAMP),
     ('shopImage', 'https://images.unsplash.com/photo-1635935262420-5f39c154c5ba?fm=jpg&q=60&w=800&auto=format&fit=crop', CURRENT_TIMESTAMP),
-    ('openingHours', '{"monday":{"open":"06:00","close":"19:00","closed":false},"tuesday":{"open":"06:00","close":"19:00","closed":false},"wednesday":{"open":"06:00","close":"19:00","closed":false},"thursday":{"open":"06:00","close":"19:00","closed":false},"friday":{"open":"06:00","close":"19:00","closed":false},"saturday":{"open":"06:00","close":"19:00","closed":false},"sunday":{"open":"06:00","close":"12:00","closed":false}}', CURRENT_TIMESTAMP),
+    ('openingHours', '{"0":[{"open":"06:00","close":"19:00"}],"1":[{"open":"06:00","close":"19:00"}],"2":[{"open":"06:00","close":"19:00"}],"3":[{"open":"06:00","close":"19:00"}],"4":[{"open":"06:00","close":"19:00"}],"5":[{"open":"06:00","close":"19:00"}],"6":[{"open":"06:00","close":"12:00"}]}', CURRENT_TIMESTAMP),
     ('reservationPhone', 'true', CURRENT_TIMESTAMP),
     ('reservationEmail', 'true', CURRENT_TIMESTAMP),
     ('googlePlaceId', '', CURRENT_TIMESTAMP),
