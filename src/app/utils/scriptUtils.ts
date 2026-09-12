@@ -98,14 +98,35 @@ export function preloadedThemeScript(): string {
  * @returns The script string
  */
 export function siteThemeScript(): string {
+    // Mirrors src/proxy.ts: paths that never denote a public site route.
+    const publicSiteHost = process.env.PUBLIC_SITE_HOST || 'shop.tradiz.fr';
     return `(function () {
     var root = document.documentElement;
     var path = window.location.pathname || '';
     var hostname = window.location.hostname || '';
     var isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.indexOf('localhost') === 0;
-    // Apply on /site, /landing, /checkout, or / (production landing rewrite).
-    // Skip / on local dev since that's the POS app.
-    if (path.indexOf('/site') !== 0 && path.indexOf('/landing') !== 0 && path.indexOf('/checkout') !== 0 && !(path === '/' && !isLocal)) return;
+    var isPublicHost = hostname === '${publicSiteHost}';
+    var isLandingHost = hostname === 'tradiz.fr' || hostname === 'www.tradiz.fr';
+    var RESERVED = ['api', 'admin', 'stats', 'site', 'landing', 'checkout', 'mini', 'icons', 'fonts', '_next', 'favicon.ico', 'manifest.webmanifest'];
+
+    // Direct routes served from any host.
+    var isSiteRoute =
+        path === '/site' || path.indexOf('/site/') === 0 ||
+        path === '/landing' || path.indexOf('/landing/') === 0 ||
+        path === '/checkout' || path.indexOf('/checkout/') === 0;
+
+    // Clean shop URLs: the proxy rewrites /<shopId> → /site/<shopId> on the
+    // public site host and on localhost, but the browser path stays /<shopId>.
+    if (!isSiteRoute && (isPublicHost || isLocal)) {
+        var seg = path.match(/^\\/([a-z0-9-]+)(\\/.*)?$/i);
+        if (seg && RESERVED.indexOf(seg[1].toLowerCase()) === -1) isSiteRoute = true;
+    }
+
+    // Root rewrites: / → /landing on the apex, / → /site on the public host.
+    // Deliberately NOT on POS subdomains (annette.tradiz.fr) or localhost.
+    if (!isSiteRoute && path === '/' && (isLandingHost || isPublicHost)) isSiteRoute = true;
+
+    if (!isSiteRoute) return;
 
     root.setAttribute('data-site-route', '1');
     // Public site pages don't depend on the admin Config key, so mark the

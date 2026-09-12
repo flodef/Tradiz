@@ -70,7 +70,12 @@ export function getOpenStatus(openingHours: OpeningHours | undefined, now: Date 
     const adminDay = jsDayToAdminIndex(jsDay);
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-    if (!openingHours)
+    // No opening hours configured (undefined, empty object, or malformed data
+    // with no actual time slots) → don't show the open/closed badge at all.
+    const hasAnySlot = openingHours
+        ? Object.values(openingHours).some((slots) => Array.isArray(slots) && slots.length > 0)
+        : false;
+    if (!openingHours || !hasAnySlot)
         return {
             isOpen: false,
             status: 'unknown' as const,

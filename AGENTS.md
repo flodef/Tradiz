@@ -13,6 +13,7 @@
 - Prefer Tailwind utility classes.
 - Use the custom theme tokens defined in `src/app/globals.css` (e.g., `--color-writing-light`, `--color-ok`, `--color-error`).
 - Do not create custom SVG icons; use Tabler icons.
+- All buttons must have `cursor-pointer`.
 
 ## Client State
 

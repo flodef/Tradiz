@@ -316,6 +316,12 @@ html[data-theme-ready='0'] body {
     ::file-selector-button {
         border-color: var(--color-gray-200, currentcolor);
     }
+
+    /* All buttons show the pointer cursor (project convention).
+       Disabled buttons keep their explicit disabled:cursor-* utility. */
+    button:not(:disabled) {
+        cursor: pointer;
+    }
 }
 
 /* ── Public site theme variables ── */

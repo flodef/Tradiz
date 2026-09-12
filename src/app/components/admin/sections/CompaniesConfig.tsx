@@ -98,7 +98,7 @@ const SortableRow = memo(function SortableRow({
                     <button
                         type="button"
                         onClick={() => setShowDetails(!showDetails)}
-                        className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                        className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors cursor-pointer"
                         title="Facturation électronique"
                         aria-expanded={showDetails}
                         aria-label="Afficher les détails"
