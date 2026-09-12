@@ -57,7 +57,7 @@ export default function SitePage() {
     const [recentSearches, setRecentSearches] = useState<string[]>([]);
     const [highlightedProduct, setHighlightedProduct] = useState<string | null>(null);
     const [myListOpen, setMyListOpen] = useState(false);
-    const { mode: themeMode, set: setTheme } = useTheme();
+    const { mode: themeMode, set: setTheme, ready: themeReady } = useTheme();
     const params = useParams<{ shopId: string }>();
     const shopId = params.shopId;
     const myList = useMyList(shopId ?? '', data?.articles ?? []);
@@ -535,7 +535,7 @@ export default function SitePage() {
                                         </div>
                                     )}
                             </div>
-                            <ThemeToggle mode={themeMode} set={setTheme} />
+                            <ThemeToggle mode={themeMode} set={setTheme} ready={themeReady} />
                         </div>
 
                         {/* Mobile: inline search (left) + theme toggle + hamburger (right) */}
@@ -610,7 +610,7 @@ export default function SitePage() {
                                         </div>
                                     )}
                             </div>
-                            <ThemeToggle mode={themeMode} set={setTheme} />
+                            <ThemeToggle mode={themeMode} set={setTheme} ready={themeReady} />
                             <button
                                 className="p-2 text-site-text hover:text-orange-600 cursor-pointer shrink-0"
                                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}

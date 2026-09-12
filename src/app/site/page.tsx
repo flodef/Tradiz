@@ -21,7 +21,7 @@ export default function SiteLandingPage() {
     const [shops, setShops] = useState<ShopSummary[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const { mode: themeMode, set: setTheme } = useTheme();
+    const { mode: themeMode, set: setTheme, ready: themeReady } = useTheme();
 
     useEffect(() => {
         fetch('/api/public/shops')
@@ -77,7 +77,7 @@ export default function SiteLandingPage() {
                         </div>
                         <span className="text-xl font-bold tracking-tight">Tradiz</span>
                     </div>
-                    <ThemeToggle mode={themeMode} set={setTheme} />
+                    <ThemeToggle mode={themeMode} set={setTheme} ready={themeReady} />
                 </div>
             </header>
 

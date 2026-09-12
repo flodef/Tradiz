@@ -101,7 +101,11 @@ export function siteThemeScript(): string {
     return `(function () {
     var root = document.documentElement;
     var path = window.location.pathname || '';
-    if (path.indexOf('/site') !== 0 && path.indexOf('/landing') !== 0) return;
+    var hostname = window.location.hostname || '';
+    var isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.indexOf('localhost') === 0;
+    // Apply on /site, /landing, or / (production landing rewrite).
+    // Skip / on local dev since that's the POS app.
+    if (path.indexOf('/site') !== 0 && path.indexOf('/landing') !== 0 && !(path === '/' && !isLocal)) return;
 
     root.setAttribute('data-site-route', '1');
 

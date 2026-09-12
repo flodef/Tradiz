@@ -1,5 +1,11 @@
 @import 'tailwindcss';
 
+/* Register the site-dark variant so `site-dark:*` utilities apply when
+   the `.site-dark` class is present on <html> (set by the inline theme script
+   and useTheme). Without this, all `site-dark:*` classes are silently ignored
+   and dark-mode gradients/backgrounds never apply. */
+@custom-variant site-dark (&:where(.site-dark, .site-dark *));
+
 :root {
     --writing-light-color: rgb(217, 119, 6);
     --main-from-light-color: rgb(255, 247, 237);
@@ -333,8 +339,8 @@ html[data-theme-ready='0'] body {
 /* Neutralize the Tradiz app background on /site routes to prevent theme flash.
    The inline siteThemeScript sets data-site-route="1" before hydration. */
 html[data-site-route='1'] body {
-    background: var(--site-bg);
-    background-image: none;
+    background: var(--site-bg) !important;
+    background-image: none !important;
 }
 
 .site-dark {

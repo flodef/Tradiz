@@ -4,10 +4,6 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { sendContactEmail } from '@/app/actions/email';
 import TradizLogo from '../components/TradizLogo';
 import {
-    IconSun,
-    IconMoon,
-    IconDeviceDesktop,
-    IconDeviceTablet,
     IconDeviceMobile,
     IconArrowRight,
     IconChevronDown,
@@ -28,7 +24,7 @@ import {
     IconSparkles,
     IconExternalLink,
 } from '@tabler/icons-react';
-import { useTheme, type ThemeMode } from '../site/theme';
+import { useTheme, ThemeToggle, type ThemeMode } from '../site/theme';
 
 /* ─────────────────────────── Content ─────────────────────────── */
 
@@ -281,51 +277,19 @@ function useFadeIn<T extends HTMLElement = HTMLDivElement>() {
 
 /* ─────────────────────────── ThemeToggle ─────────────────────────── */
 
-function LandingThemeToggle({ mode, set }: { mode: ThemeMode; set: (m: ThemeMode) => void }) {
-    const options: { value: ThemeMode; icon: typeof IconSun; label: string }[] = [
-        { value: 'light', icon: IconSun, label: 'Clair' },
-        { value: 'dark', icon: IconMoon, label: 'Sombre' },
-    ];
-    return (
-        <div
-            className="inline-flex items-center gap-0.5 rounded-full p-0.5 bg-site-surface-hover border border-site-border shrink-0"
-            role="radiogroup"
-            aria-label="Thème"
-        >
-            <button
-                type="button"
-                onClick={() => set('system')}
-                title="Système"
-                aria-label="Système"
-                aria-checked={mode === 'system'}
-                role="radio"
-                className={`rounded-full flex items-center justify-center transition-all p-1.5 cursor-pointer ${mode === 'system' ? 'bg-orange-500 text-white shadow-sm' : 'text-site-text-muted hover:text-site-text'}`}
-            >
-                <IconDeviceDesktop size={16} className="hidden lg:block" />
-                <IconDeviceTablet size={16} className="hidden md:block lg:hidden" />
-                <IconDeviceMobile size={16} className="block md:hidden" />
-            </button>
-            {options.map((opt) => (
-                <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => set(opt.value)}
-                    title={opt.label}
-                    aria-label={opt.label}
-                    aria-checked={mode === opt.value}
-                    role="radio"
-                    className={`rounded-full flex items-center justify-center transition-all p-1.5 cursor-pointer ${mode === opt.value ? 'bg-orange-500 text-white shadow-sm' : 'text-site-text-muted hover:text-site-text'}`}
-                >
-                    <opt.icon size={16} />
-                </button>
-            ))}
-        </div>
-    );
-}
+// LandingThemeToggle was removed — use ThemeToggle from site/theme.tsx directly.
 
 /* ─────────────────────────── Header ─────────────────────────── */
 
-function Header({ themeMode, setTheme }: { themeMode: ThemeMode; setTheme: (m: ThemeMode) => void }) {
+function Header({
+    themeMode,
+    setTheme,
+    themeReady,
+}: {
+    themeMode: ThemeMode;
+    setTheme: (m: ThemeMode) => void;
+    themeReady: boolean;
+}) {
     const [scrolled, setScrolled] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -362,7 +326,7 @@ function Header({ themeMode, setTheme }: { themeMode: ThemeMode; setTheme: (m: T
                 </nav>
 
                 <div className="flex items-center gap-3">
-                    <LandingThemeToggle mode={themeMode} set={setTheme} />
+                    <ThemeToggle mode={themeMode} set={setTheme} ready={themeReady} />
                     <a
                         href="https://demo.tradiz.fr"
                         target="_blank"
@@ -809,6 +773,8 @@ function PricingCard({
                                         className="relative"
                                         onMouseEnter={() => setOpenTooltip(feature)}
                                         onMouseLeave={() => setOpenTooltip(null)}
+                                        onFocus={() => setOpenTooltip(feature)}
+                                        onBlur={() => setOpenTooltip(null)}
                                     >
                                         <button
                                             type="button"
@@ -1347,6 +1313,15 @@ function Contact() {
                                     type="button"
                                     id="contact-subject"
                                     onClick={() => setSubjectOpen(!subjectOpen)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Escape' && subjectOpen) {
+                                            e.preventDefault();
+                                            setSubjectOpen(false);
+                                        } else if (e.key === 'ArrowDown' || e.key === 'Enter') {
+                                            e.preventDefault();
+                                            setSubjectOpen(true);
+                                        }
+                                    }}
                                     aria-haspopup="listbox"
                                     aria-expanded={subjectOpen}
                                     className={
@@ -1369,6 +1344,12 @@ function Contact() {
                                         <div
                                             className="absolute z-50 mt-1 w-full rounded-xl overflow-hidden bg-site-surface border border-site-border shadow-lg"
                                             role="listbox"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Escape') {
+                                                    e.preventDefault();
+                                                    setSubjectOpen(false);
+                                                }
+                                            }}
                                         >
                                             {CONTACT_SUBJECTS.map((s) => (
                                                 <button
@@ -1379,6 +1360,23 @@ function Contact() {
                                                     onClick={() => {
                                                         setForm({ ...form, subject: s.value });
                                                         setSubjectOpen(false);
+                                                    }}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'ArrowDown') {
+                                                            e.preventDefault();
+                                                            const next = e.currentTarget
+                                                                .nextElementSibling as HTMLButtonElement | null;
+                                                            next?.focus();
+                                                        } else if (e.key === 'ArrowUp') {
+                                                            e.preventDefault();
+                                                            const prev = e.currentTarget
+                                                                .previousElementSibling as HTMLButtonElement | null;
+                                                            prev?.focus();
+                                                        } else if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            setForm({ ...form, subject: s.value });
+                                                            setSubjectOpen(false);
+                                                        }
                                                     }}
                                                     className={`w-full text-left px-4 py-3 transition-colors hover:bg-site-surface-hover ${
                                                         form.subject === s.value
@@ -1505,14 +1503,14 @@ function Footer() {
 /* ─────────────────────────── Page ─────────────────────────── */
 
 export default function LandingPage() {
-    const { mode: themeMode, set: setTheme } = useTheme();
+    const { mode: themeMode, set: setTheme, ready: themeReady } = useTheme();
 
     return (
         <div className="min-h-screen bg-site-bg text-site-text transition-colors duration-200">
             {/* Background gradient */}
             <div className="fixed inset-0 -z-10 bg-linear-to-br from-gray-50 via-white to-gray-100 site-dark:from-gray-950 site-dark:via-gray-900 site-dark:to-gray-800" />
 
-            <Header themeMode={themeMode} setTheme={setTheme} />
+            <Header themeMode={themeMode} setTheme={setTheme} themeReady={themeReady} />
 
             <main>
                 <Hero />
