@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const BASE_DOMAIN = 'tradiz.fr';
 const LEGACY_HOST = `pos.${BASE_DOMAIN}`;
 const PUBLIC_SITE_HOST = process.env.PUBLIC_SITE_HOST || `shop.${BASE_DOMAIN}`;
+const LANDING_HOSTS = new Set([BASE_DOMAIN, `www.${BASE_DOMAIN}`]);
 
 // Local dev hosts that should also get the clean-URL rewrite (/annette → /site/annette).
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1']);
@@ -14,6 +15,7 @@ const RESERVED_PATHS = new Set([
     'stats',
     'site',
     'landing',
+    'checkout',
     'mini',
     'icons',
     'fonts',
@@ -43,6 +45,27 @@ function handleLegacyHost(request: NextRequest): NextResponse | null {
     const { protocol } = request.nextUrl;
     const redirectUrl = `${protocol}//${shopSegment}.${BASE_DOMAIN}${rest}`;
     return NextResponse.redirect(redirectUrl, { status: 301 });
+}
+
+/**
+ * Rewrites the apex / www host (tradiz.fr, www.tradiz.fr) to the landing page:
+ *   / → /landing
+ *
+ * Other paths (api, _next, etc.) are left untouched.
+ */
+function handleLandingHost(request: NextRequest): NextResponse | null {
+    const { hostname, pathname, search } = request.nextUrl;
+    if (!LANDING_HOSTS.has(hostname)) return null;
+
+    // Only rewrite the root path to /landing; everything else passes through.
+    if (pathname === '/') {
+        const url = request.nextUrl.clone();
+        url.pathname = '/landing';
+        url.search = search;
+        return NextResponse.rewrite(url);
+    }
+
+    return NextResponse.next();
 }
 
 /**
@@ -83,6 +106,9 @@ function handlePublicSiteHost(request: NextRequest): NextResponse | null {
 export function proxy(request: NextRequest) {
     const legacy = handleLegacyHost(request);
     if (legacy) return legacy;
+
+    const landing = handleLandingHost(request);
+    if (landing) return landing;
 
     const publicSite = handlePublicSiteHost(request);
     if (publicSite) return publicSite;
