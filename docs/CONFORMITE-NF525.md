@@ -31,12 +31,22 @@ Ce document ne constitue pas un certificat NF525.
 - Avant chaque remplacement de lignes de transaction lors d'une synchronisation,
   un événement d'audit `transaction_items_replaced` capture l'ensemble des articles
   précédents, laissant une trace même après la suppression physique des lignes.
+- Les hachages de clôture sont **ancrés à la chaîne des transactions** : le
+  hachage d'une clôture journalière inclut le premier et le dernier hachage de
+  transaction payée du jour ; les clôtures mensuelles et annuelles incluent de
+  même le premier et le dernier hachage des clôtures de la période inférieure.
+  Toute modification d'une transaction ou d'une clôture scellée invalide donc le
+  hachage de la clôture correspondante.
 
 **Limites connues :**
+
 - Les lignes de transactions sont physiquement supprimées et réinsérées lors des
   synchronisations (mais une trace auditable est conservée).
 - Aucune protection au niveau base de données (triggers/permissions) n'empêche
   actuellement la modification directe des tables fiscales par un administrateur DB.
+  Des scripts de durcissement prêts à l'emploi existent
+  (`scripts/harden-nf525-postgres.sql`, `scripts/harden-nf525-mariadb.sql`) mais
+  n'ont pas encore été appliqués aux bases de production.
 
 ### 2. Sécurisation
 
@@ -45,13 +55,16 @@ Ce document ne constitue pas un certificat NF525.
 - Toute opération sensible (suppression, modification, clôture, export d'archive,
   changement de paramètres, changement d'articles/tarifs/TVA/moyens de paiement/
   utilisateurs/remises/catégories) est tracée avec :
-  - `event_type` (type d'opération)
-  - `entity_type` et `entity_id` (entité concernée)
-  - `user_name` (opérateur)
-  - `device_id` (caisse)
-  - `detail` (détail JSON de l'opération)
-  - `created_at` (horodatage, inclus dans le hachage)
+    - `event_type` (type d'opération)
+    - `entity_type` et `entity_id` (entité concernée)
+    - `user_name` (opérateur)
+    - `device_id` (caisse)
+    - `detail` (détail JSON de l'opération)
+    - `created_at` (horodatage, inclus dans le hachage)
 - Les événements d'audit sont chaînés par hachage SHA-256.
+- Les changements de prix et de taux de TVA des articles sont en outre
+  historisés dans `product_price_history` (référence, nom, ancienne et
+  nouvelle valeur de prix/TVA, opérateur, horodatage).
 
 ### 3. Conservation
 
@@ -71,12 +84,12 @@ et l'accès à la base de données relèvent de la responsabilité de l'exploita
 **Mécanisme :** Export d'archive fiscale signé par HMAC-SHA256.
 
 - L'endpoint `/api/sql/fiscalArchive` produit un export JSON contenant :
-  - Transactions et leurs lignes
-  - Clôtures journalières, mensuelles, annuelles
-  - Totaux perpétuels
-  - Événements d'audit
-  - Métadonnées (logiciel, version, période)
-  - Signature HMAC-SHA256 (si `FISCAL_ARCHIVE_HMAC_KEY` est configuré)
+    - Transactions et leurs lignes
+    - Clôtures journalières, mensuelles, annuelles
+    - Totaux perpétuels
+    - Événements d'audit
+    - Métadonnées (logiciel, version, période)
+    - Signature HMAC-SHA256 (si `FISCAL_ARCHIVE_HMAC_KEY` est configuré)
 - Le script `scripts/verify-archive.ts` permet à un tiers de vérifier la signature.
 
 ## Vérification de l'intégrité
@@ -98,17 +111,17 @@ Vérifie l'intégrité de **toutes les chaînes** :
 
 ```json
 {
-  "integrity_ok": true,
-  "total_transactions": 12345,
-  "verified": 12345,
-  "issues_found": 0,
-  "chains": {
-    "transactions": { "total": 12345, "verified": 12345, "issues_found": 0, "integrity_ok": true },
-    "daily_closures": { "total": 365, "verified": 365, "issues_found": 0, "integrity_ok": true },
-    "monthly_closures": { "total": 12, "verified": 12, "issues_found": 0, "integrity_ok": true },
-    "annual_closures": { "total": 1, "verified": 1, "issues_found": 0, "integrity_ok": true },
-    "audit_events": { "total": 5000, "verified": 5000, "issues_found": 0, "integrity_ok": true }
-  }
+    "integrity_ok": true,
+    "total_transactions": 12345,
+    "verified": 12345,
+    "issues_found": 0,
+    "chains": {
+        "transactions": { "total": 12345, "verified": 12345, "issues_found": 0, "integrity_ok": true },
+        "daily_closures": { "total": 365, "verified": 365, "issues_found": 0, "integrity_ok": true },
+        "monthly_closures": { "total": 12, "verified": 12, "issues_found": 0, "integrity_ok": true },
+        "annual_closures": { "total": 1, "verified": 1, "issues_found": 0, "integrity_ok": true },
+        "audit_events": { "total": 5000, "verified": 5000, "issues_found": 0, "integrity_ok": true }
+    }
 }
 ```
 
@@ -121,14 +134,15 @@ Vérifie l'intégrité de **toutes les chaînes** :
 L'attestation individuelle de l'éditeur est disponible via :
 
 - **UI :** Section `NF525 — Conformité fiscale` dans les paramètres d'administration.
-  - Bouton vert "Valide" si une attestation signée est présente.
-  - Bouton rouge "À signer" sinon. Cliquez pour générer le PDF non signé,
-    l'imprimer, le signer, puis importer la version signée.
+    - Bouton vert "Valide" si une attestation signée est présente.
+    - Bouton rouge "À signer" sinon. Cliquez pour générer le PDF non signé,
+      l'imprimer, le signer, puis importer la version signée.
 - **API :** `GET /api/sql/attestation` — statut, `?action=view` — PDF signé,
   `?action=generate` — PDF non signé, `POST` — importer un PDF signé,
   `DELETE` — supprimer l'attestation signée.
 
 Le PDF d'attestation suit le modèle BOI-LETTRE-000242 avec deux volets :
+
 1. **Volet éditeur** — rempli par le représentant légal de l'éditeur du logiciel.
 2. **Volet utilisateur** — rempli par le représentant légal de l'entreprise utilisatrice.
 

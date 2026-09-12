@@ -3,7 +3,27 @@
 This document details the three remaining items from the NF525 compliance
 remediation, with step-by-step instructions for each.
 
-## 1. P2.9 — Anchor closures to the transaction chain
+## 1. P2.9 — Anchor closures to the transaction chain ✅ IMPLEMENTED
+
+> **Status**: code done — **requires a rechain of existing closures** after
+> deploy (`bun run scripts/populate-nf525-tables.ts --force-rechain`, after
+> testing on a database copy). Until then, `verifyIntegrity` reports closure
+> hash mismatches because existing hashes were computed without the anchors.
+>
+> What changed:
+>
+> - Daily closure hash now covers the first and last **paid** transaction
+>   hash of the day (`payment_method NOT IN` the excluded statuses).
+> - Monthly closure hash covers the first and last **daily closure** hash of
+>   the month; annual likewise for monthly closures.
+> - `verifyIntegrity` re-derives the anchors from current data (they are not
+>   stored as columns — the stored `closure_hash` commits to them).
+> - `scripts/populate-nf525-tables.ts` computes the same anchors when
+>   (re)populating.
+>
+> Note: a legitimate post-closure change to a sealed day (e.g. cancelling a
+> paid ticket after the Z) will flag that closure — that is the intended
+> detection, and the audit trail explains the change.
 
 ### What it means
 
@@ -94,7 +114,18 @@ updated.
 
 ---
 
-## 2. P3.14 — Price/VAT history table
+## 2. P3.14 — Price/VAT history table ✅ IMPLEMENTED
+
+> **Status**: done. The `product_price_history` table exists in both create
+> scripts and both NF525 migration scripts. `updateArticles` captures old
+> price/VAT before the delete+reinsert, then inserts one history row per
+> product whose price or VAT actually changed (matched by `reference`,
+> falling back to `name`+`category`). The insert runs after commit and is
+> best-effort, so a missing table on an un-migrated deployment only logs an
+> error instead of aborting the product update.
+>
+> Remaining optional piece: a "Historique des prix" viewer UI (step 3 below)
+> was not built — the table is queryable directly.
 
 ### What it means
 
@@ -171,7 +202,30 @@ you have time, but it's not blocking.
 
 ---
 
-## 3. P3.15 — DB-level append-only protections
+## 3. P3.15 — DB-level append-only protections 🟡 SCRIPTS READY
+
+> **Status**: hardening scripts written — **not yet applied** (operational
+> change, requires admin access + staging test):
+>
+> - `scripts/harden-nf525-postgres.sql` — creates a `tradiz_app` login role
+>   with least-privilege grants and `BEFORE UPDATE/DELETE` triggers on
+>   `audit_events`, `product_price_history`, `balance_history`, the three
+>   closure tables, plus `BEFORE DELETE` on `transactions`. Run it per shop
+>   database as the owner, then switch `PG_USER`/`PG_PASSWORD`.
+> - `scripts/harden-nf525-mariadb.sql` — same design for MariaDB (`tradiz_app`
+>   user, per-table grants, `SIGNAL`-based triggers). Switch `DB_USER`/
+>   `DB_PASSWORD` after applying.
+> - Both scripts embed a commented ROLLBACK section.
+>
+> The `transaction_items` sync conflict is resolved by **option 1** (grant
+> `DELETE` on `transaction_items` only) — the `transaction_items_replaced`
+> audit event already captures the prior state, so the audit trail is
+> preserved without refactoring the sync.
+>
+> ⚠️ Caveats: admin scripts (`populate-nf525-tables.ts`, migrations,
+> `TRUNCATE` rechain) must keep running as the owner/admin role — `tradiz_app`
+> cannot `TRUNCATE` the closure tables. Test the full POS flow on a staging
+> DB before switching production credentials.
 
 ### What it means
 
@@ -327,8 +381,8 @@ also the **most operationally complex**. Recommended approach:
 
 ## Summary of priorities
 
-| Item | Effort | Risk | NF525 impact | Recommendation |
-|------|--------|------|-------------|----------------|
-| P2.9 (closure anchoring) | Medium | Breaking (requires rechain) | High — closes a verification gap | Do next, after testing on a DB copy |
-| P3.14 (price history) | Low | Low | Low — audit events already provide traceability | Nice-to-have, not urgent |
-| P3.15 (DB grants) | High | High — operational, could break the app | High — only real protection against direct DB tampering | Plan carefully, test on staging first |
+| Item                     | Effort | Risk                                    | NF525 impact                                            | Recommendation                       |
+| ------------------------ | ------ | --------------------------------------- | ------------------------------------------------------- | ------------------------------------ |
+| P2.9 (closure anchoring) | Medium | Breaking (requires rechain)             | High — closes a verification gap                        | ✅ Code done — run rechain on deploy |
+| P3.14 (price history)    | Low    | Low                                     | Low — audit events already provide traceability         | ✅ Done                              |
+| P3.15 (DB grants)        | High   | High — operational, could break the app | High — only real protection against direct DB tampering | 🟡 Scripts ready — apply on staging  |
