@@ -180,12 +180,11 @@ export default function CommerceConfig({
 
     // Build the public site URL for this shop.
     // - Demo shop: https://demo.tradiz.fr (POS demo, not a public catalog)
-    // - Public shops (annette, gds): https://shop.tradiz.fr/<shopId> (public catalog)
-    // - Other shops: https://<shopId>.tradiz.fr (subdomain-based POS)
+    // - Public shops (annette, gds, etc.): https://shop.tradiz.fr/<shopId> (public catalog)
     const publicSiteUrl = shopId
         ? shopId === 'demo'
             ? 'https://demo.tradiz.fr'
-            : `https://shop.tradiz.fr/${shopId}`
+            : `https://shop.tradiz.fr/${encodeURIComponent(shopId)}`
         : '';
 
     useEffect(() => {
@@ -534,6 +533,20 @@ export default function CommerceConfig({
                             isReadOnly={isReadOnly}
                             className="w-full"
                         />
+                    </div>
+                    <div className="w-full flex flex-wrap gap-4 items-end">
+                        <div className="flex-1 min-w-40">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Lien avis Google
+                            </label>
+                            <ValidatedInput
+                                value={String(config.shop.googleReviewUrl || '')}
+                                onChange={(value) => handleShopChange('googleReviewUrl', String(value))}
+                                placeholder="https://www.google.com/maps/place/..."
+                                isReadOnly={isReadOnly}
+                                className="w-full"
+                            />
+                        </div>
                     </div>
                     <div className="w-full flex flex-wrap gap-4 items-end">
                         <ValidatedInput

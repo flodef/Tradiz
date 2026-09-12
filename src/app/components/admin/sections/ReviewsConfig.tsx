@@ -59,17 +59,21 @@ export default function ReviewsConfig({ isReadOnly = false, isOpen, onToggle, ic
     const [averageRating, setAverageRating] = useState(0);
     const [loading, setLoading] = useState(true);
     const [deletingId, setDeletingId] = useState<number | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     const fetchReviews = async () => {
         setLoading(true);
+        setError(null);
         try {
             const res = await fetch('/api/sql/getReviews');
+            if (!res.ok) throw new Error('Server error');
             const data = await res.json();
             setReviews(data.reviews || []);
             setAverageRating(data.averageRating || 0);
         } catch {
             setReviews([]);
             setAverageRating(0);
+            setError('Impossible de charger les avis.');
         } finally {
             setLoading(false);
         }
@@ -91,9 +95,13 @@ export default function ReviewsConfig({ isReadOnly = false, isOpen, onToggle, ic
                 .then((res) => {
                     if (res.ok) {
                         setReviews((prev) => prev.filter((r) => r.id !== review.id));
+                    } else {
+                        openPopup('Erreur', ['Impossible de supprimer cet avis.'], () => {});
                     }
                 })
-                .catch(() => {})
+                .catch(() => {
+                    openPopup('Erreur', ['Impossible de supprimer cet avis.'], () => {});
+                })
                 .finally(() => setDeletingId(null));
         });
     };
@@ -113,6 +121,8 @@ export default function ReviewsConfig({ isReadOnly = false, isOpen, onToggle, ic
         >
             {loading ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400">Chargement des avis…</p>
+            ) : error ? (
+                <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
             ) : reviews.length === 0 ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400">Aucun avis pour le moment.</p>
             ) : (

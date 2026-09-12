@@ -273,18 +273,33 @@ export async function sendContactEmail(
     fromName: string,
     fromEmail: string,
     subject: string,
-    message: string
+    message: string,
+    honeypot?: string
 ): Promise<boolean> {
+    // Server-side honeypot check
+    if (honeypot) return true;
+
+    // Server-side input validation
+    const name = String(fromName || '').trim();
+    const email = String(fromEmail || '').trim();
+    const subj = String(subject || '').trim();
+    const msg = String(message || '').trim();
+
+    if (!name || name.length > 100) return false;
+    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
+    if (!subj || subj.length > 200) return false;
+    if (!msg || msg.length > 5000) return false;
+
     return await sendEmail({
         to: shopEmail,
-        subject: `Contact site web - ${subject}`,
+        subject: `Contact site web - ${subj}`,
         html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px;">
           <p><strong>Nouveau message depuis le site web</strong></p>
-          <p><strong>De :</strong> ${escapeHtml(fromName)} &lt;${escapeHtml(fromEmail)}&gt;</p>
-          <p><strong>Sujet :</strong> ${escapeHtml(subject)}</p>
+          <p><strong>De :</strong> ${escapeHtml(name)} &lt;${escapeHtml(email)}&gt;</p>
+          <p><strong>Sujet :</strong> ${escapeHtml(subj)}</p>
           <hr style="border: 1px solid #eee; margin: 16px 0;" />
-          <p style="white-space: pre-wrap;">${escapeHtml(message)}</p>
+          <p style="white-space: pre-wrap;">${escapeHtml(msg)}</p>
           <hr style="border: 1px solid #eee; margin: 16px 0;" />
           <p style="color: #999; font-size: 12px;">Ce message a été envoyé depuis le formulaire de contact du site web.</p>
         </div>

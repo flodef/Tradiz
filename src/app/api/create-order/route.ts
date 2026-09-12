@@ -10,7 +10,7 @@ const REVOLUT_API_URL =
 const SERVER_PLANS: Record<string, { name: string; monthly: number; annual: number }> = {
     decouverte: { name: 'Découverte', monthly: 3000, annual: 30000 },
     pro: { name: 'Pro', monthly: 5000, annual: 50000 },
-    privilege: { name: 'Privilège', monthly: 10000, annual: 10000 },
+    privilege: { name: 'Privilège', monthly: 10000, annual: 100000 },
 };
 
 export async function POST(request: NextRequest) {

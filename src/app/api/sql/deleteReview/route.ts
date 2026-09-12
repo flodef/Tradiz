@@ -30,7 +30,13 @@ export async function DELETE(request: Request) {
         const query = connection.isPostgreSQL
             ? `DELETE FROM dc.reviews WHERE id = $1 AND shop_id = $2`
             : `DELETE FROM reviews WHERE id = ? AND shop_id = ?`;
-        await connection.execute(query, [reviewId, shopId]);
+        const [result] = await connection.execute(query, [reviewId, shopId]);
+        const affectedRows = connection.isPostgreSQL
+            ? ((result as { rowCount?: number })?.rowCount ?? 0)
+            : ((result as { affectedRows?: number })?.affectedRows ?? 0);
+        if (affectedRows === 0) {
+            return NextResponse.json({ error: 'Review not found' }, { status: 404 });
+        }
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Error deleting review:', error);

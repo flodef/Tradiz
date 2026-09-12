@@ -59,7 +59,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ reviews, averageRating: avgRating, count: reviews.length });
     } catch (error) {
         console.error('Error fetching reviews:', error);
-        return NextResponse.json({ reviews: [], averageRating: 0, count: 0 });
+        return NextResponse.json({ error: 'Failed to fetch reviews' }, { status: 500 });
     } finally {
         await connection?.end();
     }

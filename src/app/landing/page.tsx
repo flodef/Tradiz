@@ -1193,7 +1193,8 @@ function Contact() {
                     form.name,
                     form.email,
                     subjectLabel,
-                    fullMessage
+                    fullMessage,
+                    honeypot
                 );
                 if (success) {
                     setSent(true);

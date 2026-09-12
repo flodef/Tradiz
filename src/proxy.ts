@@ -40,13 +40,13 @@ function handleLegacyHost(request: NextRequest): NextResponse | null {
     if (!match) return NextResponse.next();
 
     const [, shopSegment, rest = '/'] = match;
-    if (RESERVED_PATHS.has(shopSegment)) return NextResponse.next();
+    if (RESERVED_PATHS.has(shopSegment.toLowerCase())) return NextResponse.next();
 
     // Validate shopSegment to prevent open redirect — only allow alphanumeric + hyphens
     if (!/^[a-z0-9-]+$/i.test(shopSegment)) return NextResponse.next();
 
-    const { protocol } = request.nextUrl;
-    const redirectUrl = `${protocol}//${shopSegment}.${BASE_DOMAIN}${rest}`;
+    const { protocol, search } = request.nextUrl;
+    const redirectUrl = `${protocol}//${shopSegment}.${BASE_DOMAIN}${rest}${search}`;
     return NextResponse.redirect(redirectUrl, { status: 301 });
 }
 
@@ -94,7 +94,7 @@ function handlePublicSiteHost(request: NextRequest): NextResponse | null {
 
     // Shop page: /<shopId> → /site/<shopId>
     const match = pathname.match(/^\/([^/]+)(\/.*)?$/);
-    if (match && !RESERVED_PATHS.has(match[1])) {
+    if (match && !RESERVED_PATHS.has(match[1].toLowerCase())) {
         const shopId = match[1];
         // Validate shopId to prevent path traversal — only allow alphanumeric + hyphens
         if (!/^[a-z0-9-]+$/i.test(shopId)) return NextResponse.next();

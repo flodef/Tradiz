@@ -198,9 +198,9 @@ ON CONFLICT (id) DO NOTHING;
 -- ============================================================
 -- Establishment config
 -- ============================================================
-INSERT INTO dc.establishment_config (operation_mode, orange_delay_minutes, red_delay_minutes, kitchen_view_enabled, grafana_access_enabled) VALUES
-    ('restaurant', 5, 10, true, true)
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc.establishment_config (id, operation_mode, orange_delay_minutes, red_delay_minutes, kitchen_view_enabled, grafana_access_enabled) VALUES
+    (1, 'restaurant', 5, 10, true, true)
+ON CONFLICT (id) DO UPDATE SET operation_mode = EXCLUDED.operation_mode, orange_delay_minutes = EXCLUDED.orange_delay_minutes, red_delay_minutes = EXCLUDED.red_delay_minutes, kitchen_view_enabled = EXCLUDED.kitchen_view_enabled, grafana_access_enabled = EXCLUDED.grafana_access_enabled;
 
 -- ============================================================
 -- Reset SERIAL sequences to MAX(id) so future inserts don't collide
@@ -214,6 +214,7 @@ SELECT setval(pg_get_serial_sequence('dc_pos.currencies', 'id'), (SELECT MAX(id)
 SELECT setval(pg_get_serial_sequence('dc_pos.companies', 'id'), (SELECT MAX(id) FROM dc_pos.companies));
 SELECT setval(pg_get_serial_sequence('dc_pos.customers', 'id'), (SELECT MAX(id) FROM dc_pos.customers));
 SELECT setval(pg_get_serial_sequence('dc_pos.discounts', 'id'), (SELECT MAX(id) FROM dc_pos.discounts));
+SELECT setval(pg_get_serial_sequence('dc.establishment_config', 'id'), (SELECT MAX(id) FROM dc.establishment_config));
 SELECT setval(pg_get_serial_sequence('dc.categories', 'id'), (SELECT MAX(id) FROM dc.categories));
 SELECT setval(pg_get_serial_sequence('dc.products', 'id'), (SELECT MAX(id) FROM dc.products));
 

@@ -345,6 +345,7 @@ export default function SettingsPage() {
                     image: getParam('shopImage', 'Image du magasin'),
                     country: 'FR',
                     googlePlaceId: getParam('googlePlaceId', 'Google Place ID'),
+                    googleReviewUrl: getParam('googleReviewUrl', 'Google Review URL'),
                 },
                 thanksMessage: getParam('thanksMessage', 'Message de remerciement') || 'Merci de votre visite !',
                 mercurial: (getParam('mercurial', 'Mercuriale quadratique') || Mercurial.none) as Mercurial,
@@ -940,6 +941,8 @@ export default function SettingsPage() {
                 { key: 'openingHours', value: data.openingHours ? JSON.stringify(data.openingHours) : '' },
                 { key: 'reservationPhone', value: String(data.reservationPhone ?? false) },
                 { key: 'reservationEmail', value: String(data.reservationEmail ?? false) },
+                { key: 'googlePlaceId', value: data.shop.googlePlaceId ?? '' },
+                { key: 'googleReviewUrl', value: data.shop.googleReviewUrl ?? '' },
             ];
 
             const response = await fetch('/api/sql/updateParameters', {
@@ -1064,7 +1067,7 @@ export default function SettingsPage() {
         setIsSaving(true);
         try {
             // Save all themes (colors, names, and selected index)
-            await fetch('/api/sql/updateColors', {
+            const response = await fetch('/api/sql/updateColors', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1074,6 +1077,7 @@ export default function SettingsPage() {
                     customThemeNames,
                 }),
             });
+            if (!response.ok) throw new Error('Failed to save colors');
             setOriginalColors(data);
             setOriginalThemeName(themeName);
             setOriginalSelectedThemeIndex(selectedThemeIndex);
@@ -1124,11 +1128,12 @@ export default function SettingsPage() {
         setIsSavingCustomers(true);
         setIsSaving(true);
         try {
-            await fetch('/api/sql/updateCustomers', {
+            const response = await fetch('/api/sql/updateCustomers', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ customers: data }),
             });
+            if (!response.ok) throw new Error('Failed to save customers');
             setOriginalCustomers(data);
             setHasCustomersChanges(false);
 
