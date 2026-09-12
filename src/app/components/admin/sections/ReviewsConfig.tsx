@@ -55,7 +55,7 @@ function formatDate(iso: string): string {
 }
 
 export default function ReviewsConfig({ isReadOnly = false, isOpen, onToggle, icon }: ReviewsConfigProps) {
-    const { openPopup, openFullscreenPopup } = usePopup();
+    const { openFullscreenPopup } = usePopup();
     const [reviews, setReviews] = useState<Review[]>([]);
     const [averageRating, setAverageRating] = useState(0);
     const [loading, setLoading] = useState(true);

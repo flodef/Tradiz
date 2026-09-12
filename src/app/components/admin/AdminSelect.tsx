@@ -1,7 +1,8 @@
 'use client';
 
 import { adminInputStyle, adminTextStyle } from '@/app/utils/constants';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { twMerge } from 'tailwind-merge';
 import { IconChevronDown, IconCheck } from '@tabler/icons-react';
 
@@ -28,18 +29,47 @@ export default function AdminSelect({
 }: AdminSelectProps) {
     const [open, setOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    const buttonRef = useRef<HTMLButtonElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
+    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
     const selectedValue = value !== undefined ? String(value) : '';
     const selectedOption = options.find((opt) => String(opt.value) === selectedValue);
 
-    // Close on outside click
+    // Compute dropdown position from the trigger button's bounding rect.
+    const updatePosition = React.useCallback(() => {
+        if (!buttonRef.current) return;
+        const rect = buttonRef.current.getBoundingClientRect();
+        setDropdownStyle({
+            position: 'fixed',
+            top: rect.bottom,
+            left: rect.left,
+            width: rect.width,
+        });
+    }, []);
+
+    // Recompute on open and on scroll/resize while open.
+    useLayoutEffect(() => {
+        if (!open) return;
+        updatePosition();
+        const handler = () => updatePosition();
+        window.addEventListener('scroll', handler, true);
+        window.addEventListener('resize', handler);
+        return () => {
+            window.removeEventListener('scroll', handler, true);
+            window.removeEventListener('resize', handler);
+        };
+    }, [open, updatePosition]);
+
+    // Close on outside click (checks both the trigger container and the portal list).
     useEffect(() => {
         if (!open) return;
         const handleClick = (e: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-                setOpen(false);
+            const target = e.target as Node;
+            if (containerRef.current?.contains(target) || listRef.current?.contains(target)) {
+                return;
             }
+            setOpen(false);
         };
         document.addEventListener('mousedown', handleClick);
         return () => document.removeEventListener('mousedown', handleClick);
@@ -78,6 +108,7 @@ export default function AdminSelect({
             {label && <label className={adminTextStyle}>{label}</label>}
             <div className="relative">
                 <button
+                    ref={buttonRef}
                     type="button"
                     disabled={isReadOnly}
                     onClick={() => !isReadOnly && setOpen((o) => !o)}
@@ -97,32 +128,35 @@ export default function AdminSelect({
                     />
                 </button>
 
-                {open && (
-                    <div
-                        ref={listRef}
-                        className="absolute top-full left-0 right-0 z-9999 max-h-60 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg scrollbar-thin"
-                    >
-                        {options.map((opt, idx) => {
-                            const isSelected = String(opt.value) === selectedValue;
-                            return (
-                                <button
-                                    key={`${opt.value}-${idx}`}
-                                    type="button"
-                                    data-selected={isSelected}
-                                    onClick={() => handleSelect(String(opt.value))}
-                                    className={`flex items-center justify-between w-full text-left px-3 py-1.5 text-sm transition-colors cursor-pointer ${
-                                        isSelected
-                                            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
-                                            : 'text-writing-light dark:text-writing-dark hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }`}
-                                >
-                                    <span>{opt.label}</span>
-                                    {isSelected && <IconCheck size={16} className="shrink-0" />}
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
+                {open &&
+                    createPortal(
+                        <div
+                            ref={listRef}
+                            style={dropdownStyle}
+                            className="z-9999 max-h-60 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg scrollbar-thin"
+                        >
+                            {options.map((opt, idx) => {
+                                const isSelected = String(opt.value) === selectedValue;
+                                return (
+                                    <button
+                                        key={`${opt.value}-${idx}`}
+                                        type="button"
+                                        data-selected={isSelected}
+                                        onClick={() => handleSelect(String(opt.value))}
+                                        className={`flex items-center justify-between w-full text-left px-3 py-1.5 text-sm transition-colors cursor-pointer ${
+                                            isSelected
+                                                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
+                                                : 'text-writing-light dark:text-writing-dark hover:bg-gray-100 dark:hover:bg-gray-700'
+                                        }`}
+                                    >
+                                        <span>{opt.label}</span>
+                                        {isSelected && <IconCheck size={16} className="shrink-0" />}
+                                    </button>
+                                );
+                            })}
+                        </div>,
+                        document.body
+                    )}
             </div>
             {/* Hidden native select for form compatibility */}
             <select

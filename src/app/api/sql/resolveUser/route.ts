@@ -187,7 +187,26 @@ export async function POST(request: NextRequest) {
     const shopId = getShopIdFromRequest(request);
     let connection: DbConnection | undefined;
     try {
-        const { publicKey, browserData } = await request.json();
+        let publicKey: string;
+        let browserData:
+            | {
+                  timezone?: string;
+                  country?: string;
+                  city?: string;
+                  latitude?: number;
+                  longitude?: number;
+                  screenResolution?: string;
+                  language?: string;
+              }
+            | undefined;
+        try {
+            const parsed = await request.json();
+            publicKey = parsed.publicKey;
+            browserData = parsed.browserData;
+        } catch {
+            // Client disconnected before sending a complete body (ECONNRESET).
+            return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+        }
 
         if (!publicKey || typeof publicKey !== 'string') {
             return NextResponse.json({ error: 'Missing or invalid publicKey' }, { status: 400 });
