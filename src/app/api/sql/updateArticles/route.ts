@@ -152,6 +152,8 @@ export async function POST(request: Request) {
 
         const pgTable = connection.isPostgreSQL ? 'dc.products' : 'products';
         const catTable = connection.isPostgreSQL ? 'dc.categories' : 'categories';
+        const historyTable = connection.isPostgreSQL ? 'dc_pos.product_price_history' : 'product_price_history';
+        const historyRows: unknown[][] = [];
 
         await connection.beginTransaction();
         try {
@@ -163,13 +165,44 @@ export async function POST(request: Request) {
                 catMap.set(String(row.name), Number(row.id));
             }
 
+            // Capture existing price/VAT before the delete+reinsert so actual
+            // value changes can be recorded in product_price_history (NF525).
+            interface OldProduct {
+                reference: string | null;
+                name: string;
+                category_name: string | null;
+                price: number | string;
+                vat_rate: number | string;
+            }
+            // Match by reference when available, else by (name, category).
+            const productKey = (ref: string | null | undefined, name: string, cat: string) =>
+                ref?.trim() || `${name.trim().toLowerCase()}\0${cat.trim().toLowerCase()}`;
+            const scopedCatId = scopedCategory !== null ? catMap.get(scopedCategory) : undefined;
+            const oldQuery =
+                scopedCategory !== null
+                    ? scopedCatId !== undefined
+                        ? `SELECT p.reference, p.name, c.name AS category_name, p.price, p.vat_rate FROM ${pgTable} p LEFT JOIN ${catTable} c ON c.id = p.category_id WHERE p.category_id = ${connection.isPostgreSQL ? '$1' : '?'}`
+                        : null
+                    : `SELECT p.reference, p.name, c.name AS category_name, p.price, p.vat_rate FROM ${pgTable} p LEFT JOIN ${catTable} c ON c.id = p.category_id`;
+            const oldByKey = new Map<string, OldProduct>();
+            if (oldQuery) {
+                const [oldRows] = await connection.execute(oldQuery, scopedCatId !== undefined ? [scopedCatId] : []);
+                for (const row of oldRows as OldProduct[]) {
+                    oldByKey.set(productKey(row.reference, row.name, row.category_name ?? ''), row);
+                    // Also index by name+category so a product whose reference
+                    // changed still matches — without overwriting a product
+                    // that genuinely has no reference.
+                    const nameCatKey = productKey(null, row.name, row.category_name ?? '');
+                    if (!oldByKey.has(nameCatKey)) oldByKey.set(nameCatKey, row);
+                }
+            }
+
             if (scopedCategory !== null) {
                 // Delete products whose category_id matches the scoped category name
-                const catId = catMap.get(scopedCategory);
-                if (catId !== undefined) {
+                if (scopedCatId !== undefined) {
                     await connection.execute(
                         `DELETE FROM ${pgTable} WHERE category_id = ${connection.isPostgreSQL ? '$1' : '?'}`,
-                        [catId]
+                        [scopedCatId]
                     );
                 }
             } else {
@@ -231,10 +264,53 @@ export async function POST(request: Request) {
                 await connection.execute(insertQuery, rowValues);
             }
 
+            // Compute actual price/VAT changes for the dedicated history table
+            // (NF525: preserve old → new values, not just a generic audit event).
+            // Rows are computed here (inside the transaction, where old values
+            // were captured) but inserted after commit, best-effort, so a
+            // missing table on an un-migrated deployment can't abort the update.
+            for (const product of productsToInsert) {
+                const old =
+                    oldByKey.get(productKey(product.reference, product.name, product.category)) ??
+                    oldByKey.get(productKey(null, product.name, product.category));
+                if (!old) continue;
+                const newPrice = parseFloat(product.currencies[0]) || 0;
+                const newVat = product.vat ?? DEFAULT_VAT_RATE;
+                const oldPrice = Number(old.price);
+                const oldVat = Number(old.vat_rate);
+                if (oldPrice === newPrice && oldVat === newVat) continue;
+                historyRows.push([
+                    product.reference?.trim() || old.reference || '',
+                    product.name,
+                    oldPrice,
+                    newPrice,
+                    oldVat,
+                    newVat,
+                    'admin',
+                ]);
+            }
+
             await connection.commit();
         } catch (e) {
             await connection.rollback();
             throw e;
+        }
+
+        if (connection && historyRows.length > 0) {
+            const conn = connection;
+            try {
+                const placeholders = historyRows.map((_, i) =>
+                    conn.isPostgreSQL
+                        ? `(${Array.from({ length: 7 }, (_, j) => `$${i * 7 + j + 1}`).join(', ')})`
+                        : '(?, ?, ?, ?, ?, ?, ?)'
+                );
+                await conn.execute(
+                    `INSERT INTO ${historyTable} (product_reference, product_name, old_price, new_price, old_vat_rate, new_vat_rate, changed_by) VALUES ${placeholders.join(', ')}`,
+                    historyRows.flat()
+                );
+            } catch (historyError) {
+                console.error('Failed to record product price history:', historyError);
+            }
         }
 
         await insertAuditEvent(connection, {

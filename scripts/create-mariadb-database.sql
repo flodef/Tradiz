@@ -493,6 +493,23 @@ CREATE TABLE IF NOT EXISTS `audit_events` (
   KEY `idx_audit_events_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Product price history — records every price/VAT change (old → new values)
+-- for NF525 audit convenience (P3.14)
+CREATE TABLE IF NOT EXISTS `product_price_history` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `product_reference` varchar(255) NOT NULL,
+  `product_name` varchar(255) NOT NULL,
+  `old_price` decimal(10,2) DEFAULT NULL,
+  `new_price` decimal(10,2) DEFAULT NULL,
+  `old_vat_rate` decimal(5,2) DEFAULT NULL,
+  `new_vat_rate` decimal(5,2) DEFAULT NULL,
+  `changed_by` varchar(255) NOT NULL,
+  `changed_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_product_price_history_ref` (`product_reference`),
+  KEY `idx_product_price_history_date` (`changed_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Daily Closures (Ticket Z) — stores cumulative totals for each day
 CREATE TABLE IF NOT EXISTS `daily_closures` (
   `id` int(11) NOT NULL AUTO_INCREMENT,

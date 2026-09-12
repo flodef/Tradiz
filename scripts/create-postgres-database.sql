@@ -472,6 +472,22 @@ CREATE INDEX IF NOT EXISTS idx_audit_events_type ON dc_pos.audit_events(event_ty
 CREATE INDEX IF NOT EXISTS idx_audit_events_entity ON dc_pos.audit_events(entity_id);
 CREATE INDEX IF NOT EXISTS idx_audit_events_created_at ON dc_pos.audit_events(created_at DESC);
 
+-- Product price history — records every price/VAT change (old → new values)
+-- for NF525 audit convenience (P3.14)
+CREATE TABLE IF NOT EXISTS dc_pos.product_price_history (
+    id SERIAL PRIMARY KEY,
+    product_reference VARCHAR(255) NOT NULL,
+    product_name VARCHAR(255) NOT NULL,
+    old_price NUMERIC(10,2),
+    new_price NUMERIC(10,2),
+    old_vat_rate NUMERIC(5,2),
+    new_vat_rate NUMERIC(5,2),
+    changed_by VARCHAR(255) NOT NULL,
+    changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_product_price_history_ref ON dc_pos.product_price_history(product_reference);
+CREATE INDEX IF NOT EXISTS idx_product_price_history_date ON dc_pos.product_price_history(changed_at DESC);
+
 -- Daily Closures (Ticket Z) — stores cumulative totals for each day
 CREATE TABLE IF NOT EXISTS dc_pos.daily_closures (
     id SERIAL PRIMARY KEY,
