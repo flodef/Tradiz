@@ -2,7 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from '../db';
 import { createHash } from 'crypto';
-import { insertAuditEvent } from '../auditHelpers';
+import { insertAuditEvent, lockHashChain } from '../auditHelpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -130,6 +130,7 @@ function generateClosureHash(
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
     let connection: DbConnection | undefined;
+    let unlockChain: (() => Promise<void>) | undefined;
     try {
         const body = (await request.json()) as {
             type: 'monthly' | 'annual';
@@ -141,20 +142,33 @@ export async function POST(request: Request) {
         if (!body.type || !body.year || !body.closed_by) {
             return NextResponse.json({ error: 'type, year, and closed_by are required' }, { status: 400 });
         }
+        if (body.type !== 'monthly' && body.type !== 'annual') {
+            return NextResponse.json({ error: 'type must be "monthly" or "annual"' }, { status: 400 });
+        }
+        // year/month feed the hashed period string and DATE columns — validate
+        // before the DB normalizes or rejects a nonsensical value.
+        if (!Number.isInteger(body.year) || body.year < 1970 || body.year > 9999) {
+            return NextResponse.json({ error: 'year must be a 4-digit integer' }, { status: 400 });
+        }
+        if (
+            body.type === 'monthly' &&
+            (!Number.isInteger(body.month) || (body.month as number) < 1 || (body.month as number) > 12)
+        ) {
+            return NextResponse.json({ error: 'month must be an integer between 1 and 12' }, { status: 400 });
+        }
+        const month = body.month as number;
 
         connection = await getPosDb(shopId);
         await connection.beginTransaction();
+        // Serialize closure writers — a concurrent insert reading the same tail
+        // hash would fork the chain.
+        unlockChain = await lockHashChain(connection, 'nf525_period_closures');
 
         const isPg = connection.isPostgreSQL;
         const prefix = isPg ? 'dc_pos.' : '';
 
         if (body.type === 'monthly') {
-            if (!body.month) {
-                await connection.rollback();
-                return NextResponse.json({ error: 'month is required for monthly closure' }, { status: 400 });
-            }
-
-            const monthDate = `${body.year}-${String(body.month).padStart(2, '0')}-01`;
+            const monthDate = `${body.year}-${String(month).padStart(2, '0')}-01`;
 
             // Check if already exists
             const [existing] = await connection.execute(
@@ -168,10 +182,10 @@ export async function POST(request: Request) {
                 return NextResponse.json({ error: 'Monthly closure already exists' }, { status: 409 });
             }
 
-            const totals = await aggregateMonthlyFromDaily(connection, body.year, body.month);
+            const totals = await aggregateMonthlyFromDaily(connection, body.year, month);
             const previousHash = await getLatestMonthlyClosureHash(connection);
-            const nextMonth = body.month === 12 ? 1 : body.month + 1;
-            const nextYear = body.month === 12 ? body.year + 1 : body.year;
+            const nextMonth = month === 12 ? 1 : month + 1;
+            const nextYear = month === 12 ? body.year + 1 : body.year;
             const anchors = await getChildClosureAnchors(
                 connection,
                 'daily_closures',
@@ -285,6 +299,11 @@ export async function POST(request: Request) {
         console.error('Error creating period closure:', error);
         return NextResponse.json({ error: 'An error occurred while creating period closure' }, { status: 500 });
     } finally {
+        try {
+            await unlockChain?.();
+        } catch {
+            // lock release failure — the lock dies with the connection anyway
+        }
         await connection?.end();
     }
 }

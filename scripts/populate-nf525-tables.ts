@@ -131,7 +131,8 @@ async function main() {
         const { rows: eD } = await db.query('SELECT COUNT(*)::int AS c FROM daily_closures');
         const { rows: eM } = await db.query('SELECT COUNT(*)::int AS c FROM monthly_closures');
         const { rows: eA } = await db.query('SELECT COUNT(*)::int AS c FROM annual_closures');
-        if ((eD[0]?.c ?? 0) > 0 || (eM[0]?.c ?? 0) > 0 || (eA[0]?.c ?? 0) > 0) {
+        const hasExisting = (eD[0]?.c ?? 0) + (eM[0]?.c ?? 0) + (eA[0]?.c ?? 0) > 0;
+        if (hasExisting) {
             log('⚠️  Tables already contain data:', 'yellow');
             log(`  daily: ${eD[0]?.c ?? 0}, monthly: ${eM[0]?.c ?? 0}, annual: ${eA[0]?.c ?? 0}`, 'yellow');
             if (!isForceRechain) {
@@ -155,53 +156,75 @@ async function main() {
                     await pool.end();
                     process.exit(0);
                 }
-
-                // Log the chain_rebuild audit event
-                const operator = process.env.USER || process.env.USERNAME || 'unknown';
-                const auditDetail = JSON.stringify({
-                    previous_counts: {
-                        daily: eD[0]?.c ?? 0,
-                        monthly: eM[0]?.c ?? 0,
-                        annual: eA[0]?.c ?? 0,
-                    },
-                    operator,
-                    reason: 'force-rechain via populate-nf525-tables.ts',
-                });
-                await db.query(
-                    `INSERT INTO audit_events (event_type, entity_type, entity_id, user_name, detail)
-                     VALUES ('chain_rebuild', 'closures', 'all', $1, $2)`,
-                    [operator, auditDetail]
-                );
-                log('📝 Logged chain_rebuild audit event.', 'blue');
-            }
-            if (!isDry) {
-                log('🗑️  Clearing...', 'blue');
-                // TRUNCATE + repopulation run inside one transaction: in PG a
-                // TRUNCATE is transactional, so a failure mid-way rolls back
-                // instead of leaving the closure tables empty.
-                await db.query('BEGIN');
-                try {
-                    await db.query(
-                        'TRUNCATE daily_closures, monthly_closures, annual_closures, perpetual_totals RESTART IDENTITY CASCADE'
-                    );
-                } catch (e) {
-                    await db.query('ROLLBACK');
-                    throw e;
-                }
             }
         }
 
-        txOpen = !isDry && (eD[0]?.c ?? 0) + (eM[0]?.c ?? 0) + (eA[0]?.c ?? 0) > 0;
+        // One transaction covers fresh populate and rechain alike: a crash
+        // mid-run must not leave partial closure data the guard would refuse
+        // to overwrite on the next run. PG TRUNCATE is transactional, so the
+        // rechain path rolls back cleanly too. The outer catch rolls back
+        // whenever txOpen is set.
+        if (!isDry) {
+            await db.query('BEGIN');
+            txOpen = true;
+            // Same advisory lock the app takes in insertAuditEvent — a live POS
+            // writing an audit row mid-rechain would interleave the chain.
+            await db.query("SELECT pg_advisory_lock(hashtext('nf525_audit_events'))");
+        }
+        if (hasExisting && !isDry) {
+            log('🗑️  Clearing...', 'blue');
+            await db.query(
+                'TRUNCATE daily_closures, monthly_closures, annual_closures, perpetual_totals RESTART IDENTITY CASCADE'
+            );
+
+            // Log the chain_rebuild audit event inside the transaction (an
+            // audit trail of a rolled-back rebuild would be wrong), with the
+            // same hash chaining as insertAuditEvent — an unhashed row would
+            // break the audit chain verification.
+            const operator = process.env.USER || process.env.USERNAME || 'unknown';
+            const auditDetail = JSON.stringify({
+                previous_counts: {
+                    daily: eD[0]?.c ?? 0,
+                    monthly: eM[0]?.c ?? 0,
+                    annual: eA[0]?.c ?? 0,
+                },
+                operator,
+                reason: 'force-rechain via populate-nf525-tables.ts',
+            });
+            const { rows: lastEv } = await db.query('SELECT event_hash FROM audit_events ORDER BY id DESC LIMIT 1');
+            const prevEventHash = (lastEv[0]?.event_hash as string | null) ?? null;
+            const evCreatedAt = new Date().toISOString().substring(0, 19).replace('T', ' ');
+            const evHash = createHash('sha256')
+                .update(
+                    [
+                        prevEventHash || '',
+                        'chain_rebuild',
+                        'closures',
+                        'all',
+                        operator,
+                        '',
+                        auditDetail,
+                        evCreatedAt,
+                    ].join('|')
+                )
+                .digest('hex');
+            await db.query(
+                `INSERT INTO audit_events (event_type, entity_type, entity_id, user_name, detail, event_hash, previous_event_hash, created_at)
+                 VALUES ('chain_rebuild', 'closures', 'all', $1, $2, $3, $4, $5)`,
+                [operator, auditDetail, evHash, prevEventHash, evCreatedAt]
+            );
+            log('📝 Logged chain_rebuild audit event.', 'blue');
+        }
 
         // 1. Single query for all daily totals
         log('\n📅 Fetching daily totals...', 'blue');
         const exL = EXCLUDED.map((m) => `'${m.replace(/'/g, "''")}'`).join(', ');
         const caL = CANCEL.map((m) => `'${m.replace(/'/g, "''")}'`).join(', ');
         const { rows: dr } = await db.query(
-            `WITH paid AS (SELECT DATE(created_at) d, COUNT(*)::int tc, COALESCE(SUM(amount),0)::numeric ta FROM transactions WHERE payment_method NOT IN (${exL}) GROUP BY 1),
-            canc AS (SELECT DATE(created_at) d, COUNT(*)::int cc, COALESCE(SUM(ABS(amount)),0)::numeric ca FROM transactions WHERE payment_method IN (${caL}) GROUP BY 1),
-            refs AS (SELECT DATE(created_at) d, COUNT(*)::int rc, COALESCE(SUM(ABS(amount)),0)::numeric ra FROM transactions WHERE payment_method='${REFUND}' GROUP BY 1),
-            htva AS (SELECT DATE(t.created_at) d, COALESCE(SUM(ti.total*100/(100+COALESCE(ti.vat_rate,20))),0)::numeric ht, COALESCE(SUM(ti.total*COALESCE(ti.vat_rate,20)/(100+COALESCE(ti.vat_rate,20))),0)::numeric tva FROM transaction_items ti JOIN transactions t ON t.id=ti.transaction_id WHERE t.payment_method NOT IN (${exL}) GROUP BY 1)
+            `WITH paid AS (SELECT DATE(created_at) d, COUNT(*)::int tc, COALESCE(ROUND(SUM(amount),2),0)::numeric ta FROM transactions WHERE payment_method NOT IN (${exL}) GROUP BY 1),
+            canc AS (SELECT DATE(created_at) d, COUNT(*)::int cc, COALESCE(ROUND(SUM(ABS(amount)),2),0)::numeric ca FROM transactions WHERE payment_method IN (${caL}) GROUP BY 1),
+            refs AS (SELECT DATE(created_at) d, COUNT(*)::int rc, COALESCE(ROUND(SUM(ABS(amount)),2),0)::numeric ra FROM transactions WHERE payment_method='${REFUND}' GROUP BY 1),
+            htva AS (SELECT DATE(t.created_at) d, COALESCE(ROUND(SUM(ti.total*100/(100+COALESCE(ti.vat_rate,20))),2),0)::numeric ht, COALESCE(ROUND(SUM(ti.total*COALESCE(ti.vat_rate,20)/(100+COALESCE(ti.vat_rate,20))),2),0)::numeric tva FROM transaction_items ti JOIN transactions t ON t.id=ti.transaction_id WHERE t.payment_method NOT IN (${exL}) GROUP BY 1)
             SELECT COALESCE(paid.d,canc.d,refs.d,htva.d) AS dt, COALESCE(paid.tc,0) tc, COALESCE(paid.ta,0) ta, COALESCE(htva.ht,0) ht, COALESCE(htva.tva,0) tva, COALESCE(canc.cc,0) cc, COALESCE(canc.ca,0) ca, COALESCE(refs.rc,0) rc, COALESCE(refs.ra,0) ra
             FROM paid FULL OUTER JOIN canc ON paid.d=canc.d FULL OUTER JOIN refs ON COALESCE(paid.d,canc.d)=refs.d FULL OUTER JOIN htva ON COALESCE(paid.d,canc.d,refs.d)=htva.d ORDER BY 1`
         );
@@ -222,6 +245,11 @@ async function main() {
 
         if (!dr.length) {
             log('Nothing to populate.', 'yellow');
+            if (txOpen) {
+                await db.query('ROLLBACK');
+                txOpen = false;
+                await db.query("SELECT pg_advisory_unlock(hashtext('nf525_audit_events'))");
+            }
             db.release();
             await pool.end();
             return;
@@ -453,7 +481,7 @@ async function main() {
             log(`  [dry] tk=${perp.tc} total=${perp.ta} last_hash=${perp.lh?.slice(0, 16) ?? 'null'}...`, 'yellow');
         } else {
             await db.query(
-                `INSERT INTO perpetual_totals (id, total_ticket_count, total_amount, total_ht, total_tva, total_cancellation_count, total_refund_count, last_closure_hash, updated_at) VALUES (1, $1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
+                `INSERT INTO perpetual_totals (id, total_ticket_count, total_amount, total_ht, total_tva, total_cancellation_count, total_refund_count, last_closure_hash, updated_at) VALUES (1, $1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP) ON CONFLICT (id) DO UPDATE SET total_ticket_count = EXCLUDED.total_ticket_count, total_amount = EXCLUDED.total_amount, total_ht = EXCLUDED.total_ht, total_tva = EXCLUDED.total_tva, total_cancellation_count = EXCLUDED.total_cancellation_count, total_refund_count = EXCLUDED.total_refund_count, last_closure_hash = EXCLUDED.last_closure_hash, updated_at = EXCLUDED.updated_at`,
                 [perp.tc, perp.ta, perp.ht, perp.tva, perp.cc, perp.rc, perp.lh]
             );
             log('  ✅ Inserted perpetual totals', 'green');
@@ -462,6 +490,8 @@ async function main() {
         if (txOpen) {
             await db.query('COMMIT');
             txOpen = false;
+            // Session-scoped: release before the client goes back to the pool.
+            await db.query("SELECT pg_advisory_unlock(hashtext('nf525_audit_events'))");
         }
 
         // Summary
@@ -484,6 +514,12 @@ async function main() {
             } catch {
                 // rollback itself failed; nothing more to do
             }
+        }
+        // Session locks survive a rollback — drop them before pooling.
+        try {
+            await txClient?.query('SELECT pg_advisory_unlock_all()');
+        } catch {
+            // connection may be dead; the lock dies with it
         }
         txClient?.release();
         await pool.end();

@@ -12,7 +12,7 @@ import {
     WAITING_KEYWORD,
     DEFAULT_VAT_RATE,
 } from '@/app/utils/constants';
-import { insertAuditEvent } from '../auditHelpers';
+import { insertAuditEvent, lockHashChain } from '../auditHelpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,8 +43,8 @@ async function computeDailyTotals(connection: DbConnection, date: string): Promi
 
     // Paid transactions (exclude non-paid methods) — immutable calendar day (00:00 to 24:00)
     const paidQuery = isPg
-        ? `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(amount), 0)::numeric AS total FROM ${prefix}transactions WHERE DATE(created_at) = $1 AND payment_method NOT IN (${placeholders})`
-        : `SELECT COUNT(*) AS cnt, COALESCE(SUM(amount), 0) AS total FROM ${prefix}transactions WHERE DATE(created_at) = ? AND payment_method NOT IN (${placeholders})`;
+        ? `SELECT COUNT(*)::int AS cnt, COALESCE(ROUND(SUM(amount), 2), 0)::numeric AS total FROM ${prefix}transactions WHERE DATE(created_at) = $1 AND payment_method NOT IN (${placeholders})`
+        : `SELECT COUNT(*) AS cnt, COALESCE(ROUND(SUM(amount), 2), 0) AS total FROM ${prefix}transactions WHERE DATE(created_at) = ? AND payment_method NOT IN (${placeholders})`;
 
     const paidParams = isPg ? [date, ...EXCLUDED_METHODS] : [date, ...EXCLUDED_METHODS];
     const [paidRows] = await connection.execute(paidQuery, paidParams);
@@ -54,16 +54,16 @@ async function computeDailyTotals(connection: DbConnection, date: string): Promi
     const cancelMethods = [DELETED_KEYWORD, CANCELLED_KEYWORD, EXPUNGED_KEYWORD];
     const cancelPlaceholders = cancelMethods.map((_, i) => (isPg ? `$${i + 2}` : '?')).join(', ');
     const cancelQuery = isPg
-        ? `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(ABS(amount)), 0)::numeric AS total FROM ${prefix}transactions WHERE DATE(created_at) = $1 AND payment_method IN (${cancelPlaceholders})`
-        : `SELECT COUNT(*) AS cnt, COALESCE(SUM(ABS(amount)), 0) AS total FROM ${prefix}transactions WHERE DATE(created_at) = ? AND payment_method IN (${cancelPlaceholders})`;
+        ? `SELECT COUNT(*)::int AS cnt, COALESCE(ROUND(SUM(ABS(amount)), 2), 0)::numeric AS total FROM ${prefix}transactions WHERE DATE(created_at) = $1 AND payment_method IN (${cancelPlaceholders})`
+        : `SELECT COUNT(*) AS cnt, COALESCE(ROUND(SUM(ABS(amount)), 2), 0) AS total FROM ${prefix}transactions WHERE DATE(created_at) = ? AND payment_method IN (${cancelPlaceholders})`;
     const cancelParams = isPg ? [date, ...cancelMethods] : [date, ...cancelMethods];
     const [cancelRows] = await connection.execute(cancelQuery, cancelParams);
     const cancelResult = (cancelRows as { cnt: number; total: number | string }[])[0];
 
     // Refunds
     const refundQuery = isPg
-        ? `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(ABS(amount)), 0)::numeric AS total FROM ${prefix}transactions WHERE DATE(created_at) = $1 AND payment_method = $2`
-        : `SELECT COUNT(*) AS cnt, COALESCE(SUM(ABS(amount)), 0) AS total FROM ${prefix}transactions WHERE DATE(created_at) = ? AND payment_method = ?`;
+        ? `SELECT COUNT(*)::int AS cnt, COALESCE(ROUND(SUM(ABS(amount)), 2), 0)::numeric AS total FROM ${prefix}transactions WHERE DATE(created_at) = $1 AND payment_method = $2`
+        : `SELECT COUNT(*) AS cnt, COALESCE(ROUND(SUM(ABS(amount)), 2), 0) AS total FROM ${prefix}transactions WHERE DATE(created_at) = ? AND payment_method = ?`;
     const [refundRows] = await connection.execute(refundQuery, [date, REFUND_KEYWORD]);
     const refundResult = (refundRows as { cnt: number; total: number | string }[])[0];
 
@@ -72,8 +72,8 @@ async function computeDailyTotals(connection: DbConnection, date: string): Promi
     // ti.total is TTC (items sum to the paid amount): HT = TTC/(1+rate),
     // TVA = TTC*rate/(100+rate) — same convention as posPrinter/billingStats.
     const vatQuery = isPg
-        ? `SELECT COALESCE(SUM(ti.total * COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}) / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 0)::numeric AS tva, COALESCE(SUM(ti.total * 100 / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 0)::numeric AS ht FROM ${prefix}transaction_items ti JOIN ${prefix}transactions t ON t.id = ti.transaction_id WHERE DATE(t.created_at) = $1 AND t.payment_method NOT IN (${placeholders})`
-        : `SELECT COALESCE(SUM(ti.total * COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}) / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 0) AS tva, COALESCE(SUM(ti.total * 100 / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 0) AS ht FROM ${prefix}transaction_items ti JOIN ${prefix}transactions t ON t.id = ti.transaction_id WHERE DATE(t.created_at) = ? AND t.payment_method NOT IN (${placeholders})`;
+        ? `SELECT COALESCE(ROUND(SUM(ti.total * COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}) / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 2), 0)::numeric AS tva, COALESCE(ROUND(SUM(ti.total * 100 / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 2), 0)::numeric AS ht FROM ${prefix}transaction_items ti JOIN ${prefix}transactions t ON t.id = ti.transaction_id WHERE DATE(t.created_at) = $1 AND t.payment_method NOT IN (${placeholders})`
+        : `SELECT COALESCE(ROUND(SUM(ti.total * COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}) / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 2), 0) AS tva, COALESCE(ROUND(SUM(ti.total * 100 / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 2), 0) AS ht FROM ${prefix}transaction_items ti JOIN ${prefix}transactions t ON t.id = ti.transaction_id WHERE DATE(t.created_at) = ? AND t.payment_method NOT IN (${placeholders})`;
     const [vatRows] = await connection.execute(vatQuery, paidParams);
     const vatResult = (vatRows as { tva: number | string; ht: number | string }[])[0];
 
@@ -209,15 +209,25 @@ async function updatePerpetualTotals(
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
     let connection: DbConnection | undefined;
+    let unlockChain: (() => Promise<void>) | undefined;
     try {
         const { date, closed_by } = (await request.json()) as { date: string; closed_by: string };
 
         if (!date || !closed_by) {
             return NextResponse.json({ error: 'date and closed_by are required' }, { status: 400 });
         }
+        // The date string goes verbatim into the closure hash — anything the DB
+        // would normalize (e.g. '2025-3-5' → '2025-03-05') would mismatch on
+        // verification. Require the canonical format.
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            return NextResponse.json({ error: 'date must be in YYYY-MM-DD format' }, { status: 400 });
+        }
 
         connection = await getPosDb(shopId);
         await connection.beginTransaction();
+        // Serialize closure writers — a concurrent insert reading the same tail
+        // hash would fork the chain.
+        unlockChain = await lockHashChain(connection, 'nf525_daily_closures');
 
         const isPg = connection.isPostgreSQL;
         const prefix = isPg ? 'dc_pos.' : '';
@@ -292,6 +302,11 @@ export async function POST(request: Request) {
         console.error('Error creating daily closure:', error);
         return NextResponse.json({ error: 'An error occurred while creating daily closure' }, { status: 500 });
     } finally {
+        try {
+            await unlockChain?.();
+        } catch {
+            // lock release failure — the lock dies with the connection anyway
+        }
         await connection?.end();
     }
 }

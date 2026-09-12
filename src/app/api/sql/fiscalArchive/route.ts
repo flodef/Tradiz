@@ -66,10 +66,12 @@ export async function GET(request: Request) {
         const isPg = connection.isPostgreSQL;
         const prefix = isPg ? 'dc_pos.' : '';
 
-        // Fetch transactions in date range
+        // Fetch transactions in date range. created_at is a TIMESTAMP while the
+        // bounds are dates — `<= end_date` would only match midnight, so use a
+        // strict upper bound on the day after.
         const txQuery = isPg
-            ? `SELECT id, order_id, customer_name, user_name, payment_method, amount, currency, payments, hash, previous_hash, created_at, updated_at FROM ${prefix}transactions WHERE created_at >= $1 AND created_at <= $2 ORDER BY id ASC`
-            : `SELECT id, order_id, customer_name, user_name, payment_method, amount, currency, payments, hash, previous_hash, created_at, updated_at FROM ${prefix}transactions WHERE created_at >= ? AND created_at <= ? ORDER BY id ASC`;
+            ? `SELECT id, order_id, customer_name, user_name, payment_method, amount, currency, payments, hash, previous_hash, created_at, updated_at FROM ${prefix}transactions WHERE created_at >= $1::date AND created_at < $2::date + 1 ORDER BY id ASC`
+            : `SELECT id, order_id, customer_name, user_name, payment_method, amount, currency, payments, hash, previous_hash, created_at, updated_at FROM ${prefix}transactions WHERE created_at >= ? AND created_at < DATE_ADD(?, INTERVAL 1 DAY) ORDER BY id ASC`;
         const [txRows] = await connection.execute(txQuery, [startDate, endDate]);
         const transactions = txRows as ArchiveTransaction[];
 
@@ -124,8 +126,8 @@ export async function GET(request: Request) {
 
         // Fetch audit events in date range
         const auditQuery = isPg
-            ? `SELECT * FROM ${prefix}audit_events WHERE created_at >= $1 AND created_at <= $2 ORDER BY id ASC`
-            : `SELECT * FROM ${prefix}audit_events WHERE created_at >= ? AND created_at <= ? ORDER BY id ASC`;
+            ? `SELECT * FROM ${prefix}audit_events WHERE created_at >= $1::date AND created_at < $2::date + 1 ORDER BY id ASC`
+            : `SELECT * FROM ${prefix}audit_events WHERE created_at >= ? AND created_at < DATE_ADD(?, INTERVAL 1 DAY) ORDER BY id ASC`;
         const [auditRows] = await connection.execute(auditQuery, [startDate, endDate]);
 
         const archive: ArchiveExport = {
