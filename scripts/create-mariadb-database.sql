@@ -418,7 +418,7 @@ CREATE TABLE IF NOT EXISTS `balance_history` (
   PRIMARY KEY (`id`),
   KEY `idx_balance_history_customer_id` (`customer_id`),
   KEY `idx_balance_history_created_at` (`created_at` DESC),
-  CONSTRAINT `fk_balance_history_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_balance_history_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
@@ -578,7 +578,11 @@ CREATE TABLE IF NOT EXISTS `perpetual_totals` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Public storefront reviews (submitted by customers)
+-- Public storefront reviews (submitted by customers).
+-- Lives in DC (matches dc.reviews on Postgres): the review routes use the
+-- main/catalog connection, not the POS one.
+USE `DC`;
+
 CREATE TABLE IF NOT EXISTS `reviews` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `shop_id` varchar(50) NOT NULL,

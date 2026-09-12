@@ -29,7 +29,7 @@ export async function POST(request: Request) {
             if (!log.level || !log.message) continue;
             const query = connection.isPostgreSQL
                 ? `INSERT INTO dc_sys.logs (level, message, source) VALUES ($1, $2, $3)`
-                : `INSERT INTO dc_sys.logs (level, message, source) VALUES (?, ?, ?)`;
+                : `INSERT INTO DC_SYS.logs (level, message, source) VALUES (?, ?, ?)`;
             await connection.execute(query, [log.level, log.message, log.source ?? null]);
         }
 

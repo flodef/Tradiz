@@ -76,17 +76,23 @@ export async function POST(request: Request) {
 
         await withTransaction(conn, async () => {
             // Delete only customers that are no longer present in the incoming list.
-            // This preserves existing IDs and their linked balance_history (avoids the
-            // ON DELETE CASCADE wiping all balance records on every save).
+            // Customers referenced by balance_history are kept: the FK is ON DELETE
+            // RESTRICT (fiscal, append-only data must not be wiped by a cascade) and
+            // Postgres would fire the append-only trigger, aborting the whole sync.
+            const historyTable = conn.isPostgreSQL ? 'dc_pos.balance_history' : 'balance_history';
+            const keepWithHistory = `id NOT IN (SELECT customer_id FROM ${historyTable})`;
             const keptIds = prepared.map((c) => c.id).filter((id): id is number => typeof id === 'number');
             if (keptIds.length > 0) {
                 const placeholders = conn.isPostgreSQL
                     ? keptIds.map((_, i) => `$${i + 1}`).join(', ')
                     : keptIds.map(() => '?').join(', ');
-                await conn.execute(`DELETE FROM ${table} WHERE id NOT IN (${placeholders})`, keptIds);
+                await conn.execute(
+                    `DELETE FROM ${table} WHERE id NOT IN (${placeholders}) AND ${keepWithHistory}`,
+                    keptIds
+                );
             } else {
-                // No existing customers kept - remove all
-                await conn.execute(`DELETE FROM ${table}`);
+                // No existing customers kept - remove all (except those with history)
+                await conn.execute(`DELETE FROM ${table} WHERE ${keepWithHistory}`);
             }
 
             for (const customer of prepared) {

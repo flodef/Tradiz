@@ -26,7 +26,7 @@ export async function GET(request: Request) {
                ORDER BY l.created_at DESC
                LIMIT 1`
             : `SELECT JSON_UNQUOTE(JSON_EXTRACT(l.metadata, '$.public_key')) AS public_key
-               FROM dc_sys.connections l
+               FROM DC_SYS.connections l
                WHERE l.level = 'error'
                  AND JSON_EXTRACT(l.metadata, '$.success') = 'false'
                  AND JSON_EXTRACT(l.metadata, '$.type') = 'access_attempt'

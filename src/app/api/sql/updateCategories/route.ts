@@ -1,6 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getMainDb, DbConnection } from '../db';
+import { getMainDb, DbConnection, withPosDb } from '../db';
 import { insertAuditEvent } from '../auditHelpers';
 
 interface CategoryInput {
@@ -154,13 +154,22 @@ export async function POST(request: Request) {
             throw e;
         }
 
-        await insertAuditEvent(connection, {
-            event_type: 'category_change',
-            entity_type: 'categories',
-            entity_id: 'categories',
-            user_name: 'admin',
-            detail: `Updated ${categories.length} categor(y/ies)`,
-        });
+        // audit_events lives in the POS schema — on MariaDB the main connection
+        // is bound to DC and an unqualified insert would fail. Best-effort: the
+        // update already committed, a logging failure must not mask it.
+        try {
+            await withPosDb(shopId, (posConn) =>
+                insertAuditEvent(posConn, {
+                    event_type: 'category_change',
+                    entity_type: 'categories',
+                    entity_id: 'categories',
+                    user_name: 'admin',
+                    detail: `Updated ${categories.length} categor(y/ies)`,
+                })
+            );
+        } catch (auditError) {
+            console.error('Failed to record category audit event:', auditError);
+        }
 
         return NextResponse.json({ success: true }, { status: 200 });
     } catch (error) {

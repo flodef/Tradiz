@@ -1,6 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
-import { getMainDb } from '../db';
+import { getMainDb, withPosDb } from '../db';
 import { generateProductReference } from '@/app/utils/productReference';
 import { DEFAULT_VAT_RATE } from '@/app/utils/constants';
 import { GRID_COLS, encodeGridPosition, encodeSortOrder } from '@/app/utils/sortOrder';
@@ -269,7 +269,7 @@ export async function POST(request: Request) {
             // Rows are computed here (inside the transaction, where old values
             // were captured) but inserted after commit, best-effort, so a
             // missing table on an un-migrated deployment can't abort the update.
-            for (const product of productsToInsert) {
+            for (const [i, product] of productsToInsert.entries()) {
                 const old =
                     oldByKey.get(productKey(product.reference, product.name, product.category)) ??
                     oldByKey.get(productKey(null, product.name, product.category));
@@ -279,15 +279,11 @@ export async function POST(request: Request) {
                 const oldPrice = Number(old.price);
                 const oldVat = Number(old.vat_rate);
                 if (oldPrice === newPrice && oldVat === newVat) continue;
-                historyRows.push([
-                    product.reference?.trim() || old.reference || '',
-                    product.name,
-                    oldPrice,
-                    newPrice,
-                    oldVat,
-                    newVat,
-                    'admin',
-                ]);
+                // Use the same reference the product row was stored with —
+                // products without one get a generated reference at insert.
+                const newReference =
+                    product.reference?.trim() || generateProductReference(sortOrderMap.get(product) ?? i + 1);
+                historyRows.push([newReference, product.name, oldPrice, newPrice, oldVat, newVat, 'admin']);
             }
 
             await connection.commit();
@@ -296,30 +292,35 @@ export async function POST(request: Request) {
             throw e;
         }
 
-        if (connection && historyRows.length > 0) {
-            const conn = connection;
-            try {
-                const placeholders = historyRows.map((_, i) =>
-                    conn.isPostgreSQL
-                        ? `(${Array.from({ length: 7 }, (_, j) => `$${i * 7 + j + 1}`).join(', ')})`
-                        : '(?, ?, ?, ?, ?, ?, ?)'
-                );
-                await conn.execute(
-                    `INSERT INTO ${historyTable} (product_reference, product_name, old_price, new_price, old_vat_rate, new_vat_rate, changed_by) VALUES ${placeholders.join(', ')}`,
-                    historyRows.flat()
-                );
-            } catch (historyError) {
-                console.error('Failed to record product price history:', historyError);
-            }
+        // Price history + audit event live in the POS schema (dc_pos / DC_POS)
+        // — they must run on a POS connection: on MariaDB the main connection
+        // is bound to DC and would hit non-existent unqualified tables. Both
+        // are best-effort: the catalog update already committed, so a logging
+        // failure must not turn this into a 500.
+        try {
+            await withPosDb(shopId, async (posConn) => {
+                if (historyRows.length > 0) {
+                    const placeholders = historyRows.map((_, i) =>
+                        posConn.isPostgreSQL
+                            ? `(${Array.from({ length: 7 }, (_, j) => `$${i * 7 + j + 1}`).join(', ')})`
+                            : '(?, ?, ?, ?, ?, ?, ?)'
+                    );
+                    await posConn.execute(
+                        `INSERT INTO ${historyTable} (product_reference, product_name, old_price, new_price, old_vat_rate, new_vat_rate, changed_by) VALUES ${placeholders.join(', ')}`,
+                        historyRows.flat()
+                    );
+                }
+                await insertAuditEvent(posConn, {
+                    event_type: 'article_change',
+                    entity_type: 'articles',
+                    entity_id: category ?? 'articles',
+                    user_name: 'admin',
+                    detail: `Updated ${products.length} article(s) in category "${category ?? 'toutes'}"`,
+                });
+            });
+        } catch (historyError) {
+            console.error('Failed to record product price history / audit event:', historyError);
         }
-
-        await insertAuditEvent(connection, {
-            event_type: 'article_change',
-            entity_type: 'articles',
-            entity_id: category ?? 'articles',
-            user_name: 'admin',
-            detail: `Updated ${products.length} article(s) in category "${category}"`,
-        });
 
         return NextResponse.json({ success: true }, { status: 200 });
     } catch (error) {

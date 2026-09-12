@@ -5,8 +5,8 @@
 -- It does NOT migrate data - use migrate-to-shop-structure.sh for that.
 --
 -- Usage:
---   1. Replace 'annette' with your shop name throughout this file
---   2. Run: psql $DATABASE_URL -f scripts/create-shop-database.sql
+--   1. Replace 'gds' with your shop name throughout this file
+--   2. Run: psql $DATABASE_URL -f scripts/create-postgres-database.sql
 -- ============================================================
 
 -- ============================================================
@@ -304,7 +304,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.companies (
 -- Balance History
 CREATE TABLE IF NOT EXISTS dc_pos.balance_history (
     id SERIAL PRIMARY KEY,
-    customer_id INTEGER NOT NULL REFERENCES dc_pos.customers(id) ON DELETE CASCADE,
+    customer_id INTEGER NOT NULL REFERENCES dc_pos.customers(id) ON DELETE RESTRICT,
     amount DECIMAL(10,2) NOT NULL,
     operation VARCHAR(10) NOT NULL, -- 'credit' or 'debit'
     previous_balance DECIMAL(10,2) NOT NULL,

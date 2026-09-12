@@ -111,3 +111,14 @@ CREATE TABLE IF NOT EXISTS dc_pos.product_price_history (
 );
 CREATE INDEX IF NOT EXISTS idx_product_price_history_ref ON dc_pos.product_price_history(product_reference);
 CREATE INDEX IF NOT EXISTS idx_product_price_history_date ON dc_pos.product_price_history(changed_at DESC);
+
+-- Unique transaction hashes — fresh installs get the UNIQUE column constraint
+-- from the base schema; migrated databases need the index explicitly.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_transactions_hash ON dc_pos.transactions(hash);
+
+-- balance_history is fiscal, append-only data: CASCADE would silently wipe it
+-- when a customer is deleted (and on Postgres it would fire the append-only
+-- trigger and abort the whole customer sync). RESTRICT surfaces the conflict.
+ALTER TABLE dc_pos.balance_history DROP CONSTRAINT IF EXISTS balance_history_customer_id_fkey;
+ALTER TABLE dc_pos.balance_history ADD CONSTRAINT balance_history_customer_id_fkey
+    FOREIGN KEY (customer_id) REFERENCES dc_pos.customers(id) ON DELETE RESTRICT;

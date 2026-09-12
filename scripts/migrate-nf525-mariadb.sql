@@ -112,3 +112,14 @@ CREATE TABLE IF NOT EXISTS `product_price_history` (
   KEY `idx_product_price_history_ref` (`product_reference`),
   KEY `idx_product_price_history_date` (`changed_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Unique transaction hashes — fresh installs get the UNIQUE KEY from the base
+-- schema; migrated databases need it explicitly.
+CREATE UNIQUE INDEX IF NOT EXISTS `ux_transactions_hash` ON `transactions` (`hash`);
+
+-- balance_history is fiscal, append-only data: CASCADE would silently wipe it
+-- when a customer is deleted (MariaDB does not fire triggers on cascaded
+-- deletes, so the protection would be bypassed). RESTRICT surfaces it.
+ALTER TABLE `balance_history` DROP FOREIGN KEY IF EXISTS `fk_balance_history_customer`;
+ALTER TABLE `balance_history` ADD CONSTRAINT `fk_balance_history_customer`
+    FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE RESTRICT;

@@ -93,7 +93,7 @@ async function isIpBlocked(connection: import('../db').DbConnection, ipAddress: 
                WHERE metadata->>'ip_address' = $1 
                AND metadata->>'success' = 'false' 
                AND created_at > $2`
-            : `SELECT COUNT(*) as count FROM dc_sys.connections 
+            : `SELECT COUNT(*) as count FROM DC_SYS.connections 
                WHERE JSON_EXTRACT(metadata, '$.ip_address') = ? 
                AND JSON_EXTRACT(metadata, '$.success') = 'false' 
                AND created_at > ?`;
@@ -165,7 +165,7 @@ async function logAccessAttempt(
 
         const query = connection.isPostgreSQL
             ? `INSERT INTO dc_sys.connections (level, message, metadata) VALUES ($1, $2, $3)`
-            : `INSERT INTO dc_sys.connections (level, message, metadata) VALUES (?, ?, ?)`;
+            : `INSERT INTO DC_SYS.connections (level, message, metadata) VALUES (?, ?, ?)`;
 
         await connection.execute(query, [
             success ? 'info' : 'error',

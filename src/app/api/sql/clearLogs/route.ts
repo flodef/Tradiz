@@ -15,7 +15,7 @@ export async function POST(request: Request) {
         connection = await getPosDb(shopId);
         const query = connection.isPostgreSQL
             ? 'DELETE FROM dc_sys.logs WHERE source = $1'
-            : 'DELETE FROM logs WHERE source = ?';
+            : 'DELETE FROM DC_SYS.logs WHERE source = ?';
         await connection.execute(query, [source ?? null]);
         await connection.end();
         return NextResponse.json({ success: true }, { status: 200 });
