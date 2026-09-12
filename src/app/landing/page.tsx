@@ -1108,7 +1108,7 @@ function FAQItem({
                     className={`text-site-text-muted shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
                 />
             </button>
-            <div className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96' : 'max-h-0'}`}>
+            <div className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-[600px]' : 'max-h-0'}`}>
                 <p className="p-5 pt-0 text-site-text-secondary leading-relaxed">{item.a}</p>
             </div>
         </div>

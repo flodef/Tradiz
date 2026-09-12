@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-    return NextResponse.json({ configured: !!process.env.REVOLUT_SECRET_KEY });
+    return NextResponse.json({
+        configured: !!process.env.REVOLUT_SECRET_KEY,
+        mode: process.env.REVOLUT_MODE === 'prod' ? 'prod' : 'sandbox',
+    });
 }

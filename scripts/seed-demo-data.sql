@@ -163,4 +163,16 @@ INSERT INTO dc.establishment_config (operation_mode, orange_delay_minutes, red_d
     ('restaurant', 5, 10, true, true)
 ON CONFLICT (id) DO NOTHING;
 
+-- ============================================================
+-- Reset SERIAL sequences to MAX(id) so future inserts don't collide
+-- (explicit ID inserts above don't advance the sequence automatically)
+-- ============================================================
+SELECT setval(pg_get_serial_sequence('dc_pos.users', 'id'), (SELECT MAX(id) FROM dc_pos.users));
+SELECT setval(pg_get_serial_sequence('dc_pos.payment_methods', 'id'), (SELECT MAX(id) FROM dc_pos.payment_methods));
+SELECT setval(pg_get_serial_sequence('dc_pos.printers', 'id'), (SELECT MAX(id) FROM dc_pos.printers));
+SELECT setval(pg_get_serial_sequence('dc_pos.devices', 'id'), (SELECT MAX(id) FROM dc_pos.devices));
+SELECT setval(pg_get_serial_sequence('dc_pos.currencies', 'id'), (SELECT MAX(id) FROM dc_pos.currencies));
+SELECT setval(pg_get_serial_sequence('dc.categories', 'id'), (SELECT MAX(id) FROM dc.categories));
+SELECT setval(pg_get_serial_sequence('dc.products', 'id'), (SELECT MAX(id) FROM dc.products));
+
 COMMIT;

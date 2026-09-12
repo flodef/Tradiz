@@ -42,6 +42,9 @@ function handleLegacyHost(request: NextRequest): NextResponse | null {
     const [, shopSegment, rest = '/'] = match;
     if (RESERVED_PATHS.has(shopSegment)) return NextResponse.next();
 
+    // Validate shopSegment to prevent open redirect — only allow alphanumeric + hyphens
+    if (!/^[a-z0-9-]+$/i.test(shopSegment)) return NextResponse.next();
+
     const { protocol } = request.nextUrl;
     const redirectUrl = `${protocol}//${shopSegment}.${BASE_DOMAIN}${rest}`;
     return NextResponse.redirect(redirectUrl, { status: 301 });
@@ -93,6 +96,8 @@ function handlePublicSiteHost(request: NextRequest): NextResponse | null {
     const match = pathname.match(/^\/([^/]+)(\/.*)?$/);
     if (match && !RESERVED_PATHS.has(match[1])) {
         const shopId = match[1];
+        // Validate shopId to prevent path traversal — only allow alphanumeric + hyphens
+        if (!/^[a-z0-9-]+$/i.test(shopId)) return NextResponse.next();
         const rest = match[2] || '';
         const url = request.nextUrl.clone();
         url.pathname = `/site/${shopId}${rest}`;

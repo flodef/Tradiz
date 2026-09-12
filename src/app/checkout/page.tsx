@@ -20,15 +20,26 @@ function CheckoutContent() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [orderToken, setOrderToken] = useState<string | null>(null);
+    const [revolutMode, setRevolutMode] = useState<'prod' | 'sandbox'>('sandbox');
     const widgetRef = useRef<HTMLDivElement>(null);
+    const instanceRef = useRef<{ destroy: () => void } | null>(null);
 
     const planData = plan && PLANS[plan] ? PLANS[plan] : null;
-    const amount = planData ? (billing === 'annual' ? planData.annual : planData.monthly) : 0;
+    const amount = planData && billing ? (billing === 'annual' ? planData.annual : planData.monthly) : 0;
+
+    useEffect(() => {
+        fetch('/api/revolut-config')
+            .then((r) => r.json())
+            .then((d) => setRevolutMode(d.mode === 'prod' ? 'prod' : 'sandbox'))
+            .catch(() => {});
+    }, []);
 
     useEffect(() => {
         if (status === 'success') return;
-        if (!planData || !amount) return;
+        if (!planData || !amount || !billing) return;
         if (orderToken) return;
+
+        const controller = new AbortController();
 
         const createOrder = async () => {
             setLoading(true);
@@ -40,13 +51,14 @@ function CheckoutContent() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         planName: planData.name,
-                        amount,
+                        billing: billing || 'monthly',
                         currency: 'EUR',
                     }),
+                    signal: controller.signal,
                 });
 
                 if (!res.ok) {
-                    const data = await res.json();
+                    const data = await res.json().catch(() => ({ error: 'Failed to create order' }));
                     if (data.error?.includes('not configured')) {
                         window.location.href = '/landing#contact';
                         return;
@@ -57,6 +69,7 @@ function CheckoutContent() {
                 const { token } = await res.json();
                 setOrderToken(token);
             } catch (err) {
+                if (err instanceof DOMException && err.name === 'AbortError') return;
                 console.error('Checkout error:', err);
                 setError(err instanceof Error ? err.message : 'Une erreur est survenue');
             } finally {
@@ -65,6 +78,8 @@ function CheckoutContent() {
         };
 
         createOrder();
+
+        return () => controller.abort();
     }, [plan, billing, planData, amount, orderToken, status]);
 
     useEffect(() => {
@@ -77,13 +92,14 @@ function CheckoutContent() {
                 const RevolutCheckout = (await import('@revolut/checkout')).default;
                 if (destroyed) return;
 
-                const mode = process.env.REVOLUT_MODE === 'prod' ? 'prod' : 'sandbox';
-                const instance = await RevolutCheckout(orderToken, mode);
+                const instance = await RevolutCheckout(orderToken, revolutMode);
 
                 if (destroyed) {
                     instance.destroy();
                     return;
                 }
+
+                instanceRef.current = instance;
 
                 instance.payWithPopup({
                     onSuccess: () => {
@@ -107,8 +123,10 @@ function CheckoutContent() {
 
         return () => {
             destroyed = true;
+            instanceRef.current?.destroy();
+            instanceRef.current = null;
         };
-    }, [orderToken]);
+    }, [orderToken, revolutMode]);
 
     if (status === 'success') {
         return (
