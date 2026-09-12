@@ -86,9 +86,7 @@ export default function MyList({
     const formatPrice = (price: number) => `${price.toFixed(currencyDecimals)} ${currencySymbol}`;
 
     const handlePhoneReservation = () => {
-        const link = document.createElement('a');
-        link.href = `tel:${shop.phone.replace(/\s/g, '')}`;
-        link.click();
+        window.location.href = `tel:${shop.phone.replace(/\s/g, '')}`;
     };
 
     const isPhoneValid = FRENCH_PHONE_REGEX.test(contactInfo.phone.trim());
@@ -235,7 +233,7 @@ export default function MyList({
                                 )}
                             </div>
                             {sendError && (
-                                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
+                                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 site-dark:bg-red-900/20 rounded-lg p-3">
                                     <IconAlertCircle size={18} />
                                     Une erreur est survenue. Veuillez réessayer.
                                 </div>
@@ -261,7 +259,7 @@ export default function MyList({
                         /* List view with current items */
                         <div className="flex flex-col gap-4">
                             {hasStockConflict && (
-                                <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
+                                <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 site-dark:bg-red-900/20 rounded-lg p-3">
                                     <IconAlertCircle size={18} className="shrink-0 mt-0.5" />
                                     <span>
                                         {unavailableItems.length} article{unavailableItems.length > 1 ? 's' : ''} ne
@@ -279,7 +277,7 @@ export default function MyList({
                                         key={item.label}
                                         className={`flex items-center gap-3 p-3 rounded-lg border ${
                                             isUnavailable
-                                                ? 'border-red-300 bg-red-50/50 dark:bg-red-900/10'
+                                                ? 'border-red-300 bg-red-50/50 site-dark:bg-red-900/10'
                                                 : 'border-site-border bg-site-surface-hover/50'
                                         }`}
                                     >

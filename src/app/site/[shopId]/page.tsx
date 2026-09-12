@@ -64,14 +64,20 @@ export default function SitePage() {
 
     useEffect(() => {
         if (!shopId) return;
-        fetch(`/api/public/catalog/${shopId}`)
+        const controller = new AbortController();
+        fetch(`/api/public/catalog/${shopId}`, { signal: controller.signal })
             .then((res) => {
                 if (!res.ok) throw new Error('Failed to load catalog');
                 return res.json();
             })
             .then((d: CatalogData) => setData(d))
-            .catch((e) => setError(e.message))
-            .finally(() => setLoading(false));
+            .catch((e) => {
+                if (e.name !== 'AbortError') setError(e.message);
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setLoading(false);
+            });
+        return () => controller.abort();
     }, [shopId]);
 
     useEffect(() => {
@@ -377,7 +383,7 @@ export default function SitePage() {
                                         )}
                                     </button>
                                     <span
-                                        className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0"
+                                        className="h-5 bg-gray-400 site-dark:bg-gray-500 shrink-0"
                                         style={{ width: '2px' }}
                                     />
                                 </>
@@ -412,7 +418,7 @@ export default function SitePage() {
                                     </div>
                                 )}
                             </div>
-                            <span className="h-5 bg-gray-400 dark:bg-gray-500 shrink-0" style={{ width: '2px' }} />
+                            <span className="h-5 bg-gray-400 site-dark:bg-gray-500 shrink-0" style={{ width: '2px' }} />
 
                             {/* About dropdown */}
                             <div
@@ -947,7 +953,7 @@ export default function SitePage() {
                     <div className="flex flex-wrap items-center justify-center gap-4 mt-3 text-sm">
                         {shop.phone && (
                             <a
-                                href={`tel:${shop.phone}`}
+                                href={`tel:${shop.phone.replace(/\s/g, '')}`}
                                 className="hover:text-site-footer-text transition-colors flex items-center gap-1.5 cursor-pointer"
                             >
                                 <IconPhone size={14} />
@@ -1081,7 +1087,7 @@ export default function SitePage() {
                                 <div className="flex items-center justify-between gap-3 pt-2 border-t border-site-border">
                                     {shop.phone && (
                                         <a
-                                            href={`tel:${shop.phone}`}
+                                            href={`tel:${shop.phone.replace(/\s/g, '')}`}
                                             className="flex items-center gap-1.5 text-sm text-site-text-secondary hover:text-orange-600 transition-colors cursor-pointer"
                                         >
                                             <IconPhone size={16} />

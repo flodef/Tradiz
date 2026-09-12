@@ -29,11 +29,11 @@ const DRAFT_KEY_PREFIX = 'tradiz_review_draft_';
 
 interface PublicReview {
     id: number;
-    userId: string;
     userName: string;
     rating: number;
     comment: string;
     createdAt: string;
+    isOwn: boolean;
 }
 
 /* ───────────────────────────── Star Rating ───────────────────────────── */
@@ -104,7 +104,7 @@ function StarRating({
                         ) : halfFilled ? (
                             <IconStarHalfFilled size={size} className="text-amber-400" />
                         ) : (
-                            <IconStar size={size} className="text-gray-300 dark:text-gray-600" />
+                            <IconStar size={size} className="text-gray-300 site-dark:text-gray-600" />
                         )}
                     </div>
                 );
@@ -213,7 +213,7 @@ function ReviewComment({ text }: { text: string }) {
             <button
                 type="button"
                 onClick={() => setExpanded((v) => !v)}
-                className="text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400 cursor-pointer mt-1"
+                className="text-xs text-amber-600 hover:text-amber-700 site-dark:text-amber-400 cursor-pointer mt-1"
             >
                 {expanded ? 'Voir moins' : 'Voir plus'}
             </button>
@@ -247,8 +247,9 @@ function UserReviewsSection({
     // Shop-scoped draft key (one draft per shop)
     const draftKey = `${DRAFT_KEY_PREFIX}${shopId}`;
 
-    // Check if current user already has a review
-    const userExistingReview = identity ? reviews.find((r) => r.userId === identity.userId) : null;
+    // Check if current user already has a review (flag computed server-side
+    // via the ?viewer= param so user IDs are never exposed in the response)
+    const userExistingReview = reviews.find((r) => r.isOwn) ?? null;
 
     // Load draft from localStorage on mount (persists form data across refreshes)
     useEffect(() => {
@@ -279,30 +280,46 @@ function UserReviewsSection({
         }
     }, [draftKey, nameInput, rating, comment]);
 
-    // Clear success message when the user starts editing a new review
-    useEffect(() => {
-        if (success && (nameInput || rating > 0 || comment)) {
-            setSuccess(false);
-        }
-    }, [nameInput, rating, comment, success]);
+    // Clear the success message as soon as the user edits the form again.
+    // Done in the change handlers (not an effect) because after a submit the
+    // name field stays populated, which would clear the message immediately.
+    const clearSuccess = useCallback(() => setSuccess(false), []);
 
-    const loadReviews = useCallback(() => {
-        fetch(`/api/public/reviews/${shopId}`)
-            .then((res) => res.json())
-            .then((data) => {
-                setReviews(data.reviews || []);
-                onAverageChange(data.averageRating || 0, data.reviews?.length || 0);
-            })
-            .catch(() => {
-                setReviews([]);
-                onAverageChange(0, 0);
-            })
-            .finally(() => setLoading(false));
-    }, [shopId, onAverageChange]);
+    const loadReviews = useCallback(
+        (signal?: AbortSignal) => {
+            // Pass the viewer's user ID so the server can flag their own review
+            // without exposing every review's user_id in the response.
+            const viewerParam = identity?.userId ? `?viewer=${encodeURIComponent(identity.userId)}` : '';
+            fetch(`/api/public/reviews/${shopId}${viewerParam}`, { signal })
+                .then((res) => {
+                    if (!res.ok) throw new Error('Failed to load reviews');
+                    return res.json();
+                })
+                .then((data) => {
+                    if (signal?.aborted) return;
+                    setReviews(data.reviews || []);
+                    onAverageChange(data.averageRating || 0, data.reviews?.length || 0);
+                })
+                .catch(() => {
+                    if (signal?.aborted) return;
+                    setReviews([]);
+                    onAverageChange(0, 0);
+                    setError('Impossible de charger les avis.');
+                })
+                .finally(() => {
+                    if (!signal?.aborted) setLoading(false);
+                });
+        },
+        [shopId, identity?.userId, onAverageChange]
+    );
 
+    // Wait for the identity to load before fetching so the viewer param is set
     useEffect(() => {
-        loadReviews();
-    }, [loadReviews]);
+        if (!isLoaded) return;
+        const controller = new AbortController();
+        loadReviews(controller.signal);
+        return () => controller.abort();
+    }, [isLoaded, loadReviews]);
 
     // Pre-fill name from identity — only if no draft
     useEffect(() => {
@@ -462,7 +479,10 @@ function UserReviewsSection({
                             <input
                                 type="text"
                                 value={nameInput}
-                                onChange={(e) => setNameInput(e.target.value)}
+                                onChange={(e) => {
+                                    setNameInput(e.target.value);
+                                    clearSuccess();
+                                }}
                                 placeholder="Entrez votre nom"
                                 minLength={NAME_MIN}
                                 maxLength={NAME_MAX}
@@ -473,7 +493,14 @@ function UserReviewsSection({
                         <div className="flex flex-col gap-1">
                             <label className="text-sm font-medium text-site-text-secondary">Votre note</label>
                             <div className="flex items-center h-11">
-                                <StarRating value={rating} onChange={setRating} size={28} />
+                                <StarRating
+                                    value={rating}
+                                    onChange={(v) => {
+                                        setRating(v);
+                                        clearSuccess();
+                                    }}
+                                    size={28}
+                                />
                             </div>
                         </div>
                     </div>
@@ -482,7 +509,10 @@ function UserReviewsSection({
                         <label className="text-sm font-medium text-site-text-secondary">Votre commentaire</label>
                         <AutoTextarea
                             value={comment}
-                            onChange={setComment}
+                            onChange={(v) => {
+                                setComment(v);
+                                clearSuccess();
+                            }}
                             placeholder="Partagez votre expérience…"
                             maxLength={COMMENT_MAX}
                             disabled={submitting}
@@ -493,13 +523,13 @@ function UserReviewsSection({
                     </div>
 
                     {error && (
-                        <div className="flex items-start gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-lg px-3 py-2">
+                        <div className="flex items-start gap-2 text-sm text-red-600 site-dark:text-red-400 bg-red-50 site-dark:bg-red-950/30 border border-red-200 site-dark:border-red-800/50 rounded-lg px-3 py-2">
                             <IconAlertCircle size={16} className="shrink-0 mt-0.5" />
                             <span>{error}</span>
                         </div>
                     )}
                     {success && (
-                        <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                        <div className="flex items-center gap-2 text-sm text-green-600 site-dark:text-green-400">
                             <span>Merci ! Votre avis a été publié.</span>
                         </div>
                     )}
@@ -531,9 +561,12 @@ function UserReviewsSection({
                 <div className="space-y-4">
                     <h4 className="font-semibold text-base text-site-text">Avis des clients</h4>
                     {reviews.map((review) => {
-                        const isOwn = identity?.userId === review.userId;
+                        const isOwn = review.isOwn;
                         return (
-                            <div key={review.id} className="border-l-2 border-amber-200 dark:border-amber-800 pl-4">
+                            <div
+                                key={review.id}
+                                className="border-l-2 border-amber-200 site-dark:border-amber-800 pl-4"
+                            >
                                 <div className="flex items-center gap-2 mb-1">
                                     <span className="font-medium text-sm">{review.userName}</span>
                                     <StarRating value={review.rating} readOnly size={12} />
@@ -543,7 +576,7 @@ function UserReviewsSection({
                                             onClick={() => setConfirmDelete(true)}
                                             disabled={deleting}
                                             title="Supprimer mon avis"
-                                            className="ml-auto p-1 text-site-text-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                            className="ml-auto p-1 text-site-text-muted hover:text-red-500 hover:bg-red-50 site-dark:hover:bg-red-950/30 rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
                                         >
                                             {deleting ? (
                                                 <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -576,20 +609,28 @@ function UserReviewsSection({
                     }}
                 >
                     <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="delete-review-title"
+                        tabIndex={-1}
+                        ref={(el) => el?.querySelector<HTMLButtonElement>('[data-autofocus]')?.focus()}
                         className="bg-site-surface rounded-2xl shadow-xl max-w-sm w-full p-6"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="flex flex-col items-center gap-4 text-center">
-                            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-full bg-red-100 site-dark:bg-red-950/40 flex items-center justify-center">
                                 <IconTrash size={24} className="text-red-500" />
                             </div>
                             <div>
-                                <h4 className="font-bold text-lg text-site-text">Supprimer votre avis ?</h4>
+                                <h4 id="delete-review-title" className="font-bold text-lg text-site-text">
+                                    Supprimer votre avis ?
+                                </h4>
                                 <p className="text-sm text-site-text-secondary mt-1">Cette action est irréversible.</p>
                             </div>
                             <div className="flex gap-3 w-full">
                                 <button
                                     type="button"
+                                    data-autofocus
                                     onClick={() => setConfirmDelete(false)}
                                     disabled={deleting}
                                     className="flex-1 px-4 py-2 rounded-lg border border-site-border bg-site-bg text-site-text font-medium hover:bg-site-surface-hover disabled:opacity-50 transition-colors cursor-pointer"

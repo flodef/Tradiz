@@ -24,14 +24,20 @@ export default function SiteLandingPage() {
     const { mode: themeMode, set: setTheme, ready: themeReady } = useTheme();
 
     useEffect(() => {
-        fetch('/api/public/shops')
+        const controller = new AbortController();
+        fetch('/api/public/shops', { signal: controller.signal })
             .then((res) => {
                 if (!res.ok) throw new Error('Failed to load shops');
                 return res.json();
             })
             .then((data: { shops: ShopSummary[] }) => setShops(data.shops))
-            .catch((e) => setError(e.message))
-            .finally(() => setLoading(false));
+            .catch((e) => {
+                if (e.name !== 'AbortError') setError(e.message);
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setLoading(false);
+            });
+        return () => controller.abort();
     }, []);
 
     if (loading) {

@@ -390,7 +390,7 @@ function Hero() {
             </div>
 
             <div className="max-w-5xl mx-auto px-4 md:px-6 text-center py-20">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-600 dark:text-orange-400 text-sm font-medium mb-8 animate-[display_0.6s_ease-out]">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-600 site-dark:text-orange-400 text-sm font-medium mb-8 animate-[display_0.6s_ease-out]">
                     <IconBolt size={15} />
                     Le logiciel de caisse qui s'adapte à vous
                 </div>

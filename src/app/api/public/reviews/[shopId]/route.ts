@@ -16,32 +16,36 @@ interface ReviewRow {
 
 export interface PublicReview {
     id: number;
-    userId: string;
     userName: string;
     rating: number;
     comment: string;
     createdAt: string;
+    // True when the review belongs to the ?viewer= user ID — avoids
+    // exposing raw user IDs in the public response.
+    isOwn: boolean;
 }
 
-function rowToReview(row: ReviewRow): PublicReview {
+function rowToReview(row: ReviewRow, viewerId: string): PublicReview {
     return {
         id: Number(row.id),
-        userId: String(row.user_id),
         userName: String(row.user_name),
         rating: Number(row.rating),
         comment: row.comment ? String(row.comment) : '',
         createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+        isOwn: viewerId !== '' && String(row.user_id) === viewerId,
     };
 }
 
 /** GET /api/public/reviews/[shopId] — list all reviews for a shop */
-export async function GET(_request: Request, { params }: { params: Promise<{ shopId: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ shopId: string }> }) {
     const { shopId: rawShopId } = await params;
     const shopId = rawShopId.toLowerCase();
 
     if (!SHOP_IDS.includes(shopId as (typeof SHOP_IDS)[number])) {
         return NextResponse.json({ error: 'Invalid shop' }, { status: 400 });
     }
+
+    const viewerId = (new URL(request.url).searchParams.get('viewer') ?? '').slice(0, 64);
 
     let connection: DbConnection | undefined;
     try {
@@ -50,7 +54,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sho
             ? `SELECT id, shop_id, user_id, user_name, rating, comment, created_at FROM dc.reviews WHERE shop_id = $1 ORDER BY created_at DESC`
             : `SELECT id, shop_id, user_id, user_name, rating, comment, created_at FROM reviews WHERE shop_id = ? ORDER BY created_at DESC`;
         const [rows] = await connection.execute(query, [shopId]);
-        const reviews = (rows as ReviewRow[]).map(rowToReview);
+        const reviews = (rows as ReviewRow[]).map((row) => rowToReview(row, viewerId));
 
         const avgRating =
             reviews.length > 0
@@ -60,7 +64,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sho
         return NextResponse.json({ reviews, averageRating: avgRating, count: reviews.length });
     } catch (error) {
         console.error('Error fetching reviews:', error);
-        return NextResponse.json({ reviews: [], averageRating: 0, count: 0 });
+        return NextResponse.json({ error: 'Failed to load reviews' }, { status: 500 });
     } finally {
         await connection?.end();
     }
@@ -124,7 +128,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ sho
         if (connection.isPostgreSQL) {
             const rows = result as ReviewRow[];
             if (rows.length > 0) {
-                return NextResponse.json({ review: rowToReview(rows[0]) });
+                return NextResponse.json({ review: rowToReview(rows[0], userId) });
             }
         }
 
@@ -135,7 +139,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ sho
         const [fetchRows] = await connection.execute(fetchQuery, [shopId, userId]);
         const rows = fetchRows as ReviewRow[];
         if (rows.length > 0) {
-            return NextResponse.json({ review: rowToReview(rows[0]) });
+            return NextResponse.json({ review: rowToReview(rows[0], userId) });
         }
 
         return NextResponse.json({ error: 'Failed to save review' }, { status: 500 });
