@@ -78,7 +78,37 @@ async function getLatestAnnualClosureHash(connection: DbConnection): Promise<str
     return (rows as { closure_hash: string | null }[])[0]?.closure_hash ?? null;
 }
 
-function generateClosureHash(period: string, totals: PeriodTotals, previousHash: string | null): string {
+// Anchor the period closure to the child closure chain (NF525 P2.9): a monthly
+// closure covers the first and last daily closure hash of the month, an annual
+// closure the first and last monthly closure hash of the year. Any change to a
+// child closure then breaks the parent hash.
+async function getChildClosureAnchors(
+    connection: DbConnection,
+    childTable: 'daily_closures' | 'monthly_closures',
+    periodColumn: 'closure_date' | 'closure_month',
+    rangeStart: string,
+    rangeEndExclusive: string
+): Promise<{ first: string; last: string }> {
+    const isPg = connection.isPostgreSQL;
+    const prefix = isPg ? 'dc_pos.' : '';
+    const base =
+        `SELECT closure_hash FROM ${prefix}${childTable} WHERE ${periodColumn} >= ${isPg ? '$1' : '?'}` +
+        ` AND ${periodColumn} < ${isPg ? '$2' : '?'} ORDER BY ${periodColumn}`;
+    const [firstRows] = await connection.execute(`${base} ASC LIMIT 1`, [rangeStart, rangeEndExclusive]);
+    const [lastRows] = await connection.execute(`${base} DESC LIMIT 1`, [rangeStart, rangeEndExclusive]);
+    return {
+        first: (firstRows as { closure_hash: string | null }[])[0]?.closure_hash ?? '',
+        last: (lastRows as { closure_hash: string | null }[])[0]?.closure_hash ?? '',
+    };
+}
+
+function generateClosureHash(
+    period: string,
+    totals: PeriodTotals,
+    previousHash: string | null,
+    firstChildHash: string,
+    lastChildHash: string
+): string {
     const data = [
         previousHash || '',
         period,
@@ -87,6 +117,8 @@ function generateClosureHash(period: string, totals: PeriodTotals, previousHash:
         totals.total_ht,
         totals.total_tva,
         totals.daily_closure_count ?? totals.monthly_closure_count ?? 0,
+        firstChildHash,
+        lastChildHash,
     ].join('|');
     return createHash('sha256').update(data).digest('hex');
 }
@@ -134,7 +166,16 @@ export async function POST(request: Request) {
 
             const totals = await aggregateMonthlyFromDaily(connection, body.year, body.month);
             const previousHash = await getLatestMonthlyClosureHash(connection);
-            const closureHash = generateClosureHash(monthDate, totals, previousHash);
+            const nextMonth = body.month === 12 ? 1 : body.month + 1;
+            const nextYear = body.month === 12 ? body.year + 1 : body.year;
+            const anchors = await getChildClosureAnchors(
+                connection,
+                'daily_closures',
+                'closure_date',
+                monthDate,
+                `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`
+            );
+            const closureHash = generateClosureHash(monthDate, totals, previousHash, anchors.first, anchors.last);
 
             const insertQuery = isPg
                 ? `INSERT INTO ${prefix}monthly_closures (closure_month, daily_closure_count, ticket_count, total_amount, total_ht, total_tva, closure_hash, previous_closure_hash, closed_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
@@ -189,7 +230,14 @@ export async function POST(request: Request) {
 
             const totals = await aggregateAnnualFromMonthly(connection, body.year);
             const previousHash = await getLatestAnnualClosureHash(connection);
-            const closureHash = generateClosureHash(yearStr, totals, previousHash);
+            const anchors = await getChildClosureAnchors(
+                connection,
+                'monthly_closures',
+                'closure_month',
+                `${body.year}-01-01`,
+                `${body.year + 1}-01-01`
+            );
+            const closureHash = generateClosureHash(yearStr, totals, previousHash, anchors.first, anchors.last);
 
             const insertQuery = isPg
                 ? `INSERT INTO ${prefix}annual_closures (closure_year, monthly_closure_count, ticket_count, total_amount, total_ht, total_tva, closure_hash, previous_closure_hash, closed_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`

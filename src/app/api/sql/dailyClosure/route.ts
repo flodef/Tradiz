@@ -95,7 +95,35 @@ async function getLatestDailyClosureHash(connection: DbConnection): Promise<stri
     return result?.closure_hash ?? null;
 }
 
-function generateClosureHash(date: string, totals: DailyTotals, previousHash: string | null): string {
+// Anchor the closure to the transaction chain (NF525 P2.9): the hash covers the
+// first and last paid transaction of the day, so modifying any transaction of
+// the day (hashes are chained and rechained on update) breaks the closure.
+async function getDayTransactionAnchors(
+    connection: DbConnection,
+    date: string
+): Promise<{ first: string; last: string }> {
+    const isPg = connection.isPostgreSQL;
+    const prefix = isPg ? 'dc_pos.' : '';
+    const placeholders = EXCLUDED_METHODS.map((_, i) => (isPg ? `$${i + 2}` : '?')).join(', ');
+    const params = [date, ...EXCLUDED_METHODS];
+    const base =
+        `SELECT hash FROM ${prefix}transactions WHERE DATE(created_at) = ${isPg ? '$1' : '?'}` +
+        ` AND payment_method NOT IN (${placeholders}) ORDER BY id`;
+    const [firstRows] = await connection.execute(`${base} ASC LIMIT 1`, params);
+    const [lastRows] = await connection.execute(`${base} DESC LIMIT 1`, params);
+    return {
+        first: (firstRows as { hash: string | null }[])[0]?.hash ?? '',
+        last: (lastRows as { hash: string | null }[])[0]?.hash ?? '',
+    };
+}
+
+function generateClosureHash(
+    date: string,
+    totals: DailyTotals,
+    previousHash: string | null,
+    firstTxHash: string,
+    lastTxHash: string
+): string {
     const data = [
         previousHash || '',
         date,
@@ -107,6 +135,8 @@ function generateClosureHash(date: string, totals: DailyTotals, previousHash: st
         totals.cancellation_amount,
         totals.refund_count,
         totals.refund_amount,
+        firstTxHash,
+        lastTxHash,
     ].join('|');
     return createHash('sha256').update(data).digest('hex');
 }
@@ -198,9 +228,10 @@ export async function POST(request: Request) {
         // Compute totals — immutable calendar day (00:00 to 24:00) for audit integrity
         const totals = await computeDailyTotals(connection, date);
 
-        // Generate chained hash
+        // Generate chained hash — anchored to the day's transaction chain
         const previousHash = await getLatestDailyClosureHash(connection);
-        const closureHash = generateClosureHash(date, totals, previousHash);
+        const anchors = await getDayTransactionAnchors(connection, date);
+        const closureHash = generateClosureHash(date, totals, previousHash, anchors.first, anchors.last);
 
         // Insert daily closure
         const insertQuery = isPg

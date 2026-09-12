@@ -4,7 +4,25 @@ import { getPosDb, type DbConnection } from '../db';
 import { getPosPgDb, isPgConfigured } from '../pg-db';
 import { computeTransactionHash, type TransactionItemHashInput } from '@/app/utils/transactionHash';
 import { parsePaymentLegs } from '@/app/utils/transactionNote';
+import {
+    DELETED_KEYWORD,
+    CANCELLED_KEYWORD,
+    EXPUNGED_KEYWORD,
+    UPDATING_KEYWORD,
+    PROCESSING_KEYWORD,
+    WAITING_KEYWORD,
+} from '@/app/utils/constants';
 import { createHash } from 'crypto';
+
+// Same exclusion set as dailyClosure: the daily anchor covers paid transactions.
+const EXCLUDED_METHODS = new Set([
+    DELETED_KEYWORD,
+    CANCELLED_KEYWORD,
+    EXPUNGED_KEYWORD,
+    UPDATING_KEYWORD,
+    PROCESSING_KEYWORD,
+    WAITING_KEYWORD,
+]);
 
 export const dynamic = 'force-dynamic';
 
@@ -81,10 +99,27 @@ function recomputeHash(
     );
 }
 
-function recomputeDailyClosureHash(row: ClosureRow, previousHash: string | null): string {
+// Normalize a DATE column to 'YYYY-MM-DD' — pg returns strings, mysql2 returns
+// Date objects at local midnight (toISOString would shift the day back).
+function normalizeDate(value: unknown): string {
+    if (value instanceof Date) {
+        const y = value.getFullYear();
+        const m = String(value.getMonth() + 1).padStart(2, '0');
+        const d = String(value.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+    return String(value ?? '').slice(0, 10);
+}
+
+function recomputeDailyClosureHash(
+    row: ClosureRow,
+    previousHash: string | null,
+    firstTxHash: string,
+    lastTxHash: string
+): string {
     const data = [
         previousHash || '',
-        String(row.closure_date ?? ''),
+        normalizeDate(row.closure_date),
         String(row.ticket_count ?? 0),
         String(Number(row.total_amount ?? 0)),
         String(Number(row.total_ht ?? 0)),
@@ -93,12 +128,19 @@ function recomputeDailyClosureHash(row: ClosureRow, previousHash: string | null)
         String(Number(row.cancellation_amount ?? 0)),
         String(row.refund_count ?? 0),
         String(Number(row.refund_amount ?? 0)),
+        firstTxHash,
+        lastTxHash,
     ].join('|');
     return createHash('sha256').update(data).digest('hex');
 }
 
-function recomputePeriodClosureHash(row: ClosureRow, previousHash: string | null): string {
-    const period = String(row.closure_month ?? row.closure_year ?? '');
+function recomputePeriodClosureHash(
+    row: ClosureRow,
+    previousHash: string | null,
+    firstChildHash: string,
+    lastChildHash: string
+): string {
+    const period = row.closure_month != null ? normalizeDate(row.closure_month) : String(row.closure_year ?? '');
     const data = [
         previousHash || '',
         period,
@@ -107,6 +149,8 @@ function recomputePeriodClosureHash(row: ClosureRow, previousHash: string | null
         String(Number(row.total_ht ?? 0)),
         String(Number(row.total_tva ?? 0)),
         String(row.daily_closure_count ?? row.monthly_closure_count ?? 0),
+        firstChildHash,
+        lastChildHash,
     ].join('|');
     return createHash('sha256').update(data).digest('hex');
 }
@@ -231,6 +275,19 @@ export async function GET(request: Request) {
         const dailyClosures = await query<ClosureRow>(
             `SELECT id, closure_date, ticket_count, total_amount, total_ht, total_tva, cancellation_count, cancellation_amount, refund_count, refund_amount, closure_hash, previous_closure_hash FROM ${prefix}daily_closures ORDER BY id ASC`
         );
+
+        // Anchors (P2.9): first/last paid transaction hash per calendar day.
+        // `transactions` is already ordered by id ASC — the hash-chain order.
+        const txAnchors = new Map<string, { first: string; last: string }>();
+        for (const tx of transactions) {
+            if (EXCLUDED_METHODS.has(tx.payment_method)) continue;
+            const day = String(tx.created_at).slice(0, 10);
+            const a = txAnchors.get(day);
+            const hash = tx.hash ?? '';
+            if (a) a.last = hash;
+            else txAnchors.set(day, { first: hash, last: hash });
+        }
+
         const dailyIssues: ChainIssue[] = [];
         let expectedDailyPrev: string | null = null;
         let dailyVerified = 0;
@@ -244,7 +301,8 @@ export async function GET(request: Request) {
                     computed_hash: '',
                 });
             }
-            const computed = recomputeDailyClosureHash(row, row.previous_closure_hash);
+            const anchors = txAnchors.get(normalizeDate(row.closure_date)) ?? { first: '', last: '' };
+            const computed = recomputeDailyClosureHash(row, row.previous_closure_hash, anchors.first, anchors.last);
             if (row.closure_hash !== computed) {
                 dailyIssues.push({
                     id: row.id,
@@ -270,6 +328,23 @@ export async function GET(request: Request) {
         const monthlyClosures = await query<ClosureRow>(
             `SELECT id, closure_month, daily_closure_count, ticket_count, total_amount, total_ht, total_tva, closure_hash, previous_closure_hash FROM ${prefix}monthly_closures ORDER BY id ASC`
         );
+
+        // Anchors (P2.9): first/last daily closure hash per month, ordered by
+        // closure_date (the period order, not insertion order).
+        const dailiesByMonth = new Map<string, { day: string; hash: string }[]>();
+        for (const row of dailyClosures) {
+            const day = normalizeDate(row.closure_date);
+            const month = day.slice(0, 7);
+            const list = dailiesByMonth.get(month) ?? [];
+            list.push({ day, hash: String(row.closure_hash ?? '') });
+            dailiesByMonth.set(month, list);
+        }
+        const dailyAnchors = new Map<string, { first: string; last: string }>();
+        for (const [month, list] of dailiesByMonth) {
+            list.sort((a, b) => a.day.localeCompare(b.day));
+            dailyAnchors.set(month, { first: list[0].hash, last: list[list.length - 1].hash });
+        }
+
         const monthlyIssues: ChainIssue[] = [];
         let expectedMonthlyPrev: string | null = null;
         let monthlyVerified = 0;
@@ -283,7 +358,11 @@ export async function GET(request: Request) {
                     computed_hash: '',
                 });
             }
-            const computed = recomputePeriodClosureHash(row, row.previous_closure_hash);
+            const anchors = dailyAnchors.get(normalizeDate(row.closure_month).slice(0, 7)) ?? {
+                first: '',
+                last: '',
+            };
+            const computed = recomputePeriodClosureHash(row, row.previous_closure_hash, anchors.first, anchors.last);
             if (row.closure_hash !== computed) {
                 monthlyIssues.push({
                     id: row.id,
@@ -309,6 +388,22 @@ export async function GET(request: Request) {
         const annualClosures = await query<ClosureRow>(
             `SELECT id, closure_year, monthly_closure_count, ticket_count, total_amount, total_ht, total_tva, closure_hash, previous_closure_hash FROM ${prefix}annual_closures ORDER BY id ASC`
         );
+
+        // Anchors (P2.9): first/last monthly closure hash per year.
+        const monthliesByYear = new Map<string, { month: string; hash: string }[]>();
+        for (const row of monthlyClosures) {
+            const month = normalizeDate(row.closure_month).slice(0, 7);
+            const year = month.slice(0, 4);
+            const list = monthliesByYear.get(year) ?? [];
+            list.push({ month, hash: String(row.closure_hash ?? '') });
+            monthliesByYear.set(year, list);
+        }
+        const monthlyAnchors = new Map<string, { first: string; last: string }>();
+        for (const [year, list] of monthliesByYear) {
+            list.sort((a, b) => a.month.localeCompare(b.month));
+            monthlyAnchors.set(year, { first: list[0].hash, last: list[list.length - 1].hash });
+        }
+
         const annualIssues: ChainIssue[] = [];
         let expectedAnnualPrev: string | null = null;
         let annualVerified = 0;
@@ -322,7 +417,8 @@ export async function GET(request: Request) {
                     computed_hash: '',
                 });
             }
-            const computed = recomputePeriodClosureHash(row, row.previous_closure_hash);
+            const anchors = monthlyAnchors.get(String(row.closure_year ?? '')) ?? { first: '', last: '' };
+            const computed = recomputePeriodClosureHash(row, row.previous_closure_hash, anchors.first, anchors.last);
             if (row.closure_hash !== computed) {
                 annualIssues.push({
                     id: row.id,

@@ -16,12 +16,12 @@ const C = { red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', blue: '\x1b[
 function log(m: string, c: keyof typeof C = 'reset') {
     console.log(`${C[c]}${m}${C.reset}`);
 }
-function prompt(q: string): Promise<boolean> {
+function prompt(q: string): Promise<string> {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     return new Promise((r) =>
         rl.question(q, (a) => {
             rl.close();
-            r(a.trim().toLowerCase() === 'y');
+            r(a.trim());
         })
     );
 }
@@ -49,7 +49,7 @@ interface Period {
     monthly_closure_count?: number;
 }
 
-function dailyHash(date: string, t: Daily, prev: string | null): string {
+function dailyHash(date: string, t: Daily, prev: string | null, firstTx: string, lastTx: string): string {
     return createHash('sha256')
         .update(
             [
@@ -63,11 +63,13 @@ function dailyHash(date: string, t: Daily, prev: string | null): string {
                 t.cancellation_amount,
                 t.refund_count,
                 t.refund_amount,
+                firstTx,
+                lastTx,
             ].join('|')
         )
         .digest('hex');
 }
-function periodHash(p: string, t: Period, prev: string | null): string {
+function periodHash(p: string, t: Period, prev: string | null, firstChild: string, lastChild: string): string {
     return createHash('sha256')
         .update(
             [
@@ -78,6 +80,8 @@ function periodHash(p: string, t: Period, prev: string | null): string {
                 t.total_ht,
                 t.total_tva,
                 t.daily_closure_count ?? t.monthly_closure_count ?? 0,
+                firstChild,
+                lastChild,
             ].join('|')
         )
         .digest('hex');
@@ -174,6 +178,20 @@ async function main() {
             FROM paid FULL OUTER JOIN canc ON paid.d=canc.d FULL OUTER JOIN refs ON COALESCE(paid.d,canc.d)=refs.d FULL OUTER JOIN htva ON COALESCE(paid.d,canc.d,refs.d)=htva.d ORDER BY 1`
         );
         log(`📊 Found ${dr.length} distinct date(s)`, 'blue');
+
+        // Anchors (P2.9): first/last paid transaction hash per day — binds each
+        // daily closure to the transaction chain it seals.
+        const { rows: anchorRows } = await db.query(
+            `SELECT id, hash, DATE(created_at) AS d FROM transactions WHERE payment_method NOT IN (${exL}) ORDER BY id`
+        );
+        const txAnchors = new Map<string, { first: string; last: string }>();
+        for (const r of anchorRows) {
+            const d = r.d instanceof Date ? r.d.toISOString().substring(0, 10) : String(r.d);
+            const a = txAnchors.get(d);
+            if (a) a.last = r.hash ?? '';
+            else txAnchors.set(d, { first: r.hash ?? '', last: r.hash ?? '' });
+        }
+
         if (!dr.length) {
             log('Nothing to populate.', 'yellow');
             db.release();
@@ -198,7 +216,8 @@ async function main() {
                 refund_count: Number(r.rc) || 0,
                 refund_amount: Number(r.ra) || 0,
             };
-            const h = dailyHash(date, t, prevD);
+            const a = txAnchors.get(date) ?? { first: '', last: '' };
+            const h = dailyHash(date, t, prevD, a.first, a.last);
             byDate.set(date, { ...t, hash: h });
             dailyIns.push({ d: date, t, h, p: prevD });
             prevD = h;
@@ -237,7 +256,8 @@ async function main() {
 
         // 3. Monthly closures
         log('\n📆 Processing monthly closures...', 'blue');
-        const mMap = new Map<string, Daily[]>();
+        const mMap = new Map<string, (Daily & { hash: string })[]>();
+        const monthHashByMk = new Map<string, string>();
         for (const [date, t] of byDate) {
             const mk = date.substring(0, 7);
             if (!mMap.has(mk)) mMap.set(mk, []);
@@ -265,7 +285,10 @@ async function main() {
                 total_ht: ml.reduce((s, t) => s + t.total_ht, 0),
                 total_tva: ml.reduce((s, t) => s + t.total_tva, 0),
             };
-            const h = periodHash(`${mk}-01`, pt, prevM);
+            // Anchor: first/last daily closure hash of the month (P2.9).
+            // `ml` is ordered by date since `byDate` iterates dr (ORDER BY date).
+            const h = periodHash(`${mk}-01`, pt, prevM, ml[0].hash, ml[ml.length - 1].hash);
+            monthHashByMk.set(mk, h);
             if (!isDry)
                 mIns.push({
                     md: `${mk}-01`,
@@ -342,7 +365,11 @@ async function main() {
                 total_ht: yl.reduce((s, t) => s + t.total_ht, 0),
                 total_tva: yl.reduce((s, t) => s + t.total_tva, 0),
             };
-            const h = periodHash(String(y), pt, prevA);
+            // Anchor: first/last monthly closure hash of the year (P2.9).
+            const yMonths = sortedM.filter((mk) => parseInt(mk.substring(0, 4), 10) === y);
+            const firstM = monthHashByMk.get(yMonths[0]) ?? '';
+            const lastM = monthHashByMk.get(yMonths[yMonths.length - 1]) ?? '';
+            const h = periodHash(String(y), pt, prevA, firstM, lastM);
             if (!isDry)
                 aIns.push({
                     y,
