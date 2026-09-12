@@ -240,7 +240,7 @@ const FAQ_ITEMS = [
     },
     {
         q: 'Le paiement peut-il se réaliser par QR code ?',
-        a: 'Tradiz supporte les paiements par carte bancaire, espèces et chèque. Le paiement par QR code est une fonctionnalité en cours de développement et sera disponible prochainement.',
+        a: 'Oui. En plus de la carte bancaire, des espèces et du chèque, Tradiz supporte le paiement par QR code via Solana Pay et Ğ1 (June) : le client scanne le QR affiché en caisse et paie depuis son wallet crypto. Il suffit de configurer votre adresse dans les moyens de paiement.',
     },
     {
         q: "Je n'ai pas de matériel, pouvez-vous m'aider ?",
