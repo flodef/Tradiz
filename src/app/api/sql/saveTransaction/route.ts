@@ -3,7 +3,7 @@ import { computeFidelityDelta } from '@/app/utils/fidelity';
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { Connection, getPosDb } from '../db';
-import { insertAuditEvent } from '../auditHelpers';
+import { insertAuditEvent, lockHashChain } from '../auditHelpers';
 import { computeTransactionHash, type TransactionItemHashInput } from '@/app/utils/transactionHash';
 import { encodePaymentLegs, parsePaymentLegs } from '@/app/utils/transactionNote';
 import { PaymentLeg } from '@/app/utils/interfaces';
@@ -101,6 +101,9 @@ export async function POST(request: Request) {
             connection = await getPosDb(shopId);
 
             await connection.beginTransaction();
+            // Serialize writers on the transaction hash chain — a concurrent
+            // save reading the same tail hash would fork the chain.
+            const unlockChain = await lockHashChain(connection, 'nf525_transactions');
 
             try {
                 // Fetch the OLD transaction's fidelity-relevant fields BEFORE the handler
@@ -185,11 +188,13 @@ export async function POST(request: Request) {
                 }
 
                 await connection.commit();
+                await unlockChain();
                 await connection.end();
 
                 return NextResponse.json({ success: true, message: 'Transaction saved successfully' }, { status: 200 });
             } catch (error) {
                 await connection.rollback();
+                await unlockChain();
                 throw error;
             }
         } catch (error) {
@@ -319,6 +324,17 @@ async function insertTransactionWithItems(connection: Connection, transaction: T
     }
 
     await insertTransactionItems(connection, transactionId, transaction.products);
+
+    // The digest embeds the transaction id, unknown before the INSERT — the
+    // 'new' placeholder hash stored above must be replaced with the real one
+    // or verifyIntegrity would flag this row until the next rechain.
+    const finalHash = generateTransactionHash(transaction, transactionId, previousHash ?? undefined);
+    await connection.execute(
+        isPg
+            ? `UPDATE ${prefix}transactions SET hash = $1 WHERE id = $2`
+            : `UPDATE ${prefix}transactions SET hash = ? WHERE id = ?`,
+        [finalHash, transactionId]
+    );
 }
 
 // Insert transaction items for a given transaction id.
