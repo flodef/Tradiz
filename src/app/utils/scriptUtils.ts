@@ -103,11 +103,14 @@ export function siteThemeScript(): string {
     var path = window.location.pathname || '';
     var hostname = window.location.hostname || '';
     var isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.indexOf('localhost') === 0;
-    // Apply on /site, /landing, or / (production landing rewrite).
+    // Apply on /site, /landing, /checkout, or / (production landing rewrite).
     // Skip / on local dev since that's the POS app.
-    if (path.indexOf('/site') !== 0 && path.indexOf('/landing') !== 0 && !(path === '/' && !isLocal)) return;
+    if (path.indexOf('/site') !== 0 && path.indexOf('/landing') !== 0 && path.indexOf('/checkout') !== 0 && !(path === '/' && !isLocal)) return;
 
     root.setAttribute('data-site-route', '1');
+    // Public site pages don't depend on the admin Config key, so mark the
+    // theme as ready immediately to unblock the body visibility CSS rule.
+    root.setAttribute('data-theme-ready', '1');
 
     try {
         var stored = window.localStorage.getItem('site-theme');

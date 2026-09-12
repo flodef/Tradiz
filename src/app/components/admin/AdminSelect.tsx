@@ -37,12 +37,16 @@ export default function AdminSelect({
     const selectedOption = options.find((opt) => String(opt.value) === selectedValue);
 
     // Compute dropdown position from the trigger button's bounding rect.
+    // If there isn't enough room below, flip the dropdown above the button.
     const updatePosition = React.useCallback(() => {
         if (!buttonRef.current) return;
         const rect = buttonRef.current.getBoundingClientRect();
+        const dropdownMaxHeight = 240; // max-h-60 = 15rem = 240px
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const flip = spaceBelow < dropdownMaxHeight && rect.top > dropdownMaxHeight;
         setDropdownStyle({
             position: 'fixed',
-            top: rect.bottom,
+            top: flip ? rect.top - dropdownMaxHeight : rect.bottom,
             left: rect.left,
             width: rect.width,
         });

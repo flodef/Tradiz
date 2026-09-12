@@ -79,6 +79,8 @@ function StarRating({
                         {!readOnly && (
                             <button
                                 type="button"
+                                role="radio"
+                                aria-checked={value === star - 0.5}
                                 aria-label={`${star - 0.5} étoile${star - 0.5 > 1 ? 's' : ''}`}
                                 className="absolute left-0 top-0 h-full w-1/2 cursor-pointer z-10"
                                 onClick={() => handleClick(star, true)}
@@ -89,6 +91,8 @@ function StarRating({
                         {!readOnly && (
                             <button
                                 type="button"
+                                role="radio"
+                                aria-checked={value === star}
                                 aria-label={`${star} étoile${star > 1 ? 's' : ''}`}
                                 className="absolute right-0 top-0 h-full w-1/2 cursor-pointer z-10"
                                 onClick={() => handleClick(star, false)}
@@ -274,6 +278,13 @@ function UserReviewsSection({
             // Ignore storage errors
         }
     }, [draftKey, nameInput, rating, comment]);
+
+    // Clear success message when the user starts editing a new review
+    useEffect(() => {
+        if (success && (nameInput || rating > 0 || comment)) {
+            setSuccess(false);
+        }
+    }, [nameInput, rating, comment, success]);
 
     const loadReviews = useCallback(() => {
         fetch(`/api/public/reviews/${shopId}`)
@@ -557,6 +568,12 @@ function UserReviewsSection({
                 <div
                     className="fixed inset-0 z-60 flex items-center justify-center bg-site-overlay p-4"
                     onClick={() => !deleting && setConfirmDelete(false)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Escape' && !deleting) {
+                            e.stopPropagation();
+                            setConfirmDelete(false);
+                        }
+                    }}
                 >
                     <div
                         className="bg-site-surface rounded-2xl shadow-xl max-w-sm w-full p-6"

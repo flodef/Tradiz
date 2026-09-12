@@ -21,17 +21,12 @@ const COLOR_MAP: Record<string, string> = {
     purple: '#a78bfa',
 };
 
-// Ordered list of available colors for pickers/UI
-export const COLOR_OPTIONS: { value: string; hex: string }[] = [
-    { value: 'white', hex: '#ffffff' },
-    { value: 'light blue', hex: '#7dd3fc' },
-    { value: 'light yellow', hex: '#fde68a' },
-    { value: 'light orange', hex: '#fdba74' },
-    { value: 'light pink', hex: '#fbcfe8' },
-    { value: 'red', hex: '#ef4444' },
-    { value: 'light green', hex: '#86efac' },
-    { value: 'purple', hex: '#a78bfa' },
-];
+// Ordered list of available colors for pickers/UI, derived from COLOR_MAP
+// so adding/removing a color only requires updating one place.
+export const COLOR_OPTIONS: { value: string; hex: string }[] = Object.entries(COLOR_MAP).map(([value, hex]) => ({
+    value,
+    hex,
+}));
 
 // French → English alias map (for backward compatibility with old data)
 const FR_TO_EN: Record<string, string> = {
@@ -63,8 +58,8 @@ export function normalizeColorName(color: string | null | undefined): string {
 export function colorToHex(color: string | null | undefined): string {
     if (!color) return '';
     const trimmed = color.trim();
-    // Pass through hex values directly (e.g. "#f59e0b" or "f59e0b")
-    if (/^#?[0-9a-f]{3,8}$/i.test(trimmed)) {
+    // Pass through hex values directly (3/4/6/8 hex digits: RGB, RGBA, RRGGBB, RRGGBBAA)
+    if (/^#?(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(trimmed)) {
         return trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
     }
     const key = normalizeColorName(trimmed);

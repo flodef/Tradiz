@@ -15,8 +15,9 @@ export function useTheme() {
     // the apply-class effect (below) would otherwise run with the default
     // `resolved = 'light'` before `mode` is loaded, removing `site-dark`.
     useEffect(() => {
-        const stored = localStorage.getItem('site-theme') as ThemeMode | null;
-        const initialMode = stored || 'system';
+        const stored = localStorage.getItem('site-theme');
+        const validModes: ThemeMode[] = ['light', 'dark', 'system'];
+        const initialMode = stored && validModes.includes(stored as ThemeMode) ? (stored as ThemeMode) : 'system';
         let initialResolved: 'light' | 'dark';
         if (initialMode === 'dark') {
             initialResolved = 'dark';
