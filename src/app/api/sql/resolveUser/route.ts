@@ -212,8 +212,12 @@ export async function POST(request: NextRequest) {
 
         connection = await getPosDb(shopId);
 
+        // Demo mode: skip timezone check and auto-register unknown devices
+        const isDemo = shopId === 'demo';
+
         // Immediately block users not from Europe/Paris timezone
-        if (timezone !== 'Europe/Paris') {
+        // (skipped in demo mode so anyone can test)
+        if (!isDemo && timezone !== 'Europe/Paris') {
             await connection.end();
             return NextResponse.json({ error: 'Access denied: Invalid timezone' }, { status: 403 });
         }
@@ -246,7 +250,29 @@ export async function POST(request: NextRequest) {
 
         const [rows] = await connection.execute(query, [publicKey]);
         const userRows = rows as UserRow[];
-        const foundUser = userRows.length > 0 ? userRows[0] : null;
+        let foundUser = userRows.length > 0 ? userRows[0] : null;
+
+        // Demo mode: auto-register unknown devices as the first admin user
+        // so anyone can test the POS without prior device registration.
+        if (!foundUser && isDemo) {
+            const adminQuery = connection.isPostgreSQL
+                ? `SELECT id, name, role, reference FROM dc_pos.users WHERE role = 'Admin' ORDER BY id LIMIT 1`
+                : `SELECT id, name, role, reference FROM users WHERE role = 'Admin' ORDER BY id LIMIT 1`;
+            const [adminRows] = await connection.execute(adminQuery);
+            const admin = (adminRows as UserRow[])[0];
+            if (admin) {
+                const insertDevice = connection.isPostgreSQL
+                    ? `INSERT INTO dc_pos.devices (label, public_key, user_id, connected, created_at)
+                       VALUES ($1, $2, $3, true, CURRENT_TIMESTAMP)
+                       ON CONFLICT (public_key) DO NOTHING`
+                    : `INSERT INTO devices (label, public_key, user_id, connected, created_at)
+                       VALUES (?, ?, ?, true, CURRENT_TIMESTAMP)
+                       ON DUPLICATE KEY UPDATE id = id`;
+                const label = `Démo-${publicKey.slice(0, 8)}`;
+                await connection.execute(insertDevice, [label, publicKey, admin.id]);
+                foundUser = admin;
+            }
+        }
 
         // Check if IP is blocked due to too many failed attempts
         // Only apply block if user is NOT authenticated (not found in system)

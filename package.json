@@ -1,6 +1,6 @@
 {
   "name": "tradiz",
-  "version": "1.550.0",
+  "version": "1.551.0",
   "description": "Tradiz cash register and management application",
   "author": "Tradiz <contact@tradiz.fr>",
   "private": true,
@@ -34,6 +34,7 @@
     "@dnd-kit/sortable": "latest",
     "@dnd-kit/utilities": "latest",
     "@neondatabase/serverless": "latest",
+    "@revolut/checkout": "latest",
     "@solana/pay": "0.2.6",
     "@solana/spl-token": "latest",
     "@solana/web3.js": "3.0.0-rc.2",
