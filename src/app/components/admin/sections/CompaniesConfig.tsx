@@ -1,5 +1,6 @@
 'use client';
 
+import { IconChevronRight } from '@tabler/icons-react';
 import { adminHeaderStyle } from '@/app/utils/constants';
 import { Company, Customer } from '@/app/utils/interfaces';
 import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -97,10 +98,15 @@ const SortableRow = memo(function SortableRow({
                     <button
                         type="button"
                         onClick={() => setShowDetails(!showDetails)}
-                        className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                        className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                         title="Facturation électronique"
+                        aria-expanded={showDetails}
+                        aria-label="Afficher les détails"
                     >
-                        {showDetails ? '▲' : '▼'}
+                        <IconChevronRight
+                            size={20}
+                            className={`transition-transform duration-200 ${showDetails ? 'rotate-90' : 'rotate-0'}`}
+                        />
                     </button>
                 </td>
                 <DeleteButtonCell
@@ -114,7 +120,6 @@ const SortableRow = memo(function SortableRow({
                     <td colSpan={isReadOnly ? 4 : 5} className="p-3">
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                             <div className="col-span-2 md:col-span-1">
-                                <label className="text-xs text-gray-500 dark:text-gray-400">SIRET</label>
                                 <SiretInput
                                     value={String(company.siret || '')}
                                     onChange={(value: string) => onFieldChange(company._id, 'siret', value)}

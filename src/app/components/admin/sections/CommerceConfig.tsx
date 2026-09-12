@@ -1,7 +1,7 @@
 'use client';
 
 import { Parameters, OpeningHours, TimeSlot } from '@/app/contexts/ConfigProvider';
-import { adminTextStyle } from '@/app/utils/constants';
+import { adminTextStyle, IS_LOCAL } from '@/app/utils/constants';
 import {
     frenchPhoneRegex,
     vatNumberRegex,
@@ -179,11 +179,11 @@ export default function CommerceConfig({
     const [needsResign, setNeedsResign] = useState(false);
 
     // Build the public site URL for this shop.
-    // - Demo shop: https://demo.tradiz.fr (POS demo, not a public catalog)
-    // - Public shops (annette, gds, etc.): https://shop.tradiz.fr/<shopId> (public catalog)
+    // - Local dev: /site/<shopId> (same origin, proxy rewrites the route)
+    // - Production: https://shop.tradiz.fr/<shopId> (public catalog for all shops, including demo)
     const publicSiteUrl = shopId
-        ? shopId === 'demo'
-            ? 'https://demo.tradiz.fr'
+        ? IS_LOCAL
+            ? `/site/${encodeURIComponent(shopId)}`
             : `https://shop.tradiz.fr/${encodeURIComponent(shopId)}`
         : '';
 
@@ -522,20 +522,6 @@ export default function CommerceConfig({
                         />
                     </div>
                     <div className="w-full flex flex-wrap gap-4 items-end">
-                        <div className="flex-1 min-w-40">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Lien avis Google
-                            </label>
-                            <ValidatedInput
-                                value={String(config.shop.googleReviewUrl || '')}
-                                onChange={(value) => handleShopChange('googleReviewUrl', String(value))}
-                                placeholder="https://www.google.com/maps/place/..."
-                                isReadOnly={isReadOnly}
-                                className="w-full"
-                            />
-                        </div>
-                    </div>
-                    <div className="w-full flex flex-wrap gap-4 items-end">
                         <ValidatedInput
                             label="Adresse"
                             value={String(config.shop.address || '')}
@@ -566,9 +552,9 @@ export default function CommerceConfig({
                             href={publicSiteUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                            className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline"
                         >
-                            <IconExternalLink size={14} />
+                            <IconExternalLink size={18} />
                             Voir le site
                         </a>
                     )}
