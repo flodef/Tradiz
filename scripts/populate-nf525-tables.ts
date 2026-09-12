@@ -200,7 +200,7 @@ async function main() {
             `WITH paid AS (SELECT DATE(created_at) d, COUNT(*)::int tc, COALESCE(SUM(amount),0)::numeric ta FROM transactions WHERE payment_method NOT IN (${exL}) GROUP BY 1),
             canc AS (SELECT DATE(created_at) d, COUNT(*)::int cc, COALESCE(SUM(ABS(amount)),0)::numeric ca FROM transactions WHERE payment_method IN (${caL}) GROUP BY 1),
             refs AS (SELECT DATE(created_at) d, COUNT(*)::int rc, COALESCE(SUM(ABS(amount)),0)::numeric ra FROM transactions WHERE payment_method='${REFUND}' GROUP BY 1),
-            htva AS (SELECT DATE(t.created_at) d, COALESCE(SUM(ti.total),0)::numeric ht, COALESCE(SUM(ti.total*ti.vat_rate/100),0)::numeric tva FROM transaction_items ti JOIN transactions t ON t.id=ti.transaction_id WHERE t.payment_method NOT IN (${exL}) GROUP BY 1)
+            htva AS (SELECT DATE(t.created_at) d, COALESCE(SUM(ti.total*100/(100+COALESCE(ti.vat_rate,20))),0)::numeric ht, COALESCE(SUM(ti.total*COALESCE(ti.vat_rate,20)/(100+COALESCE(ti.vat_rate,20))),0)::numeric tva FROM transaction_items ti JOIN transactions t ON t.id=ti.transaction_id WHERE t.payment_method NOT IN (${exL}) GROUP BY 1)
             SELECT COALESCE(paid.d,canc.d,refs.d,htva.d) AS dt, COALESCE(paid.tc,0) tc, COALESCE(paid.ta,0) ta, COALESCE(htva.ht,0) ht, COALESCE(htva.tva,0) tva, COALESCE(canc.cc,0) cc, COALESCE(canc.ca,0) ca, COALESCE(refs.rc,0) rc, COALESCE(refs.ra,0) ra
             FROM paid FULL OUTER JOIN canc ON paid.d=canc.d FULL OUTER JOIN refs ON COALESCE(paid.d,canc.d)=refs.d FULL OUTER JOIN htva ON COALESCE(paid.d,canc.d,refs.d)=htva.d ORDER BY 1`
         );

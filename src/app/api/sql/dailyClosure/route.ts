@@ -10,6 +10,7 @@ import {
     UPDATING_KEYWORD,
     PROCESSING_KEYWORD,
     WAITING_KEYWORD,
+    DEFAULT_VAT_RATE,
 } from '@/app/utils/constants';
 import { insertAuditEvent } from '../auditHelpers';
 
@@ -67,10 +68,12 @@ async function computeDailyTotals(connection: DbConnection, date: string): Promi
     const refundResult = (refundRows as { cnt: number; total: number | string }[])[0];
 
     const totalAmount = Number(paidResult.total) || 0;
-    // HT and TVA computed from transaction_items joined with transactions
+    // HT and TVA computed from transaction_items joined with transactions.
+    // ti.total is TTC (items sum to the paid amount): HT = TTC/(1+rate),
+    // TVA = TTC*rate/(100+rate) — same convention as posPrinter/billingStats.
     const vatQuery = isPg
-        ? `SELECT COALESCE(SUM(ti.total * ti.vat_rate / 100), 0)::numeric AS tva, COALESCE(SUM(ti.total), 0)::numeric AS ht FROM ${prefix}transaction_items ti JOIN ${prefix}transactions t ON t.id = ti.transaction_id WHERE DATE(t.created_at) = $1 AND t.payment_method NOT IN (${placeholders})`
-        : `SELECT COALESCE(SUM(ti.total * ti.vat_rate / 100), 0) AS tva, COALESCE(SUM(ti.total), 0) AS ht FROM ${prefix}transaction_items ti JOIN ${prefix}transactions t ON t.id = ti.transaction_id WHERE DATE(t.created_at) = ? AND t.payment_method NOT IN (${placeholders})`;
+        ? `SELECT COALESCE(SUM(ti.total * COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}) / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 0)::numeric AS tva, COALESCE(SUM(ti.total * 100 / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 0)::numeric AS ht FROM ${prefix}transaction_items ti JOIN ${prefix}transactions t ON t.id = ti.transaction_id WHERE DATE(t.created_at) = $1 AND t.payment_method NOT IN (${placeholders})`
+        : `SELECT COALESCE(SUM(ti.total * COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}) / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 0) AS tva, COALESCE(SUM(ti.total * 100 / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 0) AS ht FROM ${prefix}transaction_items ti JOIN ${prefix}transactions t ON t.id = ti.transaction_id WHERE DATE(t.created_at) = ? AND t.payment_method NOT IN (${placeholders})`;
     const [vatRows] = await connection.execute(vatQuery, paidParams);
     const vatResult = (vatRows as { tva: number | string; ht: number | string }[])[0];
 
