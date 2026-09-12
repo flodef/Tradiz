@@ -53,6 +53,7 @@ INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (1
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (19, 'fidelityRate', '3', '2026-08-27 20:00:00.000000') ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (20, 'vatNumber', 'FR15819968355', '2026-08-27 20:00:00.000000') ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.parameters (param_key, param_value, updated_at) VALUES ('googlePlaceId', 'ChIJC4wZunmwFkgRPepN6JSdTMo', CURRENT_TIMESTAMP) ON CONFLICT (param_key) DO UPDATE SET param_value = EXCLUDED.param_value, updated_at = CURRENT_TIMESTAMP;
+INSERT INTO dc_pos.parameters (param_key, param_value, updated_at) VALUES ('legalRepresentative', 'Sylvie Baudry', CURRENT_TIMESTAMP) ON CONFLICT (param_key) DO UPDATE SET param_value = EXCLUDED.param_value, updated_at = CURRENT_TIMESTAMP;
 
 -- Payment methods (paiements)
 INSERT INTO dc_pos.payment_methods (id, label, address, currency, available, created_at) VALUES (1, 'Carte Bancaire', '0', 'Euro', true, '2026-07-11 18:17:10.119469') ON CONFLICT (id) DO NOTHING;

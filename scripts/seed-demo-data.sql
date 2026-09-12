@@ -89,10 +89,10 @@ ON CONFLICT (id) DO NOTHING;
 -- Companies
 -- ============================================================
 INSERT INTO dc_pos.companies (id, name, employer_share, siret, vat_number, address, zip_code, city, created_at) VALUES
-    (1, 'Mairie de Quimper', 50.00, '12345678900012', 'FR12345678901', '1 Place Saint-Corentin', '29000', 'QUIMPER', CURRENT_TIMESTAMP),
-    (2, 'Entreprise Dupont SARL', 30.00, '98765432100045', 'FR98765432101', '5 Rue du Marché', '29000', 'QUIMPER', CURRENT_TIMESTAMP),
-    (3, 'Crèche Les Lutins', 100.00, '45678912300078', 'FR45678912301', '10 Rue des Enfants', '29000', 'QUIMPER', CURRENT_TIMESTAMP)
-ON CONFLICT (id) DO NOTHING;
+    (1, 'Mairie de Quimper', 8.00, '12345678900015', 'FR12345678901', '1 Place Saint-Corentin', '29000', 'QUIMPER', CURRENT_TIMESTAMP),
+    (2, 'Entreprise Dupont SARL', 6.00, '98765432100049', 'FR98765432101', '5 Rue du Marché', '29000', 'QUIMPER', CURRENT_TIMESTAMP),
+    (3, 'Crèche Les Lutins', 5.00, '45678912300076', 'FR45678912301', '10 Rue des Enfants', '29000', 'QUIMPER', CURRENT_TIMESTAMP)
+ON CONFLICT (id) DO UPDATE SET employer_share = EXCLUDED.employer_share, siret = EXCLUDED.siret;
 
 -- ============================================================
 -- Customers
@@ -113,9 +113,9 @@ INSERT INTO dc_pos.discounts (id, value, unity) VALUES
     (1, 5.00, '%'),
     (2, 10.00, '%'),
     (3, 15.00, '%'),
-    (4, 1.00, 'currency'),
-    (5, 2.00, 'currency')
-ON CONFLICT (id) DO NOTHING;
+    (4, 1.00, '€'),
+    (5, 2.00, '€')
+ON CONFLICT (id) DO UPDATE SET value = EXCLUDED.value, unity = EXCLUDED.unity;
 
 -- ============================================================
 -- Categories

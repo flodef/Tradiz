@@ -62,6 +62,11 @@ export function normalizeColorName(color: string | null | undefined): string {
  */
 export function colorToHex(color: string | null | undefined): string {
     if (!color) return '';
-    const key = normalizeColorName(color);
+    const trimmed = color.trim();
+    // Pass through hex values directly (e.g. "#f59e0b" or "f59e0b")
+    if (/^#?[0-9a-f]{3,8}$/i.test(trimmed)) {
+        return trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+    }
+    const key = normalizeColorName(trimmed);
     return COLOR_MAP[key] ?? '';
 }

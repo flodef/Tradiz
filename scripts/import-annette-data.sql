@@ -61,7 +61,7 @@ INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (2
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (28, 'openingHours', '{"3":[{"open":"07:00","close":"13:00"}],"4":[{"open":"07:00","close":"13:00"}],"5":[{"open":"07:00","close":"13:00"}],"6":[{"open":"07:00","close":"13:00"}]}', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (29, 'reservationPhone', 'true', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (30, 'reservationEmail', 'false', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;
-INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (31, 'legalRepresentative', 'Anne Quintin', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;
+INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (31, 'legalRepresentative', 'Anne Quintin', CURRENT_TIMESTAMP) ON CONFLICT (param_key) DO UPDATE SET param_value = EXCLUDED.param_value, updated_at = CURRENT_TIMESTAMP;
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (32, 'signatureData', '', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.parameters (id, param_key, param_value, updated_at) VALUES (33, 'signatureVersion', '', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;
 

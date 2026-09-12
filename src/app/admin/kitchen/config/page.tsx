@@ -345,7 +345,6 @@ export default function SettingsPage() {
                     image: getParam('shopImage', 'Image du magasin'),
                     country: 'FR',
                     googlePlaceId: getParam('googlePlaceId', 'Google Place ID'),
-                    googleReviewUrl: getParam('googleReviewUrl', 'Google Review URL'),
                 },
                 thanksMessage: getParam('thanksMessage', 'Message de remerciement') || 'Merci de votre visite !',
                 mercurial: (getParam('mercurial', 'Mercuriale quadratique') || Mercurial.none) as Mercurial,
@@ -942,7 +941,6 @@ export default function SettingsPage() {
                 { key: 'reservationPhone', value: String(data.reservationPhone ?? false) },
                 { key: 'reservationEmail', value: String(data.reservationEmail ?? false) },
                 { key: 'googlePlaceId', value: data.shop.googlePlaceId ?? '' },
-                { key: 'googleReviewUrl', value: data.shop.googleReviewUrl ?? '' },
             ];
 
             const response = await fetch('/api/sql/updateParameters', {

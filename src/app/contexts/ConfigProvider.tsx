@@ -58,7 +58,6 @@ export interface Shop {
     logo?: string;
     image?: string;
     googlePlaceId?: string;
-    googleReviewUrl?: string;
 }
 
 export interface ProductsSettings {
