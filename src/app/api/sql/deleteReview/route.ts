@@ -27,15 +27,20 @@ export async function DELETE(request: Request) {
     let connection;
     try {
         connection = await getMainDb(shopId);
-        const query = connection.isPostgreSQL
-            ? `DELETE FROM dc.reviews WHERE id = $1 AND shop_id = $2`
-            : `DELETE FROM reviews WHERE id = ? AND shop_id = ?`;
-        const [result] = await connection.execute(query, [reviewId, shopId]);
-        const affectedRows = connection.isPostgreSQL
-            ? ((result as { rowCount?: number })?.rowCount ?? 0)
-            : ((result as { affectedRows?: number })?.affectedRows ?? 0);
-        if (affectedRows === 0) {
-            return NextResponse.json({ error: 'Review not found' }, { status: 404 });
+        if (connection.isPostgreSQL) {
+            // Use RETURNING to get the deleted row (execute discards rowCount for PG)
+            const query = `DELETE FROM dc.reviews WHERE id = $1 AND shop_id = $2 RETURNING id`;
+            const [rows] = await connection.execute(query, [reviewId, shopId]);
+            if ((rows as unknown[]).length === 0) {
+                return NextResponse.json({ error: 'Review not found' }, { status: 404 });
+            }
+        } else {
+            const query = `DELETE FROM reviews WHERE id = ? AND shop_id = ?`;
+            const [result] = await connection.execute(query, [reviewId, shopId]);
+            const affectedRows = (result as { affectedRows?: number })?.affectedRows ?? 0;
+            if (affectedRows === 0) {
+                return NextResponse.json({ error: 'Review not found' }, { status: 404 });
+            }
         }
         return NextResponse.json({ success: true });
     } catch (error) {

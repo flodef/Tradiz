@@ -130,7 +130,7 @@ function formatDate(dateStr: string): string {
 function GoogleReviewsLink({ googlePlaceId }: { googlePlaceId?: string }) {
     if (!googlePlaceId) return null;
 
-    const googleMapsUrl = `https://www.google.com/maps/place/?q=place_id:${googlePlaceId}`;
+    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=%20&query_place_id=${encodeURIComponent(googlePlaceId)}`;
 
     return (
         <a
@@ -198,12 +198,12 @@ function ReviewComment({ text }: { text: string }) {
     const isLong = text.length > COMMENT_PREVIEW;
 
     if (!isLong) {
-        return <p className="text-sm text-site-text-secondary mt-1">{text}</p>;
+        return <p className="text-sm text-site-text-secondary mt-1 wrap-break-word">{text}</p>;
     }
 
     return (
         <div className="mt-1">
-            <p className="text-sm text-site-text-secondary">
+            <p className="text-sm text-site-text-secondary wrap-break-word">
                 {expanded ? text : `${text.slice(0, COMMENT_PREVIEW).trimEnd()}…`}
             </p>
             <button
@@ -263,8 +263,11 @@ function UserReviewsSection({
 
     // Save draft to localStorage whenever form state changes (persists across refreshes)
     useEffect(() => {
-        // Don't save empty drafts
-        if (!nameInput && rating === 0 && !comment) return;
+        // Don't save drafts with no review content (rating + comment).
+        // The name alone is already persisted via the review identity.
+        // This prevents re-saving an empty draft after submit, which would
+        // block the pre-fill from the user's existing review.
+        if (rating === 0 && !comment) return;
         try {
             localStorage.setItem(draftKey, JSON.stringify({ name: nameInput, rating, comment }));
         } catch {
