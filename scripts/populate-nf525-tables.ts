@@ -8,7 +8,7 @@
  * Usage: bun run scripts/populate-nf525-tables.ts [--dry-run] [--force-rechain]
  */
 import 'dotenv/config';
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import { createHash } from 'crypto';
 import * as readline from 'readline';
 
@@ -118,18 +118,19 @@ async function main() {
         ssl: { rejectUnauthorized: false },
     });
     log('🔌 Connecting...', 'blue');
+    let txClient: PoolClient | undefined;
+    let txOpen = false;
     try {
         const db = await pool.connect();
+        txClient = db;
         log('✅ Connected', 'green');
         await db.query('SET search_path TO dc_pos, dc, dc_sys, public');
         if (isDry) log('\n🧪 DRY RUN\n', 'yellow');
 
         // Check existing
-        const [{ rows: eD }, { rows: eM }, { rows: eA }] = await Promise.all([
-            db.query('SELECT COUNT(*)::int AS c FROM daily_closures'),
-            db.query('SELECT COUNT(*)::int AS c FROM monthly_closures'),
-            db.query('SELECT COUNT(*)::int AS c FROM annual_closures'),
-        ]);
+        const { rows: eD } = await db.query('SELECT COUNT(*)::int AS c FROM daily_closures');
+        const { rows: eM } = await db.query('SELECT COUNT(*)::int AS c FROM monthly_closures');
+        const { rows: eA } = await db.query('SELECT COUNT(*)::int AS c FROM annual_closures');
         if ((eD[0]?.c ?? 0) > 0 || (eM[0]?.c ?? 0) > 0 || (eA[0]?.c ?? 0) > 0) {
             log('⚠️  Tables already contain data:', 'yellow');
             log(`  daily: ${eD[0]?.c ?? 0}, monthly: ${eM[0]?.c ?? 0}, annual: ${eA[0]?.c ?? 0}`, 'yellow');
@@ -190,7 +191,7 @@ async function main() {
             }
         }
 
-        let txOpen = !isDry && (eD[0]?.c ?? 0) + (eM[0]?.c ?? 0) + (eA[0]?.c ?? 0) > 0;
+        txOpen = !isDry && (eD[0]?.c ?? 0) + (eM[0]?.c ?? 0) + (eA[0]?.c ?? 0) > 0;
 
         // 1. Single query for all daily totals
         log('\n📅 Fetching daily totals...', 'blue');
@@ -476,14 +477,15 @@ async function main() {
     } catch (error) {
         log('\n❌ Script failed:', 'red');
         console.error(error);
-        if (txOpen) {
+        if (txOpen && txClient) {
             try {
-                await db.query('ROLLBACK');
+                await txClient.query('ROLLBACK');
                 log('↩️  Rolled back — closure tables left untouched.', 'yellow');
             } catch {
                 // rollback itself failed; nothing more to do
             }
         }
+        txClient?.release();
         await pool.end();
         process.exit(1);
     }
