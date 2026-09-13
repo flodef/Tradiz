@@ -289,7 +289,9 @@ BEGIN
             v_created := date_trunc('second',
                 v_day::timestamp + interval '6 hours 30 minutes' + random() * interval '13 hours');
             IF v_day = CURRENT_DATE AND v_created > now() THEN
-                v_created := date_trunc('second', now() - random() * interval '2 hours');
+                v_created := date_trunc('second', greatest(
+                    v_day::timestamp + interval '6 hours 30 minutes',
+                    now() - random() * interval '2 hours'));
             END IF;
 
             v_order_id := (floor(extract(epoch FROM v_created) * 1000) + v_i)::bigint::text;
