@@ -69,7 +69,7 @@ ON CONFLICT (id) DO NOTHING;
 -- (dc_pos.devices.printer_com) in the Devices section.
 -- ============================================================
 INSERT INTO dc_pos.printers (id, name, ip_address) VALUES
-    (1, 'Cuisine', '192.168.1.50')
+    (1, 'Cuisine', '50')
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
@@ -126,7 +126,7 @@ INSERT INTO dc.categories (id, name, sort_order, printer_id, created_at) VALUES
     (3, 'Pâtisseries', 2, 1, CURRENT_TIMESTAMP),
     (4, 'Épicerie', 3, NULL, CURRENT_TIMESTAMP),
     (5, 'Boissons', 4, NULL, CURRENT_TIMESTAMP),
-    (6, 'Sandwichs', 5, 2, CURRENT_TIMESTAMP)
+    (6, 'Sandwichs', 5, 1, CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
@@ -217,6 +217,18 @@ SELECT setval(pg_get_serial_sequence('dc.establishment_config', 'id'), (SELECT M
 SELECT setval(pg_get_serial_sequence('dc.categories', 'id'), (SELECT MAX(id) FROM dc.categories));
 SELECT setval(pg_get_serial_sequence('dc.products', 'id'), (SELECT MAX(id) FROM dc.products));
 
+-- ============================================================
+-- Reviews (public storefront, shown on the shop page)
+-- ============================================================
+INSERT INTO dc.reviews (shop_id, user_id, user_name, rating, comment, created_at) VALUES
+    ('demo', 'demo-reviewer-1', 'Marie L.', 5, 'Croissants au beurre excellents, accueil toujours souriant !', NOW() - INTERVAL '3 days'),
+    ('demo', 'demo-reviewer-2', 'Thomas B.', 4.5, 'Très bonne boulangerie, le pain de campagne est top. Petit bémol sur l''attente le samedi matin.', NOW() - INTERVAL '9 days'),
+    ('demo', 'demo-reviewer-3', 'Sophie M.', 5, 'Le meilleur pain aux céréales de Quimper. Je recommande les éclairs !', NOW() - INTERVAL '15 days'),
+    ('demo', 'demo-reviewer-4', 'Lucas D.', 4, 'Bons produits et prix corrects. La brioche est un régal.', NOW() - INTERVAL '21 days'),
+    ('demo', 'demo-reviewer-5', 'Emma R.', 5, 'Service rapide et pain toujours chaud. Rien à redire.', NOW() - INTERVAL '30 days'),
+    ('demo', 'demo-reviewer-6', 'Hugo P.', 3.5, 'Correct mais le stock de baguettes part vite en fin de journée.', NOW() - INTERVAL '45 days')
+ON CONFLICT (shop_id, user_id) DO UPDATE SET rating = EXCLUDED.rating, comment = EXCLUDED.comment;
+
 -- Subscription: the demo shop runs on Privilège so every feature is visible
 INSERT INTO dc_pos.subscription (id, plan, status, billing_method) VALUES (1, 'privilege', 'active', 'transfer') ON CONFLICT (id) DO UPDATE SET plan = EXCLUDED.plan, status = EXCLUDED.status;
 INSERT INTO dc_pos.subscription_events (event_type, plan) SELECT 'start', 'privilege' WHERE NOT EXISTS (SELECT 1 FROM dc_pos.subscription_events);
@@ -225,5 +237,122 @@ INSERT INTO dc_pos.subscription_events (event_type, plan) SELECT 'start', 'privi
 INSERT INTO dc_pos.subscription_events (event_type, plan)
 SELECT 'plan_change', 'privilege'
 WHERE (SELECT e.plan FROM dc_pos.subscription_events e ORDER BY e.id DESC LIMIT 1) IS DISTINCT FROM 'privilege';
+
+-- ============================================================
+-- Demo transactions — a busy today plus a few tickets on scattered
+-- days of the previous 3 months, so the statistics screens have
+-- something to show. Dates are relative to the reset day (nothing
+-- hardcoded). Every transaction gets a valid NF525 hash chained on
+-- the previous one, byte-identical to computeTransactionHash.
+-- ============================================================
+
+-- JS String(Number(v)) on a NUMERIC(...,2) column: '12.50' → '12.5'.
+CREATE OR REPLACE FUNCTION pg_temp.demo_jsnum(v numeric) RETURNS text
+LANGUAGE sql IMMUTABLE AS $$
+    SELECT trim(trailing '.' FROM trim(trailing '0' FROM v::text))
+$$;
+
+DO $$
+DECLARE
+    v_day date;
+    v_count int;
+    v_i int;
+    v_created timestamp;
+    v_tx_id int;
+    v_order_id text;
+    v_user text;
+    v_method text;
+    v_amount numeric(10,2);
+    v_items text;
+    v_prev text := NULL;
+    v_hash text;
+    v_rows jsonb;
+    v_item record;
+BEGIN
+    FOR v_day IN
+        SELECT d::date FROM (
+            SELECT CURRENT_DATE AS d
+            UNION ALL
+            SELECT (date_trunc('month', CURRENT_DATE) - (m || ' month')::interval)::date + offs.n
+            FROM generate_series(1, 3) AS m
+            CROSS JOIN (VALUES (2), (8), (14), (21), (26)) AS offs(n)
+        ) days(d) ORDER BY d
+    LOOP
+        v_count := CASE WHEN v_day = CURRENT_DATE
+            THEN 30 + floor(random() * 15)::int  -- busy demo day
+            ELSE 4 + floor(random() * 5)::int    -- a few per past month
+        END;
+
+        FOR v_i IN 1..v_count LOOP
+            -- Spread tickets over opening hours (06:30–19:30); never in
+            -- the future when the day is today.
+            v_created := date_trunc('second',
+                v_day::timestamp + interval '6 hours 30 minutes' + random() * interval '13 hours');
+            IF v_day = CURRENT_DATE AND v_created > now() THEN
+                v_created := date_trunc('second', now() - random() * interval '2 hours');
+            END IF;
+
+            v_order_id := (floor(extract(epoch FROM v_created) * 1000) + v_i)::bigint::text;
+
+            SELECT u.name INTO v_user FROM dc_pos.users u
+            WHERE u.role <> 'Kitchen'
+              AND NOT EXISTS (SELECT 1 FROM dc_pos.devices d WHERE d.user_id = u.id AND d.intervention)
+            ORDER BY random() LIMIT 1;
+
+            v_method := CASE WHEN random() < 0.55 THEN 'Carte Bancaire'
+                             WHEN random() < 0.85 THEN 'Espèces'
+                             ELSE 'Chèque' END;
+
+            -- 1–3 random products per ticket; line total = qty × price.
+            WITH pick AS (
+                SELECT p.name AS label, c.name AS cat, p.price AS amount, p.vat_rate,
+                       (1 + floor(random() * 3))::numeric AS qty
+                FROM (SELECT * FROM dc.products ORDER BY random() LIMIT (1 + floor(random() * 3))::int) p
+                LEFT JOIN dc.categories c ON c.id = p.category_id
+            ),
+            norm AS (
+                SELECT label, cat, amount, qty, vat_rate,
+                       round(qty * amount, 2) AS total,
+                       regexp_replace(regexp_replace(label, '\\', '\\\\', 'g'), '([|,;:])', '\\\1', 'g') AS elabel
+                FROM pick
+            )
+            SELECT jsonb_agg(jsonb_build_object('label', label, 'cat', cat, 'amount', amount, 'qty', qty, 'total', total, 'vat', vat_rate)),
+                   round(sum(total), 2),
+                   string_agg(
+                       elabel || ',' || pg_temp.demo_jsnum(qty) || ',' || pg_temp.demo_jsnum(amount) || ',' ||
+                       pg_temp.demo_jsnum(total) || ',' || pg_temp.demo_jsnum(vat_rate) || ',0',
+                       ';' ORDER BY elabel COLLATE "C", pg_temp.demo_jsnum(qty) COLLATE "C")
+              INTO v_rows, v_amount, v_items
+              FROM norm;
+
+            INSERT INTO dc_pos.transactions
+                (order_id, user_name, payment_method, amount, currency, change, take_out, created_at, updated_at)
+            VALUES (v_order_id, v_user, v_method, v_amount, 'Euro', '', random() < 0.5, v_created, v_created)
+            RETURNING id INTO v_tx_id;
+
+            FOR v_item IN
+                SELECT * FROM jsonb_to_recordset(v_rows)
+                AS x(label text, cat text, amount numeric, qty numeric, total numeric, vat numeric)
+            LOOP
+                INSERT INTO dc_pos.transaction_items
+                    (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate)
+                VALUES (v_tx_id, v_item.label, v_item.cat, v_item.amount, v_item.qty, 0, '', v_item.total, v_item.vat);
+            END LOOP;
+
+            -- Same digest layout as computeTransactionHash: previous|id|
+            -- order_id|user|method|amount|currency|created_at|change|device|items
+            v_hash := encode(sha256((
+                coalesce(v_prev, '') || '|' || v_tx_id || '|' || v_order_id || '|' ||
+                v_user || '|' || v_method || '|' || pg_temp.demo_jsnum(v_amount) || '|Euro|' ||
+                to_char(v_created, 'YYYY-MM-DD HH24:MI:SS') || '|||' || coalesce(v_items, '')
+            )::bytea), 'hex');
+            UPDATE dc_pos.transactions SET hash = v_hash, previous_hash = v_prev WHERE id = v_tx_id;
+            v_prev := v_hash;
+        END LOOP;
+    END LOOP;
+END $$;
+
+SELECT setval(pg_get_serial_sequence('dc_pos.transactions', 'id'), (SELECT MAX(id) FROM dc_pos.transactions));
+SELECT setval(pg_get_serial_sequence('dc_pos.transaction_items', 'id'), (SELECT MAX(id) FROM dc_pos.transaction_items));
 
 COMMIT;
