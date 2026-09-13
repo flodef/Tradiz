@@ -510,6 +510,34 @@ CREATE TABLE IF NOT EXISTS `product_price_history` (
   KEY `idx_product_price_history_date` (`changed_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Subscription — current plan state (singleton row, id = 1).
+-- Billing is prorated daily from subscription_events: each day is charged at
+-- the highest plan active that day, days stopped are free.
+CREATE TABLE IF NOT EXISTS `subscription` (
+  `id` int(11) NOT NULL DEFAULT 1 CHECK (`id` = 1),
+  `plan` varchar(20) NOT NULL DEFAULT 'privilege',
+  `status` varchar(20) NOT NULL DEFAULT 'active',
+  `billing_method` varchar(20) NOT NULL DEFAULT 'invoice',
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Subscription events — append-only log of situation changes
+-- (start / stop / plan_change). The monthly invoice is computed by walking
+-- this log; nothing is ever updated or deleted.
+CREATE TABLE IF NOT EXISTS `subscription_events` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `event_type` varchar(20) NOT NULL,
+  `plan` varchar(20) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_subscription_events_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Singleton state row (full access by default — per-shop imports may lower it).
+INSERT IGNORE INTO `subscription` (id, plan, status, billing_method)
+VALUES (1, 'privilege', 'active', 'invoice');
+
 -- Daily Closures (Ticket Z) — stores cumulative totals for each day
 CREATE TABLE IF NOT EXISTS `daily_closures` (
   `id` int(11) NOT NULL AUTO_INCREMENT,

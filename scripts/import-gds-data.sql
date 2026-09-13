@@ -761,4 +761,9 @@ INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_ra
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (121, 'FORMULE QUICHE ET SALADE', 13.5, '2126', (SELECT id FROM dc.categories WHERE name = 'DGAC CADRE'), 10.0, 'light green') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (111, 'FORMULE DGAC PLAT JOUR', 15.2, '2127', (SELECT id FROM dc.categories WHERE name = 'DGAC EMPLOYÉ'), 10.0, 'light pink') ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (121, 'FORMULE QUICHE ET SALADE', 13.5, '2128', (SELECT id FROM dc.categories WHERE name = 'DGAC EMPLOYÉ'), 10.0, 'light pink') ON CONFLICT (reference) DO NOTHING;
+
+-- Subscription: GDS is on the Privilège plan
+INSERT INTO dc_pos.subscription (id, plan, status, billing_method) VALUES (1, 'privilege', 'active', 'invoice') ON CONFLICT (id) DO UPDATE SET plan = EXCLUDED.plan, status = EXCLUDED.status;
+INSERT INTO dc_pos.subscription_events (event_type, plan) SELECT 'start', 'privilege' WHERE NOT EXISTS (SELECT 1 FROM dc_pos.subscription_events);
+
 COMMIT;

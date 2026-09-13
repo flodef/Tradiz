@@ -207,4 +207,8 @@ INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_ra
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate) VALUES (60007, 'Savons Morgane', 0, '3000000600085', 6, 0.0) ON CONFLICT (reference) DO NOTHING;
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate) VALUES (60008, 'Panier Légumes', 0, '3000000600092', 6, 0.0) ON CONFLICT (reference) DO NOTHING;
 
+-- Subscription: Annette is on the Pro plan
+INSERT INTO dc_pos.subscription (id, plan, status, billing_method) VALUES (1, 'pro', 'active', 'invoice') ON CONFLICT (id) DO UPDATE SET plan = EXCLUDED.plan, status = EXCLUDED.status;
+INSERT INTO dc_pos.subscription_events (event_type, plan) SELECT 'start', 'pro' WHERE NOT EXISTS (SELECT 1 FROM dc_pos.subscription_events);
+
 COMMIT;

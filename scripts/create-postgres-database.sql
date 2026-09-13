@@ -488,6 +488,33 @@ CREATE TABLE IF NOT EXISTS dc_pos.product_price_history (
 CREATE INDEX IF NOT EXISTS idx_product_price_history_ref ON dc_pos.product_price_history(product_reference);
 CREATE INDEX IF NOT EXISTS idx_product_price_history_date ON dc_pos.product_price_history(changed_at DESC);
 
+-- Subscription — current plan state (singleton row, id = 1).
+-- Billing is prorated daily from subscription_events: each day is charged at
+-- the highest plan active that day, days stopped are free.
+CREATE TABLE IF NOT EXISTS dc_pos.subscription (
+    id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    plan VARCHAR(20) NOT NULL DEFAULT 'privilege',
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    billing_method VARCHAR(20) NOT NULL DEFAULT 'invoice',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Subscription events — append-only log of situation changes
+-- (start / stop / plan_change). The monthly invoice is computed by walking
+-- this log; nothing is ever updated or deleted.
+CREATE TABLE IF NOT EXISTS dc_pos.subscription_events (
+    id SERIAL PRIMARY KEY,
+    event_type VARCHAR(20) NOT NULL,
+    plan VARCHAR(20),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_subscription_events_created_at ON dc_pos.subscription_events(created_at);
+
+-- Singleton state row (full access by default — per-shop imports may lower it).
+INSERT INTO dc_pos.subscription (id, plan, status, billing_method)
+VALUES (1, 'privilege', 'active', 'invoice')
+ON CONFLICT (id) DO NOTHING;
+
 -- Daily Closures (Ticket Z) — stores cumulative totals for each day
 CREATE TABLE IF NOT EXISTS dc_pos.daily_closures (
     id SERIAL PRIMARY KEY,

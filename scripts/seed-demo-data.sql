@@ -219,4 +219,8 @@ SELECT setval(pg_get_serial_sequence('dc.establishment_config', 'id'), (SELECT M
 SELECT setval(pg_get_serial_sequence('dc.categories', 'id'), (SELECT MAX(id) FROM dc.categories));
 SELECT setval(pg_get_serial_sequence('dc.products', 'id'), (SELECT MAX(id) FROM dc.products));
 
+-- Subscription: the demo shop runs on Privilège so every feature is visible
+INSERT INTO dc_pos.subscription (id, plan, status, billing_method) VALUES (1, 'privilege', 'active', 'invoice') ON CONFLICT (id) DO UPDATE SET plan = EXCLUDED.plan, status = EXCLUDED.status;
+INSERT INTO dc_pos.subscription_events (event_type, plan) SELECT 'start', 'privilege' WHERE NOT EXISTS (SELECT 1 FROM dc_pos.subscription_events);
+
 COMMIT;
