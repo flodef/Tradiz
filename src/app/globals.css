@@ -366,6 +366,19 @@ html[data-site-route='1'] body {
     --site-overlay: rgba(0, 0, 0, 0.7);
 }
 
+/* Theme toggle active state — driven by data-theme, which siteThemeScript
+   sets pre-hydration, so the correct selection shows from first paint
+   without waiting for React. */
+:root[data-theme='light'] .theme-opt[data-theme-opt='light'],
+:root[data-theme='dark'] .theme-opt[data-theme-opt='dark'],
+:root[data-theme='system'] .theme-opt[data-theme-opt='system'] {
+    background-color: var(--color-orange-500, #f97316);
+    color: #fff;
+    box-shadow:
+        0 1px 3px 0 rgb(0 0 0 / 0.1),
+        0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+
 /* ─── 500 error page (inspired by https://codepen.io/altreiter/pen/EedZRQ) ─── */
 .error-500 {
     text-align: center;

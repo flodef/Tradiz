@@ -16,6 +16,7 @@ export function SiteRouteCleanup({ publicSiteHost }: { publicSiteHost: string })
         if (isSiteRoutePathname(pathname, window.location.hostname, publicSiteHost)) return;
         const root = document.documentElement;
         root.removeAttribute('data-site-route');
+        root.removeAttribute('data-theme');
         root.classList.remove('site-dark');
     }, [pathname, publicSiteHost]);
     return null;

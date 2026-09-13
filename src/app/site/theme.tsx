@@ -50,6 +50,7 @@ export function useTheme() {
     useEffect(() => {
         if (!ready) return;
         const root = document.documentElement;
+        root.dataset.theme = mode;
         if (resolved === 'dark') root.classList.add('site-dark');
         else root.classList.remove('site-dark');
         if (mode === 'system') localStorage.removeItem('site-theme');
@@ -90,7 +91,8 @@ export function ThemeToggle({
                 aria-checked={activeMode === 'system'}
                 aria-disabled={!ready}
                 role="radio"
-                className={`rounded-full flex items-center justify-center transition-all w-7 h-7 overflow-hidden cursor-pointer ${activeMode === 'system' ? 'bg-orange-500 text-white shadow-sm' : 'text-site-text-muted hover:text-site-text'}`}
+                data-theme-opt="system"
+                className="theme-opt rounded-full flex items-center justify-center transition-all w-7 h-7 overflow-hidden cursor-pointer text-site-text-muted hover:text-site-text"
             >
                 <IconDeviceDesktop size={16} className="hidden lg:block" />
                 <IconDeviceTablet size={16} className="hidden md:block lg:hidden" />
@@ -106,7 +108,8 @@ export function ThemeToggle({
                     aria-checked={activeMode === opt.value}
                     aria-disabled={!ready}
                     role="radio"
-                    className={`rounded-full flex items-center justify-center transition-all w-7 h-7 overflow-hidden cursor-pointer ${activeMode === opt.value ? 'bg-orange-500 text-white shadow-sm' : 'text-site-text-muted hover:text-site-text'}`}
+                    data-theme-opt={opt.value}
+                    className="theme-opt rounded-full flex items-center justify-center transition-all w-7 h-7 overflow-hidden cursor-pointer text-site-text-muted hover:text-site-text"
                 >
                     <opt.icon size={16} />
                 </button>

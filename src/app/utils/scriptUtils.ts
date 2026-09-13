@@ -184,15 +184,11 @@ export function siteThemeScript(): string {
 
     try {
         var stored = window.localStorage.getItem('site-theme');
-        var isDark = false;
-        if (stored === 'dark') {
-            isDark = true;
-        } else if (stored === 'light') {
-            isDark = false;
-        } else {
-            // system or not set
-            isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        }
+        var mode = stored === 'light' || stored === 'dark' ? stored : 'system';
+        root.setAttribute('data-theme', mode);
+        var isDark =
+            mode === 'dark' ||
+            (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         if (isDark) root.classList.add('site-dark');
     } catch (_) {
         // Ignore
