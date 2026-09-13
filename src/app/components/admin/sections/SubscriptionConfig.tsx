@@ -76,15 +76,17 @@ export default function SubscriptionConfig({ isReadOnly }: { isReadOnly: boolean
     };
 
     const openPlanPicker = (title: string, action: 'plan_change' | 'start') => {
-        const options = PLAN_ORDER.map(
+        // For a plan_change the current plan would 409 anyway — don't offer it.
+        const choices = action === 'plan_change' ? PLAN_ORDER.filter((id) => id !== plan) : PLAN_ORDER;
+        const options = choices.map(
             (id) => `${SUBSCRIPTION_PLANS[id].name} — ${SUBSCRIPTION_PLANS[id].monthlyPrice} €/mois`
         );
         openFullscreenPopup(
             title,
             [<PlanComparisonTable key="plans" highlight={action === 'plan_change' ? plan : undefined} />, ...options],
             (index) => {
-                if (index < 1 || index > PLAN_ORDER.length) return; // 0 = table
-                const chosen = PLAN_ORDER[index - 1];
+                if (index < 1 || index > choices.length) return; // 0 = table
+                const chosen = choices[index - 1];
                 closePopup(() => {
                     confirm(
                         `Passer à la formule ${SUBSCRIPTION_PLANS[chosen].name} (${SUBSCRIPTION_PLANS[chosen].monthlyPrice} €/mois) ? Le changement est immédiat et la journée est facturée au tarif le plus élevé utilisé.`,
@@ -170,14 +172,16 @@ export default function SubscriptionConfig({ isReadOnly }: { isReadOnly: boolean
                 </div>
 
                 <div className="flex gap-3">
-                    <button
-                        type="button"
-                        disabled={isReadOnly}
-                        onClick={() => (isActive ? openPlanPicker('Changer de formule', 'plan_change') : undefined)}
-                        className="px-4 py-2 rounded-xl text-sm font-semibold bg-secondary-active-light dark:bg-secondary-active-dark text-popup-dark dark:text-popup-light cursor-pointer disabled:opacity-50 disabled:cursor-default"
-                    >
-                        {isActive ? 'Changer de formule' : 'Changer de formule'}
-                    </button>
+                    {isActive && (
+                        <button
+                            type="button"
+                            disabled={isReadOnly}
+                            onClick={() => openPlanPicker('Changer de formule', 'plan_change')}
+                            className="px-4 py-2 rounded-xl text-sm font-semibold bg-secondary-active-light dark:bg-secondary-active-dark text-popup-dark dark:text-popup-light cursor-pointer disabled:opacity-50 disabled:cursor-default"
+                        >
+                            Changer de formule
+                        </button>
+                    )}
                     {isActive ? (
                         <button
                             type="button"

@@ -111,6 +111,7 @@ export const usePay = () => {
         companies,
         wasWaitingBeforeEditRef,
         originalProductsSnapshotRef,
+        isCashClosed,
     } = useData();
     const { init, generate, refPaymentStatus, error, retry, crypto } = useCrypto();
     const {
@@ -209,6 +210,10 @@ export const usePay = () => {
     // Finalise une transaction validée et déselectionne le client en cours.
     const commitTransaction = useCallback(
         (item: string | Transaction, isCancelingExisting = false) => {
+            // Read-only (stopped subscription / closed till): never run the
+            // side effects (kitchen print, cash drawer, fidelity) for a
+            // payment the server would reject anyway.
+            if (isCashClosed) return;
             const method = typeof item === 'string' ? item : item.method;
             let transaction: Transaction | undefined;
             if (typeof item === 'object') {
@@ -296,6 +301,7 @@ export const usePay = () => {
             wasWaitingBeforeEditRef,
             originalProductsSnapshotRef,
             printKitchenDelta,
+            isCashClosed,
         ]
     );
 
@@ -1040,6 +1046,9 @@ export const usePay = () => {
 
     const selectPayment = useCallback(
         (option: string, fallback: () => void) => {
+            // Read-only (stopped subscription / closed till): every branch of
+            // this dispatcher ends in a write or a hardware side effect.
+            if (isCashClosed) return;
             const paymentType = option.split(SEPARATOR)[0].split(ARROW)[0].split(CATEGORY_SEPARATOR)[0].trim();
 
             // On demande le type de service uniquement si l'option useTakeOut est activée,
@@ -1311,6 +1320,7 @@ export const usePay = () => {
             openCustomerSearchPopup,
             finalizeDebitPayment,
             showProvisionSubOptions,
+            isCashClosed,
         ]
     );
 
@@ -1556,6 +1566,7 @@ export const usePay = () => {
     );
 
     const pay = useCallback(() => {
+        if (isCashClosed) return; // read-only — no payment flow at all
         // Nouveau cycle de paiement: on déverrouille la sélection et le type de service
         paymentSelectionLockedRef.current = false;
         serviceTypeSelectedRef.current = false;
@@ -1755,12 +1766,14 @@ export const usePay = () => {
         applyFidelity,
         openMultiPaymentPopup,
         openSplitModeSelector,
+        isCashClosed,
     ]);
 
     // Pay directly with a specific method, bypassing the payment method popup.
     // Used by the desktop payment-icons top bar so each icon triggers payment in one click.
     const payWithMethod = useCallback(
         (method: string) => {
+            if (isCashClosed) return; // read-only — no payment flow at all
             // New payment cycle: unlock selection and service type
             paymentSelectionLockedRef.current = false;
             serviceTypeSelectedRef.current = false;
@@ -1799,6 +1812,7 @@ export const usePay = () => {
             setCounterServiceType,
             setShowPartialPaymentSelector,
             pay,
+            isCashClosed,
         ]
     );
 

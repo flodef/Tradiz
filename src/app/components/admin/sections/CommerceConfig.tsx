@@ -63,6 +63,24 @@ const MAX_IMAGE_SIZE = 512 * 1024; // 512 KB
 function IntegrityReport({ lines }: { lines: string[] }) {
     const [copied, setCopied] = useState(false);
     const text = lines.join('\n');
+    // navigator.clipboard is unavailable on insecure origins (POS over http://LAN)
+    const copyReport = () => {
+        if (navigator.clipboard?.writeText) {
+            return navigator.clipboard.writeText(text);
+        }
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+            document.execCommand('copy');
+            return Promise.resolve();
+        } finally {
+            document.body.removeChild(ta);
+        }
+    };
     return (
         <div className="text-left w-full">
             <pre className="whitespace-pre-wrap font-mono text-sm select-text max-h-[60vh] overflow-y-auto">{text}</pre>
@@ -70,10 +88,12 @@ function IntegrityReport({ lines }: { lines: string[] }) {
                 type="button"
                 onClick={(e) => {
                     e.stopPropagation();
-                    navigator.clipboard.writeText(text).then(() => {
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
-                    });
+                    copyReport()
+                        .then(() => {
+                            setCopied(true);
+                            setTimeout(() => setCopied(false), 2000);
+                        })
+                        .catch(() => {});
                 }}
                 className="mt-3 mx-auto flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-secondary-active-light dark:bg-secondary-active-dark text-popup-dark dark:text-popup-light cursor-pointer"
             >
@@ -347,8 +367,10 @@ export default function CommerceConfig({
                                 .map(
                                     (i: { transaction_id: number; issue: string }) => `#${i.transaction_id}: ${i.issue}`
                                 );
-                            const more = data.issues.length > 10 ? `\n... et ${data.issues.length - 10} autre(s)` : '';
-                            lines.push(...issueLines, more);
+                            lines.push(...issueLines);
+                            if (data.issues.length > 10) {
+                                lines.push(`... et ${data.issues.length - 10} autre(s)`);
+                            }
                         }
                     }
                     openFullscreenPopup(

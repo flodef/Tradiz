@@ -120,7 +120,6 @@ const TOOLTIP_TEXTS: Record<string, string> = {
     'Onboarding personnalisé': 'Accompagnement dédié pour la mise en place et la formation de votre équipe',
     'Assistance dédiée': 'Un interlocuteur unique dédié à votre compte, joignable directement',
     'SLA garanti': 'Service Level Agreement : garantie de disponibilité et de temps de réponse',
-    'Mises à jour illimitées': 'Toutes les nouvelles fonctionnalités et améliorations incluses sans surcoût',
     'Caisses illimitées': 'Connectez autant de caisses que nécessaire, sans surcoût — idéal pour les multi-sites',
     'Gestion des entreprises': 'Suivi des clients professionnels (B2B), entreprise, SIRET et tarification dédiée',
     'Quote part employeur': 'Gestion de la quote-part employeur pour les titres-restaurant et avantages en nature',

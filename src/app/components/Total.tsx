@@ -204,6 +204,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         setPartialPaymentAmount,
         showPartialPaymentSelector,
         setShowPartialPaymentSelector,
+        isCashClosed,
     } = useData();
     const { showTransactionsSummary, showTransactionsSummaryMenu } = useSummary();
     const { openPopup, closePopup } = usePopup();
@@ -273,7 +274,9 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
             const isWaiting = isWaitingTransaction(transaction);
             // PROCESSING transactions are editable only by the user who created them.
             // Other users can see/print but not modify, delete, or refund them.
-            const isReadOnly = isReadOnlyProcessingForUser(transaction);
+            // The same applies globally while the app is in read-only mode
+            // (stopped subscription / closed till).
+            const isReadOnly = isReadOnlyProcessingForUser(transaction) || isCashClosed;
 
             const editOptions = isReadOnly
                 ? []
@@ -391,6 +394,7 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
             refundTransaction,
             isReadOnlyProcessingForUser,
             parameters.display?.showRefund,
+            isCashClosed,
         ]
     );
 

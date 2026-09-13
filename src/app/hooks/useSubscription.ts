@@ -30,6 +30,10 @@ const DEFAULTS: SubscriptionState = {
 };
 
 const POLL_MS = 60_000;
+// Broadcast channel so all consumers (DataProvider lock, admin UI, TopNav)
+// refresh immediately when any of them changes the subscription — otherwise
+// a stop would take up to POLL_MS to reach the POS read-only lock.
+const SUBSCRIPTION_CHANGED_EVENT = 'subscription-changed';
 
 /**
  * Current subscription state for this shop, polled from /api/sql/subscription.
@@ -62,10 +66,13 @@ export function useSubscription() {
         void refresh();
         const interval = setInterval(refresh, POLL_MS);
         const onFocus = () => void refresh();
+        const onChanged = () => void refresh();
         window.addEventListener('focus', onFocus);
+        window.addEventListener(SUBSCRIPTION_CHANGED_EVENT, onChanged);
         return () => {
             clearInterval(interval);
             window.removeEventListener('focus', onFocus);
+            window.removeEventListener(SUBSCRIPTION_CHANGED_EVENT, onChanged);
         };
     }, [refresh]);
 
@@ -79,6 +86,8 @@ export function useSubscription() {
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || 'Erreur abonnement');
             await refresh();
+            // Propagate instantly to the other hook instances (POS lock…).
+            window.dispatchEvent(new Event(SUBSCRIPTION_CHANGED_EVENT));
             return data;
         },
         [refresh]

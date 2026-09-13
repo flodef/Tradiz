@@ -127,7 +127,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const isCashClosedToday = isCashClosed === new Date().toISOString().slice(0, 10);
     // A stopped subscription locks the POS exactly like a daily closure: every
     // mutating path is blocked, only Z / calculator / search / topnav remain.
-    const { status: subscriptionStatus, loaded: subscriptionLoaded } = useSubscription();
+    const { status: subscriptionStatus, loaded: subscriptionLoaded, limits: planLimits } = useSubscription();
     const subscriptionStopped = subscriptionLoaded && subscriptionStatus === 'stopped';
     const isLocked = isCashClosedToday || subscriptionStopped;
     const setCashClosed = useCallback(
@@ -1170,11 +1170,22 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     }
                 } catch (error) {
                     console.error('Error handling SQL DB transaction:', error);
+                    // The transaction is already stored locally — if the server
+                    // refused it (stopped subscription), warn the cashier: the
+                    // sale only exists on this device until the next sync.
+                    const msg = error instanceof Error ? error.message : '';
+                    if (msg.includes('Abonnement suspendu') || msg.includes('lecture seule')) {
+                        openFullscreenPopup('Abonnement suspendu', [
+                            "Cette vente n'a pas pu être enregistrée sur le serveur.",
+                            "L'application est en lecture seule — reprenez l'abonnement dans Commerce > Abonnement.",
+                        ]);
+                    }
                     throw error;
                 }
             }
         },
         [
+            openFullscreenPopup,
             transactionsFilename,
             transactions,
             parameters.user,
@@ -1294,6 +1305,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // that company, the employer pays the highest per-product share (or the
     // company meal price, if none) and it is capped at the total.
     const getEmployerShare = useCallback(() => {
+        if (!planLimits.employerShare) return 0; // plan without quote-part
         if (!currentCustomer?.company) return 0;
         const company = companies.find((c) => c.name === currentCustomer.company);
         if (!company || !company.employerShare || company.employerShare <= 0) return 0;
@@ -1305,7 +1317,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         }
         if (share <= 0) return 0;
         return Math.min(share, getCurrentTotal());
-    }, [currentCustomer?.company, companies, categories, getCurrentTotal]);
+    }, [currentCustomer?.company, companies, categories, getCurrentTotal, planLimits]);
 
     // The amount the customer actually pays: products total minus the employer
     // share (capped at 0 so the total never goes negative).

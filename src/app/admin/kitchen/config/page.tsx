@@ -79,6 +79,14 @@ export default function SettingsPage() {
         users: configUsers,
     } = useConfig();
     const { openFullscreenPopup } = usePopup();
+    // Surface the server's reason (e.g. "Abonnement suspendu — application en
+    // lecture seule." or a plan-limit 403) instead of a bare generic failure.
+    const throwSaveError = async (response: Response, fallback: string): Promise<never> => {
+        const data = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error || `${fallback} (HTTP ${response.status})`);
+    };
+    const showSaveError = (title: string, error: unknown) =>
+        openFullscreenPopup(title, [error instanceof Error ? error.message : 'Erreur inconnue', 'OK']);
     const { isAdmin: isConfigAdmin } = useUserRole();
     const { isOnline } = useWindowParam();
     const [settings, setSettings] = useState<Parameters>(defaultParameters);
@@ -833,7 +841,7 @@ export default function SettingsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ users: data }),
             });
-            if (!response.ok) throw new Error('Failed to save users');
+            if (!response.ok) await throwSaveError(response, 'Failed to save users');
             const { users: savedUsers } = await response.json();
             const usersWithRole = (savedUsers as User[]).map((u) => ({ ...u, role: u.role as Role }));
             setUsersConfig(usersWithRole);
@@ -845,7 +853,7 @@ export default function SettingsPage() {
             clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
-            openFullscreenPopup("Erreur lors de l'enregistrement des utilisateurs.", ['OK']);
+            showSaveError("Erreur lors de l'enregistrement des utilisateurs.", error);
         } finally {
             setIsSavingUsers(false);
             setIsSaving(false);
@@ -861,7 +869,7 @@ export default function SettingsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ devices: data }),
             });
-            if (!response.ok) throw new Error('Failed to save devices');
+            if (!response.ok) await throwSaveError(response, 'Failed to save devices');
             setOriginalDevices(data);
             setHasDevicesChanges(false);
 
@@ -871,7 +879,7 @@ export default function SettingsPage() {
             setDevicePrinterCom(currentDevice?.printerCom || undefined);
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
-            openFullscreenPopup("Erreur lors de l'enregistrement des appareils.", ['OK']);
+            showSaveError("Erreur lors de l'enregistrement des appareils.", error);
         } finally {
             setIsSavingDevices(false);
             setIsSaving(false);
@@ -887,7 +895,7 @@ export default function SettingsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ currencies: data }),
             });
-            if (!response.ok) throw new Error('Failed to save currencies');
+            if (!response.ok) await throwSaveError(response, 'Failed to save currencies');
             setCurrenciesConfig(data);
             setOriginalCurrencies(data);
             setHasCurrenciesChanges(false);
@@ -897,7 +905,7 @@ export default function SettingsPage() {
             clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
-            openFullscreenPopup("Erreur lors de l'enregistrement des devises.", ['OK']);
+            showSaveError("Erreur lors de l'enregistrement des devises.", error);
         } finally {
             setIsSavingCurrencies(false);
             setIsSaving(false);
@@ -951,7 +959,7 @@ export default function SettingsPage() {
                 body: JSON.stringify({ parameters: paramUpdates, changedBy: data.user?.name || 'admin' }),
             });
 
-            if (!response.ok) throw new Error('Failed to save parameters');
+            if (!response.ok) await throwSaveError(response, 'Failed to save parameters');
 
             // Preserve the runtime-resolved user; it is not stored in the parameters DB table.
             const dataWithUser = { ...data, user: parameters.user };
@@ -973,7 +981,7 @@ export default function SettingsPage() {
             clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
-            openFullscreenPopup("Erreur lors de l'enregistrement des paramètres.", ['OK']);
+            showSaveError("Erreur lors de l'enregistrement des paramètres.", error);
         } finally {
             setIsSavingParameters(false);
             setIsSaving(false);
@@ -1021,7 +1029,7 @@ export default function SettingsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ paymentMethods: data }),
             });
-            if (!response.ok) throw new Error('Failed to save payment methods');
+            if (!response.ok) await throwSaveError(response, 'Failed to save payment methods');
             setOriginalPayments(data);
             setHasPaymentsChanges(false);
 
@@ -1030,7 +1038,7 @@ export default function SettingsPage() {
             clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
-            openFullscreenPopup("Erreur lors de l'enregistrement des moyens de paiement.", ['OK']);
+            showSaveError("Erreur lors de l'enregistrement des moyens de paiement.", error);
         } finally {
             setIsSavingPayments(false);
             setIsSaving(false);
@@ -1046,7 +1054,7 @@ export default function SettingsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ discounts: data }),
             });
-            if (!response.ok) throw new Error('Failed to save discounts');
+            if (!response.ok) await throwSaveError(response, 'Failed to save discounts');
             setOriginalDiscounts(data);
             setHasDiscountsChanges(false);
 
@@ -1055,7 +1063,7 @@ export default function SettingsPage() {
             clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
-            openFullscreenPopup("Erreur lors de l'enregistrement des réductions.", ['OK']);
+            showSaveError("Erreur lors de l'enregistrement des réductions.", error);
         } finally {
             setIsSavingDiscounts(false);
             setIsSaving(false);
@@ -1077,7 +1085,7 @@ export default function SettingsPage() {
                     customThemeNames,
                 }),
             });
-            if (!response.ok) throw new Error('Failed to save colors');
+            if (!response.ok) await throwSaveError(response, 'Failed to save colors');
             setOriginalColors(data);
             setOriginalThemeName(themeName);
             setOriginalSelectedThemeIndex(selectedThemeIndex);
@@ -1092,7 +1100,7 @@ export default function SettingsPage() {
             clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
-            openFullscreenPopup("Erreur lors de l'enregistrement des couleurs.", ['OK']);
+            showSaveError("Erreur lors de l'enregistrement des couleurs.", error);
         } finally {
             setIsSavingColors(false);
             setIsSaving(false);
@@ -1108,7 +1116,7 @@ export default function SettingsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ printers: data }),
             });
-            if (!response.ok) throw new Error('Failed to save printers');
+            if (!response.ok) await throwSaveError(response, 'Failed to save printers');
             setOriginalPrinters(data);
             setHasPrintersChanges(false);
 
@@ -1117,7 +1125,7 @@ export default function SettingsPage() {
             clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
-            openFullscreenPopup("Erreur lors de l'enregistrement des imprimantes.", ['OK']);
+            showSaveError("Erreur lors de l'enregistrement des imprimantes.", error);
         } finally {
             setIsSavingPrinters(false);
             setIsSaving(false);
@@ -1133,7 +1141,7 @@ export default function SettingsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ customers: data }),
             });
-            if (!response.ok) throw new Error('Failed to save customers');
+            if (!response.ok) await throwSaveError(response, 'Failed to save customers');
             setOriginalCustomers(data);
             setHasCustomersChanges(false);
 
@@ -1142,7 +1150,7 @@ export default function SettingsPage() {
             clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
-            openFullscreenPopup("Erreur lors de l'enregistrement des clients.", ['OK']);
+            showSaveError("Erreur lors de l'enregistrement des clients.", error);
         } finally {
             setIsSavingCustomers(false);
             setIsSaving(false);
@@ -1159,7 +1167,7 @@ export default function SettingsPage() {
                 body: JSON.stringify({ companies: data }),
             });
             if (!response.ok) {
-                throw new Error(`updateCompanies failed: ${response.status}`);
+                await throwSaveError(response, 'updateCompanies failed');
             }
 
             // Check if any companies were deleted and update customers accordingly.
@@ -1178,7 +1186,7 @@ export default function SettingsPage() {
                     body: JSON.stringify({ customers: updatedCustomers }),
                 });
                 if (!customersResponse.ok) {
-                    throw new Error(`updateCustomers failed: ${customersResponse.status}`);
+                    await throwSaveError(customersResponse, 'updateCustomers failed');
                 }
                 setCustomersConfig(updatedCustomers);
                 setOriginalCustomers(updatedCustomers);
@@ -1194,7 +1202,7 @@ export default function SettingsPage() {
             clearLoadDataCache();
         } catch (error) {
             console.error("Erreur lors de l'enregistrement:", error);
-            openFullscreenPopup("Erreur lors de l'enregistrement des entreprises.", ['OK']);
+            showSaveError("Erreur lors de l'enregistrement des entreprises.", error);
         } finally {
             setIsSavingCompanies(false);
             setIsSaving(false);

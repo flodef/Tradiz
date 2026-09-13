@@ -3,6 +3,7 @@
 import { Parameters, ProductsSettings, SearchSettings, DisplaySettings } from '@/app/contexts/ConfigProvider';
 import { DEFAULT_DISPLAY_SETTINGS, DEFAULT_PRODUCTS_SETTINGS } from '@/app/utils/processData';
 import { User } from '@/app/utils/interfaces';
+import { useSubscription } from '@/app/hooks/useSubscription';
 import SectionCard from '../SectionCard';
 import Switch from '../Switch';
 
@@ -33,6 +34,7 @@ export default function ParametersConfig({
     onToggle,
     icon,
 }: ParametersConfigProps) {
+    const { limits } = useSubscription();
     const handleChange = (field: keyof Parameters, value: unknown) => {
         onChange({
             ...config,
@@ -169,7 +171,7 @@ export default function ParametersConfig({
                                     useEmployerShare: checked,
                                 } as ProductsSettings)
                             }
-                            isReadOnly={isReadOnly}
+                            isReadOnly={isReadOnly || !limits.employerShare}
                             label="Utiliser quote-part"
                         />
                     </div>
@@ -195,7 +197,7 @@ export default function ParametersConfig({
                                     searchCustomers: checked,
                                 } as SearchSettings)
                             }
-                            isReadOnly={isReadOnly}
+                            isReadOnly={isReadOnly || !limits.customers}
                             label="Clients"
                         />
                     </div>
