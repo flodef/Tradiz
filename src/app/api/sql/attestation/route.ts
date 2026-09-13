@@ -313,6 +313,9 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: true });
         } catch (error) {
             console.error('Error signing attestation electronically:', error);
+            if (error instanceof Error && error.message === 'Invalid signature PNG') {
+                return NextResponse.json({ error: 'Invalid signature data' }, { status: 400 });
+            }
             return NextResponse.json({ error: 'Failed to sign attestation' }, { status: 500 });
         } finally {
             await connection?.end();

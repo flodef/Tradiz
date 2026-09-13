@@ -85,25 +85,19 @@ export async function buildAttestationPdf(data: AttestationData): Promise<Uint8A
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    // Embed publisher signature if available
-    let publisherSignatureImg: Awaited<ReturnType<typeof pdfDoc.embedPng>> | undefined;
-    if (data.publisherSignaturePng) {
+    // A provided signature that fails to embed must surface as an error —
+    // silently producing a "signed" attestation without the signature would
+    // record a signed state that the PDF does not show.
+    const embedSignature = async (png: Uint8Array | undefined) => {
+        if (!png) return undefined;
         try {
-            publisherSignatureImg = await pdfDoc.embedPng(data.publisherSignaturePng);
+            return await pdfDoc.embedPng(png);
         } catch {
-            // Ignore invalid PNG
+            throw new Error('Invalid signature PNG');
         }
-    }
-
-    // Embed shop signature if available
-    let shopSignatureImg: Awaited<ReturnType<typeof pdfDoc.embedPng>> | undefined;
-    if (data.shopSignaturePng) {
-        try {
-            shopSignatureImg = await pdfDoc.embedPng(data.shopSignaturePng);
-        } catch {
-            // Ignore invalid PNG
-        }
-    }
+    };
+    const publisherSignatureImg = await embedSignature(data.publisherSignaturePng);
+    const shopSignatureImg = await embedSignature(data.shopSignaturePng);
 
     // ── Page 1: Volet 1 — Éditeur ──
     let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
@@ -258,10 +252,11 @@ export async function buildAttestationPdf(data: AttestationData): Promise<Uint8A
     drawWrapped('Signature du représentant légal de l\u2019éditeur', MARGIN);
     spacer(1);
 
-    // Embed publisher signature image if available
+    // Embed publisher signature image if available (capped so a tall PNG
+    // cannot overlap the text above it)
     if (publisherSignatureImg) {
         const imgWidth = 200;
-        const imgHeight = (publisherSignatureImg.height / publisherSignatureImg.width) * imgWidth;
+        const imgHeight = Math.min((publisherSignatureImg.height / publisherSignatureImg.width) * imgWidth, 100);
         page.drawImage(publisherSignatureImg, {
             x: MARGIN,
             y: Math.max(MARGIN, y - imgHeight),
@@ -328,10 +323,10 @@ export async function buildAttestationPdf(data: AttestationData): Promise<Uint8A
     drawWrapped('Signature du représentant légal de l\u2019entreprise utilisatrice', MARGIN);
     spacer(1);
 
-    // Embed shop signature image if available
+    // Embed shop signature image if available (same height cap)
     if (shopSignatureImg) {
         const imgWidth = 200;
-        const imgHeight = (shopSignatureImg.height / shopSignatureImg.width) * imgWidth;
+        const imgHeight = Math.min((shopSignatureImg.height / shopSignatureImg.width) * imgWidth, 100);
         page.drawImage(shopSignatureImg, {
             x: MARGIN,
             y: Math.max(MARGIN, y - imgHeight),
