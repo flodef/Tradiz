@@ -63,9 +63,8 @@ INSERT INTO dc_pos.payment_methods (id, label, address, currency, available, cre
 INSERT INTO dc_pos.printers (id, name, ip_address) VALUES (1, 'Caisse', 'COM1') ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.printers (id, name, ip_address) VALUES (2, 'Cuisine', '195') ON CONFLICT (id) DO NOTHING;
 
--- Devices (appareils) — references users
-INSERT INTO dc_pos.devices (id, label, public_key, user_id, connected, last_seen, created_at) VALUES (1, 'Gds', 'aynn2aloo9kp62q1idmjd', 1, 'f', '2026-08-05 17:51:52.644778+00', '2026-07-13 23:00:33.245727') ON CONFLICT (id) DO NOTHING;
-INSERT INTO dc_pos.devices (id, label, public_key, user_id, connected, last_seen, created_at) VALUES (2, 'Caisse', '25z161thbhps1cla232wmp', 1, 't', '2026-08-06 15:39:16.488809+00', '2026-08-05 08:49:41.591531') ON CONFLICT (id) DO NOTHING;
+-- Devices (appareils) — intentionally not seeded; devices are registered
+-- from the admin UI (service/intervention devices are added directly in the DB).
 
 -- ============================================================
 -- Companies
@@ -763,7 +762,7 @@ INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_ra
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate, color) VALUES (121, 'FORMULE QUICHE ET SALADE', 13.5, '2128', (SELECT id FROM dc.categories WHERE name = 'DGAC EMPLOYÉ'), 10.0, 'light pink') ON CONFLICT (reference) DO NOTHING;
 
 -- Subscription: GDS is on the Privilège plan
-INSERT INTO dc_pos.subscription (id, plan, status, billing_method) VALUES (1, 'privilege', 'active', 'invoice') ON CONFLICT (id) DO UPDATE SET plan = EXCLUDED.plan, status = EXCLUDED.status;
+INSERT INTO dc_pos.subscription (id, plan, status, billing_method) VALUES (1, 'privilege', 'active', 'transfer') ON CONFLICT (id) DO UPDATE SET plan = EXCLUDED.plan, status = EXCLUDED.status;
 INSERT INTO dc_pos.subscription_events (event_type, plan) SELECT 'start', 'privilege' WHERE NOT EXISTS (SELECT 1 FROM dc_pos.subscription_events);
 -- If an earlier anchor pinned another plan (e.g. migrate-subscription ran
 -- first), log the change so billing follows this import.

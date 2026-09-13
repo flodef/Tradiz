@@ -57,6 +57,9 @@ export interface Device {
     printerBaud?: number | null;
     cashDrawerCom?: string | null;
     cashDrawerBaud?: number | null;
+    /** Service/admin devices (e.g. intervention laptops) — excluded from the
+     * subscription device quota. */
+    intervention?: boolean;
 }
 
 export interface Company {

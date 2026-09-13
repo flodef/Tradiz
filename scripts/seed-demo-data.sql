@@ -65,19 +65,18 @@ INSERT INTO dc_pos.payment_methods (id, label, address, currency, available, cre
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
--- Printers
+-- Printers — IP-based only; COM printers are configured per device
+-- (dc_pos.devices.printer_com) in the Devices section.
 -- ============================================================
 INSERT INTO dc_pos.printers (id, name, ip_address) VALUES
-    (1, 'Caisse', 'COM1'),
-    (2, 'Cuisine', '192.168.1.50')
+    (1, 'Cuisine', '192.168.1.50')
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
 -- Devices
 -- ============================================================
-INSERT INTO dc_pos.devices (id, label, public_key, user_id, connected, last_seen, created_at) VALUES
-    (1, 'Caisse Démo', 'demo-caisse-key-001', 1, false, NULL, CURRENT_TIMESTAMP)
-ON CONFLICT (id) DO NOTHING;
+-- Devices are intentionally not seeded — they are registered from the admin
+-- UI (service/intervention devices are added directly in the DB).
 
 -- ============================================================
 -- Currencies
@@ -210,7 +209,6 @@ ON CONFLICT (id) DO UPDATE SET operation_mode = EXCLUDED.operation_mode, orange_
 SELECT setval(pg_get_serial_sequence('dc_pos.users', 'id'), (SELECT MAX(id) FROM dc_pos.users));
 SELECT setval(pg_get_serial_sequence('dc_pos.payment_methods', 'id'), (SELECT MAX(id) FROM dc_pos.payment_methods));
 SELECT setval(pg_get_serial_sequence('dc_pos.printers', 'id'), (SELECT MAX(id) FROM dc_pos.printers));
-SELECT setval(pg_get_serial_sequence('dc_pos.devices', 'id'), (SELECT MAX(id) FROM dc_pos.devices));
 SELECT setval(pg_get_serial_sequence('dc_pos.currencies', 'id'), (SELECT MAX(id) FROM dc_pos.currencies));
 SELECT setval(pg_get_serial_sequence('dc_pos.companies', 'id'), (SELECT MAX(id) FROM dc_pos.companies));
 SELECT setval(pg_get_serial_sequence('dc_pos.customers', 'id'), (SELECT MAX(id) FROM dc_pos.customers));
@@ -220,7 +218,7 @@ SELECT setval(pg_get_serial_sequence('dc.categories', 'id'), (SELECT MAX(id) FRO
 SELECT setval(pg_get_serial_sequence('dc.products', 'id'), (SELECT MAX(id) FROM dc.products));
 
 -- Subscription: the demo shop runs on Privilège so every feature is visible
-INSERT INTO dc_pos.subscription (id, plan, status, billing_method) VALUES (1, 'privilege', 'active', 'invoice') ON CONFLICT (id) DO UPDATE SET plan = EXCLUDED.plan, status = EXCLUDED.status;
+INSERT INTO dc_pos.subscription (id, plan, status, billing_method) VALUES (1, 'privilege', 'active', 'transfer') ON CONFLICT (id) DO UPDATE SET plan = EXCLUDED.plan, status = EXCLUDED.status;
 INSERT INTO dc_pos.subscription_events (event_type, plan) SELECT 'start', 'privilege' WHERE NOT EXISTS (SELECT 1 FROM dc_pos.subscription_events);
 -- If an earlier anchor pinned another plan, log the change so billing
 -- follows this seed.

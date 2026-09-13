@@ -271,7 +271,9 @@ CREATE TABLE IF NOT EXISTS dc_pos.devices (
     printer_com VARCHAR(10) DEFAULT NULL,
     printer_baud INTEGER DEFAULT NULL,
     cash_drawer_com VARCHAR(10) DEFAULT NULL,
-    cash_drawer_baud INTEGER DEFAULT NULL
+    cash_drawer_baud INTEGER DEFAULT NULL,
+    -- Service/admin devices (intervention) don't count toward the plan's device quota
+    intervention BOOLEAN NOT NULL DEFAULT false
 );
 
 -- Customers
@@ -495,7 +497,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.subscription (
     id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
     plan VARCHAR(20) NOT NULL DEFAULT 'privilege',
     status VARCHAR(20) NOT NULL DEFAULT 'active',
-    billing_method VARCHAR(20) NOT NULL DEFAULT 'invoice',
+    billing_method VARCHAR(20) NOT NULL DEFAULT 'transfer',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -512,7 +514,7 @@ CREATE INDEX IF NOT EXISTS idx_subscription_events_created_at ON dc_pos.subscrip
 
 -- Singleton state row (full access by default — per-shop imports may lower it).
 INSERT INTO dc_pos.subscription (id, plan, status, billing_method)
-VALUES (1, 'privilege', 'active', 'invoice')
+VALUES (1, 'privilege', 'active', 'transfer')
 ON CONFLICT (id) DO NOTHING;
 
 -- Billing anchor: without a 'start' event the monthly invoice stays 0 and

@@ -32,6 +32,8 @@ interface DevicesConfigProps {
     onToggle?: () => void;
     icon?: React.ReactNode;
     onValidation?: (isValid: boolean) => void;
+    /** Subscription device quota — service devices (intervention) don't count. */
+    maxDevices?: number;
 }
 
 interface InternalDevice extends Device {
@@ -258,7 +260,7 @@ function Row({
                                 onChange({
                                     ...device,
                                     backscreenCom: e.target.value || null,
-                                    backscreenBaud: e.target.value ? device.backscreenBaud ?? 9600 : null,
+                                    backscreenBaud: e.target.value ? (device.backscreenBaud ?? 9600) : null,
                                 })
                             }
                             isReadOnly={isReadOnly}
@@ -285,7 +287,7 @@ function Row({
                             onChange({
                                 ...device,
                                 printerCom: e.target.value || null,
-                                printerBaud: e.target.value ? device.printerBaud ?? 9600 : null,
+                                printerBaud: e.target.value ? (device.printerBaud ?? 9600) : null,
                             })
                         }
                         isReadOnly={isReadOnly}
@@ -311,7 +313,7 @@ function Row({
                             onChange({
                                 ...device,
                                 cashDrawerCom: e.target.value || null,
-                                cashDrawerBaud: e.target.value ? device.cashDrawerBaud ?? 9600 : null,
+                                cashDrawerBaud: e.target.value ? (device.cashDrawerBaud ?? 9600) : null,
                             })
                         }
                         isReadOnly={isReadOnly}
@@ -361,12 +363,16 @@ export default function DevicesConfig({
     onToggle,
     icon,
     onValidation,
+    maxDevices,
 }: DevicesConfigProps) {
     const nextIdRef = useRef(0);
     const selfUpdateRef = useRef(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+    // Intervention devices are service/admin devices managed in the DB only —
+    // hidden from this UI and excluded from the subscription quota.
+    const visibleDevices = (list: Device[]) => (list || []).filter((d) => !d.intervention);
     const [devices, setDevices] = useState<InternalDevice[]>(() =>
-        (config || []).map((d) => ({ ...d, _id: nextIdRef.current++ }))
+        visibleDevices(config).map((d) => ({ ...d, _id: nextIdRef.current++ }))
     );
     const [originalConfig, setOriginalConfig] = useState<Device[]>(config || []);
     const [sortField, setSortField] = useState<SortField | null>(null);
@@ -390,7 +396,7 @@ export default function DevicesConfig({
             selfUpdateRef.current = false;
             return;
         }
-        const incoming = config || [];
+        const incoming = visibleDevices(config);
         setDevices(incoming.map((d) => ({ ...d, _id: nextIdRef.current++ })));
         setOriginalConfig(incoming);
     }, [config]);
@@ -416,6 +422,10 @@ export default function DevicesConfig({
 
     const validUsers = useMemo(() => users.filter((u) => u.id !== undefined), [users]);
     const canAddDevice = validUsers.length > 0;
+
+    // Subscription quota — service devices (intervention flag) don't count.
+    const billableCount = devices.filter((d) => !d.intervention).length;
+    const quotaReached = maxDevices !== undefined && billableCount >= maxDevices;
 
     const sortedDevices = useMemo(() => {
         if (!sortField || sortDirection === 'none') return devices;
@@ -527,7 +537,7 @@ export default function DevicesConfig({
             isOpen={isOpen}
             onToggle={onToggle}
             onAdd={handleAddDevice}
-            isValid={canAddDevice}
+            isValid={canAddDevice && !quotaReached}
             addLabel="Ajouter un appareil"
             isReadOnly={isReadOnly}
         >
@@ -586,6 +596,14 @@ export default function DevicesConfig({
             {!canAddDevice && !isReadOnly && (
                 <p className="text-sm text-red-500 dark:text-red-400">
                     Vous devez ajouter et enregistrer au moins un utilisateur avant de pouvoir ajouter un appareil.
+                </p>
+            )}
+            {maxDevices !== undefined && maxDevices < Infinity && !isReadOnly && (
+                <p
+                    className={`text-sm ${quotaReached ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}
+                >
+                    {billableCount}/{maxDevices} appareil(s) utilisé(s) par votre formule
+                    {quotaReached && ' — passez à une formule supérieure pour en ajouter.'}
                 </p>
             )}
         </SectionCard>

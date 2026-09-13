@@ -27,7 +27,6 @@ END $$;
 
 -- Users (cashiers)
 INSERT INTO dc_pos.users (id, name, role, reference, created_at) VALUES (10, 'Annette', 'Admin', '3000000000083', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;
-INSERT INTO dc_pos.users (id, name, role, reference, created_at) VALUES (11, 'Flojito', 'Admin', '3000000000090', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;
 INSERT INTO dc_pos.users (id, name, role, reference, created_at) VALUES (12, 'Isabelle', 'Service', '30017837989359088', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;
 
 -- Parameters (paramètres)
@@ -76,11 +75,8 @@ INSERT INTO dc_pos.payment_methods (id, label, address, currency, available, cre
 -- Printers (imprimantes)
 -- No printers configured for this shop
 
--- Devices (appareils) — references users
-INSERT INTO dc_pos.devices (id, label, public_key, user_id, connected, last_seen, created_at) VALUES (2, 'Mobile Flojito', 'ly39bhzsnecvi9we4k4xkh', 11, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;
-INSERT INTO dc_pos.devices (id, label, public_key, user_id, connected, last_seen, created_at) VALUES (4, 'PC Flojito', 'kv640drj5qcq4cqtsy8y4s', 11, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;
-INSERT INTO dc_pos.devices (id, label, public_key, user_id, connected, last_seen, created_at) VALUES (3, 'Smartphone', 'r60rvj1qd8dp2lpeuifrrn', 12, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;
-INSERT INTO dc_pos.devices (id, label, public_key, user_id, connected, last_seen, created_at) VALUES (1, 'Tablette', 'aynn2aloo9kp62q1idmjd', 10, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;
+-- Devices (appareils) — intentionally not seeded; devices are registered
+-- from the admin UI (service/intervention devices are added directly in the DB).
 
 -- Companies
 -- No companies configured for this shop
@@ -208,7 +204,7 @@ INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_ra
 INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_rate) VALUES (60008, 'Panier Légumes', 0, '3000000600092', 6, 0.0) ON CONFLICT (reference) DO NOTHING;
 
 -- Subscription: Annette is on the Pro plan
-INSERT INTO dc_pos.subscription (id, plan, status, billing_method) VALUES (1, 'pro', 'active', 'invoice') ON CONFLICT (id) DO UPDATE SET plan = EXCLUDED.plan, status = EXCLUDED.status;
+INSERT INTO dc_pos.subscription (id, plan, status, billing_method) VALUES (1, 'pro', 'active', 'transfer') ON CONFLICT (id) DO UPDATE SET plan = EXCLUDED.plan, status = EXCLUDED.status;
 INSERT INTO dc_pos.subscription_events (event_type, plan) SELECT 'start', 'pro' WHERE NOT EXISTS (SELECT 1 FROM dc_pos.subscription_events);
 -- If an earlier anchor pinned another plan (e.g. migrate-subscription ran
 -- first with 'privilege'), log the change so billing follows this import.

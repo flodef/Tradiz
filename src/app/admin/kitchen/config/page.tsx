@@ -1400,41 +1400,44 @@ export default function SettingsPage() {
                 onToggle={() => setOpenSection((prev) => (prev === 'devices' ? null : 'devices'))}
                 icon={<IconDeviceTablet size={24} />}
                 onValidation={setIsDevicesValid}
+                maxDevices={limits.maxDevices}
             />
 
-            {!limits.customers && <PlanNotice plan="Pro" />}
-            <CustomersConfig
-                config={customersConfig}
-                onChange={setCustomersConfig}
-                isReadOnly={isReadOnly || !limits.customers}
-                onSave={handleCustomersSave}
-                onCancel={handleCancel}
-                hasChanges={hasCustomersChanges}
-                isLoading={isSavingCustomers}
-                isOpen={openSection === 'customers'}
-                onToggle={() => setOpenSection((prev) => (prev === 'customers' ? null : 'customers'))}
-                icon={<IconUsersGroup size={24} />}
-                onValidation={setIsCustomersValid}
-                companies={companiesConfig}
-                onCompaniesChange={setCompaniesConfig}
-            />
+            {limits.customers && (
+                <CustomersConfig
+                    config={customersConfig}
+                    onChange={setCustomersConfig}
+                    isReadOnly={isReadOnly}
+                    onSave={handleCustomersSave}
+                    onCancel={handleCancel}
+                    hasChanges={hasCustomersChanges}
+                    isLoading={isSavingCustomers}
+                    isOpen={openSection === 'customers'}
+                    onToggle={() => setOpenSection((prev) => (prev === 'customers' ? null : 'customers'))}
+                    icon={<IconUsersGroup size={24} />}
+                    onValidation={setIsCustomersValid}
+                    companies={companiesConfig}
+                    onCompaniesChange={setCompaniesConfig}
+                />
+            )}
 
-            {!limits.companies && <PlanNotice plan="Privilège" />}
-            <CompaniesConfig
-                config={companiesConfig}
-                onChange={setCompaniesConfig}
-                onSave={handleCompaniesSave}
-                onCancel={handleCancel}
-                isReadOnly={isReadOnly || !limits.companies}
-                isLoading={isSavingCompanies}
-                isOpen={openSection === 'companies'}
-                onToggle={() => setOpenSection((prev) => (prev === 'companies' ? null : 'companies'))}
-                icon={<IconBuilding size={24} />}
-                customers={customersConfig}
-                onCustomersChange={setCustomersConfig}
-                onValidation={setIsCompaniesValid}
-                currencies={currenciesConfig}
-            />
+            {limits.companies && (
+                <CompaniesConfig
+                    config={companiesConfig}
+                    onChange={setCompaniesConfig}
+                    onSave={handleCompaniesSave}
+                    onCancel={handleCancel}
+                    isReadOnly={isReadOnly}
+                    isLoading={isSavingCompanies}
+                    isOpen={openSection === 'companies'}
+                    onToggle={() => setOpenSection((prev) => (prev === 'companies' ? null : 'companies'))}
+                    icon={<IconBuilding size={24} />}
+                    customers={customersConfig}
+                    onCustomersChange={setCustomersConfig}
+                    onValidation={setIsCompaniesValid}
+                    currencies={currenciesConfig}
+                />
+            )}
 
             <PrintersConfig
                 config={printersConfig}
@@ -1450,25 +1453,26 @@ export default function SettingsPage() {
                 onValidation={setIsPrintersValid}
             />
 
-            {!limits.advancedCustomization && <PlanNotice plan="Privilège" />}
-            <ThemesConfig
-                config={colorsConfig}
-                onChange={setColorsConfig}
-                onSave={handleColorsSave}
-                onCancel={handleCancel}
-                hasChanges={hasColorsChanges}
-                isReadOnly={isReadOnly || !limits.advancedCustomization}
-                themeName={themeName}
-                onThemeNameChange={handleThemeNameChange}
-                isLoading={isSavingColors}
-                selectedThemeIndex={selectedThemeIndex}
-                onThemeSelect={handleThemeSelect}
-                customThemeNames={customThemeNames}
-                onCustomThemeNamesChange={handleCustomThemeNamesChange}
-                isOpen={openSection === 'colors'}
-                onToggle={() => setOpenSection((prev) => (prev === 'colors' ? null : 'colors'))}
-                icon={<IconPalette size={24} />}
-            />
+            {limits.advancedCustomization && (
+                <ThemesConfig
+                    config={colorsConfig}
+                    onChange={setColorsConfig}
+                    onSave={handleColorsSave}
+                    onCancel={handleCancel}
+                    hasChanges={hasColorsChanges}
+                    isReadOnly={isReadOnly}
+                    themeName={themeName}
+                    onThemeNameChange={handleThemeNameChange}
+                    isLoading={isSavingColors}
+                    selectedThemeIndex={selectedThemeIndex}
+                    onThemeSelect={handleThemeSelect}
+                    customThemeNames={customThemeNames}
+                    onCustomThemeNamesChange={handleCustomThemeNamesChange}
+                    isOpen={openSection === 'colors'}
+                    onToggle={() => setOpenSection((prev) => (prev === 'colors' ? null : 'colors'))}
+                    icon={<IconPalette size={24} />}
+                />
+            )}
 
             <ReviewsConfig
                 isReadOnly={isReadOnly}
@@ -1497,7 +1501,7 @@ export default function SettingsPage() {
                             (hasCompaniesChanges && !isCompaniesValid) ||
                             isSaving
                         }
-                        variant="save"
+                        variant="add"
                         className={isMobile ? 'px-3 py-2' : ''}
                     >
                         {isMobile ? 'Enregistrer tout' : 'Enregistrer tous les paramètres'}
@@ -1505,14 +1509,5 @@ export default function SettingsPage() {
                 </div>
             )}
         </AdminPageLayout>
-    );
-}
-
-/** Small notice shown above a config section gated by the subscription plan. */
-function PlanNotice({ plan }: { plan: string }) {
-    return (
-        <p className="text-xs text-amber-600 dark:text-amber-400 -mt-1 mb-1">
-            Réservé à la formule {plan} — modifiable depuis la section Abonnement du bloc Commerce.
-        </p>
     );
 }

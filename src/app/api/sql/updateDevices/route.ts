@@ -15,6 +15,7 @@ interface Device {
     printerBaud?: number | null;
     cashDrawerCom?: string | null;
     cashDrawerBaud?: number | null;
+    intervention?: boolean;
 }
 
 export async function POST(request: Request) {
@@ -35,7 +36,9 @@ export async function POST(request: Request) {
         const sub = await readSubscription(db);
         if (sub.status === 'stopped') return stoppedSubscriptionResponse();
         const limits = SUBSCRIPTION_PLANS[sub.plan].limits;
-        if (devices.length > limits.maxDevices) {
+        // Service/admin devices (intervention flag) don't count toward the quota.
+        const billableCount = devices.filter((d) => !d.intervention).length;
+        if (billableCount > limits.maxDevices) {
             return NextResponse.json(
                 {
                     error: `Votre formule ${SUBSCRIPTION_PLANS[sub.plan].name} est limitée à ${limits.maxDevices} caisse(s). Passez à une formule supérieure pour en ajouter.`,
@@ -57,13 +60,14 @@ export async function POST(request: Request) {
                 const printerBaud = device.printerBaud ?? null;
                 const cashDrawerCom = device.cashDrawerCom ?? null;
                 const cashDrawerBaud = device.cashDrawerBaud ?? null;
+                const intervention = Boolean(device.intervention);
 
                 if (device.id) {
                     // Update existing device by id
                     await db.execute(
                         db.isPostgreSQL
-                            ? 'UPDATE dc_pos.devices SET label = $1, public_key = $2, user_id = $3, backscreen_com = $4, backscreen_baud = $5, printer_com = $6, printer_baud = $7, cash_drawer_com = $8, cash_drawer_baud = $9 WHERE id = $10'
-                            : 'UPDATE devices SET label = ?, public_key = ?, user_id = ?, backscreen_com = ?, backscreen_baud = ?, printer_com = ?, printer_baud = ?, cash_drawer_com = ?, cash_drawer_baud = ? WHERE id = ?',
+                            ? 'UPDATE dc_pos.devices SET label = $1, public_key = $2, user_id = $3, backscreen_com = $4, backscreen_baud = $5, printer_com = $6, printer_baud = $7, cash_drawer_com = $8, cash_drawer_baud = $9, intervention = $10 WHERE id = $11'
+                            : 'UPDATE devices SET label = ?, public_key = ?, user_id = ?, backscreen_com = ?, backscreen_baud = ?, printer_com = ?, printer_baud = ?, cash_drawer_com = ?, cash_drawer_baud = ?, intervention = ? WHERE id = ?',
                         [
                             label,
                             key,
@@ -74,6 +78,7 @@ export async function POST(request: Request) {
                             printerBaud,
                             cashDrawerCom,
                             cashDrawerBaud,
+                            intervention,
                             device.id,
                         ]
                     );
@@ -93,8 +98,8 @@ export async function POST(request: Request) {
                 if (existingId) {
                     await db.execute(
                         db.isPostgreSQL
-                            ? 'UPDATE dc_pos.devices SET label = $1, user_id = $2, backscreen_com = $3, backscreen_baud = $4, printer_com = $5, printer_baud = $6, cash_drawer_com = $7, cash_drawer_baud = $8 WHERE id = $9'
-                            : 'UPDATE devices SET label = ?, user_id = ?, backscreen_com = ?, backscreen_baud = ?, printer_com = ?, printer_baud = ?, cash_drawer_com = ?, cash_drawer_baud = ? WHERE id = ?',
+                            ? 'UPDATE dc_pos.devices SET label = $1, user_id = $2, backscreen_com = $3, backscreen_baud = $4, printer_com = $5, printer_baud = $6, cash_drawer_com = $7, cash_drawer_baud = $8, intervention = $9 WHERE id = $10'
+                            : 'UPDATE devices SET label = ?, user_id = ?, backscreen_com = ?, backscreen_baud = ?, printer_com = ?, printer_baud = ?, cash_drawer_com = ?, cash_drawer_baud = ?, intervention = ? WHERE id = ?',
                         [
                             label,
                             userId,
@@ -104,6 +109,7 @@ export async function POST(request: Request) {
                             printerBaud,
                             cashDrawerCom,
                             cashDrawerBaud,
+                            intervention,
                             existingId,
                         ]
                     );
@@ -111,8 +117,8 @@ export async function POST(request: Request) {
                 } else {
                     const newId = await executeInsert(
                         db,
-                        'INSERT INTO dc_pos.devices (label, public_key, user_id, backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com, cash_drawer_baud) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
-                        'INSERT INTO devices (label, public_key, user_id, backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com, cash_drawer_baud) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                        'INSERT INTO dc_pos.devices (label, public_key, user_id, backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com, cash_drawer_baud, intervention) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id',
+                        'INSERT INTO devices (label, public_key, user_id, backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com, cash_drawer_baud, intervention) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                         [
                             label,
                             key,
@@ -123,6 +129,7 @@ export async function POST(request: Request) {
                             printerBaud,
                             cashDrawerCom,
                             cashDrawerBaud,
+                            intervention,
                         ]
                     );
                     if (newId) {
@@ -131,17 +138,22 @@ export async function POST(request: Request) {
                 }
             }
 
-            // Delete devices that are not in the incoming list
+            // Delete devices that are not in the incoming list — intervention
+            // devices are never sent by the UI but must be preserved.
             if (savedIds.length > 0) {
                 const placeholders = savedIds.map((_, i) => (db.isPostgreSQL ? `$${i + 1}` : '?')).join(',');
                 await db.execute(
                     db.isPostgreSQL
-                        ? `DELETE FROM dc_pos.devices WHERE id NOT IN (${placeholders})`
-                        : `DELETE FROM devices WHERE id NOT IN (${placeholders})`,
+                        ? `DELETE FROM dc_pos.devices WHERE id NOT IN (${placeholders}) AND NOT intervention`
+                        : `DELETE FROM devices WHERE id NOT IN (${placeholders}) AND NOT intervention`,
                     savedIds
                 );
             } else {
-                await db.execute(db.isPostgreSQL ? 'DELETE FROM dc_pos.devices' : 'DELETE FROM devices');
+                await db.execute(
+                    db.isPostgreSQL
+                        ? 'DELETE FROM dc_pos.devices WHERE NOT intervention'
+                        : 'DELETE FROM devices WHERE NOT intervention'
+                );
             }
         });
 

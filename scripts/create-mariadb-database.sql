@@ -370,6 +370,7 @@ CREATE TABLE IF NOT EXISTS `devices` (
   `printer_baud` int(11) DEFAULT NULL,
   `cash_drawer_com` varchar(10) DEFAULT NULL,
   `cash_drawer_baud` int(11) DEFAULT NULL,
+  `intervention` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `public_key` (`public_key`),
   KEY `user_id` (`user_id`),
@@ -517,7 +518,7 @@ CREATE TABLE IF NOT EXISTS `subscription` (
   `id` int(11) NOT NULL DEFAULT 1 CHECK (`id` = 1),
   `plan` varchar(20) NOT NULL DEFAULT 'privilege',
   `status` varchar(20) NOT NULL DEFAULT 'active',
-  `billing_method` varchar(20) NOT NULL DEFAULT 'invoice',
+  `billing_method` varchar(20) NOT NULL DEFAULT 'transfer',
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -536,7 +537,7 @@ CREATE TABLE IF NOT EXISTS `subscription_events` (
 
 -- Singleton state row (full access by default — per-shop imports may lower it).
 INSERT IGNORE INTO `subscription` (id, plan, status, billing_method)
-VALUES (1, 'privilege', 'active', 'invoice');
+VALUES (1, 'privilege', 'active', 'transfer');
 
 -- Billing anchor: without a 'start' event the monthly invoice stays 0 and
 -- no change can ever be billed. Seed it once, from the singleton plan.
