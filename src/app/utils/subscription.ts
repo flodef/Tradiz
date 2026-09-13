@@ -8,7 +8,7 @@
 
 export type SubscriptionPlan = 'decouverte' | 'pro' | 'privilege';
 export type SubscriptionStatus = 'active' | 'stopped';
-export type BillingMethod = 'revolut' | 'invoice';
+export type BillingMethod = 'card' | 'transfer';
 
 export interface PlanLimits {
     maxDevices: number;

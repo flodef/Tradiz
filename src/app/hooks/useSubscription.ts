@@ -23,7 +23,7 @@ export interface SubscriptionState {
 const DEFAULTS: SubscriptionState = {
     plan: 'privilege',
     status: 'active',
-    billingMethod: 'invoice',
+    billingMethod: 'transfer',
     limits: SUBSCRIPTION_PLANS.privilege.limits,
     monthToDate: 0,
     loaded: false,
@@ -52,7 +52,7 @@ export function useSubscription() {
             setState({
                 plan,
                 status: data.status === 'stopped' ? 'stopped' : 'active',
-                billingMethod: data.billing_method === 'revolut' ? 'revolut' : 'invoice',
+                billingMethod: data.billing_method === 'card' ? 'card' : 'transfer',
                 limits: SUBSCRIPTION_PLANS[plan].limits,
                 monthToDate: typeof data.month_to_date === 'number' ? data.month_to_date : 0,
                 loaded: true,

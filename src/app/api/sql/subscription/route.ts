@@ -102,8 +102,8 @@ export async function POST(request: Request) {
             };
 
             if (body.action === 'billing_method') {
-                if (body.billing_method !== 'revolut' && body.billing_method !== 'invoice') {
-                    return fail('billing_method must be "revolut" or "invoice"');
+                if (body.billing_method !== 'card' && body.billing_method !== 'transfer') {
+                    return fail('billing_method must be "card" or "transfer"');
                 }
                 await connection.execute(
                     isPg

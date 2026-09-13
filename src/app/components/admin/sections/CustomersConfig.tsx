@@ -18,6 +18,7 @@ import { useIsMobile } from '@/app/utils/mobile';
 import SectionCard from '../SectionCard';
 import DeleteButton from '../DeleteButton';
 import ValidatedInput from '../ValidatedInput';
+import AdminNumberInput from '../AdminNumberInput';
 import AdminSelect from '../AdminSelect';
 import AdminButton from '../AdminButton';
 import { useVirtualKeyboardInput } from '../VirtualKeyboardProvider';
@@ -143,7 +144,7 @@ function Row({
             <td className="p-2 text-sm truncate max-w-36 text-gray-500 dark:text-gray-400">{customer.phone || '—'}</td>
             <td className="p-2 text-sm truncate max-w-40">{customer.company || '—'}</td>
             <td className="p-2 text-sm text-right tabular-nums">
-                {isReadOnly ? (customer.balance ?? 0).toLocaleCurrency() : customer.balance ?? 0}
+                {isReadOnly ? (customer.balance ?? 0).toLocaleCurrency() : (customer.balance ?? 0)}
             </td>
             <td className="p-2 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                 {!isReadOnly && (
@@ -231,8 +232,7 @@ const CustomerEditPopup: FC<CustomerEditPopupProps> = ({
                     {isReadOnly ? (
                         <div className="text-right tabular-nums">{(draft.balance ?? 0).toLocaleCurrency()}</div>
                     ) : (
-                        <ValidatedInput
-                            type="number"
+                        <AdminNumberInput
                             value={String(draft.balance ?? 0)}
                             onChange={(value) => setDraft((d) => ({ ...d, balance: parseFloat(String(value)) || 0 }))}
                             placeholder="0"

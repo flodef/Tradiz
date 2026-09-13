@@ -11,12 +11,12 @@ import {
 export interface SubscriptionRow {
     plan: SubscriptionPlan;
     status: 'active' | 'stopped';
-    billing_method: 'revolut' | 'invoice';
+    billing_method: 'card' | 'transfer';
 }
 
 // Shops that predate the subscription tables (or have no row yet) keep full
 // access — the Privilège plan is the grandfathered default.
-const DEFAULT_ROW: SubscriptionRow = { plan: 'privilege', status: 'active', billing_method: 'invoice' };
+const DEFAULT_ROW: SubscriptionRow = { plan: 'privilege', status: 'active', billing_method: 'transfer' };
 
 export function subscriptionPrefix(conn: DbConnection): string {
     return conn.isPostgreSQL ? 'dc_pos.' : '';
@@ -38,10 +38,16 @@ export async function readSubscription(connection: DbConnection): Promise<Subscr
         );
         const row = (rows as { plan: string; status: string; billing_method: string }[])[0];
         if (!row || !isSubscriptionPlan(row.plan)) return DEFAULT_ROW;
+        // An empty event log means no subscription was ever started — treat
+        // the shop as stopped (read-only), not as grandfathered.
+        const [eventRows] = await connection.execute(
+            `SELECT 1 AS x FROM ${subscriptionPrefix(connection)}subscription_events LIMIT 1`
+        );
+        const hasSubscription = (eventRows as unknown[]).length > 0;
         return {
             plan: row.plan,
-            status: row.status === 'stopped' ? 'stopped' : 'active',
-            billing_method: row.billing_method === 'revolut' ? 'revolut' : 'invoice',
+            status: hasSubscription && row.status !== 'stopped' ? 'active' : 'stopped',
+            billing_method: row.billing_method === 'card' ? 'card' : 'transfer',
         };
     } catch (error) {
         if (isMissingTableError(error)) return DEFAULT_ROW; // table not migrated yet
