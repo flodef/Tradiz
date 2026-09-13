@@ -16,6 +16,7 @@ import UsersConfig from '@/app/components/admin/sections/UsersConfig';
 import { Config, Parameters } from '@/app/contexts/ConfigProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 import { usePopup } from '@/app/hooks/usePopup';
+import { useSubscription } from '@/app/hooks/useSubscription';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { useWindowParam } from '@/app/hooks/useWindowParam';
 import Loading from '@/app/loading';
@@ -141,6 +142,7 @@ export default function SettingsPage() {
     const [isSavingColors, setIsSavingColors] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isReadOnly, setIsReadOnly] = useState(true);
+    const { limits } = useSubscription();
     const [dbConfigChecked, setDbConfigChecked] = useState(false);
     const [isSiretValid, setIsSiretValid] = useState(true);
     const [hasChanges, setHasChanges] = useState(false);
@@ -1392,10 +1394,11 @@ export default function SettingsPage() {
                 onValidation={setIsDevicesValid}
             />
 
+            {!limits.customers && <PlanNotice plan="Pro" />}
             <CustomersConfig
                 config={customersConfig}
                 onChange={setCustomersConfig}
-                isReadOnly={isReadOnly}
+                isReadOnly={isReadOnly || !limits.customers}
                 onSave={handleCustomersSave}
                 onCancel={handleCancel}
                 hasChanges={hasCustomersChanges}
@@ -1408,12 +1411,13 @@ export default function SettingsPage() {
                 onCompaniesChange={setCompaniesConfig}
             />
 
+            {!limits.companies && <PlanNotice plan="Privilège" />}
             <CompaniesConfig
                 config={companiesConfig}
                 onChange={setCompaniesConfig}
                 onSave={handleCompaniesSave}
                 onCancel={handleCancel}
-                isReadOnly={isReadOnly}
+                isReadOnly={isReadOnly || !limits.companies}
                 isLoading={isSavingCompanies}
                 isOpen={openSection === 'companies'}
                 onToggle={() => setOpenSection((prev) => (prev === 'companies' ? null : 'companies'))}
@@ -1438,13 +1442,14 @@ export default function SettingsPage() {
                 onValidation={setIsPrintersValid}
             />
 
+            {!limits.advancedCustomization && <PlanNotice plan="Privilège" />}
             <ThemesConfig
                 config={colorsConfig}
                 onChange={setColorsConfig}
                 onSave={handleColorsSave}
                 onCancel={handleCancel}
                 hasChanges={hasColorsChanges}
-                isReadOnly={isReadOnly}
+                isReadOnly={isReadOnly || !limits.advancedCustomization}
                 themeName={themeName}
                 onThemeNameChange={handleThemeNameChange}
                 isLoading={isSavingColors}
@@ -1492,5 +1497,14 @@ export default function SettingsPage() {
                 </div>
             )}
         </AdminPageLayout>
+    );
+}
+
+/** Small notice shown above a config section gated by the subscription plan. */
+function PlanNotice({ plan }: { plan: string }) {
+    return (
+        <p className="text-xs text-amber-600 dark:text-amber-400 -mt-1 mb-1">
+            Réservé à la formule {plan} — modifiable depuis la section Abonnement du bloc Commerce.
+        </p>
     );
 }

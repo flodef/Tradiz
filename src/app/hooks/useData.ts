@@ -77,6 +77,8 @@ export interface DataContextState {
     originalProductsSnapshotRef: RefObject<Product[]>;
     transactionsLoaded: boolean;
     isCashClosed: boolean;
+    /** True when the subscription is stopped — drives the same read-only lock. */
+    subscriptionStopped: boolean;
     setCashClosed: (closed: boolean) => void;
     getEffectiveStock: (category: string, label: string, configStock: number | null) => number | null;
 }

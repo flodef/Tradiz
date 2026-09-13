@@ -671,6 +671,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
         toCurrency,
         products,
         isCashClosed,
+        subscriptionStopped,
     } = useData();
     const { openPopup, closePopup, isPopupOpen, openFullscreenPopup } = usePopup();
     const { pay, canAddProduct, canAddProvision, addProvision } = usePay();
@@ -1277,8 +1278,14 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
                         {isCashClosed ? (
                             <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
                                 <IconLock size={48} className="text-muted" />
-                                <p className="text-lg font-semibold">Caisse clôturée</p>
-                                <p className="text-sm text-muted">Mode lecture seule — aucune opération possible</p>
+                                <p className="text-lg font-semibold">
+                                    {subscriptionStopped ? 'Abonnement suspendu' : 'Caisse clôturée'}
+                                </p>
+                                <p className="text-sm text-muted">
+                                    {subscriptionStopped
+                                        ? 'Mode lecture seule — reprenez votre abonnement dans la configuration'
+                                        : 'Mode lecture seule — aucune opération possible'}
+                                </p>
                             </div>
                         ) : (
                             <>

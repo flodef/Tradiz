@@ -37,6 +37,7 @@ import {
 } from '@tabler/icons-react';
 import { usePopup } from '@/app/hooks/usePopup';
 import { AttestationViewer } from '@/app/components/AttestationViewer';
+import SubscriptionConfig from './SubscriptionConfig';
 
 interface CommerceConfigProps {
     config: Parameters;
@@ -671,6 +672,9 @@ export default function CommerceConfig({
                     )}
                 </div>
             </div>
+
+            {/* Subsection: Abonnement */}
+            <SubscriptionConfig isReadOnly={isReadOnly} />
 
             {/* Subsection: NF525 */}
             <div>

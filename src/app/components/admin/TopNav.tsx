@@ -1,6 +1,7 @@
 'use client';
 
 import { useConfig } from '@/app/hooks/useConfig';
+import { useSubscription } from '@/app/hooks/useSubscription';
 import { useUnsavedChanges } from '@/app/hooks/useUnsavedChanges';
 import { useUserRole } from '@/app/hooks/useUserRole';
 import { IconChevronLeft, IconChevronRight, IconPencil, IconChartPie, IconSettings } from '@tabler/icons-react';
@@ -37,6 +38,7 @@ export default function TopNav({
 }: TopNavProps) {
     const [collapsed, setCollapsed] = useState(true);
     const { isGrafanaAccessEnabled } = useConfig();
+    const { limits } = useSubscription();
     const { isAdmin, isCashier } = useUserRole();
     const { confirmUnsavedChanges } = useUnsavedChanges();
     const pathname = usePathname();
@@ -67,10 +69,10 @@ export default function TopNav({
                 href: USE_DIGICARTE ? ADMIN_STATS_URL : ADMIN_STATS_URL.split('/').slice(0, 2).join('/'),
                 label: 'Statistiques',
                 icon: <IconChartPie size={32} />,
-                hidden: !isCashier || !isGrafanaAccessEnabled,
+                hidden: !isCashier || !isGrafanaAccessEnabled || !limits.stats,
             },
         ],
-        [isGrafanaAccessEnabled, isAdmin, isCashier]
+        [isGrafanaAccessEnabled, isAdmin, isCashier, limits.stats]
     );
 
     const handleToggle = () => {
