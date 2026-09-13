@@ -324,7 +324,7 @@ function Header({
                 <div className="flex items-center gap-3">
                     <ThemeToggle mode={themeMode} set={setTheme} ready={themeReady} />
                     <a
-                        href="https://demo.tradiz.fr"
+                        href="https://demo.tradiz.fr/api/sql/resetDemo"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-linear-to-r from-orange-500 to-amber-600 rounded-full shadow-sm hover:shadow-md hover:scale-105 transition-all"
@@ -361,7 +361,7 @@ function Header({
                         </a>
                     ))}
                     <a
-                        href="https://demo.tradiz.fr"
+                        href="https://demo.tradiz.fr/api/sql/resetDemo"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="mt-2 px-4 py-2.5 text-sm font-semibold text-white bg-linear-to-r from-orange-500 to-amber-600 rounded-full text-center"
@@ -408,7 +408,7 @@ function Hero() {
 
                 <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 animate-[display_1.2s_ease-out]">
                     <a
-                        href="https://demo.tradiz.fr"
+                        href="https://demo.tradiz.fr/api/sql/resetDemo"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 px-8 py-3.5 text-base font-semibold text-white bg-linear-to-r from-orange-500 to-amber-600 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all"
@@ -553,7 +553,7 @@ function Software() {
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                     <a
-                        href="https://demo.tradiz.fr"
+                        href="https://demo.tradiz.fr/api/sql/resetDemo"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 px-8 py-3.5 text-base font-semibold text-white bg-linear-to-r from-orange-500 to-amber-600 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all"
@@ -1414,7 +1414,7 @@ function Footer() {
                     </nav>
 
                     <a
-                        href="https://demo.tradiz.fr"
+                        href="https://demo.tradiz.fr/api/sql/resetDemo"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-sm font-semibold text-orange-400 hover:text-orange-300 transition-colors"
