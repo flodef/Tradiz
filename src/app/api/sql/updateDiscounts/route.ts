@@ -2,6 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { insertAuditEvent } from '../auditHelpers';
 
 interface DiscountUpdate {
@@ -11,6 +12,8 @@ interface DiscountUpdate {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const { discounts } = await request.json();

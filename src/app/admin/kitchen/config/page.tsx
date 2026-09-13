@@ -45,6 +45,7 @@ import {
     getPublicKey,
     parseDisplaySettings,
 } from '@/app/utils/processData';
+import { deviceFetch } from '@/app/utils/deviceFetch';
 import {
     IconBuilding,
     IconBuildingStore,
@@ -598,7 +599,7 @@ export default function SettingsPage() {
 
             // Load devices from DB
             try {
-                const devicesResponse = await fetch('/api/sql/getDevices');
+                const devicesResponse = await deviceFetch('/api/sql/getDevices');
                 const devicesData = await devicesResponse.json();
                 if (devicesData.devices && devicesData.devices.length > 0) {
                     // Intervention devices are managed in the DB only — keep them
@@ -838,7 +839,7 @@ export default function SettingsPage() {
         setIsSavingUsers(true);
         setIsSaving(true);
         try {
-            const response = await fetch('/api/sql/updateUsers', {
+            const response = await deviceFetch('/api/sql/updateUsers', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ users: data }),
@@ -866,7 +867,7 @@ export default function SettingsPage() {
         setIsSavingDevices(true);
         setIsSaving(true);
         try {
-            const response = await fetch('/api/sql/updateDevices', {
+            const response = await deviceFetch('/api/sql/updateDevices', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ devices: data }),
@@ -892,7 +893,7 @@ export default function SettingsPage() {
         setIsSavingCurrencies(true);
         setIsSaving(true);
         try {
-            const response = await fetch('/api/sql/updateCurrencies', {
+            const response = await deviceFetch('/api/sql/updateCurrencies', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ currencies: data }),
@@ -955,7 +956,7 @@ export default function SettingsPage() {
                 { key: 'googlePlaceId', value: data.shop.googlePlaceId ?? '' },
             ];
 
-            const response = await fetch('/api/sql/updateParameters', {
+            const response = await deviceFetch('/api/sql/updateParameters', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ parameters: paramUpdates, changedBy: data.user?.name || 'admin' }),
@@ -1026,7 +1027,7 @@ export default function SettingsPage() {
         setIsSavingPayments(true);
         setIsSaving(true);
         try {
-            const response = await fetch('/api/sql/updatePaymentMethods', {
+            const response = await deviceFetch('/api/sql/updatePaymentMethods', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ paymentMethods: data }),
@@ -1051,7 +1052,7 @@ export default function SettingsPage() {
         setIsSavingDiscounts(true);
         setIsSaving(true);
         try {
-            const response = await fetch('/api/sql/updateDiscounts', {
+            const response = await deviceFetch('/api/sql/updateDiscounts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ discounts: data }),
@@ -1077,7 +1078,7 @@ export default function SettingsPage() {
         setIsSaving(true);
         try {
             // Save all themes (colors, names, and selected index)
-            const response = await fetch('/api/sql/updateColors', {
+            const response = await deviceFetch('/api/sql/updateColors', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1113,7 +1114,7 @@ export default function SettingsPage() {
         setIsSavingPrinters(true);
         setIsSaving(true);
         try {
-            const response = await fetch('/api/sql/updatePrinters', {
+            const response = await deviceFetch('/api/sql/updatePrinters', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ printers: data }),
@@ -1138,7 +1139,7 @@ export default function SettingsPage() {
         setIsSavingCustomers(true);
         setIsSaving(true);
         try {
-            const response = await fetch('/api/sql/updateCustomers', {
+            const response = await deviceFetch('/api/sql/updateCustomers', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ customers: data }),
@@ -1163,7 +1164,7 @@ export default function SettingsPage() {
         setIsSavingCompanies(true);
         setIsSaving(true);
         try {
-            const response = await fetch('/api/sql/updateCompanies', {
+            const response = await deviceFetch('/api/sql/updateCompanies', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ companies: data }),
@@ -1182,7 +1183,7 @@ export default function SettingsPage() {
 
             // Save customers if anything changed (deletion or rename).
             if (JSON.stringify(updatedCustomers) !== JSON.stringify(originalCustomers)) {
-                const customersResponse = await fetch('/api/sql/updateCustomers', {
+                const customersResponse = await deviceFetch('/api/sql/updateCustomers', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ customers: updatedCustomers }),

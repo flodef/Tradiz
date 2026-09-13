@@ -2,9 +2,12 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { assertPlanFeature } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { getMainDb, DbConnection } from '../db';
+import { assertDeviceAuthorized } from '../deviceAuth';
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
     const subGuard = await assertPlanFeature(
         shopId,
         'advancedCustomization',

@@ -1,6 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { executeInsert, getPosDb, withTransaction } from '../db';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
 
@@ -20,6 +21,8 @@ interface Device {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
     let connection: Awaited<ReturnType<typeof getPosDb>> | undefined;
 
     try {
@@ -36,8 +39,10 @@ export async function POST(request: Request) {
         const sub = await readSubscription(db);
         if (sub.status === 'stopped') return stoppedSubscriptionResponse();
         const limits = SUBSCRIPTION_PLANS[sub.plan].limits;
-        // Service/admin devices (intervention flag) don't count toward the quota.
-        const billableCount = devices.filter((d) => !d.intervention).length;
+        // Service/admin devices (intervention flag) are never sent by the UI
+        // (getDevices filters them) and don't count toward the quota — a
+        // forged `intervention: true` in the body is ignored below anyway.
+        const billableCount = devices.length;
         if (billableCount > limits.maxDevices) {
             return NextResponse.json(
                 {
@@ -60,14 +65,16 @@ export async function POST(request: Request) {
                 const printerBaud = device.printerBaud ?? null;
                 const cashDrawerCom = device.cashDrawerCom ?? null;
                 const cashDrawerBaud = device.cashDrawerBaud ?? null;
-                const intervention = Boolean(device.intervention);
 
+                // The intervention flag is DB-managed only — never trust it
+                // from the request body (it would bypass the device quota and
+                // hide devices from the admin UI).
                 if (device.id) {
                     // Update existing device by id
                     await db.execute(
                         db.isPostgreSQL
-                            ? 'UPDATE dc_pos.devices SET label = $1, public_key = $2, user_id = $3, backscreen_com = $4, backscreen_baud = $5, printer_com = $6, printer_baud = $7, cash_drawer_com = $8, cash_drawer_baud = $9, intervention = $10 WHERE id = $11'
-                            : 'UPDATE devices SET label = ?, public_key = ?, user_id = ?, backscreen_com = ?, backscreen_baud = ?, printer_com = ?, printer_baud = ?, cash_drawer_com = ?, cash_drawer_baud = ?, intervention = ? WHERE id = ?',
+                            ? 'UPDATE dc_pos.devices SET label = $1, public_key = $2, user_id = $3, backscreen_com = $4, backscreen_baud = $5, printer_com = $6, printer_baud = $7, cash_drawer_com = $8, cash_drawer_baud = $9 WHERE id = $10'
+                            : 'UPDATE devices SET label = ?, public_key = ?, user_id = ?, backscreen_com = ?, backscreen_baud = ?, printer_com = ?, printer_baud = ?, cash_drawer_com = ?, cash_drawer_baud = ? WHERE id = ?',
                         [
                             label,
                             key,
@@ -78,7 +85,6 @@ export async function POST(request: Request) {
                             printerBaud,
                             cashDrawerCom,
                             cashDrawerBaud,
-                            intervention,
                             device.id,
                         ]
                     );
@@ -98,8 +104,8 @@ export async function POST(request: Request) {
                 if (existingId) {
                     await db.execute(
                         db.isPostgreSQL
-                            ? 'UPDATE dc_pos.devices SET label = $1, user_id = $2, backscreen_com = $3, backscreen_baud = $4, printer_com = $5, printer_baud = $6, cash_drawer_com = $7, cash_drawer_baud = $8, intervention = $9 WHERE id = $10'
-                            : 'UPDATE devices SET label = ?, user_id = ?, backscreen_com = ?, backscreen_baud = ?, printer_com = ?, printer_baud = ?, cash_drawer_com = ?, cash_drawer_baud = ?, intervention = ? WHERE id = ?',
+                            ? 'UPDATE dc_pos.devices SET label = $1, user_id = $2, backscreen_com = $3, backscreen_baud = $4, printer_com = $5, printer_baud = $6, cash_drawer_com = $7, cash_drawer_baud = $8 WHERE id = $9'
+                            : 'UPDATE devices SET label = ?, user_id = ?, backscreen_com = ?, backscreen_baud = ?, printer_com = ?, printer_baud = ?, cash_drawer_com = ?, cash_drawer_baud = ? WHERE id = ?',
                         [
                             label,
                             userId,
@@ -109,7 +115,6 @@ export async function POST(request: Request) {
                             printerBaud,
                             cashDrawerCom,
                             cashDrawerBaud,
-                            intervention,
                             existingId,
                         ]
                     );
@@ -117,8 +122,8 @@ export async function POST(request: Request) {
                 } else {
                     const newId = await executeInsert(
                         db,
-                        'INSERT INTO dc_pos.devices (label, public_key, user_id, backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com, cash_drawer_baud, intervention) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id',
-                        'INSERT INTO devices (label, public_key, user_id, backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com, cash_drawer_baud, intervention) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                        'INSERT INTO dc_pos.devices (label, public_key, user_id, backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com, cash_drawer_baud) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
+                        'INSERT INTO devices (label, public_key, user_id, backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com, cash_drawer_baud) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
                         [
                             label,
                             key,
@@ -129,7 +134,6 @@ export async function POST(request: Request) {
                             printerBaud,
                             cashDrawerCom,
                             cashDrawerBaud,
-                            intervention,
                         ]
                     );
                     if (newId) {

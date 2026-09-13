@@ -2,6 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection, withTransaction } from '../db';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { PARAMETER_KEY_LIST } from '@/app/constants/parameterKeys';
 import { insertAuditEvent } from '../auditHelpers';
 
@@ -12,6 +13,8 @@ interface ParameterUpdate {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const { parameters, changedBy } = await request.json();

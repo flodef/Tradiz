@@ -24,6 +24,7 @@ import ZipCityRow from '../ZipCityRow';
 import TimePicker from '../TimePicker';
 import { useEffect, useRef, useState } from 'react';
 import { useShopId } from '@/app/hooks/useShopId';
+import { deviceFetch } from '@/app/utils/deviceFetch';
 import {
     IconCheck,
     IconX,
@@ -223,7 +224,7 @@ export default function CommerceConfig({
         const now = new Date();
         const start = new Date(now.getFullYear() - 10, 0, 1).toISOString().substring(0, 10);
         const end = now.toISOString().substring(0, 10);
-        fetch(`/api/sql/fiscalArchive?start_date=${start}&end_date=${end}&requested_by=admin`)
+        deviceFetch(`/api/sql/fiscalArchive?start_date=${start}&end_date=${end}&requested_by=admin`)
             .then((res) => {
                 if (!res.ok) throw new Error('Export failed');
                 return res.blob();
@@ -244,7 +245,7 @@ export default function CommerceConfig({
     };
 
     useEffect(() => {
-        fetch('/api/sql/attestation')
+        deviceFetch('/api/sql/attestation')
             .then((res) => res.json())
             .then((data) => {
                 setAttestationStatus(data.signed ? 'signed' : 'unsigned');
@@ -278,7 +279,7 @@ export default function CommerceConfig({
 
     const checkIntegrity = () => {
         setIntegrityStatus('checking');
-        fetch('/api/sql/verifyIntegrity')
+        deviceFetch('/api/sql/verifyIntegrity')
             .then((res) => res.json())
             .then((data) => {
                 setIntegrityStatus(data.integrity_ok ? 'ok' : 'fail');

@@ -5,6 +5,8 @@ import { IconPrinter, IconUpload, IconTrash, IconSignature } from '@tabler/icons
 import AdminButton from './admin/AdminButton';
 import { usePopup } from '../hooks/usePopup';
 import { useIsMobile } from '../utils/mobile';
+import { deviceFetch } from '../utils/deviceFetch';
+import { getPublicKey } from '../utils/processData';
 import { SignaturePad } from './SignaturePad';
 
 interface AttestationViewerProps {
@@ -39,7 +41,12 @@ export const AttestationViewer: FC<AttestationViewerProps> = ({ signed, needsRes
     const isMobile = useIsMobile();
 
     const showUnsigned = !signed || needsResign;
-    const pdfUrl = showUnsigned ? '/api/sql/attestation?action=generate' : '/api/sql/attestation?action=view';
+    // The iframe cannot send the x-public-key header — the route also accepts
+    // it as the `publicKey` query param (see api/sql/deviceAuth.ts).
+    const deviceParam = `publicKey=${encodeURIComponent(getPublicKey())}`;
+    const pdfUrl = showUnsigned
+        ? `/api/sql/attestation?action=generate&${deviceParam}`
+        : `/api/sql/attestation?action=view&${deviceParam}`;
 
     useEffect(() => {
         setIsReady(false);
@@ -60,7 +67,7 @@ export const AttestationViewer: FC<AttestationViewerProps> = ({ signed, needsRes
         setIsUploading(true);
         setUploadError(null);
         try {
-            const res = await fetch('/api/sql/attestation', {
+            const res = await deviceFetch('/api/sql/attestation', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -88,7 +95,7 @@ export const AttestationViewer: FC<AttestationViewerProps> = ({ signed, needsRes
                 const formData = new FormData();
                 formData.append('file', file);
                 if (userName) formData.append('changedBy', userName);
-                const res = await fetch('/api/sql/attestation', { method: 'POST', body: formData });
+                const res = await deviceFetch('/api/sql/attestation', { method: 'POST', body: formData });
                 if (!res.ok) throw new Error('Upload failed');
                 onStatusChange?.(true);
                 closePopup();
@@ -107,7 +114,7 @@ export const AttestationViewer: FC<AttestationViewerProps> = ({ signed, needsRes
             const deleteUrl = userName
                 ? `/api/sql/attestation?changedBy=${encodeURIComponent(userName)}`
                 : '/api/sql/attestation';
-            fetch(deleteUrl, { method: 'DELETE' })
+            deviceFetch(deleteUrl, { method: 'DELETE' })
                 .then((res) => {
                     if (!res.ok) throw new Error('Delete failed');
                     onStatusChange?.(false);

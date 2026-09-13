@@ -53,17 +53,6 @@ interface PrinterRow {
     ip_address: string;
 }
 
-interface DeviceRow {
-    id: number;
-    label: string;
-    public_key: string;
-    user_id: number;
-    connected: boolean;
-    last_seen: string;
-    created_at: string;
-    intervention?: boolean;
-}
-
 interface CompanyRow {
     name: string;
     employer_share: number;
@@ -138,20 +127,20 @@ async function main() {
     console.log(`Fetching data for shop: ${SHOP_ID} from ${BASE_URL}`);
 
     // Fetch all data in parallel
-    const [parameters, users, paymentMethods, printers, devices, companies, customers, categories, products] =
-        await Promise.all([
+    const [parameters, users, paymentMethods, printers, companies, customers, categories, products] = await Promise.all(
+        [
             fetchJson(`/api/sql/getParameters?shopId=${SHOP_ID}`) as Promise<{ parameters: ParameterRow[] }>,
             fetchJson(`/api/sql/users?shopId=${SHOP_ID}`) as Promise<{ users: UserRow[] }>,
             fetchJson(`/api/sql/getPaymentMethods?shopId=${SHOP_ID}`) as Promise<{
                 paymentMethods: PaymentMethodRow[];
             }>,
             fetchJson(`/api/sql/getPrinters?shopId=${SHOP_ID}`) as Promise<{ printers: PrinterRow[] }>,
-            fetchJson(`/api/sql/getDevices?shopId=${SHOP_ID}`) as Promise<{ devices: DeviceRow[] }>,
             fetchJson(`/api/sql/getCompanies?shopId=${SHOP_ID}`) as Promise<{ companies: CompanyRow[] }>,
             fetchJson(`/api/sql/getCustomers?shopId=${SHOP_ID}`) as Promise<{ customers: CustomerRow[] }>,
             fetchJson(`/api/sql/getCategories?shopId=${SHOP_ID}`) as Promise<{ categories: CategoryRow[] }>,
             fetchJson(`/api/sql/getProducts?shopId=${SHOP_ID}`) as Promise<{ products: ProductRow[] }>,
-        ]);
+        ]
+    );
 
     let sql = `-- ============================================================\n`;
     sql += `-- ${SHOP_ID} Data Import Script\n`;
@@ -206,19 +195,9 @@ async function main() {
         sql += `\n`;
     }
 
-    // Devices — intervention (service/admin) devices are excluded: their
-    // public keys are per-installation credentials that must not leak into
-    // generated SQL files.
-    const exportableDevices = devices.devices.filter((d) => !d.intervention);
-    if (exportableDevices.length > 0) {
-        sql += `-- ============================================================\n`;
-        sql += `-- Devices\n`;
-        sql += `-- ============================================================\n`;
-        for (const d of exportableDevices) {
-            sql += `INSERT INTO dc_pos.devices (id, label, public_key, user_id, connected, last_seen, created_at) VALUES (${d.id}, ${sqlEscape(d.label)}, ${sqlEscape(d.public_key)}, ${d.user_id}, ${d.connected ? 't' : 'f'}, ${sqlEscape(d.last_seen)}, ${sqlEscape(d.created_at)}) ON CONFLICT (id) DO NOTHING;\n`;
-        }
-        sql += `\n`;
-    }
+    // Devices are not exported: public keys are per-installation credentials
+    // (and the admin gate) — they must not leak into generated SQL files.
+    // The shop registers its devices again after the import.
 
     // Companies
     if (companies.companies.length > 0) {
@@ -291,9 +270,7 @@ async function main() {
     console.log(`  Users: ${users.users.length}`);
     console.log(`  Payment methods: ${paymentMethods.paymentMethods.length}`);
     console.log(`  Printers: ${printers.printers.length}`);
-    console.log(
-        `  Devices: ${exportableDevices.length} (+ ${devices.devices.length - exportableDevices.length} intervention skipped)`
-    );
+    console.log('  Devices: not exported (keys are per-installation)');
     console.log(`  Companies: ${companies.companies.length}`);
     console.log(`  Customers: ${customers.customers.length}`);
     console.log(`  Categories: ${categories.categories.length}`);

@@ -2,6 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
+import { assertDeviceAuthorized } from '../deviceAuth';
 
 interface PrinterInput {
     label: string;
@@ -14,6 +15,8 @@ interface UpdatePrintersRequest {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const { printers } = (await request.json()) as UpdatePrintersRequest;

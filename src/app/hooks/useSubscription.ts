@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { deviceFetch } from '../utils/deviceFetch';
 import {
     isSubscriptionPlan,
     SUBSCRIPTION_PLANS,
@@ -78,7 +79,7 @@ export function useSubscription() {
 
     const act = useCallback(
         async (body: Record<string, unknown>) => {
-            const res = await fetch('/api/sql/subscription', {
+            const res = await deviceFetch('/api/sql/subscription', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),

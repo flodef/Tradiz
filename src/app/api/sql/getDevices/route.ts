@@ -1,6 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
+import { assertDeviceAuthorized } from '../deviceAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,14 +21,16 @@ interface DeviceRow {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         connection = await getPosDb(shopId);
 
         const result = await connection.execute(
             connection.isPostgreSQL
-                ? 'SELECT id, label, public_key, user_id, backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com, cash_drawer_baud, intervention FROM dc_pos.devices ORDER BY label'
-                : 'SELECT id, label, public_key, user_id, backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com, cash_drawer_baud, intervention FROM devices ORDER BY label'
+                ? 'SELECT id, label, public_key, user_id, backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com, cash_drawer_baud, intervention FROM dc_pos.devices WHERE intervention IS NOT TRUE ORDER BY label'
+                : 'SELECT id, label, public_key, user_id, backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com, cash_drawer_baud, intervention FROM devices WHERE intervention IS NOT TRUE ORDER BY label'
         );
         const rows = result[0] as DeviceRow[];
 

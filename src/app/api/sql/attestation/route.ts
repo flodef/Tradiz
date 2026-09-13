@@ -1,6 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from '../db';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { insertAuditEvent } from '../auditHelpers';
 import { assertSubscriptionActive } from '../subscriptionStore';
 import { buildAttestationPdf, type AttestationShopData } from '@/app/utils/attestationPdf';
@@ -142,6 +143,8 @@ async function upsertParameter(connection: DbConnection, key: string, value: str
  */
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
     const url = new URL(request.url);
     const action = url.searchParams.get('action');
     const attestationPath = getAttestationPath(shopId);
@@ -253,6 +256,8 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     // Signing/replacing the attestation mutates parameters + audit events.
     const blocked = await assertSubscriptionActive(shopId);
@@ -389,6 +394,8 @@ export async function POST(request: Request) {
  */
 export async function DELETE(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     const blocked = await assertSubscriptionActive(shopId);
     if (blocked) return blocked;

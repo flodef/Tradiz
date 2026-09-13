@@ -4,6 +4,7 @@ import { ReactNode } from 'react';
 import { ConfigProvider } from '@/app/contexts/ConfigProvider';
 import { PopupProvider } from '@/app/contexts/PopupProvider';
 import { Popup } from '../Popup';
+import DeviceGate from './DeviceGate';
 import { VirtualKeyboardProvider } from './VirtualKeyboardProvider';
 import { useConfig } from '@/app/hooks/useConfig';
 
@@ -19,7 +20,7 @@ export default function AdminConfigWrapper({ children }: { children: ReactNode }
         <ConfigProvider shop="">
             <PopupProvider>
                 <AdminVirtualKeyboardWrapper>
-                    {children}
+                    <DeviceGate>{children}</DeviceGate>
                     <Popup variant="admin" />
                 </AdminVirtualKeyboardWrapper>
             </PopupProvider>

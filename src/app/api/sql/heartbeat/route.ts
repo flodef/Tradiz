@@ -36,8 +36,8 @@ export async function POST(request: Request) {
         const [result] = await connection.execute(heartbeatQuery, [publicKey]);
 
         const affectedRows = connection.isPostgreSQL
-            ? (result as { rowCount?: number }).rowCount ?? 0
-            : (result as { affectedRows?: number }).affectedRows ?? 0;
+            ? ((result as { rowCount?: number }).rowCount ?? 0)
+            : ((result as { affectedRows?: number }).affectedRows ?? 0);
 
         // If the device isn't registered, return 0 other devices — it can't sync.
         if (affectedRows === 0) {

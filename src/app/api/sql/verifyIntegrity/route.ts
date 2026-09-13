@@ -1,6 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from '../db';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { getPosPgDb, isPgConfigured } from '../pg-db';
 import { computeTransactionHash, type TransactionItemHashInput } from '@/app/utils/transactionHash';
 import { parsePaymentLegs } from '@/app/utils/transactionNote';
@@ -176,6 +177,8 @@ function recomputeAuditEventHash(row: AuditRow, previousHash: string | null): st
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     let pgClient: Awaited<ReturnType<typeof getPosPgDb>> | undefined;
     try {

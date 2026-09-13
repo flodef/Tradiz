@@ -1,6 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from '../db';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { insertAuditEvent } from '../auditHelpers';
 import { getSoftwareVersion, getSoftwareName } from '@/app/utils/version';
 import { createHmac } from 'crypto';
@@ -51,6 +52,8 @@ interface ArchiveExport {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const { searchParams } = new URL(request.url);

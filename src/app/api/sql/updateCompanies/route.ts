@@ -1,6 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection, withTransaction } from '../db';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
 import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 
@@ -17,6 +18,8 @@ interface Company {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const { companies } = (await request.json()) as { companies: Company[] };

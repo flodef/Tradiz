@@ -1,6 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, withTransaction, DbConnection } from '../db';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
 import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 import { generateProductReference } from '@/app/utils/productReference';
@@ -19,6 +20,8 @@ interface Customer {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const { customers } = (await request.json()) as { customers: Customer[] };

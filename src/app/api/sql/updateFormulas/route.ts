@@ -2,6 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { assertSubscriptionActive } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { getMainDb, executeInsert } from '../db';
+import { assertDeviceAuthorized } from '../deviceAuth';
 
 interface FormulaElement {
     name: string;
@@ -18,6 +19,8 @@ interface Formula {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin', 'cashier']);
+    if (deviceGuard) return deviceGuard;
     const subGuard = await assertSubscriptionActive(shopId);
     if (subGuard) return subGuard;
     let connection: Awaited<ReturnType<typeof getMainDb>> | undefined;

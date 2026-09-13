@@ -16,6 +16,7 @@ import { DEFAULT_CATEGORY, USE_DIGICARTE } from '@/app/utils/constants';
 import { applyCategoryDeletionToFormulas, isSameCategory, renameFormulaCategory } from '@/app/utils/category';
 import { Category, Company, InventoryItem } from '@/app/utils/interfaces';
 import { clearLoadDataCache, DEFAULT_DISPLAY_SETTINGS } from '@/app/utils/processData';
+import { deviceFetch } from '@/app/utils/deviceFetch';
 import { encodeGridPosition, encodeSortOrder, decodeGridPosition } from '@/app/utils/sortOrder';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconCategory, IconListDetails, IconBox, IconMathFunction, IconLayoutGrid } from '@tabler/icons-react';
@@ -302,7 +303,7 @@ export default function EditMenuPage() {
                 originalName?: string;
             }[]
         ) => {
-            const response = await fetch('/api/sql/updateCategories', {
+            const response = await deviceFetch('/api/sql/updateCategories', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ categories: cats }),
@@ -679,7 +680,7 @@ export default function EditMenuPage() {
     // that already own the config update (e.g. handleProductsSave) don't race on setConfig.
     // The shop is resolved server-side from the request host, so no shop ID is sent here.
     const saveFormulasToDb = useCallback(async (data: AdminFormula[]) => {
-        const response = await fetch('/api/sql/updateFormulas', {
+        const response = await deviceFetch('/api/sql/updateFormulas', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
@@ -712,7 +713,7 @@ export default function EditMenuPage() {
                 await saveCategoriesToDb(catsToPersist);
 
                 // 2. Save products
-                const response = await fetch('/api/sql/updateArticles', {
+                const response = await deviceFetch('/api/sql/updateArticles', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ products: data, category }),

@@ -1,6 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getMainDb, withPosDb } from '../db';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
 import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 import { generateProductReference } from '@/app/utils/productReference';
@@ -116,6 +117,8 @@ function nextAutoGridSlot(used: Set<number>, nextAutoSlot: Record<string, number
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin', 'cashier']);
+    if (deviceGuard) return deviceGuard;
     let connection: Awaited<ReturnType<typeof getMainDb>> | undefined;
 
     try {

@@ -2,6 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { executeInsert, getPosDb, withTransaction } from '../db';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { generateProductReference } from '@/app/utils/productReference';
 import { insertAuditEvent } from '../auditHelpers';
 
@@ -14,6 +15,8 @@ interface User {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
     let connection: Awaited<ReturnType<typeof getPosDb>> | undefined;
 
     try {

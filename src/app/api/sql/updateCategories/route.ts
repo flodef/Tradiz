@@ -2,6 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { assertSubscriptionActive } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { getMainDb, DbConnection, withPosDb } from '../db';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { insertAuditEvent } from '../auditHelpers';
 
 interface CategoryInput {
@@ -15,6 +16,8 @@ interface CategoryInput {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin', 'cashier']);
+    if (deviceGuard) return deviceGuard;
     const subGuard = await assertSubscriptionActive(shopId);
     if (subGuard) return subGuard;
     let connection: DbConnection | undefined;
