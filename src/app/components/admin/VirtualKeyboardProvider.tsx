@@ -214,6 +214,13 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
         activeInputRef.current = null;
     }, []);
 
+    const handleClose = useCallback(() => {
+        const active = activeInputRef.current;
+        active?.element.blur();
+        setActiveInput(null);
+        activeInputRef.current = null;
+    }, []);
+
     const handleTab = useCallback(() => {
         const active = activeInputRef.current;
         if (!active) return;
@@ -283,6 +290,7 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
                     onStep={handleStep}
                     onTab={handleTab}
                     onTabBack={handleTabBack}
+                    onClose={handleClose}
                 />
             )}
         </VirtualKeyboardContext.Provider>

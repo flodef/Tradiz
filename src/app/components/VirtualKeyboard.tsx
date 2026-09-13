@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { IconBackspace, IconCheck, IconArrowLeft, IconArrowRight, IconPlus, IconMinus } from '@tabler/icons-react';
+import { CloseButton } from './CloseButton';
 
 interface VirtualKeyboardProps {
     onKey: (key: string) => void;
@@ -12,6 +13,7 @@ interface VirtualKeyboardProps {
     onArrowRight: () => void;
     onTab: () => void;
     onTabBack: () => void;
+    onClose?: () => void;
     /** Numeric only: move the value by the input's step attribute. */
     onStep?: (direction: 1 | -1) => void;
     /** Numeric only: whether the decimal separator key is enabled. */
@@ -45,6 +47,7 @@ export default function VirtualKeyboard({
     onArrowRight,
     onTab,
     onTabBack,
+    onClose,
     onStep,
     decimalAllowed = true,
     stepEnabled = true,
@@ -80,6 +83,7 @@ export default function VirtualKeyboard({
                 className="fixed bottom-0 left-0 right-0 z-110 bg-white dark:bg-gray-900 border-t-2 border-gray-300 dark:border-gray-700 shadow-2xl p-2 select-none"
                 onMouseDown={(e) => e.preventDefault()}
             >
+                {onClose && <CloseButton onClose={onClose} size="sm" className="absolute top-0 right-2" />}
                 <div className="max-w-5xl mx-auto flex gap-1.5 items-stretch justify-center">
                     {/* +, -, delete column */}
                     <div className="flex flex-col gap-1.5">
@@ -154,6 +158,7 @@ export default function VirtualKeyboard({
             className="fixed bottom-0 left-0 right-0 z-110 bg-white dark:bg-gray-900 border-t-2 border-gray-300 dark:border-gray-700 shadow-2xl p-2 select-none"
             onMouseDown={(e) => e.preventDefault()}
         >
+            {onClose && <CloseButton onClose={onClose} size="sm" className="absolute top-0 right-2" />}
             <div className="max-w-5xl mx-auto flex gap-3 items-stretch">
                 {/* Letters section - 3 rows only */}
                 <div className="flex-1 space-y-1.5">
