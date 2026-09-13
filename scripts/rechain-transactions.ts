@@ -8,6 +8,10 @@
  * hash + previous_hash for every transaction from that point — the same
  * logic as rechainFrom() in the saveTransaction route.
  *
+ * Detection covers linkage anomalies (previous_hash ≠ stored hash of the
+ * preceding row, NULL hashes) but NOT content tampering — a row whose data
+ * was edited without touching the hashes needs an explicit --from <id>.
+ *
  * ⚠️  Rewrites stored hashes. Closure anchors (first/last tx hash per day)
  * become stale: re-run scripts/populate-nf525-tables.ts --force-rechain
  * afterwards.
@@ -23,6 +27,10 @@ const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run');
 const fromIdx = args.indexOf('--from');
 const FROM_ARG = fromIdx >= 0 ? Number(args[fromIdx + 1]) : null;
+if (fromIdx >= 0 && (!Number.isInteger(FROM_ARG) || FROM_ARG! <= 0)) {
+    console.error('Usage: bun run scripts/rechain-transactions.ts [--from <id>] [--dry-run]');
+    process.exit(1);
+}
 
 const database = process.env.NEXT_PUBLIC_SHOP_ID || process.env.PG_DATABASE || 'neondb';
 const pool = new Pool({
@@ -52,7 +60,15 @@ async function main() {
     const client = await pool.connect();
     try {
         await client.query('SET search_path TO dc_pos, public');
-        await client.query('SELECT pg_advisory_lock(hashtext($1))', [`${database}.nf525_transactions`]);
+        // Same advisory-lock key as the app's saveTransaction path —
+        // pg_advisory_lock is already database-scoped; a database prefix in
+        // the key would only make it differ and miss concurrent writers.
+        await client.query('SELECT pg_advisory_lock(hashtext($1))', ['nf525_transactions']);
+
+        // Everything runs inside ONE transaction so the FOR UPDATE row locks
+        // and the anomaly detection see a consistent, locked snapshot — a
+        // transaction committed mid-run can no longer fork the tail again.
+        await client.query('BEGIN');
 
         // Find the first chain anomaly unless --from was passed.
         let fromId = FROM_ARG;
@@ -62,10 +78,11 @@ async function main() {
             );
             let prevHash: string | null = null;
             for (const row of rows) {
-                if (row.previous_hash !== prevHash) {
+                if (row.hash === null || row.previous_hash !== prevHash) {
                     fromId = row.id;
                     console.log(
-                        `Fork detected at tx #${row.id}: stored prev ${row.previous_hash?.slice(0, 16)}… ` +
+                        `Anomaly at tx #${row.id}: ${row.hash === null ? 'NULL hash; ' : ''}` +
+                            `stored prev ${row.previous_hash?.slice(0, 16)}… ` +
                             `but expected ${prevHash?.slice(0, 16) ?? 'null'}…`
                     );
                     break;
@@ -75,6 +92,7 @@ async function main() {
         }
         if (fromId === null) {
             console.log('Chain is already linear — nothing to do.');
+            await client.query('COMMIT');
             return;
         }
 
@@ -169,7 +187,6 @@ async function main() {
         let prevHash: string | null = anchorRows[0]?.hash ?? null;
 
         let changed = 0;
-        if (!DRY_RUN) await client.query('BEGIN');
         try {
             for (const tx of txs) {
                 const hash = computeTransactionHash(
@@ -204,9 +221,9 @@ async function main() {
                 }
                 prevHash = hash;
             }
-            if (!DRY_RUN) await client.query('COMMIT');
+            await client.query('COMMIT');
         } catch (e) {
-            if (!DRY_RUN) await client.query('ROLLBACK');
+            await client.query('ROLLBACK');
             throw e;
         }
 
@@ -216,7 +233,7 @@ async function main() {
         );
     } finally {
         try {
-            await client.query('SELECT pg_advisory_unlock(hashtext($1))', [`${database}.nf525_transactions`]);
+            await client.query('SELECT pg_advisory_unlock(hashtext($1))', ['nf525_transactions']);
         } catch {
             /* lock released with the session anyway */
         }

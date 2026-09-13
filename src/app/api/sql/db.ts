@@ -101,6 +101,11 @@ class PostgreSQLConnectionWrapper implements DbConnection {
     private connected = false;
     private searchPathSet = false;
     private inTransaction = false;
+    // Session-scoped advisory locks (pg_advisory_lock) outlive the caller's
+    // queries — if a lock-holder times out mid-flight the client could be
+    // released to the pool still holding it, silently serializing the next
+    // borrower. Tracked here so end() can release it explicitly.
+    private holdsAdvisoryLock = false;
 
     constructor(private client: PoolClient) {
         // Pool clients are already connected when handed to the wrapper.
@@ -139,6 +144,8 @@ class PostgreSQLConnectionWrapper implements DbConnection {
     }
 
     async execute(query: string, params?: unknown[]): Promise<[unknown[], unknown]> {
+        if (query.includes('pg_advisory_lock')) this.holdsAdvisoryLock = true;
+        else if (query.includes('pg_advisory_unlock')) this.holdsAdvisoryLock = false;
         const rows = await this.runQuery(query, params);
         return [rows, {}];
     }
@@ -177,6 +184,12 @@ class PostgreSQLConnectionWrapper implements DbConnection {
 
     async end(): Promise<void> {
         if (this.connected) {
+            // Same reasoning as inTransaction: a client holding a session
+            // advisory lock must not go back to the pool.
+            if (this.holdsAdvisoryLock) {
+                await this.client.query('SELECT pg_advisory_unlock_all()').catch(() => {});
+                this.holdsAdvisoryLock = false;
+            }
             // Destroy rather than reuse a client whose transaction never closed,
             // otherwise the next borrower inherits an aborted transaction.
             this.client.release(this.inTransaction || undefined);
