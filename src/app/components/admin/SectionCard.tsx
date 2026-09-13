@@ -104,7 +104,7 @@ export default function SectionCard({
                                 )}
                                 {onSave && (
                                     <AdminButton
-                                        variant="save"
+                                        variant="add"
                                         disabled={saveDisabled}
                                         isLoading={isLoading}
                                         onClick={(e) => {
@@ -126,7 +126,7 @@ export default function SectionCard({
                     {children}
                     {extraActions}
                     {onAdd && !isReadOnly && (
-                        <AdminButton variant="add" onClick={onAdd} disabled={!isValid}>
+                        <AdminButton variant="add" className="mt-4" onClick={onAdd} disabled={!isValid}>
                             {addLabel}
                         </AdminButton>
                     )}

@@ -30,7 +30,8 @@
 
 - Reuse existing components such as `src/app/components/Popup.tsx` before introducing new ones.
 - Keep components in `src/app/components/` or `src/app/components/admin/...` depending on ownership.
-- **NEVER use `window.confirm`, `window.alert`, or `window.prompt`.** Always use the `usePopup` hook (`openPopup`) for confirmations and dialogs.
+- **Admin pages must use the shared admin components** (`src/app/components/admin/`): `AdminButton`, `AdminSelect`, `AdminInput`, `AdminSegmentedControl`, `Switch`, `SectionCard`, etc. Do NOT hand-roll buttons or inputs with custom Tailwind classes — if a style needs changing, change it in the shared component.
+- **NEVER use `window.confirm`, `window.alert`, or `window.prompt`.** Always use the `usePopup` hook for confirmations and dialogs — and prefer `openFullscreenPopup` (not `openPopup`) for confirmations, pickers, and reports; a plain popup is only acceptable for a one-line notice.
 
 ## Hardware
 

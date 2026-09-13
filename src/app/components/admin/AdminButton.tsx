@@ -5,7 +5,7 @@ import { IconLoader2 } from '@tabler/icons-react';
 import { twMerge } from 'tailwind-merge';
 
 interface AdminButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-    variant?: 'primary' | 'secondary' | 'add' | 'save' | 'danger';
+    variant?: 'primary' | 'secondary' | 'add' | 'active' | 'danger';
     isLoading?: boolean;
 }
 
@@ -17,14 +17,17 @@ export default function AdminButton({
     disabled,
     ...props
 }: AdminButtonProps) {
+    // h-8 matches the other admin controls (inputs, selects) so buttons align
+    // with them in a row. Only `primary` uses the secondary-active theme
+    // color; the other variants keep their semantic colors.
     const baseStyles =
-        'font-bold py-2 px-4 gap-2 rounded-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-white dark:text-gray-700 hover:opacity-80 cursor-pointer';
+        'font-bold h-8 px-3 gap-2 rounded-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-white dark:text-gray-700 hover:opacity-90 cursor-pointer';
 
     const variantStyles = {
-        primary: 'bg-blue-600 hover:bg-blue-700',
+        primary: 'bg-secondary-active-light dark:bg-secondary-active-dark text-popup-dark dark:text-popup-light',
         secondary: 'bg-gray-500 hover:bg-gray-600',
-        add: 'bg-green-600 hover:bg-green-700 mt-4',
-        save: 'bg-active-light dark:bg-active-dark',
+        add: 'bg-green-600 hover:bg-green-700',
+        active: 'bg-active-light dark:bg-active-dark',
         danger: 'bg-red-600 hover:bg-red-700',
     }[variant];
 
