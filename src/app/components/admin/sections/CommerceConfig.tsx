@@ -34,6 +34,8 @@ import {
     IconBuildingStore,
     IconInfoCircle,
     IconExternalLink,
+    IconCopy,
+    IconCopyCheck,
 } from '@tabler/icons-react';
 import { usePopup } from '@/app/hooks/usePopup';
 import { AttestationViewer } from '@/app/components/AttestationViewer';
@@ -55,6 +57,32 @@ interface CommerceConfigProps {
 }
 
 const MAX_IMAGE_SIZE = 512 * 1024; // 512 KB
+
+/** Integrity report shown in a fullscreen popup: read-only text (clicks must
+ * not close the popup — stayOpen is set by the caller) plus a copy button. */
+function IntegrityReport({ lines }: { lines: string[] }) {
+    const [copied, setCopied] = useState(false);
+    const text = lines.join('\n');
+    return (
+        <div className="text-left w-full">
+            <pre className="whitespace-pre-wrap font-mono text-sm select-text max-h-[60vh] overflow-y-auto">{text}</pre>
+            <button
+                type="button"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    navigator.clipboard.writeText(text).then(() => {
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                    });
+                }}
+                className="mt-3 mx-auto flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-secondary-active-light dark:bg-secondary-active-dark text-popup-dark dark:text-popup-light cursor-pointer"
+            >
+                {copied ? <IconCopyCheck size={16} /> : <IconCopy size={16} />}
+                {copied ? 'Copié !' : 'Copier le rapport'}
+            </button>
+        </div>
+    );
+}
 
 function ImageUploadField({
     label,
@@ -323,7 +351,12 @@ export default function CommerceConfig({
                             lines.push(...issueLines, more);
                         }
                     }
-                    openFullscreenPopup("Échec de l'intégrité NF525", lines);
+                    openFullscreenPopup(
+                        "Échec de l'intégrité NF525",
+                        [<IntegrityReport key="report" lines={lines} />],
+                        undefined,
+                        true
+                    );
                 }
             })
             .catch(() => {

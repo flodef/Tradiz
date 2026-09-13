@@ -74,10 +74,28 @@ export async function POST(request: Request) {
             const current = await readSubscription(connection);
             const status = current.status as SubscriptionStatus;
 
+            // Anti-ping-pong: at most 3 subscription changes per day
+            // (billing_method switches don't count — they write no event).
+            const countQuery = isPg
+                ? `SELECT COUNT(*) AS c FROM ${p}subscription_events WHERE created_at >= CURRENT_DATE`
+                : `SELECT COUNT(*) AS c FROM ${p}subscription_events WHERE created_at >= CURDATE()`;
+            const [countRows] = await connection.execute(countQuery);
+            const changesToday = Number((countRows as { c: number | string }[])[0]?.c) || 0;
+
             const fail = async (msg: string, code = 400) => {
                 await connection!.rollback();
                 return NextResponse.json({ error: msg }, { status: code });
             };
+
+            if (
+                (body.action === 'start' || body.action === 'stop' || body.action === 'plan_change') &&
+                changesToday >= 3
+            ) {
+                return fail(
+                    'Nombre maximum de changements d\u2019abonnement atteint pour aujourd\u2019hui (3 par jour).',
+                    429
+                );
+            }
 
             if (body.action === 'billing_method') {
                 if (body.billing_method !== 'revolut' && body.billing_method !== 'invoice') {
