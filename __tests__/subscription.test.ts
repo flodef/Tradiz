@@ -68,14 +68,41 @@ describe('computeMonthlyBill (June 2025 = 30 days)', () => {
         expect(bill.total).toBe(50);
     });
 
-    it('uses a fixed 30-day divisor even in a 31-day month', () => {
+    it('uses a fixed 30-day divisor but caps at the monthly price in a 31-day month', () => {
         const events: SubscriptionEvent[] = [
             { event_type: 'start', plan: 'decouverte', created_at: new Date(2025, 6, 1, 0) },
         ];
         const bill = computeMonthlyBill(events, 2025, 7);
         expect(bill.days).toHaveLength(31);
         expect(bill.days[0].price).toBe(1); // 30/30
-        expect(bill.total).toBe(31); // 31 × 1€
+        expect(bill.total).toBe(30); // capped: never more than the plan's monthly price
+    });
+
+    it('only bills elapsed days when the month is the current one', () => {
+        const today = new Date(2025, 5, 10, 15); // June 10th
+        const events: SubscriptionEvent[] = [{ event_type: 'start', plan: 'pro', created_at: new Date(2025, 5, 1, 0) }];
+        const bill = computeMonthlyBill(events, 2025, 6, today);
+        expect(bill.days).toHaveLength(10);
+        expect(bill.total).toBeCloseTo((50 / 30) * 10, 2);
+    });
+
+    it('ignores malformed event dates instead of corrupting the month', () => {
+        const events: SubscriptionEvent[] = [
+            ev(1, 'start', 'decouverte', 0),
+            { event_type: 'plan_change', plan: 'privilege', created_at: 'not-a-date' },
+        ];
+        const bill = computeMonthlyBill(events, 2025, 6, new Date(2025, 6, 1));
+        expect(bill.total).toBe(30);
+    });
+
+    it('ignores invalid plan strings stored by manual edits', () => {
+        const events = [
+            { event_type: 'start', plan: 'decouverte', created_at: new Date(2025, 5, 1) },
+            { event_type: 'plan_change', plan: 'bogus-plan', created_at: new Date(2025, 5, 10) },
+        ] as unknown as SubscriptionEvent[];
+        const bill = computeMonthlyBill(events, 2025, 6);
+        expect(bill.days[9].plan).toBeNull(); // bogus → treated as stopped
+        expect(bill.total).toBeCloseTo(9, 2);
     });
 });
 

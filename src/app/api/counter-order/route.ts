@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertSubscriptionActive } from '../sql/subscriptionStore';
 
 /**
  * POST /api/counter-order
@@ -7,6 +9,10 @@ import { NextRequest, NextResponse } from 'next/server';
  * et broadcast vers l'affichage cuisine.
  */
 export async function POST(req: NextRequest) {
+    // Creating a counter order is a sale-side mutation — blocked in read-only.
+    const subGuard = await assertSubscriptionActive(getShopIdFromRequest(req));
+    if (subGuard) return subGuard;
+
     try {
         const body = await req.json();
 

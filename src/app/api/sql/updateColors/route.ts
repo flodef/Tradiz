@@ -1,5 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
-import { assertSubscriptionActive } from '../subscriptionStore';
+import { assertPlanFeature } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { getMainDb, DbConnection } from '../db';
 
@@ -18,7 +18,11 @@ interface UpdateColorsRequest {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const subGuard = await assertSubscriptionActive(shopId);
+    const subGuard = await assertPlanFeature(
+        shopId,
+        'advancedCustomization',
+        'La personnalisation avancée nécessite la formule Privilège.'
+    );
     if (subGuard) return subGuard;
     let connection: DbConnection | undefined;
     try {

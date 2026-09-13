@@ -54,9 +54,10 @@ export async function fetchCatalog(shopId: string) {
                 : (posResult as PromiseRejectedResult).reason;
         }
 
-        // Plan limit: the online site requires Pro or above.
+        // Plan limit: the online site requires Pro or above, and a stopped
+        // subscription takes the public site down with it.
         const sub = await readSubscription(posConn!);
-        if (!SUBSCRIPTION_PLANS[sub.plan].limits.onlineSite) {
+        if (sub.status === 'stopped' || !SUBSCRIPTION_PLANS[sub.plan].limits.onlineSite) {
             await mainConn?.end();
             await posConn?.end();
             return NextResponse.json({ error: 'Site en ligne non inclus dans cette formule' }, { status: 403 });
@@ -109,7 +110,11 @@ export async function fetchCatalog(shopId: string) {
             mainConn!.execute(queryProducts).then(([rows]) => rows),
             posConn!.execute(queryParams, SHOP_PARAM_KEYS).then(([rows]) => rows),
             posConn!
-                .execute('SELECT label, symbol, max_value, decimals, rate, fee FROM currencies')
+                .execute(
+                    posConn!.isPostgreSQL
+                        ? 'SELECT label, symbol, max_value, decimals, rate, fee FROM dc_pos.currencies'
+                        : 'SELECT label, symbol, max_value, decimals, rate, fee FROM currencies'
+                )
                 .then(([rows]) => rows)
                 .catch(() => null),
         ]);

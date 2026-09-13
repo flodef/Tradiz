@@ -1,5 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
-import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptionStore';
+import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
+import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
 
@@ -14,8 +15,16 @@ export async function POST(request: Request) {
         }
 
         connection = await getPosDb(shopId);
-        if (await subscriptionStopped(connection)) {
+        // Company invoicing is a Privilège feature; stopped = read-only.
+        const sub = await readSubscription(connection);
+        if (sub.status === 'stopped') {
             return stoppedSubscriptionResponse();
+        }
+        if (!SUBSCRIPTION_PLANS[sub.plan].limits.companies) {
+            return NextResponse.json(
+                { error: 'Facturation entreprise non incluse dans cette formule' },
+                { status: 403 }
+            );
         }
         const isPg = connection.isPostgreSQL;
         const prefix = isPg ? 'dc_pos.' : '';

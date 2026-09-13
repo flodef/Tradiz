@@ -4,6 +4,8 @@ import type { BillingReport } from '@/app/utils/interfaces';
 import type { Shop } from '@/app/contexts/ConfigProvider';
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { getPosDb } from '../../sql/db';
+import { readSubscription, stoppedSubscriptionResponse } from '../../sql/subscriptionStore';
+import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
@@ -24,6 +26,15 @@ export async function POST(request: Request) {
         let pennylaneToken: string | undefined;
         const connection = await getPosDb(shopId);
         try {
+            // Company invoicing is a Privilège feature with an external side effect.
+            const sub = await readSubscription(connection);
+            if (sub.status === 'stopped') return stoppedSubscriptionResponse();
+            if (!SUBSCRIPTION_PLANS[sub.plan].limits.companies) {
+                return NextResponse.json(
+                    { error: 'La facturation entreprise nécessite la formule Privilège.' },
+                    { status: 403 }
+                );
+            }
             const isPg = connection.isPostgreSQL;
             const prefix = isPg ? 'dc_pos.' : '';
             const query = isPg

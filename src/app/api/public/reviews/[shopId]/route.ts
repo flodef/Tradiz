@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getMainDb, DbConnection } from '../../../sql/db';
+import { getMainDb, getPosDb, DbConnection } from '../../../sql/db';
+import { readSubscription } from '../../../sql/subscriptionStore';
+import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 import { SHOP_IDS } from '@/app/constants/shops';
 
 export const dynamic = 'force-dynamic';
@@ -70,6 +72,25 @@ export async function GET(request: Request, { params }: { params: Promise<{ shop
     }
 }
 
+/** Reviews are part of the public site — writes are rejected when the
+ * subscription is stopped or the plan has no online site. */
+async function assertReviewable(shopId: string): Promise<NextResponse | null> {
+    let posConn: DbConnection | undefined;
+    try {
+        posConn = await getPosDb(shopId);
+        const sub = await readSubscription(posConn);
+        if (sub.status === 'stopped' || !SUBSCRIPTION_PLANS[sub.plan].limits.onlineSite) {
+            return NextResponse.json(
+                { error: 'Avis indisponibles — abonnement suspendu ou formule sans site en ligne' },
+                { status: 403 }
+            );
+        }
+        return null;
+    } finally {
+        await posConn?.end();
+    }
+}
+
 /** POST /api/public/reviews/[shopId] — create a review */
 export async function POST(request: Request, { params }: { params: Promise<{ shopId: string }> }) {
     const { shopId: rawShopId } = await params;
@@ -78,6 +99,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ sho
     if (!SHOP_IDS.includes(shopId as (typeof SHOP_IDS)[number])) {
         return NextResponse.json({ error: 'Invalid shop' }, { status: 400 });
     }
+
+    const denied = await assertReviewable(shopId);
+    if (denied) return denied;
 
     let body: { userId?: string; userName?: string; rating?: number; comment?: string };
     try {
@@ -159,6 +183,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
     if (!SHOP_IDS.includes(shopId as (typeof SHOP_IDS)[number])) {
         return NextResponse.json({ error: 'Invalid shop' }, { status: 400 });
     }
+
+    const denied = await assertReviewable(shopId);
+    if (denied) return denied;
 
     let body: { userId?: string };
     try {

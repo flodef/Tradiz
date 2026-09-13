@@ -2,6 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from '../db';
 import { insertAuditEvent } from '../auditHelpers';
+import { assertSubscriptionActive } from '../subscriptionStore';
 import { buildAttestationPdf, type AttestationShopData } from '@/app/utils/attestationPdf';
 import { getSoftwareVersion } from '@/app/utils/version';
 import fs from 'fs';
@@ -253,6 +254,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
     let connection: DbConnection | undefined;
+    // Signing/replacing the attestation mutates parameters + audit events.
+    const blocked = await assertSubscriptionActive(shopId);
+    if (blocked) return blocked;
     const contentType = request.headers.get('content-type') || '';
 
     // ── JSON mode: electronic signature ──
@@ -386,6 +390,8 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
     const shopId = getShopIdFromRequest(request);
     let connection: DbConnection | undefined;
+    const blocked = await assertSubscriptionActive(shopId);
+    if (blocked) return blocked;
     try {
         const url = new URL(request.url);
         const operatorName = url.searchParams.get('changedBy') || 'admin';

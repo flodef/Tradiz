@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 
 const REVOLUT_API_URL =
     process.env.REVOLUT_MODE === 'prod'
         ? 'https://merchant.revolut.com/api/orders'
         : 'https://sandbox-merchant.revolut.com/api/orders';
-
-// Server-side plan definitions — the source of truth for pricing.
-// The client must never control the amount; we validate and compute it here.
-const SERVER_PLANS: Record<string, { name: string; monthly: number; annual: number }> = {
-    decouverte: { name: 'Découverte', monthly: 3000, annual: 30000 },
-    pro: { name: 'Pro', monthly: 5000, annual: 50000 },
-    privilege: { name: 'Privilège', monthly: 10000, annual: 100000 },
-};
 
 export async function POST(request: NextRequest) {
     try {
@@ -21,18 +14,18 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Missing or invalid planName' }, { status: 400 });
         }
 
-        // Find the plan by name (case-insensitive)
-        const plan = Object.values(SERVER_PLANS).find((p) => p.name.toLowerCase() === planName.toLowerCase());
+        // Find the plan by name (case-insensitive) — prices come from the
+        // shared plan definitions; the client must never control the amount.
+        const plan = Object.values(SUBSCRIPTION_PLANS).find((p) => p.name.toLowerCase() === planName.toLowerCase());
         if (!plan) {
             return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
         }
 
-        // Compute amount server-side based on billing period
-        if (billing !== 'monthly' && billing !== 'annual') {
+        // Subscriptions are monthly only — annual prepayment no longer exists.
+        if (billing !== 'monthly') {
             return NextResponse.json({ error: 'Invalid billing period' }, { status: 400 });
         }
-        const isAnnual = billing === 'annual';
-        const amount = isAnnual ? plan.annual : plan.monthly;
+        const amount = Math.round(plan.monthlyPrice * 100);
         if (!amount || amount <= 0) {
             return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
         }

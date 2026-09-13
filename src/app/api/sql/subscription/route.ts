@@ -74,28 +74,32 @@ export async function POST(request: Request) {
             const current = await readSubscription(connection);
             const status = current.status as SubscriptionStatus;
 
-            // Anti-ping-pong: at most 3 subscription changes per day
-            // (billing_method switches don't count — they write no event).
-            const countQuery = isPg
-                ? `SELECT COUNT(*) AS c FROM ${p}subscription_events WHERE created_at >= CURRENT_DATE`
-                : `SELECT COUNT(*) AS c FROM ${p}subscription_events WHERE created_at >= CURDATE()`;
-            const [countRows] = await connection.execute(countQuery);
-            const changesToday = Number((countRows as { c: number | string }[])[0]?.c) || 0;
-
             const fail = async (msg: string, code = 400) => {
                 await connection!.rollback();
                 return NextResponse.json({ error: msg }, { status: code });
             };
 
-            if (
-                (body.action === 'start' || body.action === 'stop' || body.action === 'plan_change') &&
-                changesToday >= 3
-            ) {
-                return fail(
-                    'Nombre maximum de changements d\u2019abonnement atteint pour aujourd\u2019hui (3 par jour).',
-                    429
-                );
-            }
+            // Anti-ping-pong: at most 3 subscription changes per day
+            // (billing_method switches don't count — they write no event).
+            // Checked lazily per action so an invalid/redundant call still
+            // gets its proper 400/409 rather than a misleading 429.
+            // NOTE: "today" uses the DB clock (CURRENT_DATE/CURDATE) while
+            // computeMonthlyBill uses the Node clock — deployments are
+            // expected to run both in the same timezone.
+            const checkDailyQuota = async () => {
+                const countQuery = isPg
+                    ? `SELECT COUNT(*) AS c FROM ${p}subscription_events WHERE created_at >= CURRENT_DATE`
+                    : `SELECT COUNT(*) AS c FROM ${p}subscription_events WHERE created_at >= CURDATE()`;
+                const [countRows] = await connection!.execute(countQuery);
+                const changesToday = Number((countRows as { c: number | string }[])[0]?.c) || 0;
+                if (changesToday >= 3) {
+                    return fail(
+                        'Nombre maximum de changements d\u2019abonnement atteint pour aujourd\u2019hui (3 par jour).',
+                        429
+                    );
+                }
+                return null;
+            };
 
             if (body.action === 'billing_method') {
                 if (body.billing_method !== 'revolut' && body.billing_method !== 'invoice') {
@@ -109,6 +113,8 @@ export async function POST(request: Request) {
                 );
             } else if (body.action === 'stop') {
                 if (status !== 'active') return fail('Subscription is already stopped', 409);
+                const quota = await checkDailyQuota();
+                if (quota) return quota;
                 await writeEvent(connection, 'stop', null);
                 await connection.execute(
                     isPg
@@ -119,6 +125,8 @@ export async function POST(request: Request) {
                 if (status === 'active') return fail('Subscription is already active', 409);
                 const plan = body.plan ?? (current.plan as SubscriptionPlan);
                 if (!isSubscriptionPlan(plan)) return fail('Invalid plan');
+                const quota = await checkDailyQuota();
+                if (quota) return quota;
                 await writeEvent(connection, 'start', plan);
                 await connection.execute(
                     isPg
@@ -130,6 +138,8 @@ export async function POST(request: Request) {
                 if (status !== 'active') return fail('Restart the subscription before changing plan', 409);
                 if (!isSubscriptionPlan(body.plan)) return fail('Invalid plan');
                 if (body.plan === current.plan) return fail('Already on this plan', 409);
+                const quota = await checkDailyQuota();
+                if (quota) return quota;
                 await writeEvent(connection, 'plan_change', body.plan);
                 await connection.execute(
                     isPg
@@ -152,7 +162,13 @@ export async function POST(request: Request) {
             await connection.commit();
             return NextResponse.json({ success: true });
         } finally {
-            await unlock();
+            // Releasing the advisory lock must not turn a committed change
+            // into a reported 500 (the client would retry and hit a 409).
+            try {
+                await unlock();
+            } catch (e) {
+                console.error('Failed to release subscription lock:', e);
+            }
         }
     } catch (error) {
         console.error('Error updating subscription:', error);

@@ -134,18 +134,32 @@ function toDate(value: string | Date): Date {
  * Compute the prorated invoice for a month from the event log.
  * Each day is billed at the most expensive plan active at any point during
  * that day ("on est facturé le tarif le plus cher pour la journée").
+ *
+ * The total never exceeds the monthly price of the most expensive plan used
+ * (otherwise 31-day months would over-bill: 31 × price/30 > price).
+ * For the current month, only days up to today are billed.
  */
-export function computeMonthlyBill(events: SubscriptionEvent[], year: number, month: number): MonthlyBill {
+export function computeMonthlyBill(
+    events: SubscriptionEvent[],
+    year: number,
+    month: number,
+    today: Date = new Date()
+): MonthlyBill {
     const daysInMonth = new Date(year, month, 0).getDate();
     const DAYS_DIVISOR = 30; // fixed 30-day month, per billing spec
+    const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
+    const lastDay = isCurrentMonth ? Math.min(today.getDate(), daysInMonth) : daysInMonth;
+
     const sorted = [...events]
         .map((e) => ({ ...e, at: toDate(e.created_at) }))
+        .filter((e) => !isNaN(e.at.getTime())) // a malformed date must not corrupt the whole month
         .sort((a, b) => a.at.getTime() - b.at.getTime());
 
     const days: DayBilling[] = [];
     let total = 0;
 
-    for (let day = 1; day <= daysInMonth; day++) {
+    let maxPlanPrice = 0;
+    for (let day = 1; day <= lastDay; day++) {
         const dayStart = new Date(year, month - 1, day, 0, 0, 0, 0);
         const dayEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
 
@@ -153,25 +167,27 @@ export function computeMonthlyBill(events: SubscriptionEvent[], year: number, mo
         // plus every event inside the day.
         let current: SubscriptionPlan | null = null;
         for (const e of sorted) {
-            if (e.at <= dayStart) current = e.plan;
+            if (e.at <= dayStart) current = isSubscriptionPlan(e.plan) ? e.plan : null;
             else break;
         }
         let best: SubscriptionPlan | null = current;
         for (const e of sorted) {
             if (e.at <= dayStart) continue;
             if (e.at > dayEnd) break;
-            current = e.plan;
+            current = isSubscriptionPlan(e.plan) ? e.plan : null;
             if (current && (!best || planRank(current) > planRank(best))) best = current;
         }
 
         // Keep the exact daily amount — rounding each day would drift the
         // monthly total (e.g. 50/30 × 30 = 50.10). Round only the invoice.
         const price = best ? SUBSCRIPTION_PLANS[best].monthlyPrice / DAYS_DIVISOR : 0;
+        if (best) maxPlanPrice = Math.max(maxPlanPrice, SUBSCRIPTION_PLANS[best].monthlyPrice);
         total += price;
         days.push({ date: formatDay(dayStart), plan: best, price: round2(price) });
     }
 
-    return { year, month, total: round2(total), days };
+    // Never bill more than the most expensive plan's full monthly price.
+    return { year, month, total: round2(Math.min(total, maxPlanPrice || total)), days };
 }
 
 function planRank(plan: SubscriptionPlan): number {

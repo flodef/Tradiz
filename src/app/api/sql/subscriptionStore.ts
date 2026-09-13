@@ -22,6 +22,15 @@ export function subscriptionPrefix(conn: DbConnection): string {
     return conn.isPostgreSQL ? 'dc_pos.' : '';
 }
 
+// Only a genuinely missing table/row should fall back to the grandfathered
+// default — any other DB error (timeout, permissions…) must fail closed:
+// returning 'privilege/active' would silently unlock a stopped shop.
+function isMissingTableError(error: unknown): boolean {
+    const code = (error as { code?: string })?.code;
+    // pg: 42P01 undefined_table — MySQL/MariaDB: ER_NO_SUCH_TABLE
+    return code === '42P01' || code === 'ER_NO_SUCH_TABLE';
+}
+
 export async function readSubscription(connection: DbConnection): Promise<SubscriptionRow> {
     try {
         const [rows] = await connection.execute(
@@ -34,9 +43,10 @@ export async function readSubscription(connection: DbConnection): Promise<Subscr
             status: row.status === 'stopped' ? 'stopped' : 'active',
             billing_method: row.billing_method === 'revolut' ? 'revolut' : 'invoice',
         };
-    } catch {
-        // Table not migrated yet — grandfather full access
-        return DEFAULT_ROW;
+    } catch (error) {
+        if (isMissingTableError(error)) return DEFAULT_ROW; // table not migrated yet
+        console.error('readSubscription failed — failing closed path:', error);
+        throw error;
     }
 }
 
@@ -46,16 +56,11 @@ export async function readSubscriptionEvents(connection: DbConnection): Promise<
             `SELECT event_type, plan, created_at FROM ${subscriptionPrefix(connection)}subscription_events ORDER BY id ASC`
         );
         return rows as SubscriptionEvent[];
-    } catch {
-        return [];
+    } catch (error) {
+        if (isMissingTableError(error)) return [];
+        console.error('readSubscriptionEvents failed:', error);
+        throw error;
     }
-}
-
-/** Limits of the shop's current plan. Stopped subscription still reports the
- * plan's limits — the read-only lock is enforced separately. */
-export async function getPlanLimits(connection: DbConnection): Promise<PlanLimits> {
-    const row = await readSubscription(connection);
-    return SUBSCRIPTION_PLANS[row.plan].limits;
 }
 
 export function stoppedSubscriptionResponse(): NextResponse {
@@ -77,6 +82,30 @@ export async function assertSubscriptionActive(shopId: string): Promise<NextResp
     try {
         connection = await getPosDb(shopId);
         if (await subscriptionStopped(connection)) return stoppedSubscriptionResponse();
+        return null;
+    } finally {
+        await connection?.end();
+    }
+}
+
+/**
+ * Same as assertSubscriptionActive, plus a plan-limit check: returns a 403
+ * when the subscription is stopped OR the current plan lacks `feature`.
+ */
+export async function assertPlanFeature(
+    shopId: string,
+    feature: keyof PlanLimits,
+    errorMessage: string
+): Promise<NextResponse | null> {
+    let connection: DbConnection | undefined;
+    try {
+        connection = await getPosDb(shopId);
+        const sub = await readSubscription(connection);
+        if (sub.status === 'stopped') return stoppedSubscriptionResponse();
+        const allowed = SUBSCRIPTION_PLANS[sub.plan].limits[feature];
+        if (allowed === false || allowed === 0) {
+            return NextResponse.json({ error: errorMessage }, { status: 403 });
+        }
         return null;
     } finally {
         await connection?.end();

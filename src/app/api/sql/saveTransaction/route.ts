@@ -1,7 +1,8 @@
 import { PROCESSING_KEYWORD, DEFAULT_USER, DEFAULT_VAT_RATE, EXPUNGED_KEYWORD } from '@/app/utils/constants';
 import { computeFidelityDelta } from '@/app/utils/fidelity';
 import { getShopIdFromRequest } from '@/app/constants/shop';
-import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptionStore';
+import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
+import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 import { NextResponse } from 'next/server';
 import { Connection, getPosDb } from '../db';
 import { insertAuditEvent, lockHashChain } from '../auditHelpers';
@@ -100,9 +101,14 @@ export async function POST(request: Request) {
         let connection: Connection | undefined;
         try {
             connection = await getPosDb(shopId);
-            if (await subscriptionStopped(connection)) {
+            const sub = await readSubscription(connection);
+            if (sub.status === 'stopped') {
                 return stoppedSubscriptionResponse();
             }
+            // Fidelity balance updates touch the customers table — a feature
+            // absent from the Découverte plan. Skip them entirely (apply AND
+            // reversal) when the plan doesn't include customers.
+            const canUpdateFidelity = SUBSCRIPTION_PLANS[sub.plan].limits.customers;
 
             await connection.beginTransaction();
             // Serialize writers on the transaction hash chain — a concurrent
@@ -180,9 +186,9 @@ export async function POST(request: Request) {
                 //   produces a net-zero delta (old reversed + new applied = 0 if unchanged).
                 // - 'delete'/'expunge': reverse the original delta (restore points)
                 // - 'update': just marks as PROCESSING, no point change
-                if (action === 'add' || action === 'sync') {
+                if ((action === 'add' || action === 'sync') && canUpdateFidelity) {
                     await updateCustomerFidelityPointsIdempotent(connection, transaction, oldFidelityData);
-                } else if (action === 'delete' || action === 'expunge') {
+                } else if ((action === 'delete' || action === 'expunge') && canUpdateFidelity) {
                     await updateCustomerFidelityPoints(
                         connection,
                         transaction,
