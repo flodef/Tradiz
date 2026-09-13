@@ -97,6 +97,55 @@ export function preloadedThemeScript(): string {
  *
  * @returns The script string
  */
+// Paths that never denote a public site route — mirrors proxy.ts.
+const RESERVED_SEGMENTS = [
+    'api',
+    'admin',
+    'stats',
+    'site',
+    'landing',
+    'checkout',
+    'mini',
+    'icons',
+    'fonts',
+    '_next',
+    'favicon.ico',
+    'manifest.webmanifest',
+];
+
+/**
+ * Whether `path` on `hostname` is a public site route. Shared between the
+ * inline pre-hydration script (siteThemeScript, kept in sync) and the
+ * client-side cleanup component.
+ */
+export function isSiteRoutePathname(path: string, hostname: string, publicSiteHost: string): boolean {
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+    const isPublicHost = hostname === publicSiteHost;
+    const isLandingHost = hostname === 'tradiz.fr' || hostname === 'www.tradiz.fr';
+
+    // Direct routes served from any host.
+    let isSiteRoute =
+        path === '/site' ||
+        path.startsWith('/site/') ||
+        path === '/landing' ||
+        path.startsWith('/landing/') ||
+        path === '/checkout' ||
+        path.startsWith('/checkout/');
+
+    // Clean shop URLs: the proxy rewrites /<shopId> → /site/<shopId> on the
+    // public site host and on localhost, but the browser path stays /<shopId>.
+    if (!isSiteRoute && (isPublicHost || isLocal)) {
+        const seg = path.match(/^\/([a-z0-9-]+)(\/.*)?$/i);
+        if (seg && !RESERVED_SEGMENTS.includes(seg[1].toLowerCase())) isSiteRoute = true;
+    }
+
+    // Root rewrites: / → /landing on the apex, / → /site on the public host.
+    // Deliberately NOT on POS subdomains (annette.tradiz.fr) or localhost.
+    if (!isSiteRoute && path === '/' && (isLandingHost || isPublicHost)) isSiteRoute = true;
+
+    return isSiteRoute;
+}
+
 export function siteThemeScript(): string {
     // Mirrors src/proxy.ts: paths that never denote a public site route.
     const publicSiteHost = process.env.PUBLIC_SITE_HOST || 'shop.tradiz.fr';
@@ -104,10 +153,10 @@ export function siteThemeScript(): string {
     var root = document.documentElement;
     var path = window.location.pathname || '';
     var hostname = window.location.hostname || '';
-    var isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.indexOf('localhost') === 0;
+    var isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
     var isPublicHost = hostname === '${publicSiteHost}';
     var isLandingHost = hostname === 'tradiz.fr' || hostname === 'www.tradiz.fr';
-    var RESERVED = ['api', 'admin', 'stats', 'site', 'landing', 'checkout', 'mini', 'icons', 'fonts', '_next', 'favicon.ico', 'manifest.webmanifest'];
+    var RESERVED = ${JSON.stringify(RESERVED_SEGMENTS)};
 
     // Direct routes served from any host.
     var isSiteRoute =

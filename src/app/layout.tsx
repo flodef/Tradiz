@@ -4,6 +4,7 @@ import './globals.css';
 import { USE_DIGICARTE } from './utils/constants';
 import { conditionalManifestScript, preloadedThemeScript, siteThemeScript } from './utils/scriptUtils';
 import { VersionChecker } from './components/VersionChecker';
+import { SiteRouteCleanup } from './components/SiteRouteCleanup';
 
 export const metadata = {
     title: 'Tradiz',
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             >
                 {children}
                 <VersionChecker />
+                <SiteRouteCleanup publicSiteHost={process.env.PUBLIC_SITE_HOST || 'shop.tradiz.fr'} />
             </body>
         </html>
     );

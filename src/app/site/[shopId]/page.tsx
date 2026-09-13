@@ -31,6 +31,7 @@ import {
     formatTimeDisplay,
     formatDuration,
     getOpenStatus,
+    sanitizeOpeningHours,
     stockColor,
 } from '../types';
 
@@ -208,6 +209,9 @@ export default function SitePage() {
     }, []);
 
     const openStatus = useMemo(() => getOpenStatus(openingHours, now), [openingHours, now]);
+    // Sanitized once — malformed DB data (non-array days, bad slot shapes)
+    // must not crash the page or the hours modal.
+    const openingHoursByDay = useMemo(() => sanitizeOpeningHours(openingHours), [openingHours]);
 
     const handleContactSubmit = useCallback(
         async (e: React.FormEvent) => {
@@ -295,7 +299,7 @@ export default function SitePage() {
 
     const soldOutCount = articles.filter((a) => a.stock !== null && a.stock <= 0).length;
 
-    const hasOpeningHours = openingHours != null && Object.values(openingHours).some((slots) => slots.length > 0);
+    const hasOpeningHours = openingHoursByDay.size > 0;
 
     return (
         <div className="min-h-screen bg-site-bg text-site-text transition-colors duration-200">
@@ -1205,7 +1209,7 @@ export default function SitePage() {
                         </div>
                         <div className="flex flex-col gap-1">
                             {DAY_NAMES.map((dayName, dayIndex) => {
-                                const slots = openingHours[dayIndex] ?? [];
+                                const slots = openingHoursByDay.get(dayIndex) ?? [];
                                 const isToday = jsDayToAdminIndex(new Date().getDay()) === dayIndex;
                                 return (
                                     <div
