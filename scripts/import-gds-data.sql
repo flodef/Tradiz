@@ -765,5 +765,10 @@ INSERT INTO dc.products (sort_order, name, price, reference, category_id, vat_ra
 -- Subscription: GDS is on the Privilège plan
 INSERT INTO dc_pos.subscription (id, plan, status, billing_method) VALUES (1, 'privilege', 'active', 'invoice') ON CONFLICT (id) DO UPDATE SET plan = EXCLUDED.plan, status = EXCLUDED.status;
 INSERT INTO dc_pos.subscription_events (event_type, plan) SELECT 'start', 'privilege' WHERE NOT EXISTS (SELECT 1 FROM dc_pos.subscription_events);
+-- If an earlier anchor pinned another plan (e.g. migrate-subscription ran
+-- first), log the change so billing follows this import.
+INSERT INTO dc_pos.subscription_events (event_type, plan)
+SELECT 'plan_change', 'privilege'
+WHERE (SELECT e.plan FROM dc_pos.subscription_events e ORDER BY e.id DESC LIMIT 1) IS DISTINCT FROM 'privilege';
 
 COMMIT;

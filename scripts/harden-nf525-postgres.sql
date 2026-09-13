@@ -77,6 +77,11 @@ GRANT SELECT, INSERT ON dc_pos.annual_closures TO tradiz_app;
 -- perpetual_totals is updated in place (running totals) — UPDATE required.
 GRANT SELECT, INSERT, UPDATE ON dc_pos.perpetual_totals TO tradiz_app;
 
+-- subscription: the app reads + writes the singleton row (plan/status/billing).
+GRANT SELECT, INSERT, UPDATE ON dc_pos.subscription TO tradiz_app;
+-- subscription_events: append-only billing log.
+GRANT SELECT, INSERT ON dc_pos.subscription_events TO tradiz_app;
+
 -- NOTE: `ON ALL TABLES` only covers tables that exist right now. After any
 -- migration adding a table to dc/dc_pos/dc_sys, re-run this section (or set
 -- up ALTER DEFAULT PRIVILEGES on the owner role) or tradiz_app won't see it.
@@ -121,6 +126,12 @@ CREATE TRIGGER no_update_annual_closures
     BEFORE UPDATE OR DELETE ON dc_pos.annual_closures
     FOR EACH ROW EXECUTE FUNCTION dc_pos.prevent_fiscal_mutation();
 
+-- subscription_events is the billing ledger — append-only too.
+DROP TRIGGER IF EXISTS no_update_subscription_events ON dc_pos.subscription_events;
+CREATE TRIGGER no_update_subscription_events
+    BEFORE UPDATE OR DELETE ON dc_pos.subscription_events
+    FOR EACH ROW EXECUTE FUNCTION dc_pos.prevent_fiscal_mutation();
+
 -- Physical DELETE on transactions is never legitimate (logical delete only).
 DROP TRIGGER IF EXISTS no_delete_transactions ON dc_pos.transactions;
 CREATE TRIGGER no_delete_transactions
@@ -160,6 +171,7 @@ CREATE TRIGGER no_truncate_audit_events
 --   DROP TRIGGER IF EXISTS no_update_daily_closures ON dc_pos.daily_closures;
 --   DROP TRIGGER IF EXISTS no_update_monthly_closures ON dc_pos.monthly_closures;
 --   DROP TRIGGER IF EXISTS no_update_annual_closures ON dc_pos.annual_closures;
+--   DROP TRIGGER IF EXISTS no_update_subscription_events ON dc_pos.subscription_events;
 --   DROP TRIGGER IF EXISTS no_delete_transactions ON dc_pos.transactions;
 --   DROP TRIGGER IF EXISTS no_truncate_transactions ON dc_pos.transactions;
 --   DROP TRIGGER IF EXISTS no_truncate_audit_events ON dc_pos.audit_events;

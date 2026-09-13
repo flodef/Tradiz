@@ -515,6 +515,12 @@ INSERT INTO dc_pos.subscription (id, plan, status, billing_method)
 VALUES (1, 'privilege', 'active', 'invoice')
 ON CONFLICT (id) DO NOTHING;
 
+-- Billing anchor: without a 'start' event the monthly invoice stays 0 and
+-- no change can ever be billed. Seed it once, from the singleton plan.
+INSERT INTO dc_pos.subscription_events (event_type, plan)
+SELECT 'start', s.plan FROM dc_pos.subscription s
+WHERE s.id = 1 AND NOT EXISTS (SELECT 1 FROM dc_pos.subscription_events);
+
 -- Daily Closures (Ticket Z) — stores cumulative totals for each day
 CREATE TABLE IF NOT EXISTS dc_pos.daily_closures (
     id SERIAL PRIMARY KEY,

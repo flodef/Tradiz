@@ -72,6 +72,11 @@ GRANT SELECT, INSERT ON `DC_POS`.`annual_closures` TO 'tradiz_app'@'%';
 -- perpetual_totals is updated in place (running totals) — UPDATE required.
 GRANT SELECT, INSERT, UPDATE ON `DC_POS`.`perpetual_totals` TO 'tradiz_app'@'%';
 
+-- subscription: the app reads + writes the singleton row (plan/status/billing).
+GRANT SELECT, INSERT, UPDATE ON `DC_POS`.`subscription` TO 'tradiz_app'@'%';
+-- subscription_events: append-only billing log.
+GRANT SELECT, INSERT ON `DC_POS`.`subscription_events` TO 'tradiz_app'@'%';
+
 -- NOTE 1: `ON table` grants only cover existing tables — re-run this section
 -- after any migration adding a table, or tradiz_app won't see it.
 -- NOTE 2: MariaDB has no TRUNCATE triggers (TRUNCATE is DDL needing DROP).
@@ -184,6 +189,23 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'annual_closures is append-only — DELETE is not allowed';
 END//
 
+-- subscription_events is the billing ledger — append-only too.
+DROP TRIGGER IF EXISTS no_update_subscription_events//
+CREATE TRIGGER no_update_subscription_events
+    BEFORE UPDATE ON subscription_events
+    FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'subscription_events is append-only — UPDATE is not allowed';
+END//
+
+DROP TRIGGER IF EXISTS no_delete_subscription_events//
+CREATE TRIGGER no_delete_subscription_events
+    BEFORE DELETE ON subscription_events
+    FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'subscription_events is append-only — DELETE is not allowed';
+END//
+
 -- Physical DELETE on transactions is never legitimate (logical delete only).
 DROP TRIGGER IF EXISTS no_delete_transactions//
 CREATE TRIGGER no_delete_transactions
@@ -211,6 +233,8 @@ DELIMITER ;
 --   DROP TRIGGER IF EXISTS no_delete_monthly_closures;
 --   DROP TRIGGER IF EXISTS no_update_annual_closures;
 --   DROP TRIGGER IF EXISTS no_delete_annual_closures;
+--   DROP TRIGGER IF EXISTS no_update_subscription_events;
+--   DROP TRIGGER IF EXISTS no_delete_subscription_events;
 --   DROP TRIGGER IF EXISTS no_delete_transactions;
 --   DROP USER IF EXISTS 'tradiz_app'@'%';
 --

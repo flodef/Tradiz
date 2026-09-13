@@ -538,6 +538,12 @@ CREATE TABLE IF NOT EXISTS `subscription_events` (
 INSERT IGNORE INTO `subscription` (id, plan, status, billing_method)
 VALUES (1, 'privilege', 'active', 'invoice');
 
+-- Billing anchor: without a 'start' event the monthly invoice stays 0 and
+-- no change can ever be billed. Seed it once, from the singleton plan.
+INSERT INTO `subscription_events` (event_type, plan)
+SELECT 'start', s.plan FROM `subscription` s
+WHERE s.id = 1 AND NOT EXISTS (SELECT 1 FROM `subscription_events`);
+
 -- Daily Closures (Ticket Z) — stores cumulative totals for each day
 CREATE TABLE IF NOT EXISTS `daily_closures` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
