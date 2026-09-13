@@ -26,7 +26,9 @@
 -- ---------------------------------------------------------------------
 -- ⚠️  Replace the password before running. Adjust the host pattern to your
 --     deployment ('%' = any host, 'localhost' = same machine only).
+--     Idempotent: re-running also rotates the password via ALTER USER.
 CREATE USER IF NOT EXISTS 'tradiz_app'@'%' IDENTIFIED BY 'CHANGE_ME_STRONG_PASSWORD';
+ALTER USER 'tradiz_app'@'%' IDENTIFIED BY 'CHANGE_ME_STRONG_PASSWORD';
 
 -- ---------------------------------------------------------------------
 -- 2. Table privileges
@@ -47,7 +49,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON `DC_POS`.`currencies` TO 'tradiz_app'@'%
 GRANT SELECT, INSERT, UPDATE, DELETE ON `DC_POS`.`payment_methods` TO 'tradiz_app'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON `DC_POS`.`printers` TO 'tradiz_app'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON `DC_POS`.`discounts` TO 'tradiz_app'@'%';
-GRANT SELECT, INSERT, UPDATE, DELETE ON `DC_POS`.`reviews` TO 'tradiz_app'@'%';
+-- reviews lives in DC (catalog DB, matches dc.reviews on Postgres) — the
+-- review routes use the main connection. Covered by the DC.* grant below.
+GRANT SELECT, INSERT, UPDATE, DELETE ON `DC`.`reviews` TO 'tradiz_app'@'%';
 
 -- transactions: the app only INSERTs and UPDATEs (logical delete via
 -- payment_method, rechain via hash). Physical DELETE is never legitimate.
@@ -67,6 +71,13 @@ GRANT SELECT, INSERT ON `DC_POS`.`annual_closures` TO 'tradiz_app'@'%';
 
 -- perpetual_totals is updated in place (running totals) — UPDATE required.
 GRANT SELECT, INSERT, UPDATE ON `DC_POS`.`perpetual_totals` TO 'tradiz_app'@'%';
+
+-- NOTE 1: `ON table` grants only cover existing tables — re-run this section
+-- after any migration adding a table, or tradiz_app won't see it.
+-- NOTE 2: MariaDB has no TRUNCATE triggers (TRUNCATE is DDL needing DROP).
+-- tradiz_app simply gets no DROP privilege; residual risk: an owner-run
+-- TRUNCATE bypasses all protections — that is the documented owner escape
+-- hatch (also needed by the rechain script on the closure tables).
 
 FLUSH PRIVILEGES;
 

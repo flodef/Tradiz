@@ -25,8 +25,15 @@
 -- ---------------------------------------------------------------------
 -- 1. Restricted application role
 -- ---------------------------------------------------------------------
--- ⚠️  Replace the password before running.
-CREATE ROLE tradiz_app LOGIN PASSWORD 'CHANGE_ME_STRONG_PASSWORD';
+-- ⚠️  Replace the password before running. Idempotent: safe to re-run
+--     (the ALTER ROLE also serves as password rotation).
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'tradiz_app') THEN
+        CREATE ROLE tradiz_app LOGIN PASSWORD 'CHANGE_ME_STRONG_PASSWORD';
+    END IF;
+END $$;
+ALTER ROLE tradiz_app LOGIN PASSWORD 'CHANGE_ME_STRONG_PASSWORD';
 
 -- CONNECT is granted to PUBLIC by default; if it was revoked on this
 -- database, run: GRANT CONNECT ON DATABASE <this_db> TO tradiz_app;
@@ -69,6 +76,10 @@ GRANT SELECT, INSERT ON dc_pos.annual_closures TO tradiz_app;
 
 -- perpetual_totals is updated in place (running totals) — UPDATE required.
 GRANT SELECT, INSERT, UPDATE ON dc_pos.perpetual_totals TO tradiz_app;
+
+-- NOTE: `ON ALL TABLES` only covers tables that exist right now. After any
+-- migration adding a table to dc/dc_pos/dc_sys, re-run this section (or set
+-- up ALTER DEFAULT PRIVILEGES on the owner role) or tradiz_app won't see it.
 
 -- ---------------------------------------------------------------------
 -- 3. Append-only triggers (fire for every role, including the owner)
@@ -116,6 +127,30 @@ CREATE TRIGGER no_delete_transactions
     BEFORE DELETE ON dc_pos.transactions
     FOR EACH ROW EXECUTE FUNCTION dc_pos.prevent_fiscal_mutation();
 
+-- Row triggers do not fire on TRUNCATE — close that bypass on the two tables
+-- that must never be emptied. The closure tables stay truncatable: the
+-- owner-run rechain script (populate-nf525-tables.ts --force-rechain) needs it.
+CREATE OR REPLACE FUNCTION dc_pos.prevent_fiscal_truncate()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'TRUNCATE on % is not allowed — this NF525 table is sealed', TG_TABLE_NAME;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS no_truncate_transactions ON dc_pos.transactions;
+CREATE TRIGGER no_truncate_transactions
+    BEFORE TRUNCATE ON dc_pos.transactions
+    FOR EACH STATEMENT EXECUTE FUNCTION dc_pos.prevent_fiscal_truncate();
+
+DROP TRIGGER IF EXISTS no_truncate_audit_events ON dc_pos.audit_events;
+CREATE TRIGGER no_truncate_audit_events
+    BEFORE TRUNCATE ON dc_pos.audit_events
+    FOR EACH STATEMENT EXECUTE FUNCTION dc_pos.prevent_fiscal_truncate();
+
+-- NOTE: these triggers fire for every role, including the owner. For a
+-- legitimate admin repair (e.g. rehashing audit events), the owner must
+-- first run `ALTER TABLE <t> DISABLE TRIGGER ALL;` (and re-enable after).
+
 -- =====================================================================
 -- ROLLBACK (owner only) — run this to revert:
 --
@@ -126,7 +161,10 @@ CREATE TRIGGER no_delete_transactions
 --   DROP TRIGGER IF EXISTS no_update_monthly_closures ON dc_pos.monthly_closures;
 --   DROP TRIGGER IF EXISTS no_update_annual_closures ON dc_pos.annual_closures;
 --   DROP TRIGGER IF EXISTS no_delete_transactions ON dc_pos.transactions;
+--   DROP TRIGGER IF EXISTS no_truncate_transactions ON dc_pos.transactions;
+--   DROP TRIGGER IF EXISTS no_truncate_audit_events ON dc_pos.audit_events;
 --   DROP FUNCTION IF EXISTS dc_pos.prevent_fiscal_mutation();
+--   DROP FUNCTION IF EXISTS dc_pos.prevent_fiscal_truncate();
 --   REASSIGN OWNED BY tradiz_app TO <owner>;  -- if it owns nothing, skip
 --   DROP ROLE IF EXISTS tradiz_app;
 --
