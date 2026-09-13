@@ -96,24 +96,38 @@ export async function POST(request: Request) {
                 }
             }
 
-            // Delete users that are not in the incoming list
+            // Delete users that are not in the incoming list — but never the
+            // users backing intervention devices (hidden from the UI, so they
+            // are never sent; deleting them would orphan the devices and lose
+            // the service access).
+            const keepIntervention = db.isPostgreSQL
+                ? 'AND id NOT IN (SELECT user_id FROM dc_pos.devices WHERE intervention AND user_id IS NOT NULL)'
+                : 'AND id NOT IN (SELECT user_id FROM devices WHERE intervention = 1 AND user_id IS NOT NULL)';
             if (savedIds.length > 0) {
                 const placeholders = savedIds.map((_, i) => (db.isPostgreSQL ? `$${i + 1}` : '?')).join(',');
                 await db.execute(
                     db.isPostgreSQL
-                        ? `DELETE FROM dc_pos.users WHERE id NOT IN (${placeholders})`
-                        : `DELETE FROM users WHERE id NOT IN (${placeholders})`,
+                        ? `DELETE FROM dc_pos.users WHERE id NOT IN (${placeholders}) ${keepIntervention}`
+                        : `DELETE FROM users WHERE id NOT IN (${placeholders}) ${keepIntervention}`,
                     savedIds
                 );
             } else {
-                // No incoming users, delete all users
-                await db.execute(db.isPostgreSQL ? 'DELETE FROM dc_pos.users' : 'DELETE FROM users');
+                // No incoming users, delete all non-intervention users
+                await db.execute(
+                    db.isPostgreSQL
+                        ? `DELETE FROM dc_pos.users WHERE true ${keepIntervention}`
+                        : `DELETE FROM users WHERE true ${keepIntervention}`
+                );
             }
 
             const [savedRows] = await db.execute(
                 db.isPostgreSQL
-                    ? 'SELECT id, name, role, reference FROM dc_pos.users ORDER BY name'
-                    : 'SELECT id, name, role, reference FROM users ORDER BY name'
+                    ? `SELECT u.id, u.name, u.role, u.reference FROM dc_pos.users u
+                       WHERE NOT EXISTS (SELECT 1 FROM dc_pos.devices d WHERE d.user_id = u.id AND d.intervention)
+                       ORDER BY u.name`
+                    : `SELECT u.id, u.name, u.role, u.reference FROM users u
+                       WHERE NOT EXISTS (SELECT 1 FROM devices d WHERE d.user_id = u.id AND d.intervention = 1)
+                       ORDER BY u.name`
             );
             return (savedRows as { id: number; name: string; role: string; reference?: string }[]).map((row) => ({
                 id: Number(row.id),

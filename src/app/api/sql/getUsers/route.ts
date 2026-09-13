@@ -19,8 +19,12 @@ export async function GET(request: Request) {
 
         const result = await connection.execute(
             connection.isPostgreSQL
-                ? 'SELECT u.id, u.name, u.role, u.reference FROM dc_pos.users u ORDER BY u.name'
-                : 'SELECT u.id, u.name, u.role, u.reference FROM users u ORDER BY u.name'
+                ? `SELECT u.id, u.name, u.role, u.reference FROM dc_pos.users u
+                   WHERE NOT EXISTS (SELECT 1 FROM dc_pos.devices d WHERE d.user_id = u.id AND d.intervention)
+                   ORDER BY u.name`
+                : `SELECT u.id, u.name, u.role, u.reference FROM users u
+                   WHERE NOT EXISTS (SELECT 1 FROM devices d WHERE d.user_id = u.id AND d.intervention = 1)
+                   ORDER BY u.name`
         );
         const rows = result[0] as UserRow[];
 

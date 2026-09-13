@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getMainDb, getPosDb, DbConnection } from '../../../sql/db';
 import { readSubscription } from '../../../sql/subscriptionStore';
 import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
-import { SHOP_IDS } from '@/app/constants/shops';
+import { isReviewableShop } from '@/app/constants/shops';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +43,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ shop
     const { shopId: rawShopId } = await params;
     const shopId = rawShopId.toLowerCase();
 
-    if (!SHOP_IDS.includes(shopId as (typeof SHOP_IDS)[number])) {
+    if (!isReviewableShop(shopId)) {
         return NextResponse.json({ error: 'Invalid shop' }, { status: 400 });
     }
 
@@ -96,7 +96,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ sho
     const { shopId: rawShopId } = await params;
     const shopId = rawShopId.toLowerCase();
 
-    if (!SHOP_IDS.includes(shopId as (typeof SHOP_IDS)[number])) {
+    if (!isReviewableShop(shopId)) {
         return NextResponse.json({ error: 'Invalid shop' }, { status: 400 });
     }
 
@@ -180,7 +180,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
     const { shopId: rawShopId } = await params;
     const shopId = rawShopId.toLowerCase();
 
-    if (!SHOP_IDS.includes(shopId as (typeof SHOP_IDS)[number])) {
+    if (!isReviewableShop(shopId)) {
         return NextResponse.json({ error: 'Invalid shop' }, { status: 400 });
     }
 
