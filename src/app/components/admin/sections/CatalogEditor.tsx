@@ -22,6 +22,7 @@ import { colorToHex } from '@/app/utils/colors';
 import { adminTextStyle, DEFAULT_CATEGORY } from '@/app/utils/constants';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
+import AdminNumberInput from '../AdminNumberInput';
 import PriceInput from '../PriceInput';
 import ColorSwatchPicker from '../ColorSwatchPicker';
 import AvailabilityToggle from '../AvailabilityToggle';
@@ -772,8 +773,7 @@ export default function CatalogEditor({
                                 </div>
                                 {productsSettings?.useVatPerProduct && (
                                     <div className="w-24">
-                                        <ValidatedInput
-                                            type="number"
+                                        <AdminNumberInput
                                             value={String(selectedProduct.vat ?? 0)}
                                             onChange={(value) =>
                                                 handleProductUpdate({ ...selectedProduct, vat: Number(value) || 0 })
@@ -841,8 +841,7 @@ export default function CatalogEditor({
                                     )}
                                     {productsSettings?.useStock && (
                                         <div className="w-24">
-                                            <ValidatedInput
-                                                type="number"
+                                            <AdminNumberInput
                                                 value={
                                                     selectedProduct.stock === null ? '' : String(selectedProduct.stock)
                                                 }

@@ -22,6 +22,7 @@ import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
+import AdminNumberInput from '../AdminNumberInput';
 import PriceInput from '../PriceInput';
 import { useVirtualKeyboardContext } from '../VirtualKeyboardProvider';
 import { usePopup } from '@/app/hooks/usePopup';
@@ -189,8 +190,7 @@ function ProductEditPopup({
                                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                                     Quote part
                                 </label>
-                                <ValidatedInput
-                                    type="number"
+                                <AdminNumberInput
                                     value={draft.employerShare == null ? '' : String(draft.employerShare)}
                                     onChange={(value) =>
                                         update({ employerShare: value === '' ? undefined : Number(value) })
@@ -206,8 +206,7 @@ function ProductEditPopup({
                         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                             TVA (%)
                         </label>
-                        <ValidatedInput
-                            type="number"
+                        <AdminNumberInput
                             value={String(draft.vat ?? 0)}
                             onChange={(value) => update({ vat: Number(value) || 0 })}
                             isReadOnly={isReadOnly}
@@ -217,8 +216,7 @@ function ProductEditPopup({
                 {productsSettings?.useStock && (
                     <div>
                         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Stock</label>
-                        <ValidatedInput
-                            type="number"
+                        <AdminNumberInput
                             value={draft.stock === null ? '' : String(draft.stock)}
                             onChange={(value) => update({ stock: value === '' ? null : Number(value) })}
                             placeholder="∞"
@@ -1083,8 +1081,7 @@ export default function ProductsConfig({
                                                                 })()}
                                                             {productsSettings?.useVatPerProduct && (
                                                                 <td className="p-2">
-                                                                    <ValidatedInput
-                                                                        type="number"
+                                                                    <AdminNumberInput
                                                                         value={String(p.vat ?? 0)}
                                                                         onChange={(value) =>
                                                                             handleProductChange(i, {
@@ -1098,8 +1095,7 @@ export default function ProductsConfig({
                                                             )}
                                                             {productsSettings?.useStock && (
                                                                 <td className="p-2">
-                                                                    <ValidatedInput
-                                                                        type="number"
+                                                                    <AdminNumberInput
                                                                         value={p.stock === null ? '' : String(p.stock)}
                                                                         min={0}
                                                                         onChange={(value) => {

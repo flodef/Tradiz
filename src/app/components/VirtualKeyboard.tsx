@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { twMerge } from 'tailwind-merge';
-import { IconBackspace, IconCheck, IconArrowLeft, IconArrowRight } from '@tabler/icons-react';
+import { IconBackspace, IconCheck, IconArrowLeft, IconArrowRight, IconPlus, IconMinus } from '@tabler/icons-react';
 
 interface VirtualKeyboardProps {
     onKey: (key: string) => void;
@@ -12,6 +12,10 @@ interface VirtualKeyboardProps {
     onArrowRight: () => void;
     onTab: () => void;
     onTabBack: () => void;
+    /** Numeric only: move the value by the input's step attribute. */
+    onStep?: (direction: 1 | -1) => void;
+    /** Numeric only: whether the decimal separator key is enabled. */
+    decimalAllowed?: boolean;
     isNumeric?: boolean;
 }
 
@@ -38,6 +42,8 @@ export default function VirtualKeyboard({
     onArrowRight,
     onTab,
     onTabBack,
+    onStep,
+    decimalAllowed = true,
     isNumeric = false,
 }: VirtualKeyboardProps) {
     const [shift, setShift] = useState(false);
@@ -61,7 +67,9 @@ export default function VirtualKeyboard({
         }
     };
 
-    // Numeric mode: only digits + decimal point, no letters, no symbol toggle
+    // Numeric mode: +/- steppers (- doubles as a minus sign on an empty signed
+    // field), left/right arrows move the caret, decimal point only for
+    // non-integer steps, backspace, no letters.
     if (isNumeric) {
         return (
             <div
@@ -69,6 +77,19 @@ export default function VirtualKeyboard({
                 onMouseDown={(e) => e.preventDefault()}
             >
                 <div className="max-w-5xl mx-auto flex gap-1.5 items-stretch justify-center">
+                    {/* +, -, delete column */}
+                    <div className="flex flex-col gap-1.5">
+                        <button onClick={() => onStep?.(1)} className={`${keyBtn} w-11 h-11`}>
+                            <IconPlus size={18} />
+                        </button>
+                        <button onClick={() => onStep?.(-1)} className={`${keyBtn} w-11 h-11`}>
+                            <IconMinus size={18} />
+                        </button>
+                        <button onClick={onBackspace} className={`${keyBtn} w-11 h-11`}>
+                            <IconBackspace size={18} />
+                        </button>
+                    </div>
+
                     {/* 3x3 numpad */}
                     <div className="grid grid-cols-3 gap-1.5">
                         {NUMPAD.map((k) => (
@@ -78,7 +99,7 @@ export default function VirtualKeyboard({
                         ))}
                     </div>
 
-                    {/* 0, <, > column */}
+                    {/* 0, left, right column */}
                     <div className="flex flex-col gap-1.5">
                         <button onClick={() => handleKey('0')} className={`${keyBtn} w-11 h-11`}>
                             0
@@ -93,7 +114,11 @@ export default function VirtualKeyboard({
 
                     {/* Decimal, Tab, Validate column */}
                     <div className="flex flex-col gap-1.5">
-                        <button onClick={() => handleKey('.')} className={`${keyBtn} px-4 h-11`}>
+                        <button
+                            onClick={() => handleKey('.')}
+                            disabled={!decimalAllowed}
+                            className={`${keyBtn} px-4 h-11 disabled:opacity-30 disabled:cursor-not-allowed`}
+                        >
                             .
                         </button>
                         <button onClick={onTab} className={`${keyBtn} px-4 h-11`}>

@@ -6,7 +6,7 @@ import {
     errorRoundContainerStyle,
 } from '@/app/utils/constants';
 import { Currency, Discount } from '@/app/utils/interfaces';
-import AdminInput from '../AdminInput';
+import AdminNumberInput from '../AdminNumberInput';
 import AdminSelect from '../AdminSelect';
 
 interface DiscountItemProps {
@@ -61,17 +61,13 @@ export default function DiscountItem({
 
     return (
         <div className={adminContainerStyle()}>
-            <AdminInput
-                type="number"
+            <AdminNumberInput
                 value={discount.amount}
                 min={0}
                 max={max}
                 step={step}
-                onChange={(e) => {
-                    const val = Math.min(max, Math.max(0, Number(e.target.value)));
-                    onChange({ ...discount, amount: val });
-                }}
-                inputClassName="w-24"
+                onChange={(value) => onChange({ ...discount, amount: Math.min(max, Math.max(0, Number(value) || 0)) })}
+                className="w-24"
                 isReadOnly={isReadOnly}
             />
             <AdminSelect

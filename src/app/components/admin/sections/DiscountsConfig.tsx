@@ -1,13 +1,6 @@
 import { adminHeaderStyle } from '@/app/utils/constants';
 import { Currency, Discount } from '@/app/utils/interfaces';
-import {
-    closestCenter,
-    DndContext,
-    DragEndEvent,
-    PointerSensor,
-    useSensor,
-    useSensors,
-} from '@dnd-kit/core';
+import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
@@ -15,7 +8,7 @@ import AdminSelect from '../AdminSelect';
 import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
-import ValidatedInput from '../ValidatedInput';
+import AdminNumberInput from '../AdminNumberInput';
 
 interface InternalDiscount extends Discount {
     _id: number;
@@ -57,8 +50,7 @@ const SortableRow = memo(function SortableRow({
         <tr ref={setNodeRef} style={style} className="border-b border-gray-200 dark:border-gray-700">
             <DragHandleCell isReadOnly={isReadOnly} attributes={attributes} listeners={listeners} />
             <td className="p-2">
-                <ValidatedInput
-                    type="number"
+                <AdminNumberInput
                     value={String(discount.amount)}
                     onChange={(value) => onAmountChange(discount._id, Number(value))}
                     validation={(value) => Number(value) > 0}
@@ -204,9 +196,7 @@ export default function DiscountsConfig({
         [notifyParent]
     );
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 10 } })
-    );
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 10 } }));
     const units = React.useMemo(() => ['%', ...currencies.map((c) => c.symbol)], [currencies]);
 
     return (

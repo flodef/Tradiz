@@ -61,23 +61,36 @@ export default function ValidatedInput({
         if (validation) setIsValid(validation(value));
     }, [value, validation]);
 
+    // Number fields render as text (virtual keyboard) — strip anything that
+    // cannot be part of the value: letters, a decimal separator when the
+    // step is an integer, a second '.', and '-' when min >= 0.
+    const sanitizeNumber = (raw: string): string => {
+        let v = raw.replace(/,/g, '.');
+        const allowDecimal = !(typeof step === 'number' && Number.isInteger(step));
+        const allowNegative = min === undefined || min < 0;
+        v = v.replace(allowDecimal ? /[^0-9.-]/g : /[^0-9-]/g, '');
+        v = v.replace(/(?!^)-/g, ''); // '-' only allowed in front
+        if (!allowNegative) v = v.replace('-', '');
+        const dot = v.indexOf('.');
+        if (dot >= 0) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, '');
+        // Remove leading zeros but keep at least one digit
+        if (v.startsWith('0') && v.length > 1 && v[1] !== '.') {
+            v = v.replace(/^0+/, '0');
+        }
+        // Clamp to max if specified
+        if (max !== undefined && v !== '' && v !== '-' && !isNaN(Number(v))) {
+            if (Number(v) > max) v = String(max);
+        }
+        return v;
+    };
+
     const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
         if (isReadOnly) return;
 
         let newValue = e.target.value;
 
-        // Handle number fields: accept , or . and remove leading zeros
         if (type === 'number') {
-            // Replace comma with dot for decimal separator
-            newValue = newValue.replace(',', '.');
-            // Remove leading zeros but keep at least one digit
-            if (newValue.startsWith('0') && newValue.length > 1 && newValue[1] !== '.') {
-                newValue = newValue.replace(/^0+/, '0');
-            }
-            // Clamp to max if specified
-            if (max !== undefined && newValue !== '' && newValue !== '-' && !isNaN(Number(newValue))) {
-                if (Number(newValue) > max) newValue = String(max);
-            }
+            newValue = sanitizeNumber(newValue);
         }
 
         // Handle text fields (names): reject numbers but don't normalize yet
@@ -118,14 +131,7 @@ export default function ValidatedInput({
             vkContext.registerInput(e.target, (newValue: string) => {
                 // Apply the same normalization as handleChange for number fields
                 if (type === 'number') {
-                    newValue = newValue.replace(',', '.');
-                    if (newValue.startsWith('0') && newValue.length > 1 && newValue[1] !== '.') {
-                        newValue = newValue.replace(/^0+/, '0');
-                    }
-                    // Clamp to max if specified
-                    if (max !== undefined && newValue !== '' && newValue !== '-' && !isNaN(Number(newValue))) {
-                        if (Number(newValue) > max) newValue = String(max);
-                    }
+                    newValue = sanitizeNumber(newValue);
                 }
                 if (isNameField) {
                     newValue = newValue.replace(/[0-9]/g, '');

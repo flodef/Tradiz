@@ -1,14 +1,7 @@
 'use client';
 
 import { adminHeaderStyle } from '@/app/utils/constants';
-import {
-    closestCenter,
-    DndContext,
-    DragEndEvent,
-    PointerSensor,
-    useSensor,
-    useSensors,
-} from '@dnd-kit/core';
+import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -383,9 +376,7 @@ export default function OptionsConfig({
         [notifyParent]
     );
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 10 } })
-    );
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 10 } }));
 
     return (
         <SectionCard

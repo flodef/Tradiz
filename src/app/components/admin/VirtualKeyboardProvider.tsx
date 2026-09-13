@@ -141,6 +141,32 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
         el.focus();
     }, []);
 
+    // Numeric stepper (numpad +/-): moves the value by the input's step
+    // attribute, clamped to its min/max attributes. On an empty field, '-'
+    // inserts a leading minus sign instead when the field allows negatives.
+    const handleStep = useCallback((direction: 1 | -1) => {
+        const active = activeInputRef.current;
+        if (!active) return;
+        const el = active.element;
+        if (direction === -1 && el.value === '' && (el.min === '' || parseFloat(el.min) < 0)) {
+            el.value = '-';
+            el.setSelectionRange(1, 1);
+            active.onChange('-');
+            return;
+        }
+        const stepAttr = parseFloat(el.step);
+        const delta = Number.isFinite(stepAttr) ? stepAttr : 1;
+        const min = el.min !== '' ? parseFloat(el.min) : -Infinity;
+        const max = el.max !== '' ? parseFloat(el.max) : Infinity;
+        const current = parseFloat(el.value);
+        const base = Number.isFinite(current) ? current : 0;
+        const next = Number(Math.min(max, Math.max(min, base + direction * delta)).toFixed(6));
+        const newValue = String(next);
+        el.value = newValue;
+        el.setSelectionRange(newValue.length, newValue.length);
+        active.onChange(newValue);
+    }, []);
+
     const handleEnter = useCallback(() => {
         const active = activeInputRef.current;
         if (!active) return;
@@ -241,11 +267,17 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
             {enabled && activeInput && (
                 <VirtualKeyboard
                     isNumeric={activeInput.isNumeric}
+                    decimalAllowed={
+                        activeInput.element.step === '' ||
+                        activeInput.element.step === 'any' ||
+                        !Number.isInteger(parseFloat(activeInput.element.step))
+                    }
                     onKey={handleKey}
                     onBackspace={handleBackspace}
                     onEnter={handleEnter}
                     onArrowLeft={handleArrowLeft}
                     onArrowRight={handleArrowRight}
+                    onStep={handleStep}
                     onTab={handleTab}
                     onTabBack={handleTabBack}
                 />

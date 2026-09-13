@@ -2,14 +2,7 @@
 
 import { adminHeaderStyle } from '@/app/utils/constants';
 import { Currency } from '@/app/utils/interfaces';
-import {
-    closestCenter,
-    DndContext,
-    DragEndEvent,
-    PointerSensor,
-    useSensor,
-    useSensors,
-} from '@dnd-kit/core';
+import { closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
@@ -17,6 +10,7 @@ import DeleteButtonCell from '../DeleteButtonCell';
 import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
 import ValidatedInput from '../ValidatedInput';
+import AdminNumberInput from '../AdminNumberInput';
 
 interface InternalCurrency extends Currency {
     _id: number;
@@ -105,8 +99,7 @@ const SortableRow = memo(function SortableRow({
                 {isReadOnly ? (
                     <div className="text-sm">{currency.maxValue}</div>
                 ) : (
-                    <ValidatedInput
-                        type="number"
+                    <AdminNumberInput
                         value={currency.maxValue}
                         onChange={(value) => onFieldChange(currency._id, 'maxValue', Number(value))}
                         min={0}
@@ -117,8 +110,7 @@ const SortableRow = memo(function SortableRow({
                 {isReadOnly ? (
                     <div className="text-sm">{currency.decimals}</div>
                 ) : (
-                    <ValidatedInput
-                        type="number"
+                    <AdminNumberInput
                         value={currency.decimals}
                         onChange={(value) => onFieldChange(currency._id, 'decimals', Number(value))}
                         min={0}
@@ -130,8 +122,7 @@ const SortableRow = memo(function SortableRow({
                 {isReadOnly ? (
                     <div className="text-sm">{currency.rate}</div>
                 ) : (
-                    <ValidatedInput
-                        type="number"
+                    <AdminNumberInput
                         value={currency.rate}
                         onChange={(value) => onFieldChange(currency._id, 'rate', Number(value))}
                         min={0}
@@ -143,8 +134,7 @@ const SortableRow = memo(function SortableRow({
                 {isReadOnly ? (
                     <div className="text-sm">{currency.fee}</div>
                 ) : (
-                    <ValidatedInput
-                        type="number"
+                    <AdminNumberInput
                         value={currency.fee}
                         onChange={(value) => onFieldChange(currency._id, 'fee', Number(value))}
                         min={0}
@@ -272,9 +262,7 @@ export default function CurrenciesConfig({
         [notifyParent]
     );
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 10 } })
-    );
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 10 } }));
 
     return (
         <SectionCard

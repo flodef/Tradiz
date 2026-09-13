@@ -13,6 +13,7 @@ import {
 } from '@/app/utils/regex';
 import { Mercurial } from '@/app/utils/interfaces';
 import AdminInput from '../AdminInput';
+import AdminNumberInput from '../AdminNumberInput';
 import AdminButton from '../AdminButton';
 import AdminSelect from '../AdminSelect';
 import DeleteButton from '../DeleteButton';
@@ -35,7 +36,6 @@ import {
     IconInfoCircle,
     IconExternalLink,
     IconCopy,
-    IconCopyCheck,
 } from '@tabler/icons-react';
 import { usePopup } from '@/app/hooks/usePopup';
 import { AttestationViewer } from '@/app/components/AttestationViewer';
@@ -58,50 +58,24 @@ interface CommerceConfigProps {
 
 const MAX_IMAGE_SIZE = 512 * 1024; // 512 KB
 
-/** Integrity report shown in a fullscreen popup: read-only text (clicks must
- * not close the popup — stayOpen is set by the caller) plus a copy button. */
-function IntegrityReport({ lines }: { lines: string[] }) {
-    const [copied, setCopied] = useState(false);
-    const text = lines.join('\n');
-    // navigator.clipboard is unavailable on insecure origins (POS over http://LAN)
-    const copyReport = () => {
-        if (navigator.clipboard?.writeText) {
-            return navigator.clipboard.writeText(text);
-        }
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        try {
-            document.execCommand('copy');
-            return Promise.resolve();
-        } finally {
-            document.body.removeChild(ta);
-        }
-    };
-    return (
-        <div className="text-left w-full">
-            <pre className="whitespace-pre-wrap font-mono text-sm select-text max-h-[60vh] overflow-y-auto">{text}</pre>
-            <button
-                type="button"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    copyReport()
-                        .then(() => {
-                            setCopied(true);
-                            setTimeout(() => setCopied(false), 2000);
-                        })
-                        .catch(() => {});
-                }}
-                className="mt-3 mx-auto flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-secondary-active-light dark:bg-secondary-active-dark text-popup-dark dark:text-popup-light cursor-pointer"
-            >
-                {copied ? <IconCopyCheck size={16} /> : <IconCopy size={16} />}
-                {copied ? 'Copié !' : 'Copier le rapport'}
-            </button>
-        </div>
-    );
+/** Copies `text` to the clipboard — navigator.clipboard is unavailable on
+ * insecure origins (POS over http://LAN), hence the execCommand fallback. */
+function copyToClipboard(text: string) {
+    if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(text).catch(() => {});
+        return;
+    }
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+        document.execCommand('copy');
+    } finally {
+        document.body.removeChild(ta);
+    }
 }
 
 function ImageUploadField({
@@ -154,16 +128,12 @@ function ImageUploadField({
                         <AdminButton
                             variant="primary"
                             onClick={() => fileInputRef.current?.click()}
-                            className="text-sm px-3 py-1.5"
+                            className="w-8 px-0"
+                            title={value ? "Changer l'image" : 'Téléverser une image'}
                         >
                             <IconUpload size={16} />
-                            {value ? 'Changer' : 'Téléverser'}
                         </AdminButton>
-                        {value && (
-                            <AdminButton variant="danger" onClick={() => onChange('')} className="text-sm px-3 py-1.5">
-                                Retirer
-                            </AdminButton>
-                        )}
+                        {value && <DeleteButton onClick={() => onChange('')} title="Retirer l'image" />}
                     </div>
                 )}
                 <input
@@ -220,7 +190,7 @@ export default function CommerceConfig({
     onToggle,
     icon,
 }: CommerceConfigProps) {
-    const { openPopup, openFullscreenPopup } = usePopup();
+    const { openFullscreenPopup, closePopup } = usePopup();
     const { shopId } = useShopId();
     const [appVersion, setAppVersion] = useState(process.env.NEXT_PUBLIC_APP_VERSION);
     const [integrityStatus, setIntegrityStatus] = useState<'idle' | 'checking' | 'ok' | 'fail'>('idle');
@@ -334,13 +304,37 @@ export default function CommerceConfig({
                 };
                 const chainLabel = (name: string) => chainLabels[name] ?? name.replace(/_/g, ' ');
 
+                // Each report line is a plain popup item: clicking it does
+                // nothing (stayOpen). After the '' separator, the last item
+                // copies the whole report and closes.
+                const showReport = (title: string, lines: string[]) =>
+                    openFullscreenPopup(
+                        title,
+                        [
+                            ...lines,
+                            '',
+                            <span
+                                key="copy"
+                                className="flex items-center justify-center gap-2 py-2 text-xl font-semibold"
+                            >
+                                <IconCopy size={18} />
+                                Copier le rapport
+                            </span>,
+                        ],
+                        (index) => {
+                            if (index >= lines.length) {
+                                copyToClipboard(lines.join('\n'));
+                                closePopup();
+                            }
+                        },
+                        true
+                    );
+
                 if (data.integrity_ok) {
-                    if (chains) {
-                        const lines = Object.entries(chains).map(([name, r]) => {
-                            return `${chainLabel(name)}: ${r.verified}/${r.total} ✓`;
-                        });
-                        openPopup('Intégrité NF525 — Valide', lines);
-                    }
+                    const lines = chains
+                        ? Object.entries(chains).map(([name, r]) => `${chainLabel(name)}: ${r.verified}/${r.total} ✓`)
+                        : ['Toutes les chaînes sont intègres.'];
+                    showReport('Intégrité NF525 — Valide', lines);
                 } else {
                     const lines: string[] = [];
                     if (chains) {
@@ -373,12 +367,7 @@ export default function CommerceConfig({
                             }
                         }
                     }
-                    openFullscreenPopup(
-                        "Échec de l'intégrité NF525",
-                        [<IntegrityReport key="report" lines={lines} />],
-                        undefined,
-                        true
-                    );
+                    showReport("Échec de l'intégrité NF525", lines);
                 }
             })
             .catch(() => {
@@ -647,31 +636,29 @@ export default function CommerceConfig({
                     Général
                 </h3>
                 <div className="flex flex-wrap gap-4 items-end">
-                    <AdminInput
+                    <AdminSelect
                         label="Heure de clôture"
-                        type="number"
-                        min={0}
-                        max={23}
                         value={config.closingHour}
-                        onChange={(e) =>
-                            !isReadOnly &&
-                            handleChange('closingHour', Math.max(0, Math.min(23, Number(e.target.value))))
-                        }
+                        onChange={(e) => !isReadOnly && handleChange('closingHour', Number(e.target.value))}
+                        options={Array.from({ length: 24 }, (_, h) => ({
+                            label: `${String(h).padStart(2, '0')}:00`,
+                            value: h,
+                        }))}
                         isReadOnly={isReadOnly}
                         className="w-30"
                     />
                     <div className="flex flex-col">
                         <label className={adminTextStyle}>Début d&apos;année fiscale</label>
                         <div className="flex gap-2">
-                            <AdminInput
-                                type="number"
-                                min={1}
-                                max={maxDaysInMonth(config.yearStartDate?.month || 1)}
+                            <AdminSelect
                                 value={config.yearStartDate?.day || 1}
                                 isReadOnly={isReadOnly}
                                 onChange={(e) => handleYearStartDateChange('day', Number(e.target.value))}
-                                className="w-14"
-                                placeholder="Jour"
+                                options={Array.from(
+                                    { length: maxDaysInMonth(config.yearStartDate?.month || 1) },
+                                    (_, d) => ({ label: String(d + 1), value: d + 1 })
+                                )}
+                                className="w-16"
                             />
                             <AdminSelect
                                 value={config.yearStartDate?.month || 1}
@@ -682,16 +669,13 @@ export default function CommerceConfig({
                             />
                         </div>
                     </div>
-                    <ValidatedInput
+                    <AdminNumberInput
                         label="Taux de fidélité (%)"
-                        type="number"
                         min={0}
-                        max={100}
-                        step={0.1}
+                        max={50}
+                        step={0.25}
                         value={config.fidelityRate ?? 0}
-                        onChange={(value) =>
-                            !isReadOnly && handleChange('fidelityRate', Math.max(0, Math.min(100, Number(value) || 0)))
-                        }
+                        onChange={(value) => !isReadOnly && handleChange('fidelityRate', Number(value) || 0)}
                         isReadOnly={isReadOnly}
                         className="w-32"
                     />
@@ -853,12 +837,14 @@ export default function CommerceConfig({
                         isReadOnly={isReadOnly}
                         className="flex-1 min-w-40 max-w-xs"
                     />
-                    <AdminInput
+                    <AdminNumberInput
                         label="Port TCP"
-                        type="number"
+                        min={0}
+                        max={65535}
+                        step={1}
                         value={config.tpePort?.toString() || ''}
-                        onChange={(e) =>
-                            !isReadOnly && handleChange('tpePort', e.target.value ? Number(e.target.value) : undefined)
+                        onChange={(value) =>
+                            !isReadOnly && handleChange('tpePort', value !== '' ? Number(value) : undefined)
                         }
                         placeholder="8888"
                         isReadOnly={isReadOnly}
@@ -928,10 +914,10 @@ export default function CommerceConfig({
                                                 { open: '09:00', close: '18:00' },
                                             ])
                                         }
-                                        className="text-sm px-2 py-1 mt-0"
+                                        className="w-8 px-0"
+                                        title="Ajouter un créneau"
                                     >
                                         <IconPlus size={16} stroke={2} />
-                                        Créneau
                                     </AdminButton>
                                 )}
                             </div>

@@ -7,6 +7,7 @@ import {
 } from '@/app/utils/constants';
 import { Currency } from '@/app/utils/interfaces';
 import AdminInput from '../AdminInput';
+import AdminNumberInput from '../AdminNumberInput';
 
 interface CurrencyItemProps {
     currency: Currency;
@@ -81,36 +82,33 @@ export default function CurrencyItem({
                 isReadOnly={isReadOnly}
             />
 
-            <AdminInput
+            <AdminNumberInput
                 label="Max"
-                type="number"
                 value={currency.maxValue}
                 min={0}
                 max={1000000}
                 step={step}
-                onChange={(e) => onChange({ ...currency, maxValue: Number(e.target.value) })}
+                onChange={(value) => onChange({ ...currency, maxValue: Number(value) })}
                 className="w-24"
                 isReadOnly={isReadOnly}
             />
 
-            <AdminInput
+            <AdminNumberInput
                 label="Déc."
-                type="number"
                 value={currency.decimals}
                 min={0}
                 max={5}
                 step={1}
-                onChange={(e) => onChange({ ...currency, decimals: Number(e.target.value) })}
+                onChange={(value) => onChange({ ...currency, decimals: Number(value) })}
                 className="w-14"
             />
 
             <div className="relative">
-                <AdminInput
+                <AdminNumberInput
                     label="Taux"
-                    type="number"
                     value={currency.rate}
                     step="any"
-                    onChange={(e) => onChange({ ...currency, rate: Number(e.target.value) })}
+                    onChange={(value) => onChange({ ...currency, rate: Number(value) })}
                     className="w-20"
                     isReadOnly={isReadOnly}
                 />
@@ -119,14 +117,13 @@ export default function CurrencyItem({
                 </div>
             </div>
 
-            <AdminInput
+            <AdminNumberInput
                 label="Frais %"
-                type="number"
                 value={currency.fee}
                 min={0}
                 max={100}
                 step={0.01}
-                onChange={(e) => onChange({ ...currency, fee: Number(e.target.value) })}
+                onChange={(value) => onChange({ ...currency, fee: Number(value) })}
                 className="w-16"
                 isReadOnly={isReadOnly}
             />

@@ -2,7 +2,7 @@
 
 import { isValidPrice } from '@/app/utils/extensions';
 import { getMainCurrencyStep } from '@/app/utils/priceStep';
-import ValidatedInput from './ValidatedInput';
+import AdminNumberInput from './AdminNumberInput';
 
 interface PriceCurrency {
     rate: number;
@@ -62,8 +62,7 @@ export default function PriceInput({
               : String(value);
 
     return (
-        <ValidatedInput
-            type="number"
+        <AdminNumberInput
             value={displayValue}
             onChange={onChange}
             placeholder={placeholder ?? (0).toFixed(decimals)}
