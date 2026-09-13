@@ -2,7 +2,8 @@
 -- Demo shop seed data (demo.tradiz.fr)
 --
 -- Fictional boulangerie / épicerie used to let prospects test
--- the Tradiz POS software. Idempotent: ON CONFLICT DO NOTHING.
+-- the Tradiz POS software. Idempotent: ON CONFLICT DO UPDATE (re-seeding
+-- refreshes roles, parameters and other seeded values).
 -- ============================================================
 
 BEGIN;
@@ -29,7 +30,7 @@ INSERT INTO dc_pos.parameters (param_key, param_value, updated_at) VALUES
     ('email', 'demo@tradiz.fr', CURRENT_TIMESTAMP),
     ('phone', '0200000000', CURRENT_TIMESTAMP),
     ('vatNumber', 'FR00000000000', CURRENT_TIMESTAMP),
-    ('naf', '5610.C', CURRENT_TIMESTAMP),
+    ('naf', '56.10C', CURRENT_TIMESTAMP),
     ('legalForm', 'SARL', CURRENT_TIMESTAMP),
     ('legalRepresentative', 'Jean Dupont', CURRENT_TIMESTAMP),
     ('thanksMessage', 'Merci de votre visite !', CURRENT_TIMESTAMP),

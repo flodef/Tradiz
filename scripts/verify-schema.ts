@@ -188,7 +188,6 @@ function splitSqlStatements(sql: string): string[] {
 
     for (let i = 0; i < sql.length; i++) {
         const char = sql[i];
-        const next = sql[i + 1];
 
         if (char === "'" && !inDoubleQuote && !inDollarQuote) {
             inSingleQuote = !inSingleQuote;
