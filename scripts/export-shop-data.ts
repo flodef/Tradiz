@@ -61,6 +61,7 @@ interface DeviceRow {
     connected: boolean;
     last_seen: string;
     created_at: string;
+    intervention?: boolean;
 }
 
 interface CompanyRow {
@@ -205,12 +206,15 @@ async function main() {
         sql += `\n`;
     }
 
-    // Devices
-    if (devices.devices.length > 0) {
+    // Devices — intervention (service/admin) devices are excluded: their
+    // public keys are per-installation credentials that must not leak into
+    // generated SQL files.
+    const exportableDevices = devices.devices.filter((d) => !d.intervention);
+    if (exportableDevices.length > 0) {
         sql += `-- ============================================================\n`;
         sql += `-- Devices\n`;
         sql += `-- ============================================================\n`;
-        for (const d of devices.devices) {
+        for (const d of exportableDevices) {
             sql += `INSERT INTO dc_pos.devices (id, label, public_key, user_id, connected, last_seen, created_at) VALUES (${d.id}, ${sqlEscape(d.label)}, ${sqlEscape(d.public_key)}, ${d.user_id}, ${d.connected ? 't' : 'f'}, ${sqlEscape(d.last_seen)}, ${sqlEscape(d.created_at)}) ON CONFLICT (id) DO NOTHING;\n`;
         }
         sql += `\n`;
@@ -287,7 +291,9 @@ async function main() {
     console.log(`  Users: ${users.users.length}`);
     console.log(`  Payment methods: ${paymentMethods.paymentMethods.length}`);
     console.log(`  Printers: ${printers.printers.length}`);
-    console.log(`  Devices: ${devices.devices.length}`);
+    console.log(
+        `  Devices: ${exportableDevices.length} (+ ${devices.devices.length - exportableDevices.length} intervention skipped)`
+    );
     console.log(`  Companies: ${companies.companies.length}`);
     console.log(`  Customers: ${customers.customers.length}`);
     console.log(`  Categories: ${categories.categories.length}`);

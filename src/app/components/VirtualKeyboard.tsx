@@ -16,6 +16,9 @@ interface VirtualKeyboardProps {
     onStep?: (direction: 1 | -1) => void;
     /** Numeric only: whether the decimal separator key is enabled. */
     decimalAllowed?: boolean;
+    /** Numeric only: whether the +/- steppers are enabled (digit-only inputs
+     * like zip codes or SIRET get digits without steppers). */
+    stepEnabled?: boolean;
     isNumeric?: boolean;
 }
 
@@ -44,6 +47,7 @@ export default function VirtualKeyboard({
     onTabBack,
     onStep,
     decimalAllowed = true,
+    stepEnabled = true,
     isNumeric = false,
 }: VirtualKeyboardProps) {
     const [shift, setShift] = useState(false);
@@ -79,10 +83,18 @@ export default function VirtualKeyboard({
                 <div className="max-w-5xl mx-auto flex gap-1.5 items-stretch justify-center">
                     {/* +, -, delete column */}
                     <div className="flex flex-col gap-1.5">
-                        <button onClick={() => onStep?.(1)} className={`${keyBtn} w-11 h-11`}>
+                        <button
+                            onClick={() => onStep?.(1)}
+                            disabled={!stepEnabled}
+                            className={`${keyBtn} w-11 h-11 disabled:opacity-30 disabled:cursor-not-allowed`}
+                        >
                             <IconPlus size={18} />
                         </button>
-                        <button onClick={() => onStep?.(-1)} className={`${keyBtn} w-11 h-11`}>
+                        <button
+                            onClick={() => onStep?.(-1)}
+                            disabled={!stepEnabled}
+                            className={`${keyBtn} w-11 h-11 disabled:opacity-30 disabled:cursor-not-allowed`}
+                        >
                             <IconMinus size={18} />
                         </button>
                         <button onClick={onBackspace} className={`${keyBtn} w-11 h-11`}>

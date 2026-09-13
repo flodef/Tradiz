@@ -601,7 +601,9 @@ export default function SettingsPage() {
                 const devicesResponse = await fetch('/api/sql/getDevices');
                 const devicesData = await devicesResponse.json();
                 if (devicesData.devices && devicesData.devices.length > 0) {
-                    const loaded: Device[] = devicesData.devices;
+                    // Intervention devices are managed in the DB only — keep them
+                    // out of the admin list and the dirty-state comparison.
+                    const loaded: Device[] = (devicesData.devices as Device[]).filter((d) => !d.intervention);
                     setDevicesConfig(loaded);
                     setOriginalDevices(loaded);
                 }

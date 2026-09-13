@@ -60,7 +60,7 @@ INSERT INTO dc_pos.payment_methods (id, label, address, currency, available, cre
 INSERT INTO dc_pos.payment_methods (id, label, address, currency, available, created_at) VALUES (2, 'Espèces', '0', 'Euro', true, '2026-07-11 18:17:10.153381') ON CONFLICT (id) DO NOTHING;
 
 -- Printers (imprimantes)
-INSERT INTO dc_pos.printers (id, name, ip_address) VALUES (1, 'Caisse', 'COM1') ON CONFLICT (id) DO NOTHING;
+-- COM printers are configured per device (dc_pos.devices.printer_com), not here.
 INSERT INTO dc_pos.printers (id, name, ip_address) VALUES (2, 'Cuisine', '195') ON CONFLICT (id) DO NOTHING;
 
 -- Devices (appareils) — intentionally not seeded; devices are registered

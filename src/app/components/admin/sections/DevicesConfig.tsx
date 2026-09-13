@@ -374,7 +374,7 @@ export default function DevicesConfig({
     const [devices, setDevices] = useState<InternalDevice[]>(() =>
         visibleDevices(config).map((d) => ({ ...d, _id: nextIdRef.current++ }))
     );
-    const [originalConfig, setOriginalConfig] = useState<Device[]>(config || []);
+    const [originalConfig, setOriginalConfig] = useState<Device[]>(() => visibleDevices(config));
     const [sortField, setSortField] = useState<SortField | null>(null);
     const [sortDirection, setSortDirection] = useState<SortDirection>('none');
     const [availableComPorts, setAvailableComPorts] = useState<number[]>([]);

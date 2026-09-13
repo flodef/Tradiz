@@ -44,18 +44,6 @@ interface PaymentMethod {
     currency: string;
     availability: boolean;
 }
-interface Device {
-    id: number;
-    label: string;
-    key: string;
-    userId: number;
-    backscreenCom: string | null;
-    backscreenBaud: string | null;
-    printerCom: string | null;
-    printerBaud: string | null;
-    cashDrawerCom: string | null;
-    cashDrawerBaud: string | null;
-}
 interface Category {
     id: number;
     name: string;
@@ -93,7 +81,6 @@ async function main() {
     const users = (await readJson<{ users: User[] }>('getUsers.json')).users;
     const paymentMethods = (await readJson<{ paymentMethods: PaymentMethod[] }>('getPaymentMethods.json'))
         .paymentMethods;
-    const devices = (await readJson<{ devices: Device[] }>('getDevices.json')).devices;
     const categories = (await readJson<{ categories: Category[] }>('getCategories.json')).categories;
     const products = (await readJson<{ products: Product[] }>('getAllArticles.json')).products;
     const colors = await readJson<ColorsResponse>('getColors.json');
@@ -162,13 +149,11 @@ END $$;
     sql += `-- No printers configured for this shop\n\n`;
 
     // ─── Devices ───
-    if (devices.length > 0) {
-        sql += `-- Devices (appareils) — references users\n`;
-        for (const d of devices) {
-            sql += `INSERT INTO dc_pos.devices (id, label, public_key, user_id, connected, last_seen, created_at) VALUES (${d.id}, ${sqlEscape(d.label)}, ${sqlEscape(d.key)}, ${d.userId}, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;\n`;
-        }
-        sql += '\n';
-    }
+    // Devices are intentionally not exported: they are registered from the
+    // admin UI on the target shop, and their public keys must not be
+    // committed to generated SQL files.
+    sql += `-- Devices (appareils) — intentionally not seeded; devices are registered\n`;
+    sql += `-- from the admin UI (service/intervention devices are added directly in the DB).\n\n`;
 
     // ─── Companies ───
     sql += `-- Companies\n`;
@@ -250,7 +235,6 @@ END $$;
     console.log(`  Parameters: ${parameters.length}`);
     console.log(`  Users: ${users.length}`);
     console.log(`  Payment methods: ${paymentMethods.length}`);
-    console.log(`  Devices: ${devices.length}`);
     console.log(`  Categories: ${categories.length}`);
     console.log(`  Products: ${products.length}`);
     console.log(`  Themes: 1 (Défaut)`);

@@ -43,6 +43,10 @@ interface ActiveInput {
     element: HTMLInputElement;
     onChange: (value: string) => void;
     isNumeric: boolean;
+    /** Real decimal/number field — steppers and '.' apply. False for
+     * digit-only inputs (zip code, SIRET, phone) where +/- would corrupt
+     * the value. */
+    isSteppable: boolean;
 }
 
 export function VirtualKeyboardProvider({ children, enabled }: { children: ReactNode; enabled: boolean }) {
@@ -56,12 +60,9 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
         (input: HTMLInputElement, onChange: (value: string) => void) => {
             if (!enabled || isMobileDevice) return;
             // Detect numeric inputs: inputMode="decimal" or type="number" or type="tel"
-            const isNumeric =
-                input.inputMode === 'decimal' ||
-                input.inputMode === 'numeric' ||
-                input.type === 'number' ||
-                input.type === 'tel';
-            const active: ActiveInput = { element: input, onChange, isNumeric };
+            const isSteppable = input.inputMode === 'decimal' || input.type === 'number';
+            const isNumeric = isSteppable || input.inputMode === 'numeric' || input.type === 'tel';
+            const active: ActiveInput = { element: input, onChange, isNumeric, isSteppable };
             activeInputRef.current = active;
             setActiveInput(active);
             // Scroll input into view above the keyboard
@@ -146,7 +147,7 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
     // inserts a leading minus sign instead when the field allows negatives.
     const handleStep = useCallback((direction: 1 | -1) => {
         const active = activeInputRef.current;
-        if (!active) return;
+        if (!active || !active.isSteppable) return;
         const el = active.element;
         if (direction === -1 && el.value === '' && (el.min === '' || parseFloat(el.min) < 0)) {
             el.value = '-';
@@ -267,10 +268,12 @@ export function VirtualKeyboardProvider({ children, enabled }: { children: React
             {enabled && activeInput && (
                 <VirtualKeyboard
                     isNumeric={activeInput.isNumeric}
+                    stepEnabled={activeInput.isSteppable}
                     decimalAllowed={
-                        activeInput.element.step === '' ||
-                        activeInput.element.step === 'any' ||
-                        !Number.isInteger(parseFloat(activeInput.element.step))
+                        activeInput.isSteppable &&
+                        (activeInput.element.step === '' ||
+                            activeInput.element.step === 'any' ||
+                            !Number.isInteger(parseFloat(activeInput.element.step)))
                     }
                     onKey={handleKey}
                     onBackspace={handleBackspace}
