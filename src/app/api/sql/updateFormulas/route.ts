@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertSubscriptionActive } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { getMainDb, executeInsert } from '../db';
 
@@ -17,6 +18,8 @@ interface Formula {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const subGuard = await assertSubscriptionActive(shopId);
+    if (subGuard) return subGuard;
     let connection: Awaited<ReturnType<typeof getMainDb>> | undefined;
     try {
         connection = await getMainDb(shopId);

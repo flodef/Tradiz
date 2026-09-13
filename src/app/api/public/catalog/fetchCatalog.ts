@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getMainDb, getPosDb, DbConnection } from '../../sql/db';
+import { readSubscription } from '../../sql/subscriptionStore';
+import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 
 interface ArticleRow {
     label: string;
@@ -50,6 +52,14 @@ export async function fetchCatalog(shopId: string) {
             throw mainResult.status === 'rejected'
                 ? (mainResult as PromiseRejectedResult).reason
                 : (posResult as PromiseRejectedResult).reason;
+        }
+
+        // Plan limit: the online site requires Pro or above.
+        const sub = await readSubscription(posConn!);
+        if (!SUBSCRIPTION_PLANS[sub.plan].limits.onlineSite) {
+            await mainConn?.end();
+            await posConn?.end();
+            return NextResponse.json({ error: 'Site en ligne non inclus dans cette formule' }, { status: 403 });
         }
 
         // Fetch products (main DB) and parameters + currencies (POS DB) in parallel

@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { executeInsert, getPosDb, withTransaction } from '../db';
 import { generateProductReference } from '@/app/utils/productReference';
@@ -23,6 +24,9 @@ export async function POST(request: Request) {
         }
 
         connection = await getPosDb(shopId);
+        if (await subscriptionStopped(connection)) {
+            return stoppedSubscriptionResponse();
+        }
         const db = connection;
 
         const savedUsers = await withTransaction(db, async () => {

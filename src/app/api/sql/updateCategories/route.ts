@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertSubscriptionActive } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { getMainDb, DbConnection, withPosDb } from '../db';
 import { insertAuditEvent } from '../auditHelpers';
@@ -14,6 +15,8 @@ interface CategoryInput {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const subGuard = await assertSubscriptionActive(shopId);
+    if (subGuard) return subGuard;
     let connection: DbConnection | undefined;
     try {
         const { categories } = (await request.json()) as { categories: CategoryInput[] };

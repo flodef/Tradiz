@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
 import { aggregateMealsByCustomer } from '../billingHelpers';
 import { getCompanyTransactionStats } from '../billingStats';
+import { readSubscription } from '../subscriptionStore';
+import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
@@ -19,6 +21,15 @@ export async function GET(request: Request) {
     let connection: DbConnection | undefined;
     try {
         connection = await getPosDb(shopId);
+
+        // Plan limit: company billing is part of gestion des entreprises (Privilège).
+        const sub = await readSubscription(connection);
+        if (!SUBSCRIPTION_PLANS[sub.plan].limits.companies) {
+            return NextResponse.json(
+                { error: 'La facturation entreprise nécessite la formule Privilège.' },
+                { status: 403 }
+            );
+        }
 
         const companyQuery = connection.isPostgreSQL
             ? 'SELECT id, employer_share, siret, vat_number, address, zip_code, city FROM dc_pos.companies WHERE name = $1'

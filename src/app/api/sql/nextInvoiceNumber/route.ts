@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
 
@@ -6,13 +7,16 @@ export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
     let connection: DbConnection | undefined;
     try {
-        const { companyId, period } = await request.json() as { companyId: number; period: string };
+        const { companyId, period } = (await request.json()) as { companyId: number; period: string };
 
         if (!companyId || !period || !/^\d{6}$/.test(period)) {
             return NextResponse.json({ error: 'Invalid companyId or period (expected YYYYMM)' }, { status: 400 });
         }
 
         connection = await getPosDb(shopId);
+        if (await subscriptionStopped(connection)) {
+            return stoppedSubscriptionResponse();
+        }
         const isPg = connection.isPostgreSQL;
         const prefix = isPg ? 'dc_pos.' : '';
         const paramKey = `invoiceSeq-${companyId}-${period}`;

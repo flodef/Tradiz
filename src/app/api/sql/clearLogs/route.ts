@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { getPosDb } from '../db';
 
@@ -13,6 +14,9 @@ export async function POST(request: Request) {
     try {
         const { source } = (await request.json()) as { source?: string };
         connection = await getPosDb(shopId);
+        if (await subscriptionStopped(connection)) {
+            return stoppedSubscriptionResponse();
+        }
         const query = connection.isPostgreSQL
             ? 'DELETE FROM dc_sys.logs WHERE source = $1'
             : 'DELETE FROM DC_SYS.logs WHERE source = ?';

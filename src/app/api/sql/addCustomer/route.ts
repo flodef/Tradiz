@@ -1,4 +1,6 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
+import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 import { NextResponse } from 'next/server';
 import { getPosDb, withTransaction, DbConnection } from '../db';
 import { generateProductReference } from '@/app/utils/productReference';
@@ -25,6 +27,15 @@ export async function POST(request: Request) {
         }
 
         connection = await getPosDb(shopId);
+        // Plan limit: gestion des clients requires Pro or above.
+        const sub = await readSubscription(connection);
+        if (sub.status === 'stopped') return stoppedSubscriptionResponse();
+        if (!SUBSCRIPTION_PLANS[sub.plan].limits.customers) {
+            return NextResponse.json(
+                { error: 'La gestion des clients nécessite la formule Pro ou Privilège.' },
+                { status: 403 }
+            );
+        }
         const conn = connection;
 
         const firstName = normalizeFirstName(customer.firstName);

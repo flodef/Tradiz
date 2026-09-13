@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertSubscriptionActive } from '../subscriptionStore';
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, getMainDb } from '../db';
 
@@ -13,6 +14,8 @@ interface PaymentItem {
 
 export async function POST(request: NextRequest) {
     const shopId = getShopIdFromRequest(request);
+    const subGuard = await assertSubscriptionActive(shopId);
+    if (subGuard) return subGuard;
     let connection: Connection | undefined;
     try {
         const body = await request.json();

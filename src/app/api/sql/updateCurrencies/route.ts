@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
 import { Currency } from '@/app/utils/interfaces';
 import { insertAuditEvent } from '../auditHelpers';
+import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
+import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
@@ -15,6 +17,19 @@ export async function POST(request: Request) {
         }
 
         connection = await getPosDb(shopId);
+
+        // Plan limit: multi-devises requires Pro or above (Découverte = 1).
+        const sub = await readSubscription(connection);
+        if (sub.status === 'stopped') return stoppedSubscriptionResponse();
+        const limits = SUBSCRIPTION_PLANS[sub.plan].limits;
+        if (currencies.length > limits.maxCurrencies) {
+            return NextResponse.json(
+                {
+                    error: `Votre formule ${SUBSCRIPTION_PLANS[sub.plan].name} est limitée à ${limits.maxCurrencies} devise(s). Passez à une formule supérieure pour le multi-devises.`,
+                },
+                { status: 403 }
+            );
+        }
 
         // Check if currencies table exists, if not create it
         const createTableQuery = connection.isPostgreSQL
@@ -40,42 +55,46 @@ export async function POST(request: Request) {
         `;
         await connection.execute(createTableQuery);
 
-        // Transactional update: clear and re-insert
-        // For simplicity and to handle deletions, we can clear and re-insert
+        // Clear and re-insert atomically so a mid-insert failure cannot leave
+        // the shop with an empty currency table.
+        await connection.beginTransaction();
+        try {
+            const deleteQuery = connection.isPostgreSQL ? 'DELETE FROM dc_pos.currencies' : 'DELETE FROM currencies';
+            await connection.execute(deleteQuery);
 
-        // Let's use a simple approach: delete all and insert all
-        const deleteQuery = connection.isPostgreSQL ? 'DELETE FROM dc_pos.currencies' : 'DELETE FROM currencies';
-        await connection.execute(deleteQuery);
+            for (const currency of currencies as Currency[]) {
+                const query = connection.isPostgreSQL
+                    ? `
+                    INSERT INTO dc_pos.currencies (label, symbol, max_value, decimals, rate, fee)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                `
+                    : `
+                    INSERT INTO currencies (label, symbol, max_value, decimals, rate, fee)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                `;
+                await connection.execute(query, [
+                    currency.label,
+                    currency.symbol,
+                    currency.maxValue,
+                    currency.decimals,
+                    currency.rate,
+                    currency.fee,
+                ]);
+            }
 
-        for (const currency of currencies as Currency[]) {
-            const query = connection.isPostgreSQL
-                ? `
-                INSERT INTO dc_pos.currencies (label, symbol, max_value, decimals, rate, fee)
-                VALUES ($1, $2, $3, $4, $5, $6)
-            `
-                : `
-                INSERT INTO currencies (label, symbol, max_value, decimals, rate, fee)
-                VALUES (?, ?, ?, ?, ?, ?)
-            `;
-            await connection.execute(query, [
-                currency.label,
-                currency.symbol,
-                currency.maxValue,
-                currency.decimals,
-                currency.rate,
-                currency.fee,
-            ]);
+            await insertAuditEvent(connection, {
+                event_type: 'currency_change',
+                entity_type: 'currencies',
+                entity_id: 'currencies',
+                user_name: 'admin',
+                detail: `Updated ${currencies.length} currency/currencies`,
+            });
+
+            await connection.commit();
+        } catch (e) {
+            await connection.rollback();
+            throw e;
         }
-
-        await insertAuditEvent(connection, {
-            event_type: 'currency_change',
-            entity_type: 'currencies',
-            entity_id: 'currencies',
-            user_name: 'admin',
-            detail: `Updated ${currencies.length} currency/currencies`,
-        });
-
-        await connection.end();
 
         return NextResponse.json({ success: true }, { status: 200 });
     } catch (error) {

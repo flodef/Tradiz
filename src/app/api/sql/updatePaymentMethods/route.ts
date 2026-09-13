@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
 import { insertAuditEvent } from '../auditHelpers';
@@ -21,6 +22,9 @@ export async function POST(request: Request) {
         }
 
         connection = await getPosDb(shopId);
+        if (await subscriptionStopped(connection)) {
+            return stoppedSubscriptionResponse();
+        }
 
         await connection.beginTransaction();
         try {

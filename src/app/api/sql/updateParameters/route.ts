@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection, withTransaction } from '../db';
 import { PARAMETER_KEY_LIST } from '@/app/constants/parameterKeys';
@@ -20,6 +21,9 @@ export async function POST(request: Request) {
         }
 
         connection = await getPosDb(shopId);
+        if (await subscriptionStopped(connection)) {
+            return stoppedSubscriptionResponse();
+        }
         const conn = connection;
 
         await withTransaction(conn, async () => {

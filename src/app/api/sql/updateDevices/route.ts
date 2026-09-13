@@ -1,6 +1,8 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { executeInsert, getPosDb, withTransaction } from '../db';
+import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
+import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
 
 interface Device {
     id?: number;
@@ -28,6 +30,19 @@ export async function POST(request: Request) {
 
         connection = await getPosDb(shopId);
         const db = connection;
+
+        // Plan limit: the formule caps the number of caisses (devices).
+        const sub = await readSubscription(db);
+        if (sub.status === 'stopped') return stoppedSubscriptionResponse();
+        const limits = SUBSCRIPTION_PLANS[sub.plan].limits;
+        if (devices.length > limits.maxDevices) {
+            return NextResponse.json(
+                {
+                    error: `Votre formule ${SUBSCRIPTION_PLANS[sub.plan].name} est limitée à ${limits.maxDevices} caisse(s). Passez à une formule supérieure pour en ajouter.`,
+                },
+                { status: 403 }
+            );
+        }
 
         await withTransaction(db, async () => {
             const savedIds: number[] = [];

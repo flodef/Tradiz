@@ -1,6 +1,8 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, withTransaction, DbConnection } from '../db';
+import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
+import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 import { generateProductReference } from '@/app/utils/productReference';
 import { normalizeFirstName, normalizeFamilyName, emailRegex, frenchPhoneRegex } from '@/app/utils/regex';
 
@@ -72,6 +74,17 @@ export async function POST(request: Request) {
 
         connection = await getPosDb(shopId);
         const conn = connection;
+
+        // Plan limit: gestion des clients requires Pro or above.
+        const sub = await readSubscription(conn);
+        if (sub.status === 'stopped') return stoppedSubscriptionResponse();
+        if (!SUBSCRIPTION_PLANS[sub.plan].limits.customers) {
+            return NextResponse.json(
+                { error: 'La gestion des clients nécessite la formule Pro ou Privilège.' },
+                { status: 403 }
+            );
+        }
+
         const table = conn.isPostgreSQL ? 'dc_pos.customers' : 'customers';
 
         await withTransaction(conn, async () => {

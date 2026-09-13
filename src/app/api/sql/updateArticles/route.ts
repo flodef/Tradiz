@@ -1,6 +1,8 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getMainDb, withPosDb } from '../db';
+import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
+import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 import { generateProductReference } from '@/app/utils/productReference';
 import { DEFAULT_VAT_RATE } from '@/app/utils/constants';
 import { GRID_COLS, encodeGridPosition, encodeSortOrder } from '@/app/utils/sortOrder';
@@ -133,9 +135,26 @@ export async function POST(request: Request) {
 
         connection = await getMainDb(shopId);
 
+        const allProducts = products as Product[];
+
+        // Plan limits (read from the POS DB where the subscription lives):
+        // - Découverte caps the catalog at 50 products
+        // - employer_share requires Privilège
+        const sub = await withPosDb(shopId, readSubscription);
+        if (sub.status === 'stopped') return stoppedSubscriptionResponse();
+        const planLimits = SUBSCRIPTION_PLANS[sub.plan].limits;
+        if (
+            !planLimits.employerShare &&
+            allProducts.some((p) => p.employerShare != null && Number(p.employerShare) !== 0)
+        ) {
+            return NextResponse.json(
+                { error: 'La quote part employeur nécessite la formule Privilège.' },
+                { status: 403 }
+            );
+        }
+
         // Check for duplicate (name, category) pairs before writing.
         // Same name in different categories is allowed.
-        const allProducts = products as Product[];
         const keys = allProducts.map(
             (p) => `${p.name.trim().toLowerCase()}\0${(p.category || '').trim().toLowerCase()}`
         );
@@ -209,7 +228,6 @@ export async function POST(request: Request) {
                 await connection.execute(connection.isPostgreSQL ? 'DELETE FROM dc.products' : 'DELETE FROM products');
             }
 
-            const allProducts = products as Product[];
             const productsToInsert =
                 scopedCategory !== null ? allProducts.filter((p) => p.category === scopedCategory) : allProducts;
 
@@ -284,6 +302,22 @@ export async function POST(request: Request) {
                 const newReference =
                     product.reference?.trim() || generateProductReference(sortOrderMap.get(product) ?? i + 1);
                 historyRows.push([newReference, product.name, oldPrice, newPrice, oldVat, newVat, 'admin']);
+            }
+
+            // Plan limit: Découverte caps the catalog — count what the
+            // transaction would leave behind and abort if it overflows.
+            if (Number.isFinite(planLimits.maxProducts)) {
+                const [countRows] = await connection.execute(`SELECT COUNT(*) AS c FROM ${pgTable}`);
+                const total = Number((countRows as { c: number | string }[])[0]?.c) || 0;
+                if (total > planLimits.maxProducts) {
+                    await connection.rollback();
+                    return NextResponse.json(
+                        {
+                            error: `Votre formule ${SUBSCRIPTION_PLANS[sub.plan].name} est limitée à ${planLimits.maxProducts} produits (${total} après enregistrement). Passez à une formule supérieure.`,
+                        },
+                        { status: 403 }
+                    );
+                }
             }
 
             await connection.commit();

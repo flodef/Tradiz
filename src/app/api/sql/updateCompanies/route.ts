@@ -1,6 +1,8 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection, withTransaction } from '../db';
+import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
+import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 
 interface Company {
     id?: number;
@@ -25,6 +27,16 @@ export async function POST(request: Request) {
 
         connection = await getPosDb(shopId);
         const conn = connection;
+
+        // Plan limit: gestion des entreprises is Privilège only.
+        const sub = await readSubscription(conn);
+        if (sub.status === 'stopped') return stoppedSubscriptionResponse();
+        if (!SUBSCRIPTION_PLANS[sub.plan].limits.companies) {
+            return NextResponse.json(
+                { error: 'La gestion des entreprises nécessite la formule Privilège.' },
+                { status: 403 }
+            );
+        }
 
         const table = conn.isPostgreSQL ? 'dc_pos.companies' : 'companies';
         const isPg = conn.isPostgreSQL;

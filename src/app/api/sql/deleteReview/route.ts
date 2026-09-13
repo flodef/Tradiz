@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertSubscriptionActive } from '../subscriptionStore';
 
 export const dynamic = 'force-dynamic';
 
 /** DELETE /api/sql/deleteReview — delete a review by ID (admin) */
 export async function DELETE(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const subGuard = await assertSubscriptionActive(shopId);
+    if (subGuard) return subGuard;
 
     if (!shopId) {
         return NextResponse.json({ error: 'Missing shop ID' }, { status: 400 });

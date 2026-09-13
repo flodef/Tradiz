@@ -1,6 +1,7 @@
 import { PROCESSING_KEYWORD, DEFAULT_USER, DEFAULT_VAT_RATE, EXPUNGED_KEYWORD } from '@/app/utils/constants';
 import { computeFidelityDelta } from '@/app/utils/fidelity';
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { Connection, getPosDb } from '../db';
 import { insertAuditEvent, lockHashChain } from '../auditHelpers';
@@ -99,6 +100,9 @@ export async function POST(request: Request) {
         let connection: Connection | undefined;
         try {
             connection = await getPosDb(shopId);
+            if (await subscriptionStopped(connection)) {
+                return stoppedSubscriptionResponse();
+            }
 
             await connection.beginTransaction();
             // Serialize writers on the transaction hash chain — a concurrent

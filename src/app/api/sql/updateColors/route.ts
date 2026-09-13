@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertSubscriptionActive } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { getMainDb, DbConnection } from '../db';
 
@@ -17,6 +18,8 @@ interface UpdateColorsRequest {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const subGuard = await assertSubscriptionActive(shopId);
+    if (subGuard) return subGuard;
     let connection: DbConnection | undefined;
     try {
         const { colors, themeName, selectedThemeIndex, customThemeNames } =

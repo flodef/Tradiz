@@ -10,6 +10,8 @@ import {
 } from '@/app/utils/constants';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
+import { readSubscription } from '../subscriptionStore';
+import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 
 // Payment methods that do not represent a completed payment and must be excluded
 // from revenue, basket, product and order-count statistics.
@@ -57,6 +59,15 @@ export async function GET(request: Request) {
     let dbConn: DbConnection | undefined;
     try {
         const connection = await getPosDb(shopId);
+
+        // Plan limit: statistiques & rapports require Pro or above.
+        const sub = await readSubscription(connection);
+        if (!SUBSCRIPTION_PLANS[sub.plan].limits.stats) {
+            return NextResponse.json(
+                { error: 'Les statistiques nécessitent la formule Pro ou Privilège.' },
+                { status: 403 }
+            );
+        }
         dbConn = connection;
 
         const isPg = connection.isPostgreSQL;
