@@ -90,7 +90,7 @@ export function ThemeToggle({
                 aria-checked={activeMode === 'system'}
                 aria-disabled={!ready}
                 role="radio"
-                className={`rounded-full flex items-center justify-center transition-all p-1.5 cursor-pointer ${activeMode === 'system' ? 'bg-orange-500 text-white shadow-sm' : 'text-site-text-muted hover:text-site-text'}`}
+                className={`rounded-full flex items-center justify-center transition-all w-7 h-7 overflow-hidden cursor-pointer ${activeMode === 'system' ? 'bg-orange-500 text-white shadow-sm' : 'text-site-text-muted hover:text-site-text'}`}
             >
                 <IconDeviceDesktop size={16} className="hidden lg:block" />
                 <IconDeviceTablet size={16} className="hidden md:block lg:hidden" />
@@ -106,7 +106,7 @@ export function ThemeToggle({
                     aria-checked={activeMode === opt.value}
                     aria-disabled={!ready}
                     role="radio"
-                    className={`rounded-full flex items-center justify-center transition-all p-1.5 cursor-pointer ${activeMode === opt.value ? 'bg-orange-500 text-white shadow-sm' : 'text-site-text-muted hover:text-site-text'}`}
+                    className={`rounded-full flex items-center justify-center transition-all w-7 h-7 overflow-hidden cursor-pointer ${activeMode === opt.value ? 'bg-orange-500 text-white shadow-sm' : 'text-site-text-muted hover:text-site-text'}`}
                 >
                     <opt.icon size={16} />
                 </button>
