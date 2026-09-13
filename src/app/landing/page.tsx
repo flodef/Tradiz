@@ -57,7 +57,7 @@ const PROMISES = [
     {
         icon: IconReceipt,
         title: 'Facturation',
-        text: "Une facturation innovante adaptable aux fluctuations de l'activité, sans abonnement et sans engagement. Hors-saison, fermeture pour congés, baisse du chiffre d'affaires ? Vous payez seulement en fonction de votre activité !",
+        text: "Un abonnement mensuel sans engagement, qui s'adapte aux fluctuations de votre activité. Suspendez ou changez de formule à tout moment, sans attendre la fin du mois : chaque jour est facturé au prorata !",
     },
 ];
 
@@ -131,7 +131,6 @@ const PRICING_PLANS = [
         id: 'decouverte',
         name: 'Découverte',
         monthlyPrice: 30,
-        annualPrice: 300,
         desc: 'Pour les petits commerces qui démarrent',
         features: [
             '1 caisse',
@@ -148,7 +147,6 @@ const PRICING_PLANS = [
         id: 'pro',
         name: 'Pro',
         monthlyPrice: 50,
-        annualPrice: 500,
         desc: 'Pour les commerces en croissance',
         features: [
             'Tout le plan Découverte',
@@ -167,7 +165,6 @@ const PRICING_PLANS = [
         id: 'privilege',
         name: 'Privilège',
         monthlyPrice: 100,
-        annualPrice: 1000,
         desc: 'Pour les commerces exigeants',
         features: [
             'Tout le plan Pro',
@@ -188,11 +185,11 @@ const PRICING_PLANS = [
 const FAQ_ITEMS = [
     {
         q: "Qu'est-ce que Tradiz ? Et pourquoi passer à votre proposition ?",
-        a: "Tradiz est un logiciel de caisse moderne, sur mesure et aux normes, conçu pour les petites entreprises. Contrairement aux solutions standards du marché, il s'adapte à votre façon de travailler et non l'inverse. Interface intuitive, facturation à l'usage, sans engagement.",
+        a: "Tradiz est un logiciel de caisse moderne, sur mesure et aux normes, conçu pour les petites entreprises. Contrairement aux solutions standards du marché, il s'adapte à votre façon de travailler et non l'inverse. Interface intuitive, abonnement sans engagement.",
     },
     {
         q: 'Quel est le modèle de facturation ?',
-        a: "Tradiz fonctionne sans abonnement ni engagement. La facturation se fait à chaque transaction effectuée, en fin de mois. Pas de transaction, pas de facturation. C'est idéal pour les activités saisonnières ou les périodes de fermeture.",
+        a: "Tradiz fonctionne par abonnement mensuel, sans engagement : trois formules (Découverte, Pro, Privilège) que vous pouvez suspendre, reprendre ou changer à tout moment — l'effet est immédiat, sans attendre la fin du mois. La facture est calculée au prorata : chaque jour est facturé au tarif de la formule la plus élevée utilisée ce jour-là (prix mensuel ÷ 30), et les jours suspendus ne sont pas facturés.",
     },
     {
         q: "J'ai déjà une solution d'encaissement, comment puis-je passer à votre solution ? Qui m'accompagne et comment ?",
@@ -204,7 +201,7 @@ const FAQ_ITEMS = [
     },
     {
         q: "Je ne veux pas m'engager, ou j'ai une activité saisonnière. Comment puis-je intégrer votre solution ?",
-        a: "Soyez rassuré, Tradiz est un logiciel sans engagement. La facturation ne se fait qu'à chaque transaction effectuée et en fin de mois. Donc en fin d'activité si aucune transaction, pas de facturation. C'est parfaitement adapté pour vous qui êtes saisonnier.",
+        a: "Soyez rassuré, Tradiz est un logiciel sans engagement. Suspendez votre abonnement hors-saison ou pendant vos congés : les jours suspendus ne sont pas facturés et la reprise est immédiate. C'est parfaitement adapté pour vous qui êtes saisonnier.",
     },
     {
         q: 'Comment installer votre logiciel dans mon système et de quoi ai-je besoin ?',
@@ -220,15 +217,15 @@ const FAQ_ITEMS = [
     },
     {
         q: "Existe-t-il une version de base de Tradiz pour pouvoir l'utiliser gratuitement ?",
-        a: "Vous pouvez tester Tradiz gratuitement et sans engagement via notre démo en ligne sur demo.tradiz.fr. Pour l'utilisation en production, la facturation se fait à la transaction — vous ne payez que ce que vous utilisez.",
+        a: "Vous pouvez tester Tradiz gratuitement et sans engagement via notre démo en ligne sur demo.tradiz.fr. Pour la production, choisissez une formule d'abonnement mensuel — sans engagement, résiliable à tout moment.",
     },
     {
         q: 'Comment mettre fin à mon engagement en cas de mécontentement ?',
-        a: "Tradiz est sans engagement. Vous pouvez arrêter à tout moment, sans frais ni pénalité. Comme la facturation se fait à la transaction, il vous suffit de cesser d'utiliser le logiciel.",
+        a: "Tradiz est sans engagement. Vous pouvez suspendre votre abonnement à tout moment depuis les paramètres, sans frais ni pénalité : l'arrêt est immédiat et la facturation s'arrête au jour près.",
     },
     {
         q: 'Combien coûte Tradiz ? Et que comprend ce coût ?',
-        a: 'Tradiz propose 3 forfaits : Découverte (30€/mois) pour les petits commerces, Pro (50€/mois) pour les commerces en croissance avec multi-caisses, et Privilège (100€/mois) pour les commerces exigeants avec support dédié. La facturation se fait à la transaction, sans engagement.',
+        a: 'Tradiz propose 3 forfaits : Découverte (30€/mois) pour les petits commerces, Pro (50€/mois) pour les commerces en croissance avec multi-caisses, et Privilège (100€/mois) pour les commerces exigeants avec support dédié. Abonnement mensuel sans engagement, facturé au prorata journalier.',
     },
     {
         q: 'Quels sont les avantages et les inconvénients de votre logiciel ?',
@@ -613,7 +610,6 @@ function FeatureCard({
 
 function Pricing() {
     const { ref, visible } = useFadeIn();
-    const [annual, setAnnual] = useState(false);
     const [revolutConfigured, setRevolutConfigured] = useState<boolean | null>(null);
 
     useEffect(() => {
@@ -635,65 +631,20 @@ function Pricing() {
                     </span>
                 </h2>
                 <p className="mt-4 text-lg text-site-text-secondary">
-                    Choisissez la formule qui vous correspond. Sans engagement.
+                    Choisissez la formule qui vous correspond. Abonnement mensuel, sans engagement.
                 </p>
-
-                {/* Monthly / Annual toggle */}
-                <div
-                    className="inline-flex items-center gap-4 rounded-full p-1.5 mt-8 bg-site-surface-hover border border-site-border"
-                    role="radiogroup"
-                    aria-label="Période de facturation"
-                >
-                    <button
-                        type="button"
-                        onClick={() => setAnnual(false)}
-                        role="radio"
-                        aria-checked={!annual}
-                        className={`px-6 py-2 rounded-full text-sm font-semibold transition-all cursor-pointer ${
-                            !annual
-                                ? 'bg-linear-to-r from-orange-500 to-amber-600 text-white'
-                                : 'text-site-text-muted hover:text-site-text'
-                        }`}
-                    >
-                        Mensuel
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setAnnual(true)}
-                        role="radio"
-                        aria-checked={annual}
-                        className={`px-6 py-2 rounded-full text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${
-                            annual
-                                ? 'bg-linear-to-r from-orange-500 to-amber-600 text-white'
-                                : 'text-site-text-muted hover:text-site-text'
-                        }`}
-                    >
-                        Annuel
-                        <span
-                            className={`text-xs px-2 py-0.5 rounded-full ${
-                                annual ? 'bg-white/20 text-white' : 'bg-orange-500/20 text-orange-500'
-                            }`}
-                        >
-                            2 mois offerts
-                        </span>
-                    </button>
-                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
                 {PRICING_PLANS.map((plan, i) => (
-                    <PricingCard
-                        key={plan.id}
-                        plan={plan}
-                        index={i}
-                        annual={annual}
-                        revolutConfigured={revolutConfigured}
-                    />
+                    <PricingCard key={plan.id} plan={plan} index={i} revolutConfigured={revolutConfigured} />
                 ))}
             </div>
 
-            <p className="mt-8 text-center text-sm text-site-text-muted">
-                La facturation se fait à la transaction. Pas d'abonnement, pas d'engagement.
+            <p className="mt-8 text-center text-sm text-site-text-muted max-w-3xl mx-auto">
+                Abonnement mensuel sans engagement : suspendez, reprenez ou changez de formule à tout moment — l'effet
+                est immédiat. Chaque jour est facturé au prorata (prix mensuel ÷ 30) selon la formule la plus élevée
+                utilisée ce jour-là ; les jours suspendus ne sont pas facturés.
             </p>
         </Section>
     );
@@ -702,17 +653,15 @@ function Pricing() {
 function PricingCard({
     plan,
     index,
-    annual,
     revolutConfigured,
 }: {
     plan: (typeof PRICING_PLANS)[number];
     index: number;
-    annual: boolean;
     revolutConfigured: boolean | null;
 }) {
     const { ref, visible } = useFadeIn();
     const [openTooltip, setOpenTooltip] = useState<string | null>(null);
-    const price = annual ? plan.annualPrice : plan.monthlyPrice;
+    const price = plan.monthlyPrice;
 
     useEffect(() => {
         if (!openTooltip) return;
@@ -752,14 +701,9 @@ function PricingCard({
                 <span className="text-4xl font-extrabold bg-linear-to-r from-orange-500 to-amber-600 bg-clip-text text-transparent">
                     {price}€
                 </span>
-                <span className="text-site-text-muted text-sm ml-1">{annual ? '/ an' : '/ mois'}</span>
+                <span className="text-site-text-muted text-sm ml-1">/ mois</span>
             </div>
-            {annual && (
-                <p className="text-xs text-orange-500 mb-4">
-                    Soit {Math.round(plan.annualPrice / 12)}€/mois — 2 mois offerts
-                </p>
-            )}
-            {!annual && <div className="mb-4" />}
+            <div className="mb-4" />
             <div className="space-y-3 mb-8 flex-1">
                 {plan.features.map((feature, j) => {
                     const tooltip = TOOLTIP_TEXTS[feature];
@@ -813,11 +757,7 @@ function PricingCard({
                 })}
             </div>
             <a
-                href={
-                    revolutConfigured
-                        ? `/checkout?plan=${plan.id}&billing=${annual ? 'annual' : 'monthly'}`
-                        : '#contact'
-                }
+                href={revolutConfigured ? `/checkout?plan=${plan.id}` : '#contact'}
                 onClick={(e) => {
                     if (revolutConfigured) return;
                     e.preventDefault();

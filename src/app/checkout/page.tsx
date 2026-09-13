@@ -5,16 +5,15 @@ import { useSearchParams } from 'next/navigation';
 import { IconCircleCheck, IconLoader2, IconAlertCircle, IconArrowLeft } from '@tabler/icons-react';
 import { useTheme } from '../site/theme';
 
-const PLANS: Record<string, { name: string; monthly: number; annual: number }> = {
-    decouverte: { name: 'Découverte', monthly: 30, annual: 300 },
-    pro: { name: 'Pro', monthly: 50, annual: 500 },
-    privilege: { name: 'Privilège', monthly: 100, annual: 1000 },
+const PLANS: Record<string, { name: string; monthly: number }> = {
+    decouverte: { name: 'Découverte', monthly: 30 },
+    pro: { name: 'Pro', monthly: 50 },
+    privilege: { name: 'Privilège', monthly: 100 },
 };
 
 function CheckoutContent() {
     const searchParams = useSearchParams();
     const plan = searchParams.get('plan') as keyof typeof PLANS | null;
-    const billing = searchParams.get('billing') as 'monthly' | 'annual' | null;
     const status = searchParams.get('status');
 
     const [loading, setLoading] = useState(false);
@@ -25,7 +24,7 @@ function CheckoutContent() {
     const instanceRef = useRef<{ destroy: () => void } | null>(null);
 
     const planData = plan && PLANS[plan] ? PLANS[plan] : null;
-    const amount = planData && billing ? (billing === 'annual' ? planData.annual : planData.monthly) : 0;
+    const amount = planData ? planData.monthly : 0;
 
     useEffect(() => {
         fetch('/api/revolut-config')
@@ -36,7 +35,7 @@ function CheckoutContent() {
 
     useEffect(() => {
         if (status === 'success') return;
-        if (!planData || !amount || !billing) return;
+        if (!planData || !amount) return;
         if (orderToken) return;
 
         const controller = new AbortController();
@@ -51,7 +50,7 @@ function CheckoutContent() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         planName: planData.name,
-                        billing: billing || 'monthly',
+                        billing: 'monthly',
                         currency: 'EUR',
                     }),
                     signal: controller.signal,
@@ -80,7 +79,7 @@ function CheckoutContent() {
         createOrder();
 
         return () => controller.abort();
-    }, [plan, billing, planData, amount, orderToken, status]);
+    }, [plan, planData, amount, orderToken, status]);
 
     useEffect(() => {
         if (!orderToken || !widgetRef.current) return;
@@ -149,7 +148,7 @@ function CheckoutContent() {
         );
     }
 
-    if (!planData || !billing) {
+    if (!planData) {
         return (
             <div className="min-h-screen flex items-center justify-center px-6 bg-site-bg text-site-text">
                 <div className="max-w-md text-center p-8 rounded-3xl bg-site-surface border border-site-border">
@@ -188,7 +187,7 @@ function CheckoutContent() {
 
                     <h1 className="text-2xl font-bold mb-1">Paiement de l'abonnement</h1>
                     <p className="text-site-text-secondary text-sm mb-6">
-                        Forfait {planData.name} — {billing === 'annual' ? 'annuel' : 'mensuel'}
+                        Forfait {planData.name} — mensuel, sans engagement
                     </p>
 
                     <div className="rounded-xl p-4 mb-6 bg-site-input-bg border border-site-input-border">
@@ -198,9 +197,7 @@ function CheckoutContent() {
                         </div>
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-sm text-site-text-secondary">Facturation</span>
-                            <span className="text-sm font-semibold">
-                                {billing === 'annual' ? 'Annuelle (2 mois offerts)' : 'Mensuelle'}
-                            </span>
+                            <span className="text-sm font-semibold">Mensuelle (prorata journalier)</span>
                         </div>
                         <div className="border-t border-site-border pt-2 mt-2">
                             <div className="flex justify-between items-center">

@@ -67,8 +67,8 @@ export default function SitePage() {
         if (!shopId) return;
         const controller = new AbortController();
         fetch(`/api/public/catalog/${shopId}`, { signal: controller.signal })
-            .then((res) => {
-                if (!res.ok) throw new Error('Failed to load catalog');
+            .then(async (res) => {
+                if (!res.ok) throw new Error(res.status === 403 ? 'unavailable' : 'Failed to load catalog');
                 return res.json();
             })
             .then((d: CatalogData) => setData(d))
@@ -268,7 +268,11 @@ export default function SitePage() {
     if (error || !data) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-site-bg text-site-text">
-                <p className="text-site-text-secondary text-lg">Impossible de charger le menu pour le moment.</p>
+                <p className="text-site-text-secondary text-lg">
+                    {error === 'unavailable'
+                        ? 'Ce site est temporairement indisponible.'
+                        : 'Impossible de charger le menu pour le moment.'}
+                </p>
             </div>
         );
     }
