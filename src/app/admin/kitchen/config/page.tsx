@@ -1477,12 +1477,14 @@ export default function SettingsPage() {
                 />
             )}
 
-            <ReviewsConfig
-                isReadOnly={isReadOnly}
-                isOpen={openSection === 'reviews'}
-                onToggle={() => setOpenSection((prev) => (prev === 'reviews' ? null : 'reviews'))}
-                icon={<IconStar size={24} />}
-            />
+            {limits.onlineSite && (
+                <ReviewsConfig
+                    isReadOnly={isReadOnly}
+                    isOpen={openSection === 'reviews'}
+                    onToggle={() => setOpenSection((prev) => (prev === 'reviews' ? null : 'reviews'))}
+                    icon={<IconStar size={24} />}
+                />
+            )}
 
             {!isReadOnly && hasChanges && (
                 <div className="mt-6 flex justify-end gap-4">
