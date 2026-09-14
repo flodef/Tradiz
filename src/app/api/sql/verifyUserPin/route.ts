@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
 import { assertDeviceAuthorized, requestIp, resolveDeviceAuth, sessionTokenHash } from '../deviceAuth';
 import { verifyPin } from '../pinHash';
+import { insertAuditEvent } from '../auditHelpers';
 import { generateSecureId } from '@/app/utils/id';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +17,7 @@ const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
 interface UserRow {
     pin_hash: string | null;
+    name: string;
 }
 
 /**
@@ -65,8 +67,8 @@ export async function POST(request: Request) {
 
         const [rows] = await connection.execute(
             isPg
-                ? 'SELECT pin_hash FROM dc_pos.users WHERE id = $1 LIMIT 1'
-                : 'SELECT pin_hash FROM users WHERE id = ? LIMIT 1',
+                ? 'SELECT pin_hash, name FROM dc_pos.users WHERE id = $1 LIMIT 1'
+                : 'SELECT pin_hash, name FROM users WHERE id = ? LIMIT 1',
             [userId]
         );
         const userRow = (rows as UserRow[])[0];
@@ -90,6 +92,16 @@ export async function POST(request: Request) {
         if (!ok) {
             return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 });
         }
+
+        // Audit the successful authentication (D.1) — this is what attributes
+        // later sensitive writes to a real user instead of just a device.
+        insertAuditEvent(connection, {
+            event_type: 'user_login',
+            entity_type: 'users',
+            entity_id: String(userId),
+            user_name: userRow?.name ?? `user-${userId}`,
+            detail: 'PIN verified',
+        }).catch((err) => console.error('Failed to audit user login:', err));
 
         // Create a user session bound to this device — the plain token goes
         // to the client, only its hash is stored.

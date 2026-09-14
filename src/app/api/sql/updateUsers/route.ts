@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import { executeInsert, getPosDb, withTransaction } from '../db';
 import { assertDeviceAuthorized, shopRequiresUserAuth } from '../deviceAuth';
 import { generateProductReference } from '@/app/utils/productReference';
-import { insertAuditEvent } from '../auditHelpers';
+import { insertAuditEvent, resolveAuditActor } from '../auditHelpers';
 import { hashPin } from '../pinHash';
 
 class ConflictError extends Error {}
@@ -46,9 +46,13 @@ export async function POST(request: Request) {
 
         // Applies pin/clearPin for a persisted user id — pin_hash is only
         // touched when the payload explicitly asks for it, so saving the user
-        // list never erases an existing PIN silently.
+        // list never erases an existing PIN silently. Counts feed the audit
+        // detail (counts only — never the PIN nor its hash).
+        let pinsSet = 0;
+        let pinsCleared = 0;
         const applyPin = async (userId: number, user: User) => {
             if (user.clearPin) {
+                pinsCleared++;
                 await db.execute(
                     db.isPostgreSQL
                         ? 'UPDATE dc_pos.users SET pin_hash = NULL WHERE id = $1'
@@ -56,6 +60,7 @@ export async function POST(request: Request) {
                     [userId]
                 );
             } else if (user.pin) {
+                pinsSet++;
                 await db.execute(
                     db.isPostgreSQL
                         ? 'UPDATE dc_pos.users SET pin_hash = $1 WHERE id = $2'
@@ -197,8 +202,11 @@ export async function POST(request: Request) {
             event_type: 'user_change',
             entity_type: 'users',
             entity_id: 'users',
-            user_name: 'admin',
-            detail: `Updated ${users.length} user(s)`,
+            user_name: await resolveAuditActor(request, connection, shopId),
+            detail:
+                `Updated ${users.length} user(s)` +
+                (pinsSet ? `, ${pinsSet} PIN set/changed` : '') +
+                (pinsCleared ? `, ${pinsCleared} PIN cleared` : ''),
         });
 
         return NextResponse.json({ success: true, users: savedUsers }, { status: 200 });

@@ -10,7 +10,21 @@ interface UserRow {
 }
 
 const MAX_FAILED_ATTEMPTS = 3;
+const LOCKOUT_WINDOW_MS = 24 * 60 * 60 * 1000;
+const LOCKOUT_BASE_MS = 15 * 60 * 1000;
+const LOCKOUT_MAX_MS = 24 * 60 * 60 * 1000;
 export const dynamic = 'force-dynamic';
+
+/**
+ * Progressive lockout (D.3): below MAX_FAILED_ATTEMPTS there is no delay;
+ * beyond it the cooldown doubles per failure — 15 min, 30 min, 1 h, 2 h …
+ * capped at 24 h. A mistyped key on a legit device recovers quickly, while
+ * brute force becomes exponentially slow. Exported for tests.
+ */
+export function lockoutMs(failures: number): number {
+    if (failures < MAX_FAILED_ATTEMPTS) return 0;
+    return Math.min(LOCKOUT_BASE_MS * 2 ** (failures - MAX_FAILED_ATTEMPTS), LOCKOUT_MAX_MS);
+}
 
 /**
  * Parse user agent string to extract browser and OS information
@@ -82,33 +96,36 @@ function parseUserAgent(userAgent: string): {
 }
 
 /**
- * Check if an IP is blocked due to too many failed attempts
+ * Check if an IP is in cooldown after repeated failed attempts.
+ * Returns the remaining lockout in ms (0 when allowed). Fails closed.
  */
-async function isIpBlocked(connection: import('../db').DbConnection, ipAddress: string): Promise<boolean> {
+async function ipLockoutRemainingMs(connection: import('../db').DbConnection, ipAddress: string): Promise<number> {
     try {
-        // Check for failed attempts in the last 24 hours from this IP
-        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const windowStart = new Date(Date.now() - LOCKOUT_WINDOW_MS).toISOString();
         const query = connection.isPostgreSQL
-            ? `SELECT COUNT(*) as count FROM dc_sys.connections 
-               WHERE metadata->>'ip_address' = $1 
-               AND metadata->>'success' = 'false' 
+            ? `SELECT COUNT(*) as count, MAX(created_at) as last_at FROM dc_sys.connections
+               WHERE metadata->>'ip_address' = $1
+               AND metadata->>'success' = 'false'
                AND created_at > $2`
-            : `SELECT COUNT(*) as count FROM DC_SYS.connections 
-               WHERE JSON_EXTRACT(metadata, '$.ip_address') = ? 
-               AND JSON_EXTRACT(metadata, '$.success') = 'false' 
+            : `SELECT COUNT(*) as count, MAX(created_at) as last_at FROM DC_SYS.connections
+               WHERE JSON_EXTRACT(metadata, '$.ip_address') = ?
+               AND JSON_EXTRACT(metadata, '$.success') = 'false'
                AND created_at > ?`;
 
-        const [rows] = await connection.execute(query, [ipAddress, oneDayAgo]);
-        // pg returns COUNT(*) as a string — coerce to number for the comparison
-        const count = Number((rows as { count: number | string }[])[0]?.count) || 0;
+        const [rows] = await connection.execute(query, [ipAddress, windowStart]);
+        const row = (rows as { count: number | string; last_at: string | null }[])[0];
+        // pg returns COUNT(*) as a string — coerce to number
+        const count = Number(row?.count) || 0;
+        const cooldown = lockoutMs(count);
+        if (cooldown === 0 || !row?.last_at) return 0;
 
-        // Block IP if more than MAX_FAILED_ATTEMPTS failed attempts in the last 24 hours
-        return count >= MAX_FAILED_ATTEMPTS;
+        const elapsed = Date.now() - new Date(row.last_at).getTime();
+        return Math.max(0, cooldown - elapsed);
     } catch (error) {
         // Fail closed: if we can't check the block list, assume blocked.
         // This prevents a DB outage from disabling all IP blocking.
         console.error('Failed to check IP block status (failing closed):', error);
-        return true;
+        return LOCKOUT_MAX_MS;
     }
 }
 
@@ -311,12 +328,12 @@ export async function POST(request: NextRequest) {
             ipAddress !== '127.0.0.1' &&
             ipAddress !== 'unknown'
         ) {
-            const blocked = await isIpBlocked(connection, ipAddress);
-            if (blocked) {
+            const lockoutMsRemaining = await ipLockoutRemainingMs(connection, ipAddress);
+            if (lockoutMsRemaining > 0) {
                 await connection.end();
                 return NextResponse.json(
                     { error: 'Too many failed attempts. Please try again later.' },
-                    { status: 429 }
+                    { status: 429, headers: { 'Retry-After': String(Math.ceil(lockoutMsRemaining / 1000)) } }
                 );
             }
         }

@@ -2,6 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { executeInsert, getPosDb, withTransaction } from '../db';
 import { assertDeviceAuthorized } from '../deviceAuth';
+import { insertAuditEvent, resolveAuditActor } from '../auditHelpers';
 import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
 
@@ -52,6 +53,16 @@ export async function POST(request: Request) {
             );
         }
 
+        const [countRows] = await db.execute(
+            db.isPostgreSQL
+                ? 'SELECT COUNT(*) AS count FROM dc_pos.devices WHERE NOT intervention'
+                : 'SELECT COUNT(*) AS count FROM devices WHERE NOT intervention',
+            []
+        );
+        const beforeCount = Number((countRows as { count: number | string }[])[0]?.count) || 0;
+        let added = 0;
+        let updated = 0;
+
         await withTransaction(db, async () => {
             const savedIds: number[] = [];
             for (const device of devices) {
@@ -89,6 +100,7 @@ export async function POST(request: Request) {
                         ]
                     );
                     savedIds.push(device.id);
+                    updated++;
                     continue;
                 }
 
@@ -119,6 +131,7 @@ export async function POST(request: Request) {
                         ]
                     );
                     savedIds.push(existingId);
+                    updated++;
                 } else {
                     const newId = await executeInsert(
                         db,
@@ -138,6 +151,7 @@ export async function POST(request: Request) {
                     );
                     if (newId) {
                         savedIds.push(newId);
+                        added++;
                     }
                 }
             }
@@ -159,6 +173,17 @@ export async function POST(request: Request) {
                         : 'DELETE FROM devices WHERE NOT intervention'
                 );
             }
+        });
+
+        // Device list changes grant/revoke API access — always audit them.
+        // Keys are never logged (a leaked audit row must not leak credentials).
+        const revoked = Math.max(0, beforeCount - (added + updated));
+        await insertAuditEvent(db, {
+            event_type: 'device_change',
+            entity_type: 'devices',
+            entity_id: 'devices',
+            user_name: await resolveAuditActor(request, db, shopId),
+            detail: `${added} added, ${updated} updated, ${revoked} revoked`,
         });
 
         return NextResponse.json({ success: true }, { status: 200 });

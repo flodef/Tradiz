@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection, withTransaction } from '../db';
 import { assertDeviceAuthorized } from '../deviceAuth';
 import { PARAMETER_KEY_LIST } from '@/app/constants/parameterKeys';
-import { insertAuditEvent } from '../auditHelpers';
+import { insertAuditEvent, resolveAuditActor } from '../auditHelpers';
 
 class ConflictError extends Error {}
 
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
-        const { parameters, changedBy } = await request.json();
+        const { parameters } = await request.json();
 
         if (!parameters || !Array.isArray(parameters)) {
             return NextResponse.json({ error: 'Invalid parameters format' }, { status: 400 });
@@ -84,7 +84,9 @@ export async function POST(request: Request) {
                     event_type: 'parameter_change',
                     entity_type: 'parameters',
                     entity_id: 'parameters',
-                    user_name: changedBy || 'admin',
+                    // Server-verified identity (session > device user) — the
+                    // client-provided changedBy is forgeable so it's ignored.
+                    user_name: await resolveAuditActor(request, conn, shopId),
                     detail: `Updated ${updatedKeys.length} parameter(s): ${updatedKeys.join(', ')}`,
                 });
             }

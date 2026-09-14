@@ -6,11 +6,12 @@ import { getPublicKey } from '@/app/utils/processData';
 import { testPrint } from '@/app/utils/posPrinter';
 import { usePopup } from '@/app/hooks/usePopup';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IconChevronDown, IconChevronUp, IconSelector, IconPlayerPlay } from '@tabler/icons-react';
+import { IconChevronDown, IconChevronUp, IconSelector, IconPlayerPlay, IconAlertTriangle } from '@tabler/icons-react';
 import SectionCard from '../SectionCard';
 import DeleteButtonCell from '../DeleteButtonCell';
 import ValidatedInput from '../ValidatedInput';
 import AdminSelect from '../AdminSelect';
+import AdminButton from '../AdminButton';
 import { deviceFetch } from '@/app/utils/deviceFetch';
 
 const COMMON_BAUD_RATES = [4800, 9600, 19200, 38400, 57600, 115200, 2400];
@@ -424,6 +425,20 @@ export default function DevicesConfig({
     const validUsers = useMemo(() => users.filter((u) => u.id !== undefined), [users]);
     const canAddDevice = validUsers.length > 0;
 
+    // D.2 — surface an unknown device that recently tried to connect, so the
+    // admin notices it without having to click "Ajouter un appareil" first.
+    const [pendingKey, setPendingKey] = useState<{ key: string; at: string | null } | null>(null);
+    useEffect(() => {
+        if (isReadOnly) return;
+        deviceFetch('/api/sql/getFailedLoginKey')
+            .then(async (r) => {
+                if (!r.ok) return;
+                const data = (await r.json()) as { key?: string | null; at?: string | null };
+                if (data.key) setPendingKey({ key: String(data.key), at: data.at ?? null });
+            })
+            .catch(() => {});
+    }, [isReadOnly]);
+
     // Subscription quota — service devices (intervention flag) don't count.
     const billableCount = devices.filter((d) => !d.intervention).length;
     const quotaReached = maxDevices !== undefined && billableCount >= maxDevices;
@@ -542,6 +557,21 @@ export default function DevicesConfig({
             addLabel="Ajouter un appareil"
             isReadOnly={isReadOnly}
         >
+            {pendingKey && !devices.some((d) => d.key === pendingKey.key) && (
+                <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-900/20">
+                    <IconAlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <div className="flex-1 text-sm text-amber-800 dark:text-amber-200">
+                        Un appareil inconnu a tenté de se connecter
+                        {pendingKey.at ? ` le ${new Date(pendingKey.at).toLocaleString('fr-FR')}` : ''}. S'il s'agit
+                        d'un appareil légitime, ajoutez-le ci-dessous — sinon ignorez cette alerte.
+                    </div>
+                    {canAddDevice && !quotaReached && (
+                        <AdminButton variant="add" onClick={handleAddDevice}>
+                            Ajouter
+                        </AdminButton>
+                    )}
+                </div>
+            )}
             <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                     {sortedDevices.length > 0 && (

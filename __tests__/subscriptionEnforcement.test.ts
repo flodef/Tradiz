@@ -33,6 +33,7 @@ vi.mock('@/app/api/sql/deviceAuth', () => ({
 vi.mock('@/app/api/sql/auditHelpers', () => ({
     insertAuditEvent: async () => {},
     lockHashChain: async () => async () => {},
+    resolveAuditActor: async () => 'admin-test',
 }));
 
 vi.mock('@/app/api/sql/db', () => {

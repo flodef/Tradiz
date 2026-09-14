@@ -111,6 +111,20 @@ Cas particuliers :
 - `whoami` renvoie `requiresUserAuth` et calcule `admin` depuis la
   session quand le flag est actif.
 
+### Audit & supervision (en place)
+
+- Les écritures sensibles (devices, users, paramètres, abonnement) sont
+  tracées dans `audit_events` avec l'acteur **vérifié serveur**
+  (session > utilisateur lié au device) — le `changedBy` client,
+  forgeable, est ignoré.
+- `user_login` trace chaque authentification PIN réussie.
+- La section Appareils affiche une alerte quand une clé inconnue tente
+  de se connecter (`getFailedLoginKey` + date de la tentative).
+- `resolveUser` applique un verrouillage exponentiel après échecs
+  répétés (15 min → ×2 → 24 h, header `Retry-After`) ; les refus
+  device (`device_denied`) et les échecs PIN (`pin_attempt`) sont
+  comptés dans `dc_sys.connections` avec seuils 429.
+
 ### Reste à faire (niveau 3 complet)
 
 - Généraliser les rôles session au-delà d'admin (`manager`, `service`)
@@ -120,9 +134,8 @@ Cas particuliers :
 - HTTPS/TLS en LAN (certificat interne ou mTLS) si plusieurs caisses
   partagent un serveur — aujourd'hui la clé et le token circulent en
   clair sur le réseau local.
-- Audit log des écritures sensibles (qui a modifié paramètres/devices/
-  users) au-delà de la chaîne NF525 existante ; alerte sur nouveau
-  device ; verrouillage progressif.
+- Alertes proactives hors UI admin (push/email) sur nouveau device ou
+  rafale de refus.
 
 ### Ce qu'il ne faut pas faire
 

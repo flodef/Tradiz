@@ -11,6 +11,8 @@ export interface DeviceAuth {
     intervention: boolean;
     /** The linked user's role (null when the device has no user). */
     role: string | null;
+    /** The linked user's name (null when the device has no user). */
+    userName?: string | null;
     /** The device's row id (undefined when the key is unknown). */
     deviceId?: number;
 }
@@ -126,17 +128,17 @@ export async function resolveDeviceAuth(
 
     const [rows] = await connection.execute(
         connection.isPostgreSQL
-            ? `SELECT d.id, d.intervention, u.role
+            ? `SELECT d.id, d.intervention, u.role, u.name
                FROM dc_pos.devices d
                LEFT JOIN dc_pos.users u ON u.id = d.user_id
                WHERE d.public_key = $1 LIMIT 1`
-            : `SELECT d.id, d.intervention, u.role
+            : `SELECT d.id, d.intervention, u.role, u.name
                FROM devices d
                LEFT JOIN users u ON u.id = d.user_id
                WHERE d.public_key = ? LIMIT 1`,
         [key]
     );
-    const row = (rows as { id: number; intervention: number | boolean; role: string | null }[])[0];
+    const row = (rows as { id: number; intervention: number | boolean; role: string | null; name: string | null }[])[0];
 
     if (!row) {
         if (shopId === 'demo') {
@@ -181,6 +183,7 @@ export async function resolveDeviceAuth(
         admin: role?.toLowerCase() === 'admin',
         intervention: !!row.intervention,
         role,
+        userName: row.name ?? null,
         deviceId: Number(row.id),
     };
 }

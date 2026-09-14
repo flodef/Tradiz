@@ -139,15 +139,27 @@ prix côté serveur, public par design). Rien à signer.
   (manager/service) est possible mais non fait — la granularité actuelle
   suffit au modèle de menace boutique.
 
-### Phase D — Audit et supervision ⬜
+### Phase D — Audit et supervision ✅
 
-- **D.1 Couverture audit** — `dc_pos.audit_events` trace déjà les opérations
-  NF525 ; étendre aux écritures sensibles hors-NF525 (devices, users,
-  paramètres, abonnement).
-- **D.2 Alertes** — nouvelle clé inconnue → notification admin (le mécanisme
-  `dc_sys.connections` + `getFailedLoginKey` existe, ajouter un badge/push).
-- **D.3 Verrouillage progressif** — backoff exponentiel après échecs répétés
-  sur `resolveUser`.
+- **D.1 Couverture audit ✅** — `updateDevices` émet `device_change`
+  (ajoutés/modifiés/révoqués — jamais les clés) ; `updateUsers` détaille
+  les PIN définis/effacés (compteurs, jamais valeur ni hash) ;
+  `verifyUserPin` émet `user_login` sur succès — c'est lui qui attribue
+  les écritures sensibles à un utilisateur réel. Nouveau
+  `resolveAuditActor` (session > utilisateur lié au device > 'inconnu') :
+  `user_name` est désormais **vérifié serveur** dans `updateUsers`,
+  `updateDevices` et `updateParameters` (le `changedBy` client, forgeable,
+  est ignoré).
+- **D.2 Alertes ✅** — `getFailedLoginKey` renvoie aussi la date de la
+  tentative ; `DevicesConfig` affiche une bannière « appareil inconnu
+  détecté » (date + bouton Ajouter qui pré-remplit la clé) au chargement
+  de la section. L'alerte se résout d'elle-même une fois la clé
+  enregistrée.
+- **D.3 Verrouillage progressif ✅** — `resolveUser` : remplacé le bloc
+  sec « 3 échecs → 24 h » par un cooldown exponentiel — 3 échecs → 15 min,
+  puis ×2 par échec (30 min, 1 h, 2 h, 4 h, 8 h, 16 h), plafonné à 24 h,
+  avec header `Retry-After`. Un appareil légitime mal configuré récupère
+  vite ; le brute-force devient exponentiellement lent.
 
 ### Non prioritaire / refusé
 

@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 import type { DbConnection } from './db';
+import { resolveDeviceAuth, resolveUserSession } from './deviceAuth';
 
 export interface AuditEventInput {
     event_type: string;
@@ -56,6 +57,21 @@ function generateEventHash(event: AuditEventInput, previousHash: string | null, 
         createdAt,
     ].join('|');
     return createHash('sha256').update(data).digest('hex');
+}
+
+/**
+ * Best-effort actor name for audit trails: the PIN-verified session user
+ * when present, else the device's linked user, else 'appareil'. Never
+ * throws — falls back to 'inconnu' so auditing can never break a write.
+ */
+export async function resolveAuditActor(request: Request, connection: DbConnection, shopId: string): Promise<string> {
+    try {
+        const auth = await resolveDeviceAuth(request, connection, shopId);
+        const session = auth.deviceId ? await resolveUserSession(request, connection, auth.deviceId) : null;
+        return session?.name ?? auth.userName ?? 'inconnu';
+    } catch {
+        return 'inconnu';
+    }
 }
 
 export async function insertAuditEvent(connection: DbConnection, event: AuditEventInput): Promise<void> {

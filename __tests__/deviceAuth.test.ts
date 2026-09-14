@@ -119,6 +119,7 @@ import {
     sessionTokenHash,
 } from '../src/app/api/sql/deviceAuth';
 import { GET as getParametersGET } from '../src/app/api/sql/getParameters/route';
+import { lockoutMs } from '../src/app/api/sql/resolveUser/route';
 
 const req = (key?: string, via: 'header' | 'query' = 'header', ip?: string, sessionToken?: string) =>
     new Request(`http://localhost/api/sql/test${via === 'query' && key ? `?publicKey=${key}` : ''}`, {
@@ -323,5 +324,25 @@ describe('Gate appliqué aux routes internes', () => {
         // Guard passed — the route then runs against the empty fake DB and
         // returns whatever it returns, just not a 403.
         expect(res.status).not.toBe(403);
+    });
+});
+
+describe('Verrouillage progressif (resolveUser)', () => {
+    it('pas de délai sous le seuil de 3 échecs', () => {
+        expect(lockoutMs(0)).toBe(0);
+        expect(lockoutMs(1)).toBe(0);
+        expect(lockoutMs(2)).toBe(0);
+    });
+
+    it('cooldown exponentiel à partir du 3e échec', () => {
+        expect(lockoutMs(3)).toBe(15 * 60 * 1000);
+        expect(lockoutMs(4)).toBe(30 * 60 * 1000);
+        expect(lockoutMs(5)).toBe(60 * 60 * 1000);
+        expect(lockoutMs(6)).toBe(2 * 60 * 60 * 1000);
+    });
+
+    it('plafonné à 24h', () => {
+        expect(lockoutMs(10)).toBe(24 * 60 * 60 * 1000);
+        expect(lockoutMs(50)).toBe(24 * 60 * 60 * 1000);
     });
 });

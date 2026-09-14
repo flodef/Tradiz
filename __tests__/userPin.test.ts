@@ -79,10 +79,10 @@ const state = vi.hoisted(() => {
             }
 
             // users.pin_hash lookup (verifyUserPin)
-            if (q.includes('SELECT pin_hash FROM dc_pos.users')) {
+            if (q.includes('SELECT pin_hash') && q.includes('FROM dc_pos.users')) {
                 const userId = Number(params?.[0]);
                 const user = state.users.find((u) => u.id === userId);
-                return [user ? [{ pin_hash: user.pin_hash }] : [], {}];
+                return [user ? [{ pin_hash: user.pin_hash, name: user.name }] : [], {}];
             }
 
             // requireUserAuth flag (shopRequiresUserAuth)
@@ -160,6 +160,7 @@ vi.mock('@/app/api/sql/subscriptionStore', () => ({
 
 vi.mock('@/app/api/sql/auditHelpers', () => ({
     insertAuditEvent: async () => {},
+    resolveAuditActor: async () => 'admin-test',
 }));
 
 import { hashPin, verifyPin } from '../src/app/api/sql/pinHash';

@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic';
 
 interface LogRow {
     public_key: string;
+    created_at: string;
 }
 
 export async function GET(request: Request) {
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
         connection = await getPosDb(shopId);
 
         const query = connection.isPostgreSQL
-            ? `SELECT l.metadata->>'public_key' AS public_key
+            ? `SELECT l.metadata->>'public_key' AS public_key, l.created_at
                FROM dc_sys.connections l
                WHERE l.level = 'error'
                  AND l.metadata->>'success' = 'false'
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
                  )
                ORDER BY l.created_at DESC
                LIMIT 1`
-            : `SELECT JSON_UNQUOTE(JSON_EXTRACT(l.metadata, '$.public_key')) AS public_key
+            : `SELECT JSON_UNQUOTE(JSON_EXTRACT(l.metadata, '$.public_key')) AS public_key, l.created_at
                FROM DC_SYS.connections l
                WHERE l.level = 'error'
                  AND JSON_EXTRACT(l.metadata, '$.success') = 'false'
@@ -44,7 +45,10 @@ export async function GET(request: Request) {
 
         await connection.end();
 
-        return NextResponse.json({ key: found ? String(found.public_key) : null });
+        return NextResponse.json({
+            key: found ? String(found.public_key) : null,
+            at: found?.created_at ? new Date(found.created_at).toISOString() : null,
+        });
     } catch (error) {
         console.error('Error fetching failed login key:', error);
         return NextResponse.json({ error: 'An error occurred while fetching failed login key' }, { status: 500 });
