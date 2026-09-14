@@ -171,9 +171,9 @@ test.describe('Public website — shop catalog page', () => {
         await page.goto(`/site/${SHOP_ID}`);
         await expect(page.getByRole('heading', { name: 'Test Bistro' })).toBeVisible({ timeout: 10000 });
 
-        // Click "Nous contacter" button (desktop nav)
-        const contactBtn = page.getByRole('button', { name: 'Nous contacter' });
-        await contactBtn.click();
+        // "Nous contacter" lives inside the "À propos de nous" nav dropdown
+        await page.getByRole('button', { name: 'À propos de nous' }).hover();
+        await page.getByRole('button', { name: 'Nous contacter' }).click();
 
         // Modal should appear with form fields (h3 heading in modal)
         await expect(page.getByRole('heading', { name: 'Nous contacter' })).toBeVisible();
@@ -200,7 +200,8 @@ test.describe('Public website — shop catalog page', () => {
         await page.goto(`/site/${SHOP_ID}`);
         await expect(page.getByRole('heading', { name: 'Test Bistro' })).toBeVisible({ timeout: 10000 });
 
-        // Click the "Horaires d'ouverture" button to open the modal
+        // Click the "Horaires d'ouverture" button (inside the "À propos de nous" dropdown)
+        await page.getByRole('button', { name: 'À propos de nous' }).hover();
         await page.getByRole('button', { name: /Horaires d'ouverture/ }).click();
 
         // The modal should be visible with day names
@@ -246,7 +247,8 @@ test.describe('Public website — shop catalog page', () => {
         await page.goto(`/site/${SHOP_ID}`);
         await expect(page.getByRole('heading', { name: 'Test Bistro' })).toBeVisible({ timeout: 10000 });
 
-        // Open contact modal
+        // Open contact modal (inside the "À propos de nous" dropdown)
+        await page.getByRole('button', { name: 'À propos de nous' }).hover();
         await page.getByRole('button', { name: 'Nous contacter' }).click();
 
         // Try to submit empty form — browser should block it via required attributes
