@@ -121,6 +121,8 @@ export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({
             });
             if (response.ok) {
                 const body = (await response.json()) as { token?: string; expiresAt?: string };
+                // Revoke the outgoing user's session before storing the new one.
+                dropCurrentSession();
                 if (body.token && body.expiresAt && pendingUser.id) {
                     setUserSession({ userId: pendingUser.id, token: body.token, expiresAt: body.expiresAt });
                 }
