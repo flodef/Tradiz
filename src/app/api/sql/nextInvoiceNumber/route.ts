@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
 import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 import { NextResponse } from 'next/server';
@@ -6,6 +7,8 @@ import { getPosDb, DbConnection } from '../db';
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId);
+    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const { companyId, period } = (await request.json()) as { companyId: number; period: string };

@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { toSQLDateTime } from '@/app/utils/date';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
@@ -9,6 +10,8 @@ import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId);
+    if (deviceGuard) return deviceGuard;
     const { searchParams } = new URL(request.url);
     const companyName = searchParams.get('companyName');
     const startDate = searchParams.get('startDate');

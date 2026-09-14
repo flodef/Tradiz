@@ -46,7 +46,7 @@ export function useSubscription() {
 
     const refresh = useCallback(async () => {
         try {
-            const res = await fetch('/api/sql/subscription');
+            const res = await deviceFetch('/api/sql/subscription');
             if (!res.ok) return;
             const data = (await res.json()) as Record<string, unknown>;
             const plan: SubscriptionPlan = isSubscriptionPlan(data.plan) ? data.plan : 'privilege';

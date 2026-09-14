@@ -1,9 +1,12 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId);
+    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         connection = await getPosDb(shopId);

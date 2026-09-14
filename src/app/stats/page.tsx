@@ -36,6 +36,7 @@ import {
     YAxis,
 } from 'recharts';
 import Loading from '../loading';
+import { deviceFetch } from '@/app/utils/deviceFetch';
 
 interface DailySale {
     date: string;
@@ -258,7 +259,7 @@ export default function StatsPage() {
                 }
 
                 // Then, fetch from DB for fresh data
-                const response = await fetch(`/api/sql/getStatistics?startDate=${startDate}&endDate=${endDate}`);
+                const response = await deviceFetch(`/api/sql/getStatistics?startDate=${startDate}&endDate=${endDate}`);
                 const data = await response.json();
 
                 if (data.dailySales) {
@@ -306,7 +307,7 @@ export default function StatsPage() {
     useEffect(() => {
         const fetchCompanies = async () => {
             try {
-                const response = await fetch('/api/sql/getCompanies');
+                const response = await deviceFetch('/api/sql/getCompanies');
                 const data = await response.json();
                 if (data.companies) {
                     setCompanies(data.companies);
@@ -334,7 +335,7 @@ export default function StatsPage() {
                 startDate,
                 endDate,
             });
-            const response = await fetch(`/api/sql/getBillingReport?${params.toString()}`);
+            const response = await deviceFetch(`/api/sql/getBillingReport?${params.toString()}`);
             const data = await response.json();
 
             if (!response.ok || data.error) {
@@ -462,7 +463,7 @@ export default function StatsPage() {
         if (!billingReport) return '';
         const period = billingReport.startDate.substring(0, 7).replace('-', '');
         try {
-            const response = await fetch('/api/sql/nextInvoiceNumber', {
+            const response = await deviceFetch('/api/sql/nextInvoiceNumber', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ companyId: billingReport.companyId, period }),
@@ -489,7 +490,7 @@ export default function StatsPage() {
         const invoiceNumber = await getInvoiceNumber();
         setFacturxLoading(true);
         try {
-            const response = await fetch('/api/facturx/generate', {
+            const response = await deviceFetch('/api/facturx/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ report: billingReport, shop, invoiceNumber }),
@@ -520,7 +521,7 @@ export default function StatsPage() {
         const invoiceNumber = await getInvoiceNumber();
         setPennylaneLoading(true);
         try {
-            const response = await fetch('/api/pennylane/push', {
+            const response = await deviceFetch('/api/pennylane/push', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

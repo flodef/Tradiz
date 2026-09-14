@@ -6,9 +6,12 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { getPosDb } from '../../sql/db';
 import { readSubscription, stoppedSubscriptionResponse } from '../../sql/subscriptionStore';
 import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
+import { assertDeviceAuthorized } from '../../sql/deviceAuth';
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId);
+    if (deviceGuard) return deviceGuard;
     try {
         const body = await request.json();
         const { report, shop, invoiceNumber, deadline } = body as {

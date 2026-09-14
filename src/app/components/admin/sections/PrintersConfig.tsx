@@ -13,6 +13,7 @@ import DragHandleCell from '../DragHandleCell';
 import SectionCard from '../SectionCard';
 
 import AdminButton from '../AdminButton';
+import { deviceFetch } from '@/app/utils/deviceFetch';
 
 interface InternalPrinter extends Printer {
     _id: number;
@@ -167,7 +168,7 @@ export default function PrintersConfig({
     }, [config]);
 
     useEffect(() => {
-        fetch('/api/local-ip')
+        deviceFetch('/api/local-ip')
             .then((res) => res.json())
             .then((data) => {
                 if (data.localIp) setLocalIp(data.localIp);
@@ -276,7 +277,7 @@ export default function PrintersConfig({
         foundPrintersRef.current = [];
 
         try {
-            const res = await fetch('/api/scan-printers');
+            const res = await deviceFetch('/api/scan-printers');
             if (!res.body) {
                 openFullscreenPopup('Erreur: pas de réponse du serveur', ['OK']);
                 setIsScanning(false);

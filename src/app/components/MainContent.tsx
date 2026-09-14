@@ -21,6 +21,7 @@ import {
     isChangeDisplayHeld,
     releaseChangeDisplay,
 } from '../utils/customerDisplay';
+import { deviceFetch } from '@/app/utils/deviceFetch';
 
 interface PendingOrder {
     orderId: number;
@@ -88,7 +89,7 @@ export const MainContent: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdmi
                 const loadOrderById = async (targetOrderId: string) => {
                     // Load order data for partial payment
                     try {
-                        const response = await fetch(`/api/sql/getOrderItemsForPayment?orderId=${targetOrderId}`);
+                        const response = await deviceFetch(`/api/sql/getOrderItemsForPayment?orderId=${targetOrderId}`);
                         if (response.ok) {
                             const data = await response.json();
                             setOrderData(data);
@@ -99,7 +100,7 @@ export const MainContent: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdmi
 
                     // Load order items as products (+ shortNumOrder)
                     try {
-                        const res = await fetch(`/api/sql/getOrderItems?orderId=${targetOrderId}`);
+                        const res = await deviceFetch(`/api/sql/getOrderItems?orderId=${targetOrderId}`);
                         if (res.ok) {
                             const data = await res.json();
                             if (data.shortNumOrder) setShortNumOrder(data.shortNumOrder);
@@ -142,7 +143,7 @@ export const MainContent: FC<{ showLightAdminNav?: boolean }> = ({ showLightAdmi
                             const endpoint = isTableOpenWithoutOrder
                                 ? `/api/sql/getPendingOrdersForCashier?tableId=${rawTableId}`
                                 : '/api/sql/getPendingOrdersForCashier';
-                            const response = await fetch(endpoint);
+                            const response = await deviceFetch(endpoint);
                             if (!response.ok) return;
 
                             const pendingOrders = (await response.json()) as PendingOrder[];

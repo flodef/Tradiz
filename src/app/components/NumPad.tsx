@@ -33,6 +33,7 @@ import CustomerDetailsPopup from './CustomerDetailsPopup';
 import { useAddPopupClass } from './Popup';
 import { UserSwitchPopup } from './UserSwitchPopup';
 import { useVirtualKeyboardContext } from './admin/VirtualKeyboardProvider';
+import { deviceFetch } from '@/app/utils/deviceFetch';
 
 export const MIN_QUANTITY = 0.125;
 export const quantityHalving = (quantity: number, key: Digits | string): number =>
@@ -722,7 +723,7 @@ export const NumPad: FC<{ displayOnly?: boolean }> = ({ displayOnly = false }) =
             return;
         }
         setCustomerBalance(currentCustomer.balance ?? null);
-        fetch(`/api/sql/getCustomerBalance?customerId=${currentCustomer.id}`)
+        deviceFetch(`/api/sql/getCustomerBalance?customerId=${currentCustomer.id}`)
             .then((res) => res.json())
             .then(({ balance }: { balance?: number }) => setCustomerBalance(Number(balance ?? 0)))
             .catch((error) => console.error('Failed to fetch customer balance:', error));

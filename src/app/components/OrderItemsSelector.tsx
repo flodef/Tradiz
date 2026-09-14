@@ -4,6 +4,7 @@ import { FC, useCallback, useEffect, useRef, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { OrderData, OrderItem } from '../utils/interfaces';
 import { usePay } from '../hooks/usePay';
+import { deviceFetch } from '@/app/utils/deviceFetch';
 
 interface OrderItemsSelectorProps {
     orderId: string;
@@ -47,7 +48,7 @@ export const OrderItemsSelector: FC<OrderItemsSelectorProps> = ({ orderId, onSel
             setError(null);
 
             try {
-                const response = await fetch(`/api/sql/getOrderItemsForPayment?orderId=${orderId}`);
+                const response = await deviceFetch(`/api/sql/getOrderItemsForPayment?orderId=${orderId}`);
 
                 if (!response.ok) {
                     throw new Error('Failed to load order data');

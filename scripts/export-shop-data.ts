@@ -7,6 +7,10 @@
  *
  * Example:
  *   bun scripts/export-shop-data.ts annette scripts/import-annette-data.sql
+ *
+ * API routes require a registered device — pass its public key via the
+ * DEVICE_PUBLIC_KEY env var (copy it from the device's localStorage
+ * "PublicKey" or the devices table).
  */
 
 import { SHOP_IDS } from '../src/app/constants/shops';
@@ -22,6 +26,8 @@ if (!SHOP_ID || !SHOP_IDS.includes(SHOP_ID as (typeof SHOP_IDS)[number])) {
 
 // We hit the local dev server
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const DEVICE_PUBLIC_KEY = process.env.DEVICE_PUBLIC_KEY || '';
+const AUTH_HEADERS: HeadersInit = DEVICE_PUBLIC_KEY ? { 'x-public-key': DEVICE_PUBLIC_KEY } : {};
 
 interface ParameterRow {
     id: number;
@@ -116,7 +122,7 @@ function sqlEscape(value: string | null): string {
 }
 
 async function fetchJson(path: string): Promise<unknown> {
-    const res = await fetch(`${BASE_URL}${path}`);
+    const res = await fetch(`${BASE_URL}${path}`, { headers: AUTH_HEADERS });
     if (!res.ok) {
         throw new Error(`Failed to fetch ${path}: ${res.status}`);
     }
@@ -227,7 +233,9 @@ async function main() {
     sql += `-- ============================================================\n`;
     // Fetch raw theme rows
     try {
-        const themeRes = await fetch(`${BASE_URL}/api/sql/getColors?shopId=${SHOP_ID}&all=1&raw=1`);
+        const themeRes = await fetch(`${BASE_URL}/api/sql/getColors?shopId=${SHOP_ID}&all=1&raw=1`, {
+            headers: AUTH_HEADERS,
+        });
         if (themeRes.ok) {
             const themeData = (await themeRes.json()) as { rows: ThemeAdminRow[] };
             for (const t of themeData.rows) {

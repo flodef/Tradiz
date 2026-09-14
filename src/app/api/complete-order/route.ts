@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../sql/deviceAuth';
 
 export async function POST(req: NextRequest) {
+    const deviceGuard = await assertDeviceAuthorized(req, getShopIdFromRequest(req));
+    if (deviceGuard) return deviceGuard;
+
     try {
         const body = await req.json();
         const { order_id } = body;

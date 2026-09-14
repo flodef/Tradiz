@@ -5,6 +5,7 @@ import { IconStar, IconStarFilled, IconStarHalfFilled } from '@tabler/icons-reac
 import DeleteButton from '../DeleteButton';
 import SectionCard from '../SectionCard';
 import { usePopup } from '@/app/hooks/usePopup';
+import { deviceFetch } from '@/app/utils/deviceFetch';
 
 interface Review {
     id: number;
@@ -66,7 +67,7 @@ export default function ReviewsConfig({ isReadOnly = false, isOpen, onToggle, ic
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch('/api/sql/getReviews');
+            const res = await deviceFetch('/api/sql/getReviews');
             if (!res.ok) throw new Error('Server error');
             const data = await res.json();
             setReviews(data.reviews || []);
@@ -88,7 +89,7 @@ export default function ReviewsConfig({ isReadOnly = false, isOpen, onToggle, ic
         openFullscreenPopup('Supprimer cet avis ?', ['Supprimer', 'Annuler'], (index: number) => {
             if (index !== 0) return;
             setDeletingId(review.id);
-            fetch('/api/sql/deleteReview', {
+            deviceFetch('/api/sql/deleteReview', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: review.id }),

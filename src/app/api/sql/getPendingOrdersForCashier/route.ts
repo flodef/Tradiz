@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { NextResponse } from 'next/server';
 import { RowDataPacket } from 'mysql2';
 import { getMainDb } from '../db';
@@ -12,6 +13,8 @@ interface PendingOrderRow extends RowDataPacket {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId);
+    if (deviceGuard) return deviceGuard;
     const tableIdParam = new URL(request.url).searchParams.get('tableId');
     let connection;
     try {

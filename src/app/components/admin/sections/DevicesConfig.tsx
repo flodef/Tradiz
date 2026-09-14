@@ -11,6 +11,7 @@ import SectionCard from '../SectionCard';
 import DeleteButtonCell from '../DeleteButtonCell';
 import ValidatedInput from '../ValidatedInput';
 import AdminSelect from '../AdminSelect';
+import { deviceFetch } from '@/app/utils/deviceFetch';
 
 const COMMON_BAUD_RATES = [4800, 9600, 19200, 38400, 57600, 115200, 2400];
 
@@ -130,7 +131,7 @@ function Row({
 
                 // Test as cash drawer
                 try {
-                    const res = await fetch('/api/open-cash-drawer', {
+                    const res = await deviceFetch('/api/open-cash-drawer', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ printerAddress: portName, baudRate: 9600 }),
@@ -170,7 +171,7 @@ function Row({
             if (device.cashDrawerCom) {
                 steps.push('Tiroir caisse:');
                 try {
-                    const res = await fetch('/api/open-cash-drawer', {
+                    const res = await deviceFetch('/api/open-cash-drawer', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -381,7 +382,7 @@ export default function DevicesConfig({
 
     useEffect(() => {
         if (isReadOnly) return;
-        fetch('/api/list-com-ports')
+        deviceFetch('/api/list-com-ports')
             .then((res) => res.json())
             .then((data) => {
                 if (data.ports && Array.isArray(data.ports)) {
@@ -490,7 +491,7 @@ export default function DevicesConfig({
     const handleAddDevice = useCallback(async () => {
         let failedKey = '';
         try {
-            const response = await fetch('/api/sql/getFailedLoginKey');
+            const response = await deviceFetch('/api/sql/getFailedLoginKey');
             const data = await response.json();
             if (response.ok && data.key) {
                 failedKey = String(data.key);

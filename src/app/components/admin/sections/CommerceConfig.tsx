@@ -209,7 +209,7 @@ export default function CommerceConfig({
         : '';
 
     useEffect(() => {
-        fetch('/api/version')
+        deviceFetch('/api/version')
             .then((res) => res.json())
             .then((data) => {
                 if (data.version) setAppVersion(data.version);

@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { NextResponse } from 'next/server';
 import { getMainDb, DbConnection } from '../db';
 
@@ -78,6 +79,8 @@ function isSelected(row: ThemeRow): boolean {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId);
+    if (deviceGuard) return deviceGuard;
     // `all=1` returns every theme so the admin config page can list and pick them.
     // The default response stays a single (selected) theme, which is what the app applies.
     const returnAll = new URL(request.url).searchParams.get('all') === '1';

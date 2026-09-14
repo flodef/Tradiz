@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { execSync } from 'child_process';
 import fs from 'fs';
+import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../sql/deviceAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +25,10 @@ interface PortResult {
  *
  * The user checks which port makes the customer display light up.
  */
-export async function GET() {
+export async function GET(request: Request) {
+    const deviceGuard = await assertDeviceAuthorized(request, getShopIdFromRequest(request));
+    if (deviceGuard) return deviceGuard;
+
     const results: PortResult[] = [];
 
     for (let i = 1; i <= 16; i++) {
@@ -50,10 +55,13 @@ export async function GET() {
 
         try {
             // Configure serial settings: 9600 baud, 8N1, no flow control
-            execSync(`mode ${portName}: BAUD=9600 PARITY=N DATA=8 STOP=1 to=off xon=off odsr=off octs=off dtr=on rts=on`, {
-                stdio: 'pipe',
-                windowsHide: true,
-            });
+            execSync(
+                `mode ${portName}: BAUD=9600 PARITY=N DATA=8 STOP=1 to=off xon=off odsr=off octs=off dtr=on rts=on`,
+                {
+                    stdio: 'pipe',
+                    windowsHide: true,
+                }
+            );
 
             // Build test message: ESC @ + 20 chars line1 + 20 chars line2
             const line1 = `TEST ${portName}`.slice(0, 20).padEnd(20, ' ');

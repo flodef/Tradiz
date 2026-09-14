@@ -23,7 +23,7 @@ import {
     PROVISION_KEYWORD,
 } from './constants';
 import './extensions';
-import { generateSimpleId } from './id';
+import { generateSecureId } from './id';
 
 export class MissingDataError extends Error {
     name = 'MissingDataError';
@@ -472,12 +472,23 @@ export async function initPublicKey() {
     }
 }
 
+/**
+ * Returns the stored public key WITHOUT creating one. Use on code paths that
+ * may run on public/anonymous pages — getPublicKey() would mint a fresh key
+ * (and, on the demo shop, auto-register a spurious device).
+ */
+export function peekPublicKey(): string | null {
+    if (electronPublicKey) return electronPublicKey;
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('PublicKey');
+}
+
 export function getPublicKey() {
     if (electronPublicKey) return electronPublicKey;
 
     let publicKey = localStorage.getItem('PublicKey');
     if (!publicKey) {
-        publicKey = generateSimpleId();
+        publicKey = generateSecureId();
         localStorage.setItem('PublicKey', publicKey);
     }
 
@@ -779,9 +790,10 @@ export async function checkDbConfig(): Promise<boolean> {
 }
 
 async function fetchData(dataName: string) {
-    // Always use DB
+    // Always use DB — send the device public key (same header as deviceFetch,
+    // inlined here because deviceFetch imports getPublicKey from this module)
     const url = `/api/sql/${dataName}`;
-    return await fetch(url).catch((error) => console.error(error));
+    return await fetch(url, { headers: { 'x-public-key': getPublicKey() } }).catch((error) => console.error(error));
 }
 
 async function convertParametersData(

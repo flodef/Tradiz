@@ -40,6 +40,7 @@ import {
     loadData,
     resolveUserFromKey,
 } from '../utils/processData';
+import { deviceFetch } from '@/app/utils/deviceFetch';
 
 export interface Shop {
     name: string;
@@ -191,7 +192,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
             grafana_access_enabled?: boolean;
         };
 
-        fetch('/api/sql/getEtabConfig')
+        deviceFetch('/api/sql/getEtabConfig')
             .then((r) => r.json())
             .then((data: EtabConfigResponse) => {
                 const mode =
@@ -392,7 +393,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
         initPublicKey().then(() => {
             const pk = getPublicKey();
             if (!pk) return;
-            fetch(`/api/sql/getDeviceHardware?publicKey=${encodeURIComponent(pk)}`)
+            deviceFetch(`/api/sql/getDeviceHardware?publicKey=${encodeURIComponent(pk)}`)
                 .then((r) => (r.ok ? r.json() : null))
                 .then((hw) => {
                     if (hw?.printerCom) setDevicePrinterCom(hw.printerCom);

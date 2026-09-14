@@ -366,7 +366,7 @@ export default function EditMenuPage() {
 
     // Step 1: check DB config once on mount
     useEffect(() => {
-        fetch('/api/sql/getDbConfig')
+        deviceFetch('/api/sql/getDbConfig')
             .then((r) => r.json())
             .then(({ hasDbConfig }) => {
                 setIsReadOnly(!hasDbConfig);
@@ -463,10 +463,10 @@ export default function EditMenuPage() {
                 // Always fetch fresh data from DB in background
                 const [productsResponse, parametersResponse, categoriesResponse, companiesResponse] = await Promise.all(
                     [
-                        fetch('/api/sql/getAllArticles'),
-                        fetch('/api/sql/getParameters'),
-                        fetch('/api/sql/getCategories'),
-                        fetch('/api/sql/getCompanies'),
+                        deviceFetch('/api/sql/getAllArticles'),
+                        deviceFetch('/api/sql/getParameters'),
+                        deviceFetch('/api/sql/getCategories'),
+                        deviceFetch('/api/sql/getCompanies'),
                     ]
                 );
                 const productsData = await productsResponse.json();

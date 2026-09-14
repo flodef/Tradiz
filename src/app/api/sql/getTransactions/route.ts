@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import {
     isCancelledTransaction,
     isDeletedTransaction,
@@ -47,6 +48,8 @@ interface ProductRow {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId);
+    if (deviceGuard) return deviceGuard;
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date'); // Format: YYYY-MM-DD
     const period = searchParams.get('period'); // 'day' or 'full'

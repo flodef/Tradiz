@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, getMainDb } from '../db';
 import { OrderData, OrderItem, dbToServiceType } from '@/app/utils/interfaces';
@@ -38,6 +39,8 @@ interface FormulaElementRow {
 
 export async function GET(request: NextRequest) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId);
+    if (deviceGuard) return deviceGuard;
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get('orderId');
 

@@ -19,6 +19,7 @@ import { getStorageUsage, idbGetAllKeys, idbGetTransactions } from '../utils/tra
 import { useConfig } from './useConfig';
 import { useData } from './useData';
 import { usePopup } from './usePopup';
+import { deviceFetch } from '@/app/utils/deviceFetch';
 
 export type ProvisionBreakdownEntry = {
     method: string;
@@ -1590,7 +1591,7 @@ export const useSummary = () => {
                             openPopup('Clôture journalière', ['Clôture en cours...'], () => {}, true);
                             (async () => {
                                 try {
-                                    const res = await fetch('/api/sql/dailyClosure', {
+                                    const res = await deviceFetch('/api/sql/dailyClosure', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({

@@ -2,8 +2,13 @@ import { NextResponse } from 'next/server';
 import { generateFacturX, type FacturXInput } from '@/app/actions/facturx';
 import type { BillingReport } from '@/app/utils/interfaces';
 import type { Shop } from '@/app/contexts/ConfigProvider';
+import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../../sql/deviceAuth';
 
 export async function POST(request: Request) {
+    const deviceGuard = await assertDeviceAuthorized(request, getShopIdFromRequest(request));
+    if (deviceGuard) return deviceGuard;
+
     try {
         const body = await request.json();
         const { report, shop, invoiceNumber, currencyCode } = body as {

@@ -16,6 +16,7 @@ import { useConfig } from '@/app/hooks/useConfig';
 import { usePay } from '@/app/hooks/usePay';
 import { IconPrinter } from '@tabler/icons-react';
 import { twMerge } from 'tailwind-merge';
+import { deviceFetch } from '@/app/utils/deviceFetch';
 
 interface BalanceEntry {
     amount: number;
@@ -79,8 +80,8 @@ export default function CustomerDetailsPopup({ customer }: CustomerDetailsPopupP
 
         setIsLoading(true);
         Promise.all([
-            fetch(`/api/sql/getCustomerBalance?customerId=${customerId}`).then((res) => res.json()),
-            fetch(
+            deviceFetch(`/api/sql/getCustomerBalance?customerId=${customerId}`).then((res) => res.json()),
+            deviceFetch(
                 `/api/sql/getCustomerTransactions?customerName=${encodeURIComponent(customerName)}&customerId=${customerId}`
             ).then((res) => res.json()),
         ])

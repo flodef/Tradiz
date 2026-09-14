@@ -56,6 +56,7 @@ import { useConfig } from './useConfig';
 import { Crypto, PaymentStatus, useCrypto } from './useCrypto';
 import { useData } from './useData';
 import { usePopup } from './usePopup';
+import { deviceFetch } from '@/app/utils/deviceFetch';
 
 export type ReceiptData = {
     shop: Shop;
@@ -468,7 +469,9 @@ export const usePay = () => {
             // Try device hardware config first
             if (publicKey) {
                 try {
-                    const res = await fetch(`/api/sql/getDeviceHardware?publicKey=${encodeURIComponent(publicKey)}`);
+                    const res = await deviceFetch(
+                        `/api/sql/getDeviceHardware?publicKey=${encodeURIComponent(publicKey)}`
+                    );
                     if (res.ok) {
                         const hw = await res.json();
                         address = hw.cashDrawerCom || hw.printerCom || undefined;
@@ -494,7 +497,7 @@ export const usePay = () => {
                 return;
             }
             console.log(`[CASH DRAWER] Triggering open on ${address}${baudRate ? ` @ ${baudRate} baud` : ''}`);
-            fetch('/api/open-cash-drawer', {
+            deviceFetch('/api/open-cash-drawer', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ printerAddress: address, baudRate }),
@@ -734,7 +737,7 @@ export const usePay = () => {
         async (customer: Customer) => {
             if (!customer.id) return;
             try {
-                const response = await fetch(`/api/sql/getCustomerBalance?customerId=${customer.id}`);
+                const response = await deviceFetch(`/api/sql/getCustomerBalance?customerId=${customer.id}`);
                 if (!response.ok) throw new Error('Failed to fetch balance');
                 const { balance, history } = (await response.json()) as {
                     balance: number;
@@ -818,7 +821,7 @@ export const usePay = () => {
                                 lastName: trimmed.slice(spaceIndex + 1),
                             };
                             try {
-                                const response = await fetch('/api/sql/addCustomer', {
+                                const response = await deviceFetch('/api/sql/addCustomer', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify(newCustomer),
@@ -1251,7 +1254,7 @@ export const usePay = () => {
                     openPopup('Paiement carte sur TPE', ['Transaction en cours sur le terminal...'], () => {}, true);
                     (async () => {
                         try {
-                            const response = await fetch('/api/tpe-payment', {
+                            const response = await deviceFetch('/api/tpe-payment', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
@@ -1443,7 +1446,7 @@ export const usePay = () => {
                         type: item.type,
                     }));
 
-                    const response = await fetch('/api/sql/savePartialPayment', {
+                    const response = await deviceFetch('/api/sql/savePartialPayment', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -1460,7 +1463,9 @@ export const usePay = () => {
                     if (result.success) {
                         // Reload order data to update paid status
                         try {
-                            const orderResponse = await fetch(`/api/sql/getOrderItemsForPayment?orderId=${orderId}`);
+                            const orderResponse = await deviceFetch(
+                                `/api/sql/getOrderItemsForPayment?orderId=${orderId}`
+                            );
                             if (orderResponse.ok) {
                                 const updatedOrderData = await orderResponse.json();
                                 setOrderData(updatedOrderData);

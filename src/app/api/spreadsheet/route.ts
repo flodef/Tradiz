@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
+import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../sql/deviceAuth';
 
 export async function GET(request: Request) {
+    const deviceGuard = await assertDeviceAuthorized(request, getShopIdFromRequest(request));
+    if (deviceGuard) return deviceGuard;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const sheetName = searchParams.get('sheetName');

@@ -1,8 +1,12 @@
 import { networkInterfaces } from 'os';
+import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../sql/deviceAuth';
 
 export const dynamic = 'force-dynamic';
 
-export function GET() {
+export async function GET(request: Request) {
+    const deviceGuard = await assertDeviceAuthorized(request, getShopIdFromRequest(request));
+    if (deviceGuard) return deviceGuard;
     const interfaces = networkInterfaces();
     for (const name of Object.keys(interfaces)) {
         if (interfaces[name]) {

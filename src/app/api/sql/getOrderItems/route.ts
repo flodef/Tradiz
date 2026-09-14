@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { NextResponse } from 'next/server';
 import { RowDataPacket } from 'mysql2';
 import { Product, EmptyDiscount } from '@/app/utils/interfaces';
@@ -62,6 +63,8 @@ const computeOptionsExtra = (
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId);
+    if (deviceGuard) return deviceGuard;
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get('orderId');
 

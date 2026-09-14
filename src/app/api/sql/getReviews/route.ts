@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../deviceAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,6 +38,8 @@ function rowToReview(row: ReviewRow): AdminReview {
 /** GET /api/sql/getReviews — list all reviews for the current shop (admin) */
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
 
     if (!shopId) {
         return NextResponse.json({ error: 'Missing shop ID' }, { status: 400 });

@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useVersionCheck } from '../hooks/useVersionCheck';
 import { useConfig } from '../hooks/useConfig';
+import { deviceFetchIfKnown } from '@/app/utils/deviceFetch';
 
 export function VersionChecker() {
     const { updateAvailable } = useVersionCheck();
@@ -11,7 +12,7 @@ export function VersionChecker() {
     // Log software version to NF525 audit trail (only once per browser session)
     useEffect(() => {
         if (sessionStorage.getItem('nf525_version_logged')) return;
-        fetch('/api/sql/logSoftwareVersion', {
+        deviceFetchIfKnown('/api/sql/logSoftwareVersion', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ deviceId }),

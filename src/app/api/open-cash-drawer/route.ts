@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import { openCashDrawer } from '@/app/utils/posPrinter';
+import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../sql/deviceAuth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
+    const deviceGuard = await assertDeviceAuthorized(request, getShopIdFromRequest(request));
+    if (deviceGuard) return deviceGuard;
+
     try {
         const { printerAddress, baudRate } = await request.json();
         if (!printerAddress) {

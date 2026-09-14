@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import net from 'net';
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { assertSubscriptionActive } from '../sql/subscriptionStore';
+import { assertDeviceAuthorized } from '../sql/deviceAuth';
 import {
     encodeCaisseApMessage,
     decodeCaisseApMessage,
@@ -22,6 +23,9 @@ interface TpePaymentRequestBody {
 }
 
 export async function POST(request: Request) {
+    const deviceGuard = await assertDeviceAuthorized(request, getShopIdFromRequest(request));
+    if (deviceGuard) return deviceGuard;
+
     // A stopped subscription means read-only: no card payments either.
     const subGuard = await assertSubscriptionActive(getShopIdFromRequest(request));
     if (subGuard) return subGuard;

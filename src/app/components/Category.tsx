@@ -17,6 +17,7 @@ import { colorToHex } from '../utils/colors';
 import { GRID_COLS, GRID_ROWS, decodeGridSlot } from '../utils/sortOrder';
 import '../utils/extensions'; // Registers String.prototype.toFirstUpperCase
 import { useAddPopupClass } from './Popup';
+import { deviceFetch } from '@/app/utils/deviceFetch';
 
 // Local types for option selection helpers
 type OptionDef = { type: string; options: { value: string; price: number | string }[] };
@@ -157,7 +158,7 @@ export const Category: FC<{ catalogMode?: boolean }> = ({ catalogMode = false })
         if (!USE_DIGICARTE) return Promise.resolve({ articles: [], formulas: [] });
 
         if (!catalogLoadingRef.current) {
-            catalogLoadingRef.current = fetch('/api/sql/getCatalog')
+            catalogLoadingRef.current = deviceFetch('/api/sql/getCatalog')
                 .then((r) => r.json())
                 .then((data: Catalog) => {
                     catalogRef.current = data;

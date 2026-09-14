@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from '../db';
 import { createHash } from 'crypto';
@@ -208,6 +209,8 @@ async function updatePerpetualTotals(
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId);
+    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     let unlockChain: (() => Promise<void>) | undefined;
     try {
@@ -313,6 +316,8 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId);
+    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const { searchParams } = new URL(request.url);

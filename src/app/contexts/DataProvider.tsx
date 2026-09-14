@@ -54,6 +54,7 @@ import { useMercurial } from './dataProvider/useMercurial';
 import { resolveSelectionAfterDelete } from './dataProvider/productHelpers';
 import { useShopId } from '../hooks/useShopId';
 import { useSubscription } from '../hooks/useSubscription';
+import { deviceFetch } from '@/app/utils/deviceFetch';
 
 const fetchWithTimeout = async (input: RequestInfo | URL, init?: RequestInit, timeout = 15000): Promise<Response> => {
     const controller = new AbortController();
@@ -234,7 +235,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // Fetch companies for employer meal price calculation
     useEffect(() => {
         if (!isDbConnected) return;
-        fetch('/api/sql/getCompanies')
+        deviceFetch('/api/sql/getCompanies')
             .then((res) => res.json())
             .then((data) => {
                 if (data.companies) setCompanies(data.companies);
@@ -252,7 +253,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const loadTransactionsFromSQL = useCallback(async (date?: Date) => {
         try {
             const dateStr = (date || new Date()).toISOString().split('T')[0];
-            const response = await fetch(`/api/sql/getTransactions?date=${dateStr}&period=day`);
+            const response = await deviceFetch(`/api/sql/getTransactions?date=${dateStr}&period=day`);
             if (!response.ok) {
                 const error = await response.json();
                 console.error('SQL DB read error:', error);
@@ -579,7 +580,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const pushTransactionToSQL = useCallback(async (transaction: Transaction, action: 'add' | 'sync' = 'add') => {
         try {
-            const response = await fetch('/api/sql/saveTransaction', {
+            const response = await deviceFetch('/api/sql/saveTransaction', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -647,7 +648,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     }
                     const response = await fetchWithTimeout(
                         `/api/sql/getTransactions?${urlParams.toString()}`,
-                        undefined,
+                        { headers: { 'x-public-key': getPublicKey() } },
                         15000
                     );
                     if (!response.ok) {
@@ -666,7 +667,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     while (hasMore) {
                         const response = await fetchWithTimeout(
                             `/api/sql/getTransactions?period=full&includeDeleted=true&limit=${BATCH_SIZE}&offset=${batchOffset}`,
-                            undefined,
+                            { headers: { 'x-public-key': getPublicKey() } },
                             30000
                         );
                         if (!response.ok) {
@@ -955,7 +956,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
     const getAvailableDaysFromSQL = useCallback(async (): Promise<string[]> => {
         try {
-            const response = await fetch('/api/sql/getAvailableDates');
+            const response = await deviceFetch('/api/sql/getAvailableDates');
             if (!response.ok) {
                 const error = await response.json();
                 console.error('SQL DB available dates error:', error);
@@ -979,7 +980,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 await idbRemoveTransactions(filename);
 
                 // Fetch from SQL
-                const response = await fetch(`/api/sql/getTransactions?date=${date}&period=day`);
+                const response = await deviceFetch(`/api/sql/getTransactions?date=${date}&period=day`);
                 if (!response.ok) {
                     const error = await response.json();
                     console.error('SQL DB sync error:', error);
@@ -1095,7 +1096,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     };
 
                     // Call the SQL API endpoint to handle the transaction
-                    const response = await fetch('/api/sql/saveTransaction', {
+                    const response = await deviceFetch('/api/sql/saveTransaction', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -1121,7 +1122,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
                     if (orderId && isActualPayment) {
                         try {
-                            await fetch('/api/complete-order', {
+                            await deviceFetch('/api/complete-order', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -1136,7 +1137,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         // Counter order: create panier in DB with short_num_order + broadcast to kitchen
                         // NOTE: use transaction.products (captured before clearTotal empties products.current)
                         try {
-                            const counterResponse = await fetch('/api/counter-order', {
+                            const counterResponse = await deviceFetch('/api/counter-order', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({

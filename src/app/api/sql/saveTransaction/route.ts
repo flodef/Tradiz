@@ -1,6 +1,7 @@
 import { PROCESSING_KEYWORD, DEFAULT_USER, DEFAULT_VAT_RATE, EXPUNGED_KEYWORD } from '@/app/utils/constants';
 import { computeFidelityDelta } from '@/app/utils/fidelity';
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
 import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 import { NextResponse } from 'next/server';
@@ -77,6 +78,8 @@ interface IdRow {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId);
+    if (deviceGuard) return deviceGuard;
 
     // Parse the body ONCE, outside the retry loop — request.json() consumes
     // the body stream and cannot be called again on retry.

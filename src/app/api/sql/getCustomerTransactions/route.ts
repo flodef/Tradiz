@@ -6,6 +6,7 @@ import {
     PROCESSING_KEYWORD,
 } from '@/app/utils/constants';
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
 import { getBalanceAffectingEntries } from '../customerBalanceHelpers';
@@ -41,6 +42,8 @@ interface ProductRow {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId);
+    if (deviceGuard) return deviceGuard;
     const { searchParams } = new URL(request.url);
     const customerName = searchParams.get('customerName');
     const customerIdParam = searchParams.get('customerId');

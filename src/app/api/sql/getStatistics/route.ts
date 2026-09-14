@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import {
     CANCELLED_KEYWORD,
     DELETED_KEYWORD,
@@ -52,6 +53,8 @@ interface RecentOrderRow {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId);
+    if (deviceGuard) return deviceGuard;
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate'); // Format: YYYY-MM-DD
     const endDate = searchParams.get('endDate'); // Format: YYYY-MM-DD

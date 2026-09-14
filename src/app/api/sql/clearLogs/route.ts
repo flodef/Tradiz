@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 // The request body contains the device public key as `source`.
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId);
     if (deviceGuard) return deviceGuard;
     let connection;
     try {

@@ -1,5 +1,7 @@
 import { networkInterfaces } from 'os';
 import net from 'net';
+import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../sql/deviceAuth';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -42,7 +44,10 @@ function checkPort(host: string, port: number, timeoutMs: number): Promise<boole
     });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+    const deviceGuard = await assertDeviceAuthorized(request, getShopIdFromRequest(request));
+    if (deviceGuard) return deviceGuard;
+
     const localIp = getLocalIp();
     if (!localIp) {
         return new Response(JSON.stringify({ error: 'Aucune adresse IP locale trouvée' }), {

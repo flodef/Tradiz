@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from '../db';
@@ -8,6 +9,8 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const body = (await request.json()) as AuditEventInput | AuditEventInput[];
@@ -44,6 +47,8 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const { searchParams } = new URL(request.url);

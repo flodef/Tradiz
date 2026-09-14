@@ -1,4 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
 
@@ -49,6 +50,8 @@ interface FormulaRow {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId);
+    if (deviceGuard) return deviceGuard;
     let connection: Awaited<ReturnType<typeof getMainDb>> | undefined;
     try {
         connection = await getMainDb(shopId);

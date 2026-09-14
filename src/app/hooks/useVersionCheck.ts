@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocalStorage } from '@/app/utils/localStorage';
+import { deviceFetchIfKnown } from '@/app/utils/deviceFetch';
 
 const CHECK_INTERVAL = 5 * 60 * 1000; // Check every 5 minutes
 const VERSION_CHECK_KEY = 'version_check_time';
@@ -19,7 +20,7 @@ export function useVersionCheck() {
             if (lastCheckTime && now - lastCheckTime < CHECK_INTERVAL - 10000) return;
 
             try {
-                const response = await fetch('/api/version');
+                const response = await deviceFetchIfKnown('/api/version');
                 if (response.ok) {
                     const data = await response.json();
                     setLastCheckTime(now);

@@ -59,16 +59,19 @@ function flushLogsToDb() {
     try {
         var http = require('http');
         var data = JSON.stringify({ logs: batch });
+        var headers = {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(data),
+        };
+        var publicKey = getDevicePublicKey();
+        if (publicKey) headers['x-public-key'] = publicKey;
         var req = http.request(
             {
                 hostname: 'localhost',
                 port: 3001,
                 path: '/api/sql/addLog',
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Content-Length': Buffer.byteLength(data),
-                },
+                headers: headers,
             },
             function (res) {
                 res.resume(); // consume the response
@@ -101,6 +104,7 @@ function clearLogsOnStartup() {
                 headers: {
                     'Content-Type': 'application/json',
                     'Content-Length': Buffer.byteLength(data),
+                    'x-public-key': publicKey,
                 },
             },
             function (res) {
@@ -227,19 +231,22 @@ async function findDisplayPort() {
             }
 
             var displayConfig = await new Promise((resolve) => {
-                var req = http.get('http://127.0.0.1:' + port + '/api/sql/getDevices', (res) => {
+                if (!publicKey) return resolve(null);
+                var url =
+                    'http://127.0.0.1:' +
+                    port +
+                    '/api/sql/getDeviceHardware?publicKey=' +
+                    encodeURIComponent(publicKey);
+                var req = http.get(url, (res) => {
                     var body = '';
                     res.on('data', (chunk) => (body += chunk));
                     res.on('end', () => {
                         try {
-                            var data = JSON.parse(body);
-                            var devices = data.devices || [];
-                            // Find this device by public key
-                            var device = publicKey ? devices.find((d) => d.key === publicKey) : null;
-                            if (device && device.backscreenCom) {
+                            var hw = JSON.parse(body);
+                            if (hw && hw.backscreenCom) {
                                 resolve({
-                                    port: device.backscreenCom,
-                                    baud: device.backscreenBaud || null,
+                                    port: hw.backscreenCom,
+                                    baud: hw.backscreenBaud || null,
                                 });
                             } else {
                                 resolve(null);

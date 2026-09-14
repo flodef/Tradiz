@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getMainDb } from '../db';
 import { getShopIdFromRequest } from '@/app/constants/shop';
+import { assertDeviceAuthorized } from '../deviceAuth';
 import { assertSubscriptionActive } from '../subscriptionStore';
 
 export const dynamic = 'force-dynamic';
@@ -8,6 +9,8 @@ export const dynamic = 'force-dynamic';
 /** DELETE /api/sql/deleteReview — delete a review by ID (admin) */
 export async function DELETE(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
+    if (deviceGuard) return deviceGuard;
     const subGuard = await assertSubscriptionActive(shopId);
     if (subGuard) return subGuard;
 

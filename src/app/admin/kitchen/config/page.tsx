@@ -205,7 +205,7 @@ export default function SettingsPage() {
         if (dbConfigCheckedRef.current) return;
         dbConfigCheckedRef.current = true;
 
-        fetch('/api/sql/getDbConfig')
+        deviceFetch('/api/sql/getDbConfig')
             .then((r) => r.json())
             .then(({ hasDbConfig }) => {
                 setIsReadOnly(!hasDbConfig);
@@ -232,7 +232,7 @@ export default function SettingsPage() {
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         };
 
-        fetch('/api/sql/resolveUser', {
+        deviceFetch('/api/sql/resolveUser', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ publicKey, browserData }),
@@ -321,7 +321,7 @@ export default function SettingsPage() {
                 return;
             }
 
-            const response = await fetch('/api/sql/getParameters');
+            const response = await deviceFetch('/api/sql/getParameters');
             const data = await response.json();
 
             if (!response.ok) {
@@ -480,7 +480,7 @@ export default function SettingsPage() {
 
             // Load discounts from DB
             try {
-                const discountsResponse = await fetch('/api/sql/getDiscounts');
+                const discountsResponse = await deviceFetch('/api/sql/getDiscounts');
                 const discountsData = await discountsResponse.json();
                 if (discountsData.discounts && discountsData.discounts.length > 0) {
                     const loaded: Discount[] = discountsData.discounts;
@@ -493,7 +493,7 @@ export default function SettingsPage() {
 
             // Load currencies from DB
             try {
-                const currenciesResponse = await fetch('/api/sql/getCurrencies');
+                const currenciesResponse = await deviceFetch('/api/sql/getCurrencies');
                 const currenciesData = await currenciesResponse.json();
                 if (currenciesData.currencies && currenciesData.currencies.length > 0) {
                     const loaded: Currency[] = currenciesData.currencies;
@@ -506,7 +506,7 @@ export default function SettingsPage() {
 
             // Load payments from DB
             try {
-                const paymentsResponse = await fetch('/api/sql/getPaymentMethods');
+                const paymentsResponse = await deviceFetch('/api/sql/getPaymentMethods');
                 const paymentsData = await paymentsResponse.json();
                 if (paymentsData.paymentMethods && paymentsData.paymentMethods.length > 0) {
                     const loaded: PaymentMethod[] = paymentsData.paymentMethods.filter(
@@ -526,7 +526,7 @@ export default function SettingsPage() {
             // Load colors/themes from DB. `all=1` returns every theme (not just the
             // selected one) so the config page can list and switch between them.
             try {
-                const colorsResponse = await fetch('/api/sql/getColors?all=1');
+                const colorsResponse = await deviceFetch('/api/sql/getColors?all=1');
                 const colorsData = await colorsResponse.json();
                 if (colorsData.colors && colorsData.colors.length > 0) {
                     const loaded: Color[] = colorsData.colors;
@@ -584,7 +584,7 @@ export default function SettingsPage() {
 
             // Load users from DB
             try {
-                const usersResponse = await fetch('/api/sql/getUsers');
+                const usersResponse = await deviceFetch('/api/sql/getUsers');
                 const usersData = await usersResponse.json();
                 if (usersData.users && usersData.users.length > 0) {
                     const loaded: User[] = usersData.users.map((u: User) => ({ ...u, role: u.role as Role }));
@@ -616,7 +616,7 @@ export default function SettingsPage() {
 
             // Load printers from DB
             try {
-                const printersResponse = await fetch('/api/sql/getPrinters');
+                const printersResponse = await deviceFetch('/api/sql/getPrinters');
                 const printersData = await printersResponse.json();
                 if (printersData.printers && printersData.printers.length > 0) {
                     const loaded: Printer[] = printersData.printers;
@@ -631,7 +631,7 @@ export default function SettingsPage() {
 
             // Load customers from DB
             try {
-                const customersResponse = await fetch('/api/sql/getCustomers');
+                const customersResponse = await deviceFetch('/api/sql/getCustomers');
                 const customersData = await customersResponse.json();
                 if (customersData.customers && customersData.customers.length > 0) {
                     const loaded: Customer[] = customersData.customers;
@@ -647,7 +647,7 @@ export default function SettingsPage() {
 
             // Load companies from DB
             try {
-                const companiesResponse = await fetch('/api/sql/getCompanies');
+                const companiesResponse = await deviceFetch('/api/sql/getCompanies');
                 const companiesData = await companiesResponse.json();
                 if (companiesData.companies && companiesData.companies.length > 0) {
                     const loaded: Company[] = companiesData.companies;
