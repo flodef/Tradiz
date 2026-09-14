@@ -246,10 +246,13 @@ WHERE (SELECT e.plan FROM dc_pos.subscription_events e ORDER BY e.id DESC LIMIT 
 -- the previous one, byte-identical to computeTransactionHash.
 -- ============================================================
 
--- JS String(Number(v)) on a NUMERIC(...,2) column: '12.50' → '12.5'.
+-- JS String(Number(v)): '12.50' → '12.5', '10' → '10' (only strip zeros
+-- after a decimal point — '10' must not become '1').
 CREATE OR REPLACE FUNCTION pg_temp.demo_jsnum(v numeric) RETURNS text
 LANGUAGE sql IMMUTABLE AS $$
-    SELECT trim(trailing '.' FROM trim(trailing '0' FROM v::text))
+    SELECT CASE WHEN v::text LIKE '%.%'
+                THEN trim(trailing '.' FROM trim(trailing '0' FROM v::text))
+                ELSE v::text END
 $$;
 
 DO $$

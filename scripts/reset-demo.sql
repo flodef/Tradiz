@@ -5,7 +5,6 @@
 -- (seed-demo-data.sql) can re-create a clean state afterwards.
 -- Preserved on purpose:
 --   - intervention devices + their linked users (service access)
---   - theme_admin / theme_client (not seeded — app defaults apply)
 --   - dc_sys.ota_updates
 -- Run AFTER this script: psql -f seed-demo-data.sql
 -- (or scripts/reset-demo.sh which does both)
@@ -71,5 +70,10 @@ DELETE FROM dc_pos.subscription_events;
 DELETE FROM dc_pos.subscription;
 DELETE FROM dc_pos.parameters;
 DELETE FROM dc.establishment_config;
+-- Tester-renamed/edited themes: empty tables make the app fall back to
+-- its built-in defaults (Défaut, Océan, Coucher de soleil, Lavande,
+-- Forêt, Cerise) — including the proper names.
+DELETE FROM dc.theme_admin;
+DELETE FROM dc.theme_client;
 
 COMMIT;

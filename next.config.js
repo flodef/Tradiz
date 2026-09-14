@@ -14,6 +14,11 @@ for (const dir of ['./dist', './electron/standalone-build']) {
 
 const nextConfig = {
     output: process.env.VERCEL ? undefined : 'standalone',
+    // The resetDemo route reads these files at runtime via process.cwd() —
+    // force-trace them into the standalone bundle or the route 500s there.
+    outputFileTracingIncludes: {
+        '/api/sql/resetDemo': ['./scripts/reset-demo.sql', './scripts/seed-demo-data.sql'],
+    },
     allowedDevOrigins: ['http://localhost:3001', 'http://127.0.0.1:3001'],
     turbopack: {
         root: process.cwd(),
