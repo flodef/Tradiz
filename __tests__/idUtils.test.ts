@@ -2,11 +2,37 @@ import { describe, expect, it } from 'vitest';
 import {
     containsId,
     formatId,
+    generateSecureId,
     generateSimpleId,
     getConnectedDevices,
     getDevices,
     isNewDevice,
 } from '../src/app/utils/id';
+
+describe('generateSecureId', () => {
+    it('generates a 32-char hex string (128 bits)', () => {
+        const id = generateSecureId();
+        expect(id).toMatch(/^[0-9a-f]{32}$/);
+    });
+
+    it('generates different IDs on each call', () => {
+        expect(generateSecureId()).not.toBe(generateSecureId());
+    });
+
+    it('generates unique IDs over a large sample', () => {
+        const ids = new Set(Array.from({ length: 5000 }, () => generateSecureId()));
+        expect(ids.size).toBe(5000);
+    });
+
+    it('has enough entropy that IDs are not sequential/guessable', () => {
+        // Two IDs must share almost no structure — check they differ in
+        // most positions (a weak PRNG would produce correlated outputs).
+        const a = generateSecureId();
+        const b = generateSecureId();
+        const same = [...a].filter((c, i) => c === b[i]).length;
+        expect(same).toBeLessThan(16);
+    });
+});
 
 describe('generateSimpleId', () => {
     it('generates a non-empty string', () => {

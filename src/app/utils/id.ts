@@ -5,38 +5,50 @@ const NEW_ID_CHAR = '$';
  * @returns A unique ID
  */
 export async function generateUniqueId(): Promise<string> {
-  try {
-    // Generate new ECDSA key pair
-    const keyPair = await crypto.subtle.generateKey(
-      {
-        name: 'ECDSA',
-        namedCurve: 'P-256',
-      },
-      true,
-      ['sign', 'verify'],
-    );
+    try {
+        // Generate new ECDSA key pair
+        const keyPair = await crypto.subtle.generateKey(
+            {
+                name: 'ECDSA',
+                namedCurve: 'P-256',
+            },
+            true,
+            ['sign', 'verify']
+        );
 
-    // Export public key as hex string
-    const exported = await crypto.subtle.exportKey('spki', keyPair.publicKey);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', exported);
-    const hashArray = new Uint8Array(hashBuffer);
-    const hashHex = Array.from(hashArray)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
+        // Export public key as hex string
+        const exported = await crypto.subtle.exportKey('spki', keyPair.publicKey);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', exported);
+        const hashArray = new Uint8Array(hashBuffer);
+        const hashHex = Array.from(hashArray)
+            .map((b) => b.toString(16).padStart(2, '0'))
+            .join('');
 
-    return hashHex;
-  } catch (error) {
-    console.error('Error generating unique ID:', error);
-    return '';
-  }
+        return hashHex;
+    } catch (error) {
+        console.error('Error generating unique ID:', error);
+        return '';
+    }
 }
+
+/**
+ * Generate a cryptographically secure ID (128 bits of entropy).
+ * Use for all new device public keys / credentials.
+ * @returns A 32-char hex ID
+ */
+export const generateSecureId = () =>
+    Array.from(crypto.getRandomValues(new Uint8Array(16)))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
 
 /**
  * Generate a simple ID
  * @returns A simple ID
+ * @deprecated Math.random() is predictable — use generateSecureId() for new IDs.
+ * Kept so existing stored IDs/tests stay valid.
  */
 export const generateSimpleId = () =>
-  Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
 /**
  * Format an ID
@@ -44,9 +56,9 @@ export const generateSimpleId = () =>
  * @returns Formatted ID
  */
 export const formatId = (id: string) =>
-  id.length <= 8
-    ? id.replace(NEW_ID_CHAR, '')
-    : `${id.replace(NEW_ID_CHAR, '').substring(0, 4)}...${id.substring(id.length - 4)}`;
+    id.length <= 8
+        ? id.replace(NEW_ID_CHAR, '')
+        : `${id.replace(NEW_ID_CHAR, '').substring(0, 4)}...${id.substring(id.length - 4)}`;
 
 /**
  * Check if an ID is in the list of IDs
@@ -55,7 +67,7 @@ export const formatId = (id: string) =>
  * @returns Whether the ID is in the list
  */
 export const containsId = (ids: string[], id: string) =>
-  ids.some(i => i.replace(NEW_ID_CHAR, '') === id.replace(NEW_ID_CHAR, ''));
+    ids.some((i) => i.replace(NEW_ID_CHAR, '') === id.replace(NEW_ID_CHAR, ''));
 
 /**
  * Check if an ID is a new device
@@ -70,7 +82,7 @@ export const isNewDevice = (id: string) => id.startsWith(NEW_ID_CHAR);
  * @returns List of connected devices
  */
 export function getConnectedDevices(ids: string[]): string[] {
-  return ids.filter(id => !isNewDevice(id));
+    return ids.filter((id) => !isNewDevice(id));
 }
 
 /**
@@ -81,7 +93,7 @@ export function getConnectedDevices(ids: string[]): string[] {
  * @returns List of devices
  */
 export function getDevices(ids: string[], userId: string, isNewDevice = false) {
-  const newId = isNewDevice ? NEW_ID_CHAR + userId : userId;
-  const connectedDevices = getConnectedDevices(ids);
-  return connectedDevices.length ? [...connectedDevices.filter(id => id !== userId), newId] : [userId];
+    const newId = isNewDevice ? NEW_ID_CHAR + userId : userId;
+    const connectedDevices = getConnectedDevices(ids);
+    return connectedDevices.length ? [...connectedDevices.filter((id) => id !== userId), newId] : [userId];
 }
