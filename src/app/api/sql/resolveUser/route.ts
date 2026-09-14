@@ -105,11 +105,13 @@ async function ipLockoutRemainingMs(connection: import('../db').DbConnection, ip
         const query = connection.isPostgreSQL
             ? `SELECT COUNT(*) as count, MAX(created_at) as last_at FROM dc_sys.connections
                WHERE metadata->>'ip_address' = $1
+               AND metadata->>'type' = 'access_attempt'
                AND metadata->>'success' = 'false'
                AND created_at > $2`
             : `SELECT COUNT(*) as count, MAX(created_at) as last_at FROM DC_SYS.connections
                WHERE JSON_EXTRACT(metadata, '$.ip_address') = ?
-               AND JSON_EXTRACT(metadata, '$.success') = 'false'
+               AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.type')) = 'access_attempt'
+               AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.success')) = 'false'
                AND created_at > ?`;
 
         const [rows] = await connection.execute(query, [ipAddress, windowStart]);

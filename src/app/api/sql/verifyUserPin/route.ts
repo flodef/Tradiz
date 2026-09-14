@@ -53,9 +53,9 @@ export async function POST(request: Request) {
                    WHERE metadata->>'type' = 'pin_attempt' AND metadata->>'success' = 'false'
                    AND created_at > $1
                    AND (metadata->>'ip_address' = $2 OR metadata->>'user_id' = $3)`
-                : `SELECT COUNT(*) AS count FROM connections
+                : `SELECT COUNT(*) AS count FROM DC_SYS.connections
                    WHERE JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.type')) = 'pin_attempt'
-                   AND JSON_EXTRACT(metadata, '$.success') = 'false' AND created_at > ?
+                   AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.success')) = 'false' AND created_at > ?
                    AND (JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.ip_address')) = ?
                         OR JSON_EXTRACT(metadata, '$.user_id') = ?)`,
             isPg ? [windowStart, ip, String(userId)] : [windowStart, ip, userId]
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
             .execute(
                 isPg
                     ? `INSERT INTO dc_sys.connections (level, message, metadata) VALUES ($1, $2, $3)`
-                    : `INSERT INTO connections (level, message, metadata) VALUES (?, ?, ?)`,
+                    : `INSERT INTO DC_SYS.connections (level, message, metadata) VALUES (?, ?, ?)`,
                 [
                     ok ? 'info' : 'warn',
                     `PIN attempt for user ${userId}`,
@@ -117,13 +117,18 @@ export async function POST(request: Request) {
                         : `DELETE FROM sessions WHERE expires_at <= NOW() OR revoked_at IS NOT NULL`,
                     []
                 );
+                // MariaDB TIMESTAMP rejects the ISO 'T…Z' suffix — use the
+                // SQL datetime literal (same convention as savePartialPayment).
+                const expiresAtSql = isPg
+                    ? expiresAt.toISOString()
+                    : expiresAt.toISOString().slice(0, 19).replace('T', ' ');
                 await connection.execute(
                     isPg
                         ? `INSERT INTO dc_pos.sessions (user_id, device_id, token_hash, expires_at)
                            VALUES ($1, $2, $3, $4)`
                         : `INSERT INTO sessions (user_id, device_id, token_hash, expires_at)
                            VALUES (?, ?, ?, ?)`,
-                    [userId, auth.deviceId, sessionTokenHash(token), expiresAt.toISOString()]
+                    [userId, auth.deviceId, sessionTokenHash(token), expiresAtSql]
                 );
                 return NextResponse.json({ ok: true, token, expiresAt: expiresAt.toISOString() });
             } catch (error) {

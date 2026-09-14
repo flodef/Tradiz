@@ -373,11 +373,16 @@ export default function ParametersConfig({
                             <Switch
                                 checked={config.requireUserAuth ?? false}
                                 onChange={(checked) => handleChange('requireUserAuth', checked)}
-                                isReadOnly={isReadOnly || !users.some((u) => u.role === Role.admin && u.hasPin)}
+                                // Only enabling requires an Admin PIN — disabling must stay
+                                // possible so a support device can always unlock the shop.
+                                isReadOnly={
+                                    isReadOnly ||
+                                    (!config.requireUserAuth && !users.some((u) => u.role === Role.admin && u.hasPin))
+                                }
                                 label="Exiger le PIN pour l'administration"
                             />
                         </div>
-                        {!users.some((u) => u.role === Role.admin && u.hasPin) && (
+                        {!config.requireUserAuth && !users.some((u) => u.role === Role.admin && u.hasPin) && (
                             <p className="text-xs text-gray-500 dark:text-gray-400">
                                 Définissez d'abord un PIN sur un utilisateur Admin (section Utilisateurs).
                             </p>

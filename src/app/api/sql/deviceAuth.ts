@@ -67,7 +67,7 @@ export async function recordDeniedAccess(
         const countQuery = isPg
             ? `SELECT COUNT(*) AS count FROM dc_sys.connections
                WHERE metadata->>'type' = 'device_denied' AND metadata->>'ip_address' = $1 AND created_at > $2`
-            : `SELECT COUNT(*) AS count FROM connections
+            : `SELECT COUNT(*) AS count FROM DC_SYS.connections
                WHERE JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.type')) = 'device_denied'
                AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.ip_address')) = ? AND created_at > ?`;
         const [rows] = await connection.execute(countQuery, [ip, windowStart]);
@@ -82,7 +82,7 @@ export async function recordDeniedAccess(
             ? `SELECT 1 FROM dc_sys.connections
                WHERE metadata->>'type' = 'device_denied' AND metadata->>'ip_address' = $1
                AND metadata->>'key_prefix' = $2 AND created_at > $3 LIMIT 1`
-            : `SELECT 1 FROM connections
+            : `SELECT 1 FROM DC_SYS.connections
                WHERE JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.type')) = 'device_denied'
                AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.ip_address')) = ?
                AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.key_prefix')) = ? AND created_at > ? LIMIT 1`;
@@ -93,7 +93,7 @@ export async function recordDeniedAccess(
         await connection.execute(
             isPg
                 ? `INSERT INTO dc_sys.connections (level, message, metadata) VALUES ($1, $2, $3)`
-                : `INSERT INTO connections (level, message, metadata) VALUES (?, ?, ?)`,
+                : `INSERT INTO DC_SYS.connections (level, message, metadata) VALUES (?, ?, ?)`,
             [
                 'warn',
                 'Device access denied',

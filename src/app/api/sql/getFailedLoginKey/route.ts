@@ -32,7 +32,7 @@ export async function GET(request: Request) {
             : `SELECT JSON_UNQUOTE(JSON_EXTRACT(l.metadata, '$.public_key')) AS public_key, l.created_at
                FROM DC_SYS.connections l
                WHERE l.level = 'error'
-                 AND JSON_EXTRACT(l.metadata, '$.success') = 'false'
+                 AND JSON_UNQUOTE(JSON_EXTRACT(l.metadata, '$.success')) = 'false'
                  AND JSON_EXTRACT(l.metadata, '$.type') = 'access_attempt'
                  AND NOT EXISTS (
                      SELECT 1 FROM devices d WHERE d.public_key = JSON_UNQUOTE(JSON_EXTRACT(l.metadata, '$.public_key'))
