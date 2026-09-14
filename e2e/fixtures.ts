@@ -23,6 +23,10 @@ const mockParameters = [
     },
     { key: 'userSwitch', value: 'true' },
     { key: 'fidelityRate', value: '0' },
+    {
+        key: 'searchSettings',
+        value: '{"searchCustomers":true,"searchProducts":true,"searchUsers":true}',
+    },
 ];
 
 const mockPaymentMethods = [
@@ -122,7 +126,8 @@ const mockCategories = [
     { name: 'Plats', company: null, printer: null, sortOrder: 1 },
 ];
 
-const mockUsers = [{ id: 1, name: 'Test User', role: 'admin', reference: 'test' }];
+// Role values must match the Role enum ('Admin', 'Cashier', …) — not lowercase.
+const mockUsers = [{ id: 1, name: 'Test User', role: 'Admin', reference: 'test' }];
 
 // ── API mock setup ──
 
@@ -246,6 +251,76 @@ async function mockApiRoutes(page: Page) {
     // Log software version
     await page.route('**/api/sql/logSoftwareVersion', (route) => {
         route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+    });
+
+    // Level-0 device gate probe — the test device is a registered admin
+    await page.route('**/api/sql/whoami**', (route) => {
+        route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ authorized: true, admin: true, intervention: false, role: 'admin' }),
+        });
+    });
+
+    // Registered devices (admin config page)
+    await page.route('**/api/sql/getDevices', (route) => {
+        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ devices: [] }) });
+    });
+
+    // Subscription — default to the most permissive plan so existing tests
+    // keep full access. Tests override this with mockSubscription().
+    await mockSubscription(page);
+}
+
+// ── Per-test helpers ──
+// Routes registered in a test body take precedence over the defaults above
+// (Playwright matches the most recently registered route first).
+
+export interface MockSubscriptionState {
+    plan: 'decouverte' | 'pro' | 'privilege';
+    status: 'active' | 'stopped';
+}
+
+/**
+ * Mock GET /api/sql/subscription. The returned `state` object is read live on
+ * every request, so a test can flip `state.status` mid-run and dispatch the
+ * app's refresh event to simulate a subscription change:
+ *   state.status = 'stopped';
+ *   await page.evaluate(() => window.dispatchEvent(new Event('subscription-changed')));
+ */
+export async function mockSubscription(
+    page: Page,
+    state: MockSubscriptionState = { plan: 'privilege', status: 'active' }
+) {
+    await page.route('**/api/sql/subscription', (route) => {
+        if (route.request().method() !== 'GET') return route.continue();
+        route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                plan: state.plan,
+                status: state.status,
+                billing_method: 'transfer',
+                month_to_date: 0,
+            }),
+        });
+    });
+    return state;
+}
+
+/** Override the shop config (e.g. grafana_access_enabled for the stats link). */
+export async function mockEtabConfig(page: Page, overrides: Record<string, unknown> = {}) {
+    await page.route('**/api/sql/getEtabConfig', (route) => {
+        route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                mode_fonctionnement: 'lite',
+                kitchen_view_enabled: false,
+                grafana_access_enabled: false,
+                ...overrides,
+            }),
+        });
     });
 }
 
