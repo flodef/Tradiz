@@ -3,7 +3,15 @@
 import { Role, User } from '@/app/utils/interfaces';
 import { adminHeaderStyle, ROLE_LABELS } from '@/app/utils/constants';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IconChevronDown, IconChevronUp, IconPrinter, IconSelector, IconUpload } from '@tabler/icons-react';
+import {
+    IconArrowBackUp,
+    IconChevronDown,
+    IconChevronUp,
+    IconPrinter,
+    IconSelector,
+    IconUpload,
+    IconX,
+} from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import { useIsMobile } from '@/app/utils/mobile';
 import SectionCard from '../SectionCard';
@@ -35,6 +43,10 @@ interface UsersConfigProps {
 
 interface InternalUser extends User {
     _id: number;
+    /** New PIN to set (write-only — hashed server-side on save). */
+    pin?: string;
+    /** Remove the user's PIN on save. */
+    clearPin?: boolean;
 }
 
 function Row({
@@ -98,6 +110,46 @@ function Row({
                     className="min-w-20 w-20"
                 />
             </td>
+            <td className="p-2">
+                {isReadOnly ? (
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{user.hasPin ? 'Défini' : '—'}</span>
+                ) : user.clearPin ? (
+                    <div className="flex items-center gap-1">
+                        <span className="text-sm text-error">Effacé</span>
+                        <button
+                            type="button"
+                            onClick={() => onChange({ ...user, clearPin: false })}
+                            className="p-1 text-gray-500 hover:text-popup-dark dark:hover:text-popup-light cursor-pointer"
+                            title="Annuler la suppression du PIN"
+                        >
+                            <IconArrowBackUp size={16} />
+                        </button>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-1">
+                        <ValidatedInput
+                            value={user.pin ?? ''}
+                            onChange={(value) =>
+                                onChange({ ...user, pin: String(value).replace(/\D/g, '').slice(0, 8) })
+                            }
+                            placeholder={user.hasPin ? '••••' : 'Aucun'}
+                            isReadOnly={isReadOnly}
+                            validation={(value) => !value || String(value).length >= 4}
+                            className="min-w-24 w-24"
+                        />
+                        {user.hasPin && (
+                            <button
+                                type="button"
+                                onClick={() => onChange({ ...user, clearPin: true, pin: undefined })}
+                                className="p-1 text-gray-500 hover:text-error cursor-pointer"
+                                title="Supprimer le PIN"
+                            >
+                                <IconX size={16} />
+                            </button>
+                        )}
+                    </div>
+                )}
+            </td>
             <DeleteButtonCell isReadOnly={isReadOnly} onDelete={onDelete} title="Supprimer l'utilisateur" />
         </tr>
     );
@@ -141,7 +193,13 @@ export default function UsersConfig({
         setOriginalConfig(incoming);
     }, [config]);
 
-    const strip = (items: InternalUser[]): User[] => items.map(({ _id: _, ...rest }) => rest);
+    const strip = (items: InternalUser[]): User[] =>
+        items.map(({ _id: _, pin, clearPin, ...rest }) => {
+            const user: User & { pin?: string; clearPin?: boolean } = rest;
+            if (pin) user.pin = pin;
+            if (clearPin) user.clearPin = true;
+            return user;
+        });
 
     const notifyParent = useCallback(
         (items: InternalUser[]) => {
@@ -163,9 +221,9 @@ export default function UsersConfig({
 
     const hasChanges = JSON.stringify(strip(nonAdminUsers)) !== JSON.stringify(nonAdminOriginal);
 
-    // Check if all non-admin users have a valid name
+    // Check if all non-admin users have a valid name and pending PIN (4-8 digits)
     const isValid = useMemo(() => {
-        return nonAdminUsers.every((user) => user.name?.trim());
+        return nonAdminUsers.every((user) => user.name?.trim() && (!user.pin || user.pin.length >= 4));
     }, [nonAdminUsers]);
 
     const sortedUsers = useMemo(() => {
@@ -455,6 +513,7 @@ export default function UsersConfig({
                                             Rôle <SortIcon field="role" />
                                         </div>
                                     </th>
+                                    <th className={adminHeaderStyle + ' min-w-28 w-28'}>PIN</th>
                                     {!isReadOnly && <th className="w-8"></th>}
                                 </tr>
                             </thead>

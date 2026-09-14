@@ -44,6 +44,8 @@ export interface User {
     name: string;
     role: Role;
     reference?: string;
+    /** True when the user has a PIN configured (the hash itself is never sent). */
+    hasPin?: boolean;
 }
 
 export interface Device {

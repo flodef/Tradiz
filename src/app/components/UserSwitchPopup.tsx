@@ -9,6 +9,8 @@ import { useConfig } from '@/app/hooks/useConfig';
 import { useIsMobileDevice } from '@/app/utils/mobile';
 import { getPopupStyles, getOptionHoverStyles } from '@/app/utils/popupStyles';
 import { useVirtualKeyboardContext } from './admin/VirtualKeyboardProvider';
+import { deviceFetch } from '@/app/utils/deviceFetch';
+import { IconArrowLeft, IconLock } from '@tabler/icons-react';
 
 interface UserSwitchPopupProps {
     onSelect: (user: User) => void;
@@ -20,7 +22,12 @@ export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({ onSelect, initialQue
     const { closePopup } = usePopup();
     const [query, setQuery] = useState(initialQuery);
     const [highlightedIndex, setHighlightedIndex] = useState(0);
+    const [pendingUser, setPendingUser] = useState<User | null>(null);
+    const [pin, setPin] = useState('');
+    const [pinError, setPinError] = useState<string | null>(null);
+    const [verifying, setVerifying] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
+    const pinInputRef = useRef<HTMLInputElement>(null);
     const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
     const isMobileDevice = useIsMobileDevice();
     const styles = getPopupStyles('default');
@@ -71,8 +78,43 @@ export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({ onSelect, initialQue
     const selectOption = (index: number, usersList = filteredUsers) => {
         const user = usersList[index];
         if (!user) return;
+        if (user.hasPin) {
+            setPendingUser(user);
+            setPin('');
+            setPinError(null);
+            setTimeout(() => pinInputRef.current?.focus(), 0);
+            return;
+        }
         onSelect(user);
         closePopup();
+    };
+
+    const submitPin = async () => {
+        if (!pendingUser || verifying || !pin) return;
+        setVerifying(true);
+        setPinError(null);
+        try {
+            const response = await deviceFetch('/api/sql/verifyUserPin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: pendingUser.id, pin }),
+            });
+            if (response.ok) {
+                onSelect(pendingUser);
+                closePopup();
+                return;
+            }
+            if (response.status === 429) {
+                setPinError('Trop de tentatives, réessayez plus tard.');
+            } else {
+                setPinError('PIN incorrect.');
+            }
+            setPin('');
+        } catch {
+            setPinError('Vérification impossible, réessayez.');
+        } finally {
+            setVerifying(false);
+        }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -97,6 +139,72 @@ export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({ onSelect, initialQue
                 break;
         }
     };
+
+    if (pendingUser) {
+        return (
+            <div onClick={(e) => e.stopPropagation()} className="p-2">
+                <button
+                    type="button"
+                    onClick={() => setPendingUser(null)}
+                    className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-popup-dark dark:hover:text-popup-light cursor-pointer mb-2"
+                >
+                    <IconArrowLeft size={16} />
+                    Retour
+                </button>
+                <div className="flex items-center gap-2 mb-3 px-1">
+                    <IconLock size={18} className="text-gray-500 dark:text-gray-400" />
+                    <span className="text-lg font-semibold text-popup-dark dark:text-popup-light">
+                        {pendingUser.name}
+                    </span>
+                </div>
+                <input
+                    ref={pinInputRef}
+                    type="password"
+                    inputMode="numeric"
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            void submitPin();
+                        } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            setPendingUser(null);
+                        }
+                    }}
+                    onFocus={(e) => {
+                        if (vkContext) {
+                            vkContext.registerInput(e.target, (newValue: string) =>
+                                setPin(newValue.replace(/\D/g, '').slice(0, 8))
+                            );
+                            vkContext.registerEnterHandler(() => void submitPin());
+                        }
+                    }}
+                    onBlur={(e) => {
+                        if (vkContext) {
+                            vkContext.unregisterInput(e.target);
+                            vkContext.registerEnterHandler(null);
+                        }
+                    }}
+                    placeholder="Code PIN"
+                    className={twMerge(
+                        'w-full px-3 py-2 bg-transparent border-none outline-none focus:outline-none text-xl font-semibold text-center tracking-widest',
+                        'text-popup-dark dark:text-popup-light placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-400'
+                    )}
+                    maxLength={8}
+                />
+                {pinError && <div className="mt-2 text-center text-sm text-error">{pinError}</div>}
+                <button
+                    type="button"
+                    onClick={() => void submitPin()}
+                    disabled={verifying || !pin}
+                    className="mt-3 w-full py-2 rounded-lg bg-active-light dark:bg-active-dark text-popup-light font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {verifying ? 'Vérification…' : 'Valider'}
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div onClick={(e) => e.stopPropagation()}>

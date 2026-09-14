@@ -10,6 +10,7 @@ interface UserRow {
     name: string;
     role: string;
     reference: string | null;
+    pin_hash: string | null;
 }
 
 export async function GET(request: Request) {
@@ -22,10 +23,10 @@ export async function GET(request: Request) {
 
         const result = await connection.execute(
             connection.isPostgreSQL
-                ? `SELECT u.id, u.name, u.role, u.reference FROM dc_pos.users u
+                ? `SELECT u.id, u.name, u.role, u.reference, u.pin_hash FROM dc_pos.users u
                    WHERE NOT EXISTS (SELECT 1 FROM dc_pos.devices d WHERE d.user_id = u.id AND d.intervention)
                    ORDER BY u.name`
-                : `SELECT u.id, u.name, u.role, u.reference FROM users u
+                : `SELECT u.id, u.name, u.role, u.reference, u.pin_hash FROM users u
                    WHERE NOT EXISTS (SELECT 1 FROM devices d WHERE d.user_id = u.id AND d.intervention = 1)
                    ORDER BY u.name`
         );
@@ -38,6 +39,7 @@ export async function GET(request: Request) {
             name: String(row.name),
             role: String(row.role),
             reference: row.reference ? String(row.reference) : undefined,
+            hasPin: !!row.pin_hash,
         }));
 
         return NextResponse.json({ users });

@@ -615,19 +615,20 @@ async function _loadDataImpl(): Promise<Config | undefined> {
     const users = userSwitchEnabled ? await fetchData(dataNames.users).then(convertUsersData) : [];
 
     // Prefer the user persisted in localStorage if it still exists in the users list.
+    // A user with a PIN configured is never restored silently — switching back
+    // to it requires the PIN via the user-switch popup.
     const savedUserJson = typeof window !== 'undefined' ? localStorage.getItem(CURRENT_USER_KEYWORD) : null;
     if (savedUserJson && users.length) {
         try {
             const savedUser = JSON.parse(savedUserJson) as User;
-            if (
-                users.some(
-                    (u) =>
-                        u.id === savedUser.id &&
-                        u.name === savedUser.name &&
-                        u.role === savedUser.role &&
-                        u.reference === savedUser.reference
-                )
-            ) {
+            const matched = users.find(
+                (u) =>
+                    u.id === savedUser.id &&
+                    u.name === savedUser.name &&
+                    u.role === savedUser.role &&
+                    u.reference === savedUser.reference
+            );
+            if (matched && !matched.hasPin) {
                 parameters.user = savedUser;
             }
         } catch {

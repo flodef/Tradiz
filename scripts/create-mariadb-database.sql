@@ -349,6 +349,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `name` varchar(100) NOT NULL,
   `role` enum('Cashier','Service','Kitchen','Admin') NOT NULL,
   `reference` varchar(255) DEFAULT NULL,
+  `pin_hash` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `id_temp` (`id`),

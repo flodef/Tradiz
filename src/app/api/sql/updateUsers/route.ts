@@ -5,13 +5,20 @@ import { executeInsert, getPosDb, withTransaction } from '../db';
 import { assertDeviceAuthorized } from '../deviceAuth';
 import { generateProductReference } from '@/app/utils/productReference';
 import { insertAuditEvent } from '../auditHelpers';
+import { hashPin } from '../pinHash';
 
 interface User {
     id?: number;
     name: string;
     role: string;
     reference?: string;
+    /** New PIN to set (4-8 digits, write-only — hashed server-side). */
+    pin?: string;
+    /** Remove the user's PIN. */
+    clearPin?: boolean;
 }
+
+const PIN_PATTERN = /^\d{4,8}$/;
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
@@ -25,12 +32,36 @@ export async function POST(request: Request) {
         if (!Array.isArray(users)) {
             return NextResponse.json({ error: 'Invalid users data' }, { status: 400 });
         }
+        if (users.some((u) => u.pin && !PIN_PATTERN.test(u.pin))) {
+            return NextResponse.json({ error: 'Invalid PIN: expected 4 to 8 digits' }, { status: 400 });
+        }
 
         connection = await getPosDb(shopId);
         if (await subscriptionStopped(connection)) {
             return stoppedSubscriptionResponse();
         }
         const db = connection;
+
+        // Applies pin/clearPin for a persisted user id — pin_hash is only
+        // touched when the payload explicitly asks for it, so saving the user
+        // list never erases an existing PIN silently.
+        const applyPin = async (userId: number, user: User) => {
+            if (user.clearPin) {
+                await db.execute(
+                    db.isPostgreSQL
+                        ? 'UPDATE dc_pos.users SET pin_hash = NULL WHERE id = $1'
+                        : 'UPDATE users SET pin_hash = NULL WHERE id = ?',
+                    [userId]
+                );
+            } else if (user.pin) {
+                await db.execute(
+                    db.isPostgreSQL
+                        ? 'UPDATE dc_pos.users SET pin_hash = $1 WHERE id = $2'
+                        : 'UPDATE users SET pin_hash = ? WHERE id = ?',
+                    [await hashPin(user.pin), userId]
+                );
+            }
+        };
 
         const savedUsers = await withTransaction(db, async () => {
             // Upsert users and collect their final ids
@@ -48,6 +79,7 @@ export async function POST(request: Request) {
                             : 'UPDATE users SET name = ?, role = ?, reference = ? WHERE id = ?',
                         [name, role, providedReference, user.id]
                     );
+                    await applyPin(user.id, user);
                     savedIds.push(user.id);
                     continue;
                 }
@@ -70,6 +102,7 @@ export async function POST(request: Request) {
                                 : 'UPDATE users SET name = ?, role = ?, reference = ? WHERE id = ?',
                             [name, role, providedReference, existingId]
                         );
+                        await applyPin(existingId, user);
                         savedIds.push(existingId);
                         continue;
                     }
@@ -83,6 +116,7 @@ export async function POST(request: Request) {
                 );
 
                 if (newId) {
+                    await applyPin(newId, user);
                     savedIds.push(newId);
                     // Derive a unique, valid EAN-13 reference from the new id when none was provided.
                     if (!providedReference) {
@@ -122,18 +156,21 @@ export async function POST(request: Request) {
 
             const [savedRows] = await db.execute(
                 db.isPostgreSQL
-                    ? `SELECT u.id, u.name, u.role, u.reference FROM dc_pos.users u
+                    ? `SELECT u.id, u.name, u.role, u.reference, u.pin_hash FROM dc_pos.users u
                        WHERE NOT EXISTS (SELECT 1 FROM dc_pos.devices d WHERE d.user_id = u.id AND d.intervention)
                        ORDER BY u.name`
-                    : `SELECT u.id, u.name, u.role, u.reference FROM users u
+                    : `SELECT u.id, u.name, u.role, u.reference, u.pin_hash FROM users u
                        WHERE NOT EXISTS (SELECT 1 FROM devices d WHERE d.user_id = u.id AND d.intervention = 1)
                        ORDER BY u.name`
             );
-            return (savedRows as { id: number; name: string; role: string; reference?: string }[]).map((row) => ({
+            return (
+                savedRows as { id: number; name: string; role: string; reference?: string; pin_hash?: string }[]
+            ).map((row) => ({
                 id: Number(row.id),
                 name: row.name,
                 role: row.role,
                 reference: row.reference,
+                hasPin: !!row.pin_hash,
             }));
         });
 
