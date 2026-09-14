@@ -1,10 +1,24 @@
 # Authentification — niveaux et recommandation cible
 
-## État actuel : niveau 0 (identité par clé d'appareil)
+## État actuel : niveau 1 (clé d'appareil + PIN utilisateur optionnel)
 
 Chaque appareil possède une `public_key` stockée dans `dc_pos.devices`. Le client
 l'envoie sur les routes sensibles via l'en-tête `x-public-key` (ou le paramètre
 `publicKey`, utilisé pour les `<iframe>` qui ne peuvent pas poser d'en-tête).
+
+**PIN utilisateur** : `users.pin_hash` (scrypt + sel — jamais le PIN en clair,
+jamais exposé par l'API : `hasPin` seulement). Quand un utilisateur a un PIN,
+le switch sur le POS exige `POST /api/sql/verifyUserPin` (device-gaté,
+rate-limité : 5 échecs / 15 min / IP → 429, tentatives journalisées dans
+`dc_sys.connections` sans le PIN). Le switch persisté en localStorage n'est
+pas restauré pour un utilisateur avec PIN. Gestion : colonne PIN dans
+`UsersConfig` (4–8 chiffres, `pin`/`clearPin` via `updateUsers`).
+
+**Throttling des accès refusés** : `recordDeniedAccess` (`deviceAuth.ts`)
+journalise chaque refus dans `dc_sys.connections` (`device_denied`, IP +
+préfixe de clé, 1 écriture / min par couple) et retourne 429 au-delà de
+30 refus / 15 min par IP — appliqué à toutes les routes gatées, `whoami`
+et `getDeviceHardware`. Localhost exempté (Electron).
 
 - `src/app/api/sql/deviceAuth.ts` — `resolveDeviceAuth` résout
   device → utilisateur lié → rôle ; `assertDeviceAuthorized(request, shopId, roles)`
@@ -47,15 +61,18 @@ Cas particuliers :
   et du quota, pas visibles dans l'admin. Leurs clés sont en base, pas
   besoin de les renvoyer.
 
-### Limites connues du niveau 0
+### Limites connues du niveau 1
 
 - La clé circule en clair en HTTP sur le LAN → sniffable.
 - Bearer token : quiconque copie une clé usurpe l'appareil.
 - Les clés existantes générées avant `generateSecureId` (PRNG `Math.random`)
   restent valides — migration non forcée ; les nouvelles clés ont 128 bits
   d'entropie (`crypto.getRandomValues`).
-- Pas de révocation ni d'expiration : supprimer la ligne `devices` est le
-  seul moyen de révoquer.
+- Révocation : supprimer la ligne `devices` révoque immédiatement et le
+  heartbeat (`registered: false`) force le rechargement vers l'écran
+  d'enregistrement en ≤ 30 s. Pas d'expiration des clés.
+- Le PIN protège l'identité au switch (ticket au bon nom), mais
+  l'autorisation serveur reste device-level — voir niveau 3.
 
 ## Recommandation cible : niveau 3 (sessions utilisateur + RBAC)
 
@@ -90,8 +107,8 @@ Cas particuliers :
 
 - HTTPS/TLS obligatoire en production (même en LAN via certificat interne
   ou mTLS pour les devices).
-- Rate limiting sur `login`/`whoami` (le mécanisme `dc_sys.connections`
-  existe déjà côté `resolveUser` — le généraliser).
+- Rate limiting sur `login`/`whoami` (✅ fait — `recordDeniedAccess` sur les
+  refus device, compteur `resolveUser` existant, limite `verifyUserPin`).
 - Audit log : qui a fait quelle écriture sensible (paramètres, devices,
   utilisateurs, abonnement, attestation NF525).
 - Verrouillage progressif après échecs répétés ; alerte sur nouveau device.

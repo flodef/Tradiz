@@ -54,60 +54,76 @@ qui résout device → utilisateur lié → rôle.
 Aucune route webhook dans Tradiz — seul `create-order` (appel **sortant**,
 prix côté serveur, public par design). Rien à signer.
 
-### A.4 — Durcissements optionnels : à arbitrer ⬜
+### A.4 — Durcissements optionnels : arbitrés
 
-| Option | Effort | Recommandation |
-|---|---|---|
+| Option                             | Effort                                                                 | Décision                  |
+| ---------------------------------- | ---------------------------------------------------------------------- | ------------------------- |
 | Hasher `public_key` en DB (sha256) | Moyen — migration irréversible, toutes les routes comparent des hashes | Reporter (voir Phase B.2) |
-| Rotation/expiration des clés | Moyen — UX de renouvellement à inventer | Reporter |
-| Rate limiting routes sensibles | Faible — `resolveUser` a déjà un 429 | Phase B.1 |
+| Rotation/expiration des clés       | Moyen — UX de renouvellement à inventer                                | Reporter                  |
+| Rate limiting routes sensibles     | Faible — `resolveUser` a déjà un 429                                   | ✅ Phase B.1 faite        |
 
 ---
 
 ## Ce qui reste — recommandations
 
-### Phase B — Durcissement court terme (faible risque) ⬜
+### Phase B — Durcissement court terme (faible risque)
 
-- **B.1 Rate limiting généralisé** — `resolveUser` limite déjà (429). Étendre
-  le même compteur (`dc_sys.connections`) à `whoami`, `getDeviceHardware` et
-  aux 403 répétés sur routes gatées : une IP qui brute-force des clés se fait
-  throttle. Effort faible, pas de migration.
-- **B.2 Hash des clés en DB** — une fuite DB ≠ fuite de credentials.
+- **B.1 Rate limiting généralisé ✅** — `recordDeniedAccess` dans
+  `deviceAuth.ts` : chaque refus (clé absente/inconnue/rôle insuffisant) est
+  journalisé dans `dc_sys.connections` (`type: 'device_denied'`, IP +
+  préfixe de clé de 8 chars — jamais la clé entière), dédupliqué à 1
+  écriture / min par (IP, clé). Au-delà de **30 refus / 15 min par IP →
+  429**. Branché sur `assertDeviceAuthorized` (les 45 routes gatées),
+  `whoami` (403) et `getDeviceHardware` (404). Localhost/Electron exempté.
+- **B.2 Hash des clés en DB** ⬜ — une fuite DB ≠ fuite de credentials.
   `devices.public_key` → `public_key_hash` sha256. Coût : migration en place
   (non réversible → dump avant), `resolveDeviceAuth`/`getDeviceHardware`/
   `heartbeat`/`resolveUser` comparent le hash. **Recommandé** si la DB est
   exposée à des tiers (backups, replication, accès support) ; sinon le gain
   est marginal car la clé reste sniffable en clair sur le LAN (voir B.4).
-- **B.3 Révocation UX** — supprimer la ligne `devices` révoque déjà ; ajouter
-  un bouton « Révoquer » explicite + propagation immédiate (aujourd'hui un
-  device révoqué garde sa session client jusqu'au prochain fetch).
-- **B.4 TLS sur le LAN** — pertinent **seulement** si plusieurs caisses
+- **B.3 Révocation UX ✅** — la suppression d'un appareil dans
+  DevicesConfig révoque immédiatement (la clé disparaît de `devices` → 403
+  partout). **Propagation** : le heartbeat retourne `registered: false` →
+  `DataProvider` recharge la page → `resolveUser` échoue → écran
+  « appareil non enregistré » au prochain heartbeat (≤30 s). Un appareil
+  jamais enregistré n'entre jamais dans la boucle heartbeat (pas de
+  `transactionsFilename`), donc pas de risque de reload-loop.
+- **B.4 TLS sur le LAN** ⬜ — pertinent **seulement** si plusieurs caisses
   attaquent un serveur LAN (le serveur Electron embarqué n'écoute que
   localhost ; Vercel = déjà HTTPS). Si déploiement multi-caisses en magasin :
   cert interne ou mTLS device↔serveur. À confirmer selon le mode de
   déploiement réel.
 
-### Phase C — Identité utilisateur (le vrai niveau 3) ⬜
+### Phase C — Identité utilisateur (le vrai niveau 3)
 
-Aujourd'hui l'autorisation est **device-level** : n'importe quel utilisateur
-sur un appareil admin enregistré a tous les droits — le switch utilisateur
-(`userSwitch`) est libre, sans credential par personne.
-
-- **C.1 PIN/mot de passe par utilisateur** — `users.password_hash`
-  (argon2id/bcrypt — jamais MD5/SHA1) ou PIN court pour le switch POS.
-  Option paramétrable : switch libre (comportement actuel) vs PIN requis
-  pour les rôles sensibles (Admin).
-- **C.2 Sessions** — table `sessions` (user_id, device_id, expiration,
+- **C.1 PIN par utilisateur ✅** — `users.pin_hash` (scrypt + sel,
+  `src/app/api/sql/pinHash.ts`, migration `migrate-users-pin.sql`).
+    - `POST /api/sql/verifyUserPin` : device-gaté + **rate-limité 5 échecs /
+      15 min par IP** (logs `pin_attempt` dans `dc_sys.connections` — jamais
+      le PIN ni le hash).
+    - `getUsers`/`updateUsers` exposent `hasPin` uniquement ; `updateUsers`
+      accepte `pin` (4–8 chiffres, hashé serveur) et `clearPin` — omettre les
+      deux conserve le PIN existant.
+    - `UserSwitchPopup` : un utilisateur avec PIN exige la saisie du code
+      avant le switch ; sans PIN → comportement inchangé. Le switch persisté
+      en localStorage n'est **pas** restauré pour un utilisateur avec PIN.
+    - `UsersConfig` : colonne PIN (saisie masquée, effaçable) pour les
+      utilisateurs non-admin — les admins restent gérés hors UI (inchangé).
+- **C.2 Sessions** ⬜ — table `sessions` (user_id, device_id, expiration,
   révocable) — la table legacy `dc_sys.web_tokens` existe mais est
   inutilisée, la remplacer. Cookie `HttpOnly; Secure; SameSite=Strict` en
   navigateur ; stockage hors DOM sous Electron.
-- **C.3 CSRF** — aujourd'hui l'auth passe par un **header custom**
+- **C.3 CSRF** ⬜ — aujourd'hui l'auth passe par un **header custom**
   (`x-public-key`) → intrinsèquement résistant au CSRF (pas de cookie, le
   navigateur ne peut pas forger le header cross-origin). Si Phase C ajoute
   des cookies de session → ajouter token CSRF ou check `Origin`.
-- **C.4 RBAC serveur** — `assertDeviceAuthorized` → `assertAuthorized` :
+- **C.4 RBAC serveur** ⬜ — `assertDeviceAuthorized` → `assertAuthorized` :
   accepte session **ou** device key pendant la transition ; rôles
   cashier/manager/admin/intervention vérifiés serveur sur chaque route.
+  **Limite connue de C.1** : l'autorisation serveur reste device-level —
+  le PIN protège l'identité affichée/enregistrée sur les tickets (l'employé
+  ne peut plus se faire passer pour un collègue au switch), mais un attaquant
+  technique sur un appareil admin garde l'accès API. C.4 est la vraie borne.
 
 ### Phase D — Audit et supervision ⬜
 
@@ -129,9 +145,11 @@ sur un appareil admin enregistré a tous les droits — le switch utilisateur
 
 ---
 
-## Validation Phase A
+## Validation
 
-- `tsc` ✓ `eslint` ✓ `prettier` ✓ — 925/925 unitaires — 36/36 E2E
+- Phase A : `tsc` ✓ `eslint` ✓ `prettier` ✓ — 925/925 unitaires — 36/36 E2E
+- B.1 + B.3 + C.1 : 33 tests ajoutés (`deviceAuth` throttling ×5, `userPin`
+  hash/verify/rate-limit/updateUsers ×14)
 - Risque résiduel connu : un appareil **non enregistré** sur une vraie
   boutique voit 403 partout (comportement voulu — l'admin l'approuve via
   `dc_sys.connections` → DevicesConfig).

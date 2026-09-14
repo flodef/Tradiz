@@ -819,6 +819,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     10000
                 );
                 if (!heartbeat.ok) return;
+                const heartbeatData = (await heartbeat.json()) as { registered?: boolean };
+                if (heartbeatData.registered === false) {
+                    // The device was revoked — reload so resolveUser lands on
+                    // the device-registration screen instead of silently
+                    // failing every subsequent API call.
+                    window.location.reload();
+                    return;
+                }
                 // Always sync — even when no other devices are detected.
                 // Devices may not be registered in the DB, or the heartbeat may
                 // fail to detect them, but transactions still need to propagate.
