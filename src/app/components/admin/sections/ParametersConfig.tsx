@@ -2,7 +2,7 @@
 
 import { Parameters, ProductsSettings, SearchSettings, DisplaySettings } from '@/app/contexts/ConfigProvider';
 import { DEFAULT_DISPLAY_SETTINGS, DEFAULT_PRODUCTS_SETTINGS } from '@/app/utils/processData';
-import { User } from '@/app/utils/interfaces';
+import { Role, User } from '@/app/utils/interfaces';
 import { useSubscription } from '@/app/hooks/useSubscription';
 import SectionCard from '../SectionCard';
 import Switch from '../Switch';
@@ -367,6 +367,21 @@ export default function ParametersConfig({
                             isReadOnly={isReadOnly}
                             label="Afficher 'Autres' dans liste de produits"
                         />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-3">
+                            <Switch
+                                checked={config.requireUserAuth ?? false}
+                                onChange={(checked) => handleChange('requireUserAuth', checked)}
+                                isReadOnly={isReadOnly || !users.some((u) => u.role === Role.admin && u.hasPin)}
+                                label="Exiger le PIN pour l'administration"
+                            />
+                        </div>
+                        {!users.some((u) => u.role === Role.admin && u.hasPin) && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                Définissez d'abord un PIN sur un utilisateur Admin (section Utilisateurs).
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>

@@ -2,7 +2,7 @@
 
 import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { twMerge } from 'tailwind-merge';
-import { User } from '@/app/utils/interfaces';
+import { Role, User } from '@/app/utils/interfaces';
 import { ROLE_LABELS } from '@/app/utils/constants';
 import { usePopup } from '@/app/hooks/usePopup';
 import { useConfig } from '@/app/hooks/useConfig';
@@ -10,14 +10,24 @@ import { useIsMobileDevice } from '@/app/utils/mobile';
 import { getPopupStyles, getOptionHoverStyles } from '@/app/utils/popupStyles';
 import { useVirtualKeyboardContext } from './admin/VirtualKeyboardProvider';
 import { deviceFetch } from '@/app/utils/deviceFetch';
+import { getUserSession, setUserSession, clearUserSession } from '@/app/utils/userSession';
 import { IconArrowLeft, IconLock } from '@tabler/icons-react';
 
 interface UserSwitchPopupProps {
     onSelect: (user: User) => void;
     initialQuery?: string;
+    /** Restrict the list to one role (e.g. admin prompt in DeviceGate). */
+    roleFilter?: Role;
+    /** Restrict the list to users that have a PIN configured. */
+    requirePin?: boolean;
 }
 
-export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({ onSelect, initialQuery = '' }) => {
+export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({
+    onSelect,
+    initialQuery = '',
+    roleFilter,
+    requirePin = false,
+}) => {
     const { users } = useConfig();
     const { closePopup } = usePopup();
     const [query, setQuery] = useState(initialQuery);
@@ -53,15 +63,16 @@ export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({ onSelect, initialQue
     const q = query.trim().toLowerCase();
 
     const filteredUsers = useMemo(() => {
-        if (!q) return users;
+        const base = users.filter((user) => (!roleFilter || user.role === roleFilter) && (!requirePin || user.hasPin));
+        if (!q) return base;
         const tokens = q.split(/\s+/);
-        return users.filter((user) => {
+        return base.filter((user) => {
             const searchable = [user.name, user.reference, ROLE_LABELS[user.role]]
                 .filter(Boolean)
                 .map((value) => value!.toLowerCase());
             return tokens.every((token) => searchable.some((value) => value.includes(token)));
         });
-    }, [users, q]);
+    }, [users, q, roleFilter, requirePin]);
 
     useEffect(() => {
         setHighlightedIndex(filteredUsers.length > 0 ? 0 : -1);
@@ -75,6 +86,14 @@ export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({ onSelect, initialQue
         highlightedIndexRef.current = highlightedIndex;
     }, [highlightedIndex]);
 
+    // Switching away from a PIN-verified user drops its session: revoke it
+    // server-side (fire-and-forget) then remove the local token.
+    const dropCurrentSession = () => {
+        if (!getUserSession()) return;
+        deviceFetch('/api/sql/logoutUser', { method: 'POST' }).catch(() => {});
+        clearUserSession();
+    };
+
     const selectOption = (index: number, usersList = filteredUsers) => {
         const user = usersList[index];
         if (!user) return;
@@ -85,6 +104,7 @@ export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({ onSelect, initialQue
             setTimeout(() => pinInputRef.current?.focus(), 0);
             return;
         }
+        dropCurrentSession();
         onSelect(user);
         closePopup();
     };
@@ -100,6 +120,10 @@ export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({ onSelect, initialQue
                 body: JSON.stringify({ userId: pendingUser.id, pin }),
             });
             if (response.ok) {
+                const body = (await response.json()) as { token?: string; expiresAt?: string };
+                if (body.token && body.expiresAt && pendingUser.id) {
+                    setUserSession({ userId: pendingUser.id, token: body.token, expiresAt: body.expiresAt });
+                }
                 onSelect(pendingUser);
                 closePopup();
                 return;

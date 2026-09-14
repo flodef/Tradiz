@@ -71,62 +71,58 @@ Cas particuliers :
 - Révocation : supprimer la ligne `devices` révoque immédiatement et le
   heartbeat (`registered: false`) force le rechargement vers l'écran
   d'enregistrement en ≤ 30 s. Pas d'expiration des clés.
-- Le PIN protège l'identité au switch (ticket au bon nom), mais
-  l'autorisation serveur reste device-level — voir niveau 3.
+- Le PIN protège l'identité au switch (ticket au bon nom) et, avec le flag
+  `requireUserAuth`, devient la borne d'autorisation des routes admin —
+  voir niveau 3.
 
-## Recommandation cible : niveau 3 (sessions utilisateur + RBAC)
+## Niveau 3 — sessions utilisateur + RBAC (implémenté, opt-in)
 
-À implémenter quand l'admin s'ouvrira à des clients exigeants. Principes :
+### Sessions (en place)
 
-### Comptes et sessions
+- `POST /api/sql/verifyUserPin` crée une session `dc_pos.sessions`
+  (user_id, device_id, `token_hash` SHA-256, `expires_at` 12 h,
+  `revoked_at`) et renvoie le token opaque — jamais stocké en clair.
+- Session **liée au device** : `resolveUserSession` exige
+  `token_hash + device_id` — un token copié sur une autre machine ne
+  résout pas.
+- Transport : header `x-user-token` (posé par `deviceFetch`), stocké en
+  `localStorage` côté client (`userSession.ts`). Pas de cookie → pas de
+  surface CSRF.
+- `POST /api/sql/logoutUser` révoque la session ; `UserSwitchPopup`
+  révoque la session courante à chaque switch et `processData` ne
+  restaure un utilisateur à PIN que si une session valide existe.
+- Purge opportuniste des sessions expirées/révoquées à chaque login.
 
-- Authentification par compte utilisateur : identifiant + mot de passe
-  (hashé avec **argon2id** ou bcrypt — jamais en clair, jamais MD5/SHA1).
-- Session stockée en base (`sessions` : user_id, device_id, expiration,
-  révocable) ou token signé (JWT/opaque) — préférer la table pour pouvoir
-  révoquer immédiatement.
-- Cookie `HttpOnly; Secure; SameSite=Strict` en contexte navigateur ; pour
-  Electron, stockage du token hors DOM si possible.
-- Expiration de session + rotation ; endpoint `logout` qui révoque.
-- Protection CSRF pour toute requête d'écriture authentifiée par cookie
-  (token CSRF ou vérification `Origin`/`SameSite`).
+### RBAC (en place, derrière le flag `requireUserAuth`)
 
-### RBAC
+- Flag par boutique : `parameters.requireUserAuth` (switch dans
+  Paramètres admin). Quand actif, `assertDeviceAuthorized(['admin'])`
+  exige une session de rôle Admin — le rôle vient de la **personne**,
+  plus de la machine.
+- Séparation effective : la device key = identité matérielle
+  (enregistrement, heartbeat, quota) ; la session = identité humaine
+  (rôle, droits admin).
+- Devices d'intervention exempts (support indépendant des PINs boutique).
+- Gardes-fous : activation refusée (409) sans admin avec PIN ;
+  `updateUsers` refuse (409) de retirer le dernier PIN admin quand le
+  flag est actif ; `DeviceGate` affiche un prompt PIN admin
+  (`UserSwitchPopup` filtré `role: Admin`) quand `whoami` signale
+  `requiresUserAuth` sans session admin.
+- `whoami` renvoie `requiresUserAuth` et calcule `admin` depuis la
+  session quand le flag est actif.
 
-- Rôles : `cashier` (POS + edit_menu), `manager` (admin magasin sans
-  fonctions dangereuses), `admin` (tout), `intervention` (support — accès
-  étendu, tracé).
-- Vérification **côté serveur** sur chaque route : un middleware/helper
-  commun (`assertRole(request, [...])`) remplaçant `assertDeviceAuthorized`.
-- Séparer clairement **identité appareil** (device key, matériel, quota
-  d'abonnement) et **identité utilisateur** (session, rôles). Un appareil
-  héberge plusieurs utilisateurs ; un utilisateur peut se connecter sur
-  plusieurs appareils.
+### Reste à faire (niveau 3 complet)
 
-### Transport et durcissement
-
-- HTTPS/TLS obligatoire en production (même en LAN via certificat interne
-  ou mTLS pour les devices).
-- Rate limiting sur `login`/`whoami` (✅ fait — `recordDeniedAccess` sur les
-  refus device, compteur `resolveUser` existant, limite `verifyUserPin`).
-- Audit log : qui a fait quelle écriture sensible (paramètres, devices,
-  utilisateurs, abonnement, attestation NF525).
-- Verrouillage progressif après échecs répétés ; alerte sur nouveau device.
-
-### Migration depuis le niveau 0
-
-1. Ajouter `users.password_hash` (nullable) + table `sessions`.
-2. Endpoint `POST /api/sql/login` (identifiant + mot de passe) → cookie de
-   session ; `POST /api/sql/logout`.
-3. Étendre `assertDeviceAuthorized` → `assertAuthorized` : accepte session
-   **ou** device key pendant la transition.
-4. L'UI : écran de login sur `/admin/*` (et éventuellement le POS).
-5. Retirer le fallback device key des routes admin une fois tous les
-   clients migrés ; les clés restent pour l'identité matérielle (hardware,
-   quota, heartbeat).
-6. Première installation : création du compte admin initial via
-   l'assistant de setup, puis insertion du premier device en base par un
-   admin système (clé récupérable dans `dc_sys.connections`).
+- Généraliser les rôles session au-delà d'admin (`manager`, `service`)
+  si un jour des routes non-admin doivent distinguer les utilisateurs.
+- Expiration configurable, révocation en masse depuis l'admin (liste des
+  sessions actives), rotation automatique du token.
+- HTTPS/TLS en LAN (certificat interne ou mTLS) si plusieurs caisses
+  partagent un serveur — aujourd'hui la clé et le token circulent en
+  clair sur le réseau local.
+- Audit log des écritures sensibles (qui a modifié paramètres/devices/
+  users) au-delà de la chaîne NF525 existante ; alerte sur nouveau
+  device ; verrouillage progressif.
 
 ### Ce qu'il ne faut pas faire
 

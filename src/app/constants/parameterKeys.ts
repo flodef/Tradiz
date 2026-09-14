@@ -27,6 +27,7 @@ export const PARAMETER_KEYS = {
     SEARCH_SETTINGS: 'searchSettings',
     DISPLAY_SETTINGS: 'displaySettings',
     USER_SWITCH: 'userSwitch',
+    REQUIRE_USER_AUTH: 'requireUserAuth',
     USE_VIRTUAL_KEYBOARD: 'useVirtualKeyboard',
     FIDELITY_RATE: 'fidelityRate',
     PENNYLANE_TOKEN: 'pennylaneToken',

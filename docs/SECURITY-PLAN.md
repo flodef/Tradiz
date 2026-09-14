@@ -109,21 +109,35 @@ prix côté serveur, public par design). Rien à signer.
       en localStorage n'est **pas** restauré pour un utilisateur avec PIN.
     - `UsersConfig` : colonne PIN (saisie masquée, effaçable) pour les
       utilisateurs non-admin — les admins restent gérés hors UI (inchangé).
-- **C.2 Sessions** ⬜ — table `sessions` (user_id, device_id, expiration,
-  révocable) — la table legacy `dc_sys.web_tokens` existe mais est
-  inutilisée, la remplacer. Cookie `HttpOnly; Secure; SameSite=Strict` en
-  navigateur ; stockage hors DOM sous Electron.
-- **C.3 CSRF** ⬜ — aujourd'hui l'auth passe par un **header custom**
-  (`x-public-key`) → intrinsèquement résistant au CSRF (pas de cookie, le
-  navigateur ne peut pas forger le header cross-origin). Si Phase C ajoute
-  des cookies de session → ajouter token CSRF ou check `Origin`.
-- **C.4 RBAC serveur** ⬜ — `assertDeviceAuthorized` → `assertAuthorized` :
-  accepte session **ou** device key pendant la transition ; rôles
-  cashier/manager/admin/intervention vérifiés serveur sur chaque route.
-  **Limite connue de C.1** : l'autorisation serveur reste device-level —
-  le PIN protège l'identité affichée/enregistrée sur les tickets (l'employé
-  ne peut plus se faire passer pour un collègue au switch), mais un attaquant
-  technique sur un appareil admin garde l'accès API. C.4 est la vraie borne.
+- **C.2 Sessions ✅** — table `dc_pos.sessions` (user_id, device_id,
+  token_hash, expires_at, revoked_at — migration `migrate-sessions.sql`,
+  PG + MariaDB). `verifyUserPin` crée une session (token opaque 128 bits,
+  hash SHA-256 en base, **liée au device** — un token copié ailleurs ne
+  résout pas), TTL 12 h, purge opportuniste. `POST /api/sql/logoutUser`
+  révoque. Le token circule en header `x-user-token` (posé par
+  `deviceFetch` depuis `localStorage` via `userSession.ts`) — pas de
+  cookie, donc C.3 reste non applicable.
+- **C.3 CSRF** ✅ — l'auth passe par des **headers custom**
+  (`x-public-key`, `x-user-token`) → intrinsèquement résistant au CSRF
+  (pas de cookie, le navigateur ne peut pas forger le header
+  cross-origin). Si un jour des cookies de session sont ajoutés → token
+  CSRF ou check `Origin` requis.
+- **C.4 RBAC serveur 🟡** — flag par boutique `requireUserAuth`
+  (paramètre, UI `ParametersConfig`) : quand activé, les routes `['admin']`
+  exigent une **session utilisateur de rôle Admin** — la clé device ne
+  prouve plus que la machine est enregistrée ; le rôle vient de la
+  session. Un admin PIN-vérifié peut donc agir depuis n'importe quel
+  appareil enregistré, et un caissier switché sur un appareil admin
+  n'hérite plus de ses droits. Les devices d'intervention gardent l'accès
+  device-level (le support ne dépend pas d'un PIN boutique). Gardes-fous :
+  le flag ne s'active que si ≥1 admin a un PIN (`updateParameters` → 409),
+  et `updateUsers` → 409 si la sauvegarde retirerait le dernier PIN admin.
+  `DeviceGate` affiche un prompt PIN admin quand `whoami` renvoie
+  `requiresUserAuth` sans session admin.
+  **Reste** : sans le flag, l'autorisation reste device-level (comportement
+  historique préservé) ; généraliser le RBAC à d'autres rôles que admin
+  (manager/service) est possible mais non fait — la granularité actuelle
+  suffit au modèle de menace boutique.
 
 ### Phase D — Audit et supervision ⬜
 

@@ -67,6 +67,10 @@ function Row({
     index: number;
 }) {
     const roles = Object.values(Role).filter((role) => role !== Role.admin);
+    // Admin rows are shown so their PIN stays manageable — every other field
+    // is read-only and they can't be deleted (admins are bound to devices).
+    const isAdminRow = user.role === Role.admin;
+    const fieldsReadOnly = isReadOnly || isAdminRow;
 
     return (
         <tr className="border-b border-gray-200 dark:border-gray-700">
@@ -75,7 +79,7 @@ function Row({
                     value={user.name}
                     onChange={(value) => onChange({ ...user, name: String(value) })}
                     placeholder="Nom de l'utilisateur"
-                    isReadOnly={isReadOnly}
+                    isReadOnly={fieldsReadOnly}
                     validation={(value) => String(value).trim().length > 0}
                     className="min-w-40"
                     isNameField
@@ -97,7 +101,7 @@ function Row({
                     value={user.reference ?? ''}
                     onChange={(value) => onChange({ ...user, reference: String(value) })}
                     placeholder="Auto-généré"
-                    isReadOnly={isReadOnly}
+                    isReadOnly={fieldsReadOnly}
                     className="min-w-32"
                 />
             </td>
@@ -105,7 +109,7 @@ function Row({
                 <AdminSelect
                     value={user.role}
                     onChange={(e) => onChange({ ...user, role: e.target.value as Role })}
-                    isReadOnly={isReadOnly}
+                    isReadOnly={fieldsReadOnly}
                     options={roles.map((role) => ({ value: role, label: ROLE_LABELS[role] }))}
                     className="min-w-20 w-20"
                 />
@@ -150,7 +154,12 @@ function Row({
                     </div>
                 )}
             </td>
-            <DeleteButtonCell isReadOnly={isReadOnly} onDelete={onDelete} title="Supprimer l'utilisateur" />
+            <DeleteButtonCell
+                isReadOnly={isReadOnly}
+                canDelete={!isAdminRow}
+                onDelete={onDelete}
+                title="Supprimer l'utilisateur"
+            />
         </tr>
     );
 }
@@ -206,30 +215,23 @@ export default function UsersConfig({
             if (debounceRef.current) clearTimeout(debounceRef.current);
             debounceRef.current = setTimeout(() => {
                 selfUpdateRef.current = true;
-                // Always include admin users from original config when notifying parent
-                const adminUsers = originalConfig.filter((user) => user.role === Role.admin);
-                const nonAdminUsers = strip(items.filter((u) => u.role !== Role.admin));
-                onChange([...adminUsers, ...nonAdminUsers]);
+                onChange(strip(items));
             }, 300);
         },
-        [onChange, originalConfig]
+        [onChange]
     );
 
-    // Filter out admin users from display
-    const nonAdminUsers = useMemo(() => users.filter((user) => user.role !== Role.admin), [users]);
-    const nonAdminOriginal = useMemo(() => originalConfig.filter((user) => user.role !== Role.admin), [originalConfig]);
+    const hasChanges = JSON.stringify(strip(users)) !== JSON.stringify(originalConfig);
 
-    const hasChanges = JSON.stringify(strip(nonAdminUsers)) !== JSON.stringify(nonAdminOriginal);
-
-    // Check if all non-admin users have a valid name and pending PIN (4-8 digits)
+    // Check if all users have a valid name and pending PIN (4-8 digits)
     const isValid = useMemo(() => {
-        return nonAdminUsers.every((user) => user.name?.trim() && (!user.pin || user.pin.length >= 4));
-    }, [nonAdminUsers]);
+        return users.every((user) => user.name?.trim() && (!user.pin || user.pin.length >= 4));
+    }, [users]);
 
     const sortedUsers = useMemo(() => {
-        if (!sortField || sortDirection === 'none') return nonAdminUsers;
+        if (!sortField || sortDirection === 'none') return users;
 
-        const sorted = [...nonAdminUsers].sort((a, b) => {
+        const sorted = [...users].sort((a, b) => {
             let comparison = 0;
             if (sortField === 'name') {
                 comparison = (a.name ?? '').localeCompare(b.name ?? '');
@@ -242,7 +244,7 @@ export default function UsersConfig({
         });
 
         return sorted;
-    }, [nonAdminUsers, sortField, sortDirection]);
+    }, [users, sortField, sortDirection]);
 
     const handleSort = (field: SortField) => {
         if (sortField === field) {
@@ -414,9 +416,7 @@ export default function UsersConfig({
     );
 
     const handleSave = () => {
-        // Always include admin users from original config when saving
-        const adminUsers = originalConfig.filter((user) => user.role === Role.admin);
-        const savedUsers = [...adminUsers, ...strip(users.filter((u) => u.role !== Role.admin))];
+        const savedUsers = strip(users);
         onSave?.(savedUsers);
         setOriginalConfig(savedUsers);
     };

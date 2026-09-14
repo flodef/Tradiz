@@ -430,6 +430,11 @@ export default function SettingsPage() {
                     if (value === '') return undefined;
                     return value === 'true';
                 })(),
+                requireUserAuth: (() => {
+                    const value = getParam('requireUserAuth', 'requireUserAuth');
+                    if (value === '') return undefined;
+                    return value === 'true';
+                })(),
                 fidelityRate: (() => {
                     const value = getParam('fidelityRate', 'fidelityRate');
                     if (value === '' || value === undefined) return undefined;
@@ -741,6 +746,7 @@ export default function SettingsPage() {
             display: s.display,
             userSwitch: s.userSwitch,
             useVirtualKeyboard: s.useVirtualKeyboard,
+            requireUserAuth: s.requireUserAuth,
             reservationPhone: s.reservationPhone,
             reservationEmail: s.reservationEmail,
         });
@@ -946,6 +952,7 @@ export default function SettingsPage() {
                 { key: 'displaySettings', value: JSON.stringify(data.display ?? {}) },
                 { key: 'userSwitch', value: String(data.userSwitch ?? true) },
                 { key: 'useVirtualKeyboard', value: String(data.useVirtualKeyboard ?? false) },
+                { key: 'requireUserAuth', value: String(data.requireUserAuth ?? false) },
                 { key: 'fidelityRate', value: String(data.fidelityRate ?? 0) },
                 { key: 'pennylaneToken', value: data.pennylaneToken ?? '' },
                 { key: 'tpeIp', value: data.tpeIp ?? '' },
