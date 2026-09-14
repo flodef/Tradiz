@@ -1,7 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from '../db';
-import { resolveDeviceAuth } from '../deviceAuth';
+import { resolveDeviceAuth, recordDeniedAccess, deviceKeyFromRequest } from '../deviceAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +17,8 @@ export async function GET(request: Request) {
         connection = await getPosDb(shopId);
         const auth = await resolveDeviceAuth(request, connection, shopId);
         if (!auth.authorized) {
+            const throttled = await recordDeniedAccess(connection, request, deviceKeyFromRequest(request));
+            if (throttled) return throttled;
             return NextResponse.json({ authorized: false }, { status: 403 });
         }
         return NextResponse.json(auth);

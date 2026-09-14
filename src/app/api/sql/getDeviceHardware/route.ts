@@ -1,6 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
+import { recordDeniedAccess } from '../deviceAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +35,8 @@ export async function GET(request: Request) {
         const rows = result[0] as DeviceHardwareRow[];
 
         if (!rows.length) {
+            const throttled = await recordDeniedAccess(connection, request, publicKey);
+            if (throttled) return throttled;
             return NextResponse.json({ error: 'Device not found' }, { status: 404 });
         }
 

@@ -36,6 +36,26 @@ const state = vi.hoisted(() => {
                 return [[], {}];
             }
 
+            // Denial-throttle queries on dc_sys.connections
+            if (q.includes('COUNT(*)') && q.includes('dc_sys.connections')) {
+                const ip = String(params?.[0]);
+                const windowStart = Date.parse(String(params?.[1]));
+                const count = state.denials.filter((d) => d.ip === ip && d.at >= windowStart).length;
+                return [[{ count }], {}];
+            }
+            if (q.startsWith('SELECT 1 FROM dc_sys.connections')) {
+                const [ip, keyPrefix, dedupeStart] = params as [string, string, string];
+                const hit = state.denials.some(
+                    (d) => d.ip === ip && d.keyPrefix === keyPrefix && d.at >= Date.parse(dedupeStart)
+                );
+                return [hit ? [{ '?column?': 1 }] : [], {}];
+            }
+            if (q.startsWith('INSERT') && q.includes('dc_sys.connections')) {
+                const meta = JSON.parse(String(params?.[2]));
+                state.denials.push({ ip: meta.ip_address, keyPrefix: meta.key_prefix, at: Date.now() });
+                return [[], {}];
+            }
+
             return [[], {}];
         },
     };
@@ -43,6 +63,7 @@ const state = vi.hoisted(() => {
         // devices: public_key → { role, intervention }
         devices: {} as Record<string, { role: string | null; intervention: boolean }>,
         registeredKeys: [] as string[],
+        denials: [] as { ip: string; keyPrefix: string; at: number }[],
         conn: fakeConn,
     };
 });
@@ -67,11 +88,13 @@ vi.mock('@/app/api/sql/db', () => ({
 import { resolveDeviceAuth, assertDeviceAuthorized, deviceKeyFromRequest } from '../src/app/api/sql/deviceAuth';
 import { GET as getParametersGET } from '../src/app/api/sql/getParameters/route';
 
-const req = (key?: string, via: 'header' | 'query' = 'header') =>
-    new Request(
-        `http://localhost/api/sql/test${via === 'query' && key ? `?publicKey=${key}` : ''}`,
-        key && via === 'header' ? { headers: { 'x-public-key': key } } : undefined
-    );
+const req = (key?: string, via: 'header' | 'query' = 'header', ip?: string) =>
+    new Request(`http://localhost/api/sql/test${via === 'query' && key ? `?publicKey=${key}` : ''}`, {
+        headers: {
+            ...(key && via === 'header' ? { 'x-public-key': key } : {}),
+            ...(ip ? { 'x-forwarded-for': ip } : {}),
+        },
+    });
 
 beforeEach(() => {
     state.devices = {
@@ -81,6 +104,7 @@ beforeEach(() => {
         'key-nouser': { role: null, intervention: false },
     };
     state.registeredKeys = [];
+    state.denials = [];
 });
 
 describe('deviceKeyFromRequest', () => {
@@ -148,6 +172,49 @@ describe('assertDeviceAuthorized', () => {
     it("restriction ['admin'] : caissier refusé, admin accepté", async () => {
         expect((await assertDeviceAuthorized(req('key-cashier'), 'shop', ['admin']))?.status).toBe(403);
         expect(await assertDeviceAuthorized(req('key-admin'), 'shop', ['admin'])).toBeNull();
+    });
+});
+
+describe('Throttling des accès refusés', () => {
+    it('une IP distante refusée est journalisée dans connections', async () => {
+        const res = await assertDeviceAuthorized(req('unknown', 'header', '1.2.3.4'), 'shop');
+        expect(res?.status).toBe(403);
+        expect(state.denials).toHaveLength(1);
+        expect(state.denials[0].keyPrefix).toBe('unknown'.slice(0, 8));
+    });
+
+    it('les refus répétés de la même clé sont dédupliqués (1 log / min)', async () => {
+        await assertDeviceAuthorized(req('unknown', 'header', '1.2.3.4'), 'shop');
+        await assertDeviceAuthorized(req('unknown', 'header', '1.2.3.4'), 'shop');
+        await assertDeviceAuthorized(req('unknown', 'header', '1.2.3.4'), 'shop');
+        expect(state.denials).toHaveLength(1);
+    });
+
+    it('les requêtes sans IP / localhost ne sont pas journalisées', async () => {
+        await assertDeviceAuthorized(req('unknown'), 'shop');
+        await assertDeviceAuthorized(req('unknown', 'header', '127.0.0.1'), 'shop');
+        expect(state.denials).toHaveLength(0);
+    });
+
+    it('une IP au-delà du seuil de refus obtient 429 au lieu de 403', async () => {
+        const now = Date.now();
+        state.denials = Array.from({ length: 30 }, (_, i) => ({
+            ip: '5.6.7.8',
+            keyPrefix: `key${i}`,
+            at: now - 60_000,
+        }));
+        const res = await assertDeviceAuthorized(req('another-bad-key', 'header', '5.6.7.8'), 'shop');
+        expect(res?.status).toBe(429);
+    });
+
+    it('un appareil autorisé n’est jamais throttle', async () => {
+        const now = Date.now();
+        state.denials = Array.from({ length: 50 }, (_, i) => ({
+            ip: '9.9.9.9',
+            keyPrefix: `key${i}`,
+            at: now - 60_000,
+        }));
+        expect(await assertDeviceAuthorized(req('key-admin', 'header', '9.9.9.9'), 'shop')).toBeNull();
     });
 });
 
