@@ -11,9 +11,28 @@ l'envoie sur les routes sensibles via l'en-tête `x-public-key` (ou le paramètr
   retourne 403 si le device est inconnu ou si le rôle n'est pas autorisé.
 - `GET /api/sql/whoami` — sonde d'autorisation (authorized / admin / intervention).
 - `src/app/utils/deviceFetch.ts` — `fetch` côté client qui pose l'en-tête.
+  `deviceFetchIfKnown` fait de même sans jamais créer de clé, pour les appels
+  montés aussi sur les pages publiques (ex. `VersionChecker` dans le layout
+  racine).
 - `DeviceGate` (`AdminConfigWrapper`) bloque l'affichage des pages `/admin/*`
   pour les appareils non enregistrés ; les contrôles de rôle par page
   (`isAdmin` / `isCashier`) restent en place.
+
+Couverture des routes :
+
+- **`/api/sql/*` internes** — toutes gatées par `assertDeviceAuthorized` :
+  lecture POS (paramètres, catalogue, clients, transactions…) réservée aux
+  appareils enregistrés ; `['admin']` pour les routes de gestion
+  (`update*`, `getDevices`, `getFailedLoginKey`, `getReviews`,
+  `deleteReview`, `auditEvents`, `verifyIntegrity`…).
+- **Routes métier hors `/api/sql`** — gatées pareil : `counter-order`,
+  `complete-order`, `tpe-payment`, `open-cash-drawer`, `test-display`,
+  `scan-printers`, `list-com-ports`, `local-ip`, `spreadsheet`,
+  `facturx/generate`, `pennylane/push`.
+- **Restent ouvertes volontairement** — bootstrap (`resolveUser`, `whoami`,
+  `getDbConfig`), lookup auto-scopé (`getDeviceHardware`, `heartbeat`),
+  `resetDemo` (host démo uniquement), site public (`/api/public/*`,
+  `create-order`, `revolut-config`, `version`, `shop-id`).
 
 Cas particuliers :
 
@@ -32,8 +51,9 @@ Cas particuliers :
 
 - La clé circule en clair en HTTP sur le LAN → sniffable.
 - Bearer token : quiconque copie une clé usurpe l'appareil.
-- Les routes POS (ventes, clôtures…) restent ouvertes — seules les routes
-  admin/sensibles sont gatées.
+- Les clés existantes générées avant `generateSecureId` (PRNG `Math.random`)
+  restent valides — migration non forcée ; les nouvelles clés ont 128 bits
+  d'entropie (`crypto.getRandomValues`).
 - Pas de révocation ni d'expiration : supprimer la ligne `devices` est le
   seul moyen de révoquer.
 
