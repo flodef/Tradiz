@@ -277,6 +277,17 @@ CREATE TABLE IF NOT EXISTS dc_pos.devices (
     intervention BOOLEAN NOT NULL DEFAULT false
 );
 
+-- User sessions: a PIN-verified user on a device (only the token hash is stored)
+CREATE TABLE IF NOT EXISTS dc_pos.sessions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES dc_pos.users(id) ON DELETE CASCADE,
+    device_id INTEGER NOT NULL REFERENCES dc_pos.devices(id) ON DELETE CASCADE,
+    token_hash VARCHAR(64) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    revoked_at TIMESTAMP DEFAULT NULL
+);
+
 -- Customers
 CREATE TABLE IF NOT EXISTS dc_pos.customers (
     id SERIAL PRIMARY KEY,

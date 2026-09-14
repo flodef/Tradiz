@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { NextResponse } from 'next/server';
 import { getPosDb, type DbConnection } from './db';
 
@@ -10,6 +11,8 @@ export interface DeviceAuth {
     intervention: boolean;
     /** The linked user's role (null when the device has no user). */
     role: string | null;
+    /** The device's row id (undefined when the key is unknown). */
+    deviceId?: number;
 }
 
 const DENIED: DeviceAuth = { authorized: false, admin: false, intervention: false, role: null };
@@ -123,17 +126,17 @@ export async function resolveDeviceAuth(
 
     const [rows] = await connection.execute(
         connection.isPostgreSQL
-            ? `SELECT d.intervention, u.role
+            ? `SELECT d.id, d.intervention, u.role
                FROM dc_pos.devices d
                LEFT JOIN dc_pos.users u ON u.id = d.user_id
                WHERE d.public_key = $1 LIMIT 1`
-            : `SELECT d.intervention, u.role
+            : `SELECT d.id, d.intervention, u.role
                FROM devices d
                LEFT JOIN users u ON u.id = d.user_id
                WHERE d.public_key = ? LIMIT 1`,
         [key]
     );
-    const row = (rows as { intervention: number | boolean; role: string | null }[])[0];
+    const row = (rows as { id: number; intervention: number | boolean; role: string | null }[])[0];
 
     if (!row) {
         if (shopId === 'demo') {
@@ -154,7 +157,19 @@ export async function resolveDeviceAuth(
                            ON DUPLICATE KEY UPDATE id = id`,
                     [`Démo-${key.slice(0, 8)}`, key, adminId]
                 );
-                return { authorized: true, admin: true, intervention: false, role: 'Admin' };
+                const [deviceRows] = await connection.execute(
+                    connection.isPostgreSQL
+                        ? `SELECT id FROM dc_pos.devices WHERE public_key = $1 LIMIT 1`
+                        : `SELECT id FROM devices WHERE public_key = ? LIMIT 1`,
+                    [key]
+                );
+                return {
+                    authorized: true,
+                    admin: true,
+                    intervention: false,
+                    role: 'Admin',
+                    deviceId: Number((deviceRows as { id: number }[])[0]?.id) || undefined,
+                };
             }
         }
         return DENIED;
@@ -166,7 +181,84 @@ export async function resolveDeviceAuth(
         admin: role?.toLowerCase() === 'admin',
         intervention: !!row.intervention,
         role,
+        deviceId: Number(row.id),
     };
+}
+
+// --- User sessions (C.2/C.4) ---
+// When the shop enables `requireUserAuth`, admin-gated routes additionally
+// require a valid user session created by POST /api/sql/verifyUserPin. The
+// token travels in the `x-user-token` header; only its SHA-256 hash is
+// stored, bound to the device that created it.
+
+export interface UserSession {
+    userId: number;
+    name: string;
+    role: string;
+    expiresAt: string;
+}
+
+export function sessionTokenFromRequest(request: Request): string | null {
+    return request.headers.get('x-user-token');
+}
+
+export const sessionTokenHash = (token: string) => createHash('sha256').update(token).digest('hex');
+
+/**
+ * Resolves the user session attached to the request, bound to the calling
+ * device (a token copied to another device does not resolve). Returns null
+ * when absent, expired, or revoked.
+ */
+export async function resolveUserSession(
+    request: Request,
+    connection: DbConnection,
+    deviceId?: number
+): Promise<UserSession | null> {
+    const token = sessionTokenFromRequest(request);
+    if (!token || !deviceId) return null;
+
+    try {
+        const [rows] = await connection.execute(
+            connection.isPostgreSQL
+                ? `SELECT s.user_id, u.name, u.role, s.expires_at
+                   FROM dc_pos.sessions s JOIN dc_pos.users u ON u.id = s.user_id
+                   WHERE s.token_hash = $1 AND s.device_id = $2
+                   AND s.revoked_at IS NULL AND s.expires_at > NOW() LIMIT 1`
+                : `SELECT s.user_id, u.name, u.role, s.expires_at
+                   FROM sessions s JOIN users u ON u.id = s.user_id
+                   WHERE s.token_hash = ? AND s.device_id = ?
+                   AND s.revoked_at IS NULL AND s.expires_at > NOW() LIMIT 1`,
+            [sessionTokenHash(token), deviceId]
+        );
+        const row = (rows as { user_id: number; name: string; role: string; expires_at: string }[])[0];
+        if (!row) return null;
+        return {
+            userId: Number(row.user_id),
+            name: String(row.name),
+            role: String(row.role),
+            expiresAt: String(row.expires_at),
+        };
+    } catch (error) {
+        // Sessions table may not exist yet on shops that haven't migrated —
+        // treat as "no session" rather than breaking the request path.
+        console.error('Failed to resolve user session:', error);
+        return null;
+    }
+}
+
+/** Whether the shop requires a user session for admin-gated routes. */
+export async function shopRequiresUserAuth(connection: DbConnection): Promise<boolean> {
+    try {
+        const [rows] = await connection.execute(
+            connection.isPostgreSQL
+                ? `SELECT param_value FROM dc_pos.parameters WHERE param_key = 'requireUserAuth' LIMIT 1`
+                : `SELECT param_value FROM parameters WHERE param_key = 'requireUserAuth' LIMIT 1`,
+            []
+        );
+        return String((rows as { param_value: string }[])[0]?.param_value) === 'true';
+    } catch {
+        return false;
+    }
 }
 
 /**
@@ -185,11 +277,35 @@ export async function assertDeviceAuthorized(
     try {
         connection = await getPosDb(shopId);
         const auth = await resolveDeviceAuth(request, connection, shopId);
-        const effectiveRole = auth.admin ? 'admin' : (auth.role?.toLowerCase() ?? '');
-        if (!auth.authorized || (roles && !roles.includes(effectiveRole))) {
+        if (!auth.authorized) {
             const throttled = await recordDeniedAccess(connection, request, deviceKeyFromRequest(request));
             if (throttled) return throttled;
             return NextResponse.json({ error: 'Appareil non autorisé' }, { status: 403 });
+        }
+        const effectiveRole = auth.admin ? 'admin' : (auth.role?.toLowerCase() ?? '');
+        if (roles) {
+            // When the shop opted in to user auth, an admin-gated route is
+            // satisfied by a user session whose role matches — the device key
+            // only proves the machine is registered. A PIN-verified admin can
+            // thus act from any registered device, and a cashier switched in
+            // on an admin device no longer inherits its rights.
+            // Intervention devices keep device-level access (support must
+            // not depend on a shop-side PIN).
+            if (roles.includes('admin') && !auth.intervention && (await shopRequiresUserAuth(connection))) {
+                const session = await resolveUserSession(request, connection, auth.deviceId);
+                if (!session || !roles.includes(session.role.toLowerCase())) {
+                    return NextResponse.json(
+                        { error: 'Authentification utilisateur requise', requireUserAuth: true },
+                        { status: 403 }
+                    );
+                }
+                return null;
+            }
+            if (!roles.includes(effectiveRole)) {
+                const throttled = await recordDeniedAccess(connection, request, deviceKeyFromRequest(request));
+                if (throttled) return throttled;
+                return NextResponse.json({ error: 'Appareil non autorisé' }, { status: 403 });
+            }
         }
         return null;
     } finally {

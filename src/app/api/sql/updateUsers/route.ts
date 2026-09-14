@@ -2,10 +2,12 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { executeInsert, getPosDb, withTransaction } from '../db';
-import { assertDeviceAuthorized } from '../deviceAuth';
+import { assertDeviceAuthorized, shopRequiresUserAuth } from '../deviceAuth';
 import { generateProductReference } from '@/app/utils/productReference';
 import { insertAuditEvent } from '../auditHelpers';
 import { hashPin } from '../pinHash';
+
+class ConflictError extends Error {}
 
 interface User {
     id?: number;
@@ -154,6 +156,23 @@ export async function POST(request: Request) {
                 );
             }
 
+            // When user auth is required, the resulting user list must keep
+            // at least one Admin with a PIN — otherwise every admin is
+            // locked out of admin-gated routes.
+            if (await shopRequiresUserAuth(db)) {
+                const [adminRows] = await db.execute(
+                    db.isPostgreSQL
+                        ? `SELECT 1 FROM dc_pos.users WHERE role = 'Admin' AND pin_hash IS NOT NULL LIMIT 1`
+                        : `SELECT 1 FROM users WHERE role = 'Admin' AND pin_hash IS NOT NULL LIMIT 1`,
+                    []
+                );
+                if (!(adminRows as unknown[]).length) {
+                    throw new ConflictError(
+                        "Impossible : plus aucun utilisateur Admin n'aurait de PIN alors que l'authentification est requise."
+                    );
+                }
+            }
+
             const [savedRows] = await db.execute(
                 db.isPostgreSQL
                     ? `SELECT u.id, u.name, u.role, u.reference, u.pin_hash FROM dc_pos.users u
@@ -184,6 +203,9 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ success: true, users: savedUsers }, { status: 200 });
     } catch (error) {
+        if (error instanceof ConflictError) {
+            return NextResponse.json({ error: error.message }, { status: 409 });
+        }
         console.error('Error updating users:', error);
         return NextResponse.json({ error: 'An error occurred while updating users' }, { status: 500 });
     } finally {

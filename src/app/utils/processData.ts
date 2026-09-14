@@ -24,6 +24,7 @@ import {
 } from './constants';
 import './extensions';
 import { generateSecureId } from './id';
+import { getUserSession } from './userSession';
 
 export class MissingDataError extends Error {
     name = 'MissingDataError';
@@ -308,6 +309,11 @@ export function buildParameters(param: RawParameters, user: User, devEmail: stri
         })(),
         reservationEmail: (() => {
             const value = getParamValue('reservationEmail', 27);
+            if (value === '') return undefined;
+            return value === 'true';
+        })(),
+        requireUserAuth: (() => {
+            const value = getParamValue('requireUserAuth', 28);
             if (value === '') return undefined;
             return value === 'true';
         })(),
@@ -615,8 +621,8 @@ async function _loadDataImpl(): Promise<Config | undefined> {
     const users = userSwitchEnabled ? await fetchData(dataNames.users).then(convertUsersData) : [];
 
     // Prefer the user persisted in localStorage if it still exists in the users list.
-    // A user with a PIN configured is never restored silently — switching back
-    // to it requires the PIN via the user-switch popup.
+    // A user with a PIN is only restored when a valid session proves the PIN
+    // was entered on this device — otherwise switching back requires the PIN.
     const savedUserJson = typeof window !== 'undefined' ? localStorage.getItem(CURRENT_USER_KEYWORD) : null;
     if (savedUserJson && users.length) {
         try {
@@ -628,7 +634,7 @@ async function _loadDataImpl(): Promise<Config | undefined> {
                     u.role === savedUser.role &&
                     u.reference === savedUser.reference
             );
-            if (matched && !matched.hasPin) {
+            if (matched && (!matched.hasPin || getUserSession()?.userId === matched.id)) {
                 parameters.user = savedUser;
             }
         } catch {

@@ -6,6 +6,8 @@ import { assertDeviceAuthorized } from '../deviceAuth';
 import { PARAMETER_KEY_LIST } from '@/app/constants/parameterKeys';
 import { insertAuditEvent } from '../auditHelpers';
 
+class ConflictError extends Error {}
+
 interface ParameterUpdate {
     key: string;
     value: string;
@@ -37,6 +39,22 @@ export async function POST(request: Request) {
                 if (!PARAMETER_KEY_LIST.includes(param.key as (typeof PARAMETER_KEY_LIST)[number])) {
                     console.warn(`Unknown parameter key: ${param.key}, skipping`);
                     continue;
+                }
+
+                // Enabling requireUserAuth is refused when no Admin user has
+                // a PIN — it would lock every admin out of admin routes.
+                if (param.key === 'requireUserAuth' && param.value === 'true') {
+                    const [adminRows] = await conn.execute(
+                        conn.isPostgreSQL
+                            ? `SELECT 1 FROM dc_pos.users WHERE role = 'Admin' AND pin_hash IS NOT NULL LIMIT 1`
+                            : `SELECT 1 FROM users WHERE role = 'Admin' AND pin_hash IS NOT NULL LIMIT 1`,
+                        []
+                    );
+                    if (!(adminRows as unknown[]).length) {
+                        throw new ConflictError(
+                            "Aucun utilisateur Admin n'a de PIN : définissez-en un avant d'activer l'authentification."
+                        );
+                    }
                 }
 
                 if (conn.isPostgreSQL) {
@@ -74,6 +92,9 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ success: true }, { status: 200 });
     } catch (error) {
+        if (error instanceof ConflictError) {
+            return NextResponse.json({ error: error.message }, { status: 409 });
+        }
         console.error('Database update error:', error);
         return NextResponse.json({ error: 'An error occurred while updating parameters' }, { status: 500 });
     } finally {

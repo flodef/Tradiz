@@ -22,7 +22,13 @@ const state = vi.hoisted(() => {
             if (q.includes('FROM dc_pos.devices d') && q.includes('public_key')) {
                 const key = String(params?.[0]);
                 const d = state.devices[key];
-                return [d ? [{ intervention: d.intervention, role: d.role }] : [], {}];
+                return [d ? [{ id: d.id, intervention: d.intervention, role: d.role }] : [], {}];
+            }
+
+            // Device id lookup after demo auto-registration
+            if (q.includes('SELECT id FROM dc_pos.devices WHERE public_key')) {
+                const key = String(params?.[0]);
+                return [[{ id: state.devices[key]?.id ?? 0 }], {}];
             }
 
             // First admin user (demo auto-registration)
@@ -32,8 +38,20 @@ const state = vi.hoisted(() => {
             if (q.startsWith('INSERT') && q.includes('dc_pos.devices')) {
                 const key = String(params?.[1]);
                 state.registeredKeys.push(key);
-                state.devices[key] = { role: 'Admin', intervention: false };
+                state.devices[key] = { role: 'Admin', intervention: false, id: 100 + state.registeredKeys.length };
                 return [[], {}];
+            }
+
+            // requireUserAuth flag (shopRequiresUserAuth)
+            if (q.includes('dc_pos.parameters') && q.includes('requireUserAuth')) {
+                return [[{ param_value: String(state.requireUserAuth) }], {}];
+            }
+
+            // Session lookup (resolveUserSession)
+            if (q.includes('FROM dc_pos.sessions s')) {
+                const [hash, deviceId] = params as [string, number];
+                const s = state.sessions.find((sess) => sess.tokenHash === hash && sess.deviceId === Number(deviceId));
+                return [s ? [{ user_id: s.userId, name: s.name, role: s.role, expires_at: s.expiresAt }] : [], {}];
             }
 
             // Denial-throttle queries on dc_sys.connections
@@ -60,10 +78,19 @@ const state = vi.hoisted(() => {
         },
     };
     return {
-        // devices: public_key → { role, intervention }
-        devices: {} as Record<string, { role: string | null; intervention: boolean }>,
+        // devices: public_key → { id, role, intervention }
+        devices: {} as Record<string, { id: number; role: string | null; intervention: boolean }>,
         registeredKeys: [] as string[],
         denials: [] as { ip: string; keyPrefix: string; at: number }[],
+        requireUserAuth: false,
+        sessions: [] as {
+            tokenHash: string;
+            deviceId: number;
+            userId: number;
+            name: string;
+            role: string;
+            expiresAt: string;
+        }[],
         conn: fakeConn,
     };
 });
@@ -85,26 +112,34 @@ vi.mock('@/app/api/sql/db', () => ({
     executeInsert: async () => 1,
 }));
 
-import { resolveDeviceAuth, assertDeviceAuthorized, deviceKeyFromRequest } from '../src/app/api/sql/deviceAuth';
+import {
+    resolveDeviceAuth,
+    assertDeviceAuthorized,
+    deviceKeyFromRequest,
+    sessionTokenHash,
+} from '../src/app/api/sql/deviceAuth';
 import { GET as getParametersGET } from '../src/app/api/sql/getParameters/route';
 
-const req = (key?: string, via: 'header' | 'query' = 'header', ip?: string) =>
+const req = (key?: string, via: 'header' | 'query' = 'header', ip?: string, sessionToken?: string) =>
     new Request(`http://localhost/api/sql/test${via === 'query' && key ? `?publicKey=${key}` : ''}`, {
         headers: {
             ...(key && via === 'header' ? { 'x-public-key': key } : {}),
             ...(ip ? { 'x-forwarded-for': ip } : {}),
+            ...(sessionToken ? { 'x-user-token': sessionToken } : {}),
         },
     });
 
 beforeEach(() => {
     state.devices = {
-        'key-admin': { role: 'Admin', intervention: false },
-        'key-cashier': { role: 'Caissier', intervention: false },
-        'key-intervention': { role: 'Admin', intervention: true },
-        'key-nouser': { role: null, intervention: false },
+        'key-admin': { id: 1, role: 'Admin', intervention: false },
+        'key-cashier': { id: 2, role: 'Caissier', intervention: false },
+        'key-intervention': { id: 3, role: 'Admin', intervention: true },
+        'key-nouser': { id: 4, role: null, intervention: false },
     };
     state.registeredKeys = [];
     state.denials = [];
+    state.requireUserAuth = false;
+    state.sessions = [];
 });
 
 describe('deviceKeyFromRequest', () => {
@@ -215,6 +250,63 @@ describe('Throttling des accès refusés', () => {
             at: now - 60_000,
         }));
         expect(await assertDeviceAuthorized(req('key-admin', 'header', '9.9.9.9'), 'shop')).toBeNull();
+    });
+});
+
+describe('Sessions utilisateur (requireUserAuth)', () => {
+    const addSession = (deviceId: number, role: string, token = 'session-token') => {
+        state.sessions.push({
+            tokenHash: sessionTokenHash(token),
+            deviceId,
+            userId: 10,
+            name: 'Gérant',
+            role,
+            expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+        });
+        return token;
+    };
+
+    it('flag inactif → le rôle du device suffit (comportement actuel)', async () => {
+        expect(await assertDeviceAuthorized(req('key-admin'), 'shop', ['admin'])).toBeNull();
+    });
+
+    it('flag actif → device admin sans session = 403 requireUserAuth', async () => {
+        state.requireUserAuth = true;
+        const res = await assertDeviceAuthorized(req('key-admin'), 'shop', ['admin']);
+        expect(res?.status).toBe(403);
+        expect((await res?.json())?.requireUserAuth).toBe(true);
+    });
+
+    it('flag actif → session admin autorise, même sur un device caissier', async () => {
+        state.requireUserAuth = true;
+        const token = addSession(2, 'Admin');
+        expect(
+            await assertDeviceAuthorized(req('key-cashier', 'header', undefined, token), 'shop', ['admin'])
+        ).toBeNull();
+    });
+
+    it('flag actif → session non-admin ne suffit pas', async () => {
+        state.requireUserAuth = true;
+        const token = addSession(1, 'Caissier');
+        const res = await assertDeviceAuthorized(req('key-admin', 'header', undefined, token), 'shop', ['admin']);
+        expect(res?.status).toBe(403);
+    });
+
+    it('un token volé ne marche pas sur un autre appareil', async () => {
+        state.requireUserAuth = true;
+        const token = addSession(2, 'Admin'); // session bound to cashier device
+        const res = await assertDeviceAuthorized(req('key-admin', 'header', undefined, token), 'shop', ['admin']);
+        expect(res?.status).toBe(403);
+    });
+
+    it('les devices intervention restent exemptés du PIN', async () => {
+        state.requireUserAuth = true;
+        expect(await assertDeviceAuthorized(req('key-intervention'), 'shop', ['admin'])).toBeNull();
+    });
+
+    it('flag actif → les routes non-admin restent accessibles sans session', async () => {
+        state.requireUserAuth = true;
+        expect(await assertDeviceAuthorized(req('key-cashier'), 'shop')).toBeNull();
     });
 });
 

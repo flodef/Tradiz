@@ -1,8 +1,9 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
-import { assertDeviceAuthorized, requestIp } from '../deviceAuth';
+import { assertDeviceAuthorized, requestIp, resolveDeviceAuth, sessionTokenHash } from '../deviceAuth';
 import { verifyPin } from '../pinHash';
+import { generateSecureId } from '@/app/utils/id';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,8 @@ export const dynamic = 'force-dynamic';
 // dc_sys.connections (type 'pin_attempt').
 const PIN_WINDOW_MS = 15 * 60 * 1000;
 const PIN_MAX_FAILURES = 5;
+// Sessions cover a full working day; expiry is checked at resolve time.
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
 interface UserRow {
     pin_hash: string | null;
@@ -86,6 +89,37 @@ export async function POST(request: Request) {
 
         if (!ok) {
             return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 });
+        }
+
+        // Create a user session bound to this device — the plain token goes
+        // to the client, only its hash is stored.
+        const auth = await resolveDeviceAuth(request, connection, shopId);
+        if (auth.deviceId) {
+            const token = generateSecureId();
+            const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+            try {
+                // Opportunistic cleanup of dead sessions
+                await connection.execute(
+                    isPg
+                        ? `DELETE FROM dc_pos.sessions WHERE expires_at <= NOW() OR revoked_at IS NOT NULL`
+                        : `DELETE FROM sessions WHERE expires_at <= NOW() OR revoked_at IS NOT NULL`,
+                    []
+                );
+                await connection.execute(
+                    isPg
+                        ? `INSERT INTO dc_pos.sessions (user_id, device_id, token_hash, expires_at)
+                           VALUES ($1, $2, $3, $4)`
+                        : `INSERT INTO sessions (user_id, device_id, token_hash, expires_at)
+                           VALUES (?, ?, ?, ?)`,
+                    [userId, auth.deviceId, sessionTokenHash(token), expiresAt.toISOString()]
+                );
+                return NextResponse.json({ ok: true, token, expiresAt: expiresAt.toISOString() });
+            } catch (error) {
+                // Sessions table missing → still validate the PIN so the
+                // switch works; the flag feature just won't have a session.
+                console.error('Failed to create user session:', error);
+                return NextResponse.json({ ok: true });
+            }
         }
         return NextResponse.json({ ok: true });
     } catch (error) {

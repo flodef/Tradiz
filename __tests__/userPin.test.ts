@@ -17,9 +17,42 @@ const state = vi.hoisted(() => {
         execute: async (query: string, params?: unknown[]) => {
             const q = query.replace(/\s+/g, ' ');
 
-            // resolveDeviceAuth — every presented key is a registered admin device
+            // resolveDeviceAuth — every presented key is a registered admin device (id 7)
             if (q.includes('FROM dc_pos.devices d') && q.includes('public_key')) {
-                return [[{ intervention: false, role: 'Admin' }], {}];
+                return [[{ id: 7, intervention: false, role: 'Admin' }], {}];
+            }
+
+            // Session creation / cleanup (verifyUserPin)
+            if (q.startsWith('INSERT INTO dc_pos.sessions')) {
+                state.sessions.push({
+                    userId: Number(params?.[0]),
+                    deviceId: Number(params?.[1]),
+                    tokenHash: String(params?.[2]),
+                    expiresAt: String(params?.[3]),
+                });
+                return [[], {}];
+            }
+            if (q.startsWith('DELETE FROM dc_pos.sessions')) return [[], {}];
+            if (q.startsWith('UPDATE dc_pos.sessions')) return [[], {}];
+            // resolveUserSession — match by token hash + device, join users for the role
+            if (q.includes('FROM dc_pos.sessions s') && q.includes('token_hash')) {
+                const tokenHash = String(params?.[0]);
+                const deviceId = Number(params?.[1]);
+                const session = state.sessions.find((s) => s.tokenHash === tokenHash && s.deviceId === deviceId);
+                const user = session && state.users.find((u) => u.id === session.userId);
+                return session && user
+                    ? [
+                          [
+                              {
+                                  user_id: session.userId,
+                                  name: user.name,
+                                  role: user.role,
+                                  expires_at: session.expiresAt,
+                              },
+                          ],
+                          {},
+                      ]
+                    : [[], {}];
             }
 
             // PIN rate-limit counter (failures matching IP or user_id)
@@ -52,9 +85,24 @@ const state = vi.hoisted(() => {
                 return [user ? [{ pin_hash: user.pin_hash }] : [], {}];
             }
 
-            // updateUsers — track pin writes
+            // requireUserAuth flag (shopRequiresUserAuth)
+            if (q.includes('dc_pos.parameters') && q.includes('requireUserAuth')) {
+                return [[{ param_value: String(state.requireUserAuth) }], {}];
+            }
+            if (q.startsWith('INSERT INTO dc_pos.parameters')) return [[], {}];
+
+            // Admin-with-PIN existence check (updateParameters / updateUsers guards)
+            if (q.includes("role = 'Admin'") && q.includes('pin_hash IS NOT NULL')) {
+                return [state.users.some((u) => u.role === 'Admin' && u.pin_hash) ? [{ '?column?': 1 }] : [], {}];
+            }
+
+            // updateUsers — track pin writes and apply them to the fake state
             if (q.startsWith('UPDATE dc_pos.users SET pin_hash')) {
-                state.pinWrites.push({ userId: Number(params?.[1] ?? params?.[0]), hash: String(params?.[0]) });
+                const isNull = q.includes('= NULL');
+                const userId = isNull ? Number(params?.[0]) : Number(params?.[1]);
+                const user = state.users.find((u) => u.id === userId);
+                if (user) user.pin_hash = isNull ? null : String(params?.[0]);
+                state.pinWrites.push({ userId, hash: isNull ? '' : String(params?.[0]) });
                 return [[], {}];
             }
             if (q.startsWith('UPDATE dc_pos.users')) return [[], {}];
@@ -82,6 +130,8 @@ const state = vi.hoisted(() => {
         users: [] as { id: number; name: string; role: string; reference?: string; pin_hash: string | null }[],
         pinAttempts: [] as { ip: string; userId: number; success: boolean }[],
         pinWrites: [] as { userId: number; hash: string }[],
+        sessions: [] as { userId: number; deviceId: number; tokenHash: string; expiresAt: string }[],
+        requireUserAuth: false,
         conn: fakeConn,
     };
 });
@@ -113,8 +163,10 @@ vi.mock('@/app/api/sql/auditHelpers', () => ({
 }));
 
 import { hashPin, verifyPin } from '../src/app/api/sql/pinHash';
+import { sessionTokenHash } from '../src/app/api/sql/deviceAuth';
 import { POST as verifyUserPinPOST } from '../src/app/api/sql/verifyUserPin/route';
 import { POST as updateUsersPOST } from '../src/app/api/sql/updateUsers/route';
+import { POST as updateParametersPOST } from '../src/app/api/sql/updateParameters/route';
 
 const pinReq = (body: unknown, ip = '1.2.3.4') =>
     new Request('http://localhost/api/sql/verifyUserPin', {
@@ -127,6 +179,8 @@ beforeEach(async () => {
     state.users = [{ id: 1, name: 'Alice', role: 'Caissier', pin_hash: await hashPin('1234') }];
     state.pinAttempts = [];
     state.pinWrites = [];
+    state.sessions = [];
+    state.requireUserAuth = false;
 });
 
 describe('pinHash', () => {
@@ -170,6 +224,18 @@ describe('POST /api/sql/verifyUserPin', () => {
         expect(bad.status).toBe(401);
     });
 
+    it('un PIN correct crée une session liée à l’appareil (token hashé)', async () => {
+        const res = await verifyUserPinPOST(pinReq({ userId: 1, pin: '1234' }));
+        const body = await res.json();
+        expect(body.token).toMatch(/^[0-9a-f]{32}$/);
+        expect(body.expiresAt).toBeTruthy();
+        expect(state.sessions).toHaveLength(1);
+        expect(state.sessions[0].userId).toBe(1);
+        expect(state.sessions[0].deviceId).toBe(7);
+        expect(state.sessions[0].tokenHash).toMatch(/^[0-9a-f]{64}$/);
+        expect(state.sessions[0].tokenHash).not.toBe(body.token);
+    });
+
     it('401 pour un utilisateur sans PIN ou inexistant', async () => {
         state.users.push({ id: 2, name: 'Bob', role: 'Service', pin_hash: null });
         expect((await verifyUserPinPOST(pinReq({ userId: 2, pin: '1234' }))).status).toBe(401);
@@ -192,12 +258,28 @@ describe('POST /api/sql/verifyUserPin', () => {
 });
 
 describe('updateUsers — PIN', () => {
-    const updateReq = (users: unknown[]) =>
+    const updateReq = (users: unknown[], sessionToken?: string) =>
         new Request('http://localhost/api/sql/updateUsers', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-public-key': 'device-key' },
+            headers: {
+                'Content-Type': 'application/json',
+                'x-public-key': 'device-key',
+                ...(sessionToken ? { 'x-user-token': sessionToken } : {}),
+            },
             body: JSON.stringify({ users }),
         });
+
+    // Seeds a valid session bound to the fake device (id 7) and returns the raw token
+    const adminSessionToken = () => {
+        const token = 'tok-admin';
+        state.sessions.push({
+            userId: 1,
+            deviceId: 7,
+            tokenHash: sessionTokenHash(token),
+            expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+        });
+        return token;
+    };
 
     it('rejette un PIN invalide (non numérique / trop court)', async () => {
         const res = await updateUsersPOST(updateReq([{ id: 1, name: 'Alice', role: 'Caissier', pin: '12' }]));
@@ -235,5 +317,39 @@ describe('updateUsers — PIN', () => {
         expect(body.users[0].hasPin).toBe(true);
         expect(JSON.stringify(body)).not.toContain('pin_hash');
         expect(JSON.stringify(body)).not.toContain(state.users[0].pin_hash!.split(':')[0]);
+    });
+
+    it('flag actif : 409 si la sauvegarde retire le dernier PIN admin', async () => {
+        state.requireUserAuth = true;
+        state.users[0].role = 'Admin';
+        const res = await updateUsersPOST(
+            updateReq([{ id: 1, name: 'Alice', role: 'Admin', clearPin: true }], adminSessionToken())
+        );
+        expect(res.status).toBe(409);
+    });
+});
+
+describe('updateParameters — garde requireUserAuth', () => {
+    const paramsReq = (parameters: { key: string; value: string }[]) =>
+        new Request('http://localhost/api/sql/updateParameters', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-public-key': 'device-key' },
+            body: JSON.stringify({ parameters }),
+        });
+
+    it("refuse l'activation sans aucun admin avec PIN (409)", async () => {
+        const res = await updateParametersPOST(paramsReq([{ key: 'requireUserAuth', value: 'true' }]));
+        expect(res.status).toBe(409);
+    });
+
+    it('accepte l’activation quand un admin a un PIN', async () => {
+        state.users[0].role = 'Admin';
+        const res = await updateParametersPOST(paramsReq([{ key: 'requireUserAuth', value: 'true' }]));
+        expect(res.status).toBe(200);
+    });
+
+    it('la désactivation est toujours possible', async () => {
+        const res = await updateParametersPOST(paramsReq([{ key: 'requireUserAuth', value: 'false' }]));
+        expect(res.status).toBe(200);
     });
 });

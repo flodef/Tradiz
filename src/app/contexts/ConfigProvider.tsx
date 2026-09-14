@@ -107,6 +107,8 @@ export interface Parameters {
     yearStartDate?: { month: number; day: number }; // Optional, defaults to { month: 1, day: 1 } (January 1st)
     user: User;
     userSwitch?: boolean;
+    /** When true, admin-gated routes require a PIN-verified user session (C.2/C.4). */
+    requireUserAuth?: boolean;
     useVirtualKeyboard?: boolean;
     fidelityRate?: number; // Percentage of each transaction amount earned as fidelity points (0 = disabled)
     pennylaneToken?: string; // PennyLane API access token for e-invoicing
