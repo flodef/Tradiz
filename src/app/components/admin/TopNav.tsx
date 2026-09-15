@@ -4,7 +4,14 @@ import { useConfig } from '@/app/hooks/useConfig';
 import { useSubscription } from '@/app/hooks/useSubscription';
 import { useUnsavedChanges } from '@/app/hooks/useUnsavedChanges';
 import { useUserRole } from '@/app/hooks/useUserRole';
-import { IconChevronLeft, IconChevronRight, IconPencil, IconChartPie, IconSettings } from '@tabler/icons-react';
+import {
+    IconChevronLeft,
+    IconChevronRight,
+    IconLoader2,
+    IconPencil,
+    IconChartPie,
+    IconSettings,
+} from '@tabler/icons-react';
 import { ADMIN_CONFIG_URL, ADMIN_EDIT_MENU_URL, ADMIN_STATS_URL, USE_DIGICARTE } from '@/app/utils/constants';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -42,6 +49,12 @@ export default function TopNav({
     const { isAdmin, isCashier } = useUserRole();
     const { confirmUnsavedChanges } = useUnsavedChanges();
     const pathname = usePathname();
+    const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+    // Clear the nav pending state once the target route is rendered.
+    useEffect(() => {
+        setPendingHref(null);
+    }, [pathname]);
 
     // Notify parent of collapsed state changes
     useEffect(() => {
@@ -110,8 +123,11 @@ export default function TopNav({
                                 if (hasChanges) {
                                     e.preventDefault();
                                     confirmUnsavedChanges(hasChanges, onSave, item.href);
+                                    return;
                                 }
+                                setPendingHref(item.href);
                             };
+                            const isPending = pendingHref === item.href;
 
                             return (
                                 <Link
@@ -121,9 +137,14 @@ export default function TopNav({
                                     onClick={handleClick}
                                     className="flex h-9 w-9 md:h-12 md:w-12 items-center justify-center rounded-xl transition hover:bg-black/5 dark:hover:bg-white/10"
                                     aria-label={item.label}
+                                    aria-busy={isPending}
                                     title={item.label}
                                 >
-                                    {item.icon}
+                                    {isPending ? (
+                                        <IconLoader2 size={32} className="animate-spin" aria-hidden />
+                                    ) : (
+                                        item.icon
+                                    )}
                                 </Link>
                             );
                         })}

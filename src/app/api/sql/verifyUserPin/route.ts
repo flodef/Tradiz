@@ -44,7 +44,10 @@ export async function POST(request: Request) {
         const body = (await request.json()) as { userId?: number; pin?: string };
         const userId = Number(body.userId);
         const pin = typeof body.pin === 'string' ? body.pin : '';
-        if (!Number.isInteger(userId) || userId <= 0 || !pin) {
+        // PINs are 4–8 digits (same rule updateUsers enforces at write time).
+        // Reject malformed input before the lockout counter so garbage
+        // submissions can't burn a user's attempt budget.
+        if (!Number.isInteger(userId) || userId <= 0 || !/^\d{4,8}$/.test(pin)) {
             return NextResponse.json({ error: 'Missing or invalid userId/pin' }, { status: 400 });
         }
 

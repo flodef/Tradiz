@@ -389,11 +389,20 @@ export default function EditMenuPage() {
         }
     }, [searchParams, emptyProductsPopupShown, isLoading, openFullscreenPopup]);
 
+    // The catalog grid needs at least one category to place tiles into, so we fall
+    // back to the list editor when there are none. Formulas belong to the list
+    // editor, so both gates must use this same predicate.
+    // The catalog grid editor is a desktop-only tool — its dense grid and
+    // drag interactions don't fit phone widths; mobile falls back to the
+    // standard product list editor.
+    const isMobile = useWindowParam().width < 768;
+    const showCatalog = catalogMode && categories.length > 0 && !isMobile;
+
     // When catalogMode is resolved from the DB fetch, sync the open section.
     useEffect(() => {
         if (!catalogModeResolved) return;
-        setOpenSection(catalogMode ? 'catalog' : 'products');
-    }, [catalogMode, catalogModeResolved]);
+        setOpenSection(showCatalog ? 'catalog' : 'products');
+    }, [catalogModeResolved, showCatalog]);
 
     // Phase 1: seed the UI instantly from cached inventory/currencies (no loading dots).
     // This shows products immediately; the DB fetch below adds fields not present in the
@@ -971,11 +980,6 @@ export default function EditMenuPage() {
     };
 
     const nonFormulaProducts = useMemo(() => products.filter((p) => p.category !== FORMULA_CATEGORY), [products]);
-
-    // The catalog grid needs at least one category to place tiles into, so we fall
-    // back to the list editor when there are none. Formulas belong to the list
-    // editor, so both gates must use this same predicate.
-    const showCatalog = catalogMode && categories.length > 0;
 
     // Redirect if using Digicarte
     if (USE_DIGICARTE) return null;

@@ -110,7 +110,7 @@ export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({
     };
 
     const submitPin = async () => {
-        if (!pendingUser || verifying || !pin) return;
+        if (!pendingUser || verifying || pin.length < 4) return;
         setVerifying(true);
         setPinError(null);
         try {
@@ -223,7 +223,7 @@ export const UserSwitchPopup: FC<UserSwitchPopupProps> = ({
                 <button
                     type="button"
                     onClick={() => void submitPin()}
-                    disabled={verifying || !pin}
+                    disabled={verifying || pin.length < 4}
                     className="mt-3 w-full py-2 rounded-lg bg-active-light dark:bg-active-dark text-popup-light font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {verifying ? 'Vérification…' : 'Valider'}

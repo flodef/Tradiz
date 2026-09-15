@@ -92,9 +92,9 @@ async function resetDemoDb(shopId: string): Promise<void> {
             if (connection.isPostgreSQL) {
                 await connection.execute('SELECT pg_advisory_xact_lock(72756)');
                 // The demo wipe DELETEs append-only fiscal tables — suspend
-                // the NF525 no-delete/no-update triggers for this transaction
-                // (ALTER ... TRIGGER requires the owner role; a rollback
-                // leaves them untouched).
+                // the NF525 no-delete/no-update triggers for this transaction.
+                // USER (not ALL) keeps system triggers — including foreign-key
+                // enforcement — active during the wipe.
                 for (const table of [
                     'dc_pos.audit_events',
                     'dc_pos.product_price_history',
@@ -105,7 +105,7 @@ async function resetDemoDb(shopId: string): Promise<void> {
                     'dc_pos.subscription_events',
                     'dc_pos.transactions',
                 ]) {
-                    await connection.execute(`ALTER TABLE ${table} DISABLE TRIGGER ALL`);
+                    await connection.execute(`ALTER TABLE ${table} DISABLE TRIGGER USER`);
                 }
             }
             for (const statement of statements) {
@@ -122,7 +122,7 @@ async function resetDemoDb(shopId: string): Promise<void> {
                     'dc_pos.subscription_events',
                     'dc_pos.transactions',
                 ]) {
-                    await connection.execute(`ALTER TABLE ${table} ENABLE TRIGGER ALL`);
+                    await connection.execute(`ALTER TABLE ${table} ENABLE TRIGGER USER`);
                 }
             }
         });

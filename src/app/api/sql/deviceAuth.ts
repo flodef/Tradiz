@@ -260,10 +260,24 @@ export async function shopRequiresUserAuth(connection: DbConnection): Promise<bo
         );
         return String((rows as { param_value: string }[])[0]?.param_value) === 'true';
     } catch (error) {
-        // Fail closed: if the flag can't be read, assume auth is required.
-        // Failing open would silently disable the shop's own security
-        // setting — same posture as the subscription check.
-        console.error('Failed to read requireUserAuth flag (failing closed):', error);
+        // Fail closed when auth could plausibly be required — but
+        // updateParameters only allows setting requireUserAuth when an admin
+        // PIN exists, so a shop with no admin PIN can't have the flag set.
+        // Failing closed there would 403 every admin route with a challenge
+        // nobody can satisfy until the table recovers.
+        console.error('Failed to read requireUserAuth flag:', error);
+        try {
+            const [adminRows] = await connection.execute(
+                connection.isPostgreSQL
+                    ? `SELECT 1 FROM dc_pos.users WHERE role = 'Admin' AND pin_hash IS NOT NULL LIMIT 1`
+                    : `SELECT 1 FROM users WHERE role = 'Admin' AND pin_hash IS NOT NULL LIMIT 1`,
+                []
+            );
+            const hasAdminPin = (adminRows as unknown[]).length > 0;
+            if (!hasAdminPin) return false;
+        } catch (innerError) {
+            console.error('Failed to check admin PIN existence (failing closed):', innerError);
+        }
         return true;
     }
 }

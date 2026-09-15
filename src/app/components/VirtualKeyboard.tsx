@@ -80,7 +80,7 @@ export default function VirtualKeyboard({
     if (isNumeric) {
         return (
             <div
-                className="fixed bottom-0 left-0 right-0 z-110 bg-white dark:bg-gray-900 border-t-2 border-gray-300 dark:border-gray-700 shadow-2xl p-2 select-none"
+                className="fixed bottom-0 left-0 right-0 z-110 bg-white dark:bg-gray-900 border-t-2 border-gray-300 dark:border-gray-700 shadow-2xl p-2 pr-12 select-none"
                 onMouseDown={(e) => e.preventDefault()}
             >
                 {onClose && <CloseButton onClose={onClose} size="sm" className="absolute top-0 right-2" />}
@@ -155,7 +155,7 @@ export default function VirtualKeyboard({
 
     return (
         <div
-            className="fixed bottom-0 left-0 right-0 z-110 bg-white dark:bg-gray-900 border-t-2 border-gray-300 dark:border-gray-700 shadow-2xl p-2 select-none"
+            className="fixed bottom-0 left-0 right-0 z-110 bg-white dark:bg-gray-900 border-t-2 border-gray-300 dark:border-gray-700 shadow-2xl p-2 pr-12 select-none"
             onMouseDown={(e) => e.preventDefault()}
         >
             {onClose && <CloseButton onClose={onClose} size="sm" className="absolute top-0 right-2" />}
