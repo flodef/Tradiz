@@ -218,21 +218,21 @@ export async function buildAttestationPdf(data: AttestationData): Promise<Uint8A
     drawWrapped('Limites connues à la date de génération :', MARGIN, FONT_SIZE, true);
     spacer(0.5);
     drawWrapped(
-        '• L\u2019outil de vérification d\u2019intégrité contrôle l\u2019ensemble des chaînes (transactions, clôtures journalières/mensuelles/annuelles, événements d\u2019audit). Une modification légitime post-clôture d\u2019un jour scellé (ex. annulation tardive) est détectée comme un écart : c\u2019est le comportement attendu du scellement, la trace d\u2019audit explique le changement.',
+        '• L\u2019outil de vérification d\u2019intégrité contrôle l\u2019ensemble des chaînes (transactions, clôtures journalières/mensuelles/annuelles, événements d\u2019audit). Les écritures datées d\u2019une journée clôturée sont refusées par l\u2019application : une correction post-clôture s\u2019enregistre comme nouvelle transaction datée du jour ouvert (avoir/remboursement). Une clôture journalière automatique à heure configurable scelle la journée écoulée ; les paniers non encaissés sont alors redatés au jour ouvert, ce déplacement étant tracé par un événement d\u2019audit transaction_redated.',
         MARGIN,
         FONT_SIZE,
         false,
         10
     );
     drawWrapped(
-        '• Les protections au niveau base de données (rôle applicatif restreint, triggers append-only) sont fournies sous forme de scripts et doivent être appliquées par l\u2019exploitant sur sa base ; sans elles, un administrateur de la base peut modifier directement les tables, ce qui resterait détectable par la vérification d\u2019intégrité.',
+        '• Les tables fiscales append-only (clôtures, événements d\u2019audit, historiques) sont protégées par des triggers SQL bloquant UPDATE et DELETE, appliqués sur les bases hébergées par l\u2019éditeur. Un rôle applicatif restreint est en outre fourni sous forme de script pour les installations auto-hébergées ; sans lui, un administrateur de la base pourrait modifier directement les tables, ce qui resterait détectable par la vérification d\u2019intégrité.',
         MARGIN,
         FONT_SIZE,
         false,
         10
     );
     drawWrapped(
-        '• Les lignes de transactions sont physiquement supprimées puis réinsérées lors des synchronisations ; un événement d\u2019audit transaction_items_replaced conserve l\u2019état antérieur.',
+        '• Lors des synchronisations, les lignes de transactions ne sont réécrites (suppression puis réinsertion) que lorsqu\u2019elles ont réellement changé ; un événement d\u2019audit transaction_items_replaced conserve alors l\u2019état antérieur.',
         MARGIN,
         FONT_SIZE,
         false,

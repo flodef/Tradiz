@@ -88,6 +88,8 @@ GRANT SELECT, INSERT ON dc_pos.subscription_events TO tradiz_app;
 
 -- ---------------------------------------------------------------------
 -- 3. Append-only triggers (fire for every role, including the owner)
+--    Kept in sync with harden-nf525-triggers-postgres.sql — the standalone
+--    version applied when the restricted role is not deployed.
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION dc_pos.prevent_fiscal_mutation()
 RETURNS TRIGGER AS $$

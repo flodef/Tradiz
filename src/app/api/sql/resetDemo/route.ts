@@ -91,9 +91,39 @@ async function resetDemoDb(shopId: string): Promise<void> {
             // same time must not interleave their DELETE/INSERT batches.
             if (connection.isPostgreSQL) {
                 await connection.execute('SELECT pg_advisory_xact_lock(72756)');
+                // The demo wipe DELETEs append-only fiscal tables — suspend
+                // the NF525 no-delete/no-update triggers for this transaction
+                // (ALTER ... TRIGGER requires the owner role; a rollback
+                // leaves them untouched).
+                for (const table of [
+                    'dc_pos.audit_events',
+                    'dc_pos.product_price_history',
+                    'dc_pos.balance_history',
+                    'dc_pos.daily_closures',
+                    'dc_pos.monthly_closures',
+                    'dc_pos.annual_closures',
+                    'dc_pos.subscription_events',
+                    'dc_pos.transactions',
+                ]) {
+                    await connection.execute(`ALTER TABLE ${table} DISABLE TRIGGER ALL`);
+                }
             }
             for (const statement of statements) {
                 await connection.execute(statement);
+            }
+            if (connection.isPostgreSQL) {
+                for (const table of [
+                    'dc_pos.audit_events',
+                    'dc_pos.product_price_history',
+                    'dc_pos.balance_history',
+                    'dc_pos.daily_closures',
+                    'dc_pos.monthly_closures',
+                    'dc_pos.annual_closures',
+                    'dc_pos.subscription_events',
+                    'dc_pos.transactions',
+                ]) {
+                    await connection.execute(`ALTER TABLE ${table} ENABLE TRIGGER ALL`);
+                }
             }
         });
     } finally {

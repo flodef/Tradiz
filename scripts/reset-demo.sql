@@ -12,6 +12,18 @@
 
 BEGIN;
 
+-- The NF525 append-only triggers (harden-nf525-postgres.sql) block these
+-- deletes — suspend them for the reset, re-enable after. Requires the owner
+-- role; no-op when the triggers were never applied.
+ALTER TABLE dc_pos.audit_events DISABLE TRIGGER ALL;
+ALTER TABLE dc_pos.product_price_history DISABLE TRIGGER ALL;
+ALTER TABLE dc_pos.balance_history DISABLE TRIGGER ALL;
+ALTER TABLE dc_pos.daily_closures DISABLE TRIGGER ALL;
+ALTER TABLE dc_pos.monthly_closures DISABLE TRIGGER ALL;
+ALTER TABLE dc_pos.annual_closures DISABLE TRIGGER ALL;
+ALTER TABLE dc_pos.subscription_events DISABLE TRIGGER ALL;
+ALTER TABLE dc_pos.transactions DISABLE TRIGGER ALL;
+
 -- ------------------------------------------------------------
 -- Transactional / accumulated data
 -- ------------------------------------------------------------
@@ -75,5 +87,15 @@ DELETE FROM dc.establishment_config;
 -- Forêt, Cerise) — including the proper names.
 DELETE FROM dc.theme_admin;
 DELETE FROM dc.theme_client;
+
+-- Restore the NF525 append-only triggers (see top of file).
+ALTER TABLE dc_pos.audit_events ENABLE TRIGGER ALL;
+ALTER TABLE dc_pos.product_price_history ENABLE TRIGGER ALL;
+ALTER TABLE dc_pos.balance_history ENABLE TRIGGER ALL;
+ALTER TABLE dc_pos.daily_closures ENABLE TRIGGER ALL;
+ALTER TABLE dc_pos.monthly_closures ENABLE TRIGGER ALL;
+ALTER TABLE dc_pos.annual_closures ENABLE TRIGGER ALL;
+ALTER TABLE dc_pos.subscription_events ENABLE TRIGGER ALL;
+ALTER TABLE dc_pos.transactions ENABLE TRIGGER ALL;
 
 COMMIT;

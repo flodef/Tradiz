@@ -12,6 +12,8 @@ import DeleteButtonCell from '../DeleteButtonCell';
 import ValidatedInput from '../ValidatedInput';
 import AdminSelect from '../AdminSelect';
 import AdminButton from '../AdminButton';
+import { CloseButton } from '@/app/components/CloseButton';
+import { useLocalStorage } from '@/app/utils/localStorage';
 import { deviceFetch } from '@/app/utils/deviceFetch';
 
 const COMMON_BAUD_RATES = [4800, 9600, 19200, 38400, 57600, 115200, 2400];
@@ -428,6 +430,8 @@ export default function DevicesConfig({
     // D.2 — surface an unknown device that recently tried to connect, so the
     // admin notices it without having to click "Ajouter un appareil" first.
     const [pendingKey, setPendingKey] = useState<{ key: string; at: string | null } | null>(null);
+    // Dismissal persists per key — a new unknown device re-shows the banner.
+    const [dismissedKey, setDismissedKey] = useLocalStorage<string | null>('dismissed-pending-device-key', null);
     useEffect(() => {
         if (isReadOnly) return;
         deviceFetch('/api/sql/getFailedLoginKey')
@@ -557,7 +561,7 @@ export default function DevicesConfig({
             addLabel="Ajouter un appareil"
             isReadOnly={isReadOnly}
         >
-            {pendingKey && !devices.some((d) => d.key === pendingKey.key) && (
+            {pendingKey && pendingKey.key !== dismissedKey && !devices.some((d) => d.key === pendingKey.key) && (
                 <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-900/20">
                     <IconAlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
                     <div className="flex-1 text-sm text-amber-800 dark:text-amber-200">
@@ -570,6 +574,7 @@ export default function DevicesConfig({
                             Ajouter
                         </AdminButton>
                     )}
+                    <CloseButton size="sm" onClose={() => setDismissedKey(pendingKey.key)} />
                 </div>
             )}
             <div className="overflow-x-auto">

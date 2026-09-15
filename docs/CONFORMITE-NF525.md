@@ -56,16 +56,35 @@ Ce document ne constitue pas un certificat NF525.
   (`nf525_transactions < nf525_daily_closures < nf525_period_closures`), pour
   qu'aucune vente ni clôture enfant ne puisse se glisser entre le calcul des
   ancres et l'insertion.
+- **Clôture automatique** : le paramètre `closingHour` déclenche, à chaque
+  passage de l'heure configurée (y compris après une période hors tension),
+  la clôture de tous les jours calendaires ouverts jusqu'à la veille de la
+  borne. En mode automatique (`auto: true`), les brouillons datés du jour
+  clôturé ou avant sont **redatés au jour ouvert** plutôt que supprimés —
+  le panier reste vivant sur l'autre caisse, le déplacement est tracé par
+  un événement d'audit `transaction_redated` et la chaîne de hachage est
+  recalculée (`rechainFrom`). Une clôture manuelle est au contraire refusée
+  tant qu'un brouillon existe ce jour-là (HTTP 409 `PENDING_DRAFTS`) — le
+  caissier doit l'encaisser ou l'annuler.
+- **Protection base de données** : des triggers `BEFORE UPDATE/DELETE`
+  (et `BEFORE TRUNCATE` sur `transactions`/`audit_events`) rendent les
+  tables fiscales append-only pour tout rôle, y compris le propriétaire.
+  Appliqués sur les bases hébergées via
+  `scripts/harden-nf525-triggers-postgres.sql` ; le script complet
+  `scripts/harden-nf525-postgres.sql` ajoute le rôle applicatif restreint
+  `tradiz_app` pour les installations auto-hébergées. Une réparation
+  légitime passe par `ALTER TABLE <t> DISABLE TRIGGER ALL` (rôle owner).
 
 **Limites connues :**
 
-- Les lignes de transactions sont physiquement supprimées et réinsérées lors des
-  synchronisations (mais une trace auditable est conservée).
-- Aucune protection au niveau base de données (triggers/permissions) n'empêche
-  actuellement la modification directe des tables fiscales par un administrateur DB.
-  Des scripts de durcissement prêts à l'emploi existent
-  (`scripts/harden-nf525-postgres.sql`, `scripts/harden-nf525-mariadb.sql`) mais
-  n'ont pas encore été appliqués aux bases de production.
+- Lors des synchronisations, les lignes de transactions ne sont réécrites
+  (suppression puis réinsertion) que lorsqu'elles ont réellement changé ;
+  l'événement d'audit `transaction_items_replaced` conserve alors l'état
+  antérieur.
+- Sur une installation auto-hébergée n'ayant pas appliqué les scripts de
+  durcissement, un administrateur de la base peut modifier directement les
+  tables fiscales — ce qui resterait détectable par la vérification
+  d'intégrité.
 
 ### 2. Sécurisation
 
