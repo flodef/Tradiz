@@ -144,8 +144,10 @@ class PostgreSQLConnectionWrapper implements DbConnection {
     }
 
     async execute(query: string, params?: unknown[]): Promise<[unknown[], unknown]> {
-        if (query.includes('pg_advisory_lock')) this.holdsAdvisoryLock = true;
-        else if (query.includes('pg_advisory_unlock')) this.holdsAdvisoryLock = false;
+        // Track both pg_advisory_lock and pg_try_advisory_lock (bounded
+        // acquisition in lockHashChain) — unlock statements contain 'unlock'.
+        if (query.includes('advisory_unlock')) this.holdsAdvisoryLock = false;
+        else if (query.includes('advisory_lock')) this.holdsAdvisoryLock = true;
         const rows = await this.runQuery(query, params);
         return [rows, {}];
     }

@@ -130,10 +130,9 @@ function generateClosureHash(
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
-    let unlockChain: (() => Promise<void>) | undefined;
+    let unlockDaily: (() => Promise<void>) | undefined;
+    let unlockPeriod: (() => Promise<void>) | undefined;
     try {
         const body = (await request.json()) as {
             type: 'monthly' | 'annual';
@@ -162,10 +161,16 @@ export async function POST(request: Request) {
         const month = body.month as number;
 
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+        if (deviceGuard) return deviceGuard;
         await connection.beginTransaction();
-        // Serialize closure writers — a concurrent insert reading the same tail
-        // hash would fork the chain.
-        unlockChain = await lockHashChain(connection, 'nf525_period_closures');
+        // Lock order must match dailyClosure: daily_closures < period_closures.
+        // nf525_daily_closures serializes the daily-anchor reads below with
+        // daily closure inserts — otherwise a late daily closure could commit
+        // between the anchor computation and this insert, breaking the seal.
+        // nf525_period_closures serializes period writers (tail-hash read).
+        unlockDaily = await lockHashChain(connection, 'nf525_daily_closures');
+        unlockPeriod = await lockHashChain(connection, 'nf525_period_closures');
 
         const isPg = connection.isPostgreSQL;
         const prefix = isPg ? 'dc_pos.' : '';
@@ -183,6 +188,23 @@ export async function POST(request: Request) {
             if ((existing as { id: number }[]).length > 0) {
                 await connection.rollback();
                 return NextResponse.json({ error: 'Monthly closure already exists' }, { status: 409 });
+            }
+
+            // Same seal rule one level up: an annual closure anchors its
+            // year's monthly-closure hashes — a late monthly closure inside a
+            // sealed year would falsify the anchor.
+            const [sealedYear] = await connection.execute(
+                isPg
+                    ? `SELECT id FROM ${prefix}annual_closures WHERE closure_year = $1`
+                    : `SELECT id FROM ${prefix}annual_closures WHERE closure_year = ?`,
+                [body.year]
+            );
+            if ((sealedYear as { id: number }[]).length > 0) {
+                await connection.rollback();
+                return NextResponse.json(
+                    { error: `L'année ${body.year} est clôturée — le mois ne peut plus être clôturé` },
+                    { status: 409 }
+                );
             }
 
             const totals = await aggregateMonthlyFromDaily(connection, body.year, month);
@@ -302,10 +324,14 @@ export async function POST(request: Request) {
         console.error('Error creating period closure:', error);
         return NextResponse.json({ error: 'An error occurred while creating period closure' }, { status: 500 });
     } finally {
-        try {
-            await unlockChain?.();
-        } catch {
-            // lock release failure — the lock dies with the connection anyway
+        // Release in reverse acquisition order (advisory anyway — the locks
+        // die with the connection regardless).
+        for (const unlock of [unlockPeriod, unlockDaily]) {
+            try {
+                await unlock?.();
+            } catch {
+                // lock release failure — the lock dies with the connection anyway
+            }
         }
         await connection?.end();
     }
@@ -313,8 +339,6 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const { searchParams } = new URL(request.url);
@@ -322,6 +346,8 @@ export async function GET(request: Request) {
         const limit = Math.min(parseInt(searchParams.get('limit') || '12', 10), 120);
 
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+        if (deviceGuard) return deviceGuard;
         const isPg = connection.isPostgreSQL;
         const prefix = isPg ? 'dc_pos.' : '';
 

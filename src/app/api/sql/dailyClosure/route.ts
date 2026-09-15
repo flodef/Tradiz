@@ -209,10 +209,10 @@ async function updatePerpetualTotals(
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
-    let unlockChain: (() => Promise<void>) | undefined;
+    let unlockTx: (() => Promise<void>) | undefined;
+    let unlockDaily: (() => Promise<void>) | undefined;
+    let unlockPeriod: (() => Promise<void>) | undefined;
     try {
         const { date, closed_by } = (await request.json()) as { date: string; closed_by: string };
 
@@ -227,10 +227,20 @@ export async function POST(request: Request) {
         }
 
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+        if (deviceGuard) return deviceGuard;
         await connection.beginTransaction();
-        // Serialize closure writers — a concurrent insert reading the same tail
-        // hash would fork the chain.
-        unlockChain = await lockHashChain(connection, 'nf525_daily_closures');
+        // Lock order must match saveTransaction/periodClosure everywhere:
+        // transactions < daily_closures < period_closures.
+        // nf525_transactions serializes the anchor/totals reads below with
+        // transaction writes — otherwise a sale could commit between the
+        // anchor computation and this insert, sealing a stale hash.
+        // nf525_daily_closures serializes closure writers (tail-hash read).
+        // nf525_period_closures serializes the monthly-seal check below with
+        // monthly closure inserts.
+        unlockTx = await lockHashChain(connection, 'nf525_transactions');
+        unlockDaily = await lockHashChain(connection, 'nf525_daily_closures');
+        unlockPeriod = await lockHashChain(connection, 'nf525_period_closures');
 
         const isPg = connection.isPostgreSQL;
         const prefix = isPg ? 'dc_pos.' : '';
@@ -243,6 +253,38 @@ export async function POST(request: Request) {
         if ((existing as { id: number }[]).length > 0) {
             await connection.rollback();
             return NextResponse.json({ error: 'Closure already exists for this date' }, { status: 409 });
+        }
+
+        // Same seal rule one level up: a monthly closure anchors its month's
+        // daily-closure hashes (and the recorded month totals), so adding a
+        // daily closure inside a sealed month/year would falsify the anchor —
+        // refuse it.
+        const monthDate = `${date.slice(0, 7)}-01`;
+        const [sealedMonth] = await connection.execute(
+            isPg
+                ? `SELECT id FROM ${prefix}monthly_closures WHERE closure_month = $1`
+                : `SELECT id FROM ${prefix}monthly_closures WHERE closure_month = ?`,
+            [monthDate]
+        );
+        if ((sealedMonth as { id: number }[]).length > 0) {
+            await connection.rollback();
+            return NextResponse.json(
+                { error: `Le mois ${date.slice(0, 7)} est clôturé — la journée ne peut plus être clôturée` },
+                { status: 409 }
+            );
+        }
+        const [sealedYear] = await connection.execute(
+            isPg
+                ? `SELECT id FROM ${prefix}annual_closures WHERE closure_year = $1`
+                : `SELECT id FROM ${prefix}annual_closures WHERE closure_year = ?`,
+            [Number(date.slice(0, 4))]
+        );
+        if ((sealedYear as { id: number }[]).length > 0) {
+            await connection.rollback();
+            return NextResponse.json(
+                { error: `L'année ${date.slice(0, 4)} est clôturée — la journée ne peut plus être clôturée` },
+                { status: 409 }
+            );
         }
 
         // Compute totals — immutable calendar day (00:00 to 24:00) for audit integrity
@@ -305,10 +347,14 @@ export async function POST(request: Request) {
         console.error('Error creating daily closure:', error);
         return NextResponse.json({ error: 'An error occurred while creating daily closure' }, { status: 500 });
     } finally {
-        try {
-            await unlockChain?.();
-        } catch {
-            // lock release failure — the lock dies with the connection anyway
+        // Release in reverse acquisition order (advisory anyway — the locks
+        // die with the connection regardless).
+        for (const unlock of [unlockPeriod, unlockDaily, unlockTx]) {
+            try {
+                await unlock?.();
+            } catch {
+                // lock release failure — the lock dies with the connection anyway
+            }
         }
         await connection?.end();
     }
@@ -316,8 +362,6 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const { searchParams } = new URL(request.url);
@@ -325,6 +369,8 @@ export async function GET(request: Request) {
         const limit = Math.min(parseInt(searchParams.get('limit') || '30', 10), 365);
 
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+        if (deviceGuard) return deviceGuard;
         const isPg = connection.isPostgreSQL;
         const prefix = isPg ? 'dc_pos.' : '';
 

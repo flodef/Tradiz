@@ -5,7 +5,13 @@ import {
     isDeletedTransaction,
     isExpungedTransaction,
 } from '@/app/contexts/dataProvider/transactionHelpers';
-import { DEFAULT_USER, DEFAULT_VAT_RATE } from '@/app/utils/constants';
+import {
+    DEFAULT_USER,
+    DEFAULT_VAT_RATE,
+    PROCESSING_KEYWORD,
+    UPDATING_KEYWORD,
+    WAITING_KEYWORD,
+} from '@/app/utils/constants';
 import { Transaction } from '@/app/utils/interfaces';
 import { parseCashNote, parsePaymentLegs } from '@/app/utils/transactionNote';
 import { toSQLDateTime } from '@/app/utils/date';
@@ -48,8 +54,6 @@ interface ProductRow {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date'); // Format: YYYY-MM-DD
     const period = searchParams.get('period'); // 'day' or 'full'
@@ -64,6 +68,8 @@ export async function GET(request: Request) {
     let dbConn: DbConnection | undefined;
     try {
         const connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+        if (deviceGuard) return deviceGuard;
         dbConn = connection;
         const isPg = connection.isPostgreSQL;
 
@@ -79,6 +85,17 @@ export async function GET(request: Request) {
         let whereClause = '1=1';
         const params: (string | number)[] = [DEFAULT_USER];
         let paramIndex = 2; // $1 is reserved for DEFAULT_USER in the validator COALESCE
+
+        // Sealed-day drafts: PROCESSING/WAITING/UPDATING rows on a closed day
+        // can never be finalized nor deleted (writes are sealed) — hide them
+        // from sync so they don't resurrect as ghost carts on other devices.
+        // They stay in the DB for the audit trail.
+        const draftMethods = [PROCESSING_KEYWORD, WAITING_KEYWORD, UPDATING_KEYWORD];
+        const draftPlaceholders = draftMethods.map(() => (isPg ? `$${paramIndex++}` : '?')).join(', ');
+        whereClause += isPg
+            ? ` AND NOT (t.payment_method IN (${draftPlaceholders}) AND DATE(t.created_at) IN (SELECT closure_date FROM dc_pos.daily_closures))`
+            : ` AND NOT (t.payment_method IN (${draftPlaceholders}) AND DATE(t.created_at) IN (SELECT closure_date FROM daily_closures))`;
+        params.push(...draftMethods);
 
         // Filter by date if provided
         if (date && period === 'day') {

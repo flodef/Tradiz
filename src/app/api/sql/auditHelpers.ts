@@ -1,6 +1,5 @@
 import { createHash } from 'crypto';
 import type { DbConnection } from './db';
-import { resolveDeviceAuth, resolveUserSession } from './deviceAuth';
 
 export interface AuditEventInput {
     event_type: string;
@@ -32,7 +31,19 @@ async function getLatestEventHash(connection: DbConnection): Promise<string | nu
  */
 export async function lockHashChain(connection: DbConnection, name: string): Promise<() => Promise<void>> {
     if (connection.isPostgreSQL) {
-        await connection.execute('SELECT pg_advisory_lock(hashtext($1))', [name]);
+        // Bounded wait, mirroring MariaDB's GET_LOCK(?, 10): pg_advisory_lock
+        // would block forever on a stuck writer — poll pg_try_advisory_lock
+        // for ~10 s instead, then fail.
+        const deadline = Date.now() + 10_000;
+        for (;;) {
+            const [rows] = await connection.execute('SELECT pg_try_advisory_lock(hashtext($1)) AS got', [name]);
+            const got = (rows as { got: boolean | number }[])[0]?.got;
+            if (got === true || Number(got) === 1) break;
+            if (Date.now() >= deadline) {
+                throw new Error(`Could not acquire hash chain lock "${name}" (timeout)`);
+            }
+            await new Promise((resolve) => setTimeout(resolve, 100));
+        }
         return async () => {
             await connection.execute('SELECT pg_advisory_unlock(hashtext($1))', [name]);
         };
@@ -57,21 +68,6 @@ function generateEventHash(event: AuditEventInput, previousHash: string | null, 
         createdAt,
     ].join('|');
     return createHash('sha256').update(data).digest('hex');
-}
-
-/**
- * Best-effort actor name for audit trails: the PIN-verified session user
- * when present, else the device's linked user, else 'appareil'. Never
- * throws — falls back to 'inconnu' so auditing can never break a write.
- */
-export async function resolveAuditActor(request: Request, connection: DbConnection, shopId: string): Promise<string> {
-    try {
-        const auth = await resolveDeviceAuth(request, connection, shopId);
-        const session = auth.deviceId ? await resolveUserSession(request, connection, auth.deviceId) : null;
-        return session?.name ?? auth.userName ?? 'inconnu';
-    } catch {
-        return 'inconnu';
-    }
 }
 
 export async function insertAuditEvent(connection: DbConnection, event: AuditEventInput): Promise<void> {

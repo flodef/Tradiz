@@ -78,8 +78,6 @@ interface IdRow {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
 
     // Parse the body ONCE, outside the retry loop — request.json() consumes
     // the body stream and cannot be called again on retry.
@@ -104,6 +102,8 @@ export async function POST(request: Request) {
         let connection: Connection | undefined;
         try {
             connection = await getPosDb(shopId);
+            const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+            if (deviceGuard) return deviceGuard;
             const sub = await readSubscription(connection);
             if (sub.status === 'stopped') {
                 return stoppedSubscriptionResponse();
@@ -126,6 +126,26 @@ export async function POST(request: Request) {
                 let oldFidelityData: OldFidelityData | null = null;
                 if (action === 'add' || action === 'sync' || action === 'delete' || action === 'expunge') {
                     oldFidelityData = await fetchOldFidelityData(connection, transaction.order_id);
+                }
+
+                // NF525 sealed day: a daily closure anchors on the day's
+                // transaction hashes and totals — any insert or mutation
+                // dated in a closed day would silently break the seal (the
+                // rechain would rewrite the anchored hashes). Reject it:
+                // corrections on a closed day must be new transactions
+                // dated in the open day.
+                const sealedDay = await sealedClosedDay(connection, transaction);
+                if (sealedDay) {
+                    await connection.rollback();
+                    await unlockChain();
+                    return NextResponse.json(
+                        {
+                            error: `La journée du ${sealedDay} est clôturée — la transaction ne peut plus être modifiée`,
+                            code: 'DAY_CLOSED',
+                            closedDay: sealedDay,
+                        },
+                        { status: 409 }
+                    );
                 }
 
                 switch (action) {
@@ -273,6 +293,59 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
 
     // No existing transaction — insert a new one + items
     await insertTransactionWithItems(connection, transaction);
+}
+
+/**
+ * Returns the closure date (YYYY-MM-DD) sealing this write, or null.
+ *
+ * A daily closure's hash covers the day's first/last paid transaction
+ * hashes (and the day's totals). Two distinct rules apply:
+ *
+ * - Mutation of an existing row (update/delete/expunge, or add/sync hitting
+ *   a live row): the rechain rewrites the target's hash AND every later
+ *   row's hash — so ANY closure dated on/after the row's day is violated,
+ *   not just a closure of the row's own day. Sealed iff a closure exists
+ *   with closure_date >= row day.
+ * - Fresh insert (new row appended at the chain tail, or add/sync where the
+ *   existing row is EXPUNGED and invisible): no existing hash is rewritten,
+ *   but a row dated inside a closed day falsifies that day's sealed totals.
+ *   Sealed iff a closure exists with closure_date == payload day.
+ *
+ * The stored row's created_at governs mutations (sync never rewrites
+ * created_at); a fresh insert is governed by the date it claims.
+ */
+async function sealedClosedDay(connection: Connection, transaction: TransactionData): Promise<string | null> {
+    const isPg = connection.isPostgreSQL;
+    const prefix = isPg ? 'dc_pos.' : '';
+
+    const [rows] = await connection.execute(
+        isPg
+            ? `SELECT payment_method, to_char(created_at, 'YYYY-MM-DD') AS d FROM ${prefix}transactions WHERE order_id = $1`
+            : `SELECT payment_method, DATE_FORMAT(created_at, '%Y-%m-%d') AS d FROM ${prefix}transactions WHERE order_id = ?`,
+        [transaction.order_id]
+    );
+    const existing = (rows as { payment_method: string; d: string | null }[])[0];
+    const existingGoverns = existing && existing.payment_method !== EXPUNGED_KEYWORD;
+    const dateStr = existingGoverns ? existing.d : transaction.created_at.slice(0, 10);
+    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+
+    if (existingGoverns) {
+        // Mutation: sealed by the earliest closure on/after the row's day —
+        // its anchored hashes (and every later closure's) would be rewritten.
+        const [closed] = await connection.execute(
+            isPg
+                ? `SELECT to_char(MIN(closure_date), 'YYYY-MM-DD') AS d FROM ${prefix}daily_closures WHERE closure_date >= $1::date`
+                : `SELECT DATE_FORMAT(MIN(closure_date), '%Y-%m-%d') AS d FROM ${prefix}daily_closures WHERE closure_date >= ?`,
+            [dateStr]
+        );
+        return (closed as { d: string | null }[])[0]?.d ?? null;
+    }
+
+    const [closed] = await connection.execute(
+        `SELECT 1 FROM ${prefix}daily_closures WHERE closure_date = ${isPg ? '$1::date' : '?'}`,
+        [dateStr]
+    );
+    return (closed as unknown[]).length > 0 ? dateStr : null;
 }
 
 // Fetch the most recent transaction hash for chaining (NF525 requirement).

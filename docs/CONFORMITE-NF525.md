@@ -37,6 +37,25 @@ Ce document ne constitue pas un certificat NF525.
   même le premier et le dernier hachage des clôtures de la période inférieure.
   Toute modification d'une transaction ou d'une clôture scellée invalide donc le
   hachage de la clôture correspondante.
+- **Journée scellée** : `saveTransaction` refuse (HTTP 409 `DAY_CLOSED`) toute
+  écriture qui casserait le sceau — mutation d'une ligne dont le jour (ou un
+  jour ultérieur) est clôturé, puisque le rechaînage réécrit les hachages en
+  aval ; ou insertion datée d'un jour clôturé, qui falsifierait les totaux
+  scellés. Une correction après clôture s'écrit comme **nouvelle transaction
+  datée du jour ouvert** (avoir/remboursement). Les brouillons
+  (`EN COURS`/`EN ATTENTE`/`EN MODIF`) d'un jour clôturé, devenus
+  in finalisables, sont exclus de la synchronisation (conservés en base pour
+  la traçabilité). Côté client, la finalisation tardive d'un panier daté d'un
+  jour clôturé est automatiquement redatée au jour courant en nouvelle
+  transaction — la ligne scellée reste intacte. La règle s'applique aussi à
+  l'échelon supérieur : une clôture journalière est refusée dans un mois ou
+  une année déjà clôturés, et une clôture mensuelle dans une année clôturée
+  (les ancres de période couvrent les hachages des clôtures enfants). Les
+  lectures d'ancres et de totaux sont sérialisées avec les écritures du
+  niveau inférieur via des verrous consultatifs
+  (`nf525_transactions < nf525_daily_closures < nf525_period_closures`), pour
+  qu'aucune vente ni clôture enfant ne puisse se glisser entre le calcul des
+  ancres et l'insertion.
 
 **Limites connues :**
 

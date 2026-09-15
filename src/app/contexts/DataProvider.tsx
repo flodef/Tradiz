@@ -44,6 +44,7 @@ import { computeSoldQuantities, computeCartQuantities, deriveEffectiveStock, sto
 import { mergeTransactionArrays } from './dataProvider/syncUtils';
 import {
     isCancelledTransaction,
+    isConfirmedTransaction,
     isDeletedTransaction,
     isProcessingTransaction,
     isRefundTransaction,
@@ -122,6 +123,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const products = useRef<Product[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const transactionId = useRef(0);
+    // Dates known to be Z-closed (server rejected a write with DAY_CLOSED, or
+    // a dailyClosure check confirmed it) — lets saveTransactions refuse a
+    // sealed-day write BEFORE mutating local state.
+    const closedDaysRef = useRef<Set<string>>(new Set());
     const areTransactionLoaded = useRef(false);
     const [transactionsLoaded, setTransactionsLoaded] = useState(false);
     const [isCashClosed, setIsCashClosed] = useLocalStorage('cashClosedDate', '');
@@ -579,6 +584,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const pushTransactionToSQL = useCallback(async (transaction: Transaction, action: 'add' | 'sync' = 'add') => {
+        // A tx dated in a known sealed day stays local-only forever — its
+        // real date can't change without falsifying the ledger.
+        if (closedDaysRef.current.has(toSQLDateTime(transaction.createdDate).slice(0, 10))) return;
         try {
             const response = await deviceFetch('/api/sql/saveTransaction', {
                 method: 'POST',
@@ -615,7 +623,17 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }),
             });
             if (!response.ok) {
-                console.error('Failed to push transaction to SQL:', await response.json());
+                const error = await response.json().catch(() => ({}));
+                if (response.status === 409 && error.code === 'DAY_CLOSED') {
+                    // Sealed day — remember it so this tx stops being retried
+                    // at every sync cycle.
+                    closedDaysRef.current.add(String(error.closedDay));
+                    console.warn(
+                        `Transaction dated in sealed day ${error.closedDay} — kept local only (cannot rewrite a closed day)`
+                    );
+                    return;
+                }
+                console.error('Failed to push transaction to SQL:', error);
             }
         } catch (error) {
             console.error('Error pushing transaction to SQL:', error);
@@ -1020,9 +1038,105 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [resolvedShopId, getResetTimes]
     );
 
+    // NF525: a Z-closed day is sealed server-side — any write dated in it is
+    // rejected with 409 DAY_CLOSED. Checking first avoids mutating local
+    // state for a write the server will refuse.
+    const isDayClosed = useCallback(async (day: string): Promise<boolean> => {
+        if (closedDaysRef.current.has(day)) return true;
+        try {
+            const res = await deviceFetch(`/api/sql/dailyClosure?date=${day}`);
+            if (!res.ok) return false;
+            const data = (await res.json()) as { closure?: unknown };
+            if (data?.closure) {
+                closedDaysRef.current.add(day);
+                return true;
+            }
+            return false;
+        } catch {
+            return false;
+        }
+    }, []);
+
+    // Seed known closed days once — lets mutation paths refuse sealed-day
+    // edits synchronously before touching local state. Missed closures are
+    // still caught lazily by isDayClosed and the 409 path.
+    useEffect(() => {
+        void (async () => {
+            try {
+                const res = await deviceFetch('/api/sql/dailyClosure?limit=365');
+                if (!res.ok) return;
+                const data = (await res.json()) as { closures?: { closure_date: string }[] };
+                for (const c of data?.closures ?? []) {
+                    const day = String(c.closure_date).slice(0, 10);
+                    if (day) closedDaysRef.current.add(day);
+                }
+            } catch {
+                // Offline — discovered lazily via isDayClosed / 409 responses.
+            }
+        })();
+    }, []);
+
+    // Synchronous check against the cached closure list — lets mutation
+    // paths refuse a sealed-day write BEFORE mutating local state. Mirrors
+    // the server rule: a tx is sealed by ANY closure on/after its day,
+    // because the rechain rewrites downstream anchored hashes.
+    const sealedTxDay = useCallback((tx: Transaction): string | null => {
+        const day = toSQLDateTime(tx.createdDate).slice(0, 10);
+        let min: string | null = null;
+        for (const d of closedDaysRef.current) if (d >= day && (min === null || d < min)) min = d;
+        return min;
+    }, []);
+
     const saveTransactions = useCallback(
-        async (action: DatabaseAction, transaction: Transaction) => {
+        async (action: DatabaseAction, transaction: Transaction, localOnly = false) => {
             if (isLocked) return;
+
+            // Sealed-day guard: today's date can only be closed after a Z —
+            // discovered via the 409 path below (and cached in closedDaysRef)
+            // rather than a check on every sale. For older dates, check the
+            // cached closure list (>= txDay for mutations, = txDay for
+            // inserts) then fall back to an exact-day server lookup.
+            const txDay = toSQLDateTime(transaction.createdDate).slice(0, 10);
+            const today = toSQLDateTime(Date.now()).slice(0, 10);
+            const isInsert = action === DatabaseAction.add || action === DatabaseAction.sync;
+            let sealedDay: string | null = null;
+            if (!localOnly) {
+                if (txDay === today) {
+                    sealedDay = closedDaysRef.current.has(txDay) ? txDay : null;
+                } else if (isInsert) {
+                    sealedDay = (await isDayClosed(txDay)) ? txDay : sealedTxDay(transaction);
+                } else {
+                    sealedDay = sealedTxDay(transaction) ?? ((await isDayClosed(txDay)) ? txDay : null);
+                }
+            }
+            let staleCreatedDate: number | null = null;
+            if (sealedDay) {
+                if (action === DatabaseAction.add || action === DatabaseAction.sync) {
+                    // A stale cart/order being finalized NOW: the sealed
+                    // document stays untouched — record the sale as a new
+                    // transaction dated today (the receipt's real date).
+                    staleCreatedDate = transaction.createdDate;
+                    transaction.createdDate = floorToSeconds(Date.now());
+                    transaction.modifiedDate = transaction.createdDate;
+                } else if (action === DatabaseAction.update || action === DatabaseAction.expunge) {
+                    // Draft bookkeeping on a sealed row (mark PROCESSING or
+                    // clear it after payment): the remote write is refused by
+                    // the seal, but the LOCAL effect is legitimate — the
+                    // eventual payment lands as a re-dated new tx, and the
+                    // expunge must still clear the ghost draft locally or it
+                    // could be paid twice. Keep it local-only.
+                    localOnly = true;
+                } else {
+                    openFullscreenPopup('Journée clôturée', [
+                        sealedDay === txDay
+                            ? `La journée du ${txDay} est clôturée — cette transaction ne peut plus être modifiée.`
+                            : `Une clôture du ${sealedDay} verrouille cette transaction — elle ne peut plus être modifiée.`,
+                        'Pour corriger une vente passée, émettez un remboursement (avoir) daté du jour.',
+                    ]);
+                    return;
+                }
+            }
+
             transaction.modifiedDate = transaction.modifiedDate ? new Date().getTime() : transaction.createdDate;
             transaction.amount = transaction.amount.clean(
                 currencies.find(({ label }) => label === transaction.currency)?.decimals
@@ -1065,14 +1179,18 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const index = transaction.createdDate;
             transactionId.current = action === DatabaseAction.update ? index : 0;
 
-            if (USE_DIGICARTE || (await checkDbConfig())) {
+            if (!localOnly && (USE_DIGICARTE || (await checkDbConfig()))) {
                 try {
                     // Prepare the transaction data for SQL DB
                     const sqlTransactionData = {
                         action,
                         transaction: {
                             id: index,
-                            order_id: orderId || String(transaction.createdDate),
+                            // A re-dated sale must get a fresh id — the sealed
+                            // row keeps the old order_id.
+                            order_id: staleCreatedDate
+                                ? String(transaction.createdDate)
+                                : orderId || String(transaction.createdDate),
                             customer_name: transaction.customerName
                                 ? transaction.customerName
                                 : currentCustomer
@@ -1115,7 +1233,29 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     if (!response.ok) {
                         const error = await response.json();
                         console.error('SQL DB transaction error:', error);
+                        if (response.status === 409 && error.code === 'DAY_CLOSED') {
+                            closedDaysRef.current.add(String(error.closedDay));
+                            // Keep the local transaction — it exists on this
+                            // device only (same posture as a stopped
+                            // subscription) — but make it explicit.
+                            openFullscreenPopup('Journée clôturée', [
+                                `La journée du ${error.closedDay} est clôturée — cette transaction n'a pas pu être enregistrée sur le serveur.`,
+                                'Elle reste visible uniquement sur cet appareil.',
+                            ]);
+                            return;
+                        }
                         throw new Error(error.error || 'Failed to save transaction to SQL DB');
+                    }
+
+                    // The sale was re-dated out of a sealed day: drop the
+                    // stale draft locally so it doesn't linger as a ghost
+                    // (its sealed server twin can never be expunged).
+                    if (staleCreatedDate) {
+                        setLocalStorageItem(
+                            transactionsFilename,
+                            transactionsToSave.filter((t) => t.createdDate !== staleCreatedDate)
+                        );
+                        setTransactions((prev) => prev.filter((t) => t.createdDate !== staleCreatedDate));
                     }
 
                     // Notify WebSocket server that the order is complete
@@ -1207,6 +1347,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             storeTransaction,
             isKitchenViewEnabled,
             isLocked,
+            isDayClosed,
+            sealedTxDay,
         ]
     );
 
@@ -1229,6 +1371,20 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 // Refuse to delete a PROCESSING transaction that does not belong to this device.
                 if (isProcessingTransaction(transaction) && transaction.deviceId !== currentDeviceId) return;
 
+                // A sealed confirmed transaction can never be cancelled —
+                // refuse before mutating local state. Sealed drafts get a
+                // local-only delete (the remote write would be refused; the
+                // row is already hidden from sync).
+                const sealedDay = sealedTxDay(transaction);
+                if (sealedDay && isConfirmedTransaction(transaction)) {
+                    openFullscreenPopup('Journée clôturée', [
+                        `La journée du ${sealedDay} est clôturée — cette transaction ne peut plus être annulée.`,
+                        'Pour corriger une vente passée, émettez un remboursement (avoir) daté du jour.',
+                    ]);
+                    return;
+                }
+                const localOnly = !!sealedDay;
+
                 if (isProcessingTransaction(transaction)) {
                     // Soft-delete PROCESSING transactions (mark as CANCELLED) instead of
                     // expunging them. This ensures the deletion propagates to other
@@ -1247,15 +1403,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     clearRequestedRef.current = true;
                     transaction.method = CANCELLED_KEYWORD;
                     storeTransaction(transaction);
-                    saveTransactions(DatabaseAction.delete, transaction);
+                    saveTransactions(DatabaseAction.delete, transaction, localOnly);
                 } else {
                     transaction.method = DELETED_KEYWORD;
                     storeTransaction(transaction);
-                    saveTransactions(DatabaseAction.delete, transaction);
+                    saveTransactions(DatabaseAction.delete, transaction, localOnly);
                 }
             }
         },
-        [transactions, saveTransactions, storeTransaction, isLocked]
+        [transactions, saveTransactions, storeTransaction, isLocked, sealedTxDay, openFullscreenPopup]
     );
 
     // clearTotal calls deleteTransaction to remove the PROCESSING tx after payment.
@@ -1695,6 +1851,19 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 if (transaction.deviceId !== currentDeviceId) return;
             }
 
+            // A sealed confirmed transaction can never be modified — refuse
+            // before the local mutation so the edit can't diverge from the
+            // ledger. Sealed drafts stay editable: paying them lands as a
+            // re-dated new transaction.
+            const sealedDay = sealedTxDay(transaction);
+            if (sealedDay && isConfirmedTransaction(transaction)) {
+                openFullscreenPopup('Journée clôturée', [
+                    `La journée du ${sealedDay} est clôturée — cette transaction ne peut plus être modifiée.`,
+                    'Pour corriger une vente passée, émettez un remboursement (avoir) daté du jour.',
+                ]);
+                return;
+            }
+
             // Track if this tx was WAITING — the kitchen already received a ticket when it was put on hold.
             wasWaitingBeforeEditRef.current = isWaitingTransaction(transaction);
             // Snapshot the original products to compute the delta when the tx is committed
@@ -1709,7 +1878,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
 
             saveTransactions(DatabaseAction.update, transaction);
         },
-        [transactions, saveTransactions, addProduct, setCurrency, isLocked]
+        [transactions, saveTransactions, addProduct, setCurrency, isLocked, sealedTxDay, openFullscreenPopup]
     );
 
     const updateTransaction = useCallback(
