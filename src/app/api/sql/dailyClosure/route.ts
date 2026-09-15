@@ -264,7 +264,10 @@ export async function POST(request: Request) {
         const [existing] = await connection.execute(checkQuery, [date]);
         if ((existing as { id: number }[]).length > 0) {
             await connection.rollback();
-            return NextResponse.json({ error: 'Closure already exists for this date' }, { status: 409 });
+            return NextResponse.json(
+                { error: 'Closure already exists for this date', code: 'ALREADY_CLOSED', closedDay: date },
+                { status: 409 }
+            );
         }
 
         // Same seal rule one level up: a monthly closure anchors its month's
@@ -281,7 +284,11 @@ export async function POST(request: Request) {
         if ((sealedMonth as { id: number }[]).length > 0) {
             await connection.rollback();
             return NextResponse.json(
-                { error: `Le mois ${date.slice(0, 7)} est clôturé — la journée ne peut plus être clôturée` },
+                {
+                    error: `Le mois ${date.slice(0, 7)} est clôturé — la journée ne peut plus être clôturée`,
+                    code: 'PERIOD_SEALED',
+                    closedDay: date,
+                },
                 { status: 409 }
             );
         }
@@ -294,7 +301,11 @@ export async function POST(request: Request) {
         if ((sealedYear as { id: number }[]).length > 0) {
             await connection.rollback();
             return NextResponse.json(
-                { error: `L'année ${date.slice(0, 4)} est clôturée — la journée ne peut plus être clôturée` },
+                {
+                    error: `L'année ${date.slice(0, 4)} est clôturée — la journée ne peut plus être clôturée`,
+                    code: 'PERIOD_SEALED',
+                    closedDay: date,
+                },
                 { status: 409 }
             );
         }
@@ -316,10 +327,38 @@ export async function POST(request: Request) {
         const draftPlaceholders = DRAFT_METHODS.map((_, i) => (isPg ? `$${i + 2}` : '?')).join(', ');
 
         if (auto) {
+            // The destination day must be open — a skewed client clock could
+            // otherwise strand a draft on a sealed day (unwritable, hidden
+            // from sync) or push it far into the future (invisible until
+            // then). Compute the first open day after `date` and only accept
+            // the client's timestamp when its day is open and within a sane
+            // window; otherwise fall back to that first open day.
+            const [closedAfter] = await connection.execute(
+                `SELECT ${isPg ? "to_char(closure_date, 'YYYY-MM-DD')" : "DATE_FORMAT(closure_date, '%Y-%m-%d')"} AS d FROM ${prefix}daily_closures WHERE closure_date > ${isPg ? '$1::date' : '?'}`,
+                [date]
+            );
+            const closedAfterSet = new Set((closedAfter as { d: string }[]).map((r) => r.d));
+            const addDays = (day: string, n: number): string => {
+                const dt = new Date(`${day}T00:00:00Z`);
+                dt.setUTCDate(dt.getUTCDate() + n);
+                return dt.toISOString().slice(0, 10);
+            };
+            let openDay = addDays(date, 1);
+            while (closedAfterSet.has(openDay)) openDay = addDays(openDay, 1);
+            const serverToday = new Date().toISOString().slice(0, 10);
+            const maxDay = addDays(serverToday > openDay ? serverToday : openDay, 1);
+
+            const validTs = redate_to && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(redate_to) ? redate_to : null;
+            const clientDay = validTs ? validTs.slice(0, 10) : '';
+            const targetDay =
+                clientDay > date && clientDay <= maxDay && !closedAfterSet.has(clientDay) ? clientDay : openDay;
+            const target = `${targetDay} ${validTs ? validTs.slice(11) : '00:00:00'}`;
+
             const [drafts] = await connection.execute(
                 `SELECT id, order_id FROM ${prefix}transactions WHERE DATE(created_at) <= ${isPg ? '$1::date' : '?'} AND payment_method IN (${draftPlaceholders}) ORDER BY id`,
                 [date, ...DRAFT_METHODS]
             );
+            const movedIds: number[] = [];
             for (const draft of drafts as { id: number; order_id: string }[]) {
                 // Rechaining rewrites hash/previous_hash on every later row —
                 // refuse to move a draft when any row after it sits in a
@@ -330,21 +369,23 @@ export async function POST(request: Request) {
                 );
                 if ((conflict as unknown[]).length > 0) continue;
 
-                const target = redate_to && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(redate_to) ? redate_to : null;
                 await connection.execute(
-                    target
-                        ? `UPDATE ${prefix}transactions SET created_at = ${isPg ? '$1' : '?'}, updated_at = ${isPg ? '$2' : '?'} WHERE id = ${isPg ? '$3' : '?'}`
-                        : `UPDATE ${prefix}transactions SET created_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ${isPg ? '$1' : '?'}`,
-                    target ? [target, target, draft.id] : [draft.id]
+                    `UPDATE ${prefix}transactions SET created_at = ${isPg ? '$1' : '?'}, updated_at = ${isPg ? '$2' : '?'} WHERE id = ${isPg ? '$3' : '?'}`,
+                    [target, target, draft.id]
                 );
-                await rechainFrom(connection, draft.id);
+                movedIds.push(draft.id);
                 await insertAuditEvent(connection, {
                     event_type: 'transaction_redated',
                     entity_type: 'transaction',
                     entity_id: draft.order_id,
                     user_name: closed_by,
-                    detail: `auto-closure of ${date}: draft moved to the new open day`,
+                    detail: `auto-closure of ${date}: draft moved to ${targetDay}`,
                 });
+            }
+            // One rechain from the earliest moved row — re-dating N drafts in
+            // a loop would otherwise rewrite the whole chain tail N times.
+            if (movedIds.length > 0) {
+                await rechainFrom(connection, Math.min(...movedIds));
             }
         }
 

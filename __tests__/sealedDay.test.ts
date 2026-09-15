@@ -47,6 +47,13 @@ const state = vi.hoisted(() => {
             if (q.includes('FROM dc_pos.daily_closures WHERE closure_date =')) {
                 return [closedDays.has(String(params?.[0])) ? [{ '?column?': 1 }] : [], {}];
             }
+            // auto-closure: closures strictly after the date being closed
+            // (selects to_char(closure_date) — distinct from the monthly
+            // aggregate which uses closure_date >= with COUNT(*))
+            if (q.includes('to_char(closure_date') && q.includes('closure_date >')) {
+                const after = String(params?.[0]);
+                return [[...closedDays].filter((d) => d > after).map((d) => ({ d })), {}];
+            }
 
             // ── closure-level seals (dailyClosure / periodClosure POST) ──
             if (q.includes('FROM dc_pos.monthly_closures') && q.includes('closure_month = ')) {
@@ -79,10 +86,11 @@ const state = vi.hoisted(() => {
                 const hit = [...txs.values()].some((t) => t.id >= fromId && closedDays.has(t.day));
                 return [hit ? [{ '?column?': 1 }] : [], {}];
             }
-            // re-date UPDATE — CURRENT_TIMESTAMP lands the draft on today
-            if (q.startsWith('UPDATE dc_pos.transactions') && q.includes('CURRENT_TIMESTAMP')) {
-                const tx = [...txs.values()].find((t) => t.id === Number(params?.[0]));
-                if (tx) tx.day = today;
+            // re-date UPDATE — lands the draft on the validated target day
+            // (client timestamp day, or the server's first-open-day fallback)
+            if (q.startsWith('UPDATE dc_pos.transactions SET created_at')) {
+                const tx = [...txs.values()].find((t) => t.id === Number(params?.[2]));
+                if (tx) tx.day = String(params?.[0]).slice(0, 10);
                 return [[], {}];
             }
             // dailyClosure draft count on the day being closed
@@ -305,6 +313,24 @@ describe('saveTransaction — journée clôturée (409 DAY_CLOSED)', () => {
         expect(state.writes).toHaveLength(0);
     });
 
+    it('refuse l’insertion datée d’un jour sans clôture mais dans un mois scellé (le jour ne sera jamais clôturé)', async () => {
+        state.closedMonths.add('2025-01-01');
+        const res = await save('add', { order_id: 'tx-new' });
+        expect(res.status).toBe(409);
+        expect((await res.json()).code).toBe('DAY_CLOSED');
+        expect(state.writes).toHaveLength(0);
+    });
+
+    it('refuse la finalisation d’un brouillon dont le jour tombe dans un mois scellé', async () => {
+        // Draft stored on the 15th — no daily closure, but the month is
+        // sealed: finalizing it adds revenue to a day that can never be Z'd.
+        state.txs.set('tx-1', { id: 1, method: 'EN COURS', day: '2025-01-15' });
+        state.closedMonths.add('2025-01-01');
+        const res = await save('sync', { payment_method: 'ESPÈCES' });
+        expect(res.status).toBe(409);
+        expect(state.writes).toHaveLength(0);
+    });
+
     it('autorise une transaction du jour ouvert quand seule une journée antérieure est clôturée', async () => {
         state.txs.set('tx-1', { id: 1, method: 'ESPÈCES', day: '2025-01-15' });
         state.closedDays.add('2025-01-14'); // only an earlier day is sealed
@@ -359,6 +385,7 @@ describe('clôtures — sceau au niveau supérieur (409)', () => {
         state.closedDays.add('2025-01-14');
         const res = await dailyClosurePOST(post('/api/sql/dailyClosure', { date: '2025-01-14', closed_by: 'a' }));
         expect(res.status).toBe(409);
+        expect((await res.json()).code).toBe('ALREADY_CLOSED');
         expect(state.writes.some((w) => w.includes('INSERT INTO dc_pos.daily_closures'))).toBe(false);
     });
 
@@ -366,6 +393,7 @@ describe('clôtures — sceau au niveau supérieur (409)', () => {
         state.closedMonths.add('2025-01-01');
         const res = await dailyClosurePOST(post('/api/sql/dailyClosure', { date: '2025-01-14', closed_by: 'a' }));
         expect(res.status).toBe(409);
+        expect((await res.json()).code).toBe('PERIOD_SEALED');
         expect(state.writes.some((w) => w.includes('INSERT INTO dc_pos.daily_closures'))).toBe(false);
     });
 
@@ -398,11 +426,54 @@ describe('clôtures — sceau au niveau supérieur (409)', () => {
             post('/api/sql/dailyClosure', { date: '2025-01-14', closed_by: 'auto', auto: true })
         );
         expect(res.status).toBe(200);
-        // The draft was re-dated (created_at = CURRENT_TIMESTAMP) and rechained
-        expect(state.writes.some((w) => w.includes('SET created_at = CURRENT_TIMESTAMP'))).toBe(true);
-        expect(state.txs.get('tx-draft')?.day).toBe(state.today);
+        // The draft was re-dated to the first open day (2025-01-15) and rechained
+        expect(state.writes.some((w) => w.startsWith('UPDATE dc_pos.transactions SET created_at'))).toBe(true);
+        expect(state.txs.get('tx-draft')?.day).toBe('2025-01-15');
         expect(state.writes.some((w) => w.startsWith('INSERT INTO dc_pos.daily_closures'))).toBe(true);
         expect(state.auditEvents).toContain('transaction_redated');
+    });
+
+    it('clôture AUTO : un redate_to valide sur un jour ouvert est respecté', async () => {
+        state.txs.set('tx-draft', { id: 1, method: 'EN COURS', day: '2025-01-14' });
+        const res = await dailyClosurePOST(
+            post('/api/sql/dailyClosure', {
+                date: '2025-01-14',
+                closed_by: 'auto',
+                auto: true,
+                redate_to: '2025-01-16 08:30:00',
+            })
+        );
+        expect(res.status).toBe(200);
+        expect(state.txs.get('tx-draft')?.day).toBe('2025-01-16');
+    });
+
+    it('clôture AUTO : un redate_to sur un jour SCELLÉ retombe sur le 1er jour ouvert', async () => {
+        state.txs.set('tx-draft', { id: 1, method: 'EN COURS', day: '2025-01-14' });
+        state.closedDays.add('2025-01-15');
+        const res = await dailyClosurePOST(
+            post('/api/sql/dailyClosure', {
+                date: '2025-01-14',
+                closed_by: 'auto',
+                auto: true,
+                redate_to: '2025-01-15 08:30:00', // closed — must not be trusted
+            })
+        );
+        expect(res.status).toBe(200);
+        expect(state.txs.get('tx-draft')?.day).toBe('2025-01-16');
+    });
+
+    it('clôture AUTO : un redate_to aberrant (futur lointain) retombe sur le 1er jour ouvert', async () => {
+        state.txs.set('tx-draft', { id: 1, method: 'EN COURS', day: '2025-01-14' });
+        const res = await dailyClosurePOST(
+            post('/api/sql/dailyClosure', {
+                date: '2025-01-14',
+                closed_by: 'auto',
+                auto: true,
+                redate_to: '2099-12-31 23:59:59',
+            })
+        );
+        expect(res.status).toBe(200);
+        expect(state.txs.get('tx-draft')?.day).toBe('2025-01-15');
     });
 
     it('clôture AUTO : garde un brouillon dont le rechain toucherait un jour scellé → 409', async () => {
@@ -417,7 +488,7 @@ describe('clôtures — sceau au niveau supérieur (409)', () => {
         expect(res.status).toBe(409);
         expect((await res.json()).code).toBe('PENDING_DRAFTS');
         // The draft was NOT re-dated
-        expect(state.writes.some((w) => w.includes('SET created_at = CURRENT_TIMESTAMP'))).toBe(false);
+        expect(state.writes.some((w) => w.startsWith('UPDATE dc_pos.transactions SET created_at'))).toBe(false);
         expect(state.txs.get('tx-draft')?.day).toBe('2025-01-14');
     });
 
@@ -428,7 +499,20 @@ describe('clôtures — sceau au niveau supérieur (409)', () => {
             post('/api/sql/dailyClosure', { date: '2025-01-14', closed_by: 'auto', auto: true })
         );
         expect(res.status).toBe(200);
-        expect(state.txs.get('tx-old-draft')?.day).toBe(state.today);
+        expect(state.txs.get('tx-old-draft')?.day).toBe('2025-01-15');
+    });
+
+    it('clôture AUTO : un seul rechain depuis le plus petit id pour plusieurs brouillons', async () => {
+        state.txs.set('tx-draft-1', { id: 1, method: 'EN COURS', day: '2025-01-14' });
+        state.txs.set('tx-draft-2', { id: 2, method: 'EN ATTENTE', day: '2025-01-14' });
+        const res = await dailyClosurePOST(
+            post('/api/sql/dailyClosure', { date: '2025-01-14', closed_by: 'auto', auto: true })
+        );
+        expect(res.status).toBe(200);
+        // Both drafts moved, one chain-tail read (not one per draft).
+        expect(state.txs.get('tx-draft-1')?.day).toBe('2025-01-15');
+        expect(state.txs.get('tx-draft-2')?.day).toBe('2025-01-15');
+        expect(state.queries.filter((q) => q.includes('FROM dc_pos.transactions WHERE id >='))).toHaveLength(1);
     });
 
     it('refuse une clôture mensuelle dans une année déjà clôturée (ancre annuelle)', async () => {

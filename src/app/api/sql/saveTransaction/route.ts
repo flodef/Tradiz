@@ -1,4 +1,11 @@
-import { PROCESSING_KEYWORD, DEFAULT_USER, DEFAULT_VAT_RATE, EXPUNGED_KEYWORD } from '@/app/utils/constants';
+import {
+    PROCESSING_KEYWORD,
+    WAITING_KEYWORD,
+    UPDATING_KEYWORD,
+    DEFAULT_USER,
+    DEFAULT_VAT_RATE,
+    EXPUNGED_KEYWORD,
+} from '@/app/utils/constants';
 import { computeFidelityDelta } from '@/app/utils/fidelity';
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { assertDeviceAuthorized } from '../deviceAuth';
@@ -135,15 +142,15 @@ export async function POST(request: Request) {
                 // rechain would rewrite the anchored hashes). Reject it:
                 // corrections on a closed day must be new transactions
                 // dated in the open day.
-                const sealedDay = await sealedClosedDay(connection, transaction);
-                if (sealedDay) {
+                const sealed = await sealedClosedDay(connection, transaction);
+                if (sealed) {
                     await connection.rollback();
                     await unlockChain();
                     return NextResponse.json(
                         {
-                            error: `La journée du ${sealedDay} est clôturée — la transaction ne peut plus être modifiée`,
+                            error: `${sealed.label} — la transaction ne peut plus être modifiée`,
                             code: 'DAY_CLOSED',
-                            closedDay: sealedDay,
+                            closedDay: sealed.day,
                         },
                         { status: 409 }
                     );
@@ -315,7 +322,37 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
  * The stored row's created_at governs mutations (sync never rewrites
  * created_at); a fresh insert is governed by the date it claims.
  */
-async function sealedClosedDay(connection: Connection, transaction: TransactionData): Promise<string | null> {
+const draftMethodSet = new Set([PROCESSING_KEYWORD, WAITING_KEYWORD, UPDATING_KEYWORD]);
+
+// periodSeal returns a French label for the sealing period when a day sits
+// inside a closed month or year (with no daily closure of its own). A day in
+// a sealed period can never get a daily closure, so fresh revenue dated
+// there would sit outside every Z-ticket forever.
+async function periodSeal(connection: Connection, day: string): Promise<string | null> {
+    const isPg = connection.isPostgreSQL;
+    const prefix = isPg ? 'dc_pos.' : '';
+
+    const [monthRows] = await connection.execute(
+        `SELECT 1 FROM ${prefix}monthly_closures WHERE closure_month = ${isPg ? '$1::date' : '?'}`,
+        [`${day.slice(0, 7)}-01`]
+    );
+    if ((monthRows as unknown[]).length > 0) return `Le mois ${day.slice(0, 7)} est clôturé`;
+
+    const [yearRows] = await connection.execute(
+        `SELECT 1 FROM ${prefix}annual_closures WHERE closure_year = ${isPg ? '$1' : '?'}`,
+        [Number(day.slice(0, 4))]
+    );
+    if ((yearRows as unknown[]).length > 0) return `L'année ${day.slice(0, 4)} est clôturée`;
+
+    return null;
+}
+
+// sealedClosedDay returns the sealed day plus a French label for the sealing
+// period, or null when the write is allowed.
+async function sealedClosedDay(
+    connection: Connection,
+    transaction: TransactionData
+): Promise<{ day: string; label: string } | null> {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
 
@@ -339,14 +376,31 @@ async function sealedClosedDay(connection: Connection, transaction: TransactionD
                 : `SELECT DATE_FORMAT(MIN(closure_date), '%Y-%m-%d') AS d FROM ${prefix}daily_closures WHERE closure_date >= ?`,
             [dateStr]
         );
-        return (closed as { d: string | null }[])[0]?.d ?? null;
+        const d = (closed as { d: string | null }[])[0]?.d;
+        if (d) return { day: dateStr, label: `La journée du ${d} est clôturée` };
+
+        // Finalizing a draft is new revenue on the stored day — apply the
+        // period seal too so it can't land inside a closed month/year where
+        // the day itself was never closed.
+        if (draftMethodSet.has(existing.payment_method) && !draftMethodSet.has(transaction.payment_method)) {
+            const label = await periodSeal(connection, dateStr);
+            if (label) return { day: dateStr, label };
+        }
+        return null;
     }
 
     const [closed] = await connection.execute(
         `SELECT 1 FROM ${prefix}daily_closures WHERE closure_date = ${isPg ? '$1::date' : '?'}`,
         [dateStr]
     );
-    return (closed as unknown[]).length > 0 ? dateStr : null;
+    if ((closed as unknown[]).length > 0) {
+        return { day: dateStr, label: `La journée du ${dateStr} est clôturée` };
+    }
+    // Fresh insert: no daily closure, but a sealed month/year means this day
+    // can never be closed — revenue dated there escapes every Z-ticket.
+    const label = await periodSeal(connection, dateStr);
+    if (label) return { day: dateStr, label };
+    return null;
 }
 
 // Fetch the most recent transaction hash for chaining (NF525 requirement).

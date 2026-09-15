@@ -128,6 +128,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // a dailyClosure check confirmed it) — lets saveTransactions refuse a
     // sealed-day write BEFORE mutating local state.
     const closedDaysRef = useRef<Set<string>>(new Set());
+    // Days already reported to the user — a sealed tx is dropped on every
+    // background sync cycle, so the popup must fire once per day, not per tx.
+    const sealedNotifiedRef = useRef<Set<string>>(new Set());
     const areTransactionLoaded = useRef(false);
     const [transactionsLoaded, setTransactionsLoaded] = useState(false);
     const [isCashClosed, setIsCashClosed] = useLocalStorage('cashClosedDate', '');
@@ -612,65 +615,79 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [getLocalTransactions, transactionsFilename, updateLocalTransaction]
     );
 
-    const pushTransactionToSQL = useCallback(async (transaction: Transaction, action: 'add' | 'sync' = 'add') => {
-        // A tx dated in a known sealed day stays local-only forever — its
-        // real date can't change without falsifying the ledger.
-        if (closedDaysRef.current.has(toSQLDateTime(transaction.createdDate).slice(0, 10))) return;
-        try {
-            const response = await deviceFetch('/api/sql/saveTransaction', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action,
-                    transaction: {
-                        id: transaction.createdDate,
-                        // Keep the server identity when known — a draft
-                        // re-dated by an auto-closure has createdDate =
-                        // new day but order_id = the original timestamp.
-                        order_id: transaction.orderId ?? String(transaction.createdDate),
-                        customer_name: transaction.customerName ?? null,
-                        user_name: transaction.validator,
-                        payment_method: transaction.method,
-                        amount: transaction.amount,
-                        currency: transaction.currency,
-                        change: encodeCashNote(transaction.cashAmount, transaction.change),
-                        takeOut: transaction.takeOut ?? false,
-                        employer_share: transaction.employerShare ?? null,
-                        fidelity_points: transaction.fidelityPointsUsed ?? null,
-                        device_id: transaction.deviceId ?? null,
-                        payments: encodePaymentLegs(transaction.payments ?? []) ?? null,
-                        created_at: toSQLDateTime(transaction.createdDate),
-                        updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
-                        products: transaction.products.map((product) => ({
-                            label: product.label,
-                            category: product.category,
-                            amount: product.amount,
-                            quantity: product.quantity,
-                            discount_amount: product.discount.amount,
-                            discount_unit: product.discount.unit,
-                            total: product.total || 0,
-                            vat_rate: product.vatRate,
-                        })),
-                    },
-                }),
-            });
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({}));
-                if (response.status === 409 && error.code === 'DAY_CLOSED') {
-                    // Sealed day — remember it so this tx stops being retried
-                    // at every sync cycle.
-                    closedDaysRef.current.add(String(error.closedDay));
-                    console.warn(
-                        `Transaction dated in sealed day ${error.closedDay} — kept local only (cannot rewrite a closed day)`
-                    );
-                    return;
+    const pushTransactionToSQL = useCallback(
+        async (transaction: Transaction, action: 'add' | 'sync' = 'add') => {
+            // A tx dated in a known sealed day stays local-only forever — its
+            // real date can't change without falsifying the ledger. Tell the
+            // user rather than dropping it silently.
+            const sealedDay = toSQLDateTime(transaction.createdDate).slice(0, 10);
+            if (closedDaysRef.current.has(sealedDay)) {
+                if (!sealedNotifiedRef.current.has(sealedDay)) {
+                    sealedNotifiedRef.current.add(sealedDay);
+                    openFullscreenPopup('Journée clôturée', [
+                        `La journée du ${sealedDay} est clôturée — une transaction n'a pas pu être enregistrée sur le serveur.`,
+                        'Elle reste visible uniquement sur cet appareil.',
+                    ]);
                 }
-                console.error('Failed to push transaction to SQL:', error);
+                return;
             }
-        } catch (error) {
-            console.error('Error pushing transaction to SQL:', error);
-        }
-    }, []);
+            try {
+                const response = await deviceFetch('/api/sql/saveTransaction', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action,
+                        transaction: {
+                            id: transaction.createdDate,
+                            // Keep the server identity when known — a draft
+                            // re-dated by an auto-closure has createdDate =
+                            // new day but order_id = the original timestamp.
+                            order_id: transaction.orderId ?? String(transaction.createdDate),
+                            customer_name: transaction.customerName ?? null,
+                            user_name: transaction.validator,
+                            payment_method: transaction.method,
+                            amount: transaction.amount,
+                            currency: transaction.currency,
+                            change: encodeCashNote(transaction.cashAmount, transaction.change),
+                            takeOut: transaction.takeOut ?? false,
+                            employer_share: transaction.employerShare ?? null,
+                            fidelity_points: transaction.fidelityPointsUsed ?? null,
+                            device_id: transaction.deviceId ?? null,
+                            payments: encodePaymentLegs(transaction.payments ?? []) ?? null,
+                            created_at: toSQLDateTime(transaction.createdDate),
+                            updated_at: toSQLDateTime(transaction.modifiedDate || transaction.createdDate),
+                            products: transaction.products.map((product) => ({
+                                label: product.label,
+                                category: product.category,
+                                amount: product.amount,
+                                quantity: product.quantity,
+                                discount_amount: product.discount.amount,
+                                discount_unit: product.discount.unit,
+                                total: product.total || 0,
+                                vat_rate: product.vatRate,
+                            })),
+                        },
+                    }),
+                });
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({}));
+                    if (response.status === 409 && error.code === 'DAY_CLOSED') {
+                        // Sealed day — remember it so this tx stops being retried
+                        // at every sync cycle.
+                        closedDaysRef.current.add(String(error.closedDay));
+                        console.warn(
+                            `Transaction dated in sealed day ${error.closedDay} — kept local only (cannot rewrite a closed day)`
+                        );
+                        return;
+                    }
+                    console.error('Failed to push transaction to SQL:', error);
+                }
+            } catch (error) {
+                console.error('Error pushing transaction to SQL:', error);
+            }
+        },
+        [openFullscreenPopup]
+    );
 
     const processSyncFromSQL = useCallback(
         async (syncPeriod: SyncPeriod, onProgress?: (percent: number) => void): Promise<number> => {
@@ -1114,8 +1131,13 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // which re-dates leftover drafts to the new open day instead of refusing
     // the closure — an unpaid cart must never silently block the seal or be
     // deleted.
+    const lastAutoCloseRef = useRef(0);
     const autoCloseMissedDays = useCallback(async () => {
         if (!resolvedShopId || !isOnline) return;
+        // Throttle: the effect also fires on reconnect, so a flapping
+        // network shouldn't re-run the sweep constantly.
+        if (Date.now() - lastAutoCloseRef.current < 60_000) return;
+        lastAutoCloseRef.current = Date.now();
         try {
             const res = await deviceFetch('/api/sql/dailyClosure?limit=365');
             if (!res.ok) return;
@@ -1153,9 +1175,22 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         redate_to: toSQLDateTime(Date.now()),
                     }),
                 });
-                if (r.ok || r.status === 409) {
+                if (r.ok) {
                     closedDaysRef.current.add(day);
                     continue;
+                }
+                if (r.status === 409) {
+                    const body = (await r.json().catch(() => null)) as { code?: string } | null;
+                    // Only cache days that are actually sealed: a closure
+                    // exists (ALREADY_CLOSED) or the day sits inside a sealed
+                    // month/year (PERIOD_SEALED — writes there are refused).
+                    // PENDING_DRAFTS is transient — caching it would make the
+                    // very drafts blocking the closure uncollectable.
+                    if (body?.code === 'ALREADY_CLOSED' || body?.code === 'PERIOD_SEALED') {
+                        closedDaysRef.current.add(day);
+                        continue;
+                    }
+                    console.warn('[auto-close] day', day, 'could not be closed:', body?.code ?? r.status);
                 }
                 break; // transient failure — retried at the next boundary
             }
@@ -1193,7 +1228,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     }, []);
 
     const saveTransactions = useCallback(
-        async (action: DatabaseAction, transaction: Transaction, localOnly = false) => {
+        async (action: DatabaseAction, transaction: Transaction, localOnly = false, stripDate?: number) => {
             if (isLocked) return;
 
             // Sealed-day guard: today's date can only be closed after a Z —
@@ -1248,8 +1283,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             );
             transaction.validator = parameters.user.name;
 
-            // Build the updated transactions array to save
-            const transactionsToSave = [...transactions];
+            // Build the updated transactions array to save — drop the stale
+            // copy a DAY_CLOSED retry asked us to strip (its createdDate was
+            // just re-dated, the sealed-day row must not stay as a ghost).
+            const transactionsToSave = stripDate
+                ? [...transactions].filter((tx) => tx.createdDate !== stripDate)
+                : [...transactions];
             if (action === DatabaseAction.add) {
                 // For new transactions, check if it already exists (by createdDate)
                 const existingIndex = transactionsToSave.findIndex((tx) => tx.createdDate === transaction.createdDate);
@@ -1344,6 +1383,23 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         console.error('SQL DB transaction error:', error);
                         if (response.status === 409 && error.code === 'DAY_CLOSED') {
                             closedDaysRef.current.add(String(error.closedDay));
+                            // An insert/sync can still be saved by re-dating
+                            // to the open day — covers seals the client didn't
+                            // know about (month/year) and the case where the
+                            // preserved order_id points at a still-sealed row.
+                            if (isInsert && stripDate === undefined) {
+                                const staleDate = transaction.createdDate;
+                                transaction.createdDate = floorToSeconds(Date.now());
+                                transaction.modifiedDate = transaction.createdDate;
+                                // Fresh identity: the sealed server row keeps
+                                // the old order_id; retrying it would 409 again.
+                                transaction.orderId = String(transaction.createdDate);
+                                // Drop the sealed-day copy everywhere — it was
+                                // persisted moments ago and would stay as an
+                                // unpayable ghost next to the re-dated row.
+                                setTransactions((prev) => prev.filter((tx) => tx.createdDate !== staleDate));
+                                return saveTransactions(action, transaction, localOnly, staleDate);
+                            }
                             // Keep the local transaction — it exists on this
                             // device only (same posture as a stopped
                             // subscription) — but make it explicit.
