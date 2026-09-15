@@ -267,6 +267,38 @@ async function mockApiRoutes(page: Page) {
         route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ devices: [] }) });
     });
 
+    // Daily closures — the auto day-closure effect (closingHour) fetches the
+    // list on mount and seals every open day up to the day before the last
+    // boundary. Returning the target day as already closed makes the sweep a
+    // no-op by default; closure tests override this route.
+    {
+        const closingHour = 23; // must match mockParameters above
+        const boundary = new Date();
+        boundary.setHours(closingHour, 0, 0, 0);
+        if (Date.now() < boundary.getTime()) boundary.setDate(boundary.getDate() - 1);
+        const t = new Date(boundary.getFullYear(), boundary.getMonth(), boundary.getDate() - 1);
+        const closureDay = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+        await page.route('**/api/sql/dailyClosure**', (route) => {
+            const url = new URL(route.request().url());
+            if (route.request().method() === 'POST') {
+                return route.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true}' });
+            }
+            if (url.searchParams.get('date')) {
+                const day = url.searchParams.get('date');
+                return route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ closure: day === closureDay ? { closure_date: closureDay } : null }),
+                });
+            }
+            route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ closures: [{ closure_date: closureDay }] }),
+            });
+        });
+    }
+
     // Subscription — default to the most permissive plan so existing tests
     // keep full access. Tests override this with mockSubscription().
     await mockSubscription(page);

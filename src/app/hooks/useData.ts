@@ -45,9 +45,9 @@ export interface DataContextState {
     getAvailableDaysFromSQL: () => Promise<string[]>;
     syncSpecificDayFromSQL: (date: string) => Promise<number>;
     updateTransaction: (item: string | Transaction) => void;
-    editTransaction: (index: number, override?: Transaction) => void;
+    editTransaction: (index: number, override?: Transaction) => boolean;
     refundTransaction: (index: number) => Transaction | undefined;
-    deleteTransaction: (index: number) => void;
+    deleteTransaction: (index?: number) => boolean;
     displayTransaction: (transaction: Transaction) => string;
     reverseTransaction: (transaction: Transaction) => Transaction;
     transactionsFilename: string;

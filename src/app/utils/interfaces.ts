@@ -254,6 +254,9 @@ export type Transaction = {
     fidelityPointsUsed?: number;
     deviceId?: string;
     payments?: PaymentLeg[];
+    // Set only on transactions received from SQL sync — the stable identity
+    // (original createdDate) of a draft re-dated by an auto day-closure.
+    orderId?: string;
 };
 
 export type TransactionSet = {

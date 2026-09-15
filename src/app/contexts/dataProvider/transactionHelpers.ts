@@ -33,6 +33,9 @@ export const isRemovedTransaction = (transaction?: Transaction) =>
 export const isRefundTransaction = (transaction?: Transaction) =>
     Boolean(transaction && transaction.method === REFUND_KEYWORD);
 
+export const isDraftTransaction = (transaction?: Transaction) =>
+    isProcessingTransaction(transaction) || isWaitingTransaction(transaction) || isUpdatingTransaction(transaction);
+
 export const isConfirmedTransaction = (transaction?: Transaction) =>
     Boolean(
         transaction &&

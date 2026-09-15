@@ -14,6 +14,7 @@ import {
     DEFAULT_VAT_RATE,
 } from '@/app/utils/constants';
 import { insertAuditEvent, lockHashChain } from '../auditHelpers';
+import { rechainFrom } from '../hashChain';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,9 @@ const EXCLUDED_METHODS = [
     PROCESSING_KEYWORD,
     WAITING_KEYWORD,
 ];
+
+// Unpaid in-progress rows — never finalizable once their day is sealed.
+const DRAFT_METHODS = [PROCESSING_KEYWORD, WAITING_KEYWORD, UPDATING_KEYWORD];
 
 interface DailyTotals {
     ticket_count: number;
@@ -214,7 +218,15 @@ export async function POST(request: Request) {
     let unlockDaily: (() => Promise<void>) | undefined;
     let unlockPeriod: (() => Promise<void>) | undefined;
     try {
-        const { date, closed_by } = (await request.json()) as { date: string; closed_by: string };
+        const { date, closed_by, auto, redate_to } = (await request.json()) as {
+            date: string;
+            closed_by: string;
+            auto?: boolean;
+            // Local datetime drafts are moved to — every created_at in the DB
+            // is client-local, so CURRENT_TIMESTAMP (UTC) could strand a draft
+            // on the wrong calendar day near midnight.
+            redate_to?: string;
+        };
 
         if (!date || !closed_by) {
             return NextResponse.json({ error: 'date and closed_by are required' }, { status: 400 });
@@ -283,6 +295,72 @@ export async function POST(request: Request) {
             await connection.rollback();
             return NextResponse.json(
                 { error: `L'année ${date.slice(0, 4)} est clôturée — la journée ne peut plus être clôturée` },
+                { status: 409 }
+            );
+        }
+
+        // Unpaid drafts (EN COURS / EN ATTENTE / EN MODIF) dated this day
+        // could never be finalized afterwards — the sealed-day guard rejects
+        // their write and they vanish from sync.
+        //
+        // - Manual closure: refuse with PENDING_DRAFTS — the cashier must
+        //   collect or cancel them first.
+        // - Automatic closure (closingHour): nobody is there to collect them,
+        //   so re-date every draft dated on/before this day to NOW — the cart
+        //   stays alive on the new open day (the hash is recomputed via
+        //   rechainFrom; an audit event traces the move). A draft whose rechain
+        //   would reach an already-sealed day stays put and still blocks below.
+        //
+        // The check runs under nf525_transactions, so no draft can slip in
+        // concurrently.
+        const draftPlaceholders = DRAFT_METHODS.map((_, i) => (isPg ? `$${i + 2}` : '?')).join(', ');
+
+        if (auto) {
+            const [drafts] = await connection.execute(
+                `SELECT id, order_id FROM ${prefix}transactions WHERE DATE(created_at) <= ${isPg ? '$1::date' : '?'} AND payment_method IN (${draftPlaceholders}) ORDER BY id`,
+                [date, ...DRAFT_METHODS]
+            );
+            for (const draft of drafts as { id: number; order_id: string }[]) {
+                // Rechaining rewrites hash/previous_hash on every later row —
+                // refuse to move a draft when any row after it sits in a
+                // sealed day (its anchored hash would be rewritten).
+                const [conflict] = await connection.execute(
+                    `SELECT 1 FROM ${prefix}transactions t JOIN ${prefix}daily_closures c ON c.closure_date = DATE(t.created_at) WHERE t.id >= ${isPg ? '$1' : '?'} LIMIT 1`,
+                    [draft.id]
+                );
+                if ((conflict as unknown[]).length > 0) continue;
+
+                const target = redate_to && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(redate_to) ? redate_to : null;
+                await connection.execute(
+                    target
+                        ? `UPDATE ${prefix}transactions SET created_at = ${isPg ? '$1' : '?'}, updated_at = ${isPg ? '$2' : '?'} WHERE id = ${isPg ? '$3' : '?'}`
+                        : `UPDATE ${prefix}transactions SET created_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ${isPg ? '$1' : '?'}`,
+                    target ? [target, target, draft.id] : [draft.id]
+                );
+                await rechainFrom(connection, draft.id);
+                await insertAuditEvent(connection, {
+                    event_type: 'transaction_redated',
+                    entity_type: 'transaction',
+                    entity_id: draft.order_id,
+                    user_name: closed_by,
+                    detail: `auto-closure of ${date}: draft moved to the new open day`,
+                });
+            }
+        }
+
+        const [draftRows] = await connection.execute(
+            `SELECT COUNT(*) AS cnt FROM ${prefix}transactions WHERE DATE(created_at) = ${isPg ? '$1::date' : '?'} AND payment_method IN (${draftPlaceholders})`,
+            [date, ...DRAFT_METHODS]
+        );
+        const draftCount = Number((draftRows as { cnt: number | string }[])[0]?.cnt) || 0;
+        if (draftCount > 0) {
+            await connection.rollback();
+            return NextResponse.json(
+                {
+                    error: `${draftCount} transaction(s) en cours ou en attente datée(s) du ${date} — encaissez-les ou annulez-les avant de clôturer`,
+                    code: 'PENDING_DRAFTS',
+                    draftCount,
+                },
                 { status: 409 }
             );
         }

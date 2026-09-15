@@ -228,6 +228,11 @@ export async function GET(request: Request) {
             const { cashAmount, change: parsedChange } = parseCashNote(row.change);
 
             transactions.push({
+                // The stored order_id survives a server-side re-date
+                // (auto-closure moves a draft to the new day without
+                // changing it) — the client uses it to reconcile the moved
+                // draft with its stale local copy.
+                orderId: row.order_id,
                 validator: row.validator || '',
                 method: row.method || '',
                 amount: Number(row.amount),

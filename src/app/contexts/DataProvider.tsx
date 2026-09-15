@@ -46,6 +46,7 @@ import {
     isCancelledTransaction,
     isConfirmedTransaction,
     isDeletedTransaction,
+    isDraftTransaction,
     isProcessingTransaction,
     isRefundTransaction,
     isUpdatingTransaction,
@@ -578,6 +579,34 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 }
             }
 
+            // A draft re-dated by an auto day-closure arrives under its NEW
+            // day but keeps order_id = the original createdDate — remove the
+            // stale local copy from its old day so the moved cart doesn't
+            // linger as a ghost that could be paid a second time.
+            const redatedOrigins = new Set<number>();
+            for (const set of cloudTransactionSets) {
+                for (const t of set.transactions) {
+                    if (
+                        t.orderId &&
+                        /^\d+$/.test(t.orderId) &&
+                        isDraftTransaction(t) &&
+                        floorToSeconds(Number(t.orderId)) !== floorToSeconds(t.createdDate)
+                    ) {
+                        redatedOrigins.add(floorToSeconds(Number(t.orderId)));
+                    }
+                }
+            }
+            if (redatedOrigins.size) {
+                for (const set of localTransactionSets) {
+                    const kept = set.transactions.filter(
+                        (t) => !(isDraftTransaction(t) && redatedOrigins.has(floorToSeconds(t.createdDate)))
+                    );
+                    if (kept.length !== set.transactions.length) {
+                        updateLocalTransaction({ id: set.id, transactions: kept });
+                    }
+                }
+            }
+
             return syncedCount;
         },
         [getLocalTransactions, transactionsFilename, updateLocalTransaction]
@@ -595,7 +624,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     action,
                     transaction: {
                         id: transaction.createdDate,
-                        order_id: String(transaction.createdDate),
+                        // Keep the server identity when known — a draft
+                        // re-dated by an auto-closure has createdDate =
+                        // new day but order_id = the original timestamp.
+                        order_id: transaction.orderId ?? String(transaction.createdDate),
                         customer_name: transaction.customerName ?? null,
                         user_name: transaction.validator,
                         payment_method: transaction.method,
@@ -1076,6 +1108,79 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         })();
     }, []);
 
+    // Automatic day closure at closingHour: when a closing-hour boundary has
+    // passed (including while the app was off), seal every open calendar day
+    // up to the day before the last boundary. The server call uses auto=true,
+    // which re-dates leftover drafts to the new open day instead of refusing
+    // the closure — an unpaid cart must never silently block the seal or be
+    // deleted.
+    const autoCloseMissedDays = useCallback(async () => {
+        if (!resolvedShopId || !isOnline) return;
+        try {
+            const res = await deviceFetch('/api/sql/dailyClosure?limit=365');
+            if (!res.ok) return;
+            const data = (await res.json()) as { closures?: { closure_date: string }[] };
+            const closedDays = new Set((data?.closures ?? []).map((c) => String(c.closure_date).slice(0, 10)));
+            closedDays.forEach((d) => closedDaysRef.current.add(d));
+
+            // The boundary that just passed seals the calendar day BEFORE it —
+            // sales between midnight and closingHour stay open until the next
+            // boundary.
+            const { last } = getResetTimes();
+            const boundary = new Date(last);
+            const cursor = new Date(boundary.getFullYear(), boundary.getMonth(), boundary.getDate() - 1);
+
+            // Walk back from the target day until a known closure — a device
+            // off for a few days catches up on every missed day, in order.
+            const daysToClose: string[] = [];
+            for (let i = 0; i < 60; i++) {
+                const day = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
+                if (closedDays.has(day)) break;
+                daysToClose.unshift(day);
+                cursor.setDate(cursor.getDate() - 1);
+            }
+            for (const day of daysToClose) {
+                const r = await deviceFetch('/api/sql/dailyClosure', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    // redate_to carries the device's local time — every other
+                    // created_at is client-local, so CURRENT_TIMESTAMP (UTC)
+                    // could strand a draft on the wrong calendar day.
+                    body: JSON.stringify({
+                        date: day,
+                        closed_by: 'auto',
+                        auto: true,
+                        redate_to: toSQLDateTime(Date.now()),
+                    }),
+                });
+                if (r.ok || r.status === 409) {
+                    closedDaysRef.current.add(day);
+                    continue;
+                }
+                break; // transient failure — retried at the next boundary
+            }
+        } catch {
+            // Offline or unauthenticated — retried at the next boundary.
+        }
+    }, [resolvedShopId, isOnline, getResetTimes]);
+
+    useEffect(() => {
+        if (!resolvedShopId) return;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const scheduleNext = () => {
+            const { next } = getResetTimes();
+            timer = setTimeout(
+                () => {
+                    void autoCloseMissedDays().finally(scheduleNext);
+                },
+                Math.max(next - Date.now(), 0) + 5_000
+            );
+        };
+        void autoCloseMissedDays();
+        scheduleNext();
+        return () => clearTimeout(timer);
+    }, [resolvedShopId, isOnline, getResetTimes, autoCloseMissedDays]);
+
     // Synchronous check against the cached closure list — lets mutation
     // paths refuse a sealed-day write BEFORE mutating local state. Mirrors
     // the server rule: a tx is sealed by ANY closure on/after its day,
@@ -1186,11 +1291,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         action,
                         transaction: {
                             id: index,
-                            // A re-dated sale must get a fresh id — the sealed
-                            // row keeps the old order_id.
+                            // A re-dated sale: keep the known order_id — the
+                            // auto-closure already moved that server row to
+                            // the open day, so 'add' converges to an update of
+                            // the SAME row instead of inserting a ghost.
+                            // Without a known order_id (never synced), fall
+                            // back to a fresh id — the sealed row keeps its own.
                             order_id: staleCreatedDate
-                                ? String(transaction.createdDate)
-                                : orderId || String(transaction.createdDate),
+                                ? (transaction.orderId ?? String(transaction.createdDate))
+                                : transaction.orderId || orderId || String(transaction.createdDate),
                             customer_name: transaction.customerName
                                 ? transaction.customerName
                                 : currentCustomer
@@ -1353,9 +1462,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     );
 
     const deleteTransaction = useCallback(
-        (index?: number) => {
-            if (isLocked) return;
-            if (!transactions.length) return;
+        (index?: number): boolean => {
+            if (isLocked) return false;
+            if (!transactions.length) return false;
             const currentDeviceId = getPublicKey();
 
             index = index ?? transactions.findIndex(({ createdDate }) => createdDate === transactionId.current);
@@ -1369,7 +1478,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (index >= 0) {
                 const transaction = transactions[index];
                 // Refuse to delete a PROCESSING transaction that does not belong to this device.
-                if (isProcessingTransaction(transaction) && transaction.deviceId !== currentDeviceId) return;
+                if (isProcessingTransaction(transaction) && transaction.deviceId !== currentDeviceId) return false;
 
                 // A sealed confirmed transaction can never be cancelled —
                 // refuse before mutating local state. Sealed drafts get a
@@ -1381,7 +1490,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         `La journée du ${sealedDay} est clôturée — cette transaction ne peut plus être annulée.`,
                         'Pour corriger une vente passée, émettez un remboursement (avoir) daté du jour.',
                     ]);
-                    return;
+                    return false;
                 }
                 const localOnly = !!sealedDay;
 
@@ -1410,6 +1519,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     saveTransactions(DatabaseAction.delete, transaction, localOnly);
                 }
             }
+            return index >= 0;
         },
         [transactions, saveTransactions, storeTransaction, isLocked, sealedTxDay, openFullscreenPopup]
     );
@@ -1840,15 +1950,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     saveProcessingTransactionRef.current = saveProcessingTransaction;
 
     const editTransaction = useCallback(
-        (index: number, override?: Transaction) => {
-            if (isLocked) return;
+        (index: number, override?: Transaction): boolean => {
+            if (isLocked) return false;
             const transaction = override ?? transactions.at(index);
-            if (!transaction?.amount) return;
+            if (!transaction?.amount) return false;
 
             // Refuse to edit a PROCESSING transaction that does not belong to this device.
             if (isProcessingTransaction(transaction)) {
                 const currentDeviceId = getPublicKey();
-                if (transaction.deviceId !== currentDeviceId) return;
+                if (transaction.deviceId !== currentDeviceId) return false;
             }
 
             // A sealed confirmed transaction can never be modified — refuse
@@ -1861,7 +1971,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     `La journée du ${sealedDay} est clôturée — cette transaction ne peut plus être modifiée.`,
                     'Pour corriger une vente passée, émettez un remboursement (avoir) daté du jour.',
                 ]);
-                return;
+                return false;
             }
 
             // Track if this tx was WAITING — the kitchen already received a ticket when it was put on hold.
@@ -1877,6 +1987,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             processingTxCreatedDateRef.current = transaction.createdDate;
 
             saveTransactions(DatabaseAction.update, transaction);
+            return true;
         },
         [transactions, saveTransactions, addProduct, setCurrency, isLocked, sealedTxDay, openFullscreenPopup]
     );

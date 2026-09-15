@@ -247,22 +247,23 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
         [currentDeviceId]
     );
 
-    // Helper function to edit transaction, reversing refund transactions first
+    // Helper function to edit transaction, reversing refund transactions first.
+    // Returns false when the edit was refused (e.g. sealed day) so callers can
+    // skip follow-ups like closePopup() — the refusal popup must stay visible.
     const editTransactionWithReversal = useCallback(
-        (index: number) => {
+        (index: number): boolean => {
             const transaction = transactions.at(index);
-            if (!transaction) return;
+            if (!transaction) return false;
 
             // If it's a refund transaction, reverse it first and pass the reversed
             // version directly to editTransaction — no in-place array mutation.
             if (isRefundTransaction(transaction)) {
                 const reversedTransaction = reverseTransaction(transaction);
-                editTransaction(index, reversedTransaction);
-                return;
+                return editTransaction(index, reversedTransaction);
             }
 
             // Now call editTransaction normally
-            editTransaction(index);
+            return editTransaction(index);
         },
         [transactions, reverseTransaction, editTransaction]
     );
@@ -284,14 +285,14 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                       {
                           label: isWaiting ? 'Payer' : 'Modifier Paiement',
                           action: (index: number) => {
-                              editTransactionWithReversal(index); // set the transaction as current
+                              if (editTransactionWithReversal(index) === false) return; // refusal popup must stay
                               setTimeout(pay, 100);
                           },
                       },
                       {
                           label: isWaiting ? 'Reprendre' : 'Modifier Produits',
                           action: (index: number) => {
-                              editTransactionWithReversal(index);
+                              if (editTransactionWithReversal(index) === false) return;
                               closePopup();
                           },
                       },
@@ -306,7 +307,9 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
                               openPopup('⚠️ Confirmer la suppression ?', ['Continuer', 'Annuler'], (i, option) => {
                                   if (option !== 'Continuer') return;
                                   const tx = transactions.at(index);
-                                  deleteTransaction(index);
+                                  // deleteTransaction returns false when it refuses and shows its own
+                                  // popup (sealed day) — keep it instead of closing.
+                                  if (deleteTransaction(index) === false) return;
                                   closePopup();
                                   if (tx) {
                                       printKitchenReceipt(tx).then((response) => {
@@ -566,7 +569,9 @@ export const Total: FC<{ showLightAdminNav?: boolean; compact?: boolean }> = ({
             );
             const updatedTransaction = { ...transaction, products: updatedProducts, amount: updatedAmount };
             if (!updatedAmount) {
-                deleteTransaction(transactionIndex);
+                // deleteTransaction returns false when it refuses and shows its
+                // own popup (sealed day) — keep it instead of navigating away.
+                if (deleteTransaction(transactionIndex) === false) return;
                 if (visibleTransactions.length) {
                     backToTransactions();
                 } else {

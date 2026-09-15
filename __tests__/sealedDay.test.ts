@@ -10,12 +10,15 @@ import type { DbConnection } from '../src/app/api/sql/db';
 
 const state = vi.hoisted(() => {
     // transactions keyed by order_id
+    const DRAFTS = ['EN COURS', 'EN ATTENTE', 'EN MODIF'];
     const txs = new Map<string, { id: number; method: string; day: string }>();
     const closedDays = new Set<string>();
     const closedMonths = new Set<string>(); // 'YYYY-MM-01'
     const closedYears = new Set<number>();
     const queries: string[] = [];
     const writes: string[] = [];
+    const auditEvents: string[] = [];
+    const today = new Date().toISOString().slice(0, 10);
 
     const fakeConn: DbConnection = {
         isPostgreSQL: true,
@@ -61,6 +64,32 @@ const state = vi.hoisted(() => {
                     [{ monthly_closure_count: 0, ticket_count: 0, total_amount: 0, total_ht: 0, total_tva: 0 }],
                     {},
                 ];
+            }
+            // dailyClosure draft sweep (auto mode): drafts dated <= date
+            if (q.includes('payment_method IN') && q.includes('DATE(created_at) <=') && q.includes('ORDER BY id')) {
+                const date = String(params?.[0]);
+                const drafts = [...txs.entries()]
+                    .filter(([, t]) => DRAFTS.includes(t.method) && t.day <= date)
+                    .map(([orderId, t]) => ({ id: t.id, order_id: orderId }));
+                return [drafts, {}];
+            }
+            // sealed-ancestor check: any row after the draft in a closed day
+            if (q.includes('JOIN dc_pos.daily_closures') && q.includes('t.id >=')) {
+                const fromId = Number(params?.[0]);
+                const hit = [...txs.values()].some((t) => t.id >= fromId && closedDays.has(t.day));
+                return [hit ? [{ '?column?': 1 }] : [], {}];
+            }
+            // re-date UPDATE — CURRENT_TIMESTAMP lands the draft on today
+            if (q.startsWith('UPDATE dc_pos.transactions') && q.includes('CURRENT_TIMESTAMP')) {
+                const tx = [...txs.values()].find((t) => t.id === Number(params?.[0]));
+                if (tx) tx.day = today;
+                return [[], {}];
+            }
+            // dailyClosure draft count on the day being closed
+            if (q.includes('COUNT(*) AS cnt') && q.includes('DATE(created_at)') && q.includes('payment_method IN')) {
+                const date = String(params?.[0]);
+                const cnt = [...txs.values()].filter((t) => DRAFTS.includes(t.method) && t.day === date).length;
+                return [[{ cnt }], {}];
             }
             if (q.includes('COUNT(*)') && q.includes('FROM dc_pos.transactions')) {
                 return [[{ cnt: 0, total: 0 }], {}];
@@ -149,7 +178,7 @@ const state = vi.hoisted(() => {
             return [[], {}];
         },
     };
-    return { txs, closedDays, closedMonths, closedYears, queries, writes, conn: fakeConn };
+    return { txs, closedDays, closedMonths, closedYears, queries, writes, auditEvents, today, conn: fakeConn };
 });
 
 vi.mock('@/app/constants/shop', () => ({
@@ -167,7 +196,9 @@ vi.mock('@/app/api/sql/deviceAuth', () => ({
 }));
 
 vi.mock('@/app/api/sql/auditHelpers', () => ({
-    insertAuditEvent: async () => {},
+    insertAuditEvent: async (_c: unknown, e: { event_type: string }) => {
+        state.auditEvents.push(e.event_type);
+    },
     lockHashChain: async () => async () => {},
     resolveAuditActor: async () => 'admin-test',
 }));
@@ -227,6 +258,7 @@ beforeEach(() => {
     state.closedYears.clear();
     state.queries.length = 0;
     state.writes.length = 0;
+    state.auditEvents.length = 0;
 });
 
 describe('saveTransaction — journée clôturée (409 DAY_CLOSED)', () => {
@@ -348,6 +380,55 @@ describe('clôtures — sceau au niveau supérieur (409)', () => {
         const res = await dailyClosurePOST(post('/api/sql/dailyClosure', { date: '2025-01-14', closed_by: 'a' }));
         expect(res.status).toBe(200);
         expect(state.writes.some((w) => w.startsWith('INSERT INTO dc_pos.daily_closures'))).toBe(true);
+    });
+
+    it('refuse une clôture MANUELLE quand un brouillon existe ce jour-là (PENDING_DRAFTS)', async () => {
+        state.txs.set('tx-draft', { id: 1, method: 'EN ATTENTE', day: '2025-01-14' });
+        const res = await dailyClosurePOST(post('/api/sql/dailyClosure', { date: '2025-01-14', closed_by: 'a' }));
+        expect(res.status).toBe(409);
+        const body = await res.json();
+        expect(body.code).toBe('PENDING_DRAFTS');
+        expect(body.draftCount).toBe(1);
+        expect(state.writes.some((w) => w.includes('INSERT INTO dc_pos.daily_closures'))).toBe(false);
+    });
+
+    it('clôture AUTO : redate le brouillon au jour ouvert puis clôture', async () => {
+        state.txs.set('tx-draft', { id: 1, method: 'EN COURS', day: '2025-01-14' });
+        const res = await dailyClosurePOST(
+            post('/api/sql/dailyClosure', { date: '2025-01-14', closed_by: 'auto', auto: true })
+        );
+        expect(res.status).toBe(200);
+        // The draft was re-dated (created_at = CURRENT_TIMESTAMP) and rechained
+        expect(state.writes.some((w) => w.includes('SET created_at = CURRENT_TIMESTAMP'))).toBe(true);
+        expect(state.txs.get('tx-draft')?.day).toBe(state.today);
+        expect(state.writes.some((w) => w.startsWith('INSERT INTO dc_pos.daily_closures'))).toBe(true);
+        expect(state.auditEvents).toContain('transaction_redated');
+    });
+
+    it('clôture AUTO : garde un brouillon dont le rechain toucherait un jour scellé → 409', async () => {
+        // Draft on the day being closed, but a LATER row sits on an earlier
+        // closed day — rechaining it would rewrite sealed anchors.
+        state.txs.set('tx-draft', { id: 1, method: 'EN COURS', day: '2025-01-14' });
+        state.txs.set('tx-sealed', { id: 2, method: 'ESPÈCES', day: '2025-01-13' });
+        state.closedDays.add('2025-01-13');
+        const res = await dailyClosurePOST(
+            post('/api/sql/dailyClosure', { date: '2025-01-14', closed_by: 'auto', auto: true })
+        );
+        expect(res.status).toBe(409);
+        expect((await res.json()).code).toBe('PENDING_DRAFTS');
+        // The draft was NOT re-dated
+        expect(state.writes.some((w) => w.includes('SET created_at = CURRENT_TIMESTAMP'))).toBe(false);
+        expect(state.txs.get('tx-draft')?.day).toBe('2025-01-14');
+    });
+
+    it('clôture AUTO : redatte aussi un brouillon d\u2019un jour antérieur ouvert', async () => {
+        // Straggler draft on an older open day — the sweep covers <= date.
+        state.txs.set('tx-old-draft', { id: 1, method: 'EN ATTENTE', day: '2025-01-10' });
+        const res = await dailyClosurePOST(
+            post('/api/sql/dailyClosure', { date: '2025-01-14', closed_by: 'auto', auto: true })
+        );
+        expect(res.status).toBe(200);
+        expect(state.txs.get('tx-old-draft')?.day).toBe(state.today);
     });
 
     it('refuse une clôture mensuelle dans une année déjà clôturée (ancre annuelle)', async () => {
