@@ -27,7 +27,15 @@ vi.mock('@/app/constants/shop', () => ({
 
 vi.mock('@/app/api/sql/deviceAuth', () => ({
     assertDeviceAuthorized: async () => null,
+    authorizeDeviceOn: async () => ({
+        authorized: true,
+        admin: true,
+        intervention: false,
+        role: 'admin',
+        deviceId: 7,
+    }),
     resolveDeviceAuth: async () => ({ authorized: true, admin: true, intervention: false, role: 'admin' }),
+    resolveUserSession: async () => null,
 }));
 
 vi.mock('@/app/api/sql/auditHelpers', () => ({

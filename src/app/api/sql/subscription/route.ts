@@ -6,7 +6,6 @@ import { insertAuditEvent, lockHashChain } from '../auditHelpers';
 import {
     computeMonthlyBill,
     isSubscriptionPlan,
-    SUBSCRIPTION_PLANS,
     type BillingMethod,
     type SubscriptionPlan,
     type SubscriptionStatus,
@@ -21,20 +20,22 @@ function prefix(conn: DbConnection): string {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+        if (deviceGuard) return deviceGuard;
         const row = await readSubscription(connection);
         const events = await readSubscriptionEvents(connection);
         const now = new Date();
         const bill = computeMonthlyBill(events, now.getFullYear(), now.getMonth() + 1);
+        // Note: plan limits are not returned — Infinity serializes to null in
+        // JSON, and the sole consumer (useSubscription) re-derives them
+        // locally from SUBSCRIPTION_PLANS anyway.
         return NextResponse.json({
             plan: row.plan,
             status: row.status,
             billing_method: row.billing_method,
-            limits: SUBSCRIPTION_PLANS[row.plan as SubscriptionPlan].limits,
             month_to_date: bill.total,
             bill,
         });
@@ -48,8 +49,6 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
-    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const body = (await request.json()) as {
@@ -62,6 +61,8 @@ export async function POST(request: Request) {
         }
 
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin'], connection);
+        if (deviceGuard) return deviceGuard;
         const p = prefix(connection);
         const isPg = connection.isPostgreSQL;
 

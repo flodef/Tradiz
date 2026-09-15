@@ -117,6 +117,7 @@ import {
     assertDeviceAuthorized,
     deviceKeyFromRequest,
     sessionTokenHash,
+    shopRequiresUserAuth,
 } from '../src/app/api/sql/deviceAuth';
 import { GET as getParametersGET } from '../src/app/api/sql/getParameters/route';
 import { lockoutMs } from '../src/app/api/sql/resolveUser/route';
@@ -308,6 +309,19 @@ describe('Sessions utilisateur (requireUserAuth)', () => {
     it('flag actif → les routes non-admin restent accessibles sans session', async () => {
         state.requireUserAuth = true;
         expect(await assertDeviceAuthorized(req('key-cashier'), 'shop')).toBeNull();
+    });
+
+    it('une erreur DB sur le flag fait échouer fermé (auth requise), pas ouvert', async () => {
+        const broken: DbConnection = {
+            ...state.conn,
+            execute: async () => {
+                throw new Error('parameters table missing');
+            },
+        };
+        expect(await shopRequiresUserAuth(broken)).toBe(true);
+        // And a fully broken connection propagates the error (→ 500 at the
+        // route level) — it never errors open into device-level access.
+        await expect(assertDeviceAuthorized(req('key-admin'), 'shop', ['admin'], broken)).rejects.toThrow();
     });
 });
 

@@ -7,8 +7,6 @@ import { getPosDb, DbConnection } from '../db';
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const { companyId, period } = (await request.json()) as { companyId: number; period: string };
@@ -18,6 +16,8 @@ export async function POST(request: Request) {
         }
 
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+        if (deviceGuard) return deviceGuard;
         // Company invoicing is a Privilège feature; stopped = read-only.
         const sub = await readSubscription(connection);
         if (sub.status === 'stopped') {

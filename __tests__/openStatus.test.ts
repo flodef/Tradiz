@@ -24,16 +24,11 @@ describe('getOpenStatus', () => {
     });
 
     it('returns unknown on malformed data instead of crashing', () => {
-        expect(getOpenStatus({ 4: 'not-an-array' } as never, at('2026-09-11', '10:00')).status).toBe(
+        expect(getOpenStatus({ 4: 'not-an-array' } as never, at('2026-09-11', '10:00')).status).toBe('unknown');
+        expect(getOpenStatus({ 4: [{ open: 'abc', close: 'xyz' }] } as never, at('2026-09-11', '10:00')).status).toBe(
             'unknown'
         );
-        expect(
-            getOpenStatus({ 4: [{ open: 'abc', close: 'xyz' }] } as never, at('2026-09-11', '10:00'))
-                .status
-        ).toBe('unknown');
-        expect(
-            getOpenStatus({ 4: [{ open: '06:00' }] } as never, at('2026-09-11', '10:00')).status
-        ).toBe('unknown');
+        expect(getOpenStatus({ 4: [{ open: '06:00' }] } as never, at('2026-09-11', '10:00')).status).toBe('unknown');
     });
 
     describe('overnight slots (20:00 → 02:00)', () => {

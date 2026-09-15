@@ -9,8 +9,6 @@ import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
-    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const { currencies } = await request.json();
@@ -20,6 +18,8 @@ export async function POST(request: Request) {
         }
 
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin'], connection);
+        if (deviceGuard) return deviceGuard;
 
         // Plan limit: multi-devises requires Pro or above (Découverte = 1).
         const sub = await readSubscription(connection);

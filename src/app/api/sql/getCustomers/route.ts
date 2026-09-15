@@ -19,11 +19,11 @@ interface CustomerRow {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+        if (deviceGuard) return deviceGuard;
 
         const query = connection.isPostgreSQL
             ? `SELECT id, first_name, last_name, reference, email, phone, company, balance, fidelity_points

@@ -1,8 +1,8 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { executeInsert, getPosDb, withTransaction } from '../db';
-import { assertDeviceAuthorized } from '../deviceAuth';
-import { insertAuditEvent, resolveAuditActor } from '../auditHelpers';
+import { authorizeDeviceOn, resolveUserSession } from '../deviceAuth';
+import { insertAuditEvent } from '../auditHelpers';
 import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
 
@@ -22,18 +22,22 @@ interface Device {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
-    if (deviceGuard) return deviceGuard;
     let connection: Awaited<ReturnType<typeof getPosDb>> | undefined;
 
     try {
+        connection = await getPosDb(shopId);
+        // Authorize on the route's own connection — one resolution, and the
+        // caller's device id is needed below to protect it from deletion.
+        const authResult = await authorizeDeviceOn(request, connection, shopId, ['admin']);
+        if (authResult instanceof NextResponse) return authResult;
+        const callerDeviceId = authResult.deviceId;
+
         const { devices } = (await request.json()) as { devices: Device[] };
 
         if (!Array.isArray(devices)) {
             return NextResponse.json({ error: 'Invalid devices data' }, { status: 400 });
         }
 
-        connection = await getPosDb(shopId);
         const db = connection;
 
         // Plan limit: the formule caps the number of caisses (devices).
@@ -62,6 +66,7 @@ export async function POST(request: Request) {
         const beforeCount = Number((countRows as { count: number | string }[])[0]?.count) || 0;
         let added = 0;
         let updated = 0;
+        let revoked = 0;
 
         await withTransaction(db, async () => {
             const savedIds: number[] = [];
@@ -79,39 +84,47 @@ export async function POST(request: Request) {
 
                 // The intervention flag is DB-managed only — never trust it
                 // from the request body (it would bypass the device quota and
-                // hide devices from the admin UI).
+                // hide devices from the admin UI). Intervention ROWS are also
+                // untouchable here: `AND NOT intervention` on every write so
+                // a forged id/key can't hijack a service device.
                 if (device.id) {
-                    // Update existing device by id
-                    await db.execute(
-                        db.isPostgreSQL
-                            ? 'UPDATE dc_pos.devices SET label = $1, public_key = $2, user_id = $3, backscreen_com = $4, backscreen_baud = $5, printer_com = $6, printer_baud = $7, cash_drawer_com = $8, cash_drawer_baud = $9 WHERE id = $10'
-                            : 'UPDATE devices SET label = ?, public_key = ?, user_id = ?, backscreen_com = ?, backscreen_baud = ?, printer_com = ?, printer_baud = ?, cash_drawer_com = ?, cash_drawer_baud = ? WHERE id = ?',
-                        [
-                            label,
-                            key,
-                            userId,
-                            backscreenCom,
-                            backscreenBaud,
-                            printerCom,
-                            printerBaud,
-                            cashDrawerCom,
-                            cashDrawerBaud,
-                            device.id,
-                        ]
-                    );
-                    savedIds.push(device.id);
-                    updated++;
+                    // Update existing device by id — never an intervention row.
+                    const updateQuery = db.isPostgreSQL
+                        ? 'UPDATE dc_pos.devices SET label = $1, public_key = $2, user_id = $3, backscreen_com = $4, backscreen_baud = $5, printer_com = $6, printer_baud = $7, cash_drawer_com = $8, cash_drawer_baud = $9 WHERE id = $10 AND NOT intervention RETURNING id'
+                        : 'UPDATE devices SET label = ?, public_key = ?, user_id = ?, backscreen_com = ?, backscreen_baud = ?, printer_com = ?, printer_baud = ?, cash_drawer_com = ?, cash_drawer_baud = ? WHERE id = ? AND NOT intervention';
+                    const [updRows, updResult] = await db.execute(updateQuery, [
+                        label,
+                        key,
+                        userId,
+                        backscreenCom,
+                        backscreenBaud,
+                        printerCom,
+                        printerBaud,
+                        cashDrawerCom,
+                        cashDrawerBaud,
+                        device.id,
+                    ]);
+                    const affected = db.isPostgreSQL
+                        ? (updRows as { id: number }[]).length
+                        : Number((updResult as { affectedRows?: number }).affectedRows ?? 0);
+                    if (affected > 0) {
+                        savedIds.push(device.id);
+                        updated++;
+                    }
                     continue;
                 }
 
-                // Try to find existing device by public key
+                // Try to find existing device by public key — an intervention
+                // row must never be matched (a forged body carrying its key
+                // would otherwise rewrite the service device).
                 const [findRows] = await db.execute(
                     db.isPostgreSQL
-                        ? 'SELECT id FROM dc_pos.devices WHERE public_key = $1 LIMIT 1'
-                        : 'SELECT id FROM devices WHERE public_key = ? LIMIT 1',
+                        ? 'SELECT id, intervention FROM dc_pos.devices WHERE public_key = $1 LIMIT 1'
+                        : 'SELECT id, intervention FROM devices WHERE public_key = ? LIMIT 1',
                     [key]
                 );
-                const existingId = (findRows as { id: number }[])[0]?.id;
+                const found = (findRows as { id: number; intervention: number | boolean }[])[0];
+                const existingId = found && !found.intervention ? found.id : undefined;
 
                 if (existingId) {
                     await db.execute(
@@ -132,7 +145,7 @@ export async function POST(request: Request) {
                     );
                     savedIds.push(existingId);
                     updated++;
-                } else {
+                } else if (!found) {
                     const newId = await executeInsert(
                         db,
                         'INSERT INTO dc_pos.devices (label, public_key, user_id, backscreen_com, backscreen_baud, printer_com, printer_baud, cash_drawer_com, cash_drawer_baud) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
@@ -154,17 +167,25 @@ export async function POST(request: Request) {
                         added++;
                     }
                 }
+                // found.intervention → skip silently: the service row is left untouched.
             }
 
-            // Delete devices that are not in the incoming list — intervention
-            // devices are never sent by the UI but must be preserved.
-            if (savedIds.length > 0) {
+            // Delete devices that are not in the incoming list. Two rows are
+            // always preserved: intervention devices (never sent by the UI)
+            // and the CALLING device — a payload can never brick the terminal
+            // it is sent from (which would leave the shop with no way to
+            // reach admin routes).
+            const protectCaller = callerDeviceId
+                ? ` AND id <> ${db.isPostgreSQL ? `$${savedIds.length + 1}` : '?'}`
+                : '';
+            if (savedIds.length > 0 || callerDeviceId) {
                 const placeholders = savedIds.map((_, i) => (db.isPostgreSQL ? `$${i + 1}` : '?')).join(',');
+                const notInClause = savedIds.length ? ` AND id NOT IN (${placeholders})` : '';
                 await db.execute(
                     db.isPostgreSQL
-                        ? `DELETE FROM dc_pos.devices WHERE id NOT IN (${placeholders}) AND NOT intervention`
-                        : `DELETE FROM devices WHERE id NOT IN (${placeholders}) AND NOT intervention`,
-                    savedIds
+                        ? `DELETE FROM dc_pos.devices WHERE NOT intervention${notInClause}${protectCaller}`
+                        : `DELETE FROM devices WHERE NOT intervention${notInClause}${protectCaller}`,
+                    callerDeviceId ? [...savedIds, callerDeviceId] : savedIds
                 );
             } else {
                 await db.execute(
@@ -173,17 +194,30 @@ export async function POST(request: Request) {
                         : 'DELETE FROM devices WHERE NOT intervention'
                 );
             }
-        });
 
-        // Device list changes grant/revoke API access — always audit them.
-        // Keys are never logged (a leaked audit row must not leak credentials).
-        const revoked = Math.max(0, beforeCount - (added + updated));
-        await insertAuditEvent(db, {
-            event_type: 'device_change',
-            entity_type: 'devices',
-            entity_id: 'devices',
-            user_name: await resolveAuditActor(request, db, shopId),
-            detail: `${added} added, ${updated} updated, ${revoked} revoked`,
+            // Revoked = previously billable devices that no longer exist.
+            const [afterRows] = await db.execute(
+                db.isPostgreSQL
+                    ? 'SELECT COUNT(*) AS count FROM dc_pos.devices WHERE NOT intervention'
+                    : 'SELECT COUNT(*) AS count FROM devices WHERE NOT intervention',
+                []
+            );
+            const afterCount = Number((afterRows as { count: number | string }[])[0]?.count) || 0;
+            revoked = Math.max(0, beforeCount - (afterCount - added));
+
+            // Device list changes grant/revoke API access — always audit
+            // them, INSIDE the transaction so a failed audit can't leave an
+            // unaudited change committed. Keys are never logged. The caller
+            // device is already resolved (authResult) — only the session
+            // lookup remains.
+            const session = callerDeviceId ? await resolveUserSession(request, db, callerDeviceId) : null;
+            await insertAuditEvent(db, {
+                event_type: 'device_change',
+                entity_type: 'devices',
+                entity_id: 'devices',
+                user_name: session?.name ?? authResult.userName ?? 'inconnu',
+                detail: `${added} added, ${updated} updated, ${revoked} revoked`,
+            });
         });
 
         return NextResponse.json({ success: true }, { status: 200 });

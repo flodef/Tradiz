@@ -74,7 +74,14 @@ prix côté serveur, public par design). Rien à signer.
   préfixe de clé de 8 chars — jamais la clé entière), dédupliqué à 1
   écriture / min par (IP, clé). Au-delà de **30 refus / 15 min par IP →
   429**. Branché sur `assertDeviceAuthorized` (les 45 routes gatées),
-  `whoami` (403) et `getDeviceHardware` (404). Localhost/Electron exempté.
+  `whoami` (403) et `getDeviceHardware` (404). **Exemption** : toute requête
+  dont l'IP est indéterminable — c.-à-d. sans en-tête de forwarding
+  (`x-vercel-forwarded-for`, `x-real-ip`, `x-forwarded-for`) — est exemptée
+  du throttle (`ip_address = 'unknown'`, traitée comme loopback). En
+  pratique : sur Vercel la plateforme pose toujours un en-tête → le throttle
+  est actif ; en Electron/embarqué ou sur un serveur LAN auto-hébergé sans
+  reverse-proxy, aucune requête n'a d'en-tête → le throttle est
+  **inopérant**. À savoir avant de compter dessus en déploiement LAN.
 - **B.2 Hash des clés en DB** ⬜ — une fuite DB ≠ fuite de credentials.
   `devices.public_key` → `public_key_hash` sha256. Coût : migration en place
   (non réversible → dump avant), `resolveDeviceAuth`/`getDeviceHardware`/
@@ -99,8 +106,11 @@ prix côté serveur, public par design). Rien à signer.
 - **C.1 PIN par utilisateur ✅** — `users.pin_hash` (scrypt + sel,
   `src/app/api/sql/pinHash.ts`, migration `migrate-users-pin.sql`).
     - `POST /api/sql/verifyUserPin` : device-gaté + **rate-limité 5 échecs /
-      15 min par IP** (logs `pin_attempt` dans `dc_sys.connections` — jamais
-      le PIN ni le hash).
+      15 min par utilisateur** — plus par IP quand l'IP distingue les
+      clients (logs `pin_attempt` dans `dc_sys.connections` — jamais le PIN
+      ni le hash). Le scoping par utilisateur évite le bucket partagé
+      `ip_address = 'unknown'` d'Electron : 5 fautes d'un caissier ne
+      verrouillent plus les autres.
     - `getUsers`/`updateUsers` exposent `hasPin` uniquement ; `updateUsers`
       accepte `pin` (4–8 chiffres, hashé serveur) et `clearPin` — omettre les
       deux conserve le PIN existant.

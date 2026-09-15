@@ -1,19 +1,23 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
-import { assertDeviceAuthorized, requestIp, resolveDeviceAuth, sessionTokenHash } from '../deviceAuth';
+import { authorizeDeviceOn, isLocalOrUnknownIp, requestIp, sessionTokenHash } from '../deviceAuth';
 import { verifyPin } from '../pinHash';
 import { insertAuditEvent } from '../auditHelpers';
 import { generateSecureId } from '@/app/utils/id';
 
 export const dynamic = 'force-dynamic';
 
-// PINs are short — brute force is bounded by a per-IP failure counter kept in
+// PINs are short — brute force is bounded by a failure counter kept in
 // dc_sys.connections (type 'pin_attempt').
 const PIN_WINDOW_MS = 15 * 60 * 1000;
 const PIN_MAX_FAILURES = 5;
 // Sessions cover a full working day; expiry is checked at resolve time.
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+// A well-formed scrypt hash (`salt:hash`) that can never match — used to run
+// the same scrypt work when the user or its PIN doesn't exist, so response
+// time doesn't reveal which failed (existence oracle).
+const DUMMY_PIN_HASH = `${'0'.repeat(32)}:${'0'.repeat(64)}`;
 
 interface UserRow {
     pin_hash: string | null;
@@ -23,15 +27,20 @@ interface UserRow {
 /**
  * POST /api/sql/verifyUserPin — checks a user's PIN when switching user on
  * the POS. Device-gated (any registered device) and rate-limited:
- * 5 failures / 15 min per IP → 429.
+ * 5 failures / 15 min per user (per IP too when the IP is meaningful).
  */
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
 
     let connection: DbConnection | undefined;
     try {
+        connection = await getPosDb(shopId);
+        // Single connection + single device resolution for the whole
+        // request — the resolved device is reused for the session binding.
+        const authResult = await authorizeDeviceOn(request, connection, shopId);
+        if (authResult instanceof NextResponse) return authResult;
+        const auth = authResult;
+
         const body = (await request.json()) as { userId?: number; pin?: string };
         const userId = Number(body.userId);
         const pin = typeof body.pin === 'string' ? body.pin : '';
@@ -39,27 +48,37 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing or invalid userId/pin' }, { status: 400 });
         }
 
-        connection = await getPosDb(shopId);
         const isPg = connection.isPostgreSQL;
         const ip = requestIp(request);
+        // Electron/localhost requests share the 'unknown' IP — counting
+        // failures by IP there would pool every user's attempts on the same
+        // terminal (5 wrong PINs across any mix of users → 429 for all).
+        // The per-user counter still bounds on-device brute force.
+        const ipScoped = !isLocalOrUnknownIp(ip);
 
-        // Rate limit: 5 failures / 15 min, counted per IP *and* per target
-        // user — the user_id counter also bounds on-device brute force
-        // (Electron/localhost requests are exempt from IP-based limits).
+        // Rate limit: 5 failures / 15 min, counted per target user — plus
+        // per IP when the IP distinguishes clients.
         const windowStart = new Date(Date.now() - PIN_WINDOW_MS).toISOString();
-        const [countRows] = await connection.execute(
-            isPg
-                ? `SELECT COUNT(*) AS count FROM dc_sys.connections
-                   WHERE metadata->>'type' = 'pin_attempt' AND metadata->>'success' = 'false'
-                   AND created_at > $1
-                   AND (metadata->>'ip_address' = $2 OR metadata->>'user_id' = $3)`
-                : `SELECT COUNT(*) AS count FROM DC_SYS.connections
-                   WHERE JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.type')) = 'pin_attempt'
-                   AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.success')) = 'false' AND created_at > ?
-                   AND (JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.ip_address')) = ?
-                        OR JSON_EXTRACT(metadata, '$.user_id') = ?)`,
-            isPg ? [windowStart, ip, String(userId)] : [windowStart, ip, userId]
-        );
+        const countQuery = isPg
+            ? `SELECT COUNT(*) AS count FROM dc_sys.connections
+               WHERE metadata->>'type' = 'pin_attempt' AND metadata->>'success' = 'false'
+               AND created_at > $1
+               AND (metadata->>'user_id' = $2${ipScoped ? ` OR metadata->>'ip_address' = $3` : ''})`
+            : `SELECT COUNT(*) AS count FROM DC_SYS.connections
+               WHERE JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.type')) = 'pin_attempt'
+               AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.success')) = 'false' AND created_at > ?
+               AND (JSON_EXTRACT(metadata, '$.user_id') = ?${
+                   ipScoped ? ` OR JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.ip_address')) = ?` : ''
+               })`;
+        // $.user_id is stored as a JSON number — comparing it to a numeric
+        // param is correct; do NOT wrap it in JSON_UNQUOTE (the unquoted
+        // string '3' would not match the JSON number 3).
+        const countParams: unknown[] = [
+            windowStart,
+            ...(isPg ? [String(userId)] : [userId]),
+            ...(ipScoped ? [ip] : []),
+        ];
+        const [countRows] = await connection.execute(countQuery, countParams);
         const failures = Number((countRows as { count: number | string }[])[0]?.count) || 0;
         if (failures >= PIN_MAX_FAILURES) {
             return NextResponse.json({ error: 'Too many attempts' }, { status: 429 });
@@ -73,7 +92,11 @@ export async function POST(request: Request) {
         );
         const userRow = (rows as UserRow[])[0];
 
-        const ok = userRow?.pin_hash ? await verifyPin(pin, userRow.pin_hash) : false;
+        // Always run exactly one scrypt: against the stored hash when it
+        // exists, else against a dummy — so response time can't reveal
+        // whether the user or its PIN exists (timing oracle).
+        const ok = !!userRow?.pin_hash && (await verifyPin(pin, userRow.pin_hash));
+        if (!userRow?.pin_hash) await verifyPin(pin, DUMMY_PIN_HASH).catch(() => {});
 
         // Log the attempt (never the PIN itself)
         await connection
@@ -95,7 +118,10 @@ export async function POST(request: Request) {
 
         // Audit the successful authentication (D.1) — this is what attributes
         // later sensitive writes to a real user instead of just a device.
-        insertAuditEvent(connection, {
+        // Awaited: a fire-and-forget insert can be cut off by the connection
+        // closing in `finally`, silently dropping exactly the event this
+        // audit exists for.
+        await insertAuditEvent(connection, {
             event_type: 'user_login',
             entity_type: 'users',
             entity_id: String(userId),
@@ -105,7 +131,6 @@ export async function POST(request: Request) {
 
         // Create a user session bound to this device — the plain token goes
         // to the client, only its hash is stored.
-        const auth = await resolveDeviceAuth(request, connection, shopId);
         if (auth.deviceId) {
             const token = generateSecureId();
             const expiresAt = new Date(Date.now() + SESSION_TTL_MS);

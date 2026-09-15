@@ -9,8 +9,6 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const version = getSoftwareVersion();
@@ -20,6 +18,8 @@ export async function POST(request: Request) {
         }
 
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+        if (deviceGuard) return deviceGuard;
         const isPg = connection.isPostgreSQL;
         const prefix = isPg ? 'dc_pos.' : '';
 

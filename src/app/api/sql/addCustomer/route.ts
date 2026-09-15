@@ -19,8 +19,6 @@ interface Customer {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const customer = (await request.json()) as Customer;
@@ -30,6 +28,8 @@ export async function POST(request: Request) {
         }
 
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+        if (deviceGuard) return deviceGuard;
         // Plan limit: gestion des clients requires Pro or above.
         const sub = await readSubscription(connection);
         if (sub.status === 'stopped') return stoppedSubscriptionResponse();

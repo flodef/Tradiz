@@ -143,6 +143,8 @@ async function upsertParameter(connection: DbConnection, key: string, value: str
  */
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    // Guard upfront: this handler has several branches (view/generate/status)
+    // each opening its own connection — the PDF must never be served unauthenticated.
     const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
     if (deviceGuard) return deviceGuard;
     const url = new URL(request.url);
@@ -256,6 +258,7 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    // Upfront guard: file I/O (PDF write) must never run unauthenticated.
     const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
     if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
@@ -394,6 +397,7 @@ export async function POST(request: Request) {
  */
 export async function DELETE(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    // Upfront guard: fs.unlinkSync below must never run unauthenticated.
     const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
     if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;

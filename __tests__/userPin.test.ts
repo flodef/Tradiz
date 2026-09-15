@@ -55,12 +55,15 @@ const state = vi.hoisted(() => {
                     : [[], {}];
             }
 
-            // PIN rate-limit counter (failures matching IP or user_id)
+            // PIN rate-limit counter — new param order: [windowStart, userId, ip?]
+            // (ip only present when it distinguishes clients, i.e. not
+            // 'unknown'/localhost). Mirrors the route's OR semantics.
             if (q.includes('COUNT(*)') && q.includes('dc_sys.connections') && q.includes('pin_attempt')) {
-                const ip = String(params?.[1]);
-                const userId = Number(params?.[2]);
+                const userId = Number(params?.[1]);
+                const hasIpArm = params !== undefined && params.length > 2;
+                const ip = hasIpArm ? String(params?.[2]) : null;
                 const count = state.pinAttempts.filter(
-                    (a) => !a.success && (a.ip === ip || a.userId === userId)
+                    (a) => !a.success && (a.userId === userId || (ip !== null && a.ip === ip))
                 ).length;
                 return [[{ count }], {}];
             }
@@ -248,6 +251,35 @@ describe('POST /api/sql/verifyUserPin', () => {
             state.pinAttempts.push({ ip: '9.9.9.9', userId: 1, success: false });
         }
         const res = await verifyUserPinPOST(pinReq({ userId: 1, pin: '1234' }, '9.9.9.9'));
+        expect(res.status).toBe(429);
+    });
+
+    it('les échecs d’un utilisateur ne verrouillent pas un autre (Electron, IP unknown)', async () => {
+        state.users.push({ id: 2, name: 'Bob', role: 'Caissier', pin_hash: await hashPin('5678') });
+        // Electron: no forwarding header → ip 'unknown' → per-user scoping only.
+        const electronReq = (body: unknown) =>
+            new Request('http://localhost/api/sql/verifyUserPin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-public-key': 'device-key' },
+                body: JSON.stringify(body),
+            });
+        // 5 wrong PINs on user 1 → user 1 is locked…
+        for (let i = 0; i < 5; i++) {
+            state.pinAttempts.push({ ip: 'unknown', userId: 1, success: false });
+        }
+        expect((await verifyUserPinPOST(electronReq({ userId: 1, pin: '1234' }))).status).toBe(429);
+        // …but user 2 on the same terminal is NOT locked.
+        expect((await verifyUserPinPOST(electronReq({ userId: 2, pin: '5678' }))).status).toBe(200);
+    });
+
+    it('IP externe : les échecs mutualisés par IP verrouillent tous les utilisateurs de cette IP', async () => {
+        state.users.push({ id: 2, name: 'Bob', role: 'Caissier', pin_hash: await hashPin('5678') });
+        // 5 failures on the shared IP spread across users → the IP arm locks
+        // everyone on that IP (bounded brute-force surface).
+        for (let i = 0; i < 5; i++) {
+            state.pinAttempts.push({ ip: '8.8.8.8', userId: i % 2 === 0 ? 1 : 2, success: false });
+        }
+        const res = await verifyUserPinPOST(pinReq({ userId: 2, pin: '5678' }, '8.8.8.8'));
         expect(res.status).toBe(429);
     });
 

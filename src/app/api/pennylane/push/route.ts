@@ -10,8 +10,6 @@ import { assertDeviceAuthorized } from '../../sql/deviceAuth';
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
     try {
         const body = await request.json();
         const { report, shop, invoiceNumber, deadline } = body as {
@@ -28,6 +26,8 @@ export async function POST(request: Request) {
         // Read the PennyLane token from the parameters table so it never transits the client.
         let pennylaneToken: string | undefined;
         const connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+        if (deviceGuard) return deviceGuard;
         try {
             // Company invoicing is a Privilège feature with an external side effect.
             const sub = await readSubscription(connection);

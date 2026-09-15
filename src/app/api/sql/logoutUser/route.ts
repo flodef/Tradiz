@@ -12,8 +12,6 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
 
     const token = sessionTokenFromRequest(request);
     if (!token) return NextResponse.json({ ok: true });
@@ -21,6 +19,8 @@ export async function POST(request: Request) {
     let connection: DbConnection | undefined;
     try {
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+        if (deviceGuard) return deviceGuard;
         await connection.execute(
             connection.isPostgreSQL
                 ? `UPDATE dc_pos.sessions SET revoked_at = NOW() WHERE token_hash = $1 AND revoked_at IS NULL`

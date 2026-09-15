@@ -15,8 +15,6 @@ interface UpdatePrintersRequest {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
-    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const { printers } = (await request.json()) as UpdatePrintersRequest;
@@ -26,6 +24,8 @@ export async function POST(request: Request) {
         }
 
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin'], connection);
+        if (deviceGuard) return deviceGuard;
         if (await subscriptionStopped(connection)) {
             return stoppedSubscriptionResponse();
         }

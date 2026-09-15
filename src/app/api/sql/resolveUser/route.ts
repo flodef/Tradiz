@@ -1,6 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
+import { isLocalOrUnknownIp, requestIp } from '../deviceAuth';
 
 interface UserRow {
     id: number;
@@ -109,7 +110,7 @@ async function ipLockoutRemainingMs(connection: import('../db').DbConnection, ip
                AND metadata->>'success' = 'false'
                AND created_at > $2`
             : `SELECT COUNT(*) as count, MAX(created_at) as last_at FROM DC_SYS.connections
-               WHERE JSON_EXTRACT(metadata, '$.ip_address') = ?
+               WHERE JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.ip_address')) = ?
                AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.type')) = 'access_attempt'
                AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.success')) = 'false'
                AND created_at > ?`;
@@ -131,55 +132,62 @@ async function ipLockoutRemainingMs(connection: import('../db').DbConnection, ip
     }
 }
 
+interface AccessAttempt {
+    publicKey: string;
+    userName: string | null;
+    userRole: string | null;
+    ipAddress: string;
+    userAgent: string;
+    browserName: string;
+    browserVersion: string;
+    osName: string;
+    osVersion: string;
+    deviceType: string;
+    screenResolution: string;
+    language: string;
+    timezone: string;
+    country: string | null;
+    city: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    success: boolean;
+}
+
 /**
  * Log access attempt to database using the existing logs table
- * Only logs failed connections from Europe/Paris timezone
+ * Only logs connections from Europe/Paris timezone
  */
-async function logAccessAttempt(
-    connection: import('../db').DbConnection,
-    publicKey: string,
-    userName: string | null,
-    userRole: string | null,
-    ipAddress: string,
-    userAgent: string,
-    browserName: string,
-    browserVersion: string,
-    osName: string,
-    osVersion: string,
-    deviceType: string,
-    screenResolution: string,
-    language: string,
-    timezone: string,
-    country: string | null,
-    city: string | null,
-    latitude: number | null,
-    longitude: number | null,
-    success: boolean
-): Promise<void> {
+async function logAccessAttempt(connection: import('../db').DbConnection, attempt: AccessAttempt): Promise<void> {
     try {
         // Only log connections from Europe/Paris timezone
-        if (timezone !== 'Europe/Paris') return;
+        if (attempt.timezone !== 'Europe/Paris') return;
+
+        // The full key is stored ONLY on failure: it is the channel by which
+        // an admin learns an unregistered device's key (see getFailedLoginKey
+        // and the unknown-device banner). For a successful resolution the key
+        // is a working credential — a prefix is enough to correlate.
+        const storedKey = attempt.success ? attempt.publicKey.slice(0, 8) : attempt.publicKey;
 
         const metadata = {
             type: 'access_attempt',
-            public_key: publicKey,
-            user_name: userName,
-            user_role: userRole,
-            ip_address: ipAddress,
-            user_agent: userAgent,
-            browser_name: browserName,
-            browser_version: browserVersion,
-            os_name: osName,
-            os_version: osVersion,
-            device_type: deviceType,
-            screen_resolution: screenResolution,
-            language,
-            timezone,
-            country,
-            city,
-            latitude,
-            longitude,
-            success,
+            public_key: storedKey,
+            user_name: attempt.userName,
+            user_role: attempt.userRole,
+            ip_address: attempt.ipAddress,
+            user_agent: attempt.userAgent,
+            browser_name: attempt.browserName,
+            browser_version: attempt.browserVersion,
+            os_name: attempt.osName,
+            os_version: attempt.osVersion,
+            device_type: attempt.deviceType,
+            screen_resolution: attempt.screenResolution,
+            language: attempt.language,
+            timezone: attempt.timezone,
+            country: attempt.country,
+            city: attempt.city,
+            latitude: attempt.latitude,
+            longitude: attempt.longitude,
+            success: attempt.success,
         };
 
         const query = connection.isPostgreSQL
@@ -187,8 +195,8 @@ async function logAccessAttempt(
             : `INSERT INTO DC_SYS.connections (level, message, metadata) VALUES (?, ?, ?)`;
 
         await connection.execute(query, [
-            success ? 'info' : 'error',
-            `User access attempt: ${userName || 'unknown'} (${publicKey})`,
+            attempt.success ? 'info' : 'error',
+            `User access attempt: ${attempt.userName || 'unknown'} (${storedKey})`,
             JSON.stringify(metadata),
         ]);
     } catch (error) {
@@ -232,14 +240,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Missing or invalid publicKey' }, { status: 400 });
         }
 
-        // Extract request information
-        // Prefer Vercel's trusted headers (set by the platform, not spoofable by clients)
-        // Fall back to x-forwarded-for / x-real-ip for local dev or other proxies
-        const ipAddress =
-            request.headers.get('x-vercel-forwarded-for')?.split(',')[0].trim() ||
-            request.headers.get('x-real-ip') ||
-            request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-            'unknown';
+        // Extract request information — requestIp prefers Vercel's trusted
+        // headers (set by the platform, not spoofable) and falls back to
+        // x-forwarded-for / x-real-ip for local dev or other proxies.
+        const ipAddress = requestIp(request);
         const userAgent = request.headers.get('user-agent') || 'unknown';
 
         // Parse user agent
@@ -322,14 +326,9 @@ export async function POST(request: NextRequest) {
 
         // Check if IP is blocked due to too many failed attempts
         // Only apply block if user is NOT authenticated (not found in system)
-        // Skip blocking for localhost (Electron app requests come from localhost with no forwarding headers)
-        if (
-            !foundUser &&
-            ipAddress !== '::1' &&
-            ipAddress !== '::ffff:127.0.0.1' &&
-            ipAddress !== '127.0.0.1' &&
-            ipAddress !== 'unknown'
-        ) {
+        // Skip blocking for localhost/unknown IPs (Electron app requests come
+        // from localhost with no forwarding headers).
+        if (!foundUser && !isLocalOrUnknownIp(ipAddress)) {
             const lockoutMsRemaining = await ipLockoutRemainingMs(connection, ipAddress);
             if (lockoutMsRemaining > 0) {
                 await connection.end();
@@ -341,11 +340,10 @@ export async function POST(request: NextRequest) {
         }
 
         // Log access attempt
-        await logAccessAttempt(
-            connection,
+        await logAccessAttempt(connection, {
             publicKey,
-            foundUser?.name || null,
-            foundUser?.role || null,
+            userName: foundUser?.name || null,
+            userRole: foundUser?.role || null,
             ipAddress,
             userAgent,
             browserName,
@@ -360,8 +358,8 @@ export async function POST(request: NextRequest) {
             city,
             latitude,
             longitude,
-            !!foundUser
-        );
+            success: !!foundUser,
+        });
 
         await connection.end();
 

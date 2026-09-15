@@ -2,9 +2,9 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { executeInsert, getPosDb, withTransaction } from '../db';
-import { assertDeviceAuthorized, shopRequiresUserAuth } from '../deviceAuth';
+import { authorizeDeviceOn, resolveUserSession, shopRequiresUserAuth } from '../deviceAuth';
 import { generateProductReference } from '@/app/utils/productReference';
-import { insertAuditEvent, resolveAuditActor } from '../auditHelpers';
+import { insertAuditEvent } from '../auditHelpers';
 import { hashPin } from '../pinHash';
 
 class ConflictError extends Error {}
@@ -24,8 +24,6 @@ const PIN_PATTERN = /^\d{4,8}$/;
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
-    if (deviceGuard) return deviceGuard;
     let connection: Awaited<ReturnType<typeof getPosDb>> | undefined;
 
     try {
@@ -39,6 +37,8 @@ export async function POST(request: Request) {
         }
 
         connection = await getPosDb(shopId);
+        const authResult = await authorizeDeviceOn(request, connection, shopId, ['admin']);
+        if (authResult instanceof NextResponse) return authResult;
         if (await subscriptionStopped(connection)) {
             return stoppedSubscriptionResponse();
         }
@@ -202,7 +202,12 @@ export async function POST(request: Request) {
             event_type: 'user_change',
             entity_type: 'users',
             entity_id: 'users',
-            user_name: await resolveAuditActor(request, connection, shopId),
+            user_name:
+                (authResult.deviceId
+                    ? (await resolveUserSession(request, connection, authResult.deviceId))?.name
+                    : undefined) ??
+                authResult.userName ??
+                'inconnu',
             detail:
                 `Updated ${users.length} user(s)` +
                 (pinsSet ? `, ${pinsSet} PIN set/changed` : '') +

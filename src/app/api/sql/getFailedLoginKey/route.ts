@@ -12,11 +12,11 @@ interface LogRow {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
-    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin'], connection);
+        if (deviceGuard) return deviceGuard;
 
         const query = connection.isPostgreSQL
             ? `SELECT l.metadata->>'public_key' AS public_key, l.created_at
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
                FROM DC_SYS.connections l
                WHERE l.level = 'error'
                  AND JSON_UNQUOTE(JSON_EXTRACT(l.metadata, '$.success')) = 'false'
-                 AND JSON_EXTRACT(l.metadata, '$.type') = 'access_attempt'
+                 AND JSON_UNQUOTE(JSON_EXTRACT(l.metadata, '$.type')) = 'access_attempt'
                  AND NOT EXISTS (
                      SELECT 1 FROM devices d WHERE d.public_key = JSON_UNQUOTE(JSON_EXTRACT(l.metadata, '$.public_key'))
                  )

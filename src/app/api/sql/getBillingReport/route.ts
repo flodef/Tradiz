@@ -10,8 +10,6 @@ import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
     const { searchParams } = new URL(request.url);
     const companyName = searchParams.get('companyName');
     const startDate = searchParams.get('startDate');
@@ -24,6 +22,8 @@ export async function GET(request: Request) {
     let connection: DbConnection | undefined;
     try {
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+        if (deviceGuard) return deviceGuard;
 
         // Plan limit: company billing is part of gestion des entreprises (Privilège).
         const sub = await readSubscription(connection);

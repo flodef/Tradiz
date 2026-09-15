@@ -177,6 +177,8 @@ function recomputeAuditEventHash(row: AuditRow, previousHash: string | null): st
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
+    // Upfront guard: the PG branch below runs on a raw pg client (not a
+    // DbConnection), so the auth check can't share the work connection here.
     const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
     if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;

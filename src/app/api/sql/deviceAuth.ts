@@ -259,59 +259,85 @@ export async function shopRequiresUserAuth(connection: DbConnection): Promise<bo
             []
         );
         return String((rows as { param_value: string }[])[0]?.param_value) === 'true';
-    } catch {
-        return false;
+    } catch (error) {
+        // Fail closed: if the flag can't be read, assume auth is required.
+        // Failing open would silently disable the shop's own security
+        // setting — same posture as the subscription check.
+        console.error('Failed to read requireUserAuth flag (failing closed):', error);
+        return true;
     }
 }
 
 /**
- * Gate for sensitive routes: resolves the device on its own POS connection so
- * it works regardless of which database the route itself uses. `roles`
- * restricts to specific user roles (e.g. ['admin']); omitted means any
- * registered device is accepted. Returns a 403 response when denied, null
- * when authorized.
+ * Authorization logic shared by `assertDeviceAuthorized` and routes that
+ * already hold a connection: resolves the device (and the user session when
+ * the shop opted in) on the given connection. Returns the DeviceAuth on
+ * success, or the 403/429 response to send back when denied. Using this on
+ * the route's own connection avoids paying a second DB connection per
+ * request and gives access to the resolved device (e.g. its id).
  */
-export async function assertDeviceAuthorized(
+export async function authorizeDeviceOn(
     request: Request,
+    connection: DbConnection,
     shopId: string,
     roles?: string[]
-): Promise<NextResponse | null> {
-    let connection: DbConnection | undefined;
-    try {
-        connection = await getPosDb(shopId);
-        const auth = await resolveDeviceAuth(request, connection, shopId);
-        if (!auth.authorized) {
+): Promise<DeviceAuth | NextResponse> {
+    const auth = await resolveDeviceAuth(request, connection, shopId);
+    if (!auth.authorized) {
+        const throttled = await recordDeniedAccess(connection, request, deviceKeyFromRequest(request));
+        if (throttled) return throttled;
+        return NextResponse.json({ error: 'Appareil non autorisé' }, { status: 403 });
+    }
+    const effectiveRole = auth.admin ? 'admin' : (auth.role?.toLowerCase() ?? '');
+    if (roles) {
+        // When the shop opted in to user auth, an admin-gated route is
+        // satisfied by a user session whose role matches — the device key
+        // only proves the machine is registered. A PIN-verified admin can
+        // thus act from any registered device, and a cashier switched in
+        // on an admin device no longer inherits its rights.
+        // Intervention devices keep device-level access (support must
+        // not depend on a shop-side PIN).
+        if (roles.includes('admin') && !auth.intervention && (await shopRequiresUserAuth(connection))) {
+            const session = await resolveUserSession(request, connection, auth.deviceId);
+            if (!session || !roles.includes(session.role.toLowerCase())) {
+                return NextResponse.json(
+                    { error: 'Authentification utilisateur requise', requireUserAuth: true },
+                    { status: 403 }
+                );
+            }
+            return auth;
+        }
+        if (!roles.includes(effectiveRole)) {
             const throttled = await recordDeniedAccess(connection, request, deviceKeyFromRequest(request));
             if (throttled) return throttled;
             return NextResponse.json({ error: 'Appareil non autorisé' }, { status: 403 });
         }
-        const effectiveRole = auth.admin ? 'admin' : (auth.role?.toLowerCase() ?? '');
-        if (roles) {
-            // When the shop opted in to user auth, an admin-gated route is
-            // satisfied by a user session whose role matches — the device key
-            // only proves the machine is registered. A PIN-verified admin can
-            // thus act from any registered device, and a cashier switched in
-            // on an admin device no longer inherits its rights.
-            // Intervention devices keep device-level access (support must
-            // not depend on a shop-side PIN).
-            if (roles.includes('admin') && !auth.intervention && (await shopRequiresUserAuth(connection))) {
-                const session = await resolveUserSession(request, connection, auth.deviceId);
-                if (!session || !roles.includes(session.role.toLowerCase())) {
-                    return NextResponse.json(
-                        { error: 'Authentification utilisateur requise', requireUserAuth: true },
-                        { status: 403 }
-                    );
-                }
-                return null;
-            }
-            if (!roles.includes(effectiveRole)) {
-                const throttled = await recordDeniedAccess(connection, request, deviceKeyFromRequest(request));
-                if (throttled) return throttled;
-                return NextResponse.json({ error: 'Appareil non autorisé' }, { status: 403 });
-            }
-        }
-        return null;
+    }
+    return auth;
+}
+
+/**
+ * Gate for sensitive routes. `roles` restricts to specific user roles (e.g.
+ * ['admin']); omitted means any registered device is accepted. Returns a
+ * 403/429 response when denied, null when authorized. Pass the route's own
+ * `connection` to reuse it instead of paying a second POS connection.
+ */
+export async function assertDeviceAuthorized(
+    request: Request,
+    shopId: string,
+    roles?: string[],
+    connection?: DbConnection
+): Promise<NextResponse | null> {
+    if (connection) {
+        const result = await authorizeDeviceOn(request, connection, shopId, roles);
+        return result instanceof NextResponse ? result : null;
+    }
+    let conn: DbConnection | undefined;
+    try {
+        conn = await getPosDb(shopId);
+        const result = await authorizeDeviceOn(request, conn, shopId, roles);
+        return result instanceof NextResponse ? result : null;
     } finally {
-        await connection?.end();
+        await conn?.end();
     }
 }

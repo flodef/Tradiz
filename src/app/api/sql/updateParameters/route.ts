@@ -2,9 +2,9 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptionStore';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection, withTransaction } from '../db';
-import { assertDeviceAuthorized } from '../deviceAuth';
+import { authorizeDeviceOn, resolveUserSession } from '../deviceAuth';
 import { PARAMETER_KEY_LIST } from '@/app/constants/parameterKeys';
-import { insertAuditEvent, resolveAuditActor } from '../auditHelpers';
+import { insertAuditEvent } from '../auditHelpers';
 
 class ConflictError extends Error {}
 
@@ -15,8 +15,6 @@ interface ParameterUpdate {
 
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
-    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const { parameters } = await request.json();
@@ -26,6 +24,8 @@ export async function POST(request: Request) {
         }
 
         connection = await getPosDb(shopId);
+        const authResult = await authorizeDeviceOn(request, connection, shopId, ['admin']);
+        if (authResult instanceof NextResponse) return authResult;
         if (await subscriptionStopped(connection)) {
             return stoppedSubscriptionResponse();
         }
@@ -86,7 +86,12 @@ export async function POST(request: Request) {
                     entity_id: 'parameters',
                     // Server-verified identity (session > device user) — the
                     // client-provided changedBy is forgeable so it's ignored.
-                    user_name: await resolveAuditActor(request, conn, shopId),
+                    user_name:
+                        (authResult.deviceId
+                            ? (await resolveUserSession(request, conn, authResult.deviceId))?.name
+                            : undefined) ??
+                        authResult.userName ??
+                        'inconnu',
                     detail: `Updated ${updatedKeys.length} parameter(s): ${updatedKeys.join(', ')}`,
                 });
             }

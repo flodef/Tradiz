@@ -53,8 +53,6 @@ interface RecentOrderRow {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate'); // Format: YYYY-MM-DD
     const endDate = searchParams.get('endDate'); // Format: YYYY-MM-DD
@@ -62,6 +60,8 @@ export async function GET(request: Request) {
     let dbConn: DbConnection | undefined;
     try {
         const connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+        if (deviceGuard) return deviceGuard;
 
         // Plan limit: statistiques & rapports require Pro or above.
         const sub = await readSubscription(connection);

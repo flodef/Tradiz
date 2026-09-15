@@ -52,8 +52,6 @@ interface ArchiveExport {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin']);
-    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         const { searchParams } = new URL(request.url);
@@ -66,6 +64,8 @@ export async function GET(request: Request) {
         }
 
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, ['admin'], connection);
+        if (deviceGuard) return deviceGuard;
         const isPg = connection.isPostgreSQL;
         const prefix = isPg ? 'dc_pos.' : '';
 

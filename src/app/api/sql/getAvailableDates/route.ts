@@ -5,11 +5,11 @@ import { getPosDb, DbConnection } from '../db';
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+        if (deviceGuard) return deviceGuard;
 
         // Note: no user_name filter here to stay consistent with getTransactions,
         // which returns transactions for all users. Dates are formatted as YYYY-MM-DD

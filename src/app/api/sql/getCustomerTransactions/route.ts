@@ -42,8 +42,6 @@ interface ProductRow {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
     const { searchParams } = new URL(request.url);
     const customerName = searchParams.get('customerName');
     const customerIdParam = searchParams.get('customerId');
@@ -59,6 +57,8 @@ export async function GET(request: Request) {
     let connection: DbConnection | undefined;
     try {
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+        if (deviceGuard) return deviceGuard;
         const isPg = connection.isPostgreSQL;
 
         // Aggregate totals: number of purchases, total purchase amount, and total discount value.

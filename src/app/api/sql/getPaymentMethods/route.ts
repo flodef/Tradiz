@@ -14,11 +14,11 @@ interface PaymentMethodRow {
 
 export async function GET(request: Request) {
     const shopId = getShopIdFromRequest(request);
-    const deviceGuard = await assertDeviceAuthorized(request, shopId);
-    if (deviceGuard) return deviceGuard;
     let connection: DbConnection | undefined;
     try {
         connection = await getPosDb(shopId);
+        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
+        if (deviceGuard) return deviceGuard;
 
         const queryWithAvailable = connection.isPostgreSQL
             ? `SELECT label, address, currency, available FROM dc_pos.payment_methods`

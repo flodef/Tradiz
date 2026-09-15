@@ -69,9 +69,7 @@ describe('encodePaymentLegs', () => {
     });
 
     it('preserves optional fields in encoding', () => {
-        const fullLegs: PaymentLeg[] = [
-            { method: CASH_KEYWORD, amount: 20, cashReceived: 25, changeGiven: 5 },
-        ];
+        const fullLegs: PaymentLeg[] = [{ method: CASH_KEYWORD, amount: 20, cashReceived: 25, changeGiven: 5 }];
         const encoded = encodePaymentLegs(fullLegs);
         expect(JSON.parse(encoded!)).toEqual(fullLegs);
     });
