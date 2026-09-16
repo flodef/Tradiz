@@ -123,7 +123,9 @@ export async function rechainFrom(connection: Connection, fromTransactionId: num
 
     // Batch update (skip the first transaction if its hash hasn't changed —
     // the handler already set it. But it's simpler and safer to just update all).
-    const BATCH_SIZE = 500;
+    // Large batches matter: every statement is a remote round trip under the
+    // hash-chain advisory lock, so 40k rows at 500/batch held it ~10 s+.
+    const BATCH_SIZE = 2000;
     for (let i = 0; i < updates.length; i += BATCH_SIZE) {
         const batch = updates.slice(i, i + BATCH_SIZE);
         const ids = batch.map((u) => u.id);

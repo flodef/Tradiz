@@ -5,6 +5,7 @@ import { getMainPgDb, getPosPgDb, isPgConfigured } from './pg-db';
 import {
     DEFAULT_CONNECT_TIMEOUT_MS,
     DEFAULT_QUERY_TIMEOUT_MS,
+    isRetryableDbError,
     withRetry,
     withTimeout,
     type RetryOptions,
@@ -19,6 +20,16 @@ export interface DbConnection {
     commit(): Promise<void>;
     rollback(): Promise<void>;
     isPostgreSQL: boolean;
+    // Shop the connection points at — set by getMainDb/getPosDb so per-shop
+    // caches can key on it without threading shopId through every caller.
+    shopId?: string;
+}
+
+// Sargable half-open day range [date, nextDay): keeps a created_at index
+// usable, unlike DATE(created_at) which forces a full-table scan per query.
+export function dayBounds(date: string): [string, string] {
+    const next = new Date(Date.parse(`${date}T00:00:00Z`) + 24 * 60 * 60 * 1000);
+    return [date, next.toISOString().slice(0, 10)];
 }
 
 // Shortens a query to a readable label for timeout/retry logs.
@@ -30,6 +41,7 @@ function queryLabel(query: string): string {
 // Wrapper for MySQL connection to match our interface
 class MySQLConnectionWrapper implements DbConnection {
     isPostgreSQL = false;
+    shopId?: string;
     private closed = false;
     private inTransaction = false;
 
@@ -97,6 +109,7 @@ class MySQLConnectionWrapper implements DbConnection {
 // This uses real BEGIN/COMMIT/ROLLBACK so routes that truncate and re-insert are atomic.
 class PostgreSQLConnectionWrapper implements DbConnection {
     isPostgreSQL = true;
+    shopId?: string;
 
     private connected = false;
     private searchPathSet = false;
@@ -106,6 +119,15 @@ class PostgreSQLConnectionWrapper implements DbConnection {
     // released to the pool still holding it, silently serializing the next
     // borrower. Tracked here so end() can release it explicitly.
     private holdsAdvisoryLock = false;
+    // Set on transport-level failures (timeout, socket error): such a socket
+    // is untrusted — it may be half-dead with a still-pending query, so end()
+    // must destroy the client instead of recycling it. Without this, one
+    // network blip turns the whole pool into zombies that each new request
+    // borrows, times out on, and returns as "healthy" — every route then
+    // fails for good. Plain SQL errors leave it unset: the server answered,
+    // so the connection is healthy.
+    private broken = false;
+    private brokenCause?: string;
 
     constructor(private client: PoolClient) {
         // Pool clients are already connected when handed to the wrapper.
@@ -134,21 +156,48 @@ class PostgreSQLConnectionWrapper implements DbConnection {
     private async runQuery(query: string, params?: unknown[]): Promise<unknown[]> {
         const label = queryLabel(query);
         const attempt = async () => {
-            await this.ensureConnected();
-            await this.setSearchPath();
-            const result = await this.client.query(query, params as unknown[]);
-            return result.rows;
+            if (this.broken) {
+                // The socket already failed — a dead TCP connection cannot
+                // recover, so retrying on it just burns another 15 s watchdog
+                // per attempt. Throw a non-retryable error instead.
+                const error = new Error(`Connection is broken (after: ${this.brokenCause ?? 'previous failure'})`);
+                (error as { code?: string }).code = 'ECONNBROKEN';
+                throw error;
+            }
+            try {
+                await this.ensureConnected();
+                await this.setSearchPath();
+                const result = await this.client.query(query, params as unknown[]);
+                return result.rows;
+            } catch (error) {
+                if (isRetryableDbError(error)) {
+                    this.broken = true;
+                    this.brokenCause = error instanceof Error ? error.message : String(error);
+                }
+                throw error;
+            }
         };
-        if (this.inTransaction) return withTimeout(attempt(), DEFAULT_QUERY_TIMEOUT_MS, label);
+        if (this.inTransaction) {
+            try {
+                return await withTimeout(attempt(), DEFAULT_QUERY_TIMEOUT_MS, label);
+            } catch (error) {
+                if (isRetryableDbError(error)) this.broken = true;
+                throw error;
+            }
+        }
         return withRetry(attempt, { label });
     }
 
     async execute(query: string, params?: unknown[]): Promise<[unknown[], unknown]> {
         // Track both pg_advisory_lock and pg_try_advisory_lock (bounded
         // acquisition in lockHashChain) — unlock statements contain 'unlock'.
-        if (query.includes('advisory_unlock')) this.holdsAdvisoryLock = false;
-        else if (query.includes('advisory_lock')) this.holdsAdvisoryLock = true;
+        // The flag flips only after the statement succeeds: a failed unlock
+        // must leave it set so end() can still run pg_advisory_unlock_all.
+        const isUnlock = query.includes('advisory_unlock');
+        const isLock = !isUnlock && query.includes('advisory_lock');
         const rows = await this.runQuery(query, params);
+        if (isUnlock) this.holdsAdvisoryLock = false;
+        else if (isLock) this.holdsAdvisoryLock = true;
         return [rows, {}];
     }
 
@@ -158,15 +207,25 @@ class PostgreSQLConnectionWrapper implements DbConnection {
     }
 
     async beginTransaction(): Promise<void> {
-        await this.ensureConnected();
-        await this.setSearchPath();
-        await withTimeout(this.client.query('BEGIN'), DEFAULT_QUERY_TIMEOUT_MS, 'BEGIN');
-        this.inTransaction = true;
+        try {
+            await this.ensureConnected();
+            await this.setSearchPath();
+            await withTimeout(this.client.query('BEGIN'), DEFAULT_QUERY_TIMEOUT_MS, 'BEGIN');
+            this.inTransaction = true;
+        } catch (error) {
+            if (isRetryableDbError(error)) this.broken = true;
+            throw error;
+        }
     }
 
     async commit(): Promise<void> {
         try {
             await withTimeout(this.client.query('COMMIT'), DEFAULT_QUERY_TIMEOUT_MS, 'COMMIT');
+        } catch (error) {
+            // A timed-out COMMIT may leave a pending query or an open
+            // transaction — the client must not go back to the pool.
+            if (isRetryableDbError(error)) this.broken = true;
+            throw error;
         } finally {
             this.inTransaction = false;
         }
@@ -176,6 +235,7 @@ class PostgreSQLConnectionWrapper implements DbConnection {
         try {
             await withTimeout(this.client.query('ROLLBACK'), DEFAULT_QUERY_TIMEOUT_MS, 'ROLLBACK');
         } catch (error) {
+            if (isRetryableDbError(error)) this.broken = true;
             // A rollback on a broken connection is expected; the server already
             // discarded the transaction. Swallow so the original error surfaces.
             console.warn('[db] rollback failed:', error instanceof Error ? error.message : String(error));
@@ -192,9 +252,10 @@ class PostgreSQLConnectionWrapper implements DbConnection {
                 await this.client.query('SELECT pg_advisory_unlock_all()').catch(() => {});
                 this.holdsAdvisoryLock = false;
             }
-            // Destroy rather than reuse a client whose transaction never closed,
-            // otherwise the next borrower inherits an aborted transaction.
-            this.client.release(this.inTransaction || undefined);
+            // Destroy rather than reuse a client whose transaction never closed
+            // or whose socket failed — otherwise the next borrower inherits an
+            // aborted transaction or a zombie that hangs for 15 s per query.
+            this.client.release(this.broken || this.inTransaction ? new Error('broken client') : undefined);
             this.connected = false;
             this.searchPathSet = false;
             this.inTransaction = false;
@@ -216,7 +277,9 @@ export async function getMainDb(shopId?: string): Promise<DbConnection> {
     return withRetry(async () => {
         // If USE_DIGICARTE is false and PostgreSQL is configured, use PostgreSQL
         if (!USE_DIGICARTE && isPgConfigured(shopId)) {
-            return new PostgreSQLConnectionWrapper(await getMainPgDb(shopId));
+            const wrapper = new PostgreSQLConnectionWrapper(await getMainPgDb(shopId));
+            wrapper.shopId = shopId;
+            return wrapper;
         }
 
         // Otherwise use MariaDB
@@ -224,7 +287,9 @@ export async function getMainDb(shopId?: string): Promise<DbConnection> {
             ...dbConfig,
             database: DC,
         });
-        return new MySQLConnectionWrapper(connection);
+        const wrapper = new MySQLConnectionWrapper(connection);
+        wrapper.shopId = shopId;
+        return wrapper;
     }, CONNECT_RETRY);
 }
 
@@ -232,7 +297,9 @@ export async function getPosDb(shopId?: string): Promise<DbConnection> {
     return withRetry(async () => {
         // If USE_DIGICARTE is false and PostgreSQL is configured, use PostgreSQL
         if (!USE_DIGICARTE && isPgConfigured(shopId)) {
-            return new PostgreSQLConnectionWrapper(await getPosPgDb(shopId));
+            const wrapper = new PostgreSQLConnectionWrapper(await getPosPgDb(shopId));
+            wrapper.shopId = shopId;
+            return wrapper;
         }
 
         // Otherwise use MariaDB
@@ -240,7 +307,9 @@ export async function getPosDb(shopId?: string): Promise<DbConnection> {
             ...dbConfig,
             database: DC_POS,
         });
-        return new MySQLConnectionWrapper(connection);
+        const wrapper = new MySQLConnectionWrapper(connection);
+        wrapper.shopId = shopId;
+        return wrapper;
     }, CONNECT_RETRY);
 }
 

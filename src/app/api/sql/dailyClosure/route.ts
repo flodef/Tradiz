@@ -1,7 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { assertDeviceAuthorized } from '../deviceAuth';
 import { NextResponse } from 'next/server';
-import { getPosDb, type DbConnection } from '../db';
+import { dayBounds, getPosDb, type DbConnection } from '../db';
 import { createHash } from 'crypto';
 import {
     DELETED_KEYWORD,
@@ -44,41 +44,34 @@ interface DailyTotals {
 async function computeDailyTotals(connection: DbConnection, date: string): Promise<DailyTotals> {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
-    const placeholders = EXCLUDED_METHODS.map((_, i) => (isPg ? `$${i + 2}` : '?')).join(', ');
+    const placeholders = EXCLUDED_METHODS.map((_, i) => (isPg ? `$${i + 3}` : '?')).join(', ');
+    const [dayStart, dayEnd] = dayBounds(date);
 
     // Paid transactions (exclude non-paid methods) — immutable calendar day (00:00 to 24:00)
-    const paidQuery = isPg
-        ? `SELECT COUNT(*)::int AS cnt, COALESCE(ROUND(SUM(amount), 2), 0)::numeric AS total FROM ${prefix}transactions WHERE DATE(created_at) = $1 AND payment_method NOT IN (${placeholders})`
-        : `SELECT COUNT(*) AS cnt, COALESCE(ROUND(SUM(amount), 2), 0) AS total FROM ${prefix}transactions WHERE DATE(created_at) = ? AND payment_method NOT IN (${placeholders})`;
+    const paidQuery = `SELECT COUNT(*)${isPg ? '::int' : ''} AS cnt, COALESCE(ROUND(SUM(amount), 2), 0)${isPg ? '::numeric' : ''} AS total FROM ${prefix}transactions WHERE created_at >= ${isPg ? '$1' : '?'} AND created_at < ${isPg ? '$2' : '?'} AND payment_method NOT IN (${placeholders})`;
 
-    const paidParams = isPg ? [date, ...EXCLUDED_METHODS] : [date, ...EXCLUDED_METHODS];
+    const paidParams = [dayStart, dayEnd, ...EXCLUDED_METHODS];
     const [paidRows] = await connection.execute(paidQuery, paidParams);
     const paidResult = (paidRows as { cnt: number; total: number | string }[])[0];
 
     // Cancellations and deletions
     const cancelMethods = [DELETED_KEYWORD, CANCELLED_KEYWORD, EXPUNGED_KEYWORD];
-    const cancelPlaceholders = cancelMethods.map((_, i) => (isPg ? `$${i + 2}` : '?')).join(', ');
-    const cancelQuery = isPg
-        ? `SELECT COUNT(*)::int AS cnt, COALESCE(ROUND(SUM(ABS(amount)), 2), 0)::numeric AS total FROM ${prefix}transactions WHERE DATE(created_at) = $1 AND payment_method IN (${cancelPlaceholders})`
-        : `SELECT COUNT(*) AS cnt, COALESCE(ROUND(SUM(ABS(amount)), 2), 0) AS total FROM ${prefix}transactions WHERE DATE(created_at) = ? AND payment_method IN (${cancelPlaceholders})`;
-    const cancelParams = isPg ? [date, ...cancelMethods] : [date, ...cancelMethods];
+    const cancelPlaceholders = cancelMethods.map((_, i) => (isPg ? `$${i + 3}` : '?')).join(', ');
+    const cancelQuery = `SELECT COUNT(*)${isPg ? '::int' : ''} AS cnt, COALESCE(ROUND(SUM(ABS(amount)), 2), 0)${isPg ? '::numeric' : ''} AS total FROM ${prefix}transactions WHERE created_at >= ${isPg ? '$1' : '?'} AND created_at < ${isPg ? '$2' : '?'} AND payment_method IN (${cancelPlaceholders})`;
+    const cancelParams = [dayStart, dayEnd, ...cancelMethods];
     const [cancelRows] = await connection.execute(cancelQuery, cancelParams);
     const cancelResult = (cancelRows as { cnt: number; total: number | string }[])[0];
 
     // Refunds
-    const refundQuery = isPg
-        ? `SELECT COUNT(*)::int AS cnt, COALESCE(ROUND(SUM(ABS(amount)), 2), 0)::numeric AS total FROM ${prefix}transactions WHERE DATE(created_at) = $1 AND payment_method = $2`
-        : `SELECT COUNT(*) AS cnt, COALESCE(ROUND(SUM(ABS(amount)), 2), 0) AS total FROM ${prefix}transactions WHERE DATE(created_at) = ? AND payment_method = ?`;
-    const [refundRows] = await connection.execute(refundQuery, [date, REFUND_KEYWORD]);
+    const refundQuery = `SELECT COUNT(*)${isPg ? '::int' : ''} AS cnt, COALESCE(ROUND(SUM(ABS(amount)), 2), 0)${isPg ? '::numeric' : ''} AS total FROM ${prefix}transactions WHERE created_at >= ${isPg ? '$1' : '?'} AND created_at < ${isPg ? '$2' : '?'} AND payment_method = ${isPg ? '$3' : '?'}`;
+    const [refundRows] = await connection.execute(refundQuery, [dayStart, dayEnd, REFUND_KEYWORD]);
     const refundResult = (refundRows as { cnt: number; total: number | string }[])[0];
 
     const totalAmount = Number(paidResult.total) || 0;
     // HT and TVA computed from transaction_items joined with transactions.
     // ti.total is TTC (items sum to the paid amount): HT = TTC/(1+rate),
     // TVA = TTC*rate/(100+rate) — same convention as posPrinter/billingStats.
-    const vatQuery = isPg
-        ? `SELECT COALESCE(ROUND(SUM(ti.total * COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}) / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 2), 0)::numeric AS tva, COALESCE(ROUND(SUM(ti.total * 100 / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 2), 0)::numeric AS ht FROM ${prefix}transaction_items ti JOIN ${prefix}transactions t ON t.id = ti.transaction_id WHERE DATE(t.created_at) = $1 AND t.payment_method NOT IN (${placeholders})`
-        : `SELECT COALESCE(ROUND(SUM(ti.total * COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}) / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 2), 0) AS tva, COALESCE(ROUND(SUM(ti.total * 100 / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 2), 0) AS ht FROM ${prefix}transaction_items ti JOIN ${prefix}transactions t ON t.id = ti.transaction_id WHERE DATE(t.created_at) = ? AND t.payment_method NOT IN (${placeholders})`;
+    const vatQuery = `SELECT COALESCE(ROUND(SUM(ti.total * COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}) / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 2), 0)${isPg ? '::numeric' : ''} AS tva, COALESCE(ROUND(SUM(ti.total * 100 / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 2), 0)${isPg ? '::numeric' : ''} AS ht FROM ${prefix}transaction_items ti JOIN ${prefix}transactions t ON t.id = ti.transaction_id WHERE t.created_at >= ${isPg ? '$1' : '?'} AND t.created_at < ${isPg ? '$2' : '?'} AND t.payment_method NOT IN (${placeholders})`;
     const [vatRows] = await connection.execute(vatQuery, paidParams);
     const vatResult = (vatRows as { tva: number | string; ht: number | string }[])[0];
 
@@ -112,10 +105,10 @@ async function getDayTransactionAnchors(
 ): Promise<{ first: string; last: string }> {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
-    const placeholders = EXCLUDED_METHODS.map((_, i) => (isPg ? `$${i + 2}` : '?')).join(', ');
-    const params = [date, ...EXCLUDED_METHODS];
+    const placeholders = EXCLUDED_METHODS.map((_, i) => (isPg ? `$${i + 3}` : '?')).join(', ');
+    const params = [...dayBounds(date), ...EXCLUDED_METHODS];
     const base =
-        `SELECT hash FROM ${prefix}transactions WHERE DATE(created_at) = ${isPg ? '$1' : '?'}` +
+        `SELECT hash FROM ${prefix}transactions WHERE created_at >= ${isPg ? '$1' : '?'} AND created_at < ${isPg ? '$2' : '?'}` +
         ` AND payment_method NOT IN (${placeholders}) ORDER BY id`;
     const [firstRows] = await connection.execute(`${base} ASC LIMIT 1`, params);
     const [lastRows] = await connection.execute(`${base} DESC LIMIT 1`, params);
@@ -250,7 +243,10 @@ export async function POST(request: Request) {
         // nf525_daily_closures serializes closure writers (tail-hash read).
         // nf525_period_closures serializes the monthly-seal check below with
         // monthly closure inserts.
-        unlockTx = await lockHashChain(connection, 'nf525_transactions');
+        // The transaction chain can legitimately be held for several seconds
+        // by a writer rechaining the tail — a closure is rare and explicit,
+        // so a longer wait beats a hard 10 s failure.
+        unlockTx = await lockHashChain(connection, 'nf525_transactions', 30_000);
         unlockDaily = await lockHashChain(connection, 'nf525_daily_closures');
         unlockPeriod = await lockHashChain(connection, 'nf525_period_closures');
 
@@ -355,7 +351,7 @@ export async function POST(request: Request) {
             const target = `${targetDay} ${validTs ? validTs.slice(11) : '00:00:00'}`;
 
             const [drafts] = await connection.execute(
-                `SELECT id, order_id FROM ${prefix}transactions WHERE DATE(created_at) <= ${isPg ? '$1::date' : '?'} AND payment_method IN (${draftPlaceholders}) ORDER BY id`,
+                `SELECT id, order_id FROM ${prefix}transactions WHERE created_at < (${isPg ? '$1::date + 1' : '? + INTERVAL 1 DAY'}) AND payment_method IN (${draftPlaceholders}) ORDER BY id`,
                 [date, ...DRAFT_METHODS]
             );
             const movedIds: number[] = [];
@@ -364,7 +360,7 @@ export async function POST(request: Request) {
                 // refuse to move a draft when any row after it sits in a
                 // sealed day (its anchored hash would be rewritten).
                 const [conflict] = await connection.execute(
-                    `SELECT 1 FROM ${prefix}transactions t JOIN ${prefix}daily_closures c ON c.closure_date = DATE(t.created_at) WHERE t.id >= ${isPg ? '$1' : '?'} LIMIT 1`,
+                    `SELECT 1 FROM ${prefix}transactions t JOIN ${prefix}daily_closures c ON t.created_at >= c.closure_date AND t.created_at < (c.closure_date + ${isPg ? '1' : 'INTERVAL 1 DAY'}) WHERE t.id >= ${isPg ? '$1' : '?'} LIMIT 1`,
                     [draft.id]
                 );
                 if ((conflict as unknown[]).length > 0) continue;
@@ -390,8 +386,8 @@ export async function POST(request: Request) {
         }
 
         const [draftRows] = await connection.execute(
-            `SELECT COUNT(*) AS cnt FROM ${prefix}transactions WHERE DATE(created_at) = ${isPg ? '$1::date' : '?'} AND payment_method IN (${draftPlaceholders})`,
-            [date, ...DRAFT_METHODS]
+            `SELECT COUNT(*) AS cnt FROM ${prefix}transactions WHERE created_at >= ${isPg ? '$1' : '?'} AND created_at < ${isPg ? '$2' : '?'} AND payment_method IN (${draftPlaceholders})`,
+            [...dayBounds(date), ...DRAFT_METHODS]
         );
         const draftCount = Number((draftRows as { cnt: number | string }[])[0]?.cnt) || 0;
         if (draftCount > 0) {

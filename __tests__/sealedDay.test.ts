@@ -11,7 +11,7 @@ import type { DbConnection } from '../src/app/api/sql/db';
 const state = vi.hoisted(() => {
     // transactions keyed by order_id
     const DRAFTS = ['EN COURS', 'EN ATTENTE', 'EN MODIF'];
-    const txs = new Map<string, { id: number; method: string; day: string }>();
+    const txs = new Map<string, { id: number; method: string; day: string; hash?: string; previousHash?: string }>();
     const closedDays = new Set<string>();
     const closedMonths = new Set<string>(); // 'YYYY-MM-01'
     const closedYears = new Set<number>();
@@ -32,20 +32,47 @@ const state = vi.hoisted(() => {
             queries.push(q);
             if (/^(INSERT|UPDATE|DELETE)/.test(q)) writes.push(q);
 
-            // ── sealedClosedDay: existing row lookup ──
-            if (q.includes('FROM dc_pos.transactions WHERE order_id') && q.includes('to_char(created_at')) {
+            // ── fetchExistingRow: the one row fetch shared by the fidelity
+            // prefetch, the seal check and the add existence test ──
+            if (q.includes('FROM dc_pos.transactions t WHERE t.order_id')) {
                 const tx = txs.get(String(params?.[0]));
-                return [tx ? [{ payment_method: tx.method, d: tx.day }] : [], {}];
+                return [
+                    tx
+                        ? [
+                              {
+                                  id: tx.id,
+                                  payment_method: tx.method,
+                                  amount: 10,
+                                  customer_name: null,
+                                  fidelity_points: null,
+                                  d: tx.day,
+                                  has_items: true,
+                              },
+                          ]
+                        : [],
+                    {},
+                ];
             }
-            // mutation seal: earliest closure on/after the row's day
-            if (q.includes('MIN(closure_date)') && q.includes('closure_date >=')) {
+            // merged seal check: earliest closure on/after the day plus the
+            // month/year seals, all in one query
+            if (q.includes('min_daily') && q.includes('month_sealed')) {
                 const day = String(params?.[0]);
                 const min = [...closedDays].filter((d) => d >= day).sort()[0] ?? null;
-                return [[{ d: min }], {}];
+                return [
+                    [
+                        {
+                            min_daily: min,
+                            month_sealed: closedMonths.has(String(params?.[1])),
+                            year_sealed: closedYears.has(Number(params?.[2])),
+                        },
+                    ],
+                    {},
+                ];
             }
-            // insert seal: exact-day closure
+            // dailyClosure: exact-day closure check ('closure_date =' — the
+            // merged seal above uses 'closure_date >=' which doesn't match)
             if (q.includes('FROM dc_pos.daily_closures WHERE closure_date =')) {
-                return [closedDays.has(String(params?.[0])) ? [{ '?column?': 1 }] : [], {}];
+                return [closedDays.has(String(params?.[0])) ? [{ id: 1 }] : [], {}];
             }
             // auto-closure: closures strictly after the date being closed
             // (selects to_char(closure_date) — distinct from the monthly
@@ -73,7 +100,7 @@ const state = vi.hoisted(() => {
                 ];
             }
             // dailyClosure draft sweep (auto mode): drafts dated <= date
-            if (q.includes('payment_method IN') && q.includes('DATE(created_at) <=') && q.includes('ORDER BY id')) {
+            if (q.includes('payment_method IN') && q.includes('created_at <') && q.includes('ORDER BY id')) {
                 const date = String(params?.[0]);
                 const drafts = [...txs.entries()]
                     .filter(([, t]) => DRAFTS.includes(t.method) && t.day <= date)
@@ -94,7 +121,7 @@ const state = vi.hoisted(() => {
                 return [[], {}];
             }
             // dailyClosure draft count on the day being closed
-            if (q.includes('COUNT(*) AS cnt') && q.includes('DATE(created_at)') && q.includes('payment_method IN')) {
+            if (q.includes('COUNT(*) AS cnt') && q.includes('created_at >=') && q.includes('payment_method IN')) {
                 const date = String(params?.[0]);
                 const cnt = [...txs.values()].filter((t) => DRAFTS.includes(t.method) && t.day === date).length;
                 return [[{ cnt }], {}];
@@ -117,12 +144,29 @@ const state = vi.hoisted(() => {
             if (q.includes('SELECT hash FROM dc_pos.transactions ORDER BY id DESC')) {
                 return [[{ hash: 'tail-hash' }], {}];
             }
-            // insertTransactionWithItems
-            if (q.startsWith('INSERT INTO dc_pos.transactions')) return [[{ id: 999 }], {}];
+            // insertTransactionWithItems — record the row so a later re-sync
+            // resolves through fetchExistingRow / the FOR UPDATE select.
+            if (q.startsWith('INSERT INTO dc_pos.transactions')) {
+                txs.set(String(params?.[0]), {
+                    id: 999,
+                    method: String(params?.[3]),
+                    day: String(params?.[14]).slice(0, 10),
+                    hash: String(params?.[12]),
+                    previousHash: String(params?.[13]),
+                });
+                return [[{ id: 999 }], {}];
+            }
+            // insertTransactionWithItems' final-hash rewrite (id embedded) —
+            // captures the hash the sync path will compare against.
+            if (q.startsWith('UPDATE dc_pos.transactions SET hash')) {
+                const tx = [...txs.values()].find((t) => t.id === Number(params?.[1]));
+                if (tx) tx.hash = String(params?.[0]);
+                return [[], {}];
+            }
             // handleUpdate/Delete/Expunge row lock
             if (q.includes('FOR UPDATE') && q.includes('order_id')) {
                 const tx = txs.get(String(params?.[0]));
-                return [tx ? [{ id: tx.id, previous_hash: 'prev' }] : [], {}];
+                return [tx ? [{ id: tx.id, previous_hash: tx.previousHash ?? 'prev', hash: tx.hash }] : [], {}];
             }
             // rechainFrom reads + item fetches
             if (q.includes('FROM dc_pos.transactions WHERE id >=')) {
@@ -223,6 +267,10 @@ vi.mock('@/app/api/sql/db', () => ({
     withPosDb: async (_shopId: string | undefined, fn: (c: DbConnection) => unknown) => fn(state.conn),
     withTransaction: async (_c: DbConnection, fn: () => unknown) => fn(),
     executeInsert: async () => 1,
+    dayBounds: (date: string): [string, string] => {
+        const next = new Date(Date.parse(`${date}T00:00:00Z`) + 24 * 60 * 60 * 1000);
+        return [date, next.toISOString().slice(0, 10)];
+    },
 }));
 
 import { POST as saveTransactionPOST } from '../src/app/api/sql/saveTransaction/route';
@@ -342,6 +390,23 @@ describe('saveTransaction — journée clôturée (409 DAY_CLOSED)', () => {
         const res = await save('add', { order_id: 'tx-new' });
         expect(res.status).toBe(200);
         expect(state.writes.some((w) => w.startsWith('INSERT INTO dc_pos.transactions'))).toBe(true);
+    });
+
+    it('re-sync identique : aucune réécriture, aucun rechain, aucun audit', async () => {
+        // First save inserts the row — the fake captures its final hash.
+        const add = await save('add', { order_id: 'tx-noop' });
+        expect(add.status).toBe(200);
+        state.writes.length = 0;
+        state.queries.length = 0;
+        state.auditEvents.length = 0;
+
+        // Re-syncing the very same payload must be a no-op: the recomputed
+        // hash equals the stored one, so no UPDATE, no item rewrite, no
+        // rechain (which would hold the chain lock over every later row).
+        const res = await save('sync', { order_id: 'tx-noop' });
+        expect(res.status).toBe(200);
+        expect(state.writes.filter((w) => w.includes('transactions'))).toHaveLength(0);
+        expect(state.auditEvents).toHaveLength(0);
     });
 
     it('une ligne SUPPRIMÉE n’ancre plus la ligne : le jour du payload gouverne', async () => {

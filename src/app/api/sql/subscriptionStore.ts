@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cached } from './apiCache';
 import { getPosDb, type DbConnection } from './db';
 import {
     SUBSCRIPTION_PLANS,
@@ -32,6 +33,13 @@ function isMissingTableError(error: unknown): boolean {
 }
 
 export async function readSubscription(connection: DbConnection): Promise<SubscriptionRow> {
+    // Cached per shop (~30 s): this pair of queries runs on nearly every
+    // write route, so each call otherwise costs two remote-DB round trips.
+    // The subscription route invalidates 'sub:' on every mutation.
+    return cached(`sub:${connection.shopId ?? ''}`, () => readSubscriptionFromDb(connection));
+}
+
+export async function readSubscriptionFromDb(connection: DbConnection): Promise<SubscriptionRow> {
     try {
         const [rows] = await connection.execute(
             `SELECT plan, status, billing_method FROM ${subscriptionPrefix(connection)}subscription WHERE id = 1`

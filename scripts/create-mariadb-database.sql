@@ -280,7 +280,10 @@ CREATE TABLE IF NOT EXISTS `transactions` (
   UNIQUE KEY `hash` (`hash`),
   KEY `payment_method` (`payment_method`),
   KEY `currency` (`currency`),
-  KEY `customer_name` (`customer_name`)
+  KEY `customer_name` (`customer_name`),
+  KEY `order_id` (`order_id`),
+  KEY `created_at` (`created_at`),
+  KEY `updated_at` (`updated_at`)
 ) ENGINE=InnoDB AUTO_INCREMENT=209 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Transaction Items (was: facturation_article)

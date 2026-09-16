@@ -582,20 +582,28 @@ async function _loadDataImpl(): Promise<Config | undefined> {
     if (!user) throw new UserNotFoundError(publicKey);
 
     const isAdmin = user.role === Role.admin;
-    const param = await fetchData(dataNames.parameters).then((response) => convertParametersData(response, isAdmin));
+
+    // Fetch every independent data set in parallel — each route pays its own
+    // device-auth + query round-trips to the remote DB (~150-400 ms), so
+    // awaiting them one by one multiplied the page-load latency by ~10.
+    const [param, paymentMethods, allCurrencies, discounts, colors, printers, categories, productsData, customers] =
+        await Promise.all([
+            fetchData(dataNames.parameters).then((response) => convertParametersData(response, isAdmin)),
+            fetchData(dataNames.paymentMethods).then(convertPaymentMethodsData),
+            fetchData(dataNames.currencies).then(convertCurrenciesData),
+            fetchData(dataNames.discounts).then(convertDiscountsData),
+            fetchData(dataNames.colors).then(convertColorsData),
+            fetchData(dataNames.printers).then(convertPrintersData),
+            fetchData(dataNames.categories)
+                .then(convertCategoriesData)
+                .catch(() => []),
+            fetchData(dataNames.products).then(convertProductsData),
+            fetchData(dataNames.customers).then(convertCustomersData),
+        ]);
 
     const parameters = buildParameters(param, user!);
 
-    const paymentMethods = await fetchData(dataNames.paymentMethods).then(convertPaymentMethodsData);
-    const allCurrencies = await fetchData(dataNames.currencies).then(convertCurrenciesData);
-    const discounts = await fetchData(dataNames.discounts).then(convertDiscountsData);
-    const colors = await fetchData(dataNames.colors).then(convertColorsData);
-    const printers = await fetchData(dataNames.printers).then(convertPrintersData);
-    const categories = await fetchData(dataNames.categories)
-        .then(convertCategoriesData)
-        .catch(() => []);
-
-    let data = await fetchData(dataNames.products).then(convertProductsData);
+    let data = productsData;
 
     // If getAllArticles failed or returned no products, allow admins/cashiers to proceed
     // so they can open the Edit Menu page and re-create the catalog. Other users get
@@ -614,9 +622,8 @@ async function _loadDataImpl(): Promise<Config | undefined> {
         throw new MissingDataError('Produits', isAdmin);
     }
 
-    // Fetch customers. The full user list is only exposed to the client when user
-    // switching is enabled; otherwise resolveUser already returned the single device user.
-    const customers = await fetchData(dataNames.customers).then(convertCustomersData);
+    // The full user list is only exposed to the client when user switching is
+    // enabled; otherwise resolveUser already returned the single device user.
     const userSwitchEnabled = (parameters.userSwitch ?? true) as boolean;
     const users = userSwitchEnabled ? await fetchData(dataNames.users).then(convertUsersData) : [];
 

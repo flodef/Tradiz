@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 import { NextResponse } from 'next/server';
+import { cached } from './apiCache';
 import { getPosDb, type DbConnection } from './db';
 
 export interface DeviceAuth {
@@ -125,7 +126,23 @@ export async function resolveDeviceAuth(
 ): Promise<DeviceAuth> {
     const key = deviceKeyFromRequest(request);
     if (!key) return DENIED;
+    // Cached per (shop, key) ~30 s: this lookup runs on every gated route and
+    // each one was a full remote-DB round trip. Denials are never cached, so
+    // a freshly registered device authorizes immediately; device/user edits
+    // invalidate 'dev:' in updateDevices/updateUsers.
+    return cached(
+        `dev:${shopId}:${key}`,
+        () => resolveDeviceAuthFromDb(request, connection, shopId, key),
+        (auth) => auth.authorized
+    );
+}
 
+async function resolveDeviceAuthFromDb(
+    request: Request,
+    connection: DbConnection,
+    shopId: string,
+    key: string
+): Promise<DeviceAuth> {
     const [rows] = await connection.execute(
         connection.isPostgreSQL
             ? `SELECT d.id, d.intervention, u.role, u.name
@@ -251,35 +268,47 @@ export async function resolveUserSession(
 
 /** Whether the shop requires a user session for admin-gated routes. */
 export async function shopRequiresUserAuth(connection: DbConnection): Promise<boolean> {
+    // Cached per shop: this flag check runs on every admin-gated call.
+    // Only a successful read is cached — a transient error must not pin the
+    // fail-closed fallback below for 30 s. updateParameters invalidates it.
+    const flag = await cached(
+        `uauth:${connection.shopId ?? ''}`,
+        async () => {
+            try {
+                const [rows] = await connection.execute(
+                    connection.isPostgreSQL
+                        ? `SELECT param_value FROM dc_pos.parameters WHERE param_key = 'requireUserAuth' LIMIT 1`
+                        : `SELECT param_value FROM parameters WHERE param_key = 'requireUserAuth' LIMIT 1`,
+                    []
+                );
+                return String((rows as { param_value: string }[])[0]?.param_value) === 'true';
+            } catch (error) {
+                console.error('Failed to read requireUserAuth flag:', error);
+                return null;
+            }
+        },
+        (v) => v !== null
+    );
+    if (flag !== null) return flag;
+
+    // Fail closed when auth could plausibly be required — but
+    // updateParameters only allows setting requireUserAuth when an admin
+    // PIN exists, so a shop with no admin PIN can't have the flag set.
+    // Failing closed there would 403 every admin route with a challenge
+    // nobody can satisfy until the table recovers.
     try {
-        const [rows] = await connection.execute(
+        const [adminRows] = await connection.execute(
             connection.isPostgreSQL
-                ? `SELECT param_value FROM dc_pos.parameters WHERE param_key = 'requireUserAuth' LIMIT 1`
-                : `SELECT param_value FROM parameters WHERE param_key = 'requireUserAuth' LIMIT 1`,
+                ? `SELECT 1 FROM dc_pos.users WHERE role = 'Admin' AND pin_hash IS NOT NULL LIMIT 1`
+                : `SELECT 1 FROM users WHERE role = 'Admin' AND pin_hash IS NOT NULL LIMIT 1`,
             []
         );
-        return String((rows as { param_value: string }[])[0]?.param_value) === 'true';
-    } catch (error) {
-        // Fail closed when auth could plausibly be required — but
-        // updateParameters only allows setting requireUserAuth when an admin
-        // PIN exists, so a shop with no admin PIN can't have the flag set.
-        // Failing closed there would 403 every admin route with a challenge
-        // nobody can satisfy until the table recovers.
-        console.error('Failed to read requireUserAuth flag:', error);
-        try {
-            const [adminRows] = await connection.execute(
-                connection.isPostgreSQL
-                    ? `SELECT 1 FROM dc_pos.users WHERE role = 'Admin' AND pin_hash IS NOT NULL LIMIT 1`
-                    : `SELECT 1 FROM users WHERE role = 'Admin' AND pin_hash IS NOT NULL LIMIT 1`,
-                []
-            );
-            const hasAdminPin = (adminRows as unknown[]).length > 0;
-            if (!hasAdminPin) return false;
-        } catch (innerError) {
-            console.error('Failed to check admin PIN existence (failing closed):', innerError);
-        }
-        return true;
+        const hasAdminPin = (adminRows as unknown[]).length > 0;
+        if (!hasAdminPin) return false;
+    } catch (innerError) {
+        console.error('Failed to check admin PIN existence (failing closed):', innerError);
     }
+    return true;
 }
 
 /**

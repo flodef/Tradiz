@@ -321,7 +321,36 @@ export default function SettingsPage() {
                 return;
             }
 
-            const response = await deviceFetch('/api/sql/getParameters');
+            // Fire every fetch in parallel — each route pays its own device-auth
+            // and query round-trips to the remote DB (~150-400 ms each), so
+            // awaiting them one by one multiplied the page-load latency by ~10.
+            const [
+                response,
+                discountsResponse,
+                currenciesResponse,
+                paymentsResponse,
+                colorsResponse,
+                usersResponse,
+                devicesResponse,
+                printersResponse,
+                customersResponse,
+                companiesResponse,
+            ] = await Promise.all(
+                [
+                    '/api/sql/getParameters',
+                    '/api/sql/getDiscounts',
+                    '/api/sql/getCurrencies',
+                    '/api/sql/getPaymentMethods',
+                    '/api/sql/getColors?all=1',
+                    '/api/sql/getUsers',
+                    '/api/sql/getDevices',
+                    '/api/sql/getPrinters',
+                    '/api/sql/getCustomers',
+                    '/api/sql/getCompanies',
+                ].map((url) => deviceFetch(url).catch(() => null))
+            );
+
+            if (!response) throw new Error('Erreur de connexion');
             const data = await response.json();
 
             if (!response.ok) {
@@ -485,8 +514,7 @@ export default function SettingsPage() {
 
             // Load discounts from DB
             try {
-                const discountsResponse = await deviceFetch('/api/sql/getDiscounts');
-                const discountsData = await discountsResponse.json();
+                const discountsData = await discountsResponse!.json();
                 if (discountsData.discounts && discountsData.discounts.length > 0) {
                     const loaded: Discount[] = discountsData.discounts;
                     setDiscounts(loaded);
@@ -498,8 +526,7 @@ export default function SettingsPage() {
 
             // Load currencies from DB
             try {
-                const currenciesResponse = await deviceFetch('/api/sql/getCurrencies');
-                const currenciesData = await currenciesResponse.json();
+                const currenciesData = await currenciesResponse!.json();
                 if (currenciesData.currencies && currenciesData.currencies.length > 0) {
                     const loaded: Currency[] = currenciesData.currencies;
                     setCurrenciesConfig(loaded);
@@ -511,8 +538,7 @@ export default function SettingsPage() {
 
             // Load payments from DB
             try {
-                const paymentsResponse = await deviceFetch('/api/sql/getPaymentMethods');
-                const paymentsData = await paymentsResponse.json();
+                const paymentsData = await paymentsResponse!.json();
                 if (paymentsData.paymentMethods && paymentsData.paymentMethods.length > 0) {
                     const loaded: PaymentMethod[] = paymentsData.paymentMethods.filter(
                         (p: PaymentMethod) => !INTERNAL_PAYMENT_METHODS.includes(p.type)
@@ -531,8 +557,7 @@ export default function SettingsPage() {
             // Load colors/themes from DB. `all=1` returns every theme (not just the
             // selected one) so the config page can list and switch between them.
             try {
-                const colorsResponse = await deviceFetch('/api/sql/getColors?all=1');
-                const colorsData = await colorsResponse.json();
+                const colorsData = await colorsResponse!.json();
                 if (colorsData.colors && colorsData.colors.length > 0) {
                     const loaded: Color[] = colorsData.colors;
                     // Pad with default themes if the DB has fewer themes than defaults
@@ -589,8 +614,7 @@ export default function SettingsPage() {
 
             // Load users from DB
             try {
-                const usersResponse = await deviceFetch('/api/sql/getUsers');
-                const usersData = await usersResponse.json();
+                const usersData = await usersResponse!.json();
                 if (usersData.users && usersData.users.length > 0) {
                     const loaded: User[] = usersData.users.map((u: User) => ({ ...u, role: u.role as Role }));
                     setUsersConfig(loaded);
@@ -604,8 +628,7 @@ export default function SettingsPage() {
 
             // Load devices from DB
             try {
-                const devicesResponse = await deviceFetch('/api/sql/getDevices');
-                const devicesData = await devicesResponse.json();
+                const devicesData = await devicesResponse!.json();
                 if (devicesData.devices && devicesData.devices.length > 0) {
                     // Intervention devices are managed in the DB only — keep them
                     // out of the admin list and the dirty-state comparison.
@@ -621,8 +644,7 @@ export default function SettingsPage() {
 
             // Load printers from DB
             try {
-                const printersResponse = await deviceFetch('/api/sql/getPrinters');
-                const printersData = await printersResponse.json();
+                const printersData = await printersResponse!.json();
                 if (printersData.printers && printersData.printers.length > 0) {
                     const loaded: Printer[] = printersData.printers;
                     setPrintersConfig(loaded);
@@ -636,8 +658,7 @@ export default function SettingsPage() {
 
             // Load customers from DB
             try {
-                const customersResponse = await deviceFetch('/api/sql/getCustomers');
-                const customersData = await customersResponse.json();
+                const customersData = await customersResponse!.json();
                 if (customersData.customers && customersData.customers.length > 0) {
                     const loaded: Customer[] = customersData.customers;
                     setCustomersConfig(loaded);
@@ -652,8 +673,7 @@ export default function SettingsPage() {
 
             // Load companies from DB
             try {
-                const companiesResponse = await deviceFetch('/api/sql/getCompanies');
-                const companiesData = await companiesResponse.json();
+                const companiesData = await companiesResponse!.json();
                 if (companiesData.companies && companiesData.companies.length > 0) {
                     const loaded: Company[] = companiesData.companies;
                     setCompaniesConfig(loaded);

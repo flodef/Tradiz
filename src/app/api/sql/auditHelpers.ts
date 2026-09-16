@@ -29,12 +29,16 @@ async function getLatestEventHash(connection: DbConnection): Promise<string | nu
  * that are not inside an explicit transaction; it is released on disconnect
  * either way, so a forgotten unlock cannot wedge the chain.
  */
-export async function lockHashChain(connection: DbConnection, name: string): Promise<() => Promise<void>> {
+export async function lockHashChain(
+    connection: DbConnection,
+    name: string,
+    timeoutMs = 10_000
+): Promise<() => Promise<void>> {
     if (connection.isPostgreSQL) {
-        // Bounded wait, mirroring MariaDB's GET_LOCK(?, 10): pg_advisory_lock
+        // Bounded wait, mirroring MariaDB's GET_LOCK(?, timeout): pg_advisory_lock
         // would block forever on a stuck writer — poll pg_try_advisory_lock
-        // for ~10 s instead, then fail.
-        const deadline = Date.now() + 10_000;
+        // for ~timeout instead, then fail.
+        const deadline = Date.now() + timeoutMs;
         for (;;) {
             const [rows] = await connection.execute('SELECT pg_try_advisory_lock(hashtext($1)) AS got', [name]);
             const got = (rows as { got: boolean | number }[])[0]?.got;
@@ -48,7 +52,7 @@ export async function lockHashChain(connection: DbConnection, name: string): Pro
             await connection.execute('SELECT pg_advisory_unlock(hashtext($1))', [name]);
         };
     }
-    const [rows] = await connection.execute('SELECT GET_LOCK(?, 10) AS got', [name]);
+    const [rows] = await connection.execute('SELECT GET_LOCK(?, ?) AS got', [name, Math.ceil(timeoutMs / 1000)]);
     const got = (rows as { got: number | string | null }[])[0]?.got;
     if (Number(got) !== 1) throw new Error(`Could not acquire hash chain lock "${name}" (timeout)`);
     return async () => {

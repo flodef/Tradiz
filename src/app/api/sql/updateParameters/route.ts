@@ -3,6 +3,7 @@ import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptio
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection, withTransaction } from '../db';
 import { authorizeDeviceOn, resolveUserSession } from '../deviceAuth';
+import { invalidateApiCache } from '../apiCache';
 import { PARAMETER_KEY_LIST } from '@/app/constants/parameterKeys';
 import { insertAuditEvent } from '../auditHelpers';
 
@@ -97,6 +98,10 @@ export async function POST(request: Request) {
             }
         });
 
+        // 'uauth:' covers requireUserAuth; 'param:' covers cached parameter
+        // reads like fidelityRate in saveTransaction.
+        invalidateApiCache('uauth:');
+        invalidateApiCache('param:');
         return NextResponse.json({ success: true }, { status: 200 });
     } catch (error) {
         if (error instanceof ConflictError) {

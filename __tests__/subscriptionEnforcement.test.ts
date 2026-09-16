@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { invalidateApiCache } from '../src/app/api/sql/apiCache';
 import type { DbConnection } from '../src/app/api/sql/db';
 
 /**
@@ -135,6 +136,9 @@ const setSub = (plan: string, status = 'active', eventsToday = 0) => {
     state.sub = { plan, status, billing_method: 'transfer' };
     state.eventsToday = eventsToday;
     state.hasEvents = true;
+    // Mirror the subscription route's own invalidation — readSubscription is
+    // cached (~30 s), so a plan change must drop the 'sub:' cache family.
+    invalidateApiCache('sub:');
 };
 
 beforeEach(() => {

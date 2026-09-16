@@ -18,6 +18,11 @@ function getPgPool(connectionString: string): Pool {
             max: 10,
             idleTimeoutMillis: 30000,
             connectionTimeoutMillis: 15000,
+            // TCP keepalive: without it a silently dead socket (network blip,
+            // Neon compute restart) is only discovered by the next query,
+            // which then hangs until the 15 s watchdog.
+            keepAlive: true,
+            keepAliveInitialDelayMillis: 10_000,
         });
         pool.on('error', (err) => console.error('PostgreSQL pool error:', err));
         pools.set(connectionString, pool);

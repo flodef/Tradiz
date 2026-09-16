@@ -2,6 +2,9 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
 
+// Module-level counter — the stale-device sweep only runs every 4th call.
+let markStaleCounter = 0;
+
 export async function POST(request: Request) {
     const shopId = getShopIdFromRequest(request);
     let publicKey: string | undefined;
@@ -22,11 +25,15 @@ export async function POST(request: Request) {
         connection = await getPosDb(shopId);
 
         // Mark devices that haven't been seen recently as disconnected.
-        // Keep last_seen so it can still be used for diagnostics.
-        const markStaleQuery = connection.isPostgreSQL
-            ? `UPDATE dc_pos.devices SET connected = false WHERE connected = true AND last_seen < NOW() - INTERVAL '2 minutes'`
-            : `UPDATE devices SET connected = false WHERE connected = true AND last_seen < DATE_SUB(NOW(), INTERVAL 2 MINUTE)`;
-        await connection.execute(markStaleQuery);
+        // Keep last_seen so it can still be used for diagnostics. Runs every
+        // 4th heartbeat (~1 min freshness) — one less remote round trip on
+        // the hot 15-second polling path.
+        if (++markStaleCounter % 4 === 0) {
+            const markStaleQuery = connection.isPostgreSQL
+                ? `UPDATE dc_pos.devices SET connected = false WHERE connected = true AND last_seen < NOW() - INTERVAL '2 minutes'`
+                : `UPDATE devices SET connected = false WHERE connected = true AND last_seen < DATE_SUB(NOW(), INTERVAL 2 MINUTE)`;
+            await connection.execute(markStaleQuery);
+        }
 
         // Register this device's heartbeat — only if it's already registered.
         // Devices must be added via the admin UI; unregistered devices are ignored.

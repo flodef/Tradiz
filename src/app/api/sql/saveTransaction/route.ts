@@ -13,6 +13,7 @@ import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionSt
 import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 import { NextResponse } from 'next/server';
 import { Connection, getPosDb } from '../db';
+import { cached } from '../apiCache';
 import { insertAuditEvent, lockHashChain } from '../auditHelpers';
 import { computeTransactionHash, type TransactionItemHashInput } from '@/app/utils/transactionHash';
 import { encodePaymentLegs } from '@/app/utils/transactionNote';
@@ -127,13 +128,31 @@ export async function POST(request: Request) {
             const unlockChain = await lockHashChain(connection, 'nf525_transactions');
 
             try {
+                // One row fetch keyed by order_id feeds the fidelity prefetch,
+                // the sealed-day check and the add/sync existence test —
+                // three round trips collapsed into one.
+                const existingRow = await fetchExistingRow(connection, transaction.order_id);
+
                 // Fetch the OLD transaction's fidelity-relevant fields BEFORE the handler
                 // overwrites or removes the row. For add/sync this lets us reverse the
                 // previously applied delta so re-syncing is idempotent; for delete/expunge
                 // it tells us whether the row had items (item-less provisions never earn).
                 let oldFidelityData: OldFidelityData | null = null;
-                if (action === 'add' || action === 'sync' || action === 'delete' || action === 'expunge') {
-                    oldFidelityData = await fetchOldFidelityData(connection, transaction.order_id);
+                if (
+                    existingRow &&
+                    (action === 'add' || action === 'sync' || action === 'delete' || action === 'expunge')
+                ) {
+                    oldFidelityData = {
+                        payment_method: existingRow.payment_method,
+                        amount: Number(existingRow.amount),
+                        customer_name: existingRow.customer_name,
+                        fidelity_points:
+                            existingRow.fidelity_points != null ? Number(existingRow.fidelity_points) : null,
+                        has_items:
+                            existingRow.has_items === true ||
+                            existingRow.has_items === 1 ||
+                            existingRow.has_items === '1',
+                    };
                 }
 
                 // NF525 sealed day: a daily closure anchors on the day's
@@ -142,7 +161,7 @@ export async function POST(request: Request) {
                 // rechain would rewrite the anchored hashes). Reject it:
                 // corrections on a closed day must be new transactions
                 // dated in the open day.
-                const sealed = await sealedClosedDay(connection, transaction);
+                const sealed = await sealedClosedDay(connection, transaction, existingRow);
                 if (sealed) {
                     await connection.rollback();
                     await unlockChain();
@@ -157,16 +176,20 @@ export async function POST(request: Request) {
                 }
 
                 switch (action) {
-                    case 'add':
-                        await handleAddTransaction(connection, transaction);
-                        await insertAuditEvent(connection, {
-                            event_type: 'transaction_add',
-                            entity_id: transaction.order_id,
-                            user_name: transaction.user_name || DEFAULT_USER,
-                            device_id: transaction.device_id ?? null,
-                            detail: `amount=${transaction.amount} method=${transaction.payment_method}`,
-                        });
+                    case 'add': {
+                        // changed=false → identical re-add, nothing was written
+                        const changed = await handleAddTransaction(connection, transaction, existingRow);
+                        if (changed) {
+                            await insertAuditEvent(connection, {
+                                event_type: 'transaction_add',
+                                entity_id: transaction.order_id,
+                                user_name: transaction.user_name || DEFAULT_USER,
+                                device_id: transaction.device_id ?? null,
+                                detail: `amount=${transaction.amount} method=${transaction.payment_method}`,
+                            });
+                        }
                         break;
+                    }
                     case 'update':
                         await handleUpdateTransaction(connection, transaction);
                         await insertAuditEvent(connection, {
@@ -178,7 +201,7 @@ export async function POST(request: Request) {
                         });
                         break;
                     case 'delete':
-                        await handleDeleteTransaction(connection, transaction);
+                        await handleDeleteTransaction(connection, transaction, existingRow);
                         await insertAuditEvent(connection, {
                             event_type: 'transaction_delete',
                             entity_id: transaction.order_id,
@@ -188,7 +211,7 @@ export async function POST(request: Request) {
                         });
                         break;
                     case 'expunge':
-                        await handleExpungeTransaction(connection, transaction);
+                        await handleExpungeTransaction(connection, transaction, existingRow);
                         await insertAuditEvent(connection, {
                             event_type: 'transaction_expunge',
                             entity_id: transaction.order_id,
@@ -197,16 +220,19 @@ export async function POST(request: Request) {
                             detail: `permanent deletion of order_id=${transaction.order_id}`,
                         });
                         break;
-                    case 'sync':
-                        await handleSyncTransaction(connection, transaction);
-                        await insertAuditEvent(connection, {
-                            event_type: 'transaction_sync',
-                            entity_id: transaction.order_id,
-                            user_name: transaction.user_name || DEFAULT_USER,
-                            device_id: transaction.device_id ?? null,
-                            detail: `amount=${transaction.amount} method=${transaction.payment_method}`,
-                        });
+                    case 'sync': {
+                        const changed = await handleSyncTransaction(connection, transaction);
+                        if (changed) {
+                            await insertAuditEvent(connection, {
+                                event_type: 'transaction_sync',
+                                entity_id: transaction.order_id,
+                                user_name: transaction.user_name || DEFAULT_USER,
+                                device_id: transaction.device_id ?? null,
+                                detail: `amount=${transaction.amount} method=${transaction.payment_method}`,
+                            });
+                        }
                         break;
+                    }
                     default:
                         throw new Error(`Unknown action: ${action}`);
                 }
@@ -280,27 +306,47 @@ export function generateTransactionHash(
     );
 }
 
-async function handleAddTransaction(connection: Connection, transaction: TransactionData) {
-    // Check if transaction already exists (by order_id — millisecond precision,
-    // unique per transaction). Using created_at is unsafe because toSQLDateTime
-    // truncates to seconds, causing two transactions within the same second to
-    // collide and overwrite each other.
+// The row shared by the fidelity prefetch, the sealed-day check and the
+// add/sync existence test — one SELECT keyed by order_id serves all three.
+interface ExistingTxRow {
+    id: number;
+    payment_method: string;
+    amount: number | string;
+    customer_name: string | null;
+    fidelity_points: number | string | null;
+    d: string | null;
+    has_items: boolean | number | string;
+}
+
+async function fetchExistingRow(connection: Connection, orderId: string): Promise<ExistingTxRow | null> {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
-    const checkQuery = isPg
-        ? `SELECT id FROM ${prefix}transactions WHERE order_id = $1`
-        : `SELECT id FROM ${prefix}transactions WHERE order_id = ?`;
-    const [existing] = await connection.execute(checkQuery, [transaction.order_id]);
-    const existingRows = existing as IdRow[];
+    const [rows] = await connection.execute(
+        isPg
+            ? `SELECT id, payment_method, amount, customer_name, fidelity_points, to_char(created_at, 'YYYY-MM-DD') AS d, EXISTS (SELECT 1 FROM ${prefix}transaction_items ti WHERE ti.transaction_id = t.id) AS has_items FROM ${prefix}transactions t WHERE t.order_id = $1`
+            : `SELECT id, payment_method, amount, customer_name, fidelity_points, DATE_FORMAT(created_at, '%Y-%m-%d') AS d, EXISTS (SELECT 1 FROM transaction_items ti WHERE ti.transaction_id = t.id) AS has_items FROM transactions t WHERE t.order_id = ?`,
+        [orderId]
+    );
+    return (rows as ExistingTxRow[])[0] ?? null;
+}
 
-    if (existingRows.length > 0) {
+async function handleAddTransaction(
+    connection: Connection,
+    transaction: TransactionData,
+    existing: ExistingTxRow | null
+): Promise<boolean> {
+    // Existence is checked by order_id — millisecond precision, unique per
+    // transaction. Using created_at is unsafe because toSQLDateTime truncates
+    // to seconds, causing two transactions within the same second to collide
+    // and overwrite each other.
+    if (existing) {
         // Transaction already exists — sync it (update + replace items)
-        await handleSyncTransaction(connection, transaction);
-        return;
+        return await handleSyncTransaction(connection, transaction);
     }
 
     // No existing transaction — insert a new one + items
     await insertTransactionWithItems(connection, transaction);
+    return true;
 }
 
 /**
@@ -324,82 +370,67 @@ async function handleAddTransaction(connection: Connection, transaction: Transac
  */
 const draftMethodSet = new Set([PROCESSING_KEYWORD, WAITING_KEYWORD, UPDATING_KEYWORD]);
 
-// periodSeal returns a French label for the sealing period when a day sits
-// inside a closed month or year (with no daily closure of its own). A day in
-// a sealed period can never get a daily closure, so fresh revenue dated
-// there would sit outside every Z-ticket forever.
-async function periodSeal(connection: Connection, day: string): Promise<string | null> {
-    const isPg = connection.isPostgreSQL;
-    const prefix = isPg ? 'dc_pos.' : '';
-
-    const [monthRows] = await connection.execute(
-        `SELECT 1 FROM ${prefix}monthly_closures WHERE closure_month = ${isPg ? '$1::date' : '?'}`,
-        [`${day.slice(0, 7)}-01`]
-    );
-    if ((monthRows as unknown[]).length > 0) return `Le mois ${day.slice(0, 7)} est clôturé`;
-
-    const [yearRows] = await connection.execute(
-        `SELECT 1 FROM ${prefix}annual_closures WHERE closure_year = ${isPg ? '$1' : '?'}`,
-        [Number(day.slice(0, 4))]
-    );
-    if ((yearRows as unknown[]).length > 0) return `L'année ${day.slice(0, 4)} est clôturée`;
-
-    return null;
-}
-
 // sealedClosedDay returns the sealed day plus a French label for the sealing
-// period, or null when the write is allowed.
+// period, or null when the write is allowed. `existing` is the shared row
+// fetch (fetchExistingRow) — the only query here resolves the three seals.
 async function sealedClosedDay(
     connection: Connection,
-    transaction: TransactionData
+    transaction: TransactionData,
+    existing: ExistingTxRow | null
 ): Promise<{ day: string; label: string } | null> {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
 
-    const [rows] = await connection.execute(
-        isPg
-            ? `SELECT payment_method, to_char(created_at, 'YYYY-MM-DD') AS d FROM ${prefix}transactions WHERE order_id = $1`
-            : `SELECT payment_method, DATE_FORMAT(created_at, '%Y-%m-%d') AS d FROM ${prefix}transactions WHERE order_id = ?`,
-        [transaction.order_id]
-    );
-    const existing = (rows as { payment_method: string; d: string | null }[])[0];
-    const existingGoverns = existing && existing.payment_method !== EXPUNGED_KEYWORD;
+    const existingGoverns = existing !== null && existing.payment_method !== EXPUNGED_KEYWORD;
     const dateStr = existingGoverns ? existing.d : transaction.created_at.slice(0, 10);
     if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+
+    // One query resolves all three seals — the daily check returns the
+    // earliest closure on/after the day: for a mutation that minimum seals
+    // the write directly; for a fresh insert it seals only when it IS the
+    // payload's day (a future closure doesn't forbid inserting today).
+    const [sealRows] = await connection.execute(
+        isPg
+            ? `SELECT (SELECT to_char(MIN(closure_date), 'YYYY-MM-DD') FROM ${prefix}daily_closures WHERE closure_date >= $1::date) AS min_daily,
+                      EXISTS(SELECT 1 FROM ${prefix}monthly_closures WHERE closure_month = $2::date) AS month_sealed,
+                      EXISTS(SELECT 1 FROM ${prefix}annual_closures WHERE closure_year = $3) AS year_sealed`
+            : `SELECT (SELECT DATE_FORMAT(MIN(closure_date), '%Y-%m-%d') FROM ${prefix}daily_closures WHERE closure_date >= ?) AS min_daily,
+                      EXISTS(SELECT 1 FROM ${prefix}monthly_closures WHERE closure_month = ?) AS month_sealed,
+                      EXISTS(SELECT 1 FROM ${prefix}annual_closures WHERE closure_year = ?) AS year_sealed`,
+        [dateStr, `${dateStr.slice(0, 7)}-01`, Number(dateStr.slice(0, 4))]
+    );
+    const seals = (
+        sealRows as { min_daily: string | null; month_sealed: boolean | number; year_sealed: boolean | number }[]
+    )[0];
+    const periodLabel = seals?.month_sealed
+        ? `Le mois ${dateStr.slice(0, 7)} est clôturé`
+        : seals?.year_sealed
+          ? `L'année ${dateStr.slice(0, 4)} est clôturée`
+          : null;
 
     if (existingGoverns) {
         // Mutation: sealed by the earliest closure on/after the row's day —
         // its anchored hashes (and every later closure's) would be rewritten.
-        const [closed] = await connection.execute(
-            isPg
-                ? `SELECT to_char(MIN(closure_date), 'YYYY-MM-DD') AS d FROM ${prefix}daily_closures WHERE closure_date >= $1::date`
-                : `SELECT DATE_FORMAT(MIN(closure_date), '%Y-%m-%d') AS d FROM ${prefix}daily_closures WHERE closure_date >= ?`,
-            [dateStr]
-        );
-        const d = (closed as { d: string | null }[])[0]?.d;
-        if (d) return { day: dateStr, label: `La journée du ${d} est clôturée` };
+        if (seals?.min_daily) return { day: dateStr, label: `La journée du ${seals.min_daily} est clôturée` };
 
         // Finalizing a draft is new revenue on the stored day — apply the
         // period seal too so it can't land inside a closed month/year where
         // the day itself was never closed.
-        if (draftMethodSet.has(existing.payment_method) && !draftMethodSet.has(transaction.payment_method)) {
-            const label = await periodSeal(connection, dateStr);
-            if (label) return { day: dateStr, label };
+        if (
+            periodLabel &&
+            draftMethodSet.has(existing.payment_method) &&
+            !draftMethodSet.has(transaction.payment_method)
+        ) {
+            return { day: dateStr, label: periodLabel };
         }
         return null;
     }
 
-    const [closed] = await connection.execute(
-        `SELECT 1 FROM ${prefix}daily_closures WHERE closure_date = ${isPg ? '$1::date' : '?'}`,
-        [dateStr]
-    );
-    if ((closed as unknown[]).length > 0) {
-        return { day: dateStr, label: `La journée du ${dateStr} est clôturée` };
-    }
-    // Fresh insert: no daily closure, but a sealed month/year means this day
-    // can never be closed — revenue dated there escapes every Z-ticket.
-    const label = await periodSeal(connection, dateStr);
-    if (label) return { day: dateStr, label };
+    // Fresh insert: a daily closure of the payload day seals it; a sealed
+    // month/year means this day can never be closed — revenue dated there
+    // escapes every Z-ticket.
+    if (seals?.min_daily === dateStr) return { day: dateStr, label: `La journée du ${dateStr} est clôturée` };
+    if (periodLabel) return { day: dateStr, label: periodLabel };
     return null;
 }
 
@@ -489,18 +520,11 @@ async function insertTransactionItems(
 
     if (!products || products.length === 0) return;
 
-    for (const product of products) {
-        const insertItemQuery = isPg
-            ? `
-            INSERT INTO ${prefix}transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        `
-            : `
-            INSERT INTO ${prefix}transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-
-        await connection.execute(insertItemQuery, [
+    // One multi-row INSERT — a single remote round trip instead of one per
+    // product (~150-400 ms each against the hosted DB).
+    const values: unknown[] = [];
+    const tuples = products.map((product, i) => {
+        values.push(
             transactionId,
             product.label,
             product.category,
@@ -509,9 +533,18 @@ async function insertTransactionItems(
             product.discount_amount || 0,
             product.discount_unit || '',
             product.total,
-            product.vat_rate ?? DEFAULT_VAT_RATE,
-        ]);
-    }
+            product.vat_rate ?? DEFAULT_VAT_RATE
+        );
+        const b = i * 9;
+        return isPg
+            ? `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5}, $${b + 6}, $${b + 7}, $${b + 8}, $${b + 9})`
+            : '(?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    });
+
+    await connection.execute(
+        `INSERT INTO ${prefix}transaction_items (transaction_id, label, category, amount, quantity, discount_amount, discount_unit, total, vat_rate) VALUES ${tuples.join(', ')}`,
+        values
+    );
 }
 
 async function handleUpdateTransaction(connection: Connection, transaction: TransactionData) {
@@ -548,16 +581,20 @@ async function handleUpdateTransaction(connection: Connection, transaction: Tran
     await rechainFrom(connection, transactionId);
 }
 
-async function handleDeleteTransaction(connection: Connection, transaction: TransactionData) {
+async function handleDeleteTransaction(
+    connection: Connection,
+    transaction: TransactionData,
+    existingRow: ExistingTxRow | null
+) {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
 
     // Save the new payment_method (DELETED_KEYWORD or CANCELLED_KEYWORD) before
-    // fetchOriginalTransactionForFidelity overwrites it with the original DB value.
+    // restoring the original DB values for the fidelity reversal.
     const newPaymentMethod = transaction.payment_method;
 
-    // Fetch the original transaction data (for fidelity point reversal) before marking as deleted
-    await fetchOriginalTransactionForFidelity(connection, transaction);
+    // Restore the original transaction data (for fidelity point reversal) before marking as deleted
+    restoreOriginalForFidelity(transaction, existingRow);
 
     // Lock the row and get the id for rechaining. The hash is recomputed by rechainFrom
     // which includes items and payments — no need to compute it here.
@@ -583,12 +620,16 @@ async function handleDeleteTransaction(connection: Connection, transaction: Tran
     await rechainFrom(connection, transactionId);
 }
 
-async function handleExpungeTransaction(connection: Connection, transaction: TransactionData) {
+async function handleExpungeTransaction(
+    connection: Connection,
+    transaction: TransactionData,
+    existingRow: ExistingTxRow | null
+) {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
 
-    // Fetch the original transaction data (for fidelity point reversal) before marking as expunged
-    await fetchOriginalTransactionForFidelity(connection, transaction);
+    // Restore the original transaction data (for fidelity point reversal) before marking as expunged
+    restoreOriginalForFidelity(transaction, existingRow);
 
     // Lock the row and get the id for rechaining. The hash is recomputed by rechainFrom
     // which includes items and payments — no need to compute it here.
@@ -625,55 +666,10 @@ interface OldFidelityData {
     has_items: boolean;
 }
 
-// Fetch the old transaction's fidelity-relevant fields BEFORE overwriting the row.
-// Returns null if the transaction doesn't exist yet (first insert).
-async function fetchOldFidelityData(connection: Connection, orderId: string): Promise<OldFidelityData | null> {
-    const isPg = connection.isPostgreSQL;
-    const prefix = isPg ? 'dc_pos.' : '';
-    const query = isPg
-        ? `SELECT payment_method, amount, customer_name, fidelity_points, EXISTS (SELECT 1 FROM ${prefix}transaction_items ti WHERE ti.transaction_id = t.id) AS has_items FROM ${prefix}transactions t WHERE t.order_id = $1`
-        : `SELECT payment_method, amount, customer_name, fidelity_points, EXISTS (SELECT 1 FROM transaction_items ti WHERE ti.transaction_id = t.id) AS has_items FROM transactions t WHERE t.order_id = ?`;
-    const [rows] = await connection.execute(query, [orderId]);
-    const original = (
-        rows as {
-            payment_method: string;
-            amount: number | string;
-            customer_name: string | null;
-            fidelity_points: number | string | null;
-            has_items: boolean | number | string;
-        }[]
-    )[0];
-
-    if (!original) return null;
-
-    return {
-        payment_method: original.payment_method,
-        amount: Number(original.amount),
-        customer_name: original.customer_name,
-        fidelity_points: original.fidelity_points != null ? Number(original.fidelity_points) : null,
-        has_items: original.has_items === true || original.has_items === 1 || original.has_items === '1',
-    };
-}
-
-// Fetch the original transaction from DB and populate fidelity-relevant fields on the
-// incoming transaction object, so updateCustomerFidelityPoints can compute the reversal.
+// Populate fidelity-relevant fields on the incoming transaction from the
+// shared row fetch, so updateCustomerFidelityPoints can compute the reversal.
 // The client may not send fidelity_points/amount/payment_method for delete actions.
-async function fetchOriginalTransactionForFidelity(connection: Connection, transaction: TransactionData) {
-    const isPg = connection.isPostgreSQL;
-    const prefix = isPg ? 'dc_pos.' : '';
-    const query = isPg
-        ? `SELECT payment_method, amount, customer_name, fidelity_points FROM ${prefix}transactions WHERE order_id = $1`
-        : `SELECT payment_method, amount, customer_name, fidelity_points FROM transactions WHERE order_id = ?`;
-    const [rows] = await connection.execute(query, [transaction.order_id]);
-    const original = (
-        rows as {
-            payment_method: string;
-            amount: number | string;
-            customer_name: string | null;
-            fidelity_points: number | string | null;
-        }[]
-    )[0];
-
+function restoreOriginalForFidelity(transaction: TransactionData, original: ExistingTxRow | null) {
     if (original) {
         // Always restore payment_method and amount from DB — the client sets
         // method=DELETED_KEYWORD or CANCELLED_KEYWORD before sending, which would
@@ -688,7 +684,11 @@ async function fetchOriginalTransactionForFidelity(connection: Connection, trans
     }
 }
 
-async function handleSyncTransaction(connection: Connection, transaction: TransactionData) {
+// Returns true when the row was actually written — an unchanged re-sync
+// leaves the hash identical, so the whole update+rechain is skipped: a
+// rechain rewrites every later row under the hash-chain lock, and unchanged
+// re-syncs are the common case (idempotent pushes, retries).
+async function handleSyncTransaction(connection: Connection, transaction: TransactionData): Promise<boolean> {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
 
@@ -702,19 +702,23 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
         // PostgreSQL: UPDATE ... RETURNING id atomically updates and returns the id.
         // If the row was deleted by a concurrent expunge, 0 rows are returned.
         // Fetch the existing previous_hash to preserve the hash chain.
-        const selectQuery = `SELECT id, previous_hash FROM ${prefix}transactions WHERE order_id = $1 AND payment_method != $2 FOR UPDATE`;
+        const selectQuery = `SELECT id, previous_hash, hash FROM ${prefix}transactions WHERE order_id = $1 AND payment_method != $2 FOR UPDATE`;
         const [selectRows] = await connection.execute(selectQuery, [transaction.order_id, EXPUNGED_KEYWORD]);
-        const existingRows = selectRows as (IdRow & { previous_hash: string | null })[];
+        const existingRows = selectRows as (IdRow & { previous_hash: string | null; hash: string | null })[];
 
         if (existingRows.length === 0) {
             // Transaction was deleted — insert fresh
             await insertTransactionWithItems(connection, transaction);
-            return;
+            return true;
         }
 
         const transactionId = existingRows[0].id;
         const existingPreviousHash = existingRows[0].previous_hash;
         const hash = generateTransactionHash(transaction, transactionId, existingPreviousHash ?? undefined);
+
+        // Identical re-sync: the stored hash already covers this payload —
+        // no UPDATE, no item rewrite, no rechain, no audit noise.
+        if (hash === existingRows[0].hash) return false;
 
         const updateQuery = `
             UPDATE ${prefix}transactions
@@ -744,21 +748,25 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
 
         // Rechain all subsequent transactions since this transaction's hash changed
         await rechainFrom(connection, transactionId);
+        return true;
     } else {
         // MariaDB/MySQL: no RETURNING clause, use SELECT ... FOR UPDATE to lock the row
-        const lockQuery = `SELECT id, previous_hash FROM ${prefix}transactions WHERE order_id = ? AND payment_method != ? FOR UPDATE`;
+        const lockQuery = `SELECT id, previous_hash, hash FROM ${prefix}transactions WHERE order_id = ? AND payment_method != ? FOR UPDATE`;
         const [existing] = await connection.execute(lockQuery, [transaction.order_id, EXPUNGED_KEYWORD]);
-        const existingRows = existing as (IdRow & { previous_hash: string | null })[];
+        const existingRows = existing as (IdRow & { previous_hash: string | null; hash: string | null })[];
 
         if (existingRows.length === 0) {
             // Transaction was deleted — insert fresh
             await insertTransactionWithItems(connection, transaction);
-            return;
+            return true;
         }
 
         const transactionId = existingRows[0].id;
         const existingPreviousHash = existingRows[0].previous_hash;
         const hash = generateTransactionHash(transaction, transactionId, existingPreviousHash ?? undefined);
+
+        // Identical re-sync — see the PG branch.
+        if (hash === existingRows[0].hash) return false;
 
         const updateQuery = `
             UPDATE ${prefix}transactions
@@ -788,6 +796,7 @@ async function handleSyncTransaction(connection: Connection, transaction: Transa
 
         // Rechain all subsequent transactions since this transaction's hash changed
         await rechainFrom(connection, transactionId);
+        return true;
     }
 }
 
@@ -892,6 +901,22 @@ async function replaceItemsIfChanged(
     await insertTransactionItems(connection, transactionId, transaction.products);
 }
 
+// fidelityRate barely changes — cache it (~30 s) so it doesn't cost a remote
+// round trip on every sale. updateParameters invalidates the 'param:' family.
+async function fetchFidelityRate(connection: Connection): Promise<number> {
+    const isPg = connection.isPostgreSQL;
+    const prefix = isPg ? 'dc_pos.' : '';
+    return cached(`param:${connection.shopId ?? ''}:fidelityRate`, async () => {
+        const [paramRows] = await connection.execute(
+            isPg
+                ? `SELECT param_value FROM ${prefix}parameters WHERE param_key = $1`
+                : `SELECT param_value FROM parameters WHERE param_key = ?`,
+            ['fidelityRate']
+        );
+        return Number((paramRows as { param_value: string }[])[0]?.param_value ?? 0);
+    });
+}
+
 export { computeFidelityDelta };
 
 /**
@@ -910,11 +935,7 @@ async function updateCustomerFidelityPointsIdempotent(
     const prefix = isPg ? 'dc_pos.' : '';
 
     // Fetch fidelity rate once
-    const paramQuery = isPg
-        ? `SELECT param_value FROM ${prefix}parameters WHERE param_key = $1`
-        : `SELECT param_value FROM parameters WHERE param_key = ?`;
-    const [paramRows] = await connection.execute(paramQuery, ['fidelityRate']);
-    const fidelityRate = Number((paramRows as { param_value: string }[])[0]?.param_value ?? 0);
+    const fidelityRate = await fetchFidelityRate(connection);
 
     // Compute new delta
     const newDelta = computeFidelityDelta(
@@ -984,11 +1005,7 @@ async function updateCustomerFidelityPoints(
     const prefix = isPg ? 'dc_pos.' : '';
 
     // Fetch fidelity rate
-    const paramQuery = isPg
-        ? `SELECT param_value FROM ${prefix}parameters WHERE param_key = $1`
-        : `SELECT param_value FROM parameters WHERE param_key = ?`;
-    const [paramRows] = await connection.execute(paramQuery, ['fidelityRate']);
-    const fidelityRate = Number((paramRows as { param_value: string }[])[0]?.param_value ?? 0);
+    const fidelityRate = await fetchFidelityRate(connection);
 
     const delta = computeFidelityDelta(
         transaction.payment_method,

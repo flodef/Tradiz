@@ -386,6 +386,8 @@ CREATE INDEX IF NOT EXISTS idx_transactions_currency ON dc_pos.transactions(curr
 CREATE INDEX IF NOT EXISTS idx_transactions_hash ON dc_pos.transactions(hash);
 CREATE INDEX IF NOT EXISTS idx_transactions_customer_name ON dc_pos.transactions(customer_name);
 CREATE INDEX IF NOT EXISTS idx_transactions_order_id ON dc_pos.transactions(order_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON dc_pos.transactions(created_at);
+CREATE INDEX IF NOT EXISTS idx_transactions_updated_at ON dc_pos.transactions(updated_at);
 
 -- Transaction Items (was: facturation_article) - with DECIMAL quantity support
 CREATE TABLE IF NOT EXISTS dc_pos.transaction_items (
@@ -401,6 +403,7 @@ CREATE TABLE IF NOT EXISTS dc_pos.transaction_items (
     vat_rate NUMERIC(5,2) NOT NULL DEFAULT 20.00,
     FOREIGN KEY (transaction_id) REFERENCES dc_pos.transactions(id) ON DELETE CASCADE
 );
+CREATE INDEX IF NOT EXISTS idx_transaction_items_transaction_id ON dc_pos.transaction_items(transaction_id);
 
 -- Printers
 CREATE TABLE IF NOT EXISTS dc_pos.printers (

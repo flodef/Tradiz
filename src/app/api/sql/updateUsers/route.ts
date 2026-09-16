@@ -3,6 +3,7 @@ import { stoppedSubscriptionResponse, subscriptionStopped } from '../subscriptio
 import { NextResponse } from 'next/server';
 import { executeInsert, getPosDb, withTransaction } from '../db';
 import { authorizeDeviceOn, resolveUserSession, shopRequiresUserAuth } from '../deviceAuth';
+import { invalidateApiCache } from '../apiCache';
 import { generateProductReference } from '@/app/utils/productReference';
 import { insertAuditEvent } from '../auditHelpers';
 import { hashPin } from '../pinHash';
@@ -214,6 +215,10 @@ export async function POST(request: Request) {
                 (pinsCleared ? `, ${pinsCleared} PIN cleared` : ''),
         });
 
+        // Roles feed device auth (devices→users join) and admin-PIN
+        // existence feeds the requireUserAuth fallback — drop both caches.
+        invalidateApiCache('dev:');
+        invalidateApiCache('uauth:');
         return NextResponse.json({ success: true, users: savedUsers }, { status: 200 });
     } catch (error) {
         if (error instanceof ConflictError) {

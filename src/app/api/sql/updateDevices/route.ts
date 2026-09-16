@@ -2,6 +2,7 @@ import { getShopIdFromRequest } from '@/app/constants/shop';
 import { NextResponse } from 'next/server';
 import { executeInsert, getPosDb, withTransaction } from '../db';
 import { authorizeDeviceOn, resolveUserSession } from '../deviceAuth';
+import { invalidateApiCache } from '../apiCache';
 import { insertAuditEvent } from '../auditHelpers';
 import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
@@ -220,6 +221,7 @@ export async function POST(request: Request) {
             });
         });
 
+        invalidateApiCache('dev:');
         return NextResponse.json({ success: true }, { status: 200 });
     } catch (error) {
         console.error('Error updating devices:', error);

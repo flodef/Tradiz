@@ -10,7 +10,13 @@ import {
     type SubscriptionPlan,
     type SubscriptionStatus,
 } from '@/app/utils/subscription';
-import { readSubscription, readSubscriptionEvents, subscriptionPrefix } from '../subscriptionStore';
+import {
+    readSubscription,
+    readSubscriptionEvents,
+    readSubscriptionFromDb,
+    subscriptionPrefix,
+} from '../subscriptionStore';
+import { invalidateApiCache } from '../apiCache';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,7 +83,9 @@ export async function POST(request: Request) {
                     ? `INSERT INTO ${p}subscription (id) VALUES (1) ON CONFLICT (id) DO NOTHING`
                     : `INSERT IGNORE INTO ${p}subscription (id) VALUES (1)`
             );
-            const current = await readSubscription(connection);
+            // Fresh read inside the transaction — the cached readSubscription
+            // could hold a stale status from <30 s ago and wrongly 409/allow.
+            const current = await readSubscriptionFromDb(connection);
             const status = current.status as SubscriptionStatus;
 
             const fail = async (msg: string, code = 400) => {
@@ -166,6 +174,7 @@ export async function POST(request: Request) {
             });
 
             await connection.commit();
+            invalidateApiCache('sub:');
             return NextResponse.json({ success: true });
         } finally {
             // Releasing the advisory lock must not turn a committed change

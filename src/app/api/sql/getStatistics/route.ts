@@ -10,7 +10,7 @@ import {
     WAITING_KEYWORD,
 } from '@/app/utils/constants';
 import { NextResponse } from 'next/server';
-import { getPosDb, DbConnection } from '../db';
+import { dayBounds, getPosDb, DbConnection } from '../db';
 import { readSubscription } from '../subscriptionStore';
 import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 
@@ -84,14 +84,18 @@ export async function GET(request: Request) {
         const params: string[] = [...NON_PAID_METHODS];
 
         if (startDate && endDate) {
+            // Half-open range: BETWEEN is inclusive, so the exclusive upper
+            // bound is the day AFTER endDate — keeps the created_at index
+            // usable (DATE() forced a full-table scan per query).
+            const upper = dayBounds(endDate)[1];
             if (isPg) {
-                dateFilter = `AND DATE(t.created_at) BETWEEN $${NON_PAID_METHODS.length + 1} AND $${NON_PAID_METHODS.length + 2}`;
-                recentDateFilter = 'AND DATE(t.created_at) BETWEEN $1 AND $2';
+                dateFilter = `AND t.created_at >= $${NON_PAID_METHODS.length + 1} AND t.created_at < $${NON_PAID_METHODS.length + 2}`;
+                recentDateFilter = 'AND t.created_at >= $1 AND t.created_at < $2';
             } else {
-                dateFilter = 'AND DATE(t.created_at) BETWEEN ? AND ?';
-                recentDateFilter = 'AND DATE(t.created_at) BETWEEN ? AND ?';
+                dateFilter = 'AND t.created_at >= ? AND t.created_at < ?';
+                recentDateFilter = 'AND t.created_at >= ? AND t.created_at < ?';
             }
-            params.push(startDate, endDate);
+            params.push(startDate, upper);
         }
 
         // 1. Daily revenue (Chiffre d'affaires par jour)
@@ -247,7 +251,7 @@ export async function GET(request: Request) {
             ORDER BY t.created_at DESC
             LIMIT 20
         `;
-        const recentParams = startDate && endDate ? [startDate, endDate] : [];
+        const recentParams = startDate && endDate ? [startDate, dayBounds(endDate)[1]] : [];
         const [recentOrdersRows] = await connection.execute(recentOrdersQuery, recentParams);
         const recentOrders = (recentOrdersRows as RecentOrderRow[]).map((row) => ({
             orderId: row.order_id,

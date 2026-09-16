@@ -16,7 +16,7 @@ import { Transaction } from '@/app/utils/interfaces';
 import { parseCashNote, parsePaymentLegs } from '@/app/utils/transactionNote';
 import { toSQLDateTime } from '@/app/utils/date';
 import { NextResponse } from 'next/server';
-import { getPosDb, DbConnection } from '../db';
+import { dayBounds, getPosDb, DbConnection } from '../db';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,15 +93,18 @@ export async function GET(request: Request) {
         const draftMethods = [PROCESSING_KEYWORD, WAITING_KEYWORD, UPDATING_KEYWORD];
         const draftPlaceholders = draftMethods.map(() => (isPg ? `$${paramIndex++}` : '?')).join(', ');
         whereClause += isPg
-            ? ` AND NOT (t.payment_method IN (${draftPlaceholders}) AND DATE(t.created_at) IN (SELECT closure_date FROM dc_pos.daily_closures))`
-            : ` AND NOT (t.payment_method IN (${draftPlaceholders}) AND DATE(t.created_at) IN (SELECT closure_date FROM daily_closures))`;
+            ? ` AND NOT (t.payment_method IN (${draftPlaceholders}) AND EXISTS (SELECT 1 FROM dc_pos.daily_closures dc WHERE t.created_at >= dc.closure_date AND t.created_at < dc.closure_date + 1))`
+            : ` AND NOT (t.payment_method IN (${draftPlaceholders}) AND EXISTS (SELECT 1 FROM daily_closures dc WHERE t.created_at >= dc.closure_date AND t.created_at < dc.closure_date + INTERVAL 1 DAY))`;
         params.push(...draftMethods);
 
-        // Filter by date if provided
+        // Filter by date if provided — half-open range keeps the created_at
+        // index usable (DATE(created_at) forced a full-table scan per call).
         if (date && period === 'day') {
-            whereClause += isPg ? ` AND DATE(t.created_at) = $${paramIndex}` : ' AND DATE(t.created_at) = ?';
-            params.push(date);
-            paramIndex++;
+            whereClause += isPg
+                ? ` AND t.created_at >= $${paramIndex} AND t.created_at < $${paramIndex + 1}`
+                : ' AND t.created_at >= ? AND t.created_at < ?';
+            params.push(...dayBounds(date));
+            paramIndex += 2;
         }
 
         // Incremental sync: only return rows updated after the provided timestamp
@@ -146,7 +149,8 @@ export async function GET(request: Request) {
                 t.employer_share,
                 t.device_id as deviceid,
                 (EXTRACT(EPOCH FROM t.created_at) * 1000)::bigint as createddate,
-                (EXTRACT(EPOCH FROM t.updated_at) * 1000)::bigint as modifieddate
+                (EXTRACT(EPOCH FROM t.updated_at) * 1000)::bigint as modifieddate,
+                NOW() as server_now
             FROM dc_pos.transactions t
             LEFT JOIN dc.orders o ON o.id::text = t.order_id
             WHERE ${whereClause}
@@ -167,7 +171,8 @@ export async function GET(request: Request) {
                 t.employer_share,
                 t.device_id as deviceId,
                 (UNIX_TIMESTAMP(t.created_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as createdDate,
-                (UNIX_TIMESTAMP(t.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate
+                (UNIX_TIMESTAMP(t.updated_at) + TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())) * 1000 as modifiedDate,
+                NOW() as server_now
             FROM transactions t
             LEFT JOIN DC.orders o ON o.id = t.order_id
             WHERE ${whereClause}
@@ -254,14 +259,21 @@ export async function GET(request: Request) {
         }
 
         // Capture the server time before ending the connection so the client knows from what
-        // timestamp to request the next incremental sync.
+        // timestamp to request the next incremental sync. NOW() rides along as
+        // a column of the main query — the standalone query only fires when the
+        // result set is empty (unchanged incremental sync).
         let serverNow: string | undefined;
-        try {
-            const { rows } = await connection.query('SELECT NOW() as now');
-            const rawNow = (rows[0] as { now: string | Date } | undefined)?.now;
-            serverNow = rawNow ? new Date(rawNow).toISOString() : undefined;
-        } catch (error) {
-            console.error('Failed to capture server time:', error);
+        const rowNow = (transactionRows[0] as { server_now?: string | Date } | undefined)?.server_now;
+        if (rowNow) {
+            serverNow = new Date(rowNow).toISOString();
+        } else {
+            try {
+                const { rows } = await connection.query('SELECT NOW() as now');
+                const rawNow = (rows[0] as { now: string | Date } | undefined)?.now;
+                serverNow = rawNow ? new Date(rawNow).toISOString() : undefined;
+            } catch (error) {
+                console.error('Failed to capture server time:', error);
+            }
         }
 
         // hasMore tells the client (for paginated 'full' sync) to fetch the next batch.
