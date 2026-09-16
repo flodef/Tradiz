@@ -79,6 +79,30 @@ export function isRetryableDbError(error: unknown): boolean {
     return RETRYABLE_MESSAGE_PATTERNS.some((pattern) => lower.includes(pattern));
 }
 
+// Retryable errors where the server actually answered — the socket is still
+// healthy, so the connection must NOT be destroyed or marked broken (and a
+// retry on the same client is meaningful). Everything else retryable is
+// transport-level: a dead or unresponsive socket.
+const HEALTHY_SOCKET_RETRYABLE = new Set([
+    '40001', // serialization_failure
+    '40P01', // deadlock_detected
+    'ER_LOCK_DEADLOCK',
+    'ER_LOCK_WAIT_TIMEOUT',
+]);
+
+/**
+ * True when a retryable error means the socket itself is unusable: network
+ * failure, server shutdown, or a watchdog timeout (a query that never settled
+ * — the client may still have it pending, so it must not go back to the pool
+ * for the next borrower to inherit). Callers should mark the connection
+ * broken so end() destroys it instead of recycling a zombie.
+ */
+export function isBrokenSocketError(error: unknown): boolean {
+    if (!isRetryableDbError(error)) return false;
+    const code = (error as { code?: unknown }).code;
+    return !(typeof code === 'string' && HEALTHY_SOCKET_RETRYABLE.has(code));
+}
+
 /**
  * Watchdog: rejects with a DbTimeoutError if the promise does not settle in time.
  * The underlying promise is not cancellable, so its rejection is swallowed to

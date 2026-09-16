@@ -5,6 +5,7 @@ import { getMainPgDb, getPosPgDb, isPgConfigured } from './pg-db';
 import {
     DEFAULT_CONNECT_TIMEOUT_MS,
     DEFAULT_QUERY_TIMEOUT_MS,
+    isBrokenSocketError,
     isRetryableDbError,
     withRetry,
     withTimeout,
@@ -28,6 +29,7 @@ export interface DbConnection {
 // Sargable half-open day range [date, nextDay): keeps a created_at index
 // usable, unlike DATE(created_at) which forces a full-table scan per query.
 export function dayBounds(date: string): [string, string] {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error(`Invalid day for range bounds: ${date}`);
     const next = new Date(Date.parse(`${date}T00:00:00Z`) + 24 * 60 * 60 * 1000);
     return [date, next.toISOString().slice(0, 10)];
 }
@@ -170,7 +172,7 @@ class PostgreSQLConnectionWrapper implements DbConnection {
                 const result = await this.client.query(query, params as unknown[]);
                 return result.rows;
             } catch (error) {
-                if (isRetryableDbError(error)) {
+                if (isBrokenSocketError(error)) {
                     this.broken = true;
                     this.brokenCause = error instanceof Error ? error.message : String(error);
                 }
@@ -181,11 +183,31 @@ class PostgreSQLConnectionWrapper implements DbConnection {
             try {
                 return await withTimeout(attempt(), DEFAULT_QUERY_TIMEOUT_MS, label);
             } catch (error) {
-                if (isRetryableDbError(error)) this.broken = true;
+                if (isBrokenSocketError(error)) {
+                    this.broken = true;
+                    this.brokenCause = error instanceof Error ? error.message : String(error);
+                }
                 throw error;
             }
         }
-        return withRetry(attempt, { label });
+        return withRetry(attempt, {
+            label,
+            shouldRetry: (error) => {
+                // The watchdog fires outside attempt()'s catch, so a hung
+                // socket would otherwise be retried on (15 s × attempts) and
+                // released as healthy — the zombie pool. Any broken-socket
+                // error marks the client for destruction and stops retrying:
+                // a dead socket cannot recover, the next request needs a
+                // fresh client. Server-answered errors (deadlock…) still
+                // retry on this healthy connection.
+                if (isBrokenSocketError(error)) {
+                    this.broken = true;
+                    this.brokenCause = error instanceof Error ? error.message : String(error);
+                    return false;
+                }
+                return isRetryableDbError(error);
+            },
+        });
     }
 
     async execute(query: string, params?: unknown[]): Promise<[unknown[], unknown]> {
@@ -213,7 +235,7 @@ class PostgreSQLConnectionWrapper implements DbConnection {
             await withTimeout(this.client.query('BEGIN'), DEFAULT_QUERY_TIMEOUT_MS, 'BEGIN');
             this.inTransaction = true;
         } catch (error) {
-            if (isRetryableDbError(error)) this.broken = true;
+            if (isBrokenSocketError(error)) this.broken = true;
             throw error;
         }
     }
@@ -224,7 +246,7 @@ class PostgreSQLConnectionWrapper implements DbConnection {
         } catch (error) {
             // A timed-out COMMIT may leave a pending query or an open
             // transaction — the client must not go back to the pool.
-            if (isRetryableDbError(error)) this.broken = true;
+            if (isBrokenSocketError(error)) this.broken = true;
             throw error;
         } finally {
             this.inTransaction = false;
@@ -235,7 +257,7 @@ class PostgreSQLConnectionWrapper implements DbConnection {
         try {
             await withTimeout(this.client.query('ROLLBACK'), DEFAULT_QUERY_TIMEOUT_MS, 'ROLLBACK');
         } catch (error) {
-            if (isRetryableDbError(error)) this.broken = true;
+            if (isBrokenSocketError(error)) this.broken = true;
             // A rollback on a broken connection is expected; the server already
             // discarded the transaction. Swallow so the original error surfaces.
             console.warn('[db] rollback failed:', error instanceof Error ? error.message : String(error));

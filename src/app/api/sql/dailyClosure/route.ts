@@ -351,8 +351,8 @@ export async function POST(request: Request) {
             const target = `${targetDay} ${validTs ? validTs.slice(11) : '00:00:00'}`;
 
             const [drafts] = await connection.execute(
-                `SELECT id, order_id FROM ${prefix}transactions WHERE created_at < (${isPg ? '$1::date + 1' : '? + INTERVAL 1 DAY'}) AND payment_method IN (${draftPlaceholders}) ORDER BY id`,
-                [date, ...DRAFT_METHODS]
+                `SELECT id, order_id FROM ${prefix}transactions WHERE created_at < ${isPg ? '$1::date' : '?'} AND payment_method IN (${draftPlaceholders}) ORDER BY id`,
+                [dayBounds(date)[1], ...DRAFT_METHODS]
             );
             const movedIds: number[] = [];
             for (const draft of drafts as { id: number; order_id: string }[]) {

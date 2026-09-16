@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { getPosDb, withTransaction, type DbConnection } from '../db';
+import { invalidateApiCache } from '../apiCache';
 
 export const dynamic = 'force-dynamic';
 
@@ -126,6 +127,9 @@ async function resetDemoDb(shopId: string): Promise<void> {
                 }
             }
         });
+        // The wipe+seed replaced devices, parameters and subscription — drop
+        // every cached lookup so a stale entry can't outlive the reset.
+        invalidateApiCache();
     } finally {
         await connection.end();
     }
