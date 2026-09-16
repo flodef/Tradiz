@@ -14,7 +14,10 @@ import {
 
 // Unified database connection interface
 export interface DbConnection {
-    execute(query: string, params?: unknown[]): Promise<[unknown[], unknown]>;
+    // `timeoutMs` overrides the per-statement watchdog — needed by calls whose
+    // server-side wait is intentionally longer than the default (e.g.
+    // GET_LOCK/pg_advisory_lock with a 30 s bound).
+    execute(query: string, params?: unknown[], timeoutMs?: number): Promise<[unknown[], unknown]>;
     query(query: string, params?: unknown[]): Promise<{ rows: unknown[] }>;
     end(): Promise<void>;
     beginTransaction(): Promise<void>;
@@ -52,18 +55,22 @@ class MySQLConnectionWrapper implements DbConnection {
     // Statements are retried only outside a transaction: replaying a single
     // statement of an aborted transaction would corrupt the unit of work.
     // Transactional retries are handled by withMainDb/withPosDb instead.
-    private run<T>(query: string, fn: () => Promise<T>): Promise<T> {
+    private run<T>(query: string, fn: () => Promise<T>, timeoutMs?: number): Promise<T> {
         const label = queryLabel(query);
-        if (this.inTransaction) return withTimeout(fn(), DEFAULT_QUERY_TIMEOUT_MS, label);
-        return withRetry(fn, { label });
+        if (this.inTransaction) return withTimeout(fn(), timeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS, label);
+        return withRetry(fn, { label, timeoutMs });
     }
 
-    async execute(query: string, params?: unknown[]): Promise<[unknown[], unknown]> {
-        return this.run(query, async () => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const result = await this.connection.execute(query, params as any);
-            return result as [unknown[], unknown];
-        });
+    async execute(query: string, params?: unknown[], timeoutMs?: number): Promise<[unknown[], unknown]> {
+        return this.run(
+            query,
+            async () => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const result = await this.connection.execute(query, params as any);
+                return result as [unknown[], unknown];
+            },
+            timeoutMs
+        );
     }
 
     async query(query: string, params?: unknown[]): Promise<{ rows: unknown[] }> {
@@ -155,7 +162,11 @@ class PostgreSQLConnectionWrapper implements DbConnection {
     // Statements are retried only outside a transaction: once Postgres aborts a
     // transaction every further statement fails with 25P02, so replaying one is
     // pointless. Transactional retries are handled by withMainDb/withPosDb.
-    private async runQuery(query: string, params?: unknown[]): Promise<unknown[]> {
+    private async runQuery(
+        query: string,
+        params?: unknown[],
+        timeoutMs?: number
+    ): Promise<{ rows: unknown[]; rowCount: number | null }> {
         const label = queryLabel(query);
         const attempt = async () => {
             if (this.broken) {
@@ -170,7 +181,7 @@ class PostgreSQLConnectionWrapper implements DbConnection {
                 await this.ensureConnected();
                 await this.setSearchPath();
                 const result = await this.client.query(query, params as unknown[]);
-                return result.rows;
+                return { rows: result.rows, rowCount: result.rowCount };
             } catch (error) {
                 if (isBrokenSocketError(error)) {
                     this.broken = true;
@@ -181,7 +192,7 @@ class PostgreSQLConnectionWrapper implements DbConnection {
         };
         if (this.inTransaction) {
             try {
-                return await withTimeout(attempt(), DEFAULT_QUERY_TIMEOUT_MS, label);
+                return await withTimeout(attempt(), timeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS, label);
             } catch (error) {
                 if (isBrokenSocketError(error)) {
                     this.broken = true;
@@ -192,6 +203,7 @@ class PostgreSQLConnectionWrapper implements DbConnection {
         }
         return withRetry(attempt, {
             label,
+            timeoutMs,
             shouldRetry: (error) => {
                 // The watchdog fires outside attempt()'s catch, so a hung
                 // socket would otherwise be retried on (15 s × attempts) and
@@ -210,21 +222,25 @@ class PostgreSQLConnectionWrapper implements DbConnection {
         });
     }
 
-    async execute(query: string, params?: unknown[]): Promise<[unknown[], unknown]> {
-        // Track both pg_advisory_lock and pg_try_advisory_lock (bounded
-        // acquisition in lockHashChain) — unlock statements contain 'unlock'.
-        // The flag flips only after the statement succeeds: a failed unlock
-        // must leave it set so end() can still run pg_advisory_unlock_all.
+    async execute(query: string, params?: unknown[], timeoutMs?: number): Promise<[unknown[], unknown]> {
+        // Track session-scoped advisory locks — unlock statements contain
+        // 'unlock'. The flag flips only after the statement succeeds: a
+        // failed unlock must leave it set so end() can still run
+        // pg_advisory_unlock_all.
         const isUnlock = query.includes('advisory_unlock');
         const isLock = !isUnlock && query.includes('advisory_lock');
-        const rows = await this.runQuery(query, params);
+        const { rows, rowCount } = await this.runQuery(query, params, timeoutMs);
         if (isUnlock) this.holdsAdvisoryLock = false;
         else if (isLock) this.holdsAdvisoryLock = true;
-        return [rows, {}];
+        // Mirror mysql2's ResultSetHeader so callers read affectedRows on both
+        // drivers without branching — a missing rowCount read as 0 looks
+        // exactly like "no row matched" and caused the heartbeat
+        // registered:false regression.
+        return [rows, { affectedRows: rowCount ?? 0 }];
     }
 
     async query(query: string, params?: unknown[]): Promise<{ rows: unknown[] }> {
-        const rows = await this.runQuery(query, params);
+        const { rows } = await this.runQuery(query, params);
         return { rows };
     }
 

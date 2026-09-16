@@ -90,6 +90,11 @@ const HEALTHY_SOCKET_RETRYABLE = new Set([
     'ER_LOCK_WAIT_TIMEOUT',
 ]);
 
+// The same lock/serialization failures can surface with no recognized code —
+// isRetryableDbError also matches on message text. The server answered, so
+// the socket is healthy and the same-client retry stays meaningful.
+const HEALTHY_SOCKET_MESSAGE_PATTERNS = ['deadlock', 'serialization', 'lock wait'];
+
 /**
  * True when a retryable error means the socket itself is unusable: network
  * failure, server shutdown, or a watchdog timeout (a query that never settled
@@ -99,8 +104,13 @@ const HEALTHY_SOCKET_RETRYABLE = new Set([
  */
 export function isBrokenSocketError(error: unknown): boolean {
     if (!isRetryableDbError(error)) return false;
+    // A watchdog timeout always means an untrusted socket, whatever the query
+    // text happens to contain.
+    if (error instanceof DbTimeoutError) return true;
     const code = (error as { code?: unknown }).code;
-    return !(typeof code === 'string' && HEALTHY_SOCKET_RETRYABLE.has(code));
+    if (typeof code === 'string' && HEALTHY_SOCKET_RETRYABLE.has(code)) return false;
+    const message = (error instanceof Error ? error.message : String(error)).toLowerCase();
+    return !HEALTHY_SOCKET_MESSAGE_PATTERNS.some((pattern) => message.includes(pattern));
 }
 
 /**

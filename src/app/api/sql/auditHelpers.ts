@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import type { DbConnection } from './db';
+import { DbTimeoutError, type DbConnection } from './db';
 
 export interface AuditEventInput {
     event_type: string;
@@ -35,24 +35,33 @@ export async function lockHashChain(
     timeoutMs = 10_000
 ): Promise<() => Promise<void>> {
     if (connection.isPostgreSQL) {
-        // Bounded wait, mirroring MariaDB's GET_LOCK(?, timeout): pg_advisory_lock
-        // would block forever on a stuck writer — poll pg_try_advisory_lock
-        // for ~timeout instead, then fail.
-        const deadline = Date.now() + timeoutMs;
-        for (;;) {
-            const [rows] = await connection.execute('SELECT pg_try_advisory_lock(hashtext($1)) AS got', [name]);
-            const got = (rows as { got: boolean | number }[])[0]?.got;
-            if (got === true || Number(got) === 1) break;
-            if (Date.now() >= deadline) {
-                throw new Error(`Could not acquire hash chain lock "${name}" (timeout)`);
+        // Bounded wait, mirroring MariaDB's GET_LOCK(?, timeout): one blocking
+        // pg_advisory_lock bounded client-side by the per-call watchdog — no
+        // pg_try_advisory_lock polling (each poll was a remote round trip,
+        // burning ~60-120 of them during a contended 30 s closure). On
+        // timeout the watchdog marks the socket broken and end() destroys it,
+        // which aborts the server-side lock wait — nothing can leak onto a
+        // pooled client.
+        try {
+            await connection.execute('SELECT pg_advisory_lock(hashtext($1))', [name], timeoutMs);
+        } catch (error) {
+            if (error instanceof DbTimeoutError) {
+                throw new Error(`Could not acquire hash chain lock "${name}" (timeout)`, { cause: error });
             }
-            await new Promise((resolve) => setTimeout(resolve, 100));
+            throw error;
         }
         return async () => {
             await connection.execute('SELECT pg_advisory_unlock(hashtext($1))', [name]);
         };
     }
-    const [rows] = await connection.execute('SELECT GET_LOCK(?, ?) AS got', [name, Math.ceil(timeoutMs / 1000)]);
+    // GET_LOCK waits server-side (whole seconds); the client watchdog gets a
+    // margin so the NULL result wins the race instead of a socket-killing
+    // watchdog timeout.
+    const [rows] = await connection.execute(
+        'SELECT GET_LOCK(?, ?) AS got',
+        [name, Math.ceil(timeoutMs / 1000)],
+        timeoutMs + 5_000
+    );
     const got = (rows as { got: number | string | null }[])[0]?.got;
     if (Number(got) !== 1) throw new Error(`Could not acquire hash chain lock "${name}" (timeout)`);
     return async () => {

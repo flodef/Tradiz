@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DbTimeoutError, isRetryableDbError, withRetry, withTimeout } from '@/app/api/sql/retry';
+import { DbTimeoutError, isBrokenSocketError, isRetryableDbError, withRetry, withTimeout } from '@/app/api/sql/retry';
 
 describe('isRetryableDbError', () => {
     it('flags transient driver codes', () => {
@@ -23,6 +23,39 @@ describe('isRetryableDbError', () => {
         expect(isRetryableDbError({ code: '23505' })).toBe(false); // unique_violation
         expect(isRetryableDbError(new Error('syntax error at or near "SELCT"'))).toBe(false);
         expect(isRetryableDbError(null)).toBe(false);
+    });
+});
+
+describe('isBrokenSocketError', () => {
+    it('flags transport-level failures as broken', () => {
+        expect(isBrokenSocketError({ code: 'ECONNRESET' })).toBe(true);
+        expect(isBrokenSocketError(new Error('socket hang up'))).toBe(true);
+        expect(isBrokenSocketError(new DbTimeoutError('SELECT 1', 100))).toBe(true);
+    });
+
+    it('keeps server-answered lock errors on a healthy socket', () => {
+        // Coded variants
+        expect(isBrokenSocketError({ code: '40P01' })).toBe(false); // pg deadlock_detected
+        expect(isBrokenSocketError({ code: '40001' })).toBe(false); // serialization_failure
+        expect(isBrokenSocketError({ code: 'ER_LOCK_DEADLOCK' })).toBe(false);
+        expect(isBrokenSocketError({ code: 'ER_LOCK_WAIT_TIMEOUT' })).toBe(false);
+    });
+
+    it('keeps message-only lock errors on a healthy socket', () => {
+        // Retryable by message but without a recognized code — the server
+        // answered, so the connection must not be destroyed.
+        const deadlock = new Error('Deadlock found when trying to get lock');
+        expect(isRetryableDbError(deadlock)).toBe(true);
+        expect(isBrokenSocketError(deadlock)).toBe(false);
+
+        const lockWait = new Error('Lock wait timeout exceeded; try restarting transaction');
+        expect(isRetryableDbError(lockWait)).toBe(true);
+        expect(isBrokenSocketError(lockWait)).toBe(false);
+    });
+
+    it('never treats a watchdog timeout as healthy, whatever the label says', () => {
+        const label = 'UPDATE t SET x = 1 /* deadlock retry */';
+        expect(isBrokenSocketError(new DbTimeoutError(label, 100))).toBe(true);
     });
 });
 
