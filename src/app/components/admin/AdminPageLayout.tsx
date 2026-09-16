@@ -5,7 +5,8 @@ import { CloseButton } from '@/app/components/CloseButton';
 import { OfflineBanner } from '@/app/components/OfflineBanner';
 import { useUnsavedChanges } from '@/app/hooks/useUnsavedChanges';
 import { useUserRole } from '@/app/hooks/useUserRole';
-import { IconLoader2 } from '@tabler/icons-react';
+import { useLocalStorage } from '@/app/utils/localStorage';
+import { IconAlertTriangle, IconLoader2, IconX } from '@tabler/icons-react';
 import { ReactNode, useState } from 'react';
 
 interface AdminPageLayoutProps {
@@ -21,6 +22,13 @@ export default function AdminPageLayout({ title, children, action, hasChanges = 
     const { isRoleResolved } = useUserRole();
     const [navCollapsed, setNavCollapsed] = useState(true);
     const [closing, setClosing] = useState(false);
+    // Set by DataProvider's auto-close sweep when the server refuses a daily
+    // closure — a day without a Z-ticket must stay visible until resolved.
+    // Dismissing clears the flag; a later refused sweep sets it again.
+    const [blockedClosure, setBlockedClosure] = useLocalStorage<{ day: string; code: string; at: number } | null>(
+        'autoCloseBlocked',
+        null
+    );
 
     const handleClose = () => {
         // No unsaved changes → navigates immediately; show the spinner like
@@ -64,6 +72,25 @@ export default function AdminPageLayout({ title, children, action, hasChanges = 
                         ))}
                 </div>
             </div>
+            {blockedClosure && (
+                <div className="mx-auto mt-3 flex max-w-3xl items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-100 px-4 py-2 text-sm font-medium text-amber-900 dark:bg-amber-950/60 dark:text-amber-200">
+                    <IconAlertTriangle size={18} className="shrink-0" />
+                    <span className="flex-1">
+                        La clôture automatique du {blockedClosure.day} a été refusée
+                        {blockedClosure.code === 'PENDING_DRAFTS'
+                            ? ' — des transactions sont encore en cours ce jour-là.'
+                            : '.'}{' '}
+                        Finalisez-les puis clôturez la journée depuis la caisse.
+                    </span>
+                    <button
+                        onClick={() => setBlockedClosure(null)}
+                        className="cursor-pointer rounded p-1 hover:bg-amber-200/60 dark:hover:bg-amber-800/40"
+                        aria-label="Masquer"
+                    >
+                        <IconX size={16} />
+                    </button>
+                </div>
+            )}
             <div className="container mx-auto p-4">{children}</div>
         </div>
     );

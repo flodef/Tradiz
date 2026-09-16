@@ -89,10 +89,13 @@ prix côté serveur, public par design). Rien à signer.
   exposée à des tiers (backups, replication, accès support) ; sinon le gain
   est marginal car la clé reste sniffable en clair sur le LAN (voir B.4).
 - **B.3 Révocation UX ✅** — la suppression d'un appareil dans
-  DevicesConfig révoque immédiatement (la clé disparaît de `devices` → 403
-  partout). **Propagation** : le heartbeat retourne `registered: false` →
-  `DataProvider` recharge la page → `resolveUser` échoue → écran
-  « appareil non enregistré » au prochain heartbeat (≤30 s). Un appareil
+  DevicesConfig révoque sous **≤5 s** : la clé disparaît de `devices`, et le
+  cache mémoire `dev:` (TTL 5 s — les invalidations n'atteignent que
+  l'instance mutante sur un déploiement multi-instance type Vercel) expire
+  vite → 403 partout. **Propagation** : le heartbeat retourne
+  `registered: false` → `DataProvider` re-télécharge les données en arrière-
+  plan (sans recharger la page) → `resolveUser` échoue → écran
+  « appareil non enregistré » au prochain heartbeat (≤15 s). Un appareil
   jamais enregistré n'entre jamais dans la boucle heartbeat (pas de
   `transactionsFilename`), donc pas de risque de reload-loop.
 - **B.4 TLS sur le LAN** ⬜ — pertinent **seulement** si plusieurs caisses

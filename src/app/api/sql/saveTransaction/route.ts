@@ -175,10 +175,13 @@ export async function POST(request: Request) {
                     );
                 }
 
+                // add/sync report whether anything was actually written — an
+                // identical re-sync is a no-op, so the fidelity reconciliation
+                // below (provably net-zero on unchanged rows) is skipped too.
+                let changed = true;
                 switch (action) {
                     case 'add': {
-                        // changed=false → identical re-add, nothing was written
-                        const changed = await handleAddTransaction(connection, transaction, existingRow);
+                        changed = await handleAddTransaction(connection, transaction, existingRow);
                         if (changed) {
                             await insertAuditEvent(connection, {
                                 event_type: 'transaction_add',
@@ -221,7 +224,7 @@ export async function POST(request: Request) {
                         });
                         break;
                     case 'sync': {
-                        const changed = await handleSyncTransaction(connection, transaction);
+                        changed = await handleSyncTransaction(connection, transaction);
                         if (changed) {
                             await insertAuditEvent(connection, {
                                 event_type: 'transaction_sync',
@@ -243,7 +246,7 @@ export async function POST(request: Request) {
                 //   produces a net-zero delta (old reversed + new applied = 0 if unchanged).
                 // - 'delete'/'expunge': reverse the original delta (restore points)
                 // - 'update': just marks as PROCESSING, no point change
-                if ((action === 'add' || action === 'sync') && canUpdateFidelity) {
+                if ((action === 'add' || action === 'sync') && canUpdateFidelity && changed) {
                     await updateCustomerFidelityPointsIdempotent(connection, transaction, oldFidelityData);
                 } else if ((action === 'delete' || action === 'expunge') && canUpdateFidelity) {
                     await updateCustomerFidelityPoints(
@@ -903,10 +906,11 @@ async function replaceItemsIfChanged(
 
 // fidelityRate barely changes — cache it (~30 s) so it doesn't cost a remote
 // round trip on every sale. updateParameters invalidates the 'param:' family.
+// No shopId → single-shop local mode: skip the cache rather than keying on ''.
 async function fetchFidelityRate(connection: Connection): Promise<number> {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
-    return cached(`param:${connection.shopId ?? ''}:fidelityRate`, async () => {
+    const loadRate = async () => {
         const [paramRows] = await connection.execute(
             isPg
                 ? `SELECT param_value FROM ${prefix}parameters WHERE param_key = $1`
@@ -914,7 +918,10 @@ async function fetchFidelityRate(connection: Connection): Promise<number> {
             ['fidelityRate']
         );
         return Number((paramRows as { param_value: string }[])[0]?.param_value ?? 0);
-    });
+    };
+    const shopId = connection.shopId;
+    if (!shopId) return loadRate();
+    return cached(`param:${shopId}:fidelityRate`, loadRate);
 }
 
 export { computeFidelityDelta };

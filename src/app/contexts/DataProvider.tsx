@@ -1140,18 +1140,32 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // the closure — an unpaid cart must never silently block the seal or be
     // deleted.
     const lastAutoCloseRef = useRef(0);
+    const autoCloseInFlightRef = useRef(false);
+    // Persisted when the server refuses an automatic closure — admin pages
+    // read it to show a persistent warning banner until the day is closed.
+    const [blocked, setBlocked] = useLocalStorage<{ day: string; code: string; at: number } | null>(
+        'autoCloseBlocked',
+        null
+    );
     const autoCloseMissedDays = useCallback(async () => {
         if (!resolvedShopId || !isOnline) return;
+        // In-flight guard: the effect can fire on reconnect while a sweep is
+        // still awaiting a slow closure response — never overlap two runs.
+        if (autoCloseInFlightRef.current) return;
         // Throttle: the effect also fires on reconnect, so a flapping
         // network shouldn't re-run the sweep constantly.
         if (Date.now() - lastAutoCloseRef.current < 60_000) return;
         lastAutoCloseRef.current = Date.now();
+        autoCloseInFlightRef.current = true;
         try {
             const res = await deviceFetch('/api/sql/dailyClosure?limit=365');
             if (!res.ok) return;
             const data = (await res.json()) as { closures?: { closure_date: string }[] };
             const closedDays = new Set((data?.closures ?? []).map((c) => String(c.closure_date).slice(0, 10)));
             closedDays.forEach((d) => closedDaysRef.current.add(d));
+            // The flagged day is now closed (manual closure, another device) —
+            // clear the admin warning.
+            if (blocked && closedDays.has(blocked.day)) setBlocked(null);
 
             // The boundary that just passed seals the calendar day BEFORE it —
             // sales between midnight and closingHour stay open until the next
@@ -1185,6 +1199,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 });
                 if (r.ok) {
                     closedDaysRef.current.add(day);
+                    // The day finally closed — clear any admin warning.
+                    if (blocked?.day === day) setBlocked(null);
                     continue;
                 }
                 if (r.status === 409) {
@@ -1196,19 +1212,34 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     // very drafts blocking the closure uncollectable.
                     if (body?.code === 'ALREADY_CLOSED' || body?.code === 'PERIOD_SEALED') {
                         closedDaysRef.current.add(day);
+                        if (blocked?.day === day) setBlocked(null);
                         continue;
                     }
                     console.warn('[auto-close] day', day, 'could not be closed:', body?.code ?? r.status);
+                    // Persist a marker the admin pages surface as a banner —
+                    // a day without a Z-ticket must not go unnoticed.
+                    setBlocked({ day, code: body?.code ?? 'ERROR', at: Date.now() });
                 }
                 break; // transient failure — retried at the next boundary
             }
         } catch {
             // Offline or unauthenticated — retried at the next boundary.
+        } finally {
+            autoCloseInFlightRef.current = false;
         }
-    }, [resolvedShopId, isOnline, getResetTimes]);
+    }, [resolvedShopId, isOnline, getResetTimes, blocked, setBlocked]);
 
+    const autoCloseMountedRef = useRef(false);
+    const wasOfflineRef = useRef(!isOnline);
     useEffect(() => {
         if (!resolvedShopId) return;
+        // Fire immediately on mount and on the offline→online transition only
+        // — not on every effect re-run (the callback's identity shifts with
+        // isOnline/blocked, which used to trigger an unguarded sweep each time).
+        const firstRun = !autoCloseMountedRef.current;
+        autoCloseMountedRef.current = true;
+        const justCameOnline = wasOfflineRef.current && isOnline;
+        wasOfflineRef.current = !isOnline;
         let timer: ReturnType<typeof setTimeout> | undefined;
         const scheduleNext = () => {
             const { next } = getResetTimes();
@@ -1219,7 +1250,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 Math.max(next - Date.now(), 0) + 5_000
             );
         };
-        void autoCloseMissedDays();
+        if (firstRun || justCameOnline) void autoCloseMissedDays();
         scheduleNext();
         return () => clearTimeout(timer);
     }, [resolvedShopId, isOnline, getResetTimes, autoCloseMissedDays]);
@@ -1415,7 +1446,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             // device only (same posture as a stopped
                             // subscription) — but make it explicit.
                             openFullscreenPopup('Journée clôturée', [
-                                `La journée du ${error.closedDay} est clôturée — cette transaction n'a pas pu être enregistrée sur le serveur.`,
+                                // error.error is the server-localized reason —
+                                // it names the sealing period (a LATER day, a
+                                // month or a year), not necessarily the
+                                // transaction's own day.
+                                error.error ??
+                                    `La journée du ${error.closedDay} est clôturée — cette transaction n'a pas pu être enregistrée sur le serveur.`,
                                 'Elle reste visible uniquement sur cet appareil.',
                             ]);
                             return;

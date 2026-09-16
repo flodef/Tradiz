@@ -36,7 +36,11 @@ export async function readSubscription(connection: DbConnection): Promise<Subscr
     // Cached per shop (~30 s): this pair of queries runs on nearly every
     // write route, so each call otherwise costs two remote-DB round trips.
     // The subscription route invalidates 'sub:' on every mutation.
-    return cached(`sub:${connection.shopId ?? ''}`, () => readSubscriptionFromDb(connection));
+    // No shopId → single-shop local mode: skip the cache — a '' key would
+    // cross-serve subscription state if a multi-shop path ever left it unset.
+    const shopId = connection.shopId;
+    if (!shopId) return readSubscriptionFromDb(connection);
+    return cached(`sub:${shopId}`, () => readSubscriptionFromDb(connection));
 }
 
 export async function readSubscriptionFromDb(connection: DbConnection): Promise<SubscriptionRow> {

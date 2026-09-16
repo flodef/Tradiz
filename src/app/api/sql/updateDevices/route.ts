@@ -41,35 +41,46 @@ export async function POST(request: Request) {
 
         const db = connection;
 
-        // Plan limit: the formule caps the number of caisses (devices).
-        const sub = await readSubscription(db);
-        if (sub.status === 'stopped') return stoppedSubscriptionResponse();
-        const limits = SUBSCRIPTION_PLANS[sub.plan].limits;
         // Service/admin devices (intervention flag) are never sent by the UI
         // (getDevices filters them) and don't count toward the quota — a
         // forged `intervention: true` in the body is ignored below anyway.
         const billableCount = devices.length;
-        if (billableCount > limits.maxDevices) {
-            return NextResponse.json(
-                {
-                    error: `Votre formule ${SUBSCRIPTION_PLANS[sub.plan].name} est limitée à ${limits.maxDevices} caisse(s). Passez à une formule supérieure pour en ajouter.`,
-                },
-                { status: 403 }
-            );
-        }
 
-        const [countRows] = await db.execute(
-            db.isPostgreSQL
-                ? 'SELECT COUNT(*) AS count FROM dc_pos.devices WHERE NOT intervention'
-                : 'SELECT COUNT(*) AS count FROM devices WHERE NOT intervention',
-            []
-        );
-        const beforeCount = Number((countRows as { count: number | string }[])[0]?.count) || 0;
         let added = 0;
         let updated = 0;
         let revoked = 0;
+        let skipped = 0;
+        // Set inside the transaction when a pre-check fails — returned after
+        // the (empty) commit, keeping reads inside the tx so a concurrent
+        // subscription change or device write can't slip between check and
+        // write.
+        let earlyResponse: NextResponse | undefined;
 
         await withTransaction(db, async () => {
+            // Plan limit: the formule caps the number of caisses (devices).
+            const sub = await readSubscription(db);
+            if (sub.status === 'stopped') {
+                earlyResponse = stoppedSubscriptionResponse();
+                return;
+            }
+            const limits = SUBSCRIPTION_PLANS[sub.plan].limits;
+            if (billableCount > limits.maxDevices) {
+                earlyResponse = NextResponse.json(
+                    {
+                        error: `Votre formule ${SUBSCRIPTION_PLANS[sub.plan].name} est limitée à ${limits.maxDevices} caisse(s). Passez à une formule supérieure pour en ajouter.`,
+                    },
+                    { status: 403 }
+                );
+                return;
+            }
+
+            const [countRows] = await db.execute(
+                db.isPostgreSQL
+                    ? 'SELECT COUNT(*) AS count FROM dc_pos.devices WHERE NOT intervention'
+                    : 'SELECT COUNT(*) AS count FROM devices WHERE NOT intervention',
+                []
+            );
+            const beforeCount = Number((countRows as { count: number | string }[])[0]?.count) || 0;
             const savedIds: number[] = [];
             for (const device of devices) {
                 const label = device.label || '';
@@ -91,9 +102,9 @@ export async function POST(request: Request) {
                 if (device.id) {
                     // Update existing device by id — never an intervention row.
                     const updateQuery = db.isPostgreSQL
-                        ? 'UPDATE dc_pos.devices SET label = $1, public_key = $2, user_id = $3, backscreen_com = $4, backscreen_baud = $5, printer_com = $6, printer_baud = $7, cash_drawer_com = $8, cash_drawer_baud = $9 WHERE id = $10 AND NOT intervention RETURNING id'
+                        ? 'UPDATE dc_pos.devices SET label = $1, public_key = $2, user_id = $3, backscreen_com = $4, backscreen_baud = $5, printer_com = $6, printer_baud = $7, cash_drawer_com = $8, cash_drawer_baud = $9 WHERE id = $10 AND NOT intervention'
                         : 'UPDATE devices SET label = ?, public_key = ?, user_id = ?, backscreen_com = ?, backscreen_baud = ?, printer_com = ?, printer_baud = ?, cash_drawer_com = ?, cash_drawer_baud = ? WHERE id = ? AND NOT intervention';
-                    const [updRows, updResult] = await db.execute(updateQuery, [
+                    const [, updResult] = await db.execute(updateQuery, [
                         label,
                         key,
                         userId,
@@ -105,9 +116,7 @@ export async function POST(request: Request) {
                         cashDrawerBaud,
                         device.id,
                     ]);
-                    const affected = db.isPostgreSQL
-                        ? (updRows as { id: number }[]).length
-                        : Number((updResult as { affectedRows?: number }).affectedRows ?? 0);
+                    const affected = Number((updResult as { affectedRows?: number }).affectedRows ?? 0);
                     if (affected > 0) {
                         savedIds.push(device.id);
                         updated++;
@@ -168,7 +177,10 @@ export async function POST(request: Request) {
                         added++;
                     }
                 }
-                // found.intervention → skip silently: the service row is left untouched.
+                // found.intervention → skipped: the service row is left
+                // untouched, but the payload row is reported so a forged
+                // intervention key doesn't pass unnoticed.
+                if (found?.intervention) skipped++;
             }
 
             // Delete devices that are not in the incoming list. Two rows are
@@ -217,12 +229,14 @@ export async function POST(request: Request) {
                 entity_type: 'devices',
                 entity_id: 'devices',
                 user_name: session?.name ?? authResult.userName ?? 'inconnu',
-                detail: `${added} added, ${updated} updated, ${revoked} revoked`,
+                detail: `${added} added, ${updated} updated, ${revoked} revoked${skipped ? `, ${skipped} skipped` : ''}`,
             });
         });
 
+        if (earlyResponse) return earlyResponse;
+
         invalidateApiCache('dev:');
-        return NextResponse.json({ success: true }, { status: 200 });
+        return NextResponse.json({ success: true, skipped }, { status: 200 });
     } catch (error) {
         console.error('Error updating devices:', error);
         return NextResponse.json({ error: 'An error occurred while updating devices' }, { status: 500 });

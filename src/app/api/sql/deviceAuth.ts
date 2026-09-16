@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import { NextResponse } from 'next/server';
-import { cached } from './apiCache';
+import { cached, DEVICE_AUTH_TTL_MS } from './apiCache';
 import { getPosDb, type DbConnection } from './db';
 
 export interface DeviceAuth {
@@ -126,14 +126,18 @@ export async function resolveDeviceAuth(
 ): Promise<DeviceAuth> {
     const key = deviceKeyFromRequest(request);
     if (!key) return DENIED;
-    // Cached per (shop, key) ~30 s: this lookup runs on every gated route and
+    // Cached per (shop, key) ~5 s: this lookup runs on every gated route and
     // each one was a full remote-DB round trip. Denials are never cached, so
     // a freshly registered device authorizes immediately; device/user edits
-    // invalidate 'dev:' in updateDevices/updateUsers.
+    // invalidate 'dev:' in updateDevices/updateUsers. The TTL is deliberately
+    // short: this is the security-relevant family, and on a multi-instance
+    // deploy invalidation only reaches the mutating process — a revocation
+    // propagates to other instances within the TTL.
     return cached(
         `dev:${shopId}:${key}`,
         () => resolveDeviceAuthFromDb(request, connection, shopId, key),
-        (auth) => auth.authorized
+        (auth) => auth.authorized,
+        DEVICE_AUTH_TTL_MS
     );
 }
 
@@ -271,24 +275,25 @@ export async function shopRequiresUserAuth(connection: DbConnection): Promise<bo
     // Cached per shop: this flag check runs on every admin-gated call.
     // Only a successful read is cached — a transient error must not pin the
     // fail-closed fallback below for 30 s. updateParameters invalidates it.
-    const flag = await cached(
-        `uauth:${connection.shopId ?? ''}`,
-        async () => {
-            try {
-                const [rows] = await connection.execute(
-                    connection.isPostgreSQL
-                        ? `SELECT param_value FROM dc_pos.parameters WHERE param_key = 'requireUserAuth' LIMIT 1`
-                        : `SELECT param_value FROM parameters WHERE param_key = 'requireUserAuth' LIMIT 1`,
-                    []
-                );
-                return String((rows as { param_value: string }[])[0]?.param_value) === 'true';
-            } catch (error) {
-                console.error('Failed to read requireUserAuth flag:', error);
-                return null;
-            }
-        },
-        (v) => v !== null
-    );
+    const loadFlag = async () => {
+        try {
+            const [rows] = await connection.execute(
+                connection.isPostgreSQL
+                    ? `SELECT param_value FROM dc_pos.parameters WHERE param_key = 'requireUserAuth' LIMIT 1`
+                    : `SELECT param_value FROM parameters WHERE param_key = 'requireUserAuth' LIMIT 1`,
+                []
+            );
+            return String((rows as { param_value: string }[])[0]?.param_value) === 'true';
+        } catch (error) {
+            console.error('Failed to read requireUserAuth flag:', error);
+            return null;
+        }
+    };
+    // No shopId → single-shop local mode: skip the cache — a '' key would
+    // cross-serve the flag if a multi-shop path ever left shopId unset.
+    const flag = connection.shopId
+        ? await cached(`uauth:${connection.shopId}`, loadFlag, (v) => v !== null)
+        : await loadFlag();
     if (flag !== null) return flag;
 
     // Fail closed when auth could plausibly be required — but
