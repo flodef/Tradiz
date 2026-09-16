@@ -5,6 +5,7 @@ import { CloseButton } from '@/app/components/CloseButton';
 import { OfflineBanner } from '@/app/components/OfflineBanner';
 import { useUnsavedChanges } from '@/app/hooks/useUnsavedChanges';
 import { useUserRole } from '@/app/hooks/useUserRole';
+import { IconLoader2 } from '@tabler/icons-react';
 import { ReactNode, useState } from 'react';
 
 interface AdminPageLayoutProps {
@@ -19,8 +20,12 @@ export default function AdminPageLayout({ title, children, action, hasChanges = 
     const { confirmUnsavedChanges } = useUnsavedChanges();
     const { isRoleResolved } = useUserRole();
     const [navCollapsed, setNavCollapsed] = useState(true);
+    const [closing, setClosing] = useState(false);
 
     const handleClose = () => {
+        // No unsaved changes → navigates immediately; show the spinner like
+        // TopNav's pending state (the POS takes a few seconds to load).
+        if (!hasChanges) setClosing(true);
         confirmUnsavedChanges(hasChanges, onSave, '/');
     };
 
@@ -47,13 +52,16 @@ export default function AdminPageLayout({ title, children, action, hasChanges = 
                     {title}
                 </h1>
                 <div className="ml-auto shrink-0 z-10">
-                    {action ?? (
-                        <CloseButton
-                            onClose={handleClose}
-                            size="xl"
-                            className="cursor-pointer active:bg-transparent dark:active:bg-transparent"
-                        />
-                    )}
+                    {action ??
+                        (closing ? (
+                            <IconLoader2 size={32} className="m-3 animate-spin" aria-label="Fermeture en cours" />
+                        ) : (
+                            <CloseButton
+                                onClose={handleClose}
+                                size="xl"
+                                className="cursor-pointer active:bg-transparent dark:active:bg-transparent"
+                            />
+                        ))}
                 </div>
             </div>
             <div className="container mx-auto p-4">{children}</div>

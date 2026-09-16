@@ -37,13 +37,15 @@ export async function POST(request: Request) {
 
         // Register this device's heartbeat — only if it's already registered.
         // Devices must be added via the admin UI; unregistered devices are ignored.
+        // PG: execute() returns rows and drops rowCount, so RETURNING id is the
+        // only way to know whether the row matched (same pattern as deleteReview).
         const heartbeatQuery = connection.isPostgreSQL
-            ? `UPDATE dc_pos.devices SET connected = true, last_seen = NOW() WHERE public_key = $1`
+            ? `UPDATE dc_pos.devices SET connected = true, last_seen = NOW() WHERE public_key = $1 RETURNING id`
             : `UPDATE devices SET connected = true, last_seen = NOW() WHERE public_key = ?`;
         const [result] = await connection.execute(heartbeatQuery, [publicKey]);
 
         const affectedRows = connection.isPostgreSQL
-            ? ((result as { rowCount?: number }).rowCount ?? 0)
+            ? (result as unknown[]).length
             : ((result as { affectedRows?: number }).affectedRows ?? 0);
 
         // If the device isn't registered, return 0 other devices — it can't sync.

@@ -1600,7 +1600,15 @@ export const useSummary = () => {
                                         }),
                                     });
                                     const data = await res.json();
-                                    if (data.error) {
+                                    if (data.code === 'ALREADY_CLOSED') {
+                                        // Another device/auto-close already sealed
+                                        // this day — same end state as a success.
+                                        setCashClosed(true);
+                                        openPopup('Clôture journalière', [
+                                            `Date: ${closureDate}`,
+                                            'Cette journée est déjà clôturée — mode lecture seule',
+                                        ]);
+                                    } else if (data.error) {
                                         openPopup('Clôture', [data.error]);
                                     } else {
                                         const c = data.closure;
