@@ -1,113 +1,95 @@
 # Changelog
 
-All notable changes to Tradiz are documented in this file.
+All notable changes to this project are documented here. Entries marked
+**[NF525]** impact fiscal compliance (hash format, closure logic, VAT,
+archive format) — see `docs/CONFORMITE-NF525.md` §Versioning.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
-with the following fiscal-specific rule:
+## [1.657.0] — 2026-09-16
 
-**Fiscal-impacting changes** (hash format, closure logic, VAT computation, archive
-format, integrity verification) bump the **minor** version and must be documented
-here with a "FISCAL" tag.
+### Fixed
 
-## [Unreleased]
+- **[NF525]** Device revocation no longer triggers a full page reload — the
+  heartbeat soft-reloads data in the background and lands on the registration
+  screen only when the device is genuinely gone (`a531df6`).
 
-### FISCAL — Chain integrity fix (critical)
+## [1.656.0] — 2026-09-16
 
-#### Fixed — Chain breaks from normal POS usage
+### Fixed
 
-- `handleUpdateTransaction` (marks transaction as PROCESSING) was changing
-  `payment_method`, `user_name`, and `device_id` — all hash inputs — without
-  recomputing the hash. This caused hash mismatches on every update.
-- `handleDeleteTransaction` and `handleHardDeleteTransaction` were changing
-  `payment_method` without recomputing the hash. Same hash mismatch issue.
-- `handleSyncTransaction` was recomputing the hash but not rechaining subsequent
-  transactions, causing chain breaks for every transaction after the synced one.
-- Root cause: any in-place modification of a transaction's hash-relevant fields
-  changes its hash, which invalidates the `previous_hash` of all subsequent
-  transactions.
-- Fix: added `rechainFrom(connection, fromTransactionId)` that recomputes the
-  hash of the modified transaction and all subsequent transactions in a single
-  batch. Called after every update/delete/hardDelete/sync operation.
-- All operations run inside the existing database transaction, so the rechain
-  is atomic with the modification.
+- PostgreSQL heartbeat always reported `registered: false` (`rowCount` dropped
+  by `execute()`) — every POS reloaded every 15 s. Now uses
+  `UPDATE ... RETURNING` (`d694e8a`).
 
-### FISCAL — NF525 Conformity Remediation
+## [1.655.0] — 2026-09-16
 
-#### Changed — P0: Self-attestation
+### Fixed
 
-- Removed fabricated `NF525_CERTIFICATE_NUMBER` constant and all references to it.
-- Receipt footer no longer prints `Certif. NF525-Tradiz-2026-001`.
-- Receipt footer now prints `NAF` and legal form from configurable parameters
-  (`SHOP_NAF`, `SHOP_LEGAL_FORM`) instead of hardcoded `NAF 5610C` and `SARL - RCS`.
-- Receipt footer prints `Tradiz v{version}` without certification claim.
-- Replaced `/api/sql/nf525Certificate` (JSON) with `/api/sql/attestation` (PDF).
-- Attestation PDF follows BOI-LETTRE-000242 model with two volets (éditeur + utilisateur).
-- UI: "Certificat" button replaced with "Attestation" button (green when signed,
-  red when unsigned).
-- Added `AttestationViewer` component for PDF display, print, and upload.
-- Added `PUBLISHER` constant for éditeur identity in attestation volet 1.
-- `USERDATA_PATH` env var passed from Electron to Next.js server for signed PDF storage.
+- **[NF525]** Hung pool sockets are now destroyed instead of recycled
+  (timeouts mark the connection broken; advisory locks can no longer leak on
+  pooled clients — `pg_advisory_unlock_all()` on release) (`3f34538`).
+- `resetDemo` now flushes the in-process API cache (`3f34538`).
 
-#### Changed — P1: Tamper protection
+## [1.653.0] — 2026-09-16
 
-- Transaction hash now includes a canonical digest of line items (label, quantity,
-  unit price, total, VAT rate, discount amount). Items are sorted for deterministic
-  ordering regardless of insertion order.
-- `scripts/generate-transaction-hashes.ts` and `scripts/populate-nf525-tables.ts`
-  now refuse to overwrite existing hashes/closures without `--force-rechain` flag,
-  typed "RECHAIN" confirmation, and a `chain_rebuild` audit event.
-- Transaction item replacement during sync now logs a
-  `transaction_items_replaced` audit event capturing the prior item set.
+### Changed
 
-#### Changed — P2: Verification
+- **[NF525]** A re-synced transaction whose recomputed hash is identical is
+  now a no-op — no UPDATE, no item rewrite, no rechain, no audit event —
+  strengthening the "rewrite only what changed" rule (`201d29a`).
+- Hash-chain rechain batches raised to 2000 rows; advisory lock duration on
+  `nf525_transactions` reduced accordingly (`201d29a`).
 
-- `/api/sql/verifyIntegrity` now verifies all five chains: transactions,
-  daily closures, monthly closures, annual closures, and audit events.
-- Response includes per-chain status in `chains` object (backward-compatible
-  top-level fields preserved).
-- UI integrity popup now shows per-chain status.
-- Audit event hash now includes `created_at` to prevent backdating.
-- `insertAuditEvent` now passes `created_at` explicitly (not relying on DB default)
-  so the stored value matches the hashed value.
-- Fiscal archive (`/api/sql/fiscalArchive`) now includes HMAC-SHA256 signature
-  when `FISCAL_ARCHIVE_HMAC_KEY` env var is set.
-- Added `scripts/verify-archive.ts` for third-party archive signature verification.
+## [1.650.0] — 2026-09-15
 
-#### Changed — P3: Governance
+### Fixed
 
-- Added audit event logging to fiscally relevant parameter update routes:
-  `updateArticles`, `updateCurrencies`, `updatePaymentMethods`, `updateUsers`,
-  `updateDiscounts`, `updateCategories`.
-- Added `docs/CONFORMITE-NF525.md` compliance documentation.
-- Added this CHANGELOG.md.
+- **[NF525]** Retry identity collision when re-dating a transaction after a
+  `DAY_CLOSED` refusal (`c3a3b2b`).
+
+## [1.648.0] — 2026-09-15
+
+### Fixed
+
+- **[NF525]** Distinct 409 refusal codes (`DAY_CLOSED`, `PERIOD_SEALED`,
+  `PENDING_DRAFTS`, `ALREADY_CLOSED`), `redate_to` validation, period seal
+  checked on insert (`686d6dd`).
+
+## [1.646.0] — 2026-09-15
 
 ### Added
 
-- `pdf-lib` as a direct dependency (was transitive via `@stafyniaksacha/facturx`).
-- `SHOP_NAF` and `SHOP_LEGAL_FORM` parameter keys.
-- `naf` and `legalForm` fields on `Shop` interface.
-- `PUBLISHER` constant in `src/app/utils/constants.ts`.
-- `src/app/utils/attestationPdf.ts` — BOI-LETTRE-000242 PDF builder.
-- `src/app/api/sql/attestation/route.ts` — attestation API (GET/POST/DELETE).
-- `src/app/components/AttestationViewer.tsx` — PDF viewer + upload component.
-- `scripts/verify-archive.ts` — archive signature verification script.
-- `docs/CONFORMITE-NF525.md` — compliance documentation.
+- **[NF525]** Append-only triggers deployed on hosted databases
+  (`BEFORE UPDATE/DELETE` on fiscal tables, `BEFORE DELETE` on transactions,
+  `BEFORE TRUNCATE` on `transactions`/`audit_events`) — scripts
+  `harden-nf525-triggers-postgres.sql` / `harden-nf525-postgres.sql`
+  (`70a1647`).
 
-### Removed
+## [1.645.0] — 2026-09-15
 
-- `src/app/api/sql/nf525Certificate/route.ts` — replaced by attestation route.
-- `NF525_CERTIFICATE_NUMBER` constant — was fabricated and misleadingly printed on receipts.
+### Added
 
-## Versioning Policy
+- **[NF525]** Automatic daily closure at `closingHour`; drafts of a sealed
+  day are re-dated to the open day (traced by `transaction_redated` audit
+  event + `rechainFrom`) (`4ba4b16`).
 
-Tradiz uses Semantic Versioning with the following fiscal-specific rules:
+## [1.642.0] — 2026-09-15
 
-- **Major** (x.0.0): Breaking changes to the API, database schema, or receipt format.
-- **Minor** (1.x.0): Fiscal-impacting changes (hash format, closure logic, VAT
-  computation, archive format, integrity verification). These must be documented
-  in this changelog with a "FISCAL" tag.
-- **Patch** (1.0.x): Bug fixes, UI improvements, non-fiscal feature additions.
+### Fixed
 
-The version number is displayed on customer receipts and in the attestation PDF,
-making it a fiscal identifier. Version bumps must be deliberate, not automatic.
+- **[NF525]** Sealed days and closure hierarchy protected against chain
+  rewriting — writes that would break a seal are refused (`0a181a1`).
+
+## [1.592.0] — 2026-09-13
+
+### Fixed
+
+- **[NF525]** Closure writes hardened; fiscal archive bounds fixed
+  (`e90ad85`).
+
+## [1.584.0] — 2026-09-13
+
+### Changed
+
+- **[NF525]** Closure hashes anchored to the transaction chain — a daily
+  closure hash covers the first/last paid transaction hash of the day;
+  monthly/annual cover the first/last child closure hash (P2.9) (`a337fef`).

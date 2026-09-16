@@ -3,12 +3,13 @@
 This document details the three remaining items from the NF525 compliance
 remediation, with step-by-step instructions for each.
 
-## 1. P2.9 — Anchor closures to the transaction chain ✅ IMPLEMENTED
+## 1. P2.9 — Anchor closures to the transaction chain ✅ DEPLOYED
 
-> **Status**: code done — **requires a rechain of existing closures** after
-> deploy (`bun run scripts/populate-nf525-tables.ts --force-rechain`, after
-> testing on a database copy). Until then, `verifyIntegrity` reports closure
-> hash mismatches because existing hashes were computed without the anchors.
+> **Status**: deployed and verified — the closure rechain has been run on the
+> hosted databases. Verified 2026-09-16 by recomputing every stored closure
+> hash with the anchored formula: all daily/monthly/annual closures on
+> `annette` (603/36/4) and `gds` (12/1/1) match, and the
+> `previous_closure_hash` linkage is unbroken.
 >
 > What changed:
 >
@@ -202,20 +203,26 @@ you have time, but it's not blocking.
 
 ---
 
-## 3. P3.15 — DB-level append-only protections 🟡 SCRIPTS READY
+## 3. P3.15 — DB-level append-only protections ✅ APPLIED (hosted DBs)
 
-> **Status**: hardening scripts written — **not yet applied** (operational
-> change, requires admin access + staging test):
+> **Status**: triggers live on all hosted databases (`annette`, `gds`, `demo`),
+> verified 2026-09-16 — `BEFORE UPDATE/DELETE` on `audit_events`,
+> `product_price_history`, `balance_history`, `subscription_events` and the
+> three closure tables, `BEFORE DELETE` on `transactions`, plus
+> `BEFORE TRUNCATE` statement triggers on `transactions` and `audit_events`
+> (applied 2026-09-16 — they were missing from the initial deploy; without
+> them `TRUNCATE` bypassed every row-level guard).
 >
-> - `scripts/harden-nf525-postgres.sql` — creates a `tradiz_app` login role
->   with least-privilege grants and `BEFORE UPDATE/DELETE` triggers on
->   `audit_events`, `product_price_history`, `balance_history`, the three
->   closure tables, plus `BEFORE DELETE` on `transactions`. Run it per shop
->   database as the owner, then switch `PG_USER`/`PG_PASSWORD`.
-> - `scripts/harden-nf525-mariadb.sql` — same design for MariaDB (`tradiz_app`
->   user, per-table grants, `SIGNAL`-based triggers). Switch `DB_USER`/
->   `DB_PASSWORD` after applying.
-> - Both scripts embed a commented ROLLBACK section.
+> - `scripts/harden-nf525-triggers-postgres.sql` — the applied trigger set
+>   (idempotent, safe to re-run per shop database as the owner).
+> - `scripts/harden-nf525-postgres.sql` — full version, additionally creates
+>   the `tradiz_app` least-privilege login role. **Not switched**: the app
+>   still connects as the owner role — acceptable on hosted Neon since the
+>   triggers bind every role, but required for self-hosted installs wanting
+>   credential-level protection.
+> - `scripts/harden-nf525-mariadb.sql` — MariaDB equivalent (`tradiz_app`
+>   user, per-table grants, `SIGNAL`-based triggers). Not applied — no hosted
+>   MariaDB deployment.
 >
 > The `transaction_items` sync conflict is resolved by **option 1** (grant
 > `DELETE` on `transaction_items` only) — the `transaction_items_replaced`
@@ -224,8 +231,8 @@ you have time, but it's not blocking.
 >
 > ⚠️ Caveats: admin scripts (`populate-nf525-tables.ts`, migrations,
 > `TRUNCATE` rechain) must keep running as the owner/admin role — `tradiz_app`
-> cannot `TRUNCATE` the closure tables. Test the full POS flow on a staging
-> DB before switching production credentials.
+> cannot `TRUNCATE` the closure tables. A legitimate repair on sealed tables
+> requires `ALTER TABLE <t> DISABLE TRIGGER ALL` as owner (re-enable after).
 
 ### What it means
 
@@ -381,8 +388,8 @@ also the **most operationally complex**. Recommended approach:
 
 ## Summary of priorities
 
-| Item                     | Effort | Risk                                    | NF525 impact                                            | Recommendation                       |
-| ------------------------ | ------ | --------------------------------------- | ------------------------------------------------------- | ------------------------------------ |
-| P2.9 (closure anchoring) | Medium | Breaking (requires rechain)             | High — closes a verification gap                        | ✅ Code done — run rechain on deploy |
-| P3.14 (price history)    | Low    | Low                                     | Low — audit events already provide traceability         | ✅ Done                              |
-| P3.15 (DB grants)        | High   | High — operational, could break the app | High — only real protection against direct DB tampering | 🟡 Scripts ready — apply on staging  |
+| Item                     | Effort | Risk                                    | NF525 impact                                            | Recommendation                                                 |
+| ------------------------ | ------ | --------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------- |
+| P2.9 (closure anchoring) | Medium | Breaking (requires rechain)             | High — closes a verification gap                        | ✅ Deployed — all hosted closures verified                     |
+| P3.14 (price history)    | Low    | Low                                     | Low — audit events already provide traceability         | ✅ Done                                                        |
+| P3.15 (DB grants)        | High   | High — operational, could break the app | High — only real protection against direct DB tampering | ✅ Triggers live on all hosted DBs; `tradiz_app` role optional |
