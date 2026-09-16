@@ -19,6 +19,7 @@ export interface ConfigContextState {
     state: State;
     setState: (value: State) => void;
     setConfig: (value: Config | undefined | ((prev: Config | undefined) => Config | undefined)) => void;
+    reloadConfig: () => Promise<void>;
     isStateReady: boolean;
     modeFonctionnement: OperationMode;
     isFastFood: boolean;

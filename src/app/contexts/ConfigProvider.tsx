@@ -14,7 +14,7 @@ import {
     User,
     CategoryData,
 } from '@/app/utils/interfaces';
-import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConfigContext, OperationMode } from '../hooks/useConfig';
 import {
     ADMIN_CONFIG_URL,
@@ -32,6 +32,7 @@ import {
     DatabaseNotConfiguredError,
     MissingDataError,
     UserNotFoundError,
+    clearLoadDataCache,
     defaultCurrencies,
     defaultParameters,
     defaultPaymentMethods,
@@ -315,6 +316,45 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
         [setConfig, loadConfig]
     );
 
+    // Soft reload: re-resolve the user and refresh every dataset without
+    // leaving the loaded state — the UI keeps rendering the current data (no
+    // loading dots, no blank screen). Used when the heartbeat reports the
+    // device was revoked: resolveUser then fails and lands on the device-
+    // registration screen, same outcome as a full page reload.
+    const reloadInFlight = useRef(false);
+    const reloadConfig = useCallback(async () => {
+        if (reloadInFlight.current) return;
+        reloadInFlight.current = true;
+        try {
+            clearLoadDataCache();
+            const data = await loadData();
+            if (data) storeData(data);
+        } catch (error) {
+            if (error instanceof UserNotFoundError) {
+                setParameters((prev) => ({
+                    ...prev,
+                    error: error.message,
+                    shop: { ...prev.shop, email: String(error.cause) },
+                }));
+                setState(State.unidentified);
+            } else if (error instanceof MissingDataError) {
+                if (error.isAdmin) {
+                    if (!window.location.pathname.includes(ADMIN_CONFIG_URL)) {
+                        window.location.href = ADMIN_CONFIG_URL;
+                    }
+                } else {
+                    setState(State.missingData);
+                }
+            } else if (error instanceof DatabaseNotConfiguredError) {
+                setState(State.fatal);
+            }
+            // Other failures (offline, connection, rate-limit) are transient —
+            // keep the session running on the current data, next call retries.
+        } finally {
+            reloadInFlight.current = false;
+        }
+    }, [storeData]);
+
     useEffect(() => {
         if (!colors?.length) return;
 
@@ -506,6 +546,7 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
                 state,
                 setState,
                 setConfig,
+                reloadConfig,
                 isStateReady,
                 modeFonctionnement,
                 isFastFood,

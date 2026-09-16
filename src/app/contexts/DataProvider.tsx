@@ -110,8 +110,16 @@ export function computeResetTimes(closingHour: number, now?: Date) {
 }
 
 export const DataProvider: FC<DataProviderProps> = ({ children }) => {
-    const { currencies, currencyIndex, setCurrency, parameters, isKitchenViewEnabled, categories, customers } =
-        useConfig();
+    const {
+        currencies,
+        currencyIndex,
+        setCurrency,
+        parameters,
+        isKitchenViewEnabled,
+        categories,
+        customers,
+        reloadConfig,
+    } = useConfig();
     const { isOnline } = useWindowParam();
     const { openFullscreenPopup } = usePopup();
 
@@ -888,10 +896,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 if (!heartbeat.ok) return;
                 const heartbeatData = (await heartbeat.json()) as { registered?: boolean };
                 if (heartbeatData.registered === false) {
-                    // The device was revoked — reload so resolveUser lands on
-                    // the device-registration screen instead of silently
-                    // failing every subsequent API call.
-                    window.location.reload();
+                    // The device was revoked — soft-reload in the background:
+                    // data refreshes silently and resolveUser lands on the
+                    // device-registration screen if the device is really gone.
+                    await reloadConfig();
                     return;
                 }
                 // Always sync — even when no other devices are detected.
@@ -922,7 +930,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('online', handleOnline);
         };
-    }, [transactionsFilename, syncNow, resolvedShopId]);
+    }, [transactionsFilename, syncNow, resolvedShopId, reloadConfig]);
 
     const exportTransactions = useCallback(async () => {
         const localTransactionSets = await getLocalTransactions();
