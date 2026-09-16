@@ -319,12 +319,17 @@ test.describe('C — PIN utilisateur et sessions', () => {
         mockedPage: page,
     }) => {
         await mockUsers(page, [CASHIER, ADMIN_PINNED]);
+        const usersLoaded = page.waitForResponse('**/api/sql/getUsers');
         await page.goto(CONFIG_URL);
 
         await page.getByText('Paramètres', { exact: true }).click();
         const toggleLabel = page.locator('label', { hasText: "Exiger le PIN pour l'administration" });
         await expect(toggleLabel).toBeVisible({ timeout: 15000 });
-        await expect(toggleLabel.locator('input[type="checkbox"]')).toBeEnabled();
+        // The toggle stays disabled until the users list resolves — it must
+        // know whether an Admin PIN exists. Wait for the fetch, not a fixed
+        // timeout, since first-load dev compile can be slow.
+        await usersLoaded;
+        await expect(toggleLabel.locator('input[type="checkbox"]')).toBeEnabled({ timeout: 15000 });
     });
 });
 

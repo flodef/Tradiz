@@ -28,6 +28,7 @@ test.describe('Limites par formule — page Configuration', () => {
                 body: JSON.stringify({ devices: [{ id: 1, label: 'Caisse 1', key: 'k1' }] }),
             })
         );
+        const devicesLoaded = page.waitForResponse('**/api/sql/getDevices');
         await page.goto(CONFIG_URL);
 
         await expect(page.getByText('Appareils', { exact: true })).toBeVisible({ timeout: 20000 });
@@ -38,7 +39,8 @@ test.describe('Limites par formule — page Configuration', () => {
 
         // Open the devices section — quota reached → add button disabled
         await page.getByText('Appareils', { exact: true }).click();
-        await expect(page.getByText('1/1 appareil(s)')).toBeVisible();
+        await devicesLoaded;
+        await expect(page.getByText('1/1 appareil(s)')).toBeVisible({ timeout: 15000 });
         await expect(page.getByText(/passez à une formule supérieure/)).toBeVisible();
         await expect(page.getByRole('button', { name: 'Ajouter un appareil' })).toBeDisabled();
 
@@ -52,12 +54,17 @@ test.describe('Limites par formule — page Configuration', () => {
     }) => {
         await mockSubscription(page, { plan: 'pro', status: 'active' });
         await mockEtabConfig(page, { grafana_access_enabled: true });
+        // The add-device button stays disabled until the users list resolves
+        // (canAddDevice = validUsers.length > 0) — wait for the fetch rather
+        // than a fixed timeout, first-load dev compile can be slow.
+        const usersLoaded = page.waitForResponse('**/api/sql/getUsers');
         await page.goto(CONFIG_URL);
 
         await expect(page.getByText('Appareils', { exact: true })).toBeVisible({ timeout: 20000 });
         await page.getByText('Appareils', { exact: true }).click();
         await expect(page.getByText('0/2 appareil(s)')).toBeVisible();
-        await expect(page.getByRole('button', { name: 'Ajouter un appareil' })).toBeEnabled();
+        await usersLoaded;
+        await expect(page.getByRole('button', { name: 'Ajouter un appareil' })).toBeEnabled({ timeout: 15000 });
 
         await expect(page.getByText('Clients', { exact: true })).toBeVisible();
         await expect(page.getByText('Avis clients', { exact: true })).toBeVisible();
