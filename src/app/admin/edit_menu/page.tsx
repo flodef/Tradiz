@@ -984,7 +984,10 @@ export default function EditMenuPage() {
     // Redirect if using Digicarte
     if (USE_DIGICARTE) return null;
 
-    if (isLoading) {
+    // Keep the loading screen until catalogMode is resolved (end of the DB
+    // fetch): between the cache seed and the fetch, sections are all gated on
+    // catalogModeResolved, so the page would render a blank content area.
+    if (isLoading || !catalogModeResolved) {
         return (
             <AdminPageLayout title="Édition des produits" hasChanges={false}>
                 <Loading fullscreen />
@@ -1019,7 +1022,7 @@ export default function EditMenuPage() {
 
     return (
         <AdminPageLayout title="Édition des produits" hasChanges={hasChanges} onSave={handleSaveAll}>
-            {isReadOnly && (
+            {dbConfigChecked && isReadOnly && (
                 <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 dark:border-yellow-600 rounded-lg">
                     <p className="text-sm text-yellow-800 dark:text-yellow-200">
                         <strong>Mode lecture seule :</strong> La base de données n'est pas configurée. Les modifications
