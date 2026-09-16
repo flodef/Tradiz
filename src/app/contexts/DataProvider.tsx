@@ -1389,7 +1389,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             // preserved order_id points at a still-sealed row.
                             if (isInsert && stripDate === undefined) {
                                 const staleDate = transaction.createdDate;
-                                transaction.createdDate = floorToSeconds(Date.now());
+                                // +1s when now floors to the same second —
+                                // the fresh identity must differ from the
+                                // sealed row's, which keeps the old order_id.
+                                transaction.createdDate = Math.max(floorToSeconds(Date.now()), staleDate + 1000);
                                 transaction.modifiedDate = transaction.createdDate;
                                 // Fresh identity: the sealed server row keeps
                                 // the old order_id; retrying it would 409 again.
