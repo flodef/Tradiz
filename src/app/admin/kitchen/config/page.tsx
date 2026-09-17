@@ -63,9 +63,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // Merge a freshly fetched value into the current draft: untouched → take the
 // fresh value; edited while loading → keep the user's edit (plain objects merge
-// field-by-field, everything else is kept whole).
+// field-by-field, everything else is kept whole). "Untouched" means identical
+// content, not just identity — the initial `useState([])` pairs are distinct
+// empty arrays until a seed assigns the same reference.
 function mergeLoaded<T>(current: T, original: T, loaded: T): T {
-    if (current === original) return loaded;
+    if (current === original || JSON.stringify(current) === JSON.stringify(original)) return loaded;
     if (Array.isArray(current) || Array.isArray(loaded) || typeof loaded !== 'object' || loaded === null) {
         return current;
     }
