@@ -23,6 +23,9 @@ export interface DbConnection {
     beginTransaction(): Promise<void>;
     commit(): Promise<void>;
     rollback(): Promise<void>;
+    // Whether the connection is currently inside an explicit transaction —
+    // pg_advisory_xact_lock only protects work while this is true.
+    isInTransaction(): boolean;
     isPostgreSQL: boolean;
     // Shop the connection points at — set by getMainDb/getPosDb so per-shop
     // caches can key on it without threading shopId through every caller.
@@ -49,6 +52,10 @@ class MySQLConnectionWrapper implements DbConnection {
     shopId?: string;
     private closed = false;
     private inTransaction = false;
+
+    isInTransaction(): boolean {
+        return this.inTransaction;
+    }
 
     constructor(private connection: mysql.Connection) {}
 
@@ -137,6 +144,10 @@ class PostgreSQLConnectionWrapper implements DbConnection {
     // so the connection is healthy.
     private broken = false;
     private brokenCause?: string;
+
+    isInTransaction(): boolean {
+        return this.inTransaction;
+    }
 
     constructor(private client: PoolClient) {
         // Pool clients are already connected when handed to the wrapper.

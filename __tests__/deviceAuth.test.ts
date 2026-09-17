@@ -8,11 +8,19 @@ import type { DbConnection } from '../src/app/api/sql/db';
  */
 
 const state = vi.hoisted(() => {
+    let inTx = false;
     const fakeConn: DbConnection = {
         isPostgreSQL: true,
-        beginTransaction: async () => {},
-        commit: async () => {},
-        rollback: async () => {},
+        isInTransaction: () => inTx,
+        beginTransaction: async () => {
+            inTx = true;
+        },
+        commit: async () => {
+            inTx = false;
+        },
+        rollback: async () => {
+            inTx = false;
+        },
         end: async () => {},
         query: async () => ({ rows: [] }),
         execute: async (query: string, params?: unknown[]) => {

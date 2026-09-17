@@ -46,11 +46,19 @@ vi.mock('@/app/api/sql/auditHelpers', () => ({
 }));
 
 vi.mock('@/app/api/sql/db', () => {
+    let inTx = false;
     const conn: DbConnection = {
         isPostgreSQL: true,
-        beginTransaction: async () => {},
-        commit: async () => {},
-        rollback: async () => {},
+        isInTransaction: () => inTx,
+        beginTransaction: async () => {
+            inTx = true;
+        },
+        commit: async () => {
+            inTx = false;
+        },
+        rollback: async () => {
+            inTx = false;
+        },
         end: async () => {},
         query: async () => ({ rows: [] }),
         execute: async (query: string, params?: unknown[]) => {

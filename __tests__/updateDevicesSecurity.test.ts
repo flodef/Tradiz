@@ -24,6 +24,7 @@ const state = vi.hoisted(() => {
 
     const fakeConn: DbConnection = {
         isPostgreSQL: true,
+        isInTransaction: () => inTx,
         beginTransaction: async () => {
             inTx = true;
         },

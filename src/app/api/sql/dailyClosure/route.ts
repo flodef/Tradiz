@@ -422,8 +422,10 @@ export async function POST(request: Request) {
             }
         }
 
+        // Placeholders restart at $3 here — $1/$2 are the two day bounds.
+        const countPlaceholders = DRAFT_METHODS.map((_, i) => (isPg ? `$${i + 3}` : '?')).join(', ');
         const [draftRows] = await connection.execute(
-            `SELECT COUNT(*) AS cnt FROM ${prefix}transactions WHERE created_at >= ${isPg ? '$1' : '?'} AND created_at < ${isPg ? '$2' : '?'} AND payment_method IN (${draftPlaceholders})`,
+            `SELECT COUNT(*) AS cnt FROM ${prefix}transactions WHERE created_at >= ${isPg ? '$1' : '?'} AND created_at < ${isPg ? '$2' : '?'} AND payment_method IN (${countPlaceholders})`,
             [...dayBounds(date), ...DRAFT_METHODS]
         );
         const draftCount = Number((draftRows as { cnt: number | string }[])[0]?.cnt) || 0;
