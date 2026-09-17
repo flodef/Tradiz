@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useLocalStorage } from '@/app/utils/localStorage';
 import { deviceFetchIfKnown } from '@/app/utils/deviceFetch';
 
 const CHECK_INTERVAL = 5 * 60 * 1000; // Check every 5 minutes
@@ -11,19 +10,27 @@ const CURRENT_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0';
 export function useVersionCheck() {
     const [latestVersion, setLatestVersion] = useState<string>('');
     const [updateAvailable, setUpdateAvailable] = useState(false);
-    const [lastCheckTime, setLastCheckTime] = useLocalStorage<number | null>(VERSION_CHECK_KEY, null);
 
     useEffect(() => {
         const checkVersion = async () => {
-            // Check if we've already checked recently
             const now = Date.now();
-            if (lastCheckTime && now - lastCheckTime < CHECK_INTERVAL - 10000) return;
+            try {
+                // Throttle on a synchronous localStorage read — a state value
+                // hydrated in another effect would still hold the default on
+                // this first pass, so every mount would re-check. Persist the
+                // timestamp before fetching too: if a version mismatch below
+                // triggers a page reload, the next mount must see it.
+                const last = Number(localStorage.getItem(VERSION_CHECK_KEY) ?? 0);
+                if (last && now - last < CHECK_INTERVAL - 10000) return;
+                localStorage.setItem(VERSION_CHECK_KEY, JSON.stringify(now));
+            } catch {
+                // localStorage unavailable — check anyway.
+            }
 
             try {
                 const response = await deviceFetchIfKnown('/api/version');
                 if (response.ok) {
                     const data = await response.json();
-                    setLastCheckTime(now);
                     // Only flag an update when both versions are known and genuinely differ.
                     // Compare against the build-time constant (not state) to avoid a false
                     // positive on first mount that would trigger an infinite reload loop.
@@ -44,7 +51,7 @@ export function useVersionCheck() {
         const interval = setInterval(checkVersion, CHECK_INTERVAL);
 
         return () => clearInterval(interval);
-    }, [lastCheckTime, setLastCheckTime]);
+    }, []);
 
     return { currentVersion: CURRENT_VERSION, latestVersion, updateAvailable };
 }
