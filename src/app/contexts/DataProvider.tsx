@@ -668,15 +668,18 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const pushTransactionToSQL = useCallback(
         async (transaction: Transaction, action: 'add' | 'sync' = 'add') => {
             // A tx dated in a known sealed day stays local-only forever — its
-            // real date can't change without falsifying the ledger. Tell the
-            // user rather than dropping it silently.
+            // real date can't change without falsifying the ledger. Every
+            // caller here is a background sync (reconcile, retry drain,
+            // forcepush): warn once per day instead of popping a fullscreen
+            // notice at every startup. Interactive saves surface the refusal
+            // through saveTransactions' own popup.
             const sealedDay = toSQLDateTime(transaction.createdDate).slice(0, 10);
             if (closedDaysRef.current.has(sealedDay)) {
                 if (!sealedNotifiedRef.current.has(sealedDay)) {
                     sealedNotifiedRef.current.add(sealedDay);
-                    openFullscreenPopup(`Journée du ${sealedDay} clôturée — transaction conservée sur cet appareil`, [
-                        'OK',
-                    ]);
+                    console.warn(
+                        `Transaction dated in sealed day ${sealedDay} — kept local only (cannot rewrite a closed day)`
+                    );
                 }
                 // A seal is permanent — a stale pendingSync flag would retry
                 // the push once a minute forever.
@@ -743,7 +746,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 await markPendingSync(transaction, true);
             }
         },
-        [openFullscreenPopup, markPendingSync]
+        [markPendingSync]
     );
 
     // Reconcile local storage → SQL: a transaction that never reached the
@@ -756,8 +759,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const reconcileLocalToSQL = useCallback(async (): Promise<void> => {
         const response = await deviceFetch('/api/sql/getAvailableDates');
         if (!response.ok) return;
-        const { counts } = (await response.json()) as { counts?: Record<string, number> };
+        const { counts, closedDays } = (await response.json()) as {
+            counts?: Record<string, number>;
+            closedDays?: string[];
+        };
         if (!counts) return;
+        // Learn seals even when the auto-close sweep hasn't run yet this
+        // session — day files below are then skipped instead of grinding
+        // through one doomed POST per stranded transaction.
+        (closedDays ?? []).forEach((d) => closedDaysRef.current.add(d));
         const localSets = await getLocalTransactions();
         for (const set of localSets) {
             const day = set.id.slice(set.id.lastIndexOf('_') + 1);

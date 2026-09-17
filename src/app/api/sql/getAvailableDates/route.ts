@@ -36,9 +36,18 @@ export async function GET(request: Request) {
             (rows as { date: string; count: number }[]).map((row) => [row.date, row.count])
         );
 
+        // Sealed days let the client skip pushing day files that can never
+        // accept writes — without this it wastes one POST per stranded tx on
+        // every startup.
+        const closureQuery = connection.isPostgreSQL
+            ? `SELECT TO_CHAR(closure_date, 'YYYY-MM-DD') as date FROM dc_pos.daily_closures`
+            : `SELECT DATE_FORMAT(closure_date, '%Y-%m-%d') as date FROM daily_closures`;
+        const [closureRows] = await connection.execute(closureQuery);
+        const closedDays = (closureRows as { date: string }[]).map((row) => row.date);
+
         await connection.end();
 
-        return NextResponse.json({ dates, counts }, { status: 200 });
+        return NextResponse.json({ dates, counts, closedDays }, { status: 200 });
     } catch (error) {
         console.error('Database query error:', error);
         return NextResponse.json({ error: 'An error occurred while fetching available dates' }, { status: 500 });
