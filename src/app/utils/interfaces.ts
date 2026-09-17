@@ -257,6 +257,10 @@ export type Transaction = {
     // Set only on transactions received from SQL sync — the stable identity
     // (original createdDate) of a draft re-dated by an auto day-closure.
     orderId?: string;
+    // Local-only bookkeeping: the last push to the SQL DB failed, so this
+    // transaction must be retried by the sync loop until it succeeds.
+    // Never sent to the server.
+    pendingSync?: boolean;
 };
 
 export type TransactionSet = {

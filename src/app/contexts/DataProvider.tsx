@@ -219,6 +219,15 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     const processingTxCreatedDateRef = useRef<number>(0);
     const syncInProgress = useRef(false);
     const lastServerSyncTime = useRef<string | undefined>(undefined);
+    // Day-file keys holding at least one transaction whose SQL push failed
+    // (pendingSync flag). Drained by each sync cycle so failures self-heal.
+    const pendingSyncFiles = useRef<Set<string>>(new Set());
+    // Last push attempt per transaction — flagged transactions are retried at
+    // most once a minute so a permanently-rejected row doesn't spam the API.
+    const lastPushAttempt = useRef<Map<number, number>>(new Map());
+    // One-shot per session: the reconciliation sweep that pushes local
+    // day-files missing on the server. Re-armed when the device reconnects.
+    const reconcileDone = useRef(false);
     const [orderId, setOrderId] = useState('');
     const [shortNumOrder, setShortNumOrder] = useState('');
     const [orderData, setOrderData] = useState<OrderData | null>(null);
@@ -623,6 +632,39 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         [getLocalTransactions, transactionsFilename, updateLocalTransaction]
     );
 
+    // Persist the pendingSync flag on a locally-stored transaction. The save
+    // path always writes the current day file, but a pushed transaction can
+    // also live in its own createdDate day file — check both.
+    const markPendingSync = useCallback(
+        async (transaction: Transaction, pending: boolean) => {
+            try {
+                transaction.pendingSync = pending;
+                const keys = new Set(
+                    [
+                        transactionsFilename,
+                        getTransactionFileName(resolvedShopId, new Date(transaction.createdDate)),
+                    ].filter((k): k is string => Boolean(k))
+                );
+                for (const key of keys) {
+                    const txs = await idbGetTransactions(key);
+                    const index = txs.findIndex((t) => t.createdDate === transaction.createdDate);
+                    if (index === -1) continue;
+                    txs[index].pendingSync = pending;
+                    await idbSetTransactions(key, txs);
+                    if (pending) {
+                        pendingSyncFiles.current.add(key);
+                    } else if (!txs.some((t) => t.pendingSync)) {
+                        pendingSyncFiles.current.delete(key);
+                    }
+                    return;
+                }
+            } catch (error) {
+                console.error('Failed to persist pendingSync flag:', error);
+            }
+        },
+        [resolvedShopId, transactionsFilename]
+    );
+
     const pushTransactionToSQL = useCallback(
         async (transaction: Transaction, action: 'add' | 'sync' = 'add') => {
             // A tx dated in a known sealed day stays local-only forever — its
@@ -688,13 +730,42 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         return;
                     }
                     console.error('Failed to push transaction to SQL:', error);
+                    await markPendingSync(transaction, true);
+                    return;
                 }
+                if (transaction.pendingSync) await markPendingSync(transaction, false);
             } catch (error) {
                 console.error('Error pushing transaction to SQL:', error);
+                await markPendingSync(transaction, true);
             }
         },
-        [openFullscreenPopup]
+        [openFullscreenPopup, markPendingSync]
     );
+
+    // Reconcile local storage → SQL: a transaction that never reached the
+    // server (push failed under older code, seal lifted later, prolonged
+    // outage) falls out of the incremental window and would stay local-only
+    // forever. Compare each local day file's size with the server count for
+    // that day — more rows locally means this device holds transactions the
+    // DB lacks — then push the whole day (identical re-syncs are no-ops).
+    // Flagged (pendingSync) transactions are retried too.
+    const reconcileLocalToSQL = useCallback(async (): Promise<void> => {
+        const response = await deviceFetch('/api/sql/getAvailableDates');
+        if (!response.ok) return;
+        const { counts } = (await response.json()) as { counts?: Record<string, number> };
+        if (!counts) return;
+        const localSets = await getLocalTransactions();
+        for (const set of localSets) {
+            const day = set.id.slice(set.id.lastIndexOf('_') + 1);
+            const missingOnServer = set.transactions.length > (counts[day] ?? 0);
+            if (!missingOnServer && !set.transactions.some((t) => t.pendingSync)) continue;
+            for (const tx of set.transactions) {
+                if (missingOnServer || tx.pendingSync) {
+                    await pushTransactionToSQL(tx, 'add');
+                }
+            }
+        }
+    }, [getLocalTransactions, pushTransactionToSQL]);
 
     const processSyncFromSQL = useCallback(
         async (syncPeriod: SyncPeriod, onProgress?: (percent: number) => void): Promise<number> => {
@@ -809,14 +880,21 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 let pushedCount = 0;
                 const lastSyncMs = lastServerSyncTime.current ? new Date(lastServerSyncTime.current).getTime() : 0;
                 const pushSinceMs = lastSyncMs ? lastSyncMs - 5000 : 0;
+                // Flagged transactions always retry — they failed an earlier push
+                // and would otherwise fall out of the incremental window and stay
+                // local-only forever. Back off to one attempt per minute per tx.
+                const retryDue = (tx: Transaction) =>
+                    tx.pendingSync === true &&
+                    Date.now() - (lastPushAttempt.current.get(tx.createdDate) ?? 0) >= 60_000;
                 const changedLocal = localTransactions.filter(
-                    (tx) => (tx.modifiedDate || tx.createdDate) > pushSinceMs
+                    (tx) => retryDue(tx) || (tx.modifiedDate || tx.createdDate) > pushSinceMs
                 );
                 if (changedLocal.length) {
                     const totalLocal = changedLocal.length;
                     let processedLocal = 0;
                     for (const localTx of changedLocal) {
                         processedLocal++;
+                        lastPushAttempt.current.set(localTx.createdDate, Date.now());
                         const localTs = floorToSeconds(localTx.createdDate);
                         const sqlTx = sqlTransactions.find(
                             (s) => s.createdDate === localTs || s.createdDate === localTx.createdDate
@@ -835,7 +913,36 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     }
                 }
 
+                // Flagged transactions in OTHER day files (e.g. an old-day tx
+                // edited today) aren't covered by the today's-file push above —
+                // drain them here. The once-per-session reconcile below covers
+                // flags persisted by a previous session.
+                for (const key of Array.from(pendingSyncFiles.current)) {
+                    if (key === transactionsFilename) continue;
+                    const dayTransactions = await idbGetTransactions(key);
+                    for (const tx of dayTransactions) {
+                        if (retryDue(tx)) {
+                            lastPushAttempt.current.set(tx.createdDate, Date.now());
+                            await pushTransactionToSQL(tx, 'add');
+                            pushedCount++;
+                        }
+                    }
+                }
+
                 if (latestServerNow) lastServerSyncTime.current = latestServerNow;
+
+                // Once per session (re-armed on reconnect): recover
+                // transactions that never reached the DB — they fall out of
+                // the incremental window and stay local-only otherwise.
+                if (!reconcileDone.current) {
+                    reconcileDone.current = true;
+                    try {
+                        await reconcileLocalToSQL();
+                    } catch (error) {
+                        console.error('Local→SQL reconciliation failed:', error);
+                    }
+                }
+
                 onProgress?.(100);
                 return syncedCount + pushedCount;
             } catch (error) {
@@ -843,7 +950,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 return 0;
             }
         },
-        [fullSync, transactionsFilename, pushTransactionToSQL, resolvedShopId]
+        [fullSync, transactionsFilename, pushTransactionToSQL, resolvedShopId, reconcileLocalToSQL]
     );
 
     const syncTransactions = useCallback(
@@ -919,7 +1026,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') shouldRunSync();
         };
-        const handleOnline = () => shouldRunSync();
+        const handleOnline = () => {
+            // Reconnecting after an outage: re-run the reconciliation so
+            // transactions stranded while offline get pushed automatically.
+            reconcileDone.current = false;
+            shouldRunSync();
+        };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
         window.addEventListener('online', handleOnline);
@@ -1454,8 +1566,11 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             openFullscreenPopup(`${reason} — transaction conservée sur cet appareil`, ['OK']);
                             return;
                         }
+                        await markPendingSync(transaction, true);
                         throw new Error(error.error || 'Failed to save transaction to SQL DB');
                     }
+
+                    if (transaction.pendingSync) await markPendingSync(transaction, false);
 
                     // The sale was re-dated out of a sealed day: drop the
                     // stale draft locally so it doesn't linger as a ghost
@@ -1529,9 +1644,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     }
                 } catch (error) {
                     console.error('Error handling SQL DB transaction:', error);
-                    // The transaction is already stored locally — if the server
-                    // refused it (stopped subscription), warn the cashier: the
-                    // sale only exists on this device until the next sync.
+                    // The transaction is already stored locally — flag it so
+                    // the sync loop retries the push automatically.
+                    await markPendingSync(transaction, true);
+                    // If the server refused it (stopped subscription), warn the
+                    // cashier: the sale only exists on this device until the
+                    // next sync.
                     const msg = error instanceof Error ? error.message : '';
                     if (msg.includes('Abonnement suspendu') || msg.includes('lecture seule')) {
                         openFullscreenPopup('Abonnement suspendu', [
@@ -1559,6 +1677,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             isLocked,
             isDayClosed,
             sealedTxDay,
+            markPendingSync,
         ]
     );
 
