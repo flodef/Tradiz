@@ -11,6 +11,7 @@ export const metadata = {
     description: 'Caisse enregistreuse merveilleuse',
     icons: {
         icon: [
+            { url: '/logo.svg', type: 'image/svg+xml' },
             { url: '/icons/favicon.png', type: 'image/png' },
             { url: '/icons/favicon.ico', type: 'image/x-icon' },
         ],

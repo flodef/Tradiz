@@ -9,7 +9,7 @@ interface TradizLogoProps {
 export default function TradizLogo({ size = 36, className = '' }: TradizLogoProps) {
     return (
         <img
-            src="/logo.png"
+            src="/logo.svg"
             alt="Tradiz"
             width={size}
             height={size}
