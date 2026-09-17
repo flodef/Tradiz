@@ -118,6 +118,23 @@ test.describe('Clôture — durcissement (audit)', () => {
                 body: JSON.stringify({ closures: [{ closure_date: prev }] }),
             });
         });
+        // Isolate from real seals on the dev DB: the draft's day may be
+        // genuinely closed there, and a real seal would (correctly) suppress
+        // the push this test checks for.
+        await page.route('**/api/sql/getAvailableDates**', (route) =>
+            route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ dates: [], counts: {}, closedDays: [] }),
+            })
+        );
+        await page.route('**/api/sql/getOrderIds**', (route) =>
+            route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ orderIds: [] }),
+            })
+        );
 
         await page.goto('/');
         await expect(page.getByText('Boissons').first()).toBeVisible({ timeout: 20000 });

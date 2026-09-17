@@ -65,6 +65,13 @@ test.describe('Resynchronisation automatique', () => {
                 body: JSON.stringify({ dates: [], counts: {} }),
             })
         );
+        await page.route('**/api/sql/getOrderIds**', (route) =>
+            route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ orderIds: [] }),
+            })
+        );
         await page.route('**/api/sql/heartbeat', (route) =>
             route.fulfill({ status: 200, contentType: 'application/json', body: '{"otherDevices":0}' })
         );
@@ -121,6 +128,15 @@ test.describe('Resynchronisation automatique', () => {
                 body: JSON.stringify({ dates: [today()], counts: { [today()]: 1 } }),
             });
         });
+        // The reconcile diffs the skewed day's order_ids before pushing —
+        // the stranded tx is absent server-side, so the diff is empty.
+        await page.route('**/api/sql/getOrderIds**', (route) =>
+            route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ orderIds: [] }),
+            })
+        );
         await page.route('**/api/sql/heartbeat', (route) =>
             route.fulfill({ status: 200, contentType: 'application/json', body: '{"otherDevices":0}' })
         );

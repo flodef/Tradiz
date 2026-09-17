@@ -639,12 +639,17 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         async (transaction: Transaction, pending: boolean) => {
             try {
                 transaction.pendingSync = pending;
+                // Resolved tx no longer needs its retry-throttle entry.
+                if (!pending) lastPushAttempt.current.delete(transaction.createdDate);
                 const keys = new Set(
                     [
                         transactionsFilename,
                         getTransactionFileName(resolvedShopId, new Date(transaction.createdDate)),
                     ].filter((k): k is string => Boolean(k))
                 );
+                // Update EVERY file holding the tx — it can live in both the
+                // current day file and its own createdDate file, and a flag
+                // cleared in only one keeps the other on the retry path.
                 for (const key of keys) {
                     const txs = await idbGetTransactions(key);
                     const index = txs.findIndex((t) => t.createdDate === transaction.createdDate);
@@ -656,7 +661,6 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     } else if (!txs.some((t) => t.pendingSync)) {
                         pendingSyncFiles.current.delete(key);
                     }
-                    return;
                 }
             } catch (error) {
                 console.error('Failed to persist pendingSync flag:', error);
@@ -692,6 +696,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         action,
+                        // The device's local day — seal checks compare against
+                        // the shop's day, not the server's UTC day.
+                        client_date: getFormattedDate(new Date()),
                         transaction: {
                             id: transaction.createdDate,
                             // Keep the server identity when known — a draft
@@ -754,8 +761,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
     // outage) falls out of the incremental window and would stay local-only
     // forever. Compare each local day file's size with the server count for
     // that day — more rows locally means this device holds transactions the
-    // DB lacks — then push the whole day (identical re-syncs are no-ops).
-    // Flagged (pendingSync) transactions are retried too.
+    // DB lacks — then push only the gaps (the server's order_ids for that
+    // day are one round trip; re-pushing the whole file would cost one per
+    // already-synced row). Flagged (pendingSync) transactions are retried too.
     const reconcileLocalToSQL = useCallback(async (): Promise<void> => {
         const response = await deviceFetch('/api/sql/getAvailableDates');
         if (!response.ok) return;
@@ -773,10 +781,25 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             const day = set.id.slice(set.id.lastIndexOf('_') + 1);
             // A sealed day can never accept a push — skip it entirely.
             if (closedDaysRef.current.has(day)) continue;
-            const missingOnServer = set.transactions.length > (counts[day] ?? 0);
-            if (!missingOnServer && !set.transactions.some((t) => t.pendingSync)) continue;
+            const skewed = set.transactions.length > (counts[day] ?? 0);
+            if (!skewed && !set.transactions.some((t) => t.pendingSync)) continue;
+            // Diff against the server's order_ids for the day — count skew
+            // alone can't say WHICH rows are missing (and a legitimately
+            // divergent file would otherwise re-push every row each session).
+            // Only when the diff is unavailable do we fall back to a blind
+            // whole-day push.
+            let serverIds: Set<string> | null = null;
+            if (/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+                const idsRes = await deviceFetch(`/api/sql/getOrderIds?date=${day}`);
+                if (idsRes.ok) {
+                    const { orderIds } = (await idsRes.json()) as { orderIds?: string[] };
+                    serverIds = new Set(orderIds ?? []);
+                }
+            }
             for (const tx of set.transactions) {
-                if (missingOnServer || tx.pendingSync) {
+                const serverKey = String(tx.orderId ?? tx.createdDate);
+                const missing = serverIds ? !serverIds.has(serverKey) : skewed;
+                if (missing || tx.pendingSync) {
                     await pushTransactionToSQL(tx, 'add');
                 }
             }
@@ -1322,6 +1345,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         closed_by: 'auto',
                         auto: true,
                         redate_to: toSQLDateTime(Date.now()),
+                        client_date: getFormattedDate(new Date()),
                     }),
                 });
                 if (r.ok) {
@@ -1494,6 +1518,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     // Prepare the transaction data for SQL DB
                     const sqlTransactionData = {
                         action,
+                        // The device's local day — seal checks compare against
+                        // the shop's day, not the server's UTC day.
+                        client_date: getFormattedDate(new Date()),
                         transaction: {
                             id: index,
                             // A re-dated sale: keep the known order_id — the
