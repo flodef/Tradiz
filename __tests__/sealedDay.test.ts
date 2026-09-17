@@ -279,6 +279,17 @@ vi.mock('@/app/api/sql/db', () => ({
         const next = new Date(Date.parse(`${date}T00:00:00Z`) + 24 * 60 * 60 * 1000);
         return [date, next.toISOString().slice(0, 10)];
     },
+    shopLocalToday: (clientDate?: string | null): string => {
+        const utcToday = new Date().toISOString().slice(0, 10);
+        if (!clientDate || !/^\d{4}-\d{2}-\d{2}$/.test(clientDate)) return utcToday;
+        const utcTomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        return clientDate > utcTomorrow ? utcTomorrow : clientDate;
+    },
+    bindList: (isPg: boolean, params: unknown[], values: readonly unknown[]): string => {
+        const offset = params.length;
+        params.push(...values);
+        return values.map((_, i) => (isPg ? `$${offset + i + 1}` : '?')).join(', ');
+    },
 }));
 
 import { POST as saveTransactionPOST } from '../src/app/api/sql/saveTransaction/route';
@@ -558,6 +569,55 @@ describe('clôtures — sceau au niveau supérieur (409)', () => {
         const res = await dailyClosurePOST(post('/api/sql/dailyClosure', { date: state.today, closed_by: 'a' }));
         expect(res.status).toBe(200);
         expect(state.writes.some((w) => w.startsWith('INSERT INTO dc_pos.daily_closures'))).toBe(true);
+    });
+
+    it('autorise une clôture MANUELLE du jour LOCAL quand UTC est encore à la veille (00:30 local)', async () => {
+        const localToday = new Date(Date.parse(`${state.today}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+        const res = await dailyClosurePOST(
+            post('/api/sql/dailyClosure', { date: localToday, closed_by: 'a', client_date: localToday })
+        );
+        expect(res.status).toBe(200);
+        expect(state.writes.some((w) => w.startsWith('INSERT INTO dc_pos.daily_closures'))).toBe(true);
+    });
+
+    it('borne client_date à UTC+1 — une date prétendue au-delà reste refusée', async () => {
+        const utcPlus2 = new Date(Date.parse(`${state.today}T00:00:00Z`) + 2 * 86_400_000).toISOString().slice(0, 10);
+        const res = await dailyClosurePOST(
+            post('/api/sql/dailyClosure', { date: utcPlus2, closed_by: 'a', client_date: utcPlus2 })
+        );
+        expect(res.status).toBe(400);
+        expect((await res.json()).code).toBe('FUTURE_DATE');
+    });
+
+    it('autorise une clôture AUTO de la veille UTC quand le jour LOCAL est déjà le lendemain', async () => {
+        const localToday = new Date(Date.parse(`${state.today}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+        const res = await dailyClosurePOST(
+            post('/api/sql/dailyClosure', { date: state.today, closed_by: 'auto', auto: true, client_date: localToday })
+        );
+        expect(res.status).toBe(200);
+        expect(state.writes.some((w) => w.startsWith('INSERT INTO dc_pos.daily_closures'))).toBe(true);
+    });
+
+    it('autorise une clôture MENSUELLE du mois écoulé le 1er avant 02:00 local', async () => {
+        vi.useFakeTimers();
+        try {
+            // UTC is still on Sep 30 while the client's local day is already
+            // Oct 1: the elapsed-month check must see the LOCAL day.
+            vi.setSystemTime(new Date('2026-09-30T23:30:00Z'));
+            const res = await periodClosurePOST(
+                post('/api/sql/periodClosure', {
+                    type: 'monthly',
+                    year: 2026,
+                    month: 9,
+                    closed_by: 'a',
+                    client_date: '2026-10-01',
+                })
+            );
+            const body = await res.json();
+            expect(body.error ?? '').not.toContain("n'est pas terminé");
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('refuse une clôture MANUELLE quand un brouillon existe ce jour-là (PENDING_DRAFTS)', async () => {

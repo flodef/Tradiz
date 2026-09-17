@@ -12,7 +12,7 @@ import { assertDeviceAuthorized } from '../deviceAuth';
 import { readSubscription, stoppedSubscriptionResponse } from '../subscriptionStore';
 import { SUBSCRIPTION_PLANS } from '@/app/utils/subscription';
 import { NextResponse } from 'next/server';
-import { Connection, getPosDb } from '../db';
+import { Connection, getPosDb, shopLocalToday } from '../db';
 import { cached } from '../apiCache';
 import { insertAuditEvent, lockHashChain } from '../auditHelpers';
 import { computeTransactionHash, type TransactionItemHashInput } from '@/app/utils/transactionHash';
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
 
     // Parse the body ONCE, outside the retry loop — request.json() consumes
     // the body stream and cannot be called again on retry.
-    let body: { action: string; transaction: TransactionData };
+    let body: { action: string; transaction: TransactionData; client_date?: string };
     try {
         body = await request.json();
     } catch {
@@ -161,7 +161,7 @@ export async function POST(request: Request) {
                 // rechain would rewrite the anchored hashes). Reject it:
                 // corrections on a closed day must be new transactions
                 // dated in the open day.
-                const sealed = await sealedClosedDay(connection, transaction, existingRow);
+                const sealed = await sealedClosedDay(connection, transaction, existingRow, body.client_date);
                 if (sealed) {
                     await connection.rollback();
                     await unlockChain();
@@ -379,7 +379,8 @@ const draftMethodSet = new Set([PROCESSING_KEYWORD, WAITING_KEYWORD, UPDATING_KE
 async function sealedClosedDay(
     connection: Connection,
     transaction: TransactionData,
-    existing: ExistingTxRow | null
+    existing: ExistingTxRow | null,
+    clientDate?: string
 ): Promise<{ day: string; label: string } | null> {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
@@ -409,8 +410,10 @@ async function sealedClosedDay(
     // A closure can only seal a fully elapsed period: a daily closure dated
     // after today, or a monthly/annual closure of the in-progress period, is
     // bogus data (e.g. left behind by a migration script) and must not block
-    // writes — a legitimate closure cannot have been created yet.
-    const serverToday = new Date().toISOString().slice(0, 10);
+    // writes — a legitimate closure cannot have been created yet. "Today" is
+    // the shop's client-local day (bounded), since a legitimate closure can
+    // now be created for the local day during the 00:00–02:00 UTC lag.
+    const serverToday = shopLocalToday(clientDate);
     const dailySeal = seals?.min_daily && seals.min_daily <= serverToday ? seals.min_daily : null;
     const periodLabel =
         seals?.month_sealed && dateStr.slice(0, 7) < serverToday.slice(0, 7)
@@ -534,7 +537,7 @@ async function insertTransactionItems(
     // One multi-row INSERT — a single remote round trip instead of one per
     // product (~150-400 ms each against the hosted DB).
     const values: unknown[] = [];
-    const tuples = products.map((product, i) => {
+    const tuples = products.map((product) => {
         values.push(
             transactionId,
             product.label,
@@ -546,7 +549,7 @@ async function insertTransactionItems(
             product.total,
             product.vat_rate ?? DEFAULT_VAT_RATE
         );
-        const b = i * 9;
+        const b = values.length - 9;
         return isPg
             ? `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5}, $${b + 6}, $${b + 7}, $${b + 8}, $${b + 9})`
             : '(?, ?, ?, ?, ?, ?, ?, ?, ?)';

@@ -1,4 +1,4 @@
-import { DbConnection } from './db';
+import { bindList, DbConnection } from './db';
 import {
     CANCELLED_KEYWORD,
     DELETED_KEYWORD,
@@ -41,6 +41,12 @@ export async function aggregateMealsByCustomer(
     startAt: string,
     endAt: string
 ): Promise<BillingAggregation> {
+    // Params are appended in bind order — the emitted placeholders can never
+    // drift from the values they bind (PG orders company first, MariaDB last).
+    const params: unknown[] = connection.isPostgreSQL ? [companyName, startAt, endAt] : [startAt, endAt];
+    const excludedIn = bindList(connection.isPostgreSQL, params, EXCLUDED_METHODS);
+    if (!connection.isPostgreSQL) params.push(companyName);
+
     const query = connection.isPostgreSQL
         ? `
         SELECT
@@ -54,7 +60,7 @@ export async function aggregateMealsByCustomer(
             ON TRIM(c.first_name || ' ' || c.last_name) = TRIM(t.customer_name)
             AND t.created_at >= $2
             AND t.created_at < $3
-            AND t.payment_method NOT IN (${EXCLUDED_METHODS.map((_, i) => `$${i + 4}`).join(', ')})
+            AND t.payment_method NOT IN (${excludedIn})
             AND EXISTS (
                 SELECT 1 FROM dc_pos.transaction_items ti WHERE ti.transaction_id = t.id
             )
@@ -75,7 +81,7 @@ export async function aggregateMealsByCustomer(
             ON TRIM(CONCAT(c.first_name, ' ', c.last_name)) = TRIM(t.customer_name)
             AND t.created_at >= ?
             AND t.created_at < ?
-            AND t.payment_method NOT IN (${EXCLUDED_METHODS.map(() => '?').join(', ')})
+            AND t.payment_method NOT IN (${excludedIn})
             AND EXISTS (
                 SELECT 1 FROM transaction_items ti WHERE ti.transaction_id = t.id
             )
@@ -85,9 +91,6 @@ export async function aggregateMealsByCustomer(
         ORDER BY c.last_name, c.first_name
     `;
 
-    const params = connection.isPostgreSQL
-        ? [companyName, startAt, endAt, ...EXCLUDED_METHODS]
-        : [startAt, endAt, ...EXCLUDED_METHODS, companyName];
     const [rows] = await connection.execute(query, params);
 
     const customers = (rows as BillingCustomerRow[]).map((r) => ({

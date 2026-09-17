@@ -1,7 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { assertDeviceAuthorized } from '../deviceAuth';
 import { NextResponse } from 'next/server';
-import { dayBounds, getPosDb, type DbConnection } from '../db';
+import { bindList, dayBounds, getPosDb, shopLocalToday, type DbConnection } from '../db';
 import { createHash } from 'crypto';
 import {
     DELETED_KEYWORD,
@@ -44,21 +44,20 @@ interface DailyTotals {
 async function computeDailyTotals(connection: DbConnection, date: string): Promise<DailyTotals> {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
-    const placeholders = EXCLUDED_METHODS.map((_, i) => (isPg ? `$${i + 3}` : '?')).join(', ');
     const [dayStart, dayEnd] = dayBounds(date);
 
     // Paid transactions (exclude non-paid methods) — immutable calendar day (00:00 to 24:00)
-    const paidQuery = `SELECT COUNT(*)${isPg ? '::int' : ''} AS cnt, COALESCE(ROUND(SUM(amount), 2), 0)${isPg ? '::numeric' : ''} AS total FROM ${prefix}transactions WHERE created_at >= ${isPg ? '$1' : '?'} AND created_at < ${isPg ? '$2' : '?'} AND payment_method NOT IN (${placeholders})`;
+    const paidParams: unknown[] = [dayStart, dayEnd];
+    const excludedIn = bindList(isPg, paidParams, EXCLUDED_METHODS);
+    const paidQuery = `SELECT COUNT(*)${isPg ? '::int' : ''} AS cnt, COALESCE(ROUND(SUM(amount), 2), 0)${isPg ? '::numeric' : ''} AS total FROM ${prefix}transactions WHERE created_at >= ${isPg ? '$1' : '?'} AND created_at < ${isPg ? '$2' : '?'} AND payment_method NOT IN (${excludedIn})`;
 
-    const paidParams = [dayStart, dayEnd, ...EXCLUDED_METHODS];
     const [paidRows] = await connection.execute(paidQuery, paidParams);
     const paidResult = (paidRows as { cnt: number; total: number | string }[])[0];
 
     // Cancellations and deletions
-    const cancelMethods = [DELETED_KEYWORD, CANCELLED_KEYWORD, EXPUNGED_KEYWORD];
-    const cancelPlaceholders = cancelMethods.map((_, i) => (isPg ? `$${i + 3}` : '?')).join(', ');
-    const cancelQuery = `SELECT COUNT(*)${isPg ? '::int' : ''} AS cnt, COALESCE(ROUND(SUM(ABS(amount)), 2), 0)${isPg ? '::numeric' : ''} AS total FROM ${prefix}transactions WHERE created_at >= ${isPg ? '$1' : '?'} AND created_at < ${isPg ? '$2' : '?'} AND payment_method IN (${cancelPlaceholders})`;
-    const cancelParams = [dayStart, dayEnd, ...cancelMethods];
+    const cancelParams: unknown[] = [dayStart, dayEnd];
+    const cancelIn = bindList(isPg, cancelParams, [DELETED_KEYWORD, CANCELLED_KEYWORD, EXPUNGED_KEYWORD]);
+    const cancelQuery = `SELECT COUNT(*)${isPg ? '::int' : ''} AS cnt, COALESCE(ROUND(SUM(ABS(amount)), 2), 0)${isPg ? '::numeric' : ''} AS total FROM ${prefix}transactions WHERE created_at >= ${isPg ? '$1' : '?'} AND created_at < ${isPg ? '$2' : '?'} AND payment_method IN (${cancelIn})`;
     const [cancelRows] = await connection.execute(cancelQuery, cancelParams);
     const cancelResult = (cancelRows as { cnt: number; total: number | string }[])[0];
 
@@ -71,7 +70,7 @@ async function computeDailyTotals(connection: DbConnection, date: string): Promi
     // HT and TVA computed from transaction_items joined with transactions.
     // ti.total is TTC (items sum to the paid amount): HT = TTC/(1+rate),
     // TVA = TTC*rate/(100+rate) — same convention as posPrinter/billingStats.
-    const vatQuery = `SELECT COALESCE(ROUND(SUM(ti.total * COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}) / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 2), 0)${isPg ? '::numeric' : ''} AS tva, COALESCE(ROUND(SUM(ti.total * 100 / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 2), 0)${isPg ? '::numeric' : ''} AS ht FROM ${prefix}transaction_items ti JOIN ${prefix}transactions t ON t.id = ti.transaction_id WHERE t.created_at >= ${isPg ? '$1' : '?'} AND t.created_at < ${isPg ? '$2' : '?'} AND t.payment_method NOT IN (${placeholders})`;
+    const vatQuery = `SELECT COALESCE(ROUND(SUM(ti.total * COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}) / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 2), 0)${isPg ? '::numeric' : ''} AS tva, COALESCE(ROUND(SUM(ti.total * 100 / (100 + COALESCE(ti.vat_rate, ${DEFAULT_VAT_RATE}))), 2), 0)${isPg ? '::numeric' : ''} AS ht FROM ${prefix}transaction_items ti JOIN ${prefix}transactions t ON t.id = ti.transaction_id WHERE t.created_at >= ${isPg ? '$1' : '?'} AND t.created_at < ${isPg ? '$2' : '?'} AND t.payment_method NOT IN (${excludedIn})`;
     const [vatRows] = await connection.execute(vatQuery, paidParams);
     const vatResult = (vatRows as { tva: number | string; ht: number | string }[])[0];
 
@@ -105,11 +104,11 @@ async function getDayTransactionAnchors(
 ): Promise<{ first: string; last: string }> {
     const isPg = connection.isPostgreSQL;
     const prefix = isPg ? 'dc_pos.' : '';
-    const placeholders = EXCLUDED_METHODS.map((_, i) => (isPg ? `$${i + 3}` : '?')).join(', ');
-    const params = [...dayBounds(date), ...EXCLUDED_METHODS];
+    const params: unknown[] = [...dayBounds(date)];
+    const excludedIn = bindList(isPg, params, EXCLUDED_METHODS);
     const base =
         `SELECT hash FROM ${prefix}transactions WHERE created_at >= ${isPg ? '$1' : '?'} AND created_at < ${isPg ? '$2' : '?'}` +
-        ` AND payment_method NOT IN (${placeholders}) ORDER BY id`;
+        ` AND payment_method NOT IN (${excludedIn}) ORDER BY id`;
     const [firstRows] = await connection.execute(`${base} ASC LIMIT 1`, params);
     const [lastRows] = await connection.execute(`${base} DESC LIMIT 1`, params);
     return {
@@ -211,7 +210,7 @@ export async function POST(request: Request) {
     let unlockDaily: (() => Promise<void>) | undefined;
     let unlockPeriod: (() => Promise<void>) | undefined;
     try {
-        const { date, closed_by, auto, redate_to } = (await request.json()) as {
+        const { date, closed_by, auto, redate_to, client_date } = (await request.json()) as {
             date: string;
             closed_by: string;
             auto?: boolean;
@@ -219,6 +218,8 @@ export async function POST(request: Request) {
             // is client-local, so CURRENT_TIMESTAMP (UTC) could strand a draft
             // on the wrong calendar day near midnight.
             redate_to?: string;
+            // Client-local calendar day — "today" for elapsed-day checks.
+            client_date?: string;
         };
 
         if (!date || !closed_by) {
@@ -235,7 +236,10 @@ export async function POST(request: Request) {
         // Auto-closures only target days before the last reset boundary, so
         // "today" is already too late for them. Manual closes of the current
         // day stay allowed — the Z-ticket legitimately ends the business day.
-        const today = new Date().toISOString().slice(0, 10);
+        // "today" is the SHOP's day (client-local, bounded): a UTC "today"
+        // lags local between midnight and ~02:00 and would refuse a
+        // legitimate late-night Z or the nightly auto-close.
+        const today = shopLocalToday(client_date ?? redate_to?.slice(0, 10));
         if (auto ? date >= today : date > today) {
             return NextResponse.json(
                 {
@@ -294,9 +298,8 @@ export async function POST(request: Request) {
         // refuse it. Only a fully elapsed period can be legitimately sealed:
         // a monthly/annual closure of the in-progress period is bogus data
         // and must not block this closure.
-        const serverToday = new Date().toISOString().slice(0, 10);
-        const monthElapsed = date.slice(0, 7) < serverToday.slice(0, 7);
-        const yearElapsed = Number(date.slice(0, 4)) < Number(serverToday.slice(0, 4));
+        const monthElapsed = date.slice(0, 7) < today.slice(0, 7);
+        const yearElapsed = Number(date.slice(0, 4)) < Number(today.slice(0, 4));
         const monthDate = `${date.slice(0, 7)}-01`;
         const [sealedMonth] = monthElapsed
             ? await connection.execute(
@@ -358,7 +361,6 @@ export async function POST(request: Request) {
         //
         // The check runs under nf525_transactions, so no draft can slip in
         // concurrently.
-        const draftPlaceholders = DRAFT_METHODS.map((_, i) => (isPg ? `$${i + 2}` : '?')).join(', ');
 
         if (auto) {
             // The destination day must be open — a skewed client clock could
@@ -379,7 +381,7 @@ export async function POST(request: Request) {
             };
             let openDay = addDays(date, 1);
             while (closedAfterSet.has(openDay)) openDay = addDays(openDay, 1);
-            const maxDay = addDays(serverToday > openDay ? serverToday : openDay, 1);
+            const maxDay = addDays(today > openDay ? today : openDay, 1);
 
             const validTs = redate_to && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(redate_to) ? redate_to : null;
             const clientDay = validTs ? validTs.slice(0, 10) : '';
@@ -387,9 +389,11 @@ export async function POST(request: Request) {
                 clientDay > date && clientDay <= maxDay && !closedAfterSet.has(clientDay) ? clientDay : openDay;
             const target = `${targetDay} ${validTs ? validTs.slice(11) : '00:00:00'}`;
 
+            const draftParams: unknown[] = [dayBounds(date)[1]];
+            const draftIn = bindList(isPg, draftParams, DRAFT_METHODS);
             const [drafts] = await connection.execute(
-                `SELECT id, order_id FROM ${prefix}transactions WHERE created_at < ${isPg ? '$1::date' : '?'} AND payment_method IN (${draftPlaceholders}) ORDER BY id`,
-                [dayBounds(date)[1], ...DRAFT_METHODS]
+                `SELECT id, order_id FROM ${prefix}transactions WHERE created_at < ${isPg ? '$1::date' : '?'} AND payment_method IN (${draftIn}) ORDER BY id`,
+                draftParams
             );
             const movedIds: number[] = [];
             for (const draft of drafts as { id: number; order_id: string }[]) {
@@ -422,11 +426,11 @@ export async function POST(request: Request) {
             }
         }
 
-        // Placeholders restart at $3 here — $1/$2 are the two day bounds.
-        const countPlaceholders = DRAFT_METHODS.map((_, i) => (isPg ? `$${i + 3}` : '?')).join(', ');
+        const draftCountParams: unknown[] = [...dayBounds(date)];
+        const draftCountIn = bindList(isPg, draftCountParams, DRAFT_METHODS);
         const [draftRows] = await connection.execute(
-            `SELECT COUNT(*) AS cnt FROM ${prefix}transactions WHERE created_at >= ${isPg ? '$1' : '?'} AND created_at < ${isPg ? '$2' : '?'} AND payment_method IN (${countPlaceholders})`,
-            [...dayBounds(date), ...DRAFT_METHODS]
+            `SELECT COUNT(*) AS cnt FROM ${prefix}transactions WHERE created_at >= ${isPg ? '$1' : '?'} AND created_at < ${isPg ? '$2' : '?'} AND payment_method IN (${draftCountIn})`,
+            draftCountParams
         );
         const draftCount = Number((draftRows as { cnt: number | string }[])[0]?.cnt) || 0;
         if (draftCount > 0) {

@@ -1,7 +1,7 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
 import { assertDeviceAuthorized } from '../deviceAuth';
 import { NextResponse } from 'next/server';
-import { getPosDb, type DbConnection } from '../db';
+import { getPosDb, shopLocalToday, type DbConnection } from '../db';
 import { createHash } from 'crypto';
 import { insertAuditEvent, lockHashChain } from '../auditHelpers';
 
@@ -139,6 +139,8 @@ export async function POST(request: Request) {
             year: number;
             month?: number;
             closed_by: string;
+            // Client-local calendar day — "today" for elapsed-period checks.
+            client_date?: string;
         };
 
         if (!body.type || !body.year || !body.closed_by) {
@@ -162,8 +164,10 @@ export async function POST(request: Request) {
 
         // A period closure can only seal a fully elapsed period — closing the
         // in-progress month/year would seal days that can never be closed
-        // and reject every subsequent write dated in them.
-        const serverToday = new Date().toISOString().slice(0, 10);
+        // and reject every subsequent write dated in them. Compare against
+        // the shop's (client-local) day: a UTC "today" lags local between
+        // midnight and ~02:00 and would refuse an elapsed period on the 1st.
+        const serverToday = shopLocalToday(body.client_date);
         if (body.type === 'monthly' && `${body.year}-${String(month).padStart(2, '0')}` >= serverToday.slice(0, 7)) {
             return NextResponse.json(
                 {

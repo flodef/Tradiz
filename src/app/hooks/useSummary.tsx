@@ -1597,6 +1597,10 @@ export const useSummary = () => {
                                         body: JSON.stringify({
                                             date: closureDate,
                                             closed_by: parameters.user?.name || 'inconnu',
+                                            // Local day: the server compares
+                                            // against UTC, which lags local
+                                            // between midnight and ~02:00.
+                                            client_date: getFormattedDate(new Date(), 3),
                                         }),
                                     });
                                     const data = await res.json();

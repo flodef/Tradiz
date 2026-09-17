@@ -89,6 +89,18 @@ Ce document ne constitue pas un certificat NF525.
   durcissement, un administrateur de la base peut modifier directement les
   tables fiscales — ce qui resterait détectable par la vérification
   d'intégrité.
+- Hors transaction appelante, `insertAuditEvent` s'auto-encapsule et valide
+  l'événement indépendamment : si le travail du routeur échoue ensuite
+  (ex. `verifyUserPin` enregistre `user_login` puis échoue à créer la
+  session), la trace d'audit survit — choix délibéré : un essai d'opération
+  sensible resté sans effet mérite quand même d'être journalisé.
+- Portée des verrous consultatifs : PostgreSQL utilise
+  `pg_advisory_xact_lock` (libéré automatiquement en fin de transaction,
+  même si le client disparaît — `idle_in_transaction_session_timeout`
+  borne le cas du backend orphelin à ~5 min), tandis que MariaDB reste en
+  `GET_LOCK` de session : la lecture-d'ancre puis l'insertion y sont
+  sérialisées mais non atomiques, et un client mort peut laisser le verrou
+  posé jusqu'à la fin de sa session.
 
 ### 2. Sécurisation
 

@@ -40,6 +40,32 @@ export function dayBounds(date: string): [string, string] {
     return [date, next.toISOString().slice(0, 10)];
 }
 
+// The shop's current calendar day. created_at values are UTC-naive but
+// business dates are client-local: between local midnight and ~02:00 the
+// UTC date still lags a day behind, so a UTC "today" wrongly refuses a
+// legitimate same-local-day action (a 00:30 Z-ticket, an auto-close, a
+// monthly seal on the 1st). The client supplies its local date, trusted
+// bounded to one day ahead of UTC — the same latitude redate_to already
+// gets — so a skewed clock can't open a bigger gap.
+export function shopLocalToday(clientDate?: string | null): string {
+    const utcToday = new Date().toISOString().slice(0, 10);
+    if (!clientDate || !/^\d{4}-\d{2}-\d{2}$/.test(clientDate)) return utcToday;
+    // Clamp to UTC±1: any farther and the client date is untrusted — an old
+    // date would roll "today" backwards and let sealed-day checks lapse.
+    const utcYesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const utcTomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    if (clientDate < utcYesterday) return utcYesterday;
+    return clientDate > utcTomorrow ? utcTomorrow : clientDate;
+}
+
+// Emit SQL placeholders for `values` while appending them to `params`, so
+// the placeholder indices can never drift from the values they bind.
+export function bindList(isPg: boolean, params: unknown[], values: readonly unknown[]): string {
+    const offset = params.length;
+    params.push(...values);
+    return values.map((_, i) => (isPg ? `$${offset + i + 1}` : '?')).join(', ');
+}
+
 // Shortens a query to a readable label for timeout/retry logs.
 function queryLabel(query: string): string {
     const flat = query.replace(/\s+/g, ' ').trim();
