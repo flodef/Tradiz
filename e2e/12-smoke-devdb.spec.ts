@@ -86,17 +86,49 @@ test.describe('Smoke — vente réelle sur la DB dev', () => {
         const errors: string[] = [];
         page.on('pageerror', (e) => errors.push(String(e)));
 
+        // Pick a sellable product from the dev catalog through the API —
+        // deterministic, and works whatever layout the shop parameters use.
+        // Requirements: a category with ≥2 products (so the category click
+        // reliably opens the product popup in non-catalog mode), no options
+        // popup, in stock, priced.
+        const articles = await page.request.get('/api/sql/getAllArticles', {
+            headers: { 'x-public-key': SMOKE_PUBLIC_KEY },
+        });
+        expect(articles.status()).toBe(200);
+        const { products } = (await articles.json()) as {
+            products: {
+                label: string;
+                category: string;
+                options?: string | null;
+                stock?: number | null;
+                prices?: number[];
+            }[];
+        };
+        const sellable = products.filter(
+            (p) => p.category && !p.options && (p.stock == null || p.stock > 0) && (p.prices?.[0] ?? 0) > 0
+        );
+        const product = sellable.find((p) => sellable.filter((q) => q.category === p.category).length >= 2);
+        expect(product, 'no sellable product in the dev catalog').toBeTruthy();
+
         await page.goto('/', { timeout: 60_000, waitUntil: 'domcontentloaded' });
 
-        // First product tile of the grid (real dev catalog, no options popup —
-        // useOptions is off in the dev shop parameters).
-        const tile = page.locator('.grid-cols-6 div[lang="fr"]').first();
-        await expect(tile, 'no product tile — is the dev catalog empty?').toBeVisible({ timeout: 60000 });
-        const productLabel = (await tile.textContent())?.trim();
-        await tile.click();
+        const categoryButton = page.getByText(product!.category, { exact: true }).first();
+        await expect(categoryButton, 'cashier screen not reached — category bar missing').toBeVisible({
+            timeout: 60000,
+        });
+        await categoryButton.click();
+
+        // Non-catalog mode: the category opens a product-list popup.
+        // Catalog mode: the category bar selects and tiles show in the grid.
+        const option = page.getByRole('option', { name: product!.label, exact: true });
+        const tile = page.locator('.grid-cols-6').getByText(product!.label, { exact: true });
+        await expect(option.or(tile).first(), 'product not reachable in the UI').toBeVisible({ timeout: 15000 });
+        if (await option.isVisible()) await option.click();
+        else await tile.click();
 
         // Pay → Carte Bancaire (no TPE configured on dev → immediate commit).
-        const payButton = page.getByText('Payer', { exact: true }).first();
+        // The button label embeds the total ("Payer : 1.35€") — match its start.
+        const payButton = page.getByText(/^Payer/).first();
         await expect(payButton).toBeVisible({ timeout: 5000 });
         await payButton.click();
         const cb = page.getByText('Carte Bancaire', { exact: true }).first();
@@ -109,7 +141,7 @@ test.describe('Smoke — vente réelle sur la DB dev', () => {
         );
         await cb.click();
         const response = await saveResponse;
-        expect(response.status(), `saveTransaction failed for "${productLabel}"`).toBe(200);
+        expect(response.status(), `saveTransaction failed for "${product!.label}"`).toBe(200);
 
         const posted = response.request().postDataJSON() as {
             transaction: { order_id: string };
@@ -117,48 +149,51 @@ test.describe('Smoke — vente réelle sur la DB dev', () => {
         const orderId = posted.transaction.order_id;
         expect(orderId).toBeTruthy();
 
-        // No error popup may be showing (seal, refusal, TPE error, …).
-        const popup = page.locator('#popup');
-        if (await popup.isVisible()) {
-            await expect(popup).not.toContainText(/clôtur|Erreur|refus/i);
+        const today = new Date().toISOString().slice(0, 10);
+        const getDayTransactions = async () => {
+            const res = await page.request.get(
+                `/api/sql/getTransactions?period=day&date=${today}&includeDeleted=true`,
+                { headers: { 'x-public-key': SMOKE_PUBLIC_KEY } }
+            );
+            expect(res.status()).toBe(200);
+            const body = (await res.json()) as {
+                transactions: { orderId?: string; deviceId?: string; method?: string }[];
+            };
+            return body.transactions;
+        };
+
+        try {
+            // No error popup may be showing (seal, refusal, TPE error, …).
+            const popup = page.locator('#popup');
+            if (await popup.isVisible()) {
+                await expect(popup).not.toContainText(/clôtur|Erreur|refus/i);
+            }
+
+            // The transaction must be readable back from the dev DB.
+            const saved = (await getDayTransactions()).find((t) => t.orderId === orderId);
+            expect(saved, `order_id ${orderId} not found in dev DB`).toBeTruthy();
+            expect(saved?.deviceId).toBe(SMOKE_PUBLIC_KEY);
+        } finally {
+            // Cleanup — expunge via the app's own API (marks the row
+            // SUPPRIMÉE, preserving the NF525 audit trail and hash chain).
+            // Runs even if the assertions above failed, so a broken run
+            // never leaves a live test sale in the dev DB.
+            const expunge = await page.request.post('/api/sql/saveTransaction', {
+                headers: { 'x-public-key': SMOKE_PUBLIC_KEY, 'Content-Type': 'application/json' },
+                data: {
+                    action: 'expunge',
+                    transaction: {
+                        order_id: orderId,
+                        user_name: 'E2E Smoke',
+                        device_id: SMOKE_PUBLIC_KEY,
+                        updated_at: toSQLDateTime(Date.now()),
+                    },
+                },
+            });
+            expect(expunge.status(), 'expunge failed — manual cleanup needed').toBe(200);
         }
 
-        // The transaction must be readable back from the dev DB.
-        const today = new Date().toISOString().slice(0, 10);
-        const list = await page.request.get(`/api/sql/getTransactions?period=day&date=${today}&includeDeleted=true`, {
-            headers: { 'x-public-key': SMOKE_PUBLIC_KEY },
-        });
-        expect(list.status()).toBe(200);
-        const { transactions } = (await list.json()) as {
-            transactions: { orderId?: string; deviceId?: string; method?: string }[];
-        };
-        const saved = transactions.find((t) => t.orderId === orderId);
-        expect(saved, `order_id ${orderId} not found in dev DB`).toBeTruthy();
-        expect(saved?.deviceId).toBe(SMOKE_PUBLIC_KEY);
-
-        // Cleanup — expunge via the app's own API (marks the row SUPPRIMÉE,
-        // preserving the NF525 audit trail and hash chain).
-        const expunge = await page.request.post('/api/sql/saveTransaction', {
-            headers: { 'x-public-key': SMOKE_PUBLIC_KEY, 'Content-Type': 'application/json' },
-            data: {
-                action: 'expunge',
-                transaction: {
-                    order_id: orderId,
-                    user_name: 'E2E Smoke',
-                    device_id: SMOKE_PUBLIC_KEY,
-                    updated_at: toSQLDateTime(Date.now()),
-                },
-            },
-        });
-        expect(expunge.status(), 'expunge failed — manual cleanup needed').toBe(200);
-
-        const verify = await page.request.get(`/api/sql/getTransactions?period=day&date=${today}&includeDeleted=true`, {
-            headers: { 'x-public-key': SMOKE_PUBLIC_KEY },
-        });
-        const { transactions: after } = (await verify.json()) as {
-            transactions: { orderId?: string; method?: string }[];
-        };
-        expect(after.find((t) => t.orderId === orderId)?.method).toBe('SUPPRIMÉE');
+        expect((await getDayTransactions()).find((t) => t.orderId === orderId)?.method).toBe('SUPPRIMÉE');
 
         // Fail only on errors related to the sale path — a plain browser
         // (no Electron APIs) can raise benign background noise.
