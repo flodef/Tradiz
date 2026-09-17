@@ -287,9 +287,14 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
         [devicePrinterCom, printers]
     );
 
+    // Tracks the user produced by a load/resolve — as opposed to an explicit
+    // pick — so the persist effect never overwrites the stored selection.
+    const resolvedUserRef = useRef<User | undefined>(undefined);
+
     const loadConfig = useCallback((data: Config | undefined) => {
         if (!data) return;
 
+        resolvedUserRef.current = data.parameters.user;
         setParameters(data.parameters);
         setCurrencies(data.currencies);
         setPaymentMethods(data.paymentMethods);
@@ -381,7 +386,12 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
     // Also sync the config so the cached config has the correct user on restart.
     useEffect(() => {
         if (parameters.user && parameters.user.name) {
-            localStorage.setItem(CURRENT_USER_KEYWORD, JSON.stringify(parameters.user));
+            // Only an explicit pick is persisted — a load resolving the device-bound
+            // user must not clobber the stored POS selection (e.g. a PIN'd user whose
+            // session expired, or admin pages resolving the device user).
+            if (parameters.user !== resolvedUserRef.current) {
+                localStorage.setItem(CURRENT_USER_KEYWORD, JSON.stringify(parameters.user));
+            }
             setConfig((prevConfig) => {
                 if (!prevConfig) return prevConfig;
                 if (prevConfig.parameters.user?.name === parameters.user.name) return prevConfig;
@@ -465,7 +475,12 @@ export const ConfigProvider: FC<ConfigProviderProps> = ({ children }) => {
             initPublicKey().then(() => {
                 resolveUserFromKey(getPublicKey())
                     .then(({ user }) => {
-                        if (user) setParameters((prev) => ({ ...prev, user }));
+                        if (user) {
+                            // Resolved device user — not an explicit pick; mark it so
+                            // the persist effect doesn't overwrite the POS selection.
+                            resolvedUserRef.current = user;
+                            setParameters((prev) => ({ ...prev, user }));
+                        }
                         setState(State.loaded);
                     })
                     .catch(() => {

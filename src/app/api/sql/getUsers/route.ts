@@ -1,5 +1,5 @@
 import { getShopIdFromRequest } from '@/app/constants/shop';
-import { assertDeviceAuthorized } from '../deviceAuth';
+import { authorizeDeviceOn } from '../deviceAuth';
 import { NextResponse } from 'next/server';
 import { getPosDb, DbConnection } from '../db';
 
@@ -18,16 +18,24 @@ export async function GET(request: Request) {
     let connection: DbConnection | undefined;
     try {
         connection = await getPosDb(shopId);
-        const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
-        if (deviceGuard) return deviceGuard;
+        const auth = await authorizeDeviceOn(request, connection, shopId);
+        if (auth instanceof NextResponse) return auth;
+
+        // Users bound to an intervention device (e.g. the "Intervention"
+        // support account) are only selectable from an intervention device.
+        const interventionFilter = auth.intervention
+            ? ''
+            : connection.isPostgreSQL
+              ? `WHERE NOT EXISTS (SELECT 1 FROM dc_pos.devices d WHERE d.user_id = u.id AND d.intervention)`
+              : `WHERE NOT EXISTS (SELECT 1 FROM devices d WHERE d.user_id = u.id AND d.intervention = 1)`;
 
         const result = await connection.execute(
             connection.isPostgreSQL
                 ? `SELECT u.id, u.name, u.role, u.reference, u.pin_hash FROM dc_pos.users u
-                   WHERE NOT EXISTS (SELECT 1 FROM dc_pos.devices d WHERE d.user_id = u.id AND d.intervention)
+                   ${interventionFilter}
                    ORDER BY u.name`
                 : `SELECT u.id, u.name, u.role, u.reference, u.pin_hash FROM users u
-                   WHERE NOT EXISTS (SELECT 1 FROM devices d WHERE d.user_id = u.id AND d.intervention = 1)
+                   ${interventionFilter}
                    ORDER BY u.name`
         );
         const rows = result[0] as UserRow[];

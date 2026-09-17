@@ -260,9 +260,16 @@ export async function POST(request: Request) {
         const [existing] = await connection.execute(checkQuery, [date]);
         if ((existing as { id: number }[]).length > 0) {
             await connection.rollback();
+            // Auto-closures race across open devices/tabs: the first commits and
+            // the rest hit this branch. Report it as success (idempotent) so the
+            // console isn't flooded with expected 409s; manual closes keep the
+            // 409 so the cashier sees the refusal. Still traced server-side —
+            // a wrongly-created closure (e.g. the premature-seal bug) would
+            // otherwise become silent.
+            if (auto) console.warn(`[dailyClosure] auto-close hit existing closure for ${date} — idempotent`);
             return NextResponse.json(
                 { error: 'Closure already exists for this date', code: 'ALREADY_CLOSED', closedDay: date },
-                { status: 409 }
+                { status: auto ? 200 : 409 }
             );
         }
 
@@ -286,13 +293,18 @@ export async function POST(request: Request) {
             : [[]];
         if ((sealedMonth as { id: number }[]).length > 0) {
             await connection.rollback();
+            // Same as ALREADY_CLOSED: terminal and expected for auto-closure —
+            // but an unclosed day inside a sealed month is a chain gap, so it
+            // stays traced server-side.
+            if (auto)
+                console.warn(`[dailyClosure] auto-close ${date} skipped — month ${date.slice(0, 7)} already sealed`);
             return NextResponse.json(
                 {
                     error: `Le mois ${date.slice(0, 7)} est clôturé — la journée ne peut plus être clôturée`,
                     code: 'PERIOD_SEALED',
                     closedDay: date,
                 },
-                { status: 409 }
+                { status: auto ? 200 : 409 }
             );
         }
         const [sealedYear] = yearElapsed
@@ -305,13 +317,15 @@ export async function POST(request: Request) {
             : [[]];
         if ((sealedYear as { id: number }[]).length > 0) {
             await connection.rollback();
+            if (auto)
+                console.warn(`[dailyClosure] auto-close ${date} skipped — year ${date.slice(0, 4)} already sealed`);
             return NextResponse.json(
                 {
                     error: `L'année ${date.slice(0, 4)} est clôturée — la journée ne peut plus être clôturée`,
                     code: 'PERIOD_SEALED',
                     closedDay: date,
                 },
-                { status: 409 }
+                { status: auto ? 200 : 409 }
             );
         }
 
