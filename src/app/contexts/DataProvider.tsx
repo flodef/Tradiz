@@ -678,6 +678,9 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         'OK',
                     ]);
                 }
+                // A seal is permanent — a stale pendingSync flag would retry
+                // the push once a minute forever.
+                if (transaction.pendingSync) await markPendingSync(transaction, false);
                 return;
             }
             try {
@@ -724,6 +727,7 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                         // Sealed day — remember it so this tx stops being retried
                         // at every sync cycle.
                         closedDaysRef.current.add(String(error.closedDay));
+                        if (transaction.pendingSync) await markPendingSync(transaction, false);
                         console.warn(
                             `Transaction dated in sealed day ${error.closedDay} — kept local only (cannot rewrite a closed day)`
                         );
@@ -757,6 +761,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
         const localSets = await getLocalTransactions();
         for (const set of localSets) {
             const day = set.id.slice(set.id.lastIndexOf('_') + 1);
+            // A sealed day can never accept a push — skip it entirely.
+            if (closedDaysRef.current.has(day)) continue;
             const missingOnServer = set.transactions.length > (counts[day] ?? 0);
             if (!missingOnServer && !set.transactions.some((t) => t.pendingSync)) continue;
             for (const tx of set.transactions) {
