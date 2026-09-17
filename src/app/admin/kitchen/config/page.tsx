@@ -61,6 +61,22 @@ import {
 } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+// Merge a freshly fetched value into the current draft: untouched → take the
+// fresh value; edited while loading → keep the user's edit (plain objects merge
+// field-by-field, everything else is kept whole).
+function mergeLoaded<T>(current: T, original: T, loaded: T): T {
+    if (current === original) return loaded;
+    if (Array.isArray(current) || Array.isArray(loaded) || typeof loaded !== 'object' || loaded === null) {
+        return current;
+    }
+    const merged = { ...(loaded as Record<string, unknown>) };
+    for (const key of Object.keys(merged)) {
+        const k = key as keyof T;
+        if (current[k] !== original[k]) merged[key] = current[k];
+    }
+    return merged as T;
+}
+
 export default function SettingsPage() {
     const isMobile = useIsMobile();
     const {
@@ -171,6 +187,22 @@ export default function SettingsPage() {
     const [isCustomersValid, setIsCustomersValid] = useState(true);
     const [isCompaniesValid, setIsCompaniesValid] = useState(true);
     const [isPrintersValid, setIsPrintersValid] = useState(true);
+    // Latest original snapshots — lets fetch responses preserve edits made while loading
+    const originalsRef = useRef({
+        settings: defaultParameters,
+        discounts: [] as Discount[],
+        currencies: [] as Currency[],
+        payments: [] as PaymentMethod[],
+        colors: [] as Color[],
+        users: [] as User[],
+        devices: [] as Device[],
+        printers: [] as Printer[],
+        customers: [] as Customer[],
+        companies: [] as Company[],
+        themeName: '',
+        selectedThemeIndex: 0,
+        customThemeNames: {} as Record<number, string>,
+    });
     const [originalSettings, setOriginalSettings] = useState<Parameters>(defaultParameters);
     const [originalDiscounts, setOriginalDiscounts] = useState<Discount[]>([]);
     const [originalCurrencies, setOriginalCurrencies] = useState<Currency[]>([]);
@@ -188,6 +220,22 @@ export default function SettingsPage() {
     const [customThemeNames, setCustomThemeNames] = useState<Record<number, string>>({});
     const [originalCustomThemeNames, setOriginalCustomThemeNames] = useState<Record<number, string>>({});
     const [openSection, setOpenSection] = useState<string | null>(null);
+
+    originalsRef.current = {
+        settings: originalSettings,
+        discounts: originalDiscounts,
+        currencies: originalCurrencies,
+        payments: originalPayments,
+        colors: originalColors,
+        users: originalUsers,
+        devices: originalDevices,
+        printers: originalPrinters,
+        customers: originalCustomers,
+        companies: originalCompanies,
+        themeName: originalThemeName,
+        selectedThemeIndex: originalSelectedThemeIndex,
+        customThemeNames: originalCustomThemeNames,
+    };
 
     // Warn about unsaved changes when leaving page
     useEffect(() => {
@@ -502,7 +550,8 @@ export default function SettingsPage() {
                 })(),
             };
 
-            setSettings(loadedSettings);
+            // The UI may already be seeded from cache — keep edits made while loading
+            setSettings((current) => mergeLoaded(current, originalsRef.current.settings, loadedSettings));
             setOriginalSettings(loadedSettings);
             dbDataLoadedRef.current = true;
             setIsDbDataLoaded(true);
@@ -517,7 +566,7 @@ export default function SettingsPage() {
                 const discountsData = await discountsResponse!.json();
                 if (discountsData.discounts && discountsData.discounts.length > 0) {
                     const loaded: Discount[] = discountsData.discounts;
-                    setDiscounts(loaded);
+                    setDiscounts((current) => mergeLoaded(current, originalsRef.current.discounts, loaded));
                     setOriginalDiscounts(loaded);
                 }
             } catch {
@@ -529,7 +578,7 @@ export default function SettingsPage() {
                 const currenciesData = await currenciesResponse!.json();
                 if (currenciesData.currencies && currenciesData.currencies.length > 0) {
                     const loaded: Currency[] = currenciesData.currencies;
-                    setCurrenciesConfig(loaded);
+                    setCurrenciesConfig((current) => mergeLoaded(current, originalsRef.current.currencies, loaded));
                     setOriginalCurrencies(loaded);
                 }
             } catch {
@@ -543,7 +592,7 @@ export default function SettingsPage() {
                     const loaded: PaymentMethod[] = paymentsData.paymentMethods.filter(
                         (p: PaymentMethod) => !INTERNAL_PAYMENT_METHODS.includes(p.type)
                     );
-                    setPaymentsConfig(loaded);
+                    setPaymentsConfig((current) => mergeLoaded(current, originalsRef.current.payments, loaded));
                     setOriginalPayments(loaded);
                 }
             } catch {
@@ -569,7 +618,7 @@ export default function SettingsPage() {
                             loaded.push(...defaultColors.slice(start, start + COLORS_PER_THEME));
                         }
                     }
-                    setColorsConfig(loaded);
+                    setColorsConfig((current) => mergeLoaded(current, originalsRef.current.colors, loaded));
                     setOriginalColors(loaded);
 
                     const names: string[] = Array.isArray(colorsData.themeNames) ? colorsData.themeNames : [];
@@ -578,14 +627,16 @@ export default function SettingsPage() {
                         names.push(defaultThemeNames[i] || `Thème ${i + 1}`);
                     }
                     if (names.length > 0) {
-                        setThemeName(names[0]);
+                        setThemeName((current) => mergeLoaded(current, originalsRef.current.themeName, names[0]));
                         setOriginalThemeName(names[0]);
                         // Theme 0's name lives in `themeName`; the rest in `customThemeNames`.
                         const customNames: Record<number, string> = {};
                         names.forEach((name, index) => {
                             if (index > 0) customNames[index] = name;
                         });
-                        setCustomThemeNames(customNames);
+                        setCustomThemeNames((current) =>
+                            mergeLoaded(current, originalsRef.current.customThemeNames, customNames)
+                        );
                         setOriginalCustomThemeNames(customNames);
                     }
 
@@ -593,7 +644,9 @@ export default function SettingsPage() {
                     const themeCount = Math.ceil(loaded.length / 7);
                     const safeSelected =
                         Number.isInteger(selected) && selected >= 0 && selected < themeCount ? selected : 0;
-                    setSelectedThemeIndex(safeSelected);
+                    setSelectedThemeIndex((current) =>
+                        mergeLoaded(current, originalsRef.current.selectedThemeIndex, safeSelected)
+                    );
                     setOriginalSelectedThemeIndex(safeSelected);
                 }
             } catch {
@@ -617,12 +670,12 @@ export default function SettingsPage() {
                 const usersData = await usersResponse!.json();
                 if (usersData.users && usersData.users.length > 0) {
                     const loaded: User[] = usersData.users.map((u: User) => ({ ...u, role: u.role as Role }));
-                    setUsersConfig(loaded);
+                    setUsersConfig((current) => mergeLoaded(current, originalsRef.current.users, loaded));
                     setOriginalUsers(loaded);
                 }
             } catch {
                 // No fallback for users - start with empty list
-                setUsersConfig([]);
+                setUsersConfig((current) => mergeLoaded(current, originalsRef.current.users, []));
                 setOriginalUsers([]);
             }
 
@@ -633,12 +686,12 @@ export default function SettingsPage() {
                     // Intervention devices are managed in the DB only — keep them
                     // out of the admin list and the dirty-state comparison.
                     const loaded: Device[] = (devicesData.devices as Device[]).filter((d) => !d.intervention);
-                    setDevicesConfig(loaded);
+                    setDevicesConfig((current) => mergeLoaded(current, originalsRef.current.devices, loaded));
                     setOriginalDevices(loaded);
                 }
             } catch {
                 // No fallback for devices - start with empty list
-                setDevicesConfig([]);
+                setDevicesConfig((current) => mergeLoaded(current, originalsRef.current.devices, []));
                 setOriginalDevices([]);
             }
 
@@ -647,12 +700,12 @@ export default function SettingsPage() {
                 const printersData = await printersResponse!.json();
                 if (printersData.printers && printersData.printers.length > 0) {
                     const loaded: Printer[] = printersData.printers;
-                    setPrintersConfig(loaded);
+                    setPrintersConfig((current) => mergeLoaded(current, originalsRef.current.printers, loaded));
                     setOriginalPrinters(loaded);
                 }
             } catch {
                 // No fallback for printers - start with empty list
-                setPrintersConfig([]);
+                setPrintersConfig((current) => mergeLoaded(current, originalsRef.current.printers, []));
                 setOriginalPrinters([]);
             }
 
@@ -661,13 +714,13 @@ export default function SettingsPage() {
                 const customersData = await customersResponse!.json();
                 if (customersData.customers && customersData.customers.length > 0) {
                     const loaded: Customer[] = customersData.customers;
-                    setCustomersConfig(loaded);
+                    setCustomersConfig((current) => mergeLoaded(current, originalsRef.current.customers, loaded));
                     setOriginalCustomers(loaded);
                 }
             } catch (error) {
                 // Handle missing companies table gracefully
                 console.warn('Could not load customers (companies table may not exist):', error);
-                setCustomersConfig([]);
+                setCustomersConfig((current) => mergeLoaded(current, originalsRef.current.customers, []));
                 setOriginalCustomers([]);
             }
 
@@ -676,13 +729,13 @@ export default function SettingsPage() {
                 const companiesData = await companiesResponse!.json();
                 if (companiesData.companies && companiesData.companies.length > 0) {
                     const loaded: Company[] = companiesData.companies;
-                    setCompaniesConfig(loaded);
+                    setCompaniesConfig((current) => mergeLoaded(current, originalsRef.current.companies, loaded));
                     setOriginalCompanies(loaded);
                 }
             } catch (error) {
                 // Handle missing companies table gracefully
                 console.warn('Could not load companies (table may not exist):', error);
-                setCompaniesConfig([]);
+                setCompaniesConfig((current) => mergeLoaded(current, originalsRef.current.companies, []));
                 setOriginalCompanies([]);
             }
         } catch (error) {

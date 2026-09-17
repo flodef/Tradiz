@@ -133,9 +133,9 @@ function Row({
                     <div className="flex items-center gap-1">
                         <ValidatedInput
                             value={user.pin ?? ''}
-                            onChange={(value) =>
-                                onChange({ ...user, pin: String(value).replace(/\D/g, '').slice(0, 8) })
-                            }
+                            onChange={(value) => onChange({ ...user, pin: String(value) || undefined })}
+                            filter={(value) => value.replace(/\D/g, '').slice(0, 8)}
+                            inputMode="numeric"
                             placeholder={user.hasPin ? '••••' : 'Aucun'}
                             isReadOnly={isReadOnly}
                             validation={(value) => !value || String(value).length >= 4}

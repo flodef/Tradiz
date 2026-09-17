@@ -11,6 +11,7 @@ interface ValidatedInputProps {
     validation?: (value: string | number) => boolean;
     filter?: (value: string) => string;
     type?: string;
+    inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
     isReadOnly?: boolean;
     maxLength?: number;
     label?: string;
@@ -32,6 +33,7 @@ export default function ValidatedInput({
     validation,
     filter,
     type = 'text',
+    inputMode,
     maxLength,
     label,
     className,
@@ -162,7 +164,7 @@ export default function ValidatedInput({
     return (
         <AdminInput
             type={type === 'number' ? 'text' : type}
-            inputMode={type === 'number' ? 'decimal' : undefined}
+            inputMode={inputMode ?? (type === 'number' ? 'decimal' : undefined)}
             value={draftValue !== null ? draftValue : value}
             onChange={handleChange}
             placeholder={placeholder}
