@@ -216,6 +216,14 @@ async function main() {
             log('📝 Logged chain_rebuild audit event.', 'blue');
         }
 
+        // Only fully elapsed periods may be sealed: closing the in-progress
+        // day/month/year would reject every subsequent write dated in it
+        // (saveTransaction's sealed-day guard) — exactly what this script is
+        // meant to avoid reintroducing.
+        const today = new Date().toISOString().slice(0, 10);
+        const currentMonth = today.slice(0, 7);
+        const currentYear = Number(today.slice(0, 4));
+
         // 1. Single query for all daily totals
         log('\n📅 Fetching daily totals...', 'blue');
         const exL = EXCLUDED.map((m) => `'${m.replace(/'/g, "''")}'`).join(', ');
@@ -262,6 +270,10 @@ async function main() {
         for (let i = 0; i < dr.length; i++) {
             const r = dr[i];
             const date = dateStr(r.dt);
+            if (date >= today) {
+                log(`  ⏭️  ${date}: skipped — day still in progress`, 'yellow');
+                continue;
+            }
             const t: Daily = {
                 ticket_count: Number(r.tc) || 0,
                 total_amount: Number(r.ta) || 0,
@@ -320,6 +332,10 @@ async function main() {
             mMap.get(mk)!.push(t);
         }
         const sortedM = [...mMap.keys()].sort();
+        const elapsedM = sortedM.filter((mk) => mk < currentMonth);
+        for (const mk of sortedM) {
+            if (mk >= currentMonth) log(`  ⏭️  ${mk}: skipped — month still in progress`, 'yellow');
+        }
         let prevM: string | null = null;
         let mc = 0;
         const mIns: {
@@ -332,7 +348,7 @@ async function main() {
             h: string;
             p: string | null;
         }[] = [];
-        for (const mk of sortedM) {
+        for (const mk of elapsedM) {
             const ml = mMap.get(mk)!;
             const pt: Period = {
                 daily_closure_count: ml.length,
@@ -387,7 +403,7 @@ async function main() {
         // 4. Annual closures
         log('\n📊 Processing annual closures...', 'blue');
         const aMap = new Map<number, Period[]>();
-        for (const mk of sortedM) {
+        for (const mk of elapsedM) {
             const y = parseInt(mk.substring(0, 4), 10);
             const ml = mMap.get(mk)!;
             if (!aMap.has(y)) aMap.set(y, []);
@@ -413,6 +429,10 @@ async function main() {
             p: string | null;
         }[] = [];
         for (const y of sortedY) {
+            if (y >= currentYear) {
+                log(`  ⏭️  ${y}: skipped — year still in progress`, 'yellow');
+                continue;
+            }
             const yl = aMap.get(y)!;
             const pt: Period = {
                 monthly_closure_count: yl.length,
@@ -422,7 +442,7 @@ async function main() {
                 total_tva: yl.reduce((s, t) => s + t.total_tva, 0),
             };
             // Anchor: first/last monthly closure hash of the year (P2.9).
-            const yMonths = sortedM.filter((mk) => parseInt(mk.substring(0, 4), 10) === y);
+            const yMonths = elapsedM.filter((mk) => parseInt(mk.substring(0, 4), 10) === y);
             const firstM = monthHashByMk.get(yMonths[0]) ?? '';
             const lastM = monthHashByMk.get(yMonths[yMonths.length - 1]) ?? '';
             const h = periodHash(String(y), pt, prevA, firstM, lastM);

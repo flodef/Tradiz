@@ -228,19 +228,13 @@ export const Popup: FC<PopupProps> = ({ variant = 'default' }) => {
                                         ? option.split('\t').map((col, idx) => (
                                               <div
                                                   key={idx}
-                                                  className={twMerge(
-                                                      styles.optionText,
-                                                      'whitespace-nowrap flex-1 text-left'
-                                                  )}
+                                                  className={twMerge(styles.optionText, 'flex-1 min-w-0 text-left')}
                                               >
                                                   {col.trim()}
                                               </div>
                                           ))
                                         : option.split('\n').map((line, idx) => (
-                                              <div
-                                                  key={idx}
-                                                  className={twMerge(styles.optionText, 'whitespace-nowrap')}
-                                              >
+                                              <div key={idx} className={styles.optionText}>
                                                   {line}
                                               </div>
                                           ))

@@ -379,6 +379,31 @@ describe('saveTransaction — journée clôturée (409 DAY_CLOSED)', () => {
         expect(state.writes).toHaveLength(0);
     });
 
+    it('ignore un sceau mensuel posé sur le mois EN COURS (donnée incohérente — un mois en cours ne peut pas être clôturé)', async () => {
+        // A monthly closure of the in-progress month cannot be legitimate —
+        // it must not block today's sales (migration-script leftover).
+        state.closedMonths.add(`${state.today.slice(0, 7)}-01`);
+        const res = await save('add', { order_id: 'tx-new', created_at: `${state.today} 12:00:00` });
+        expect(res.status).toBe(200);
+        expect(state.writes.some((w) => w.startsWith('INSERT INTO dc_pos.transactions'))).toBe(true);
+    });
+
+    it('ignore un sceau annuel posé sur l’année EN COURS', async () => {
+        state.closedYears.add(Number(state.today.slice(0, 4)));
+        const res = await save('add', { order_id: 'tx-new', created_at: `${state.today} 12:00:00` });
+        expect(res.status).toBe(200);
+    });
+
+    it('ignore une clôture journalière datée dans le FUTUR pour une mutation', async () => {
+        // A closure dated after today is bogus — a mutation of today's row
+        // must not be sealed by it.
+        const tomorrow = new Date(Date.parse(`${state.today}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+        state.txs.set('tx-1', { id: 1, method: 'ESPÈCES', day: state.today });
+        state.closedDays.add(tomorrow);
+        const res = await save('update', { created_at: `${state.today} 12:00:00` });
+        expect(res.status).toBe(200);
+    });
+
     it('autorise une transaction du jour ouvert quand seule une journée antérieure est clôturée', async () => {
         state.txs.set('tx-1', { id: 1, method: 'ESPÈCES', day: '2025-01-15' });
         state.closedDays.add('2025-01-14'); // only an earlier day is sealed
@@ -473,6 +498,36 @@ describe('clôtures — sceau au niveau supérieur (409)', () => {
         const res = await dailyClosurePOST(post('/api/sql/dailyClosure', { date: '2025-01-14', closed_by: 'a' }));
         expect(res.status).toBe(200);
         expect(state.writes.some((w) => w.startsWith('INSERT INTO dc_pos.daily_closures'))).toBe(true);
+    });
+
+    it('autorise une clôture journalière malgré un sceau mensuel sur le mois EN COURS (sceau incohérent)', async () => {
+        // The bogus current-month closure must not block daily closures
+        // either — otherwise the rest of the month could never be Z'd.
+        state.closedMonths.add(`${state.today.slice(0, 7)}-01`);
+        const res = await dailyClosurePOST(post('/api/sql/dailyClosure', { date: state.today, closed_by: 'a' }));
+        expect(res.status).toBe(200);
+        expect(state.writes.some((w) => w.startsWith('INSERT INTO dc_pos.daily_closures'))).toBe(true);
+    });
+
+    it('refuse une clôture mensuelle sur le mois EN COURS', async () => {
+        const res = await periodClosurePOST(
+            post('/api/sql/periodClosure', {
+                type: 'monthly',
+                year: Number(state.today.slice(0, 4)),
+                month: Number(state.today.slice(5, 7)),
+                closed_by: 'a',
+            })
+        );
+        expect(res.status).toBe(409);
+        expect(state.writes.some((w) => w.includes('INSERT INTO dc_pos.monthly_closures'))).toBe(false);
+    });
+
+    it('refuse une clôture annuelle sur l’année EN COURS', async () => {
+        const res = await periodClosurePOST(
+            post('/api/sql/periodClosure', { type: 'annual', year: Number(state.today.slice(0, 4)), closed_by: 'a' })
+        );
+        expect(res.status).toBe(409);
+        expect(state.writes.some((w) => w.includes('INSERT INTO dc_pos.annual_closures'))).toBe(false);
     });
 
     it('refuse une clôture MANUELLE quand un brouillon existe ce jour-là (PENDING_DRAFTS)', async () => {

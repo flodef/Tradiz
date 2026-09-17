@@ -167,7 +167,7 @@ export async function POST(request: Request) {
                     await unlockChain();
                     return NextResponse.json(
                         {
-                            error: `${sealed.label} — la transaction ne peut plus être modifiée`,
+                            error: `${sealed.label} — l'écriture a été refusée`,
                             code: 'DAY_CLOSED',
                             closedDay: sealed.day,
                         },
@@ -405,16 +405,24 @@ async function sealedClosedDay(
     const seals = (
         sealRows as { min_daily: string | null; month_sealed: boolean | number; year_sealed: boolean | number }[]
     )[0];
-    const periodLabel = seals?.month_sealed
-        ? `Le mois ${dateStr.slice(0, 7)} est clôturé`
-        : seals?.year_sealed
-          ? `L'année ${dateStr.slice(0, 4)} est clôturée`
-          : null;
+
+    // A closure can only seal a fully elapsed period: a daily closure dated
+    // after today, or a monthly/annual closure of the in-progress period, is
+    // bogus data (e.g. left behind by a migration script) and must not block
+    // writes — a legitimate closure cannot have been created yet.
+    const serverToday = new Date().toISOString().slice(0, 10);
+    const dailySeal = seals?.min_daily && seals.min_daily <= serverToday ? seals.min_daily : null;
+    const periodLabel =
+        seals?.month_sealed && dateStr.slice(0, 7) < serverToday.slice(0, 7)
+            ? `Le mois ${dateStr.slice(0, 7)} est clôturé`
+            : seals?.year_sealed && Number(dateStr.slice(0, 4)) < Number(serverToday.slice(0, 4))
+              ? `L'année ${dateStr.slice(0, 4)} est clôturée`
+              : null;
 
     if (existingGoverns) {
         // Mutation: sealed by the earliest closure on/after the row's day —
         // its anchored hashes (and every later closure's) would be rewritten.
-        if (seals?.min_daily) return { day: dateStr, label: `La journée du ${seals.min_daily} est clôturée` };
+        if (dailySeal) return { day: dateStr, label: `La journée du ${dailySeal} est clôturée` };
 
         // Finalizing a draft is new revenue on the stored day — apply the
         // period seal too so it can't land inside a closed month/year where
@@ -432,7 +440,7 @@ async function sealedClosedDay(
     // Fresh insert: a daily closure of the payload day seals it; a sealed
     // month/year means this day can never be closed — revenue dated there
     // escapes every Z-ticket.
-    if (seals?.min_daily === dateStr) return { day: dateStr, label: `La journée du ${dateStr} est clôturée` };
+    if (dailySeal === dateStr) return { day: dateStr, label: `La journée du ${dateStr} est clôturée` };
     if (periodLabel) return { day: dateStr, label: periodLabel };
     return null;
 }

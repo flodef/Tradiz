@@ -269,14 +269,21 @@ export async function POST(request: Request) {
         // Same seal rule one level up: a monthly closure anchors its month's
         // daily-closure hashes (and the recorded month totals), so adding a
         // daily closure inside a sealed month/year would falsify the anchor —
-        // refuse it.
+        // refuse it. Only a fully elapsed period can be legitimately sealed:
+        // a monthly/annual closure of the in-progress period is bogus data
+        // and must not block this closure.
+        const serverToday = new Date().toISOString().slice(0, 10);
+        const monthElapsed = date.slice(0, 7) < serverToday.slice(0, 7);
+        const yearElapsed = Number(date.slice(0, 4)) < Number(serverToday.slice(0, 4));
         const monthDate = `${date.slice(0, 7)}-01`;
-        const [sealedMonth] = await connection.execute(
-            isPg
-                ? `SELECT id FROM ${prefix}monthly_closures WHERE closure_month = $1`
-                : `SELECT id FROM ${prefix}monthly_closures WHERE closure_month = ?`,
-            [monthDate]
-        );
+        const [sealedMonth] = monthElapsed
+            ? await connection.execute(
+                  isPg
+                      ? `SELECT id FROM ${prefix}monthly_closures WHERE closure_month = $1`
+                      : `SELECT id FROM ${prefix}monthly_closures WHERE closure_month = ?`,
+                  [monthDate]
+              )
+            : [[]];
         if ((sealedMonth as { id: number }[]).length > 0) {
             await connection.rollback();
             return NextResponse.json(
@@ -288,12 +295,14 @@ export async function POST(request: Request) {
                 { status: 409 }
             );
         }
-        const [sealedYear] = await connection.execute(
-            isPg
-                ? `SELECT id FROM ${prefix}annual_closures WHERE closure_year = $1`
-                : `SELECT id FROM ${prefix}annual_closures WHERE closure_year = ?`,
-            [Number(date.slice(0, 4))]
-        );
+        const [sealedYear] = yearElapsed
+            ? await connection.execute(
+                  isPg
+                      ? `SELECT id FROM ${prefix}annual_closures WHERE closure_year = $1`
+                      : `SELECT id FROM ${prefix}annual_closures WHERE closure_year = ?`,
+                  [Number(date.slice(0, 4))]
+              )
+            : [[]];
         if ((sealedYear as { id: number }[]).length > 0) {
             await connection.rollback();
             return NextResponse.json(
@@ -341,7 +350,6 @@ export async function POST(request: Request) {
             };
             let openDay = addDays(date, 1);
             while (closedAfterSet.has(openDay)) openDay = addDays(openDay, 1);
-            const serverToday = new Date().toISOString().slice(0, 10);
             const maxDay = addDays(serverToday > openDay ? serverToday : openDay, 1);
 
             const validTs = redate_to && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(redate_to) ? redate_to : null;

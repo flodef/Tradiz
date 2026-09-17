@@ -632,9 +632,8 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             if (closedDaysRef.current.has(sealedDay)) {
                 if (!sealedNotifiedRef.current.has(sealedDay)) {
                     sealedNotifiedRef.current.add(sealedDay);
-                    openFullscreenPopup('Journée clôturée', [
-                        `La journée du ${sealedDay} est clôturée — une transaction n'a pas pu être enregistrée sur le serveur.`,
-                        'Elle reste visible uniquement sur cet appareil.',
+                    openFullscreenPopup(`Journée du ${sealedDay} clôturée — transaction conservée sur cet appareil`, [
+                        'OK',
                     ]);
                 }
                 return;
@@ -1306,12 +1305,12 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                     // could be paid twice. Keep it local-only.
                     localOnly = true;
                 } else {
-                    openFullscreenPopup('Journée clôturée', [
+                    openFullscreenPopup(
                         sealedDay === txDay
-                            ? `La journée du ${txDay} est clôturée — cette transaction ne peut plus être modifiée.`
-                            : `Une clôture du ${sealedDay} verrouille cette transaction — elle ne peut plus être modifiée.`,
-                        'Pour corriger une vente passée, émettez un remboursement (avoir) daté du jour.',
-                    ]);
+                            ? `Journée du ${txDay} clôturée — modification impossible, émettez un avoir daté du jour`
+                            : `Clôture du ${sealedDay} — transaction verrouillée, émettez un avoir daté du jour`,
+                        ['OK']
+                    );
                     return;
                 }
             }
@@ -1445,15 +1444,14 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                             // Keep the local transaction — it exists on this
                             // device only (same posture as a stopped
                             // subscription) — but make it explicit.
-                            openFullscreenPopup('Journée clôturée', [
-                                // error.error is the server-localized reason —
-                                // it names the sealing period (a LATER day, a
-                                // month or a year), not necessarily the
-                                // transaction's own day.
-                                error.error ??
-                                    `La journée du ${error.closedDay} est clôturée — cette transaction n'a pas pu être enregistrée sur le serveur.`,
-                                'Elle reste visible uniquement sur cet appareil.',
-                            ]);
+                            // error.error names the sealing period (a LATER
+                            // day, a month or a year), not necessarily the
+                            // transaction's own day — keep its label and state
+                            // the consequence.
+                            const reason = String(error.error ?? `La journée du ${error.closedDay} est clôturée`).split(
+                                ' — '
+                            )[0];
+                            openFullscreenPopup(`${reason} — transaction conservée sur cet appareil`, ['OK']);
                             return;
                         }
                         throw new Error(error.error || 'Failed to save transaction to SQL DB');
@@ -1589,10 +1587,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
                 // row is already hidden from sync).
                 const sealedDay = sealedTxDay(transaction);
                 if (sealedDay && isConfirmedTransaction(transaction)) {
-                    openFullscreenPopup('Journée clôturée', [
-                        `La journée du ${sealedDay} est clôturée — cette transaction ne peut plus être annulée.`,
-                        'Pour corriger une vente passée, émettez un remboursement (avoir) daté du jour.',
-                    ]);
+                    openFullscreenPopup(
+                        `Journée du ${sealedDay} clôturée — annulation impossible, émettez un avoir daté du jour`,
+                        ['OK']
+                    );
                     return false;
                 }
                 const localOnly = !!sealedDay;
@@ -2070,10 +2068,10 @@ export const DataProvider: FC<DataProviderProps> = ({ children }) => {
             // re-dated new transaction.
             const sealedDay = sealedTxDay(transaction);
             if (sealedDay && isConfirmedTransaction(transaction)) {
-                openFullscreenPopup('Journée clôturée', [
-                    `La journée du ${sealedDay} est clôturée — cette transaction ne peut plus être modifiée.`,
-                    'Pour corriger une vente passée, émettez un remboursement (avoir) daté du jour.',
-                ]);
+                openFullscreenPopup(
+                    `Journée du ${sealedDay} clôturée — modification impossible, émettez un avoir daté du jour`,
+                    ['OK']
+                );
                 return false;
             }
 

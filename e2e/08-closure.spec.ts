@@ -183,7 +183,7 @@ test.describe('Clôture de caisse — NF525', () => {
             await page.waitForTimeout(500);
             await page.getByText('Continuer').click();
 
-            await expect(page.getByText('Journée clôturée')).toBeVisible({ timeout: 5000 });
+            await expect(page.getByText(/annulation impossible/)).toBeVisible({ timeout: 5000 });
             // No remote write was attempted — the refusal is client-side.
             expect(savePosts).toHaveLength(0);
         });

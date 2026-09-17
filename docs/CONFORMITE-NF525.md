@@ -50,7 +50,11 @@ Ce document ne constitue pas un certificat NF525.
   transaction — la ligne scellée reste intacte. La règle s'applique aussi à
   l'échelon supérieur : une clôture journalière est refusée dans un mois ou
   une année déjà clôturés, et une clôture mensuelle dans une année clôturée
-  (les ancres de période couvrent les hachages des clôtures enfants). Les
+  (les ancres de période couvrent les hachages des clôtures enfants). Un sceau
+  ne peut porter que sur une période entièrement écoulée : une clôture
+  mensuelle/annuelle de la période en cours (ou une clôture journalière datée
+  dans le futur) est une donnée incohérente ignorée par les garde-fous, et sa
+  création est refusée. Les
   lectures d'ancres et de totaux sont sérialisées avec les écritures du
   niveau inférieur via des verrous consultatifs
   (`nf525_transactions < nf525_daily_closures < nf525_period_closures`), pour

@@ -160,6 +160,25 @@ export async function POST(request: Request) {
         }
         const month = body.month as number;
 
+        // A period closure can only seal a fully elapsed period — closing the
+        // in-progress month/year would seal days that can never be closed
+        // and reject every subsequent write dated in them.
+        const serverToday = new Date().toISOString().slice(0, 10);
+        if (body.type === 'monthly' && `${body.year}-${String(month).padStart(2, '0')}` >= serverToday.slice(0, 7)) {
+            return NextResponse.json(
+                {
+                    error: `Le mois ${body.year}-${String(month).padStart(2, '0')} n'est pas terminé — clôture impossible`,
+                },
+                { status: 409 }
+            );
+        }
+        if (body.type === 'annual' && body.year >= Number(serverToday.slice(0, 4))) {
+            return NextResponse.json(
+                { error: `L'année ${body.year} n'est pas terminée — clôture impossible` },
+                { status: 409 }
+            );
+        }
+
         connection = await getPosDb(shopId);
         const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);
         if (deviceGuard) return deviceGuard;
