@@ -230,6 +230,21 @@ export async function POST(request: Request) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
             return NextResponse.json({ error: 'date must be in YYYY-MM-DD format' }, { status: 400 });
         }
+        // A closure can only seal a fully elapsed day: a future-dated closure
+        // would reject every sale dated there, permanently (append-only).
+        // Auto-closures only target days before the last reset boundary, so
+        // "today" is already too late for them. Manual closes of the current
+        // day stay allowed — the Z-ticket legitimately ends the business day.
+        const today = new Date().toISOString().slice(0, 10);
+        if (auto ? date >= today : date > today) {
+            return NextResponse.json(
+                {
+                    error: `Impossible de clôturer la journée du ${date} — elle n'est pas terminée`,
+                    code: 'FUTURE_DATE',
+                },
+                { status: 400 }
+            );
+        }
 
         connection = await getPosDb(shopId);
         const deviceGuard = await assertDeviceAuthorized(request, shopId, undefined, connection);

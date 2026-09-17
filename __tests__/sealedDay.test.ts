@@ -530,6 +530,28 @@ describe('clôtures — sceau au niveau supérieur (409)', () => {
         expect(state.writes.some((w) => w.includes('INSERT INTO dc_pos.annual_closures'))).toBe(false);
     });
 
+    it('refuse une clôture journalière datée dans le FUTUR', async () => {
+        const tomorrow = new Date(Date.parse(`${state.today}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+        const res = await dailyClosurePOST(post('/api/sql/dailyClosure', { date: tomorrow, closed_by: 'a' }));
+        expect(res.status).toBe(400);
+        expect((await res.json()).code).toBe('FUTURE_DATE');
+        expect(state.writes.some((w) => w.includes('INSERT INTO dc_pos.daily_closures'))).toBe(false);
+    });
+
+    it('refuse une clôture AUTO sur le jour même (le balayage ne vise que les jours écoulés)', async () => {
+        const res = await dailyClosurePOST(
+            post('/api/sql/dailyClosure', { date: state.today, closed_by: 'auto', auto: true })
+        );
+        expect(res.status).toBe(400);
+        expect(state.writes.some((w) => w.includes('INSERT INTO dc_pos.daily_closures'))).toBe(false);
+    });
+
+    it('autorise une clôture MANUELLE du jour même (le Z de fin de journée)', async () => {
+        const res = await dailyClosurePOST(post('/api/sql/dailyClosure', { date: state.today, closed_by: 'a' }));
+        expect(res.status).toBe(200);
+        expect(state.writes.some((w) => w.startsWith('INSERT INTO dc_pos.daily_closures'))).toBe(true);
+    });
+
     it('refuse une clôture MANUELLE quand un brouillon existe ce jour-là (PENDING_DRAFTS)', async () => {
         state.txs.set('tx-draft', { id: 1, method: 'EN ATTENTE', day: '2025-01-14' });
         const res = await dailyClosurePOST(post('/api/sql/dailyClosure', { date: '2025-01-14', closed_by: 'a' }));
