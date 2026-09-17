@@ -28,6 +28,17 @@ bun run scripts/verify-schema.ts
 
 If this exits with code 1, DO NOT release. Apply the suggested migration first.
 
+**Step 0.5 — Smoke test on the dev DB (STOP on failure):**
+
+```bash
+bun run test:smoke
+```
+
+This runs `e2e/12-smoke-devdb.spec.ts` against the real app + the dev DB
+(`.env.local`): it sells an article through the UI, verifies the transaction
+is persisted, then expunges it. If it fails, DO NOT release — the core sale
+path is broken.
+
 **Step 1 — Release:**
 
 ```bash
